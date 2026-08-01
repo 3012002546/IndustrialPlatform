@@ -1,2 +1,27 @@
 .worktrees/
 .superpowers/
+
+# Build output
+bin/
+obj/
+TestResults/
+
+# IDE and user-specific files
+.vs/
+.idea/
+*.user
+*.suo
+
+# Local configuration
+.env
+appsettings.*.local.json
+
+# .NET CLI state
+.dotnet_cli_home/
+
+# Generated coverage output
+coverage/
+coverage*/
+coverage*.xml
+*.coverage
+*.coveragexml
