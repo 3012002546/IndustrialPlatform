@@ -11,4 +11,13 @@
   <Folder Name="/tests/BuildingBlocks/">
     <Project Path="tests\BuildingBlocks\IndustrialPlatform.BuildingBlocks.Tests\IndustrialPlatform.BuildingBlocks.Tests.csproj" />
   </Folder>
+  <Folder Name="/src/Services/Identity/">
+    <Project Path="src\Services\Identity\IndustrialPlatform.Identity.Domain\IndustrialPlatform.Identity.Domain.csproj" />
+    <Project Path="src\Services\Identity\IndustrialPlatform.Identity.Application\IndustrialPlatform.Identity.Application.csproj" />
+    <Project Path="src\Services\Identity\IndustrialPlatform.Identity.Infrastructure\IndustrialPlatform.Identity.Infrastructure.csproj" />
+    <Project Path="src\Services\Identity\IndustrialPlatform.Identity.Api\IndustrialPlatform.Identity.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/Identity/">
+    <Project Path="tests\Identity\IndustrialPlatform.Identity.Tests\IndustrialPlatform.Identity.Tests.csproj" />
+  </Folder>
 </Solution>
