@@ -195,19 +195,19 @@ src/BuildingBlocks
 ```
 BuildingBlocks
 
-├── IndustrialPlatform.BuildingBlocks.Domain
+├── IndustrialPlatform.SharedKernel
 
-├── IndustrialPlatform.BuildingBlocks.Application
+├── IndustrialPlatform.Application.Abstractions
 
-├── IndustrialPlatform.BuildingBlocks.Infrastructure
+├── IndustrialPlatform.Infrastructure
 
-├── IndustrialPlatform.BuildingBlocks.EventBus
+├── IndustrialPlatform.EventBus
 
-├── IndustrialPlatform.BuildingBlocks.Logging
+├── IndustrialPlatform.Logging
 
-├── IndustrialPlatform.BuildingBlocks.Security
+├── IndustrialPlatform.Web
 
-└── IndustrialPlatform.BuildingBlocks.Common
+└── IndustrialPlatform.Security
 
 ```
 

@@ -64,3 +64,13 @@ No production source file or production project file changed.
 ## Concerns
 
 None.
+
+## Targeted Follow-Up (2026-08-02)
+
+- Updated `docs/blueprint/11-Industrial Platform代码初始化设计.md` so its `src/BuildingBlocks` tree lists the actual seven projects: `IndustrialPlatform.SharedKernel`, `IndustrialPlatform.Application.Abstractions`, `IndustrialPlatform.Infrastructure`, `IndustrialPlatform.EventBus`, `IndustrialPlatform.Logging`, `IndustrialPlatform.Web`, and `IndustrialPlatform.Security`.
+- Updated `docs/blueprint/12-.NET10 Clean Architecture模板设计.md` from `WebApi层设计` to the canonical `Api层设计`; nearby project and directory references remain consistently `.Api`/`Api`.
+- Targeted stale-name searches returned zero obsolete `IndustrialPlatform.BuildingBlocks.*` project names and zero `WebApi` tokens in the respective files.
+- The canonical seven-name and `src/BuildingBlocks` invariants passed.
+- The tracked content diff before the report contained only the two authorized blueprint files.
+- `git diff --check` reported no whitespace errors.
+- Concerns: none.
