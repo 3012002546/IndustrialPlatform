@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "IndustrialPlatform.ReferenceData.Api": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:62310;http://localhost:62311"
+    }
+  }
+}
