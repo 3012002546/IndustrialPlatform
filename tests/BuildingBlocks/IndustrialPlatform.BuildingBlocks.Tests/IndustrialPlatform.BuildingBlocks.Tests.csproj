@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\BuildingBlocks\IndustrialPlatform.SharedKernel\IndustrialPlatform.SharedKernel.csproj" />
+    <ProjectReference Include="..\..\..\src\BuildingBlocks\IndustrialPlatform.Application.Abstractions\IndustrialPlatform.Application.Abstractions.csproj" />
+    <ProjectReference Include="..\..\..\src\BuildingBlocks\IndustrialPlatform.Infrastructure\IndustrialPlatform.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\src\BuildingBlocks\IndustrialPlatform.EventBus\IndustrialPlatform.EventBus.csproj" />
+    <ProjectReference Include="..\..\..\src\BuildingBlocks\IndustrialPlatform.Logging\IndustrialPlatform.Logging.csproj" />
+    <ProjectReference Include="..\..\..\src\BuildingBlocks\IndustrialPlatform.Web\IndustrialPlatform.Web.csproj" />
+    <ProjectReference Include="..\..\..\src\BuildingBlocks\IndustrialPlatform.Security\IndustrialPlatform.Security.csproj" />
+  </ItemGroup>
+</Project>

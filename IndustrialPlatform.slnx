@@ -1,1 +1,14 @@
-<Solution />
+<Solution>
+  <Folder Name="/src/BuildingBlocks/">
+    <Project Path="src\BuildingBlocks\IndustrialPlatform.SharedKernel\IndustrialPlatform.SharedKernel.csproj" />
+    <Project Path="src\BuildingBlocks\IndustrialPlatform.Application.Abstractions\IndustrialPlatform.Application.Abstractions.csproj" />
+    <Project Path="src\BuildingBlocks\IndustrialPlatform.Infrastructure\IndustrialPlatform.Infrastructure.csproj" />
+    <Project Path="src\BuildingBlocks\IndustrialPlatform.EventBus\IndustrialPlatform.EventBus.csproj" />
+    <Project Path="src\BuildingBlocks\IndustrialPlatform.Logging\IndustrialPlatform.Logging.csproj" />
+    <Project Path="src\BuildingBlocks\IndustrialPlatform.Web\IndustrialPlatform.Web.csproj" />
+    <Project Path="src\BuildingBlocks\IndustrialPlatform.Security\IndustrialPlatform.Security.csproj" />
+  </Folder>
+  <Folder Name="/tests/BuildingBlocks/">
+    <Project Path="tests\BuildingBlocks\IndustrialPlatform.BuildingBlocks.Tests\IndustrialPlatform.BuildingBlocks.Tests.csproj" />
+  </Folder>
+</Solution>
