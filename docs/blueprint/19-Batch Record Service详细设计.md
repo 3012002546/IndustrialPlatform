@@ -1349,6 +1349,10 @@ Identity Service
 
         |
 
+ReferenceData
+
+        |
+
 MasterData
 
         |
@@ -1421,5 +1425,3 @@ Batch Record Service 是 Industrial Platform 从：
 Digital Batch Record Platform
 
 ```
-
-

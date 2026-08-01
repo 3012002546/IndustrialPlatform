@@ -61,6 +61,8 @@ industrial_platform
 │
 ├── tenant_db
 │
+├── referencedata_db
+│
 ├── masterdata_db
 │
 ├── planning_db
@@ -1444,6 +1446,8 @@ WorkOrder
 
  + tenant_db
 
+ + referencedata_db
+
  + masterdata_db
 
  + workorder_db
@@ -1484,4 +1488,3 @@ WorkOrder
 ```
 
 ---
-

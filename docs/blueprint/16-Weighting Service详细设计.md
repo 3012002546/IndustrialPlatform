@@ -233,7 +233,7 @@ WeightTask Aggregate
 称量任务
 
 ```csharp
-public class WeightTask 
+public class WeightTask
     : AggregateRoot<Guid>
 {
 
@@ -244,7 +244,7 @@ public class WeightTask
     public string WorkOrderId {get;private set;}
 
 
-    public WeightTaskStatus Status 
+    public WeightTaskStatus Status
     {
         get;
         private set;
@@ -496,7 +496,7 @@ src/services
 /Weighting
 
 
-    /Industrial.Weighting.API
+    /Industrial.Weighting.Api
 
 
     /Industrial.Weighting.Application
@@ -1303,4 +1303,3 @@ IoT
 ```
 
 ---
-

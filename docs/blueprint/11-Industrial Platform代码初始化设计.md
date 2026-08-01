@@ -102,7 +102,7 @@ IndustrialPlatform
 │
 ├── .codex
 │
-├── IndustrialPlatform.sln
+├── IndustrialPlatform.slnx
 │
 ├── Directory.Build.props
 │
@@ -450,7 +450,7 @@ IndustrialPlatform.MES
 
 ├── Infrastructure
 
-├── WebApi
+├── Api
 
 └── Tests
 
@@ -471,7 +471,7 @@ IndustrialPlatform.MES.Application
 IndustrialPlatform.MES.Infrastructure
 
 
-IndustrialPlatform.MES.WebApi
+IndustrialPlatform.MES.Api
 
 ```
 
@@ -482,7 +482,7 @@ IndustrialPlatform.MES.WebApi
 严格：
 
 ```
-WebApi
+Api
 
  ↓
 
@@ -518,7 +518,7 @@ Infrastructure
 ```
 Application
 引用
-WebApi
+Api
 ```
 
 ---
@@ -592,7 +592,7 @@ MinIO
 
 ---
 
-## WebApi
+## Api
 
 引用：
 
@@ -643,10 +643,10 @@ Infrastructure:
 namespace IndustrialPlatform.MES.Infrastructure.Persistence;
 ```
 
-WebApi:
+Api:
 
 ```csharp
-namespace IndustrialPlatform.MES.WebApi.Controllers;
+namespace IndustrialPlatform.MES.Api.Controllers;
 ```
 
 ---
@@ -733,7 +733,7 @@ Directory.Packages.props
 
 <ItemGroup>
 
-<PackageVersion 
+<PackageVersion
  Include="SqlSugarCore"
  Version="5.x"/>
 
@@ -765,7 +765,7 @@ PackageReference Version=
 统一：
 
 ```xml
-<PackageReference 
+<PackageReference
 Include="SqlSugarCore"/>
 ```
 
@@ -1176,7 +1176,7 @@ docs: update architecture document
 ```bash
 dotnet new sln
 
-IndustrialPlatform.sln
+IndustrialPlatform.slnx
 ```
 
 ---
@@ -1242,7 +1242,7 @@ Identity.Application
 
 Identity.Infrastructure
 
-Identity.WebApi
+Identity.Api
 
 ```
 
@@ -1415,4 +1415,3 @@ Industrial Platform v0.1
 这是未来两年产品化开发的基础工程。
 
 ---
-

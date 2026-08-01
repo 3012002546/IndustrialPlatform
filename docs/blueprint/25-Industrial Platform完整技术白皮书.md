@@ -191,6 +191,7 @@ Industrial Platform
 
  Identity
  Tenant
+ ReferenceData
  MasterData
  LowCode
 
@@ -225,6 +226,8 @@ Industrial Platform
 ├── Identity Service
 
 ├── Tenant Service
+
+├── ReferenceData Service
 
 ├── MasterData Service
 
@@ -561,6 +564,8 @@ Experience
 
 ```
 identity_db
+
+referencedata_db
 
 masterdata_db
 
@@ -1117,6 +1122,8 @@ API
 ```
 Identity
 
+ReferenceData
+
 MasterData
 
 WorkOrder
@@ -1259,4 +1266,3 @@ Industrial Platform最终形成：
 > 用软件工程、工业知识和AI技术，打造下一代制造业数字化基础设施。
 
 ---
-

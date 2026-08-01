@@ -224,7 +224,7 @@ IndustrialPlatform.MasterData.Application
 IndustrialPlatform.MasterData.Infrastructure
 
 
-IndustrialPlatform.MasterData.WebApi
+IndustrialPlatform.MasterData.Api
 
 
 tests
@@ -1343,7 +1343,7 @@ Application
 
 Infrastructure
 
-WebApi
+Api
 
 ```
 
@@ -1491,4 +1491,3 @@ Metadata Driven
 ```
 
 ---
-

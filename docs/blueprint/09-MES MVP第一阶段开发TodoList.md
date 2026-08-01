@@ -89,6 +89,8 @@
 ```
 Identity.Service
 
+ReferenceData.Service
+
 Permission.Service
 
 Audit.Service
@@ -185,7 +187,7 @@ Sprint = 2周
 backend
 
 
-Industrial.Platform.sln
+IndustrialPlatform.slnx
 
 ```
 
@@ -1386,4 +1388,4 @@ AI生产分析
 
 ---
 
-# 
+#

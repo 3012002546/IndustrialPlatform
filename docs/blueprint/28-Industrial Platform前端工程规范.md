@@ -1294,4 +1294,3 @@ Industrial Platform Frontend
 ```
 
 ---
-

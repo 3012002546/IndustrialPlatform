@@ -77,6 +77,8 @@ PostgreSQL Server
 
 ├── permission_db
 
+├── referencedata_db
+
 ├── masterdata_db
 
 ├── mes_db
@@ -188,6 +190,7 @@ Equipment Service
 | ---------- | ------------- |
 | Identity   | identity_db   |
 | Permission | permission_db |
+| ReferenceData | referencedata_db |
 | MasterData | masterdata_db |
 | Material   | material_db   |
 | Planning   | planning_db   |
@@ -1217,4 +1220,4 @@ industrial_audit
 
 ---
 
-# 
+#

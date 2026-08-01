@@ -130,6 +130,8 @@ IndustrialPlatform.BuildingBlocks
 * 时间服务
 * ID生成器
 
+基础服务实施依赖顺序：BuildingBlocks → Identity → ReferenceData → MasterData。
+
 ---
 
 # Phase 2 Identity Service
@@ -149,7 +151,24 @@ IndustrialPlatform.BuildingBlocks
 
 ---
 
-# Phase 3 MasterData Service
+# Phase 3 ReferenceData Service
+
+目标：
+
+完成平台参考数据骨架。
+
+边界：
+
+* 字典
+* 配置
+* 元数据
+* 编码规则
+
+ReferenceData 不承载物料、设备、组织或 BOM 等业务主数据。
+
+---
+
+# Phase 4 MasterData Service
 
 目标：
 
@@ -157,17 +176,16 @@ IndustrialPlatform.BuildingBlocks
 
 包含：
 
-* 工厂
-* 车间
-* 产线
 * 设备
 * 物料
-* 工艺
-* 单位
+* 组织
+* BOM
+
+MasterData 不承载字典、配置、元数据或编码规则。
 
 ---
 
-# Phase 4 WorkOrder Service
+# Phase 5 WorkOrder Service
 
 目标：
 
@@ -184,7 +202,7 @@ IndustrialPlatform.BuildingBlocks
 
 ---
 
-# Phase 5 Weighting Service
+# Phase 6 Weighting Service
 
 目标：
 
@@ -201,7 +219,7 @@ IndustrialPlatform.BuildingBlocks
 
 ---
 
-# Phase 6 IoT Collector Service
+# Phase 7 IoT Collector Service
 
 目标：
 
@@ -217,7 +235,7 @@ IndustrialPlatform.BuildingBlocks
 
 ---
 
-# Phase 7 Trace Service
+# Phase 8 Trace Service
 
 目标：
 
@@ -232,7 +250,7 @@ IndustrialPlatform.BuildingBlocks
 
 ---
 
-# Phase 8 Batch Record Service
+# Phase 9 Batch Record Service
 
 目标：
 
@@ -240,7 +258,7 @@ IndustrialPlatform.BuildingBlocks
 
 ---
 
-# Phase 9 Vue3统一前端
+# Phase 10 Vue3统一前端
 
 目标：
 
@@ -256,7 +274,7 @@ Mobile
 
 ---
 
-# Phase 10 MVP业务闭环
+# Phase 11 MVP业务闭环
 
 最终实现：
 
@@ -369,6 +387,8 @@ develop
 ```
 feature/identity-service
 
+feature/referencedata-service
+
 feature/masterdata-service
 
 feature/workorder-service
@@ -456,15 +476,15 @@ IndustrialPlatform
 目录：
 
 ```
-src/backend
+src
 ```
 
 结构：
 
 ```
-backend
+IndustrialPlatform
 
-├── IndustrialPlatform.sln
+├── IndustrialPlatform.slnx
 
 
 ├── src
@@ -493,19 +513,22 @@ backend
 Solution：
 
 ```
-IndustrialPlatform.sln
+IndustrialPlatform.slnx
 ```
 
 项目结构：
 
 ```
-IndustrialPlatform.sln
+IndustrialPlatform.slnx
 
 
 ├── BuildingBlocks
 
 
 ├── Identity
+
+
+├── ReferenceData
 
 
 ├── MasterData
@@ -739,6 +762,8 @@ tests
 
 │
 ├── Identity.Tests
+
+├── ReferenceData.Tests
 
 ├── MasterData.Tests
 
@@ -1034,6 +1059,10 @@ Identity
 
 ↓
 
+ReferenceData
+
+↓
+
 MasterData
 
 ↓
@@ -1155,4 +1184,3 @@ RabbitMQ
 Industrial Platform正式进入编码阶段。
 
 ---
-

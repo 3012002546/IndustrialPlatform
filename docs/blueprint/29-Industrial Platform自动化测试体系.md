@@ -1134,6 +1134,8 @@ jobs:
 ```
 Identity Service
 
+ReferenceData Service
+
 MasterData Service
 
 WorkOrder Service
@@ -1279,4 +1281,3 @@ Industrial Platform测试体系：
 * 设备接入可靠能力
 
 ---
-

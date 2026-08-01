@@ -50,6 +50,9 @@ WorkOrder Service 是 Industrial Platform 的**生产执行核心服务**。
                     Identity Service
                           |
                           |
+                ReferenceData Service
+                          |
+                          |
                   MasterData Service
                           |
                           |
@@ -379,7 +382,7 @@ src/services
 
 /WorkOrder
 
-    /Industrial.WorkOrder.API
+    /Industrial.WorkOrder.Api
 
     /Industrial.WorkOrder.Application
 
@@ -1330,4 +1333,3 @@ Production Execution Kernel
 * 新能源制造
 
 ---
-

@@ -48,11 +48,11 @@
 Industrial Manufacturing Platform
 
         +
-        
+
 Industrial Operation Platform
 
         =
-        
+
 Industrial Digital Platform
 ```
 
@@ -1231,7 +1231,7 @@ MES
 运维
 
 +
- 
+
 低代码
 ```
 

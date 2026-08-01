@@ -65,6 +65,8 @@ AI API
 
  Identity
 
+ ReferenceData
+
  MasterData
 
  WorkOrder
@@ -505,7 +507,15 @@ GET
 
 ---
 
-# 19. MasterData API
+# 19. ReferenceData API
+
+当前里程碑仅提供 `/health`，不增加业务端点。
+
+ReferenceData 的后续 API 边界限定为字典、配置、元数据与编码规则；物料、设备、组织与 BOM 归 MasterData。
+
+---
+
+# 20. MasterData API
 
 ## 查询物料
 
@@ -541,7 +551,7 @@ Request：
 
 ---
 
-# 20. WorkOrder API
+# 21. WorkOrder API
 
 ## 创建工单
 
@@ -587,7 +597,7 @@ POST
 
 ---
 
-# 21. Weighting API
+# 22. Weighting API
 
 ## 创建称量任务
 
@@ -626,7 +636,7 @@ Request：
 
 ---
 
-# 22. IoT API
+# 23. IoT API
 
 ## 查询设备实时数据
 
@@ -650,7 +660,7 @@ GET
 
 ---
 
-# 23. Trace API
+# 24. Trace API
 
 ## 查询追溯链
 
@@ -677,7 +687,7 @@ Response：
 
 ---
 
-# 24. Batch Record API
+# 25. Batch Record API
 
 ## 创建批记录
 
@@ -701,7 +711,7 @@ POST
 
 ---
 
-# 25. Industrial Data API
+# 26. Industrial Data API
 
 ## 指标查询
 
@@ -727,7 +737,7 @@ Response：
 
 ---
 
-# 26. Low Code API
+# 27. Low Code API
 
 ## 获取页面配置
 
@@ -753,13 +763,13 @@ GET
 
 ---
 
-# 27. AI Assistant API设计
+# 28. AI Assistant API设计
 
 AI属于特殊接口。
 
 ---
 
-# 27.1 AI聊天
+# 28.1 AI聊天
 
 POST
 
@@ -799,7 +809,7 @@ Response：
 
 ---
 
-# 27.2 Streaming接口
+# 28.2 Streaming接口
 
 支持：
 
@@ -828,7 +838,7 @@ data:
 
 ---
 
-# 27.3 AI Agent执行
+# 28.3 AI Agent执行
 
 POST
 
@@ -856,7 +866,7 @@ Request:
 
 ---
 
-# 28. SignalR实时接口
+# 29. SignalR实时接口
 
 用于：
 
@@ -923,7 +933,7 @@ AI输出：
 
 ---
 
-# 29. RabbitMQ事件API
+# 30. RabbitMQ事件API
 
 ## 事件规范
 
@@ -948,7 +958,7 @@ data:{}
 
 ---
 
-# 30. 核心领域事件
+# 31. 核心领域事件
 
 ## 工单完成
 
@@ -1007,7 +1017,7 @@ Dashboard
 
 ---
 
-# 31. JWT规范
+# 32. JWT规范
 
 Header：
 
@@ -1035,7 +1045,7 @@ roles":[]
 
 ---
 
-# 32. Tenant隔离规范
+# 33. Tenant隔离规范
 
 所有请求：
 
@@ -1055,7 +1065,7 @@ JWT。
 
 ---
 
-# 33. 权限控制
+# 34. 权限控制
 
 采用：
 
@@ -1074,7 +1084,7 @@ trace.query
 
 ---
 
-# 34. API日志
+# 35. API日志
 
 所有请求记录：
 
@@ -1094,7 +1104,7 @@ API
 
 ---
 
-# 35. API异常规范
+# 36. API异常规范
 
 统一异常：
 
@@ -1117,7 +1127,7 @@ API
 
 ---
 
-# 36. 错误码体系
+# 37. 错误码体系
 
 格式：
 
@@ -1138,7 +1148,7 @@ AI_001
 
 ---
 
-# 37. OpenAPI规范
+# 38. OpenAPI规范
 
 每个服务必须生成：
 
@@ -1156,7 +1166,7 @@ AI_001
 
 ---
 
-# 38. API安全规范
+# 39. API安全规范
 
 必须：
 
@@ -1169,7 +1179,7 @@ AI_001
 
 ---
 
-# 39. Codex开发任务拆分
+# 40. Codex开发任务拆分
 
 ## Task01
 
@@ -1208,6 +1218,24 @@ Permission
 ---
 
 ## Task03
+
+生成 ReferenceData API
+
+包括：
+
+```text
+Dictionary
+
+Configuration
+
+Metadata
+
+CodingRule
+```
+
+---
+
+## Task04
 
 生成MES API
 
@@ -1261,7 +1289,7 @@ Streaming
 
 ---
 
-# 40. 最终API体系
+# 41. 最终API体系
 
 ```text
 Industrial Platform API
@@ -1303,4 +1331,3 @@ Industrial Platform API
 ```
 
 ---
-

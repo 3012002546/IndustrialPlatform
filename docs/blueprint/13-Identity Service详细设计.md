@@ -137,7 +137,7 @@ Identity：
 
        Infrastructure
 
-       WebApi
+       Api
 
 
        --------------------
@@ -170,7 +170,7 @@ IndustrialPlatform.Identity.Application
 IndustrialPlatform.Identity.Infrastructure
 
 
-IndustrialPlatform.Identity.WebApi
+IndustrialPlatform.Identity.Api
 
 
 tests
@@ -227,7 +227,7 @@ User
 领域对象：
 
 ```csharp
-public class User 
+public class User
     : AggregateRoot<Guid>
 {
 
@@ -1255,7 +1255,7 @@ Application
 
 Infrastructure
 
-WebApi
+Api
 
 ```
 
@@ -1421,4 +1421,4 @@ JWT认证
 
 ---
 
-# 
+#

@@ -62,6 +62,8 @@ Industrial Platform采用：
 
         Identity
 
+        ReferenceData
+
         MasterData
 
         MES Services
@@ -131,6 +133,8 @@ Industrial Platform
 
 ├── Identity
 
+├── ReferenceData
+
 ├── MasterData
 
 ├── WorkOrder
@@ -189,6 +193,8 @@ Service Cluster
 
 
 Identity
+
+ReferenceData
 
 MasterData
 
@@ -354,6 +360,9 @@ industrial-platform/
 
 
     identity:v1.0
+
+
+    referencedata:v1.0
 
 
     masterdata:v1.0
@@ -1521,5 +1530,3 @@ MES微服务
 AI智能应用
 
 ```
-
-

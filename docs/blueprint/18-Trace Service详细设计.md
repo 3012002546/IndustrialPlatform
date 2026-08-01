@@ -243,7 +243,7 @@ TraceRecord Aggregate
 追溯记录聚合根
 
 ```csharp
-public class TraceRecord 
+public class TraceRecord
     : AggregateRoot<Guid>
 {
 
@@ -519,7 +519,7 @@ src/services
 /Trace
 
 
-    /Industrial.Trace.API
+    /Industrial.Trace.Api
 
 
     /Industrial.Trace.Application
@@ -1339,5 +1339,3 @@ Industrial Trace Platform
 * 半导体
 
 ---
-
-

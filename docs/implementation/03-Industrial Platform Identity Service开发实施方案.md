@@ -909,7 +909,7 @@ Administrator
 目录：
 
 ```text
-tests/UnitTests/Identity.Tests
+tests/Identity/IndustrialPlatform.Identity.Tests
 ```
 
 测试：
@@ -1047,6 +1047,8 @@ JWT认证
 
 并可以支撑后续：
 
+ReferenceData Service
+
 MasterData Service
 
 WorkOrder Service
@@ -1054,4 +1056,3 @@ WorkOrder Service
 Weighting Service
 
 ---
-

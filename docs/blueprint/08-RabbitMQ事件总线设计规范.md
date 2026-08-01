@@ -396,7 +396,7 @@ public Guid EventId {get;set;}
 
 public DateTime CreatedTime {get;set;}
 
-public string EventType 
+public string EventType
 => GetType().Name;
 
 
@@ -417,7 +417,7 @@ Industrial.Contracts.Events.MES
 代码：
 
 ```csharp
-public class WorkOrderCreatedEvent 
+public class WorkOrderCreatedEvent
     : IntegrationEvent
 {
 
@@ -1421,4 +1421,4 @@ Material     Equipment      Trace        Quality
 
 ---
 
-# 
+#

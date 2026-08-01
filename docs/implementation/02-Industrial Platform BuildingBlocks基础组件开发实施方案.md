@@ -31,6 +31,7 @@ BuildingBlocks 是 Industrial Platform 所有微服务共享基础组件。
 所有 Service：
 
 * Identity Service
+* ReferenceData Service
 * MasterData Service
 * WorkOrder Service
 * Weighting Service
@@ -114,7 +115,7 @@ BuildingBlocks
 ├── IndustrialPlatform.SharedKernel
 
 
-├── IndustrialPlatform.Application
+├── IndustrialPlatform.Application.Abstractions
 
 
 ├── IndustrialPlatform.Infrastructure
@@ -154,7 +155,7 @@ dotnet new classlib \
 
 ```bash
 dotnet new classlib \
--n IndustrialPlatform.Application
+-n IndustrialPlatform.Application.Abstractions
 ```
 
 创建：
@@ -497,7 +498,7 @@ NotFoundException
 项目：
 
 ```
-IndustrialPlatform.Application
+IndustrialPlatform.Application.Abstractions
 ```
 
 目录：
@@ -974,7 +975,7 @@ API统一返回。
 ```
 IndustrialPlatform.SharedKernel
 
-IndustrialPlatform.Application
+IndustrialPlatform.Application.Abstractions
 
 IndustrialPlatform.Infrastructure
 
@@ -996,4 +997,3 @@ IndustrialPlatform.Security
 * 日志能力
 
 ---
-

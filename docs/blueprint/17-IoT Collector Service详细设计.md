@@ -227,7 +227,7 @@ Device Aggregate
 设备实体：
 
 ```csharp
-public class Device 
+public class Device
     : AggregateRoot<Guid>
 {
 
@@ -365,7 +365,7 @@ src/services
 /IoTCollector
 
 
-    /Industrial.IoTCollector.API
+    /Industrial.IoTCollector.Api
 
 
     /Industrial.IoTCollector.Application
@@ -1286,4 +1286,3 @@ AI分析入口
 * 数字孪生
 
 ---
-

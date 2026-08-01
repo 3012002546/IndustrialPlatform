@@ -1078,7 +1078,7 @@ reference
 目录：
 
 ```text
-tests/UnitTests/ReferenceData.Tests
+tests/ReferenceData/IndustrialPlatform.ReferenceData.Tests
 ```
 
 测试：
@@ -1216,4 +1216,3 @@ Industrial Platform具备：
 * AI工业助手
 
 ---
-

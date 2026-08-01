@@ -509,7 +509,7 @@ Guid TenantId {get;}
 实现：
 
 ```csharp
-public class TenantContext 
+public class TenantContext
     : ITenantContext
 {
 
@@ -1038,6 +1038,12 @@ TenantId。
 
 ---
 
+## ReferenceData
+
+支持租户级字典、配置、元数据与编码规则。
+
+---
+
 ## MasterData
 
 支持：
@@ -1375,6 +1381,10 @@ Tenant Service
 
         |
 
+ReferenceData
+
+        |
+
 MasterData
 
         |
@@ -1454,4 +1464,3 @@ AI能力
 Industrial Platform
 
 ```
-
