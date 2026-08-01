@@ -8,33 +8,33 @@ public sealed class ProjectReferenceArchitectureTests
     private static readonly IReadOnlyDictionary<string, string[]> ExpectedReferences =
         new Dictionary<string, string[]>(StringComparer.Ordinal)
         {
-            ["src/BuildingBlocks/IndustrialPlatform.Application.Abstractions/IndustrialPlatform.Application.Abstractions.csproj"] =
+            ["src/backend/src/BuildingBlocks/IndustrialPlatform.Application.Abstractions/IndustrialPlatform.Application.Abstractions.csproj"] =
                 ["IndustrialPlatform.SharedKernel"],
-            ["src/BuildingBlocks/IndustrialPlatform.EventBus/IndustrialPlatform.EventBus.csproj"] =
+            ["src/backend/src/BuildingBlocks/IndustrialPlatform.EventBus/IndustrialPlatform.EventBus.csproj"] =
                 ["IndustrialPlatform.SharedKernel"],
-            ["src/BuildingBlocks/IndustrialPlatform.Infrastructure/IndustrialPlatform.Infrastructure.csproj"] =
+            ["src/backend/src/BuildingBlocks/IndustrialPlatform.Infrastructure/IndustrialPlatform.Infrastructure.csproj"] =
                 ["IndustrialPlatform.Application.Abstractions", "IndustrialPlatform.SharedKernel"],
-            ["src/BuildingBlocks/IndustrialPlatform.Logging/IndustrialPlatform.Logging.csproj"] = [],
-            ["src/BuildingBlocks/IndustrialPlatform.Security/IndustrialPlatform.Security.csproj"] =
+            ["src/backend/src/BuildingBlocks/IndustrialPlatform.Logging/IndustrialPlatform.Logging.csproj"] = [],
+            ["src/backend/src/BuildingBlocks/IndustrialPlatform.Security/IndustrialPlatform.Security.csproj"] =
                 ["IndustrialPlatform.Application.Abstractions"],
-            ["src/BuildingBlocks/IndustrialPlatform.SharedKernel/IndustrialPlatform.SharedKernel.csproj"] = [],
-            ["src/BuildingBlocks/IndustrialPlatform.Web/IndustrialPlatform.Web.csproj"] =
+            ["src/backend/src/BuildingBlocks/IndustrialPlatform.SharedKernel/IndustrialPlatform.SharedKernel.csproj"] = [],
+            ["src/backend/src/BuildingBlocks/IndustrialPlatform.Web/IndustrialPlatform.Web.csproj"] =
                 ["IndustrialPlatform.Application.Abstractions"],
-            ["src/Services/Identity/IndustrialPlatform.Identity.Api/IndustrialPlatform.Identity.Api.csproj"] =
+            ["src/backend/src/Services/Identity/IndustrialPlatform.Identity.Api/IndustrialPlatform.Identity.Api.csproj"] =
                 ["IndustrialPlatform.Identity.Application", "IndustrialPlatform.Identity.Infrastructure", "IndustrialPlatform.Web"],
-            ["src/Services/Identity/IndustrialPlatform.Identity.Application/IndustrialPlatform.Identity.Application.csproj"] =
+            ["src/backend/src/Services/Identity/IndustrialPlatform.Identity.Application/IndustrialPlatform.Identity.Application.csproj"] =
                 ["IndustrialPlatform.Application.Abstractions", "IndustrialPlatform.Identity.Domain"],
-            ["src/Services/Identity/IndustrialPlatform.Identity.Domain/IndustrialPlatform.Identity.Domain.csproj"] =
+            ["src/backend/src/Services/Identity/IndustrialPlatform.Identity.Domain/IndustrialPlatform.Identity.Domain.csproj"] =
                 ["IndustrialPlatform.SharedKernel"],
-            ["src/Services/Identity/IndustrialPlatform.Identity.Infrastructure/IndustrialPlatform.Identity.Infrastructure.csproj"] =
+            ["src/backend/src/Services/Identity/IndustrialPlatform.Identity.Infrastructure/IndustrialPlatform.Identity.Infrastructure.csproj"] =
                 ["IndustrialPlatform.Identity.Application", "IndustrialPlatform.Identity.Domain", "IndustrialPlatform.Infrastructure", "IndustrialPlatform.Logging", "IndustrialPlatform.Security"],
-            ["src/Services/ReferenceData/IndustrialPlatform.ReferenceData.Api/IndustrialPlatform.ReferenceData.Api.csproj"] =
+            ["src/backend/src/Services/ReferenceData/IndustrialPlatform.ReferenceData.Api/IndustrialPlatform.ReferenceData.Api.csproj"] =
                 ["IndustrialPlatform.ReferenceData.Application", "IndustrialPlatform.ReferenceData.Infrastructure", "IndustrialPlatform.Web"],
-            ["src/Services/ReferenceData/IndustrialPlatform.ReferenceData.Application/IndustrialPlatform.ReferenceData.Application.csproj"] =
+            ["src/backend/src/Services/ReferenceData/IndustrialPlatform.ReferenceData.Application/IndustrialPlatform.ReferenceData.Application.csproj"] =
                 ["IndustrialPlatform.Application.Abstractions", "IndustrialPlatform.ReferenceData.Domain"],
-            ["src/Services/ReferenceData/IndustrialPlatform.ReferenceData.Domain/IndustrialPlatform.ReferenceData.Domain.csproj"] =
+            ["src/backend/src/Services/ReferenceData/IndustrialPlatform.ReferenceData.Domain/IndustrialPlatform.ReferenceData.Domain.csproj"] =
                 ["IndustrialPlatform.SharedKernel"],
-            ["src/Services/ReferenceData/IndustrialPlatform.ReferenceData.Infrastructure/IndustrialPlatform.ReferenceData.Infrastructure.csproj"] =
+            ["src/backend/src/Services/ReferenceData/IndustrialPlatform.ReferenceData.Infrastructure/IndustrialPlatform.ReferenceData.Infrastructure.csproj"] =
                 ["IndustrialPlatform.EventBus", "IndustrialPlatform.Infrastructure", "IndustrialPlatform.Logging", "IndustrialPlatform.ReferenceData.Application", "IndustrialPlatform.ReferenceData.Domain"],
         };
 
@@ -63,7 +63,7 @@ public sealed class ProjectReferenceArchitectureTests
     [InlineData("ReferenceData", "Identity")]
     public void ServiceDoesNotReferenceAnotherService(string serviceName, string forbiddenServiceName)
     {
-        var serviceRoot = Path.Combine(FindRepositoryRoot(), "src", "Services", serviceName);
+        var serviceRoot = Path.Combine(FindRepositoryRoot(), "src", "backend", "src", "Services", serviceName);
 
         var referencedProjects = Directory
             .EnumerateFiles(serviceRoot, "*.csproj", SearchOption.AllDirectories)
@@ -89,7 +89,7 @@ public sealed class ProjectReferenceArchitectureTests
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
 
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "IndustrialPlatform.slnx")))
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "src", "backend", "IndustrialPlatform.slnx")))
         {
             directory = directory.Parent;
         }
