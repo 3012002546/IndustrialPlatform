@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\IndustrialPlatform.ReferenceData.Application\IndustrialPlatform.ReferenceData.Application.csproj" />
+    <ProjectReference Include="..\IndustrialPlatform.ReferenceData.Domain\IndustrialPlatform.ReferenceData.Domain.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\IndustrialPlatform.Infrastructure\IndustrialPlatform.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\IndustrialPlatform.Logging\IndustrialPlatform.Logging.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\IndustrialPlatform.EventBus\IndustrialPlatform.EventBus.csproj" />
+  </ItemGroup>
+
+</Project>

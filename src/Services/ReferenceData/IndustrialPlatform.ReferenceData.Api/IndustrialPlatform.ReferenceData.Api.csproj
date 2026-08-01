@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\IndustrialPlatform.ReferenceData.Application\IndustrialPlatform.ReferenceData.Application.csproj" />
+    <ProjectReference Include="..\IndustrialPlatform.ReferenceData.Infrastructure\IndustrialPlatform.ReferenceData.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\IndustrialPlatform.Web\IndustrialPlatform.Web.csproj" />
+  </ItemGroup>
+
+</Project>
