@@ -1389,16 +1389,19 @@ Identity完成后：
 
                     |
 
+              ReferenceData
+
+                    |
+
+               MasterData
+
+                    |
+
      --------------------------------
 
      |              |              |
 
- ReferenceData    MasterData       MES          IoT
-
-
-     |
-
- Weighting
+    MES            IoT        Weighting
 
 
 ```
