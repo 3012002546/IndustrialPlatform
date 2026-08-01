@@ -9,7 +9,7 @@
     <Project Path="src\BuildingBlocks\IndustrialPlatform.Security\IndustrialPlatform.Security.csproj" />
   </Folder>
   <Folder Name="/tests/BuildingBlocks/">
-    <Project Path="tests\BuildingBlocks\IndustrialPlatform.BuildingBlocks.Tests\IndustrialPlatform.BuildingBlocks.Tests.csproj" />
+    <Project Path="..\..\tests\BuildingBlocks\IndustrialPlatform.BuildingBlocks.Tests\IndustrialPlatform.BuildingBlocks.Tests.csproj" />
   </Folder>
   <Folder Name="/src/Services/Identity/">
     <Project Path="src\Services\Identity\IndustrialPlatform.Identity.Domain\IndustrialPlatform.Identity.Domain.csproj" />
@@ -18,7 +18,7 @@
     <Project Path="src\Services\Identity\IndustrialPlatform.Identity.Api\IndustrialPlatform.Identity.Api.csproj" />
   </Folder>
   <Folder Name="/tests/Identity/">
-    <Project Path="tests\Identity\IndustrialPlatform.Identity.Tests\IndustrialPlatform.Identity.Tests.csproj" />
+    <Project Path="..\..\tests\Identity\IndustrialPlatform.Identity.Tests\IndustrialPlatform.Identity.Tests.csproj" />
   </Folder>
   <Folder Name="/src/Services/ReferenceData/">
     <Project Path="src\Services\ReferenceData\IndustrialPlatform.ReferenceData.Domain\IndustrialPlatform.ReferenceData.Domain.csproj" />
@@ -27,6 +27,6 @@
     <Project Path="src\Services\ReferenceData\IndustrialPlatform.ReferenceData.Api\IndustrialPlatform.ReferenceData.Api.csproj" />
   </Folder>
   <Folder Name="/tests/ReferenceData/">
-    <Project Path="tests\ReferenceData\IndustrialPlatform.ReferenceData.Tests\IndustrialPlatform.ReferenceData.Tests.csproj" />
+    <Project Path="..\..\tests\ReferenceData\IndustrialPlatform.ReferenceData.Tests\IndustrialPlatform.ReferenceData.Tests.csproj" />
   </Folder>
 </Solution>

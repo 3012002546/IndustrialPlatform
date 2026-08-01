@@ -1,0 +1,7 @@
+name: docker-build-placeholder
+on: workflow_dispatch
+jobs:
+  pending:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Docker implementation has not started."

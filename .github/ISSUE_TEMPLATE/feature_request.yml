@@ -1,0 +1,8 @@
+name: Feature request
+description: Propose an IndustrialPlatform capability
+body:
+  - type: textarea
+    attributes:
+      label: Scope and acceptance criteria
+    validations:
+      required: true

@@ -17,10 +17,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\src\Services\Identity\IndustrialPlatform.Identity.Domain\IndustrialPlatform.Identity.Domain.csproj" />
-    <ProjectReference Include="..\..\..\src\Services\Identity\IndustrialPlatform.Identity.Application\IndustrialPlatform.Identity.Application.csproj" />
-    <ProjectReference Include="..\..\..\src\Services\Identity\IndustrialPlatform.Identity.Infrastructure\IndustrialPlatform.Identity.Infrastructure.csproj" />
-    <ProjectReference Include="..\..\..\src\Services\Identity\IndustrialPlatform.Identity.Api\IndustrialPlatform.Identity.Api.csproj" />
+    <ProjectReference Include="..\..\..\src\backend\src\Services\Identity\IndustrialPlatform.Identity.Domain\IndustrialPlatform.Identity.Domain.csproj" />
+    <ProjectReference Include="..\..\..\src\backend\src\Services\Identity\IndustrialPlatform.Identity.Application\IndustrialPlatform.Identity.Application.csproj" />
+    <ProjectReference Include="..\..\..\src\backend\src\Services\Identity\IndustrialPlatform.Identity.Infrastructure\IndustrialPlatform.Identity.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\src\backend\src\Services\Identity\IndustrialPlatform.Identity.Api\IndustrialPlatform.Identity.Api.csproj" />
   </ItemGroup>
 
 </Project>

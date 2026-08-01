@@ -17,10 +17,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\src\Services\ReferenceData\IndustrialPlatform.ReferenceData.Domain\IndustrialPlatform.ReferenceData.Domain.csproj" />
-    <ProjectReference Include="..\..\..\src\Services\ReferenceData\IndustrialPlatform.ReferenceData.Application\IndustrialPlatform.ReferenceData.Application.csproj" />
-    <ProjectReference Include="..\..\..\src\Services\ReferenceData\IndustrialPlatform.ReferenceData.Infrastructure\IndustrialPlatform.ReferenceData.Infrastructure.csproj" />
-    <ProjectReference Include="..\..\..\src\Services\ReferenceData\IndustrialPlatform.ReferenceData.Api\IndustrialPlatform.ReferenceData.Api.csproj" />
+    <ProjectReference Include="..\..\..\src\backend\src\Services\ReferenceData\IndustrialPlatform.ReferenceData.Domain\IndustrialPlatform.ReferenceData.Domain.csproj" />
+    <ProjectReference Include="..\..\..\src\backend\src\Services\ReferenceData\IndustrialPlatform.ReferenceData.Application\IndustrialPlatform.ReferenceData.Application.csproj" />
+    <ProjectReference Include="..\..\..\src\backend\src\Services\ReferenceData\IndustrialPlatform.ReferenceData.Infrastructure\IndustrialPlatform.ReferenceData.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\src\backend\src\Services\ReferenceData\IndustrialPlatform.ReferenceData.Api\IndustrialPlatform.ReferenceData.Api.csproj" />
   </ItemGroup>
 
 </Project>

@@ -12,9 +12,9 @@ From the repository root, set the local .NET CLI home and run:
 
 ```powershell
 $env:DOTNET_CLI_HOME = (Join-Path (Get-Location) '.dotnet_cli_home')
-dotnet restore IndustrialPlatform.slnx
-dotnet build IndustrialPlatform.slnx --no-restore
-dotnet test IndustrialPlatform.slnx --no-build
+dotnet restore src/backend/IndustrialPlatform.slnx
+dotnet build src/backend/IndustrialPlatform.slnx --no-restore
+dotnet test src/backend/IndustrialPlatform.slnx --no-build
 ```
 
 ## Documentation
@@ -27,3 +27,5 @@ dotnet test IndustrialPlatform.slnx --no-build
 ## Milestone scope
 
 Login/JWT/permissions, ReferenceData features, persistence, Redis, RabbitMQ, front end, containers, and deployment remain future work.
+
+The required frontend, Docker, deployment, Gateway, Tools, and test-category directories are currently tracked placeholders.

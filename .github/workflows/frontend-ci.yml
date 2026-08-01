@@ -1,0 +1,7 @@
+name: frontend-ci-placeholder
+on: workflow_dispatch
+jobs:
+  pending:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Frontend implementation has not started."
