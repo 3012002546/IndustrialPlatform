@@ -430,6 +430,31 @@ await container.StartAsync();
 
 # 8.2 数据库测试范围
 
+## Entity 与通用仓储
+
+必须覆盖：
+
+```text
+统一字段默认值
+CreatedOn 与 LastUpdatedOn 创建时严格相等
+EntityType 为具体派生实体完整类型名
+冻结、锁定、软删除和恢复状态机
+OptimisticVersion 与 ConcurrencyVersion 推进
+默认查询排除软删除记录
+软删除使用 UPDATE 而非 DELETE
+双版本任一不匹配时拒绝更新、删除和恢复
+并发失败不覆盖数据库中的较新记录
+```
+
+真实 PostgreSQL 迁移测试还必须验证：
+
+- `id` 主键存在。
+- 未自动生成 `(id, is_deleted)` 或 `is_deleted` 单列索引。
+- 活跃业务键部分唯一索引拒绝未删除重复记录，并允许软删除后重用编码。
+- 只有声明更新时间查询的表存在 `last_updated_on, id` B-tree 或经验证的 BRIN。
+
+---
+
 MES重点：
 
 ## MasterData

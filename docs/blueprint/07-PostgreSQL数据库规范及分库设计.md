@@ -1004,6 +1004,39 @@ Infrastructure
 
 ---
 
+## 17.1 统一实体持久化规范
+
+所有继承 `Entity` 的业务表统一包含：
+
+```text
+id uuid primary key
+is_frozen boolean not null default false
+is_locked boolean not null default false
+is_deleted boolean not null default false
+entity_type text not null
+created_on timestamptz not null
+last_updated_on timestamptz not null
+optimistic_version bigint not null default 0
+concurrency_version uuid not null
+```
+
+创建时 `created_on = last_updated_on`。默认查询过滤 `is_deleted = true`。更新、软删除和恢复必须以 `id`、未删除状态及调用方原始双版本作为同一 SQL 条件；影响行数不是 `1` 时返回并发冲突。
+
+通用仓储不得执行物理删除。物理清理仅允许独立的数据保留或运维流程执行。
+
+## 17.2 索引决策
+
+- `id` 主键索引是每张实体表唯一强制的基础索引。
+- 不统一创建 `(id, is_deleted)` 或 `is_deleted` 单列索引。
+- 业务唯一键使用 `where is_deleted = false` 的部分唯一索引。
+- 存在增量同步或更新时间游标分页时，按需创建 `(last_updated_on desc, id)` B-tree；只同步活跃记录时使用部分索引。
+- 超大、近似按时间追加的表经 `EXPLAIN (ANALYZE, BUFFERS)` 验证后可选择 `last_updated_on` BRIN。
+- PostgreSQL `CLUSTER` 不作为默认持续索引机制。
+
+SqlSugar 查询过滤、软删除和并发 SQL 位于 Infrastructure；SharedKernel 禁止引用 SqlSugar Attribute。具体索引由各服务迁移负责。
+
+---
+
 # 18. 数据库迁移
 
 推荐：

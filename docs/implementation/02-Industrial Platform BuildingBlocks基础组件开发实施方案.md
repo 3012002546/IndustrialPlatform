@@ -317,36 +317,28 @@ SharedKernel
 
 # 7. Entity基类
 
-所有实体继承：
-
-```
-Entity
-```
-
-功能：
-
-* 主键
-* 创建时间
-* 更新时间
-* 版本控制
-
-示例：
+所有实体继承非泛型 `Entity`。本节以规格 `docs/superpowers/specs/2026-08-09-entity-lifecycle-concurrency-soft-delete-design.md` 为准。
 
 ```csharp
 public abstract class Entity
 {
     public Guid Id { get; protected set; }
-
-    public DateTimeOffset CreateTime { get; protected set; }
-
-    public DateTimeOffset? ModifyTime { get; protected set; }
-
-    protected Entity()
-    {
-        CreateTime = DateTimeOffset.UtcNow;
-    }
+    public bool IsFrozen { get; protected set; }
+    public bool IsLocked { get; protected set; }
+    public bool IsDeleted { get; protected set; }
+    public string EntityType { get; protected set; }
+    public DateTimeOffset CreatedOn { get; protected set; }
+    public DateTimeOffset LastUpdatedOn { get; protected set; }
+    public long OptimisticVersion { get; protected set; }
+    public Guid ConcurrencyVersion { get; protected set; }
 }
 ```
+
+创建时 `CreatedOn` 与 `LastUpdatedOn` 使用同一个时间值；三个状态标记为 `false`；乐观版本为 `0`；并发版本为非空 Guid。
+
+派生实体修改前调用 `EnsureCanModify()`，修改后调用 `Touch()`。Freeze/Unfreeze、Lock/Unlock、MarkDeleted/Restore 均为幂等显式状态转换；每次实际变化推进更新时间和双版本。
+
+`IRepository<TEntity>` 的 Update/Delete/Restore 接收调用方原始 `OptimisticVersion` 与 `ConcurrencyVersion`。Infrastructure 使用 `Id + IsDeleted + 双版本` 原子更新；删除为软删除，默认查询排除已删除记录。SharedKernel 不引用 SqlSugar。
 
 ---
 
@@ -904,9 +896,7 @@ Serilog.Sinks.Seq
 
 ## Task-001 创建项目结构
 
-状态：
-
-待开发
+状态：已完成
 
 内容：
 
@@ -920,6 +910,8 @@ Solution正常编译。
 ---
 
 ## Task-002 Entity基础模型
+
+状态：已完成（原始基线；后续调整见 TASK-BB-010）
 
 内容：
 
@@ -937,6 +929,8 @@ UnitTest通过。
 
 ## Task-003 Result组件
 
+状态：已完成
+
 实现：
 
 * Result
@@ -949,6 +943,8 @@ API统一返回。
 ---
 
 ## Task-004 Exception组件
+
+状态：已完成
 
 实现：
 
@@ -1034,6 +1030,28 @@ Solution编译通过；Security 声明读取测试、Web 结果包装与注册�
 
 ---
 
+## TASK-BB-010 调整 Entity 生命周期、并发与软删除基线
+
+**状态：** 可派遣
+
+**目标：** 按已批准规格替换旧 Entity 审计字段，增加冻结、锁定、软删除、实体类型、双版本并发和并发安全仓储行为。
+
+**输入文档：** `docs/superpowers/specs/2026-08-09-entity-lifecycle-concurrency-soft-delete-design.md`、蓝图 07、12、26、29，以及本实施方案第 7、15、16 节。
+
+**依赖：** 原 BuildingBlocks Task-001 至 Task-009 已完成；在 TASK-BASE-002 和任何业务实体开发前完成本任务。已完成的 TASK-BASE-001 验证结果不回退。
+
+**允许修改范围：** `src/backend/src/BuildingBlocks/IndustrialPlatform.SharedKernel/Entities/**`、SharedKernel 仓储接口与异常、`IndustrialPlatform.Infrastructure/Repository/**`、BuildingBlocks 对应测试；因接口编译影响，仅允许对 Identity/ReferenceData 骨架和测试做最小签名适配。禁止实现业务服务、前端、Docker 或部署功能。
+
+**预期输出：** 新 `Entity` 八字段；`EnsureCanModify`、Touch、Freeze/Unfreeze、Lock/Unlock、MarkDeleted/Restore；专用并发异常；Update/Delete/Restore 双版本仓储接口；默认软删除过滤和原子条件更新。删除旧 `CreateTime`、`ModifyTime`、`Version` 属性，不保留兼容别名。
+
+**验证与证据：** 严格执行 TDD，提交失败测试与通过测试证据；验证默认值、`CreatedOn == LastUpdatedOn`、EntityType、状态幂等与保护、版本推进、软删除非物理删除、默认过滤、双版本冲突和较新记录不被覆盖。运行 restore、全解决方案 build/test，记录退出码、警告、测试通过/失败/跳过数量，并证明 SharedKernel 未引用 SqlSugar。
+
+**结果回写：** 更新本任务状态和最终提交；代码字段、方法或仓储签名偏差先回写规格与蓝图并标记 `设计待确认`；完成后由代码协作方更新 `CLAUDE.md` 的 BuildingBlocks 进度和测试总数。
+
+**建议提交：** `refactor(shared-kernel): add entity lifecycle and concurrency`
+
+---
+
 # 28. BuildingBlocks完成标准
 
 完成后：
@@ -1063,5 +1081,7 @@ IndustrialPlatform.Security
 * Redis能力
 * MQ能力
 * 日志能力
+* 统一冻结、锁定、软删除与恢复生命周期
+* 双版本并发安全更新
 
 ---

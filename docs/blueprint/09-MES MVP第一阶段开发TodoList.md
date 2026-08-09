@@ -146,8 +146,9 @@ AI分析
 原固定 12 Sprint 顺序调整为阶段门禁。各阶段完成前不得提前宣称后续服务可交付；具体日历根据可运行基线和前端第一批的实际工期重新排期。
 
 ```text
-Phase 0  BuildingBlocks（已完成）
-Phase 1  可运行基线
+Phase 0  BuildingBlocks 原基础搭建（已完成）
+Phase 0A Entity 生命周期与并发调整（TASK-BB-010）
+Phase 1  可运行基线剩余任务
 Phase 2  统一前端第一批
 Phase 3  Identity 登录闭环
 Phase 4  ReferenceData 服务 + 页面
@@ -158,9 +159,11 @@ Phase 7+ 生产闭环服务 + 对应页面
 
 ---
 
-# 4. Phase 0 BuildingBlocks（已完成）
+# 4. Phase 0 BuildingBlocks 原基础搭建与 Entity 调整
 
-`CLAUDE.md` 当前记录：BuildingBlocks 测试 64 通过 / 0 失败，全解决方案 74 通过 / 0 失败。执行后续任务前必须重新验证，但不得重复派遣已完成的组件任务。
+`CLAUDE.md` 当前记录：BuildingBlocks 原基础搭建测试 64 通过 / 0 失败，全解决方案 74 通过 / 0 失败。已完成组件不得重复派遣。
+
+新批准的 `TASK-BB-010` 负责 Entity 生命周期、双版本并发、软删除及仓储调整，必须在 `TASK-BASE-002` 和业务实体开发前完成；已完成的 `TASK-BASE-001` 不回退。详细任务统一维护在：`docs/implementation/02-Industrial Platform BuildingBlocks基础组件开发实施方案.md`。
 
 ---
 
@@ -176,7 +179,7 @@ PostgreSQL + Redis + RabbitMQ + Seq
 → 新环境冒烟验收
 ```
 
-任务编号：`TASK-BASE-001` 至 `TASK-BASE-006`。
+任务编号：`TASK-BASE-001` 已完成；`TASK-BB-010` 完成后继续 `TASK-BASE-002` 至 `TASK-BASE-006`。
 
 详细任务统一维护在：`docs/implementation/02A-Industrial Platform可运行基线开发实施方案.md`。
 

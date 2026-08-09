@@ -163,36 +163,42 @@ version int
 
 ---
 
-# 5. 基础审计模型
+# 5. 基础实体与审计模型
 
-所有领域对象继承：
-
-```
-BaseEntity
-```
-
-模型：
+所有业务实体表映射以下统一字段：
 
 ```csharp
-public abstract class EntityBase
+public abstract class Entity
 {
-
-public Guid Id {get;set;}
-
-public Guid TenantId {get;set;}
-
-public DateTimeOffset CreateTime {get;set;}
-
-public string CreateUser {get;set;}
-
-public DateTimeOffset? UpdateTime {get;set;}
-
-public string UpdateUser {get;set;}
-
-public bool IsDeleted {get;set;}
-
+    public Guid Id { get; protected set; }
+    public bool IsFrozen { get; protected set; }
+    public bool IsLocked { get; protected set; }
+    public bool IsDeleted { get; protected set; }
+    public string EntityType { get; protected set; }
+    public DateTimeOffset CreatedOn { get; protected set; }
+    public DateTimeOffset LastUpdatedOn { get; protected set; }
+    public long OptimisticVersion { get; protected set; }
+    public Guid ConcurrencyVersion { get; protected set; }
 }
 ```
+
+PostgreSQL 列约束：
+
+```text
+id uuid primary key
+is_frozen boolean not null default false
+is_locked boolean not null default false
+is_deleted boolean not null default false
+entity_type text not null
+created_on timestamptz not null
+last_updated_on timestamptz not null
+optimistic_version bigint not null default 0
+concurrency_version uuid not null
+```
+
+创建时 `created_on` 与 `last_updated_on` 必须相等。更新、冻结、锁定、软删除和恢复都会更新 `last_updated_on`、递增 `optimistic_version` 并刷新 `concurrency_version`。默认查询过滤 `is_deleted = true`。
+
+租户、创建人和更新人等字段由具体服务按领域和审计要求扩展，不混入所有实体都必须继承的最小基类。
 
 ---
 
@@ -1303,29 +1309,62 @@ Trace DB
 
 # 24. 索引规范
 
-所有表：
+## 24.1 基础强制规则
 
-必须：
+所有实体表必须以 `id` 为主键，由 PostgreSQL 创建唯一 B-tree 主键索引。默认查询使用 `is_deleted = false`，但不统一创建 `(id, is_deleted)` 或 `is_deleted` 单列索引：`id` 已唯一定位最多一行，布尔删除标记选择性低。
 
-```
-Primary Key
-
-TenantId Index
-
-CreateTime Index
-
-Business No Index
-
-```
-
-例如：
+并发更新条件统一为：
 
 ```sql
-create index idx_workorder_tenant
-
-on work_order(tenant_id);
-
+where id = @id
+  and is_deleted = false
+  and optimistic_version = @expected_optimistic_version
+  and concurrency_version = @expected_concurrency_version
 ```
+
+该条件通过主键定位后校验其余字段，不需要额外统一复合索引。
+
+## 24.2 活跃业务唯一索引
+
+物料编码、单据号等业务唯一性只约束活跃记录，使用服务迁移定义部分唯一索引：
+
+```sql
+create unique index ux_material_tenant_code_active
+on md_material (tenant_id, code)
+where is_deleted = false;
+```
+
+业务键列和租户范围由各领域定义，禁止把同一套业务索引强加给所有表。
+
+## 24.3 可选更新时间索引
+
+只有存在更新时间排序、游标分页或增量同步的普通表才创建：
+
+```sql
+create index ix_{table}_last_updated_on_id
+on {table} (last_updated_on desc, id);
+```
+
+只同步活跃数据时使用部分索引：
+
+```sql
+create index ix_{table}_active_last_updated_on_id
+on {table} (last_updated_on desc, id)
+where is_deleted = false;
+```
+
+超大且近似按时间顺序追加的流水或事件表，经执行计划验证后可使用：
+
+```sql
+create index ix_{table}_last_updated_on_brin
+on {table} using brin (last_updated_on);
+```
+
+不默认执行 PostgreSQL `CLUSTER`。个别只读或批量加载表需要物理重排时，必须另行定义维护窗口和重新聚集策略。
+
+## 24.4 验证规则
+
+迁移测试必须确认：主键存在；没有自动生成冗余 `(id, is_deleted)`/`is_deleted` 索引；业务部分唯一索引能阻止活跃重复并允许重用已删除编码；只有声明增量查询的表具有时间索引。
 
 ---
 

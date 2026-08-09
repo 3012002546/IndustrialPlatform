@@ -16,7 +16,7 @@
 | 编号 | 文档 | 当前范围 |
 | --- | --- | --- |
 | 01 | [启动实施方案](01-Industrial%20Platform开发启动实施方案.md) | 总体路线：可运行基线优先 |
-| 02 | [BuildingBlocks基础组件实施方案](02-Industrial%20Platform%20BuildingBlocks基础组件开发实施方案.md) | 已完成；当前记录 64/64，通过 |
+| 02 | [BuildingBlocks基础组件实施方案](02-Industrial%20Platform%20BuildingBlocks基础组件开发实施方案.md) | 原基础搭建已完成；`TASK-BB-010` Entity 调整可派遣 |
 | 02A | [可运行基线开发 TODO](02A-Industrial%20Platform可运行基线开发实施方案.md) | `TASK-BASE-001`～`TASK-BASE-006`，当前第一优先级 |
 | 02B | [统一前端第一批开发 TODO](02B-Industrial%20Platform统一前端第一批开发实施方案.md) | `TASK-FE-001`～`TASK-FE-008`，基线完成后执行 |
 | 03 | [Identity Service实施方案](03-Industrial%20Platform%20Identity%20Service开发实施方案.md) | 骨架已完成；真实登录闭环待开发 |
@@ -27,8 +27,9 @@
 ## 当前开发顺序
 
 ```text
-BuildingBlocks（已完成）
-→ 可运行基线
+BuildingBlocks 原基础搭建（已完成）
+→ TASK-BB-010 Entity 生命周期与并发调整
+→ 可运行基线剩余任务（TASK-BASE-002 起）
 → 统一前端第一批
 → Identity 登录闭环
 → ReferenceData 服务 + 页面
@@ -36,6 +37,6 @@ BuildingBlocks（已完成）
 → OperationalData 服务 + 页面
 ```
 
-BuildingBlocks 的完成进度以 `CLAUDE.md` 的代码协作记录为依据，不重复派遣。详细任务状态分别在 02A、02B、05、06 中更新；`docs/blueprint/09-MES MVP第一阶段开发TodoList.md` 只维护 Sprint 范围和任务编号索引。
+BuildingBlocks 原基础搭建的完成进度以 `CLAUDE.md` 的代码协作记录为依据，不重复派遣；新批准的 Entity 调整只派遣 `TASK-BB-010`。详细任务状态分别在 02、02A、02B、05、06 中更新；`docs/blueprint/09-MES MVP第一阶段开发TodoList.md` 只维护阶段范围和任务编号索引。
 
 从 ReferenceData 开始，每个业务服务按“后端用例与契约 → 对应业务页面 → 契约测试与关键路径 E2E → 阶段验收”纵向交付，不再把全部前端推迟到业务服务之后。

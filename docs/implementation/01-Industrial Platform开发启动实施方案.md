@@ -61,8 +61,9 @@ IndustrialPlatform
 当前执行顺序：
 
 ```text
-Phase 0  BuildingBlocks（已完成）
-Phase 1  项目可运行基线
+Phase 0  BuildingBlocks 原基础搭建（已完成）
+Phase 0A Entity 生命周期与并发调整（TASK-BB-010）
+Phase 1  项目可运行基线剩余任务
 Phase 2  统一前端第一批
 Phase 3  Identity 登录闭环
 Phase 4  ReferenceData 服务 + 页面
@@ -71,9 +72,13 @@ Phase 6  OperationalData 服务 + 页面
 Phase 7+ WorkOrder / Weighting / IoTCollector / Trace / BatchRecord 服务 + 页面
 ```
 
-## Phase 0 BuildingBlocks（已完成）
+## Phase 0 BuildingBlocks 原基础搭建（已完成）
 
 已完成 SharedKernel、Application.Abstractions、Infrastructure、EventBus、Logging、Security、Web 共享能力。完成证据和关键技术决策由 `CLAUDE.md` 维护，不再派遣本阶段任务。
+
+## Phase 0A Entity 生命周期与并发调整
+
+在任何业务实体开发和 `TASK-BASE-002` 前执行 `TASK-BB-010`：统一 Entity 字段、冻结/锁定/软删除状态、双版本并发和仓储原子更新。该任务只调整 BuildingBlocks 基线，不回退已经完成的 `TASK-BASE-001` 验证。
 
 ## Phase 1 项目可运行基线
 
@@ -876,7 +881,9 @@ GET
 目标：先建立可运行产品骨架，再纵向完成工业生产闭环。
 
 ```text
-BuildingBlocks（已完成）
+BuildingBlocks 原基础搭建（已完成）
+↓
+TASK-BB-010 Entity 生命周期与并发调整
 ↓
 可运行基线
 ↓
@@ -907,9 +914,13 @@ MVP 全链路验收
 
 ## 当前第一优先级
 
-- `TASK-BASE-001` 至 `TASK-BASE-006`：见 `02A-Industrial Platform可运行基线开发实施方案.md`。
+- `TASK-BB-010`：见 `02-Industrial Platform BuildingBlocks基础组件开发实施方案.md`。
 
 ## 第二优先级
+
+- `TASK-BASE-002` 至 `TASK-BASE-006`：见 `02A-Industrial Platform可运行基线开发实施方案.md`；已完成的 `TASK-BASE-001` 不重复执行。
+
+## 第三优先级
 
 - `TASK-FE-001` 至 `TASK-FE-008`：见 `02B-Industrial Platform统一前端第一批开发实施方案.md`。
 
