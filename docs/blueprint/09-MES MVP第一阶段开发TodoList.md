@@ -143,348 +143,99 @@ AI分析
 
 # 3. 开发阶段规划
 
-周期：
-
-约：
-
-```
-6个月
-```
-
-按照：
-
-```
-Sprint = 2周
-```
-
-共：
-
-```
-12 Sprint
-```
-
----
-
-# 4. Sprint 0 项目初始化
-
-## 目标
-
-建立工业平台工程基础。
-
-时间：
-
-第1-2周
-
----
-
-## Backend任务
-
-### 创建Solution
-
-目录：
-
-```
-backend
-
-
-IndustrialPlatform.slnx
-
-```
-
-创建：
-
-```
-Industrial.Core
-
-Industrial.Domain
-
-Industrial.EventBus
-
-Industrial.Infrastructure
-
-Industrial.Security
-
-```
-
----
-
-### 完成基础组件
-
-任务：
-
-```
-□ Result<T>
-
-□ Exception体系
-
-□ Entity基类
-
-□ AggregateRoot
-
-□ DomainEvent
-
-□ Snowflake ID
-
-□ Repository接口
-
-□ UnitOfWork
-
-```
-
----
-
-## 数据库
-
-创建：
-
-```
-PostgreSQL
-
-Redis
-
-RabbitMQ
-
-MinIO
-
-```
-
-Docker：
-
-```
-docker/development
-
-```
-
----
-
-## Frontend
-
-初始化：
-
-```
-Vue3
-
-TypeScript
-
-Vite
-
-Pinia
-
-Element Plus
-
-ECharts
-
-```
-
-目录：
-
-```
-frontend/apps/web
-
-```
-
----
-
-## 验收
-
-完成：
-
-```
-√ 后端启动
-
-√ 前端启动
-
-√ Docker启动
-
-√ Swagger访问
-
-√ 数据库连接
-```
-
----
-
-# 5. Sprint 1 基础平台
-
-## Identity Service
-
-功能：
-
-```
-用户
-
-登录
-
-JWT
-
-刷新Token
-
-密码管理
-
-```
-
----
-
-数据库：
-
-identity_db
-
-表：
-
-```
-sys_user
-
-sys_role
-
-sys_refresh_token
-
-```
-
----
-
-接口：
-
-```
-POST /login
-
-POST /refresh
-
-GET /userinfo
-
-```
-
----
-
-## Permission Service
-
-功能：
-
-```
-角色
-
-权限
-
-菜单
-
-数据权限
-
-```
-
-表：
-
-```
-sys_permission
-
-sys_role_permission
-
-sys_user_role
-
-```
-
----
-
-## Audit Service
-
-功能：
-
-记录：
-
-```
-登录
-
-操作
-
-数据变化
-
-```
-
-表：
-
-```
-audit_log
-
-entity_change_log
-
-```
-
----
-
-验收：
-
-```
-用户登录
-
-JWT认证
-
-权限控制
-
-操作记录
-```
-
----
-
-# 6. Sprint 2 MasterData 服务
-
-## 目标
-
-建立物料、单位、制造组织、仓库/库位、设备、BOM、工艺路线和批次策略等稳定主数据，为 OperationalData 和后续生产服务提供已发布定义。
-
-边界：MasterData 不承载库存批次实例、库存余额、预留、流水或仓储业务单据。
-
-数据库：
+原固定 12 Sprint 顺序调整为阶段门禁。各阶段完成前不得提前宣称后续服务可交付；具体日历根据可运行基线和前端第一批的实际工期重新排期。
 
 ```text
-masterdata_db
+Phase 0  BuildingBlocks（已完成）
+Phase 1  可运行基线
+Phase 2  统一前端第一批
+Phase 3  Identity 登录闭环
+Phase 4  ReferenceData 服务 + 页面
+Phase 5  MasterData 服务 + 页面
+Phase 6  OperationalData 服务 + 页面
+Phase 7+ 生产闭环服务 + 对应页面
 ```
-
-任务编号：
-
-```text
-TASK-MD-001 → TASK-MD-002 → TASK-MD-003
-            ├→ TASK-MD-004 → TASK-MD-005
-            └→ TASK-MD-006
-TASK-MD-003 + TASK-MD-004 → TASK-MD-007 → TASK-MD-008
-TASK-MD-003..TASK-MD-008 → TASK-MD-009 → TASK-MD-010
-```
-
-详细任务统一维护在：`docs/implementation/05-Industrial Platform MasterData Service开发实施方案.md`。
 
 ---
 
-# 7. Sprint 3 OperationalData 操作域
+# 4. Phase 0 BuildingBlocks（已完成）
 
-## 目标
-
-建立一个独立 OperationalData 微服务：无 WMS 时提供轻量仓储闭环；有 WMS 时作为 MES 统一接口、防腐层和本地库存投影。
-
-功能范围：
-
-```text
-库存批次与容器
-库存余额、预留、冻结和在途量
-收料、领料、退料和生产入库
-调拨、盘点和库存调整
-不可变库存流水
-Internal / ExternalWms 单仓单权威模式
-```
-
-数据库：
-
-```text
-operationaldata_db
-```
-
-任务编号：
-
-```text
-TASK-OD-001 → TASK-OD-002 → TASK-OD-003 → TASK-OD-004
-→ TASK-OD-005 → TASK-OD-006 → TASK-OD-007 → TASK-OD-008 → TASK-OD-009
-```
-
-详细任务统一维护在：`docs/implementation/06-Industrial Platform OperationalData Service开发实施方案.md`。
+`CLAUDE.md` 当前记录：BuildingBlocks 测试 64 通过 / 0 失败，全解决方案 74 通过 / 0 失败。执行后续任务前必须重新验证，但不得重复派遣已完成的组件任务。
 
 ---
 
-# 8. Sprint 4 Planning + WorkOrder
+# 5. Phase 1 项目可运行基线
+
+目标：先让基础设施、后端骨架和统一入口真实运行。
+
+```text
+PostgreSQL + Redis + RabbitMQ + Seq
+→ Identity / ReferenceData health
+→ Gateway / 平台 health
+→ 一键启动、停止与诊断
+→ 新环境冒烟验收
+```
+
+任务编号：`TASK-BASE-001` 至 `TASK-BASE-006`。
+
+详细任务统一维护在：`docs/implementation/02A-Industrial Platform可运行基线开发实施方案.md`。
+
+---
+
+# 6. Phase 2 统一前端第一批
+
+固定范围：
+
+```text
+Vue 3 + TypeScript + Vite
+登录页
+PC 管理框架
+首页仪表盘
+403 / 404
+PDA 基础壳
+Mobile 基础壳
+MockAuthGateway / HttpAuthGateway 替换边界
+```
+
+暂缓物料、库存、工单、称量、设备和追溯业务页面，以及离线、扫码、打印、蓝牙和 Capacitor。
+
+任务编号：`TASK-FE-001` 至 `TASK-FE-008`。
+
+详细任务统一维护在：`docs/implementation/02B-Industrial Platform统一前端第一批开发实施方案.md`。
+
+---
+
+# 7. Phase 3 Identity 登录闭环
+
+在现有服务骨架上完成用户、角色、权限、JWT、RefreshToken、注销和撤销，并将前端从 Mock 登录切换到真实 Identity API。
+
+阶段验收必须覆盖登录、刷新、401、403、菜单与按钮权限及关键路径 E2E。详细任务维护在实施文档 03。
+
+---
+
+# 8. Phase 4 ReferenceData 服务 + 页面
+
+完成字典、配置、元数据和编码规则，同时交付相应 PC 管理页面、契约测试和关键路径 E2E。详细任务维护在实施文档 04。
+
+---
+
+# 9. Phase 5 MasterData 服务 + 页面
+
+目标：建立物料、单位、制造组织、仓库/库位、设备、BOM、工艺路线和批次策略等稳定定义，并同步交付对应管理页面。
+
+任务编号：`TASK-MD-001` 至 `TASK-MD-010`。详细任务统一维护在：`docs/implementation/05-Industrial Platform MasterData Service开发实施方案.md`。
+
+---
+
+# 10. Phase 6 OperationalData 服务 + 页面
+
+目标：建立库存批次、余额、预留、仓储单据、不可变流水和 WMS 适配，并同步交付库存查询、批次、收发退、调拨和盘点页面。
+
+任务编号：`TASK-OD-001` 至 `TASK-OD-009`。详细任务统一维护在：`docs/implementation/06-Industrial Platform OperationalData Service开发实施方案.md`。
+
+---
+
+# 11. Phase 7 Planning + WorkOrder
 
 ## Planning
 
@@ -554,7 +305,7 @@ WorkOrder 通过 OperationalData 建立库存预留并发起领料、退料和�
 
 ---
 
-# 9. Sprint 5 Workflow生产流程
+# 12. Phase 8 Workflow 生产流程 + 页面
 
 目标：
 
@@ -612,7 +363,7 @@ OperationCompletedEvent
 
 ---
 
-# 10. Sprint 6 Weighting称量平台
+# 13. Phase 9 Weighting 称量平台 + 页面
 
 这是你的核心优势模块。
 
@@ -707,7 +458,7 @@ Weighting 从 OperationalData 获取已预留的库存批次上下文，发布�
 
 ---
 
-# 11. Sprint 7 Equipment + IoT Collector
+# 14. Phase 10 Equipment + IoT Collector + 页面
 
 ## Equipment Service
 
@@ -797,7 +548,7 @@ TimescaleDB
 
 ---
 
-# 12. Sprint 8 Trace追溯
+# 15. Phase 11 Trace 追溯 + 页面
 
 核心能力。
 
@@ -871,7 +622,7 @@ trace_event
 
 ---
 
-# 13. Sprint 9 Report报表
+# 16. Phase 12 Report 报表 + 页面
 
 第一阶段：
 
@@ -910,7 +661,9 @@ DevExpress Reports
 
 ---
 
-# 14. Sprint 10 Frontend完善
+# 17. 业务页面纵向交付规范
+
+本节不再作为业务服务完成后的独立前端 Sprint。下列 PC/PDA/Mobile 页面必须随对应服务在同一阶段交付，并完成契约测试与关键路径 E2E。
 
 统一：
 
@@ -963,7 +716,7 @@ PC/PDA/Mobile。
 
 ---
 
-# 15. Sprint 11 集成测试
+# 18. MVP 全链路集成测试
 
 测试：
 
@@ -1055,7 +808,7 @@ Timescale：
 
 ---
 
-# 16. Sprint 12 产品化整理
+# 19. 产品化整理
 
 目标：
 
@@ -1084,7 +837,7 @@ Docker部署
 
 ---
 
-# 17. Codex任务拆分规范
+# 20. Codex任务拆分规范
 
 ## 当前任务边界
 
@@ -1151,7 +904,7 @@ feat(workorder): add domain project
 
 ---
 
-# 18. 每个任务标准格式
+# 21. 每个任务标准格式
 
 文件：
 
@@ -1201,7 +954,7 @@ TASK-XXXX.md
 
 ---
 
-# 19. Git提交规范
+# 22. Git提交规范
 
 采用：
 
@@ -1237,7 +990,7 @@ docs(database): update schema design
 
 ---
 
-# 20. 测试规范
+# 23. 测试规范
 
 每个服务必须：
 
@@ -1269,7 +1022,7 @@ WorkOrder.Api.Tests
 
 ---
 
-# 21. 第一阶段最终成果
+# 24. 第一阶段最终成果
 
 完成后：
 
@@ -1306,7 +1059,7 @@ Industrial Platform v1.0
 
 ---
 
-# 22. Codex执行建议
+# 25. Codex执行建议
 
 建议工作方式：
 
@@ -1350,7 +1103,7 @@ TASK-WO-002
 
 ---
 
-# 23. 后续扩展路线
+# 26. 后续扩展路线
 
 MVP完成后：
 

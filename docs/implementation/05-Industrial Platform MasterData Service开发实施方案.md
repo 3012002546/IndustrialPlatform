@@ -8,10 +8,12 @@
 
 MasterData 提供物料、单位、制造组织、仓库/库位、设备、BOM、工艺路线和批次策略等稳定定义。ReferenceData 负责字典、配置、元数据与编码规则；OperationalData 负责库存批次实例、余额、预留、流水和仓储单据。MasterData 禁止直接读写其他服务数据库。
 
+当前执行前置：可运行基线、统一前端第一批、Identity 登录闭环和 ReferenceData 服务 + 页面阶段全部完成。MasterData 必须在同一阶段交付物料、单位、组织、仓库/库位、设备、BOM 和工艺路线 PC 管理页面，不再等待独立前端阶段。
+
 依赖顺序：
 
 ```text
-BuildingBlocks → Identity → ReferenceData → MasterData → OperationalData
+BuildingBlocks（已完成）→ 可运行基线 → 统一前端第一批 → Identity → ReferenceData → MasterData → OperationalData
 ```
 
 ## 2. 全局实施约束
@@ -44,7 +46,7 @@ MD-003..MD-008 ─ MD-009 ─ MD-010
 
 **输入文档：** 蓝图 06、12、14；现有 ReferenceData 服务骨架。
 
-**依赖：** BuildingBlocks、Identity、ReferenceData 服务骨架已可构建。
+**依赖：** BuildingBlocks 已完成；TASK-BASE-006、TASK-FE-008、Identity 登录闭环和 ReferenceData 服务 + 页面阶段已完成。
 
 **允许修改范围：** `src/backend/src/Services/MasterData/**`、`tests/MasterData/**`、`src/backend/IndustrialPlatform.slnx`。
 
@@ -206,11 +208,11 @@ MD-003..MD-008 ─ MD-009 ─ MD-010
 
 **依赖：** TASK-MD-003 至 TASK-MD-008。
 
-**允许修改范围：** MasterData Api/Application/Infrastructure、缓存与审计适配及测试。
+**允许修改范围：** MasterData Api/Application/Infrastructure、缓存与审计适配及测试；`src/frontend` 的 MasterData api、types、stores、pages、router 和对应测试。
 
-**预期输出：** `/api/master-data` 下稳定 API；当前/指定时间版本解析；ETag 或并发版本；缓存键包含租户和版本；审计保存操作者、原因、前后值。
+**预期输出：** `/api/master-data` 下稳定 API；当前/指定时间版本解析；ETag 或并发版本；缓存键包含租户和版本；审计保存操作者、原因、前后值；物料、单位、组织、仓库/库位、设备、BOM 和工艺路线管理页面。
 
-**验证与证据：** 提供分页/过滤、跨租户隔离、工厂权限、缓存命中与失效、并发冲突、审计完整性和 OpenAPI 契约测试结果。
+**验证与证据：** 提供分页/过滤、跨租户隔离、工厂权限、缓存命中与失效、并发冲突、审计完整性和 OpenAPI 契约测试结果；提供页面权限、表单校验、版本发布流程和关键路径 E2E 结果。
 
 **结果回写：** 回写最终路由、权限名称、缓存键、错误响应和分页约定。
 
@@ -242,6 +244,7 @@ MD-003..MD-008 ─ MD-009 ─ MD-010
 - 只有已发布且在生效区间内的定义可被下游解析。
 - OperationalData 能通过契约获取物料、单位、仓库、库位和批次策略，不直接访问数据库。
 - WorkOrder 能解析 BOM 和工艺路线发布快照；IoT Collector 能解析设备定义。
+- 对应 MasterData PC 管理页面已连接真实 API，权限、契约和关键路径 E2E 全部通过。
 - 领域、应用、基础设施、API 和契约测试全部通过，解决方案可构建。
 
 ## 5. 执行记录

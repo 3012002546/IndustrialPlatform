@@ -2,6 +2,10 @@
 
 # Industrial Platform Identity Service开发实施方案
 
+> **当前执行前置：** `TASK-BASE-001`～`TASK-BASE-006` 与 `TASK-FE-001`～`TASK-FE-008` 全部完成后，才进入 Identity 真实登录闭环。现有 Identity 骨架和 `/health` 不等于本阶段完成。
+
+> **前端集成要求：** 本阶段必须实现 `HttpAuthGateway` 并替换运行时 Mock 登录，联合验收登录、刷新、注销、401、403、菜单和按钮权限；不得要求重写已完成的登录页与三端布局。
+
 > 当前里程碑范围：仅创建项目骨架；业务实现留待后续阶段。
 
 版本：V1.0

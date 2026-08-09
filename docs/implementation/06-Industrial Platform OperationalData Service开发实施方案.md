@@ -8,6 +8,8 @@
 
 OperationalData 是一个独立部署、内部模块化的微服务，负责运行期库存事实、库存批次实例、预留、仓储单据、库存流水和外部 WMS 防腐层。MasterData 继续拥有物料、单位、仓库、库位和批次策略定义；WorkOrder 只发出业务需求；Trace 和 BatchRecord 只消费事实并建立投影。
 
+当前执行前置：可运行基线、统一前端第一批、Identity、ReferenceData 和 MasterData 服务 + 页面阶段全部完成。OperationalData 必须在同一阶段交付库存查询、批次、收发退、调拨和盘点页面。
+
 ```text
 MasterData → OperationalData → WorkOrder / Weighting / Trace / BatchRecord
 ```
@@ -38,7 +40,7 @@ OD-001 → OD-002 → OD-003 → OD-004 → OD-005 → OD-006 → OD-007 → OD-
 
 **输入文档：** 蓝图 06、12、14A 第 1 至 5 节；MasterData TASK-MD-001 的项目约定。
 
-**依赖：** TASK-MD-001 已完成，BuildingBlocks、Identity、ReferenceData 骨架可用。
+**依赖：** TASK-BASE-006、TASK-FE-008、Identity 登录闭环、ReferenceData 服务 + 页面阶段和 TASK-MD-001 已完成。
 
 **允许修改范围：** `src/backend/src/Services/OperationalData/**`、`tests/OperationalData/**`、`src/backend/IndustrialPlatform.slnx`。
 
@@ -200,11 +202,11 @@ OD-001 → OD-002 → OD-003 → OD-004 → OD-005 → OD-006 → OD-007 → OD-
 
 **依赖：** TASK-OD-004 至 TASK-OD-008。
 
-**允许修改范围：** OperationalData WmsIntegration/Contracts/Infrastructure/Api、配置、测试和验收文档。
+**允许修改范围：** OperationalData WmsIntegration/Contracts/Infrastructure/Api、配置、测试和验收文档；`src/frontend` 的 OperationalData api、types、stores、pages、router 和对应测试。
 
-**预期输出：** 幂等 WMS 请求、回执、超时查询、安全重试、人工确认、库存投影、对账、错误映射及双模式能力矩阵。
+**预期输出：** 幂等 WMS 请求、回执、超时查询、安全重试、人工确认、库存投影、对账、错误映射及双模式能力矩阵；库存查询、批次、收发退、调拨和盘点页面连接真实 API。
 
-**验证与证据：** 提供重复/乱序回执、超时、拒绝、重试、人工确认、投影修复、模式切换保护、单仓单权威及全量 OperationalData 测试结果。
+**验证与证据：** 提供重复/乱序回执、超时、拒绝、重试、人工确认、投影修复、模式切换保护、单仓单权威及全量 OperationalData 测试结果；提供页面权限、业务状态、错误反馈和收发退/调拨/盘点关键路径 E2E 结果。
 
 **结果回写：** 更新全部 OD 状态；回写能力矩阵、错误映射、对账规则、验证命令与测试总数。
 
@@ -216,6 +218,7 @@ OD-001 → OD-002 → OD-003 → OD-004 → OD-005 → OD-006 → OD-007 → OD-
 - 有 WMS 时单据等待明确回执后更新本地投影，超时不推断成功。
 - 所有库存变化均可追溯到单据、不可变流水、操作者和业务时间。
 - MasterData、WorkOrder、Weighting、Trace、BatchRecord 均不成为库存权威。
+- 对应 OperationalData 页面已连接真实 API，权限、契约和关键路径 E2E 全部通过。
 - 领域、应用、基础设施、API、并发、幂等、契约和双模式测试全部通过。
 
 ## 5. 执行记录

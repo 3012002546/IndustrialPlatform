@@ -56,277 +56,70 @@ IndustrialPlatform
 
 # 2. 开发阶段总体规划
 
-## Phase 0 工程初始化
+当前进度以 `CLAUDE.md` 为准。BuildingBlocks 已完成；Identity、ReferenceData 只有服务骨架；前端和 Docker 尚未实现。
 
-目标：
+当前执行顺序：
 
-完成项目基础工程。
-
-包含：
-
-* Git仓库初始化
-* Visual Studio Solution创建
-* Backend目录规划
-* Frontend初始化
-* Docker环境
-* CI/CD基础
-* Codex工程配置
-
-完成标准：
-
-开发环境可以启动：
-
-* PostgreSQL
-* Redis
-* RabbitMQ
-* Backend API
-* Frontend
-
----
-
-# Phase 1 BuildingBlocks基础组件
-
-目标：
-
-建立所有微服务共享基础能力。
-
-项目：
-
-```
-IndustrialPlatform.BuildingBlocks
+```text
+Phase 0  BuildingBlocks（已完成）
+Phase 1  项目可运行基线
+Phase 2  统一前端第一批
+Phase 3  Identity 登录闭环
+Phase 4  ReferenceData 服务 + 页面
+Phase 5  MasterData 服务 + 页面
+Phase 6  OperationalData 服务 + 页面
+Phase 7+ WorkOrder / Weighting / IoTCollector / Trace / BatchRecord 服务 + 页面
 ```
 
-包含：
+## Phase 0 BuildingBlocks（已完成）
 
-## Domain基础
+已完成 SharedKernel、Application.Abstractions、Infrastructure、EventBus、Logging、Security、Web 共享能力。完成证据和关键技术决策由 `CLAUDE.md` 维护，不再派遣本阶段任务。
 
-* Entity基类
-* AggregateRoot
-* ValueObject
-* DomainEvent
-* Enumeration
+## Phase 1 项目可运行基线
 
-## Application基础
+目标：让 PostgreSQL、Redis、RabbitMQ、Seq、Identity、ReferenceData 和统一 API 入口可按文档重复启动、停止、诊断和验证。
 
-* CQRS基础
-* Command
-* Query
-* DTO
-* Validator
+详细任务：`docs/implementation/02A-Industrial Platform可运行基线开发实施方案.md`。
 
-## Infrastructure基础
+完成标准：基础设施健康、后端构建测试通过、服务与 Gateway 健康检查可访问、新环境启动说明可复现。
 
-* SqlSugar封装
-* Redis封装
-* RabbitMQ封装
-* Serilog封装
+## Phase 2 统一前端第一批
 
-## Common组件
+目标：交付 Vue 3 单一工程、登录页、PC 管理框架、首页、403/404、PDA 基础壳和 Mobile 基础壳。
 
-* Result统一返回
-* Exception体系
-* 分页模型
-* 用户上下文
-* 时间服务
-* ID生成器
+本阶段使用显式 Mock 登录，并通过 `AuthGateway` 保持 Phase 3 真实 Identity API 可替换；暂缓全部业务页面、离线同步、扫码、打印、蓝牙和 Capacitor。
 
-基础服务实施依赖顺序：BuildingBlocks → Identity → ReferenceData → MasterData → OperationalData。
+详细任务：`docs/implementation/02B-Industrial Platform统一前端第一批开发实施方案.md`。
 
----
+## Phase 3 Identity 登录闭环
 
-# Phase 2 Identity Service
+在现有骨架上完成用户、角色、权限、JWT、RefreshToken、注销与撤销，并把前端从 `MockAuthGateway` 切换到 `HttpAuthGateway`。阶段验收必须覆盖登录、刷新、401、403、菜单与按钮权限。
 
-目标：
+## Phase 4 ReferenceData 服务 + 页面
 
-完成平台认证授权。
+完成字典、配置、元数据和编码规则，并在同阶段交付相应 PC 管理页面、契约测试和关键路径 E2E。ReferenceData 不承载物料、设备、制造组织或 BOM。
 
-功能：
+## Phase 5 MasterData 服务 + 页面
 
-* 用户
-* 角色
-* 权限
-* 组织
-* JWT
-* RefreshToken
+执行 `TASK-MD-001` 至 `TASK-MD-010`，并同步交付物料、单位、组织、仓库/库位、设备、BOM、工艺路线页面。详细任务见文档 05。
 
----
+## Phase 6 OperationalData 服务 + 页面
 
-# Phase 3 ReferenceData Service
+执行 `TASK-OD-001` 至 `TASK-OD-009`，并同步交付库存查询、批次、收发退、调拨和盘点页面。详细任务见文档 06。
 
-目标：
+## Phase 7 以后：生产闭环服务纵向交付
 
-完成平台参考数据骨架。
+WorkOrder、Weighting、IoT Collector、Trace、BatchRecord 依次推进。每个阶段都遵循：
 
-边界：
-
-* 字典
-* 配置
-* 元数据
-* 编码规则
-
-ReferenceData 不承载物料、设备、组织或 BOM 等业务主数据。
-
----
-
-# Phase 4 MasterData Service
-
-目标：
-
-完成工业基础数据。
-
-包含：
-
-* 设备
-* 物料
-* 组织
-* BOM
-
-MasterData 不承载字典、配置、元数据或编码规则。
-
----
-
-# Phase 5 OperationalData Service
-
-目标：
-
-完成库存、库存批次和仓储业务操作中心。
-
-包含：
-
-* 库存余额与预留
-* 库存批次与容器
-* 收料、领料、退料和生产入库
-* 调拨、盘点和库存调整
-* Internal / ExternalWms 库存权威模式
-
-OperationalData 不承载物料、BOM、仓库或库位定义；这些主数据归 MasterData。
-
----
-
-# Phase 6 WorkOrder Service
-
-目标：
-
-完成生产执行核心。
-
-包含：
-
-* 生产计划
-* 工单
-* 工序
-* BOM
-* 路由
-* 执行任务
-
----
-
-# Phase 7 Weighting Service
-
-目标：
-
-完成工业称量平台。
-
-支持：
-
-* 人工称量
-* PDA称量
-* 自动秤
-* 条码
-* 批次
-* 防错校验
-
----
-
-# Phase 8 IoT Collector Service
-
-目标：
-
-完成设备数据采集。
-
-支持：
-
-* OPC UA
-* Modbus
-* MQTT
-* TCP
-* Serial
-
----
-
-# Phase 9 Trace Service
-
-目标：
-
-完成生产追溯。
-
-包含：
-
-* 原料追溯
-* 产品追溯
-* 设备追溯
-* 人员追溯
-
----
-
-# Phase 10 Batch Record Service
-
-目标：
-
-完成电子批记录。
-
----
-
-# Phase 11 Vue3统一前端
-
-目标：
-
-实现：
-
-PC
-
-PDA
-
-Mobile
-
-三端统一。
-
----
-
-# Phase 12 MVP业务闭环
-
-最终实现：
-
+```text
+服务领域与应用用例
+→ API / 事件契约
+→ 对应 PC/PDA/Mobile 页面
+→ 契约测试与关键路径 E2E
+→ 阶段验收
 ```
-基础数据
 
-↓
-
-生产计划
-
-↓
-
-生产工单
-
-↓
-
-称量执行
-
-↓
-
-设备采集
-
-↓
-
-生产追溯
-
-↓
-
-电子批记录
-
-↓
-
-数据分析
-```
+不再设置独立的末期“统一补前端”阶段。MVP 业务闭环在各服务纵向交付完成后进行全链路验收。
 
 ---
 
@@ -1080,143 +873,68 @@ GET
 
 # 18. MVP第一阶段开发路线
 
-目标：
+目标：先建立可运行产品骨架，再纵向完成工业生产闭环。
 
-完成工业生产闭环。
-
-优先顺序：
-
-```
-Identity
-
+```text
+BuildingBlocks（已完成）
 ↓
-
-ReferenceData
-
+可运行基线
 ↓
-
-MasterData
-
+统一前端第一批
 ↓
-
-OperationalData
-
+Identity 登录闭环
 ↓
-
-WorkOrder
-
+ReferenceData 服务 + 页面
 ↓
-
-Weighting
-
+MasterData 服务 + 页面
 ↓
-
-Trace
-
+OperationalData 服务 + 页面
 ↓
-
-BatchRecord
+WorkOrder / Weighting / IoTCollector / Trace / BatchRecord 服务 + 页面
+↓
+MVP 全链路验收
 ```
 
 ---
 
-# 19. Phase0详细TodoList
+# 19. 当前进度与下一步
 
-## Git初始化
+## 已完成
 
-* [ ] 创建Github仓库
-* [ ] 初始化Git
-* [ ] 创建分支策略
-* [ ] 创建README
+- Git 仓库、解决方案和后端目录骨架。
+- BuildingBlocks 共享组件及测试。
+- Identity、ReferenceData 服务骨架与 `/health`。
 
----
+## 当前第一优先级
 
-## Backend初始化
+- `TASK-BASE-001` 至 `TASK-BASE-006`：见 `02A-Industrial Platform可运行基线开发实施方案.md`。
 
-* [ ] 创建Solution
-* [ ] 创建项目目录
-* [ ] 创建.NET10 WebAPI模板
-* [ ] 配置Nullable
-* [ ] 配置EditorConfig
+## 第二优先级
 
----
+- `TASK-FE-001` 至 `TASK-FE-008`：见 `02B-Industrial Platform统一前端第一批开发实施方案.md`。
 
-## BuildingBlocks
+## 后续顺序
 
-* [ ] 创建SharedKernel
-* [ ] 创建Entity基类
-* [ ] 创建Result模型
-* [ ] 创建异常体系
-* [ ] 创建DomainEvent
+- Identity 真实登录闭环。
+- ReferenceData 服务功能与管理页面。
+- MasterData 服务功能与管理页面。
+- OperationalData 服务功能与业务页面。
+
+`CLAUDE.md` 由代码协作方回写实际代码进度；本目录维护可派遣任务、验收证据和阶段依赖。
 
 ---
 
-## 数据库
+# 20. 可运行基础完成标准
 
-* [ ] 安装PostgreSQL
-* [ ] 创建数据库
-* [ ] 配置SqlSugar
-* [ ] 创建基础表
+新开发环境按仓库说明能够：
 
----
-
-## Docker
-
-* [ ] PostgreSQL
-* [ ] Redis
-* [ ] RabbitMQ
-* [ ] Seq
-
----
-
-## Frontend
-
-* [ ] 创建Vue3项目
-* [ ] 配置TypeScript
-* [ ] 配置Vite
-* [ ] 配置Pinia
-* [ ] 配置Element Plus
-
----
-
-## CI/CD
-
-* [ ] 创建Github Actions
-* [ ] Backend Build
-* [ ] Frontend Build
-
----
-
-# 20. Phase0完成标准
-
-开发人员新环境：
-
-执行：
-
-```bash
-git clone IndustrialPlatform
-
-docker compose up -d
-
-dotnet build
-
-npm install
-
-npm run dev
+```text
+启动 PostgreSQL / Redis / RabbitMQ / Seq
+构建并测试后端解决方案
+启动 Identity / ReferenceData / Gateway
+访问后端与聚合健康检查
+安装并启动统一前端
+通过 Mock 登录访问 PC / PDA / Mobile 基础壳
 ```
 
-能够启动：
-
-Backend
-
-Frontend
-
-Database
-
-Redis
-
-RabbitMQ
-
-Industrial Platform正式进入编码阶段。
-
----
+达到上述标准后，才进入 Identity 真实登录闭环。
