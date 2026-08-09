@@ -192,7 +192,7 @@ Equipment Service
 | Permission | permission_db |
 | ReferenceData | referencedata_db |
 | MasterData | masterdata_db |
-| Material   | material_db   |
+| OperationalData | operationaldata_db |
 | Planning   | planning_db   |
 | WorkOrder  | workorder_db  |
 | Workflow   | workflow_db   |
@@ -295,12 +295,12 @@ work_order_2026
 id bigint primary key
 
 
-created_time timestamp
+created_time timestamptz
 
 created_by varchar(50)
 
 
-modified_time timestamp
+modified_time timestamptz
 
 modified_by varchar(50)
 
@@ -335,13 +335,13 @@ qty numeric(18,3),
 status varchar(20),
 
 
-created_time timestamp,
+created_time timestamptz,
 
 
 created_by varchar(50),
 
 
-modified_time timestamp,
+modified_time timestamptz,
 
 
 modified_by varchar(50),
@@ -459,8 +459,10 @@ numeric(18,3)
 统一：
 
 ```
-timestamp without time zone
+timestamp with time zone
 ```
+
+PostgreSQL 别名：`timestamptz`。
 
 推荐：
 
@@ -545,7 +547,29 @@ work_center
 
 ---
 
-## 10.2 Planning
+## 10.2 OperationalData
+
+```text
+operationaldata_db
+
+inventory_balance
+inventory_lot
+inventory_container
+stock_reservation
+inventory_document
+inventory_document_line
+stock_transaction
+wms_request
+wms_callback
+outbox_message
+inbox_message
+```
+
+`inventory_balance` 是库存流水的汇总结果；所有库存变化由单据过账或冲销生成。单个仓库只能由 OperationalData `Internal` 模式或外部 WMS 其中一方维护权威库存。
+
+---
+
+## 10.3 Planning
 
 ```
 planning_db
@@ -564,7 +588,7 @@ shift_calendar
 
 ---
 
-## 10.3 WorkOrder
+## 10.4 WorkOrder
 
 ```
 workorder_db
@@ -585,7 +609,7 @@ work_order_history
 
 ---
 
-## 10.4 Weighting
+## 10.5 Weighting
 
 称量独立。
 
@@ -614,7 +638,7 @@ weight_history
 
 ---
 
-## 10.5 Trace
+## 10.6 Trace
 
 追溯。
 
@@ -673,7 +697,7 @@ equipment_metrics
 create table equipment_metrics
 (
 
-time timestamp,
+time timestamptz,
 
 
 equipment_id bigint,

@@ -33,6 +33,7 @@ BuildingBlocks 是 Industrial Platform 所有微服务共享基础组件。
 * Identity Service
 * ReferenceData Service
 * MasterData Service
+* OperationalData Service
 * WorkOrder Service
 * Weighting Service
 * IoT Collector Service
@@ -95,6 +96,34 @@ WorkOrder Service
 
 └── WorkOrderEntity
 ```
+
+---
+
+## 2.2 时间类型规范
+
+所有时间字段一律使用：
+
+```
+DateTimeOffset
+```
+
+禁止使用：
+
+```
+DateTime
+```
+
+原因：
+
+* 保留时区偏移信息
+* 跨时区存储与比较准确
+* 工业/MES 场景的设备时间、班次时间常涉及时区换算
+
+约定：
+
+* 获取当前时间统一使用 `DateTimeOffset.UtcNow`
+* PostgreSQL 时间列映射为 `timestamp with time zone`（`timestamptz`），以 UTC 保存
+* API 响应中的时间序列化为带时区偏移的 ISO 8601 格式
 
 ---
 
@@ -306,15 +335,15 @@ Entity
 ```csharp
 public abstract class Entity
 {
-    public long Id { get; protected set; }
+    public Guid Id { get; protected set; }
 
-    public DateTime CreateTime { get; protected set; }
+    public DateTimeOffset CreateTime { get; protected set; }
 
-    public DateTime? ModifyTime { get; protected set; }
+    public DateTimeOffset? ModifyTime { get; protected set; }
 
     protected Entity()
     {
-        CreateTime = DateTime.UtcNow;
+        CreateTime = DateTimeOffset.UtcNow;
     }
 }
 ```
@@ -371,7 +400,7 @@ public abstract class AggregateRoot
 物料编码：
 
 ```
-MaterialCode
+MaterialNId
 ```
 
 示例：
@@ -420,7 +449,7 @@ WorkOrderCreatedEvent
 ```csharp
 public interface IDomainEvent
 {
-    DateTime OccurredOn { get; }
+    DateTimeOffset OccurredOn { get; }
 }
 ```
 
@@ -612,7 +641,7 @@ public interface IUnitOfWork
 
 ---
 
-# 18. SqlSugar基础封装
+# 18. SqlSugar基础封装（已实现）
 
 项目：
 
@@ -653,7 +682,7 @@ appsettings.json
 
 ---
 
-# 20. Redis组件
+# 20. Redis组件（已实现）
 
 项目：
 
@@ -725,7 +754,7 @@ public class IntegrationEvent
 
 public Guid Id {get;}
 
-public DateTime CreateTime {get;}
+public DateTimeOffset CreateTime {get;}
 
 }
 ```
@@ -930,24 +959,38 @@ API统一返回。
 
 ## Task-005 SqlSugar基础组件
 
+状态：已完成
+
 实现：
 
-* DbContext
-* Repository
-* UnitOfWork
+* SqlSugarDbContext
+* BaseRepository\<TEntity\>
+* SqlSugarUnitOfWork
+
+验收：
+
+Solution编译通过；DI注册测试通过。
 
 ---
 
 ## Task-006 Redis组件
+
+状态：已完成
 
 实现：
 
 * CacheService
 * DistributedLock
 
+验收：
+
+Solution编译通过；DI注册测试通过。
+
 ---
 
 ## Task-007 RabbitMQ组件
+
+状态：已完成
 
 实现：
 
@@ -955,14 +998,39 @@ API统一返回。
 * Producer
 * Consumer
 
+验收：
+
+Solution编译通过；DI注册测试通过。
+
 ---
 
 ## Task-008 Logging组件
+
+状态：已完成
 
 实现：
 
 * Serilog配置
 * TraceId
+
+验收：
+
+Solution编译通过；选项绑定/增强器测试通过。
+
+---
+
+## Task-009 补充组件
+
+状态：已完成
+
+实现：
+
+* Security: ICurrentUser / ClaimConstants / CurrentUser / AddCurrentUser
+* Web: ApiResult / PageResult / ExceptionMiddleware / RequestLoggingMiddleware / ResultFilter
+
+验收：
+
+Solution编译通过；Security 声明读取测试、Web 结果包装与注册测试通过。
 
 ---
 

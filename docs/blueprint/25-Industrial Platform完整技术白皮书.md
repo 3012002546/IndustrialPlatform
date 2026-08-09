@@ -180,6 +180,7 @@ Industrial Platform
                  应用层
 
  MES
+ OperationalData
  IoT
  Trace
  Batch
@@ -230,6 +231,8 @@ Industrial Platform
 ├── ReferenceData Service
 
 ├── MasterData Service
+
+├── OperationalData Service
 
 ├── Planning Service
 

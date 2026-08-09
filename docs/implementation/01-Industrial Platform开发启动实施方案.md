@@ -130,7 +130,7 @@ IndustrialPlatform.BuildingBlocks
 * 时间服务
 * ID生成器
 
-基础服务实施依赖顺序：BuildingBlocks → Identity → ReferenceData → MasterData。
+基础服务实施依赖顺序：BuildingBlocks → Identity → ReferenceData → MasterData → OperationalData。
 
 ---
 
@@ -185,7 +185,25 @@ MasterData 不承载字典、配置、元数据或编码规则。
 
 ---
 
-# Phase 5 WorkOrder Service
+# Phase 5 OperationalData Service
+
+目标：
+
+完成库存、库存批次和仓储业务操作中心。
+
+包含：
+
+* 库存余额与预留
+* 库存批次与容器
+* 收料、领料、退料和生产入库
+* 调拨、盘点和库存调整
+* Internal / ExternalWms 库存权威模式
+
+OperationalData 不承载物料、BOM、仓库或库位定义；这些主数据归 MasterData。
+
+---
+
+# Phase 6 WorkOrder Service
 
 目标：
 
@@ -202,7 +220,7 @@ MasterData 不承载字典、配置、元数据或编码规则。
 
 ---
 
-# Phase 6 Weighting Service
+# Phase 7 Weighting Service
 
 目标：
 
@@ -219,7 +237,7 @@ MasterData 不承载字典、配置、元数据或编码规则。
 
 ---
 
-# Phase 7 IoT Collector Service
+# Phase 8 IoT Collector Service
 
 目标：
 
@@ -235,7 +253,7 @@ MasterData 不承载字典、配置、元数据或编码规则。
 
 ---
 
-# Phase 8 Trace Service
+# Phase 9 Trace Service
 
 目标：
 
@@ -250,7 +268,7 @@ MasterData 不承载字典、配置、元数据或编码规则。
 
 ---
 
-# Phase 9 Batch Record Service
+# Phase 10 Batch Record Service
 
 目标：
 
@@ -258,7 +276,7 @@ MasterData 不承载字典、配置、元数据或编码规则。
 
 ---
 
-# Phase 10 Vue3统一前端
+# Phase 11 Vue3统一前端
 
 目标：
 
@@ -274,7 +292,7 @@ Mobile
 
 ---
 
-# Phase 11 MVP业务闭环
+# Phase 12 MVP业务闭环
 
 最终实现：
 
@@ -534,6 +552,9 @@ IndustrialPlatform.slnx
 ├── MasterData
 
 
+├── OperationalData
+
+
 ├── WorkOrder
 
 
@@ -547,9 +568,6 @@ IndustrialPlatform.slnx
 
 
 ├── BatchRecord
-
-
-└── Gateway
 ```
 
 ---
@@ -767,6 +785,8 @@ tests
 
 ├── MasterData.Tests
 
+├── OperationalData.Tests
+
 ├── WorkOrder.Tests
 
 
@@ -905,6 +925,8 @@ deploy
 
 # 15. Codex协作开发方式
 
+本实施方案由当前协调任务维护，但其中的代码实现、测试、Review 和提交必须派遣到其他开发任务执行。当前协调任务负责确认输入设计、拆分 TODO、限定修改范围、收集验收证据并回写状态；除非用户明确改变范围，否则不直接修改业务代码。
+
 禁止：
 
 直接要求：
@@ -941,11 +963,21 @@ Review
 ↓
 
 Commit
+
+↓
+
+返回验证证据与设计偏差
+
+↓
+
+协调任务回写 TODO 和蓝图
 ```
 
 ---
 
 # 16. Codex任务模板
+
+每个可派遣任务必须包含：任务编号、目标、输入文档、依赖、允许修改范围、预期输出、验证命令或验收证据、结果回写位置和建议提交信息。
 
 示例：
 
@@ -1064,6 +1096,10 @@ ReferenceData
 ↓
 
 MasterData
+
+↓
+
+OperationalData
 
 ↓
 

@@ -449,6 +449,22 @@ Process
 
 ---
 
+## OperationalData
+
+测试：
+
+```text
+InventoryBalance
+InventoryLot
+StockReservation
+InventoryDocument
+StockTransaction
+```
+
+必须覆盖单据状态机、负库存限制、预留核销、并发冲突、过账与冲销、API/事件幂等、Outbox/Inbox，以及 `Internal` / `ExternalWms` 双模式下单一库存权威规则。
+
+---
+
 ## WorkOrder
 
 测试：
@@ -1137,6 +1153,8 @@ Identity Service
 ReferenceData Service
 
 MasterData Service
+
+OperationalData Service
 
 WorkOrder Service
 

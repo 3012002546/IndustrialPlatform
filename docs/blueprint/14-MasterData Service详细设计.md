@@ -27,7 +27,7 @@ MasterData Service（主数据服务）是 Industrial Platform 的基础业务�
 
 MES、称量、追溯、批记录、LIMS、设备平台全部依赖主数据。
 
-> 边界说明：ReferenceData 管理字典、配置、元数据与编码规则；MasterData 管理物料、设备、组织与 BOM 等业务主数据。MasterData 仅消费必要的 ReferenceData 能力，不承载 ReferenceData 职责。
+> 边界说明：ReferenceData 管理字典、配置、元数据与编码规则；MasterData 管理物料、设备、组织、仓库、库位与 BOM 等业务主数据；OperationalData 管理库存批次、余额、预留和仓储业务单据。MasterData 仅消费必要的 ReferenceData 能力，不承载 ReferenceData 或 OperationalData 职责。
 
 整体关系：
 
@@ -41,6 +41,10 @@ MES、称量、追溯、批记录、LIMS、设备平台全部依赖主数据。
                        |
 
                  MasterData
+
+                       |
+
+              OperationalData
 
                        |
 
@@ -74,7 +78,9 @@ MES、称量、追溯、批记录、LIMS、设备平台全部依赖主数据。
 | 工序    | Operation         |
 | 资源    | Resource          |
 | 版本管理  | Version           |
-| 基础字典  | Dictionary        |
+| 仓库    | Warehouse         |
+| 库位    | Location          |
+| 批次策略  | Lot Policy        |
 
 ---
 
@@ -128,11 +134,29 @@ MES、称量、追溯、批记录、LIMS、设备平台全部依赖主数据。
 负责：
 
 ```
-批次流转
+批次谱系与去向投影
 
-物料追踪
+物料追踪关系
 
 序列号
+```
+
+---
+
+### OperationalData
+
+负责：
+
+```
+库存批次实例
+
+库存余额与预留
+
+收料、领料、退料和生产入库
+
+调拨、盘点、库存调整和库存流水
+
+外部 WMS 对接
 ```
 
 ---
@@ -201,6 +225,12 @@ WorkOrder
 Batch
 
 WeighingRecord
+
+InventoryLot
+
+InventoryDocument
+
+StockTransaction
 ```
 
 不存储在MasterData。

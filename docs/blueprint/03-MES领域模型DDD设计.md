@@ -73,7 +73,7 @@ Manufacturing Domain
 │
 ├── Planning Domain
 │
-├── Material Domain
+├── Operational Data Domain
 │
 ├── Production Domain
 │
@@ -1002,10 +1002,7 @@ Planning.Service
 WorkOrder.Service
 
 
-Material.Service
-
-
-MaterialRuntime.Service
+OperationalData.Service
 
 
 Weighting.Service

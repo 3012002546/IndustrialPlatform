@@ -418,11 +418,13 @@ Services
 
 ├── MasterData
 
-├── MES
+├── OperationalData
+
+├── WorkOrder
 
 ├── Weighting
 
-├── IoT
+├── IoTCollector
 
 ├── Trace
 
@@ -1396,7 +1398,9 @@ Industrial Platform v0.1
 
  MasterData
 
- MES
+ OperationalData
+
+ WorkOrder
 
 
  -------------------

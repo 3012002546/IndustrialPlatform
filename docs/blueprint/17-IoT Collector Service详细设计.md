@@ -477,7 +477,7 @@ port int,
 status int,
 
 
-created_time timestamp
+created_time timestamptz
 
 
 );
@@ -530,7 +530,7 @@ TimescaleDB
 CREATE TABLE device_data
 (
 
-time timestamp,
+time timestamptz,
 
 
 device_id uuid,
@@ -580,7 +580,7 @@ level int,
 message varchar(200),
 
 
-time timestamp
+time timestamptz
 
 
 );

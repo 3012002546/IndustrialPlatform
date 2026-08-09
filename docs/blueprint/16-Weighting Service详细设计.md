@@ -55,6 +55,7 @@ Weighting Service 是 Industrial Platform 面向工业现场的**称量执行核
 | 业务    | 服务                    |
 | ----- | --------------------- |
 | 物料主数据 | MasterData Service    |
+| 库存批次、库存余额、领退料和 WMS | OperationalData Service |
 | 生产工单  | WorkOrder Service     |
 | 设备通讯  | IoT Collector Service |
 | 批记录   | Batch Record Service  |
@@ -62,6 +63,8 @@ Weighting Service 是 Industrial Platform 面向工业现场的**称量执行核
 | 追溯    | Trace Service         |
 
 ---
+
+Weighting 可以读取 OperationalData 提供的库存批次上下文并发布实际称量结果，但不直接扣减库存、不创建仓储单据，也不直接对接外部 WMS。库存变化必须由 OperationalData 单据过账产生。
 
 # 2. 工业场景定位
 
@@ -166,32 +169,14 @@ PDA执行
 # 4. 服务架构位置
 
 ```
-                WorkOrder Service
-
+MasterData Service        WorkOrder Service
+         \                    /
+          \                  /
+            Weighting Service
+          /          |          \
+OperationalData  IoT Collector  PDA Client
                        |
-                       |
-                       v
-
-
-              Weighting Service
-
-
-                       |
-       +---------------+--------------+
-
-       |                              |
-
- IoT Collector                 PDA Client
-
-
-       |
-
-       v
-
-
-   Scale Device
-
-
+                  Scale Device
 ```
 
 ---
@@ -596,7 +581,7 @@ work_order_id uuid,
 status int,
 
 
-created_time timestamp
+created_time timestamptz
 
 
 );
@@ -661,7 +646,7 @@ weight numeric(18,3),
 operator varchar(50),
 
 
-created_time timestamp
+created_time timestamptz
 
 
 );
@@ -1287,19 +1272,6 @@ Industrial Weighing Platform
 * 电子批记录
 * GMP生产
 
-成为：
-
-```
-MES
- +
-WMS
- +
-Batch
- +
-IoT
-
-核心连接服务
-
-```
+Weighting 通过 OperationalData 使用库存批次和仓储能力，通过 BatchRecord 归档称量证据；它自身保持为称量执行服务，不演变为 WMS 或库存权威源。
 
 ---

@@ -66,6 +66,8 @@ Industrial Platform采用：
 
         MasterData
 
+        OperationalData
+
         MES Services
 
         Data Platform
@@ -137,6 +139,8 @@ Industrial Platform
 
 ├── MasterData
 
+├── OperationalData
+
 ├── WorkOrder
 
 ├── Weighting
@@ -197,6 +201,8 @@ Identity
 ReferenceData
 
 MasterData
+
+OperationalData
 
 WorkOrder
 

@@ -182,9 +182,7 @@ backend/services
 │
 ├── Planning.Service
 │
-├── Material.Service
-│
-├── MaterialRuntime.Service
+├── OperationalData.Service
 │
 ├── WorkOrder.Service
 │
@@ -1051,7 +1049,7 @@ ReferenceData
 
 MasterData
 
-Material
+OperationalData
 
 WorkOrder
 

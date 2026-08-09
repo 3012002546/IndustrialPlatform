@@ -514,10 +514,10 @@ organization_id uuid,
 status int,
 
 
-created_time timestamp,
+created_time timestamptz,
 
 
-updated_time timestamp
+updated_time timestamptz
 
 
 );
@@ -544,7 +544,7 @@ name varchar(100),
 description varchar(200),
 
 
-created_time timestamp
+created_time timestamptz
 
 
 );
@@ -1394,6 +1394,10 @@ Identity完成后：
                     |
 
                MasterData
+
+                    |
+
+            OperationalData
 
                     |
 

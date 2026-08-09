@@ -69,6 +69,8 @@ AI API
 
  MasterData
 
+ OperationalData
+
  WorkOrder
 
  IoT
@@ -548,6 +550,33 @@ Request：
 
 }
 ```
+
+---
+
+# 20A. OperationalData API
+
+基础前缀：
+
+```http
+/api/v1/operational-data
+```
+
+核心接口：
+
+```http
+GET  /api/v1/operational-data/inventory
+GET  /api/v1/operational-data/inventory/lots
+POST /api/v1/operational-data/reservations
+POST /api/v1/operational-data/reservations/{id}/release
+POST /api/v1/operational-data/documents
+POST /api/v1/operational-data/documents/{id}/confirm
+POST /api/v1/operational-data/documents/{id}/post
+POST /api/v1/operational-data/documents/{id}/reverse
+GET  /api/v1/operational-data/documents/{id}
+POST /api/v1/operational-data/wms/callbacks
+```
+
+写接口必须支持幂等键。客户端提交业务单据和数量，不得直接覆盖库存余额。`ExternalWms` 仓库的过账接口在收到 WMS 明确确认前返回处理中状态，不推断成功。
 
 ---
 

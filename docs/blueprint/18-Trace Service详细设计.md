@@ -49,6 +49,8 @@ Trace Service 是 Industrial Platform 的**生产过程数据关联中心**。
 
 ---
 
+Trace 是事件驱动的关系投影，不负责库存余额、库存批次状态或仓储单据过账。库存移动事实以 OperationalData 发布的事件为准。
+
 ## 1.2 核心目标
 
 实现：
@@ -105,16 +107,16 @@ Trace Service 是 Industrial Platform 的**生产过程数据关联中心**。
                   Trace Service
 
                          |
-        +----------------+----------------+
+        +-----------+-----------+-----------+
 
-        |                |                |
+        |           |           |           |
 
- Weighting        IoT Collector      Quality
+ OperationalData  Weighting   IoT Collector   Quality
 
 
-        |                |                |
+        |           |           |           |
 
- 称量数据          设备数据          检验数据
+ 库存批次与移动   称量数据      设备数据      检验数据
 
 ```
 
@@ -450,6 +452,22 @@ MaterialBatch
 
 # 10. Trace业务流程
 
+## 10.0 库存批次移动
+
+OperationalData 发送：
+
+```text
+material.received
+material.issued
+material.returned
+production.received
+inventory.transferred
+```
+
+Trace 消费事件并建立库存批次、工单、投入物料和产出批次之间的关系。Trace 只更新追溯图，不回写库存。
+
+---
+
 ## 10.1 称量完成
 
 Weighting发送：
@@ -622,7 +640,7 @@ node_code varchar(100),
 name varchar(200),
 
 
-created_time timestamp
+created_time timestamptz
 
 
 );
@@ -651,7 +669,7 @@ to_node uuid,
 relation_type varchar(50),
 
 
-created_time timestamp
+created_time timestamptz
 
 
 );
@@ -680,7 +698,7 @@ source varchar(50),
 payload jsonb,
 
 
-created_time timestamp
+created_time timestamptz
 
 
 );
@@ -957,6 +975,20 @@ trace:batch:{batch}
 ---
 
 # 18. 与其他服务集成
+
+## OperationalData
+
+获取：
+
+```text
+库存批次创建与状态变化
+
+收料、领料、退料和生产入库事实
+
+仓库、库位和容器移动事实
+```
+
+---
 
 ## WorkOrder
 

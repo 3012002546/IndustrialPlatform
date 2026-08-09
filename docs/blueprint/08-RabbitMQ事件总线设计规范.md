@@ -377,7 +377,7 @@ public interface IIntegrationEvent
 {
     Guid EventId {get;}
 
-    DateTime CreatedTime {get;}
+    DateTimeOffset CreatedTime {get;}
 
     string EventType {get;}
 }
@@ -394,7 +394,7 @@ public abstract class IntegrationEvent
 
 public Guid EventId {get;set;}
 
-public DateTime CreatedTime {get;set;}
+public DateTimeOffset CreatedTime {get;set;}
 
 public string EventType
 => GetType().Name;
@@ -591,7 +591,7 @@ payload jsonb,
 status varchar(20),
 
 
-created_time timestamp
+created_time timestamptz
 
 
 )
@@ -630,7 +630,7 @@ Outbox Worker
 
 例如：
 
-Material Service：
+OperationalData Service：
 
 监听：
 
@@ -644,7 +644,7 @@ mes.workorder.started
 结构：
 
 ```
-Material.Service
+OperationalData.Service
 
 
 Consumers
@@ -652,9 +652,28 @@ Consumers
 
 ├── WorkOrderStartedConsumer
 
-├── MaterialConsumedConsumer
+├── WmsCallbackConsumer
 
 ```
+
+---
+
+OperationalData 统一发布库存和仓储事实：
+
+```text
+InventoryReserved
+InventoryReservationReleased
+MaterialReceived
+MaterialIssued
+MaterialReturned
+ProductionReceived
+InventoryTransferred
+InventoryAdjusted
+InventoryLotCreated
+InventoryLotStatusChanged
+```
+
+所有写入型事件必须携带稳定事件 ID、业务单据 ID、幂等键和 `DateTimeOffset` 业务时间。OperationalData 使用 Outbox 发布，消费者使用 Inbox 去重；外部 WMS 回执不得导致重复过账。
 
 ---
 
@@ -710,7 +729,7 @@ event_id uuid,
 consumer varchar(200),
 
 
-consume_time timestamp,
+consume_time timestamptz,
 
 
 status varchar(20)

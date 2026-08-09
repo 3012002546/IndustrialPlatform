@@ -107,6 +107,7 @@ Batch Record Service 不负责：
 | 功能   | 所属服务                     |
 | ---- | ------------------------ |
 | 物料定义 | MasterData               |
+| 库存批次、库存余额与仓储单据 | OperationalData          |
 | 生产计划 | Planning                 |
 | 工单执行 | WorkOrder                |
 | 称量执行 | Weighting                |
@@ -138,8 +139,8 @@ Batch Record只负责：
               Batch Record
                     |
  ------------------------------------------------
- |              |              |                 |
-WorkOrder   Weighting     IoT Collector     Quality
+ |              |              |                 |                 |
+WorkOrder   OperationalData   Weighting     IoT Collector     Quality
  |
  |
 Trace Service
@@ -271,9 +272,9 @@ public class BatchRecord
     public BatchStatus Status {get;set;}
 
 
-    public DateTime? StartTime {get;set;}
+    public DateTimeOffset? StartTime {get;set;}
 
-    public DateTime? EndTime {get;set;}
+    public DateTimeOffset? EndTime {get;set;}
 
 
     public List<BatchMaterialRecord> Materials {get;set;}
@@ -284,6 +285,8 @@ public class BatchRecord
 
 }
 ```
+
+OperationalData 发布的收料、领料、退料、生产入库和库存批次事件作为批记录证据输入。BatchRecord 保存事件快照和关联标识，不维护 InventoryLot 数量、库位或库存状态。
 
 ---
 
@@ -395,7 +398,7 @@ decimal ActualQty;
 string Unit;
 
 
-DateTime ConsumeTime;
+DateTimeOffset ConsumeTime;
 
 }
 
@@ -456,7 +459,7 @@ decimal Value;
 string Unit;
 
 
-DateTime RecordTime;
+DateTimeOffset RecordTime;
 
 
 }
@@ -485,10 +488,10 @@ Guid BatchId;
 Guid EquipmentId;
 
 
-DateTime StartTime;
+DateTimeOffset StartTime;
 
 
-DateTime EndTime;
+DateTimeOffset EndTime;
 
 
 string Status;
@@ -519,7 +522,7 @@ string Action;
 string Comment;
 
 
-DateTime Time;
+DateTimeOffset Time;
 
 
 }
@@ -563,13 +566,13 @@ product_name varchar(100),
 status varchar(30),
 
 
-start_time timestamp,
+start_time timestamptz,
 
 
-end_time timestamp,
+end_time timestamptz,
 
 
-created_time timestamp,
+created_time timestamptz,
 
 
 created_by varchar(50)
@@ -604,7 +607,7 @@ actual_qty numeric,
 unit varchar(20),
 
 
-consume_time timestamp
+consume_time timestamptz
 
 );
 
@@ -633,7 +636,7 @@ parameter_value numeric,
 unit varchar(20),
 
 
-record_time timestamp
+record_time timestamptz
 
 );
 
@@ -662,7 +665,7 @@ action varchar(30),
 comment text,
 
 
-create_time timestamp
+create_time timestamptz
 
 );
 
@@ -696,7 +699,7 @@ new_value jsonb,
 operator varchar(50),
 
 
-time timestamp
+time timestamptz
 
 );
 
@@ -808,6 +811,27 @@ batch.released
 ---
 
 # 消费事件
+
+---
+
+## OperationalData Events
+
+来源：
+
+OperationalData Service
+
+事件：
+
+```text
+MaterialIssued
+MaterialReturned
+ProductionReceived
+InventoryLotStatusChanged
+```
+
+动作：
+
+追加物料移动、批次状态和产出入库证据，不修改库存事实。
 
 ---
 

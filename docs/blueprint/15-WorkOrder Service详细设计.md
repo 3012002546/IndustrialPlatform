@@ -35,6 +35,7 @@ WorkOrder Service 是 Industrial Platform 的**生产执行核心服务**。
 | 业务     | 所属服务                  |
 | ------ | --------------------- |
 | 物料基础信息 | MasterData Service    |
+| 库存、库存批次与仓储单据 | OperationalData Service |
 | 用户权限   | Identity Service      |
 | 设备采集   | IoT Collector Service |
 | 称量执行   | Weighting Service     |
@@ -54,6 +55,9 @@ WorkOrder Service 是 Industrial Platform 的**生产执行核心服务**。
                           |
                           |
                   MasterData Service
+                          |
+                          |
+              OperationalData Service
                           |
                           |
 Planning Service
@@ -85,6 +89,8 @@ Trace Service
 
 Batch Record Service
 ```
+
+WorkOrder 只提出库存预留、领料、退料和生产入库需求；OperationalData 负责校验、过账并维护库存事实。两个服务不得直接访问对方数据库。
 
 ---
 
@@ -183,9 +189,9 @@ public class WorkOrder : AggregateRoot<Guid>
     public WorkOrderStatus Status {get;private set;}
 
 
-    public DateTime PlanStartTime {get;private set;}
+    public DateTimeOffset PlanStartTime {get;private set;}
 
-    public DateTime PlanEndTime {get;private set;}
+    public DateTimeOffset PlanEndTime {get;private set;}
 
 
     private readonly List<WorkOrderOperation> _operations;
@@ -523,13 +529,13 @@ completed_qty numeric(18,3),
 status int,
 
 
-plan_start_time timestamp,
+plan_start_time timestamptz,
 
 
-plan_end_time timestamp,
+plan_end_time timestamptz,
 
 
-created_time timestamp,
+created_time timestamptz,
 
 
 created_by varchar(50)
@@ -625,7 +631,7 @@ new_status int,
 remark varchar(200),
 
 
-created_time timestamp
+created_time timestamptz
 
 );
 
@@ -845,6 +851,8 @@ IoT Collector
 
 Weighting Service
 
+OperationalData Service
+
 ```
 
 ---
@@ -868,6 +876,8 @@ Quality
 BatchRecord
 
 ```
+
+OperationalData 根据工单需求建立预留，并通过 `MaterialIssued`、`MaterialReturned`、`ProductionReceived` 等事件返回执行结果。WorkOrder 只保存请求与结果引用，不保存库存余额或库存批次状态。
 
 ---
 

@@ -1052,7 +1052,7 @@ Promise<T>
 | 前端        | 后端                |
 | --------- | ----------------- |
 | WorkOrder | WorkOrder Service |
-| Material  | Material Service  |
+| Inventory | OperationalData Service |
 | Weighting | Weighting Service |
 | Equipment | Equipment Service |
 | Trace     | Trace Service     |

@@ -98,7 +98,7 @@ Audit.Service
 
 MasterData.Service
 
-Material.Service
+OperationalData.Service
 
 WorkOrder.Service
 
@@ -503,50 +503,226 @@ PUT /materials/{id}
 
 ---
 
-# 7. Sprint 3 Material服务
+# 7. Sprint 3 OperationalData 操作域
 
-## 功能
+目标：
 
-库存基础：
+建立一个独立 OperationalData 微服务，在无 WMS 时提供轻量仓储能力，在有 WMS 时作为 MES 统一接口和防腐层。
 
+功能范围：
+
+```text
+库存批次与容器
+库存余额、预留、冻结和在途量
+收料、领料、退料和生产入库
+调拨、盘点和库存调整
+不可变库存流水
+Internal / ExternalWms 库存权威模式
 ```
-物料批次
 
-库存
+数据库：
 
-入库
-
-出库
-
-领料
-
-退料
-
+```text
+operationaldata_db
 ```
+
+任务按依赖顺序派遣：
+
+## TASK-OD-001 创建 OperationalData 服务骨架
+
+**状态：** 可派遣
+
+**目标：** 建立单一 OperationalData 微服务和 Inventory、Lots、Documents、WarehouseOperations、WmsIntegration 模块边界。
+
+**输入文档：** `14A-OperationalData Service详细设计.md`、`06-Industrial Platform 微服务解决方案目录设计.md`、`12-.NET10 Clean Architecture模板设计.md`。
+
+**依赖：** BuildingBlocks、Identity、ReferenceData 和 MasterData 服务骨架可用。
+
+**允许修改范围：** `src/backend/src/Services/OperationalData/**`、`tests/Services/OperationalData/**`、解决方案注册和对应架构测试。
+
+**预期输出：** Api、Application、Contracts、Domain、Infrastructure 项目，正确项目引用、DI 注册、健康检查和架构测试。
+
+**验证与证据：** 提供解决方案构建命令、架构测试命令、退出码和通过数量；证明未引入其他服务数据库引用。
+
+**结果回写：** 更新本节任务状态和 `docs/implementation` 实施进度；结构偏差回写 14A。
+
+**建议提交：** `feat(operational-data): scaffold service boundaries`
 
 ---
 
-表：
+## TASK-OD-002 实现库存批次与容器
 
-```
-material_lot
+**状态：** 可派遣
 
-inventory
+**目标：** 实现 InventoryLot、InventoryContainer、批次状态、供应商批次/生产批次关联及拆分合并规则。
 
-material_transaction
+**输入文档：** 14A 第 7 节、MasterData 的物料/仓库/库位/批次策略定义。
 
-```
+**依赖：** TASK-OD-001。
+
+**允许修改范围：** OperationalData Domain/Application/Infrastructure 的 Lots 模块及对应测试。
+
+**预期输出：** 批次和容器聚合、状态机、仓储持久化映射及领域测试；所有时间使用 `DateTimeOffset`/`timestamptz`。
+
+**验证与证据：** 提供批次唯一性、冻结/解冻、拆分/合并和并发版本测试结果。
+
+**结果回写：** 回写实体、状态和唯一键的最终命名；设计变化同步到 14A 与数据库模型。
+
+**建议提交：** `feat(operational-data): add inventory lots and containers`
 
 ---
 
-事件：
+## TASK-OD-003 实现库存余额与不可变流水
 
-发布：
+**状态：** 可派遣
 
-```
-MaterialIssuedEvent
+**目标：** 实现 InventoryBalance 和 StockTransaction，保证余额只能由库存流水更新。
 
-```
+**输入文档：** 14A 第 6、11、19、21 节。
+
+**依赖：** TASK-OD-002。
+
+**允许修改范围：** OperationalData 的 Inventory 模块、数据库映射、迁移和测试。
+
+**预期输出：** 在手量、预留量、可用量、冻结量、在途量，乐观并发和不可变流水。
+
+**验证与证据：** 提供余额公式、负库存限制、流水重放、并发冲突和事务回滚测试结果。
+
+**结果回写：** 回写余额维度、索引和并发策略。
+
+**建议提交：** `feat(operational-data): add inventory ledger and balances`
+
+---
+
+## TASK-OD-004 实现库存单据与过账状态机
+
+**状态：** 可派遣
+
+**目标：** 实现 InventoryDocument、单据行、Draft/Confirmed/Posting/Posted/Rejected/Cancelled 状态机、过账和冲销。
+
+**输入文档：** 14A 第 9、10、16、21 节。
+
+**依赖：** TASK-OD-003。
+
+**允许修改范围：** OperationalData 的 Documents 模块、应用用例、持久化和测试。
+
+**预期输出：** 七类单据的公共模型、状态转换、幂等过账、反向流水和审计链。
+
+**验证与证据：** 提供非法状态转换、重复过账、冲销和单据/流水/余额原子提交测试结果。
+
+**结果回写：** 回写最终状态机、错误码和单据编号规则。
+
+**建议提交：** `feat(operational-data): add inventory document posting`
+
+---
+
+## TASK-OD-005 实现库存预留与生产领料
+
+**状态：** 可派遣
+
+**目标：** 根据 WorkOrder 物料需求建立和释放 StockReservation，并通过 MaterialIssue 过账核销预留。
+
+**输入文档：** 14A 第 8、13 节和 WorkOrder 详细设计。
+
+**依赖：** TASK-OD-004；WorkOrder 可提供稳定需求标识。
+
+**允许修改范围：** OperationalData 的 Inventory/WarehouseOperations 模块及契约测试；WorkOrder 仅允许增加已确认的契约适配。
+
+**预期输出：** 预留、释放、部分领料、完全领料和批次选择策略。
+
+**验证与证据：** 提供可用量不足、重复需求、部分核销、工单取消释放和 `MaterialIssued` 契约测试结果。
+
+**结果回写：** 回写 WorkOrder 与 OperationalData 的请求/事件契约。
+
+**建议提交：** `feat(operational-data): add reservations and material issue`
+
+---
+
+## TASK-OD-006 实现收料、退料与生产入库
+
+**状态：** 可派遣
+
+**目标：** 实现 Receipt、MaterialReturn 和 ProductionReceipt 的校验、库存批次创建/关联及过账。
+
+**输入文档：** 14A 第 12、14、15 节。
+
+**依赖：** TASK-OD-004、TASK-OD-005。
+
+**允许修改范围：** OperationalData WarehouseOperations/Lots/Documents 模块及对应契约测试。
+
+**预期输出：** 收料、退料、半成品/产成品入库，以及待检/冻结库存状态。
+
+**验证与证据：** 提供原领料关联、重复收料、批次唯一性、冻结库存和 `MaterialReceived`/`MaterialReturned`/`ProductionReceived` 契约测试结果。
+
+**结果回写：** 回写单据字段、批次来源和质量状态约定。
+
+**建议提交：** `feat(operational-data): add receipt return and production receipt`
+
+---
+
+## TASK-OD-007 实现调拨、盘点与库存调整
+
+**状态：** 可派遣
+
+**目标：** 实现同仓移动、跨仓在途调拨、盘点差异和经授权的库存调整。
+
+**输入文档：** 14A 第 16、22 节。
+
+**依赖：** TASK-OD-004、TASK-OD-006。
+
+**允许修改范围：** OperationalData WarehouseOperations/Documents/Inventory 模块、授权策略和测试。
+
+**预期输出：** Transfer、Stocktake、Adjustment 用例、权限和审计记录。
+
+**验证与证据：** 提供在途量、盘点不直接改库存、调整授权、反向流水和审计测试结果。
+
+**结果回写：** 回写调拨阶段、盘点审批和调整原因模型。
+
+**建议提交：** `feat(operational-data): add transfer stocktake and adjustment`
+
+---
+
+## TASK-OD-008 集成 Trace 与 BatchRecord
+
+**状态：** 可派遣
+
+**目标：** 通过 Outbox 发布稳定库存事件，并由 Trace 和 BatchRecord 建立投影和证据快照。
+
+**输入文档：** 14A 第 20、21 节、Trace 与 BatchRecord 详细设计。
+
+**依赖：** TASK-OD-005、TASK-OD-006、TASK-OD-007。
+
+**允许修改范围：** OperationalData Contracts/Outbox、Trace 和 BatchRecord 对应消费者及契约测试。
+
+**预期输出：** InventoryReserved、MaterialReceived、MaterialIssued、MaterialReturned、ProductionReceived、InventoryTransferred、InventoryAdjusted 和批次状态事件。
+
+**验证与证据：** 提供 Outbox 原子性、Inbox 去重、乱序/重复投递和消费者契约测试结果；证明 Trace/BatchRecord 未回写库存。
+
+**结果回写：** 回写事件版本、字段和消费者状态。
+
+**建议提交：** `feat(operational-data): publish inventory integration events`
+
+---
+
+## TASK-OD-009 实现外部 WMS 适配器
+
+**状态：** 可派遣
+
+**目标：** 实现按仓库配置的 `Internal` / `ExternalWms` 模式和外部 WMS 命令、回执及库存投影。
+
+**输入文档：** 14A 第 17、18、21 节和目标客户 WMS 契约。
+
+**依赖：** TASK-OD-004 至 TASK-OD-008。
+
+**允许修改范围：** OperationalData WmsIntegration/Contracts/Infrastructure、配置和契约测试。
+
+**预期输出：** 带幂等键的 WMS 请求、回执、超时查询、安全重试、人工确认入口和投影更新。
+
+**验证与证据：** 提供重复回执、超时、拒绝、重试、乱序消息和同一仓库单一库存权威测试结果。
+
+**结果回写：** 回写 WMS 适配器能力矩阵、外部错误映射和对账规则。
+
+**建议提交：** `feat(operational-data): add external wms adapter`
 
 ---
 
@@ -615,6 +791,8 @@ WorkOrderReleasedEvent
 WorkOrderCompletedEvent
 
 ```
+
+WorkOrder 通过 OperationalData 建立库存预留并发起领料、退料和生产入库；WorkOrder 不保存库存余额或库存批次状态。
 
 ---
 
@@ -767,6 +945,8 @@ WeightCompletedEvent
 
 ```
 
+Weighting 从 OperationalData 获取已预留的库存批次上下文，发布实际称量结果，但不直接扣减库存或对接外部 WMS。
+
 ---
 
 # 11. Sprint 7 Equipment + IoT Collector
@@ -891,6 +1071,8 @@ TimescaleDB
 质量
 
 ```
+
+Trace 必须消费 OperationalData 的收料、领料、退料、生产入库、调拨和库存批次状态事件，建立谱系投影；Trace 不作为库存权威源。
 
 ---
 
@@ -1047,12 +1229,27 @@ PC/PDA/Mobile。
 
 ↓
 
+库存预留
+
+
+↓
+
+生产领料
+
+
+↓
+
 生产执行
 
 
 ↓
 
 称量
+
+
+↓
+
+退料或生产入库
 
 
 ↓
@@ -1131,6 +1328,27 @@ Docker部署
 
 # 17. Codex任务拆分规范
 
+## 当前任务边界
+
+本任务只负责：
+
+* 维护蓝图设计
+* 将开发目标拆分为可派遣 TODO
+* 派遣、跟踪和汇总其他开发任务
+* 根据实现结果更新 TODO 状态并回写设计决策
+
+代码实现、自动化测试和具体工程修改默认由其他任务或被派遣的协作者完成。本任务只有在用户明确改变范围时才直接进入开发。
+
+## TODO 生命周期
+
+统一状态：
+
+```
+待细化 → 可派遣 → 已派遣 → 开发中 → 待验收 → 已完成
+```
+
+实现发现蓝图冲突时标记为 `设计待确认`，先修订蓝图，再重新派遣。
+
 以后所有开发任务：
 
 必须拆小。
@@ -1200,6 +1418,9 @@ TASK-XXXX.md
 ## Input
 
 
+## Dependencies
+
+
 ## Modify
 
 
@@ -1207,6 +1428,12 @@ TASK-XXXX.md
 
 
 ## Test
+
+
+## Evidence
+
+
+## Result Writeback
 
 
 ## Commit Message
@@ -1297,6 +1524,10 @@ Industrial Platform v1.0
 ├── 用户权限
 
 ├── MES基础数据
+
+├── 操作数据域与轻量 WMS
+
+├── 库存批次、收料、领料、退料和生产入库
 
 ├── 生产计划
 

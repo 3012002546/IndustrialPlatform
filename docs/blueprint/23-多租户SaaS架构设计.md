@@ -363,7 +363,7 @@ TenantStatus Status;
 TenantPlan Plan;
 
 
-DateTime ExpireTime;
+DateTimeOffset ExpireTime;
 
 
 }
@@ -1386,6 +1386,10 @@ ReferenceData
         |
 
 MasterData
+
+        |
+
+OperationalData
 
         |
 

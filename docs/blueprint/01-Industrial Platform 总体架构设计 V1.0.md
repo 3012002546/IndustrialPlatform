@@ -111,7 +111,7 @@ Industrial Digital Platform
 
  Planning                     Agent
 
- Material                     Alarm
+ OperationalData              Alarm
 
  WorkOrder                    Dashboard
 
@@ -185,9 +185,11 @@ Identity
 ReferenceData
       ↓
 MasterData
+      ↓
+OperationalData
 ```
 
-ReferenceData 负责字典、配置、元数据与编码规则；MasterData 负责物料、设备、组织与 BOM 等业务主数据。两者边界独立，后续业务服务按上述顺序建立依赖。
+ReferenceData 负责字典、配置、元数据与编码规则；MasterData 负责物料、设备、组织、仓库、库位与 BOM 等业务主数据；OperationalData 负责库存批次、余额、预留、收发退和仓储业务单据。三者边界独立，后续业务服务按上述顺序建立依赖。
 
 ---
 
@@ -284,7 +286,7 @@ WorkOrder Service
         |
 -------------------------
 
-库存服务
+OperationalData Service
 
 追溯服务
 
@@ -608,26 +610,11 @@ WorkOrder
 
 ---
 
-# Material Service
+# OperationalData Service
 
-物料管理。
+操作数据域与库存中心。
 
-功能：
-
-* 物料
-* BOM
-* 版本
-* 替代料
-
----
-
-# Material Runtime Service
-
-物料运行时。
-
-负责：
-
-现场动态物料。
+负责现场动态物料、库存事实和仓储业务单据。
 
 核心：
 
@@ -646,6 +633,10 @@ Package
 * 托盘
 * 最小包装
 * 物料移动
+* 库存余额与预留
+* 收料、领料、退料和生产入库
+* 调拨、盘点和库存调整
+* 外部 WMS 对接
 
 ---
 

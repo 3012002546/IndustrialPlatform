@@ -1210,6 +1210,7 @@ Industrial Platform具备：
 支撑：
 
 * MasterData Service
+* OperationalData Service
 * 低代码平台
 * 报表平台
 * SaaS多租户

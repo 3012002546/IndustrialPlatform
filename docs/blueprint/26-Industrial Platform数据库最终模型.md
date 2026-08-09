@@ -148,11 +148,11 @@ tenant_id uuid not null
 
 factory_id uuid
 
-create_time timestamp
+create_time timestamptz
 
 create_user varchar(50)
 
-update_time timestamp
+update_time timestamptz
 
 update_user varchar(50)
 
@@ -181,11 +181,11 @@ public Guid Id {get;set;}
 
 public Guid TenantId {get;set;}
 
-public DateTime CreateTime {get;set;}
+public DateTimeOffset CreateTime {get;set;}
 
 public string CreateUser {get;set;}
 
-public DateTime? UpdateTime {get;set;}
+public DateTimeOffset? UpdateTime {get;set;}
 
 public string UpdateUser {get;set;}
 
@@ -233,7 +233,7 @@ phone varchar(50),
 
 status int,
 
-create_time timestamp
+create_time timestamptz
 
 );
 ```
@@ -451,6 +451,40 @@ BOM
 Material
 
 ```
+
+---
+
+# 8A. OperationalData数据库
+
+数据库：
+
+```text
+operationaldata_db
+```
+
+OperationalData 独占库存事实和仓储业务单据：
+
+```text
+inventory_balance
+inventory_lot
+inventory_container
+stock_reservation
+inventory_document
+inventory_document_line
+stock_transaction
+wms_request
+wms_callback
+outbox_message
+inbox_message
+```
+
+核心约束：
+
+- `inventory_balance` 按仓库、库位、物料、库存批次和库存状态唯一。
+- `stock_transaction` 不可变，使用单据过账和冲销保持完整审计链。
+- 单据、流水、余额和 Outbox 在同一本地事务提交。
+- 时间列使用 `timestamptz`；幂等键和外部 WMS 标识建立唯一索引。
+- 同一仓库只允许 `Internal` 或 `ExternalWms` 一个库存权威源。
 
 ---
 
