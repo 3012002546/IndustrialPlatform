@@ -19,3 +19,13 @@
 | 02 | [BuildingBlocks基础组件实施方案](02-Industrial%20Platform%20BuildingBlocks基础组件开发实施方案.md) | BuildingBlocks skeleton |
 | 03 | [Identity Service实施方案](03-Industrial%20Platform%20Identity%20Service开发实施方案.md) | Identity skeleton |
 | 04 | [ReferenceData Service实施方案](04-Industrial%20Platform%20ReferenceData%20Service开发实施方案.md) | ReferenceData skeleton |
+| 05 | [MasterData Service开发 TODO](05-Industrial%20Platform%20MasterData%20Service开发实施方案.md) | `TASK-MD-001`～`TASK-MD-010`，可派遣 |
+| 06 | [OperationalData Service开发 TODO](06-Industrial%20Platform%20OperationalData%20Service开发实施方案.md) | `TASK-OD-001`～`TASK-OD-009`，可派遣 |
+
+## 当前开发顺序
+
+```text
+BuildingBlocks → Identity → ReferenceData → MasterData → OperationalData
+```
+
+MasterData 与 OperationalData 的详细任务状态只在文档 05、06 中更新；`docs/blueprint/09-MES MVP第一阶段开发TodoList.md` 只维护 Sprint 范围和任务编号索引。
