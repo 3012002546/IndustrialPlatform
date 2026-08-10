@@ -75,6 +75,14 @@ public sealed class ProjectReferenceArchitectureTests
             reference.StartsWith($"IndustrialPlatform.{forbiddenServiceName}.", StringComparison.Ordinal));
     }
 
+    [Theory]
+    [InlineData(@"..\IndustrialPlatform.SharedKernel\IndustrialPlatform.SharedKernel.csproj", "../IndustrialPlatform.SharedKernel/IndustrialPlatform.SharedKernel.csproj")]
+    [InlineData("../IndustrialPlatform.SharedKernel/IndustrialPlatform.SharedKernel.csproj", "../IndustrialPlatform.SharedKernel/IndustrialPlatform.SharedKernel.csproj")]
+    public void ProjectReferencePathsUsePortableSeparators(string projectReferencePath, string expected)
+    {
+        Assert.Equal(expected, NormalizeProjectReferencePath(projectReferencePath));
+    }
+
     private static string[] ReadProjectReferences(string projectPath)
     {
         return XDocument
@@ -82,10 +90,12 @@ public sealed class ProjectReferenceArchitectureTests
             .Descendants("ProjectReference")
             .Select(reference => reference.Attribute("Include")?.Value)
             .Where(path => !string.IsNullOrWhiteSpace(path))
-            .Select(path => Path.GetFileNameWithoutExtension(path!))
+            .Select(path => Path.GetFileNameWithoutExtension(NormalizeProjectReferencePath(path!)))
             .Order(StringComparer.Ordinal)
             .ToArray();
     }
+
+    private static string NormalizeProjectReferencePath(string path) => path.Replace('\\', '/');
 
     private static string FindRepositoryRoot()
     {
