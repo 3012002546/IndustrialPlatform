@@ -1,10 +1,13 @@
 /**
- * 稳定路由表(§12.1)。页面组件为最小测试桩(FE-007 替换为真实页面)。
+ * 稳定路由表(§12.1)。页面组件为最小测试桩(FE-007 替换为真实页面);
+ * PC 管理框架布局壳已接入(FE-006,作为 /pc 父路由)。
  * 路由名全局唯一,守卫/导航一律使用 name,不硬编码路径。
  */
 
 import { defineComponent, h } from 'vue'
 import type { RouteRecordRaw } from 'vue-router'
+
+import PcLayout from '@/layouts/PcLayout.vue'
 
 export const ROUTE_NAMES = {
   root: 'root',
@@ -16,11 +19,11 @@ export const ROUTE_NAMES = {
   notFound: 'not-found',
 } as const
 
-/** 最小测试桩:渲染占位文本,供守卫/导航测试断言。 */
+/** 最小测试桩:渲染占位文本,供守卫/导航测试断言(页面在主布局 <main> 内,桩用 div)。 */
 function stub(label: string) {
   return defineComponent({
     name: `Stub${label}`,
-    render: () => h('main', { 'data-testid': `stub-${label}` }, label),
+    render: () => h('div', { 'data-testid': `stub-${label}` }, label),
   })
 }
 
@@ -44,15 +47,21 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: '无权限' },
   },
   {
-    path: '/pc/home',
-    name: ROUTE_NAMES.pcHome,
-    component: stub('PcHome'),
-    meta: {
-      title: 'PC 首页',
-      requiresAuth: true,
-      permission: 'platform.home.view',
-      terminal: 'pc',
-    },
+    path: '/pc',
+    component: PcLayout,
+    children: [
+      {
+        path: 'home',
+        name: ROUTE_NAMES.pcHome,
+        component: stub('PcHome'),
+        meta: {
+          title: 'PC 首页',
+          requiresAuth: true,
+          permission: 'platform.home.view',
+          terminal: 'pc',
+        },
+      },
+    ],
   },
   {
     path: '/pda/home',
