@@ -100,3 +100,4 @@ Invoke-RestMethod http://localhost:5080/health/ready
 - [统一前端开发 TODO](docs/implementation/02B-Industrial%20Platform统一前端第一批开发实施方案.md)
 - [本地基础设施 Compose 说明](docker/README.md)
 - [一键脚本与冒烟说明](deploy/scripts/README.md)
+- [本地调试指南(后端 VS2026 / 前端 VS Code,无 Docker 环境)](src/DEBUGGING.md)

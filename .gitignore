@@ -9,6 +9,7 @@ TestResults/
 # IDE and user-specific files
 .vs/
 .idea/
+.claude/
 *.user
 *.suo
 
