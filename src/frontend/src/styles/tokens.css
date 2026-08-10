@@ -72,6 +72,12 @@
   --ip-pc-sidebar-width: 240px;
   --ip-pc-sidebar-width-collapsed: 64px;
 
+  /* ---- 布局:PDA 现场壳 ---- */
+  --ip-pda-header-height: 48px; /* 与 --ip-touch-min-size 一致,保证顶栏即触控目标 */
+
+  /* ---- 布局:Mobile 壳 ---- */
+  --ip-mobile-header-height: 44px; /* 与 --ip-touch-min-size-mobile 一致,保证顶栏即触控目标 */
+
   /* ---- 触控最小尺寸 ---- */
   --ip-touch-min-size: 48px; /* PDA */
   --ip-touch-min-size-mobile: 44px; /* Mobile */
