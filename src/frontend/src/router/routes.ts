@@ -1,5 +1,6 @@
 /**
- * 稳定路由表(§12.1)。页面组件为最小测试桩(FE-007 替换为真实页面);
+ * 稳定路由表(§12.1)。公共页面与 PC 首页为真实页面(FE-007);
+ * PDA/Mobile 首页仍为最小测试桩(FE-008/FE-009 替换)。
  * PC 管理框架布局壳已接入(FE-006,作为 /pc 父路由)。
  * 路由名全局唯一,守卫/导航一律使用 name,不硬编码路径。
  */
@@ -8,6 +9,10 @@ import { defineComponent, h } from 'vue'
 import type { RouteRecordRaw } from 'vue-router'
 
 import PcLayout from '@/layouts/PcLayout.vue'
+import ForbiddenPage from '@/pages/public/ForbiddenPage.vue'
+import LoginPage from '@/pages/public/LoginPage.vue'
+import NotFoundPage from '@/pages/public/NotFoundPage.vue'
+import PcHomePage from '@/pages/pc/PcHomePage.vue'
 
 export const ROUTE_NAMES = {
   root: 'root',
@@ -37,13 +42,13 @@ export const routes: RouteRecordRaw[] = [
   {
     path: '/login',
     name: ROUTE_NAMES.login,
-    component: stub('Login'),
+    component: LoginPage,
     meta: { title: '登录' },
   },
   {
     path: '/403',
     name: ROUTE_NAMES.forbidden,
-    component: stub('Forbidden'),
+    component: ForbiddenPage,
     meta: { title: '无权限' },
   },
   {
@@ -53,7 +58,7 @@ export const routes: RouteRecordRaw[] = [
       {
         path: 'home',
         name: ROUTE_NAMES.pcHome,
-        component: stub('PcHome'),
+        component: PcHomePage,
         meta: {
           title: 'PC 首页',
           requiresAuth: true,
@@ -88,7 +93,7 @@ export const routes: RouteRecordRaw[] = [
   {
     path: '/:pathMatch(.*)*',
     name: ROUTE_NAMES.notFound,
-    component: stub('NotFound'),
+    component: NotFoundPage,
     meta: { title: '页面不存在' },
   },
 ]

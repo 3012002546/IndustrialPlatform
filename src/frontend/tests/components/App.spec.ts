@@ -1,16 +1,22 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
+import { createMemoryHistory, createRouter } from 'vue-router'
 
 import App from '@/App.vue'
 
-describe('App', () => {
-  it('renders the application shell title', () => {
-    const wrapper = mount(App)
-    expect(wrapper.find('h1').text()).toContain('Industrial Platform')
-  })
+const TestRoute = {
+  render: () => 'router-outlet-content',
+}
 
-  it('shows the milestone placeholder', () => {
-    const wrapper = mount(App)
-    expect(wrapper.text()).toContain('统一前端工程已初始化')
+describe('App', () => {
+  it('renders the active route through the router outlet', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', component: TestRoute }],
+    })
+    await router.push('/')
+    await router.isReady()
+    const wrapper = mount(App, { global: { plugins: [router] } })
+    expect(wrapper.text()).toContain('router-outlet-content')
   })
 })

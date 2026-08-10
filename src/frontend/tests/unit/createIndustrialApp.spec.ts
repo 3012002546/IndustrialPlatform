@@ -1,5 +1,5 @@
 import { defineComponent, h, type App as VueApp } from 'vue'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { createIndustrialApp } from '@/app/createIndustrialApp'
 
@@ -20,16 +20,20 @@ function unmountApp(app: VueApp, el: HTMLElement): void {
 }
 
 describe('createIndustrialApp', () => {
-  it('creates an app with the default root component', () => {
+  it('boots to the login page via the wired router (default root component)', async () => {
     const app = createIndustrialApp()
     const el = mountApp(app)
-    expect(el.textContent).toContain('Industrial Platform')
+    // 无会话 → 守卫重定向到 /login;登录页渲染(挂载后异步导航)
+    await vi.waitFor(() => {
+      expect(el.textContent).toContain('登录')
+    })
     unmountApp(app, el)
   })
 
-  it('installs Element Plus (global $message available)', () => {
+  it('installs Element Plus and Vue Router', () => {
     const app = createIndustrialApp()
     expect(app.config.globalProperties.$message).toBeDefined()
+    expect(app.config.globalProperties.$router).toBeDefined()
   })
 
   it('accepts a custom root component', () => {
