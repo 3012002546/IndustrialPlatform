@@ -1,0 +1,85 @@
+/**
+ * 稳定路由表(§12.1)。页面组件为最小测试桩(FE-007 替换为真实页面)。
+ * 路由名全局唯一,守卫/导航一律使用 name,不硬编码路径。
+ */
+
+import { defineComponent, h } from 'vue'
+import type { RouteRecordRaw } from 'vue-router'
+
+export const ROUTE_NAMES = {
+  root: 'root',
+  login: 'login',
+  forbidden: 'forbidden',
+  pcHome: 'pc-home',
+  pdaHome: 'pda-home',
+  mobileHome: 'mobile-home',
+  notFound: 'not-found',
+} as const
+
+/** 最小测试桩:渲染占位文本,供守卫/导航测试断言。 */
+function stub(label: string) {
+  return defineComponent({
+    name: `Stub${label}`,
+    render: () => h('main', { 'data-testid': `stub-${label}` }, label),
+  })
+}
+
+export const routes: RouteRecordRaw[] = [
+  {
+    path: '/',
+    name: ROUTE_NAMES.root,
+    component: stub('Root'),
+    meta: { title: '工业平台' },
+  },
+  {
+    path: '/login',
+    name: ROUTE_NAMES.login,
+    component: stub('Login'),
+    meta: { title: '登录' },
+  },
+  {
+    path: '/403',
+    name: ROUTE_NAMES.forbidden,
+    component: stub('Forbidden'),
+    meta: { title: '无权限' },
+  },
+  {
+    path: '/pc/home',
+    name: ROUTE_NAMES.pcHome,
+    component: stub('PcHome'),
+    meta: {
+      title: 'PC 首页',
+      requiresAuth: true,
+      permission: 'platform.home.view',
+      terminal: 'pc',
+    },
+  },
+  {
+    path: '/pda/home',
+    name: ROUTE_NAMES.pdaHome,
+    component: stub('PdaHome'),
+    meta: {
+      title: 'PDA 首页',
+      requiresAuth: true,
+      permission: 'platform.pda.view',
+      terminal: 'pda',
+    },
+  },
+  {
+    path: '/mobile/home',
+    name: ROUTE_NAMES.mobileHome,
+    component: stub('MobileHome'),
+    meta: {
+      title: 'Mobile 首页',
+      requiresAuth: true,
+      permission: 'platform.mobile.view',
+      terminal: 'mobile',
+    },
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    name: ROUTE_NAMES.notFound,
+    component: stub('NotFound'),
+    meta: { title: '页面不存在' },
+  },
+]
