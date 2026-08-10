@@ -16,8 +16,8 @@
 | 编号 | 文档 | 当前范围 |
 | --- | --- | --- |
 | 01 | [启动实施方案](01-Industrial%20Platform开发启动实施方案.md) | 总体路线：可运行基线优先 |
-| 02 | [BuildingBlocks基础组件实施方案](02-Industrial%20Platform%20BuildingBlocks基础组件开发实施方案.md) | 原基础搭建已完成；`TASK-BB-010` Entity 调整可派遣 |
-| 02A | [可运行基线开发 TODO](02A-Industrial%20Platform可运行基线开发实施方案.md) | `TASK-BASE-001`～`TASK-BASE-006`，当前第一优先级 |
+| 02 | [BuildingBlocks基础组件实施方案](02-Industrial%20Platform%20BuildingBlocks基础组件开发实施方案.md) | 原基础搭建已完成；`TASK-BB-010` Entity 生命周期/并发/软删除调整已完成 |
+| 02A | [可运行基线开发 TODO](02A-Industrial%20Platform可运行基线开发实施方案.md) | `TASK-BASE-001～006` 已完成（`BASE-002/003` 真实依赖与容器验收留待 Docker 环境，`BASE-005/006` 无 Docker 实测通过）；Phase 2 前端输入契约已登记 |
 | 02B | [统一前端第一批开发 TODO](02B-Industrial%20Platform统一前端第一批开发实施方案.md) | `TASK-FE-001`～`TASK-FE-008`，基线完成后执行 |
 | 03 | [Identity Service实施方案](03-Industrial%20Platform%20Identity%20Service开发实施方案.md) | 骨架已完成；真实登录闭环待开发 |
 | 04 | [ReferenceData Service实施方案](04-Industrial%20Platform%20ReferenceData%20Service开发实施方案.md) | 骨架已完成；业务功能与页面待开发 |
@@ -28,8 +28,8 @@
 
 ```text
 BuildingBlocks 原基础搭建（已完成）
-→ TASK-BB-010 Entity 生命周期与并发调整
-→ 可运行基线剩余任务（TASK-BASE-002 起）
+→ TASK-BB-010 Entity 生命周期与并发调整（已完成）
+→ 可运行基线（TASK-BASE-001～006 已完成；002/003 真实依赖联调留 Docker 环境）
 → 统一前端第一批
 → Identity 登录闭环
 → ReferenceData 服务 + 页面

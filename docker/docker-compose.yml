@@ -1,0 +1,92 @@
+# TASK-BASE-002 本地开发基础设施
+# 依赖: Docker Desktop(Win/Mac)或 Docker Engine + Docker Compose v2
+# 所有容器名/卷/网络统一前缀 industrial-platform,避免污染其他项目。
+# 凭据通过 docker/.env 注入,严禁提交真实密钥(参考 docker/.env.example)。
+
+name: industrial-platform
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: industrial-platform-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER 未设置,请先在 docker/.env 中配置}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 未设置,请先在 docker/.env 中配置}
+      POSTGRES_DB: ${POSTGRES_DB:-industrial_platform}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - industrial-platform-network
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: industrial-platform-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - industrial-platform-network
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: industrial-platform-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER 未设置,请先在 docker/.env 中配置}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS 未设置,请先在 docker/.env 中配置}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_DEFAULT_VHOST:-/}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - industrial-platform-network
+
+  seq:
+    image: datalust/seq:2025
+    container_name: industrial-platform-seq
+    environment:
+      ACCEPT_EULA: "Y"
+    ports:
+      - "5341:80"
+    volumes:
+      - seq-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/api"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - industrial-platform-network
+
+volumes:
+  postgres-data:
+  redis-data:
+  rabbitmq-data:
+  seq-data:
+
+networks:
+  industrial-platform-network:
+    driver: bridge

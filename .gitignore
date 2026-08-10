@@ -16,6 +16,9 @@ TestResults/
 .env
 appsettings.*.local.json
 
+# Local dev-run artifacts (PID files, service logs) created by deploy/scripts/dev.ps1
+.run/
+
 # .NET CLI state
 .dotnet_cli_home/
 

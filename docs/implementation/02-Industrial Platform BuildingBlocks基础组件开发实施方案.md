@@ -1032,7 +1032,7 @@ Solution编译通过；Security 声明读取测试、Web 结果包装与注册�
 
 ## TASK-BB-010 调整 Entity 生命周期、并发与软删除基线
 
-**状态：** 可派遣
+**状态：** 已完成（2026-08-10）
 
 **目标：** 按已批准规格替换旧 Entity 审计字段，增加冻结、锁定、软删除、实体类型、双版本并发和并发安全仓储行为。
 
@@ -1050,9 +1050,23 @@ Solution编译通过；Security 声明读取测试、Web 结果包装与注册�
 
 **建议提交：** `refactor(shared-kernel): add entity lifecycle and concurrency`
 
+**执行记录（2026-08-10）：** 按规格实现并全部落地：
+
+- `Entity` 九字段（Id / IsFrozen / IsLocked / IsDeleted / EntityType / CreatedOn / LastUpdatedOn / OptimisticVersion / ConcurrencyVersion）；构造时 `CreatedOn == LastUpdatedOn` 取同一 `UtcNow`、EntityType 为 `GetType().FullName`、双版本初始化。
+- 生命周期方法 `EnsureCanModify` / `Touch`（protected，派生实体业务修改专用）与 `Freeze` / `Unfreeze` / `Lock` / `Unlock` / `MarkDeleted` / `Restore`（public）；状态冲突抛含实体类型与操作名的 `BusinessException`；重复到达目标状态幂等、不推进版本；每次实际变化统一推进 `LastUpdatedOn` + 双版本。
+- 新增 `ConcurrencyException`（继承 `DomainException`）；`IRepository` 的 Update/Delete 增加 `expectedOptimisticVersion` + `expectedConcurrencyVersion` 参数，新增 `RestoreAsync`。
+- `BaseRepository<TEntity>` 重写：`GetByIdAsync` 默认过滤软删除；Update/Delete/Restore 走 `Id + IsDeleted + 双版本` 原子 `UPDATE`，影响行数非 1 抛并发异常；`DeleteAsync` 为软删除（先 `MarkDeleted()` 再原子更新），不执行物理删除。
+- 旧属性 `CreateTime` / `ModifyTime` / `Version` 已从代码与测试中移除，无兼容别名；Identity/ReferenceData 骨架未引用旧字段，无需签名适配。
+- 仓储测试基于 SQLite 文件库（`SQLitePCLRaw.bundle_e_sqlite3`）验证软删除非物理、默认过滤、双版本冲突、较新记录不被覆盖与显式恢复。
+- 验证：SDK 10.0.302，restore/build 0 警告 0 错误；全解决方案测试 112/112 通过（BuildingBlocks 102、Identity 5、ReferenceData 5）。架构测试通过，SharedKernel 不引用 SqlSugar。
+
+**已知测试替身限制：** SqlSugar 5.1.4 的 SQLite provider 存储 `DateTimeOffset` 时丢弃 UTC 偏移（读回为本地偏移），`Add_ThenGetById` 对时间字段按墙钟一致断言；PostgreSQL `timestamptz` 的精确映射与偏移保留由 TASK-BASE-003 用真实库验收。
+
 ---
 
 # 28. BuildingBlocks完成标准
+
+**已完成（TASK-BB-010 落地后，2026-08-10）：** 所有 Service 可引用 BuildingBlocks 全组件，并具备统一实体模型、统一异常、统一返回、数据访问、Redis、MQ、日志能力，以及统一冻结/锁定/软删除/恢复生命周期与双版本并发安全更新。
 
 完成后：
 

@@ -42,8 +42,14 @@ public static class RedisServiceCollectionExtensions
 
     private static IServiceCollection AddRedisCore(IServiceCollection services)
     {
+        // AbortOnConnectFail=false:Redis 暂时不可达时返回断开的连接复用器而非抛异常,
+        // 保证服务启动/健康检查期间缓存降级而不是整站 500;连接在后台持续重试。
         services.AddSingleton<IConnectionMultiplexer>(static sp =>
-            ConnectionMultiplexer.Connect(sp.GetRequiredService<IOptions<RedisOptions>>().Value.ConnectionString));
+        {
+            var configuration = ConfigurationOptions.Parse(sp.GetRequiredService<IOptions<RedisOptions>>().Value.ConnectionString);
+            configuration.AbortOnConnectFail = false;
+            return ConnectionMultiplexer.Connect(configuration);
+        });
         services.AddSingleton<ICacheService, CacheService>();
         services.AddSingleton<IDistributedLock, RedisDistributedLock>();
         return services;

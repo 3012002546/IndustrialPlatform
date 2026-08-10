@@ -10,6 +10,7 @@ public sealed class ExceptionTests
     [InlineData(typeof(ValidationException))]
     [InlineData(typeof(UnauthorizedException))]
     [InlineData(typeof(NotFoundException))]
+    [InlineData(typeof(ConcurrencyException))]
     public void AllDomainExceptions_DeriveFromDomainException(Type exceptionType)
     {
         Assert.True(typeof(DomainException).IsAssignableFrom(exceptionType));
@@ -20,6 +21,7 @@ public sealed class ExceptionTests
     [InlineData(typeof(ValidationException))]
     [InlineData(typeof(UnauthorizedException))]
     [InlineData(typeof(NotFoundException))]
+    [InlineData(typeof(ConcurrencyException))]
     public void AllDomainExceptions_CarryMessage(Type exceptionType)
     {
         var exception = (Exception)Activator.CreateInstance(exceptionType, "oops")!;
