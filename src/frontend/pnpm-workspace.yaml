@@ -1,0 +1,7 @@
+# 第一批为单包工程(pnpm workspace 多包结构留待后期蓝图 28 评估)。
+# pnpm 11 用 allowBuilds 声明可执行构建脚本的依赖;msw postinstall 仅在配置
+# msw.workerDirectory 时复制 worker 脚本,当前为安全空操作。
+packages:
+  - '.'
+allowBuilds:
+  msw: true
