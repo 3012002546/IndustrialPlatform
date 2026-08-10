@@ -688,6 +688,46 @@ deploy
 └── pull_request_template.md
 ```
 
+## 13.1 跨平台路径与 CI 验证约束
+
+后端 GitHub Actions 使用 `ubuntu-latest`。Windows 本地构建和测试通过，只能作为本地验证证据，不能替代 Linux Runner 验收。
+
+已知陷阱：`.csproj` 的 `ProjectReference Include` 可能使用 Windows 反斜杠路径，例如：
+
+```xml
+<ProjectReference Include="..\IndustrialPlatform.SharedKernel\IndustrialPlatform.SharedKernel.csproj" />
+```
+
+在 Linux 中，反斜杠不是目录分隔符。如果直接执行：
+
+```csharp
+Path.GetFileNameWithoutExtension(projectReferencePath)
+```
+
+可能返回完整相对路径，而不是项目名称，造成 Windows 测试通过、Ubuntu CI 失败。
+
+统一规则：
+
+1. 从 `.csproj`、JSON、YAML、命令输出或其他外部文本读取路径后，调用 `Path` API 前必须兼容 `/` 和 `\`。对项目引用路径可先在解析边界统一分隔符：
+
+   ```csharp
+   var portablePath = projectReferencePath.Replace('\\', '/');
+   var projectName = Path.GetFileNameWithoutExtension(portablePath);
+   ```
+
+2. 不依赖开发机操作系统解释外部路径文本，也不通过批量改写全部 `.csproj` 路径来掩盖解析器缺陷；应在读取边界完成规范化。
+3. 新增或修改路径解析逻辑时，参数化测试必须同时覆盖 `..\A\A.csproj` 和 `../A/A.csproj`。
+4. Linux 文件名区分大小写，代码、脚本、Solution 和项目引用中的目录及文件名必须与仓库实际名称完全一致。
+5. 后端任务提交前必须按 GitHub Actions 的 Release 配置执行：
+
+   ```bash
+   dotnet restore src/backend/IndustrialPlatform.slnx
+   dotnet build src/backend/IndustrialPlatform.slnx --configuration Release --no-restore
+   dotnet test src/backend/IndustrialPlatform.slnx --configuration Release --no-build --logger trx
+   ```
+
+6. 最终验收证据必须包含 Ubuntu GitHub Actions 运行结果或链接。本地仅有 Windows 验证时，任务状态必须明确标记“Linux CI 待验证”，不得声明跨平台验收完成。
+
 ---
 
 # 14. .codex目录规划
@@ -776,6 +816,8 @@ Commit
 # 16. Codex任务模板
 
 每个可派遣任务必须包含：任务编号、目标、输入文档、依赖、允许修改范围、预期输出、验证命令或验收证据、结果回写位置和建议提交信息。
+
+涉及路径、脚本、文件名大小写或换行符的任务，还必须在“要求/验收”中写明：目标 Runner 为 `ubuntu-latest`、路径分隔符兼容策略、Linux 大小写敏感约束、相应跨平台回归用例，以及 Release CI 命令和 GitHub Actions 运行证据。不得只填写“本地测试通过”。
 
 示例：
 

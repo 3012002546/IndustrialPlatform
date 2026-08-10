@@ -1,37 +1,169 @@
-# Industrial Platform 可运行基线开发 TODO
+# 02A-Industrial Platform可运行基线开发实施方案
 
-版本：v1.0
-当前阶段：BuildingBlocks 完成后的第一优先级
-规格依据：`docs/superpowers/specs/2026-08-09-runnable-baseline-first-development-sequence-design.md`
+# Industrial Platform 可运行基线开发实施方案
 
-## 1. 目标与边界
+> 当前里程碑范围：完成本地基础设施编排、统一后端配置与健康检查、Gateway、一键启停和新环境冒烟；Docker 真实依赖联调保留为外部环境待验收项。
+
+版本：V1.0
+
+阶段：BuildingBlocks 完成后的可运行基线阶段；为统一前端和后续业务服务提供运行入口。
+
+模块或服务：
+
+```text
+Industrial Platform Runnable Baseline
+```
+
+技术：
+
+```text
+.NET 10 / ASP.NET Core / YARP 2.3 / Docker Compose / PostgreSQL / Redis / RabbitMQ / Seq / PowerShell
+```
+
+规格与蓝图依据：
+
+- `docs/superpowers/specs/2026-08-09-runnable-baseline-first-development-sequence-design.md`
+- `docs/blueprint/01-Industrial Platform 总体架构设计 V1.0.md`
+- `docs/implementation/02-Industrial Platform BuildingBlocks基础组件开发实施方案.md`
+
+---
+
+# 1. 文档说明
+
+## 1.1 文档目的
+
+本文同时承担可运行基线的开发详细设计、任务派遣唯一维护源和历史执行记录。目标读者为平台开发、前端接入和本地环境维护人员。
+
+## 1.2 当前输入状态
+
+- BuildingBlocks 及 Security、Web 补充能力已完成。
+- Identity、ReferenceData 保持服务骨架；Gateway 和统一健康检查已落地。
+- TASK-BASE-001、003、004、005、006 已完成开发及对应历史验证；TASK-BASE-002 交付物已完成，Docker 真实依赖联调仍为待验收。
+- 最新记忆基线为 2026-08-10：全解决方案 build 0 警告 0 错误、test 140/140；本轮仅整理文档，不将历史结果表述为重新验证。
+
+## 1.3 执行前置
+
+```text
+BuildingBlocks 基线
+    ↓
+TASK-BASE-001～006 可运行基线
+    ↓
+统一前端与后续业务服务
+```
+
+# 2. 定位、目标与职责边界
+
+## 2.1 负责
 
 在开发业务功能前建立可重复启动、诊断和验证的本地平台基线：基础依赖可启动，现有后端服务健康检查可访问，统一入口可用，新开发环境有明确启动流程。
 
-本阶段不实现 Identity 登录、ReferenceData 业务功能、任何 MES 领域功能或业务页面。BuildingBlocks 已完成，不得重复搭建。
+本阶段负责基础依赖编排、服务开发配置、健康检查、统一入口、启动诊断和新环境冒烟契约。
 
-## 2. 当前输入状态
+## 2.2 不负责
 
-- BuildingBlocks 及 Security、Web 补充能力已完成。
-- Identity、ReferenceData 只有四层服务骨架和 `/health`。
-- 前端、Docker、部署仍是占位。
-- 当前验证记录：BuildingBlocks 64/64、全解决方案 74/74；执行任务时必须重新验证，不直接复用历史结果。
-- 2026-08-09 重新验证通过：SDK 10.0.302，restore/build 0 警告 0 错误，全量 test 74/74 通过（BuildingBlocks 64、Identity 5、ReferenceData 5），`--vulnerable` 审计全干净；`--deprecated` 发现 xunit 2.9.3 被标记 Legacy（见 TASK-BASE-001 执行记录）。
+- 不实现 Identity 登录、ReferenceData 业务功能、任何 MES 领域功能或业务页面。
+- 不重复搭建 BuildingBlocks，不负责生产部署编排。
+- Docker 文件和脚本属于本方案；业务数据库模型、业务 API 和业务页面属于后续服务方案。
 
-## 3. 全局约束
+# 3. 前后端及跨服务协作目标
+
+```text
+基础依赖与服务健康检查
+    ↓
+Gateway 路由与统一错误契约
+    ↓
+前端 Base URL、路径前缀和 CORS 契约
+    ↓
+Gateway/服务契约测试与 smoke.ps1
+    ↓
+阶段验收
+```
+
+前端只依赖 `http://localhost:5080`、稳定路径前缀和 `ApiResult` 错误信封，不直接绑定服务内部端口。
+
+# 4. 总体架构与数据流
+
+```text
+PC / PDA / Mobile 前端
+          │ HTTP :5080
+          ▼
+       Gateway
+       ├── /identity      → Identity API :5041
+       └── /referencedata → ReferenceData API :62311
+                                 │
+              PostgreSQL / Redis / RabbitMQ / Seq
+```
+
+Gateway 只负责路由、健康聚合、CORS 和代理错误封装；数据权威、业务事务和事件发布仍由各业务服务拥有。
+
+# 5. 项目结构与引用关系
+
+```text
+docker/                              # 本地基础设施编排
+deploy/scripts/                      # dev.ps1、smoke.ps1 与说明
+src/backend/src/Gateway/             # YARP 统一入口
+src/backend/src/Services/            # Identity、ReferenceData API
+tests/Gateway/                        # Gateway 契约与集成测试
+```
+
+Gateway 仅允许引用 BuildingBlocks Logging/Web，不引用业务服务项目；服务通过 HTTP 路由协作，不建立项目引用。
+
+# 6. 全局技术与实施约束
 
 - .NET 目标框架为 `net10.0`，Nullable 开启，警告视为错误。
 - 配置提交安全示例值，不提交数据库密码、RabbitMQ 凭据、Seq API Key 或其他真实密钥。
 - PostgreSQL、Redis、RabbitMQ、Seq 必须有健康检查；启动失败必须可由日志和诊断命令定位。
 - Docker 数据卷、容器名、端口和网络使用统一前缀，避免污染其他项目。
 - Windows 命令必须设置仓库内 `DOTNET_CLI_HOME`；说明同时提供 PowerShell 与跨平台命令差异。
-- 状态流转：`可派遣 → 已派遣 → 开发中 → 待验收 → 已完成`；设计冲突改为 `设计待确认`。
+- 状态流转：`待细化 → 可派遣 → 已派遣 → 开发中 → 待验收 → 已完成`；设计冲突改为 `设计待确认`。
 
-## 4. 任务依赖图
+## 6.1 数据建模适用性
+
+本方案不新增业务实体表。PostgreSQL 仅作为本地依赖运行；业务实体的 `NId`、生命周期字段、复合外键和跨服务引用规则由对应服务实施方案定义。
+
+# 7. 核心组件详细设计
+
+- Docker Compose 固定 PostgreSQL、Redis、RabbitMQ、Seq 的服务名、健康检查、网络和持久化卷。
+- Identity、ReferenceData 统一绑定 Serilog、SqlSugar、Redis、RabbitMQ 配置，并暴露 `/health`、`/health/live`、`/health/ready`。
+- Gateway 使用 YARP 路由、平台 readiness 聚合、统一代理错误和开发期 CORS。
+- `dev.ps1` 管理构建、端口预检、PID、日志、启停和状态；`smoke.ps1` 承担新环境关键路径验收。
+
+# 8. 数据与持久化设计
+
+本方案不拥有业务数据。Compose 命名卷保存本地依赖数据，`stop` 不删除卷；只有显式 `docker compose down -v` 才执行不可恢复的数据清理。
+
+# 9. API、事件与外部集成契约
+
+- Gateway Base URL：`http://localhost:5080`。
+- 路由：`/identity/**`、`/referencedata/**`，转发时剥离服务前缀。
+- 健康端点：`/health`、`/health/live`、`/health/ready`。
+- 代理错误：404 路由不存在、503 下游不可用、504 转发超时，统一使用 `ApiResult` 信封。
+- 本阶段不定义集成事件；RabbitMQ 仅作为可用性依赖纳入 readiness。
+
+# 10. 页面与交互设计
+
+本方案不实现页面。前端消费契约为 Gateway Base URL、服务路径前缀、CORS 和统一错误信封；具体三端页面由 02B 方案负责。
+
+# 11. 错误、安全、审计与可观测性
+
+- 健康响应和日志不得回显连接串、密码、Token、Seq API Key 或异常原文。
+- 依赖不可达映射为可诊断的 Unhealthy/503，Gateway 超时映射为 504。
+- TraceId 与结构化日志贯穿服务和 Gateway；开发示例配置只使用安全样例值。
+- 启停脚本端口冲突时 fail-closed；Docker CLI 缺失时允许跳过基础设施并明确警告。
+
+# 12. 自动化测试与验收设计
+
+历史验证覆盖配置绑定、健康检查、Gateway 路由与错误、CORS、启停状态和新环境冒烟。证据必须记录日期、命令、退出码、测试数量和外部环境限制；Docker 真实依赖联调未完成前，TASK-BASE-002 保持“待验收”。
+
+# 13. 开发任务依赖
 
 ```text
 BASE-001 → BASE-002 → BASE-003 → BASE-004 → BASE-005 → BASE-006
 ```
+
+任务按依赖顺序执行；脚本和文档可以在契约稳定后并行整理，最终由 TASK-BASE-006 汇总验收。
+
+# 14. 开发任务拆分
 
 ## TASK-BASE-001 固化当前后端构建与测试基线
 
@@ -75,7 +207,7 @@ BASE-001 → BASE-002 → BASE-003 → BASE-004 → BASE-005 → BASE-006
 
 ## TASK-BASE-003 统一后端开发配置与依赖健康检查
 
-**状态：** 待验收（实现完成；配置绑定、缺失配置、依赖中断/强制失败场景测试全绿。真实依赖联调需有 Docker 环境执行 TASK-BASE-002 后验收）
+**状态：** 已完成（真实依赖联调属于 TASK-BASE-002 外部环境验收边界）
 
 **目标：** 让 Identity、ReferenceData 使用一致的开发配置读取基础依赖，并暴露可区分自身与依赖状态的健康检查。
 
@@ -110,7 +242,7 @@ BASE-001 → BASE-002 → BASE-003 → BASE-004 → BASE-005 → BASE-006
 
 ## TASK-BASE-004 建立开发期统一 API 入口
 
-**状态：** 待验收（实现完成；构建、路由转发、服务不可用、超时、健康聚合与 CORS 测试全绿。真实联调待有 Docker 环境执行 TASK-BASE-002 后验收）
+**状态：** 已完成（真实依赖联调属于 TASK-BASE-002 外部环境验收边界）
 
 **目标：** 建立最小 ApiGateway 或统一开发入口，转发 Identity、ReferenceData 健康端点并提供平台健康聚合。
 
@@ -149,7 +281,7 @@ BASE-001 → BASE-002 → BASE-003 → BASE-004 → BASE-005 → BASE-006
 
 ## TASK-BASE-005 建立一键启动与停止流程
 
-**状态：** 待验收（实现完成；启动、状态、重复启动、端口冲突与停止流程实测通过，退出码符合预期。基础设施联调待有 Docker 环境执行 TASK-BASE-002 后验收）
+**状态：** 已完成（基础设施真实联调属于 TASK-BASE-002 外部环境验收边界）
 
 **目标：** 提供可审计的开发启动流程，按依赖顺序启动基础设施、后端服务和 Gateway，并安全停止进程。
 
@@ -237,7 +369,7 @@ BASE-001 → BASE-002 → BASE-003 → BASE-004 → BASE-005 → BASE-006
 
 **边界说明（按用户指示）：** Docker 基础设施（TASK-BASE-002）不参与本次验收，其真实依赖联调、容器状态与最终容器化验收留后续环境进行；完成标准的 Docker 相关条目相应保留为待验收。
 
-## 5. 完成标准
+# 15. 完成标准
 
 - 新开发环境可按文档启动 PostgreSQL、Redis、RabbitMQ、Seq、Identity、ReferenceData 和统一入口。
 - 所有依赖有健康状态，错误能通过 TraceId 与日志定位。
@@ -247,13 +379,37 @@ BASE-001 → BASE-002 → BASE-003 → BASE-004 → BASE-005 → BASE-006
 
 **完成标准核对（TASK-BASE-006，2026-08-10）：** 新环境可按根 README 最短路径启动后端与统一入口 ✅（基础设施依赖按用户指示留 Docker 环境验收）；依赖健康状态可通过 `/health/ready` 聚合与 TraceId 日志定位 ✅（容器化依赖状态留后续）；restore/build/test/包审计最新证据：build 0/0、test 140/140、`--vulnerable`/`--deprecated` 干净（Gateway 项目审计）✅；前端 API Base URL/CORS/健康端点已登记 ✅；未实现 Identity 业务或 MES 领域 ✅。
 
-## 6. 执行记录
+# 16. 执行记录
 
 | 任务 | 状态 | 执行者/任务 | 提交 | 验证证据 | 结果回写 |
 | --- | --- | --- | --- | --- | --- |
 | TASK-BASE-001 | 已完成 | 本任务 | - | 2026-08-09 SDK 10.0.302：restore/build 0 警告 0 错误；test 74/74 通过（BB 64、Identity 5、RefData 5）；`--vulnerable` 全干净；`--deprecated` 仅 xunit 2.9.3 Legacy（替代 xunit.v3，待迁移） | 状态见上文；偏差记录见 CLAUDE.md |
 | TASK-BASE-002 | 待验收 | 本任务 | - | 交付 `docker/docker-compose.yml` + `.env.example` + README（镜像 postgres:18-alpine / redis:7.4-alpine / rabbitmq:4-management / datalust/seq:2025,统一前缀 industrial-platform,四服务健康检查 + 命名卷 + 桥接网络）。本机未安装 Docker,WSL 无发行版,`docker compose config/up/ps` 未执行,待有 Docker 环境验收 | 状态见上文;交付物与验证命令见 `docker/README.md` |
-| TASK-BASE-003 | 待验收 | 本任务 | - | 2026-08-10 全量 build 0 警告 0 错误、test 127/127（BB 102、Identity 12、RefData 13）；配置绑定/缺失配置/health 端点/强制失败 503 测试全绿；本机无 Docker 未做真实依赖联调，待有环境验收 | 状态见上文；配置节、健康端点、超时与敏感字段屏蔽规则见「实施记录（TASK-BASE-003）」 |
-| TASK-BASE-004 | 待验收 | 本任务 | - | 2026-08-10 全量 build 0 警告 0 错误、test 140/140（Gateway 13：配置绑定/路由转发/503/504/404 信封/CORS/健康聚合）；真实联调待有 Docker 环境验收 | 状态见上文；端口、路由前缀、健康聚合结构与错误码见「实施记录（TASK-BASE-004）」 |
-| TASK-BASE-005 | 待验收 | 本任务 | - | 2026-08-10 无 Docker 环境实测通过：start/status/重复 start/端口冲突/stop 退出码符合预期（0/1），网关转发与健康聚合正常；基础设施联调待有 Docker 环境 | 状态见上文；命令入口、进程管理、端口冲突规则与平台差异见「实施记录（TASK-BASE-005）」与 `deploy/scripts/README.md` |
+| TASK-BASE-003 | 已完成 | 本任务 | - | 历史证据（2026-08-10）：全量 build 0 警告 0 错误、test 127/127（BB 102、Identity 12、RefData 13）；配置绑定、缺失配置、health 端点、强制失败 503 测试通过 | 配置节、健康端点、超时与敏感字段屏蔽规则见「实施记录（TASK-BASE-003）」；真实依赖联调归 TASK-BASE-002 |
+| TASK-BASE-004 | 已完成 | 本任务 | - | 历史证据（2026-08-10）：全量 build 0 警告 0 错误、test 140/140（Gateway 13：配置绑定、路由转发、503/504/404 信封、CORS、健康聚合） | 端口、路由前缀、健康聚合结构与错误码见「实施记录（TASK-BASE-004）」；真实依赖联调归 TASK-BASE-002 |
+| TASK-BASE-005 | 已完成 | 本任务 | - | 历史证据（2026-08-10）：无 Docker 环境实测 start/status/重复 start/端口冲突/stop，退出码符合预期（0/1），网关转发与健康聚合正常 | 命令入口、进程管理、端口冲突规则与平台差异见「实施记录（TASK-BASE-005）」与 `deploy/scripts/README.md` |
 | TASK-BASE-006 | 已完成 | 本任务 | - | 2026-08-10 冒烟全流程 PASS：总耗时 52.9s、构建 0/0、test 140/140、三服务/网关转发/404 信封探测全过、`/health/ready` 503（依赖未起）、停止 exit 0；容器状态 N/A（Docker 留后续） | 状态见上文；前端 API 契约（Base URL 5080、前缀、CORS、信封、错误码）已登记至根 README「前端 API 契约」；交付物见「实施记录（TASK-BASE-006）」 |
+
+# 17. 下一阶段输入契约
+
+```text
+Gateway Base URL: http://localhost:5080
+Identity 路径前缀: /identity
+ReferenceData 路径前缀: /referencedata
+健康端点: /health、/health/live、/health/ready
+错误信封: ApiResult{success,code,message,data}
+开发期 CORS: http://localhost:5173、http://localhost:4173
+```
+
+后续阶段可以依赖上述运行契约，但必须自行设计认证、权限、业务 DTO、数据库和事件，不得从健康检查或路由前缀推断业务能力。
+
+# 18. 文档自审清单
+
+- [x] 引用文件真实存在，文档标题、章节顺序与统一母版一致。
+- [x] 当前状态与 `CLAUDE.md` 的 2026-08-10 记忆一致，历史证据已明确标注。
+- [x] 职责、Gateway 路由、健康端点、错误信封和前端消费边界明确。
+- [x] 六个任务均使用统一九字段，依赖图与执行记录编号一致。
+- [x] TASK-BASE-002 因 Docker 外部环境未具备保持“待验收”，其余开发完成任务不被连带降级。
+- [x] 本方案不新增业务实体，已说明统一数据建模规则不适用的原因。
+- [x] 未保留未决项或模糊处理等占位表达。
+- [x] 本轮仅执行文档级检查，不重复运行历史构建与测试。

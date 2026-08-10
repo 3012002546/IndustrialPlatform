@@ -22,6 +22,9 @@ appsettings.*.local.json
 # .NET CLI state
 .dotnet_cli_home/
 
+# Local API inspection scratch projects
+.tmp_apicheck/
+
 # Generated coverage output
 coverage/
 coverage*/

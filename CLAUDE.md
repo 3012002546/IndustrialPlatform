@@ -7,11 +7,71 @@ Industrial Platform 的 Claude 开发指南。
 .NET 10 微服务平台(工业/MES 领域),Clean Architecture + DDD。服务依赖顺序:
 `BuildingBlocks → Identity → ReferenceData → MasterData`。
 
-当前里程碑:仅骨架与基础组件;业务功能、前端、Docker、部署均为后续工作。
+当前里程碑:BuildingBlocks 与可运行基线代码已完成（Docker 真实环境联调仍待验收）；统一前端第一批（PC/PDA/Mobile 三端基础壳,FE-001~FE-010）已完成；无 Docker 环境下后端三服务运行验证已通过（探测结论与调试方式见 `src/DEBUGGING.md`）；Identity、ReferenceData 保持服务骨架，业务功能尚未实现。
 
 ## 协作约定
 
 本项目为协作处理模式。当前只负责**代码及功能实现**;文档、架构设计、部署等其他工作由协作方负责,不主动处理。
+
+## 开发设计与任务派遣文档规范
+
+项目所有新增或重构的开发实施方案统一使用：
+
+`docs/implementation/TEMPLATE-开发实施方案.md`
+
+该规则适用于后端服务、前端阶段、BuildingBlocks、基础设施、外部集成和跨模块专项设计。后续开发设计及任务派遣不得另起不兼容格式。
+
+统一顺序：
+
+```text
+文档说明与当前状态
+→ 目标、职责和明确边界
+→ 总体架构、项目结构和全局约束
+→ 领域/组件、数据、API/事件、页面详细设计
+→ 错误、安全、审计、可观测性和测试设计
+→ 任务依赖
+→ 九字段开发任务卡
+→ 完成标准、执行记录和下一阶段输入契约
+```
+
+每个可派遣任务必须包含且只使用以下统一字段：
+
+```text
+状态
+目标
+输入文档
+依赖
+允许修改范围
+预期输出
+验证与证据
+结果回写
+建议提交
+```
+
+强制规则：
+
+- 详细业务和技术设计写在任务拆分之前；任务卡引用对应章节，不重复整篇设计，也不得只有一句摘要。
+- 有前端或外部消费者时必须按“后端用例与契约 → 页面/调用方 → 契约测试与 E2E → 阶段验收”纵向设计；不适用时写明原因。
+- API、事件、数据库、权限、页面和错误必须给出稳定契约及明确边界，禁止使用 `TBD`、`TODO`、“适当处理”等占位表达。
+- 状态统一为 `待细化 → 可派遣 → 已派遣 → 开发中 → 待验收 → 已完成`；设计冲突使用 `设计待确认`。
+- 历史测试和提交必须标注为历史证据，不得表述为本轮重新验证。
+- 外部环境未具备时相关项目只能标记“待验收”。
+- 任务编号、依赖图和执行记录必须一一对应；公共基线的历史任务不得覆盖，新增变更使用新编号。
+- 文档完成前执行引用、占位符、契约一致性、任务字段和 `git diff --check` 自审。
+
+统一数据建模规则：
+
+- 表/实体字段定义及“主要字段”只列当前表业务字段；每张实体表统一必备的 `Entity` 生命周期字段在全局约束集中定义，不逐表重复。
+- 实体自身稳定业务标识统一使用 `NId`；其他业务表引用时使用 `{EntityName}NId`。`Code` 仅用于生成编码结果等非实体身份语义。
+- 同库父子表以主表 `Id + IsDeleted` 建立复合外键；子表分别保存 `{ParentEntity}_Id`、`{ParentEntity}_IsDeleted`，且保留自身独立的 `IsDeleted`。PostgreSQL 物理列使用 `snake_case`，被引用主表声明 `unique (id, is_deleted)`。
+- 父表软删除/恢复必须通过 `ON UPDATE CASCADE` 或同一事务内等价机制同步子表父删除状态快照；有效子记录查询同时过滤子表自身和父引用的删除状态。
+- 跨服务、跨数据库只引用 `{EntityName}NId` 及必要快照，通过 API/事件同步，不建立数据库外键。
+
+当前格式基准文档：
+
+- `docs/implementation/02-Industrial Platform BuildingBlocks基础组件开发实施方案.md`
+- `docs/implementation/02B-Industrial Platform统一前端第一批开发实施方案.md`
+- `docs/implementation/03-Industrial Platform Identity Service开发实施方案.md`
 
 ## 常用命令
 
@@ -24,6 +84,15 @@ dotnet build src/backend/IndustrialPlatform.slnx --no-restore
 dotnet test tests/BuildingBlocks/IndustrialPlatform.BuildingBlocks.Tests/IndustrialPlatform.BuildingBlocks.Tests.csproj --no-build
 ```
 
+统一前端(工具链由根 `.mise.toml` 钉定 node 24.18.0 / pnpm 11.16.0;方案见 `docs/implementation/02B-…`):
+
+```bash
+cd src/frontend
+pnpm install --frozen-lockfile   # 严格按锁文件安装
+pnpm lint && pnpm typecheck && pnpm test:unit:coverage && pnpm build
+pnpm test:e2e                   # 基于 pnpm preview,需先 build
+```
+
 ## 工程约束
 
 - `Directory.Build.props`:`net10.0`、Nullable enable、**TreatWarningsAsErrors**、`AnalysisLevel=latest-recommended`。任何分析器警告都是错误,必须消除。
@@ -31,7 +100,7 @@ dotnet test tests/BuildingBlocks/IndustrialPlatform.BuildingBlocks.Tests/Industr
 - `.editorconfig`:4 空格缩进;测试项目局部 `.editorconfig` 关闭 CA1707(允许测试方法名下划线命名)。
 - **时间类型规范**:禁止使用 `DateTime`,一律使用 `DateTimeOffset`(保留时区偏移;获取当前时间用 `DateTimeOffset.UtcNow`)。
 - 架构测试 `tests/BuildingBlocks/IndustrialPlatform.BuildingBlocks.Tests/ProjectReferenceArchitectureTests.cs` 锁定各 csproj 引用关系,改动引用会失败。
-- BuildingBlocks 禁止包含 MES 业务逻辑(工单/称量/设备等)。依赖方向:Security→Web→Application.Abstractions→SharedKernel;Infrastructure→SharedKernel;EventBus→SharedKernel。
+- BuildingBlocks 禁止包含 MES 业务逻辑(工单/称量/设备等)。当前引用方向:Application.Abstractions→SharedKernel；Infrastructure→Application.Abstractions+SharedKernel；EventBus→SharedKernel；Security/Web→Application.Abstractions；Logging 不引用其他 BuildingBlocks 项目。
 
 ## BuildingBlocks 实施进度
 
@@ -56,7 +125,7 @@ dotnet test tests/BuildingBlocks/IndustrialPlatform.BuildingBlocks.Tests/Industr
 
 - **CA1000**:泛型类型禁止静态成员 → `Result<T>` 的工厂方法(Ok/Fail)全部放在非泛型 `Result` 类上。
 - **无约束泛型 `T? Data` 语义**:`Result<int>.Data` 是 `int`(值类型失败时为 default),`Result<string>.Data` 可为 null。测试按此编写。
-- **NuGet 版本(已定)**:SqlSugarCore 5.1.4.216 / StackExchange.Redis 3.1.3 / RabbitMQ.Client 7.2.2(待 Task-007)/ Serilog 4.4.0 系列(待 Task-008),Microsoft.Extensions.* 10.0.10。已写入 `Directory.Packages.props`。
+- **NuGet 版本(已定)**:SqlSugarCore 5.1.4.216 / StackExchange.Redis 3.1.3 / RabbitMQ.Client 7.2.2 / Serilog 4.4.0 系列 / Microsoft.Extensions.* 10.0.10。已写入 `Directory.Packages.props`。
 - **依赖安全(已清零)**:SqlSugarCore 升级到 5.1.4.216 后,其捆绑的可选提供程序(Oracle/SqlClient/System.Drawing/Newtonsoft 等)传递漏洞(NU1902/3/4)与 SQLite RID 警告(NETSDK1206)均消失;SQLitePCLRaw 全家(bundle/core/provider/lib.e_sqlite3)由 `SQLitePCLRaw.bundle_e_sqlite3` 钉到 2.1.12,修复 lib.e_sqlite3 2.1.11 的 GHSA-2m69-gcr7-jv3q 高危漏洞。`Directory.Build.props` 无任何 `WarningsNotAsErrors` 豁免,严格零警告基线;全 18 个项目 `--vulnerable`/`--deprecated` 审计均干净。
 - **ICurrentUser.UserId 类型**:采用 `Guid`(与 SharedKernel `Entity.Id` 一致,不采用设计文档 §25 的 `long`),已在 Security 组件落地;声明类型常量见 `Security/ClaimConstants.cs`。
 - **Entity 生命周期与双版本并发(TASK-BB-010)**:`Entity` 含 `IsFrozen/IsLocked/IsDeleted/EntityType/CreatedOn/LastUpdatedOn/OptimisticVersion(long)/ConcurrencyVersion(Guid)`;创建时 `CreatedOn == LastUpdatedOn` 取同一 `UtcNow`、`EntityType` 为完整类型名、双版本初始化。业务修改用 `EnsureCanModify()+Touch()`(protected),状态转换 `Freeze/Unfreeze/Lock/Unlock/MarkDeleted/Restore` 为 public 且幂等;状态冲突抛含操作名与实体类型的 `BusinessException`。更新/删除/恢复接口必须传调用方读取时的原始双版本,仓储以 `Id+IsDeleted+双版本` 原子 UPDATE,影响行数非 1 抛 `ConcurrencyException`;删除为软删除,默认查询排除已删除记录,物理删除只允许运维流程。
@@ -88,12 +157,41 @@ dotnet test tests/BuildingBlocks/IndustrialPlatform.BuildingBlocks.Tests/Industr
 
 - **xunit 2.9.3 被 NuGet 标记为 `Legacy`**(替代项 xunit.v3),影响 3 个测试项目(BuildingBlocks/Identity/ReferenceData.Tests)。不影响构建(0 警告)与测试(74/74);`--deprecated` 审计退出码仍为 0。迁移到 xunit.v3 涉及测试 SDK 集成与断言 API 变更,待独立任务处理,未在固化基线时强行迁移。
 
+## 统一前端实施进度(02B)
+
+### 已实现 ✅
+
+| Task | 内容 | 验收 |
+| --- | --- | --- |
+| TASK-FE-001 | Vue3+TS+Vite 单包工程、严格 TS、Pinia/Router/Element Plus/Axios/Vitest/MSW/Playwright、八个稳定命令 | 2026-08-10 工具链由根 `.mise.toml` 钉定 node 24.18.0/pnpm 11.16.0;install --frozen-lockfile / format / lint / typecheck / unit(4/4)/ coverage(100%)/ build / E2E(1 passed)全过 ✅ |
+| TASK-FE-002 | `createIndustrialApp()` 统一装配工厂、Design Token(`tokens.css`)、焦点/reduced-motion 基线、AppPage/AppEmptyState/AppErrorAlert/MockModeBanner | 2026-08-10 format/lint/typecheck 通过;unit 20/20;coverage 95/100/100/94.7(阈值 70);build + E2E 通过 ✅ |
+| TASK-FE-003 | 类型安全运行配置(`parseRuntimeConfig`,生产禁 mock)、统一 HTTP 客户端(`createHttpClient`,X-Correlation-Id/Bearer 注入、信封解包)、统一错误层(`ApiError`/`normalizeError` 十类映射)、TraceId 提取、敏感日志脱敏 | 2026-08-10 format/lint/typecheck 通过;unit 71/71(新增 runtimeConfig/correlation/redact/errors 单元 + httpClient 契约);coverage 93.71/89.61/87.09/93.83(阈值 70);build + E2E 通过 ✅ |
+| TASK-FE-004 | 认证边界(`AuthGateway` 契约 + 可复用契约测试套件)、`MockAuthGateway`(mock.admin/Mock@123456,三权限)、版本化会话存储(`industrial-platform.auth.mock.v1`,坏数据清理)、`AuthStore`(登录/恢复/刷新单飞/退出/权限,password 不入 Store/Storage)、`setAuthGateway/getCurrentSession` Phase 3 替换点 | 2026-08-10 format/lint/typecheck 通过;unit 112/112(新增 41);coverage 95.18/90.94/92.18/96.29(阈值 70);build + E2E 通过 ✅ |
+| TASK-FE-005 | 终端识别(`detectTerminal` 三档宽度+触控、覆盖键 `industrial-platform.terminal.override.v1` pc/pda/mobile/auto、优先级 显式路由>覆盖>自动)、`deviceStore`(建议/生效/覆盖)、七条稳定路由 + `ROUTE_NAMES`、Route Meta 模块增强、唯一全局守卫(会话→权限→终端分流→标题) | 2026-08-10 format/lint/typecheck 通过;unit 141/141(新增 device/deviceStore/routerGuards 30);coverage 93.35/90.03/90.24/94.64(阈值 70);build + E2E 通过 ✅ |
+| TASK-FE-006 | PC 管理框架:`layouts/PcLayout.vue`(56px 顶栏 + 240/64px 侧栏 + 主内容区 + 跳到主内容入口)、`components/navigation/**`(NavigationItem 模型 + 首页菜单 + 权限过滤 + 路由高亮 + 折叠态)、折叠持久化 `industrial-platform.pc.sidebar.collapsed.v1`、用户菜单/终端信息/Mock 横幅/退出入口;`/pc` 父路由挂载 PcLayout(FE-007 替换首页桩) | 2026-08-10 format/lint/typecheck 通过;unit 158/158(新增 PcLayout 10 + PcNavMenu 6);coverage 93.91/90.79/92.78/95.3(阈值 70);build + E2E 通过 ✅ |
+| TASK-FE-007 | 登录页/403/404 公共页面 + PC Mock 首页:LoginPage(必填校验 + aria 错误关联、密码显隐、提交防重、统一错误、站内 redirect、密码不入存储)、ForbiddenPage(返回有权限首页/重新登录、TraceId 条件展示)、NotFoundPage(路径纯文本转义、返回首页/上一页、无历史回落)、PcHomePage(欢迎信息、终端/认证模式/数据来源、无伪指标空状态);装配按 authMode 注入 Mock 网关(http 抛错);E2E 11 用例 + 2 张 PC 首页截图 | 2026-08-10 format/lint/typecheck 通过;unit 182/182(新增 LoginPage 9 + ForbiddenPage 6 + NotFoundPage 5 + PcHomePage 4);coverage 95.71/92.21/94.53/96.58(阈值 70);build 通过;E2E 12/12 ✅ |
+| TASK-FE-008 | PDA 基础壳:PdaLayout(48px 顶栏 + 返回/首页/退出 48px 触控按钮 + 用户/终端/Mock 标识 + 可滚动主区)、PdaHomePage(现场任务空状态,无扫码/称量/工单伪业务入口)、`/pda` 父路由挂载;返回无历史回落首页、退出回登录、横竖屏自适应 | 2026-08-10 format/lint/typecheck 通过;unit 195/195(新增 PdaLayout 8 + PdaHomePage 5);coverage 96.02/92.05/94.92/96.81(阈值 70);build 通过;E2E 19/19(新增 pda 7 用例 + 480×800/800×480 截图)✅ |
+| TASK-FE-009 | Mobile 基础壳:MobileLayout(44px 顶栏 + 底部导航 首页/我的 Tab + safe-area padding-bottom + 终端/Mock 标识)、MobileHomePage(业务空状态,无任务/消息/审批假入口)、MobileMyPage(用户信息 + 44px 退出入口)、`/mobile` 父路由挂载 + `mobile-my` 新路由;root 桩改名 rootStub | 2026-08-10 format/lint/typecheck 通过;unit 212/212(新增 MobileLayout 8 + MobileHomePage 5 + MobileMyPage 4);coverage 96.32/91.81/95.36/97.04(阈值 70);build 通过;E2E 27/27(新增 mobile 8 用例 + 360×800/390×844 截图)✅ |
+| TASK-FE-010 | 三端集成与第一批验收:新增 `screens.spec.ts`(六视口统一截图 + 无横向滚动 + safe-area Token 消费断言)与 `console.spec.ts`(§18.2 全流程无 console/page error + 敏感日志),补齐 favicon 集成点(`public/favicon.svg`),clean install 门禁(node 24.18.0/pnpm 11.16.0 经 `mise exec`),README 新增 Phase 3 Identity 接入清单 | 2026-08-10 clean install ✅;format:check/lint/typecheck 退出码 0;unit 212/212;coverage 96.32/91.81/95.36/97.04(阈值 70);build 通过;E2E 35/35(smoke 1+pc 12+pda 7+mobile 8+screens 7+console 1)✅ |
+
+### 待实施 ⏳
+
+| Task | 内容 |
+| --- | --- |
+| Phase 3(前端) | HttpAuthGateway + 真实 Identity 登录/刷新/撤销 + 权限映射 + preview E2E;接入清单见 `src/frontend/README.md`「Phase 3 Identity 接入清单」 |
+| 外部环境待验收 | Docker 真实依赖联调(TASK-BASE-002)、真实 `env(safe-area-inset-bottom)` 与真机 PDA/Mobile、Identity 服务联调 |
+
+### 已知偏差
+
+- Element Plus 全量导入使主 chunk 1.02M(gzip 331.57k),build 有 chunk>500k 警告,第一批可接受,留待后续按需引入/代码分割。
+
 ## 目录速览
 
 - `src/backend/src/BuildingBlocks/` — 7 个共享组件
 - `src/backend/src/Services/{Identity,ReferenceData}/` — 服务骨架(Domain/Application/Infrastructure/Api),仅有 `/health`
 - `src/backend/src/Gateway/IndustrialPlatform.Gateway/` — 统一 API 入口(YARP 反向代理 + 平台健康聚合 + 统一错误 + 开发期 CORS)
-- `src/frontend/` — Vue3 PC/PDA/Mobile 三端骨架(空目录)
+- `src/frontend/` — Vue3+TS+Vite 单包工程(PC/PDA/Mobile 统一前端,第一批三端基础壳已完成,见 02B 方案)
+- `src/DEBUGGING.md` — 本地调试指南(后端 VS2026 / 前端 VS Code;无 Docker 环境的验证结论与已知预期)
 - `tests/` — BuildingBlocks/Identity/ReferenceData/Gateway 测试项目 + 分类占位目录
 - `docs/blueprint/` — 31 份蓝图;`docs/implementation/` — 实施文档;`docs/superpowers/` — 规格与计划
 - `docker/` — 本地基础设施 Compose 编排(postgres:18-alpine / redis:7.4-alpine / rabbitmq:4-management / datalust/seq:2025)

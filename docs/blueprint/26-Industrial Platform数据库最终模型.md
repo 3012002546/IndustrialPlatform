@@ -196,9 +196,35 @@ optimistic_version bigint not null default 0
 concurrency_version uuid not null
 ```
 
-创建时 `created_on` 与 `last_updated_on` 必须相等。更新、冻结、锁定、软删除和恢复都会更新 `last_updated_on`、递增 `optimistic_version` 并刷新 `concurrency_version`。默认查询过滤 `is_deleted = true`。
+创建时 `created_on` 与 `last_updated_on` 必须相等。更新、冻结、锁定、软删除和恢复都会更新 `last_updated_on`、递增 `optimistic_version` 并刷新 `concurrency_version`。默认查询过滤 `is_deleted = false`。
 
 租户、创建人和更新人等字段由具体服务按领域和审计要求扩展，不混入所有实体都必须继承的最小基类。
+
+表定义、实体字段表和“主要字段”列表只展示当前表拥有的业务字段，不逐表重复上述 `Entity` 生命周期字段；完整建表、迁移和映射仍必须应用全部统一字段。
+
+领域实体自身的稳定业务标识统一使用 `NId`，其他业务表引用时使用 `{EntityName}NId`。PostgreSQL 物理列统一使用 `snake_case`，例如 `NId → n_id`、`MaterialNId → material_n_id`。`Code` 仅允许表示规则生成的编码结果等非实体身份语义。
+
+同库父子表使用主表 `Id + IsDeleted` 作为复合外键目标。子表分别保存 `{ParentEntity}_Id`、`{ParentEntity}_IsDeleted`，物理列为 `{parent_entity}_id`、`{parent_entity}_is_deleted`；例如：
+
+```text
+MaterialProperty(Material_Id, Material_IsDeleted) → Material(Id, IsDeleted)
+material_property(material_id, material_is_deleted) → material(id, is_deleted)
+```
+
+```sql
+alter table material
+    add constraint uq_material_id_is_deleted unique (id, is_deleted);
+
+alter table material_property
+    add constraint fk_material_property_material
+    foreign key (material_id, material_is_deleted)
+    references material (id, is_deleted)
+    on update cascade;
+```
+
+子表自身仍有独立的生命周期 `IsDeleted/is_deleted`，不得复用它表示主表删除状态。被引用主表必须声明 `unique (id, is_deleted)`；父表软删除或恢复时使用 `ON UPDATE CASCADE` 或同一事务内的等价机制同步子表父删除状态快照，不得改写子表自身 `is_deleted`。默认有效子记录查询同时过滤 `child.is_deleted = false` 与 `child.{parent_entity}_is_deleted = false`。
+
+跨服务、跨数据库只保存对方 `{EntityName}NId` 和必要业务快照，通过 API/事件保持最终一致性，不建立数据库外键。
 
 ---
 
@@ -1312,6 +1338,8 @@ Trace DB
 ## 24.1 基础强制规则
 
 所有实体表必须以 `id` 为主键，由 PostgreSQL 创建唯一 B-tree 主键索引。默认查询使用 `is_deleted = false`，但不统一创建 `(id, is_deleted)` 或 `is_deleted` 单列索引：`id` 已唯一定位最多一行，布尔删除标记选择性低。
+
+仅当主表被同库子表以 `Id + IsDeleted` 引用时，为该主表创建可引用的 `unique (id, is_deleted)`；这是复合外键所需的条件性例外，不推广到所有实体表。
 
 并发更新条件统一为：
 
