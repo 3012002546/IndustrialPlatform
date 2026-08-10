@@ -1,5 +1,6 @@
 /*
- * 全局基础样式(FE-001 最小基线;Design Token 与三端适配在 FE-002 补充)。
+ * 全局基础样式:焦点可见性与 reduced-motion 可访问性基线。
+ * Design Token 见 tokens.css(需在其之后引入)。
  */
 
 :root {
@@ -24,4 +25,22 @@ body {
     'PingFang SC',
     'Microsoft YaHei',
     sans-serif;
+}
+
+/* 键盘焦点始终可见(WCAG 2.2 可适用条目) */
+:focus-visible {
+  outline: var(--ip-focus-ring-width) solid var(--ip-focus-ring-color);
+  outline-offset: 2px;
+}
+
+/* prefers-reduced-motion 时减少非必要动画 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

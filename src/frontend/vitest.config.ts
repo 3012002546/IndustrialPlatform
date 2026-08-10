@@ -6,7 +6,12 @@ export default mergeConfig(
   viteConfig,
   defineConfig({
     test: {
-      include: ['tests/unit/**/*.spec.ts', 'tests/components/**/*.spec.ts', 'tests/contract/**/*.spec.ts', 'src/**/*.spec.ts'],
+      include: [
+        'tests/unit/**/*.spec.ts',
+        'tests/components/**/*.spec.ts',
+        'tests/contract/**/*.spec.ts',
+        'src/**/*.spec.ts',
+      ],
       environment: 'jsdom',
       restoreMocks: true,
       coverage: {

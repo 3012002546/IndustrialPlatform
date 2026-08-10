@@ -1,12 +1,5 @@
-import ElementPlus from 'element-plus'
-import { createApp } from 'vue'
+import { createIndustrialApp } from '@/app/createIndustrialApp'
 
-import 'element-plus/dist/index.css'
-import '@/styles/base.css'
-
-import App from './App.vue'
-
-const app = createApp(App)
-
-app.use(ElementPlus)
-app.mount('#app')
+// main.ts 只负责读取配置、创建和挂载应用;装配细节在 createIndustrialApp()。
+// 后续 loadRuntimeConfig()(FE-003)在此工厂之前调用。
+createIndustrialApp().mount('#app')
