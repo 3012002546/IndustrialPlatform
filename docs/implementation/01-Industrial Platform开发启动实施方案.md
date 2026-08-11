@@ -28,7 +28,7 @@
 * 测试体系设计
 * 安全体系设计
 
-总体架构不在开发会话中随意变更；每个新增 PF/MES 阶段仍必须先在独立设计会话中形成书面规格，再进入实施计划和开发。
+总体架构不在开发任务中随意变更；每个 PF 阶段只保留一个阶段管理会话，该会话根据实施母版、项目记忆和当前代码完成详细设计、任务派遣、跟踪与验收，实际编码由被派遣任务执行。
 
 目标：
 
@@ -109,24 +109,23 @@ MES-03+  生产闭环服务
 
 ## PF-01～PF-11 平台基础和独立模块
 
-详细边界读取 `docs/blueprint/05-Industrial Platform平台基础功能与独立模块设计.md`，执行顺序、阶段任务卡和独立会话入口读取 `docs/blueprint/09-Industrial Platform开发总TodoList.md`。
+详细边界读取 `docs/blueprint/05-Industrial Platform平台基础功能与独立模块设计.md`，执行顺序、阶段任务卡和阶段管理会话入口读取 `docs/blueprint/09-Industrial Platform开发总TodoList.md`。
 
 每个阶段都遵循：
 
 ```text
-独立设计会话
-→ 书面规格评审与提交
-→ 独立实施计划会话
-→ 实施方案和任务卡
-→ 开发会话
-→ 阶段验收和总 TodoList 回写
+阶段管理会话读取母版、项目记忆和当前代码
+→ 详细设计与用户确认
+→ 对应编号实施方案和九字段任务卡
+→ 派遣实际开发任务
+→ 跟踪、阶段验收和总 TodoList 回写
 ```
 
-PF-03 ReferenceData 复用现有实施文档 04，但开发前必须独立复核当前骨架、任务状态以及与 SystemData 和主题体系的契约。
+PF-03 ReferenceData 复用重编号后的实施文档 06，但开发前必须由 PF-03 阶段管理会话复核当前骨架、任务状态以及与 SystemData 和主题体系的契约。
 
 ## MES-01 MasterData 与 MES-02 OperationalData
 
-现有实施文档 05、06 保留但暂停执行。达到总 TodoList 规定的恢复门禁后，分别新开会话复核，再决定保留或调整原任务卡。
+MasterData、OperationalData 实施文档调整为 15、16 并暂停执行。达到总 TodoList 规定的恢复门禁后，分别由 MES 阶段管理会话复核，再决定保留或调整原任务卡。
 
 ## MES-03 以后：生产闭环服务纵向交付
 
@@ -967,11 +966,11 @@ GET
 
 ## 第二优先级
 
-- PF-01 视觉、主题与平台外壳；在独立会话完成详细设计后实施。
+- PF-01 视觉、主题与平台外壳；现有阶段管理会话继续按母版生成实施文档 04 和任务卡。
 
 ## 第三优先级
 
-- PF-02 SystemData 与 PF-03 ReferenceData；ReferenceData 当前代码只有骨架，开发前复核实施文档 04。
+- PF-02 SystemData 与 PF-03 ReferenceData；ReferenceData 当前代码只有骨架，开发前复核实施文档 06。
 
 ## 后续顺序
 

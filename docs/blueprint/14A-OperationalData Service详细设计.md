@@ -520,7 +520,7 @@ InventoryLotStatusChanged
 → WMS 适配器
 ```
 
-总体阶段、恢复门禁和结果索引统一维护在 `09-Industrial Platform开发总TodoList.md`；OperationalData 的详细任务继续维护在实施文档 06。
+总体阶段、恢复门禁和结果索引统一维护在 `09-Industrial Platform开发总TodoList.md`；OperationalData 的详细任务继续维护在重编号后的实施文档 16。
 
 ---
 

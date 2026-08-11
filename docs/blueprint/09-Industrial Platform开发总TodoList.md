@@ -31,20 +31,32 @@
 
 ## 2.1 文档编号
 
-现有实施文档 `03/04/05/06` 保持不变，避免历史提交、链接和执行记录失效：
+实施文档编号与 PF/MES 阶段统一：
 
-- 03：Identity，进行中。
-- 04：ReferenceData，已有详细设计，代码只有服务骨架。
-- 05：MasterData，实施方案保留，暂停开发。
-- 06：OperationalData，实施方案保留，暂停开发。
+```text
+03  PF-00 Identity（保持）
+04  PF-01 视觉、主题与平台外壳
+05  PF-02 SystemData
+06  PF-03 ReferenceData（原04）
+07  PF-04 File / Notification / Audit
+08  PF-05 Collaboration
+09  PF-06 RemoteAssistance
+10  PF-07 Scheduler / Platform Health
+11  PF-08 Low Code
+12  PF-09 Dashboard & Report
+13  PF-10 Server Monitor
+14  PF-11 IoT Collector
+15  MES-01 MasterData（原05）
+16  MES-02 OperationalData（原06）
+```
 
-文档编号只表示文档身份，不再表示开发顺序。
+04、05、07～14 在对应阶段管理会话中根据 `docs/implementation/TEMPLATE-开发实施方案.md` 创建，不提前生成空骨架。
 
 ## 2.2 执行阶段编号
 
 - `PF-*`：平台基础、平台服务和独立产品优先阶段。
 - `MES-*`：平台基础稳定后恢复的制造业务阶段。
-- `PF-04A` 等后缀：同一交付波次内必须分别开启会话的独立子阶段。
+- PF-04、PF-07、PF-09 各使用一个阶段管理会话，但会话内仍要求相邻模块分开建模和拆分任务。
 
 # 3. 当前真实基线
 
@@ -76,18 +88,17 @@ PF-01 视觉、主题与平台外壳
 PF-02 SystemData  PF-03 ReferenceData
   └──────┬───────┘
          ↓
-PF-04A Audit   PF-04B File   PF-04C Notification
-         └──────────┬──────────┘
+PF-04 File / Notification / Audit
                     ↓
 PF-05 Collaboration
                     ↓
 PF-06 RemoteAssistance 验证与试点
                     ↓
-PF-07A Scheduler   PF-07B Platform Health
+PF-07 Scheduler / Platform Health
                     ↓
 PF-08 Low Code
                     ↓
-PF-09A Dashboard   PF-09B Report
+PF-09 Dashboard & Report
                     ↓
 PF-10 Server Monitor
                     ↓
@@ -104,57 +115,36 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 
 - PF-01 的设计会话可以在 PF-00 后半段开始，但真实 Identity 契约未稳定前不得完成集成验收。
 - PF-02 与 PF-03 的后端设计可以并行，页面必须共同遵循 PF-01。
-- PF-04A/B/C 必须分别开会话，可以并行设计和开发，但 Collaboration 开发前至少需要 Audit 与 File 稳定契约。
-- PF-07A/B 可分别开会话和并行实施。
-- PF-09A/B 共享数据集契约，但必须分别完成产品边界设计。
+- PF-04 使用一个阶段管理会话，File、Notification、Audit 分开建模和派遣；Collaboration 开发前至少需要 Audit 与 File 稳定契约。
+- PF-07 使用一个阶段管理会话，Scheduler 与 Platform Health 分开建模和派遣。
+- PF-09 使用一个阶段管理会话，Dashboard 与 Report 共享数据集契约但保持产品边界。
 - Server Monitor 与 IoT Collector 不互为领域依赖；PF-10 先执行是为了先具备运维观察能力。
 
-# 5. 独立会话工作流
+# 5. 单阶段单管理会话工作流
 
-每个阶段严格使用一个新的 Codex 会话完成设计和计划。开发可以继续使用新的执行会话，不在总体路线会话中累积所有代码上下文。
-
-## 5.1 阶段设计会话
+PF-01～PF-11 每个阶段只创建一个阶段管理会话。该会话只负责详细设计和任务派遣，不直接开发业务代码；实际编码由它派遣的执行任务完成。
 
 ```text
-读取总体蓝图和本阶段任务卡
-→ 检查当前代码、实施文档和真实状态
-→ 一次只确认一个关键问题
-→ 比较 2～3 个可行方案
-→ 分节提交设计并逐节确认
-→ 写入阶段规格并提交
-→ 用户评审书面规格
+读取总体蓝图、阶段任务卡和项目记忆
+→ 完整读取 TEMPLATE-开发实施方案.md
+→ 检查当前代码、现有实施文档和真实状态
+→ 与用户反复确认详细设计
+→ 直接编写对应编号的 docs/implementation 实施方案
+→ 按母版生成任务依赖和九字段任务卡
+→ 派遣实际开发任务
+→ 跟踪提交、测试和环境证据
+→ 组织阶段验收
+→ 回写执行记录、下一阶段契约和总 TodoList
 ```
 
-## 5.2 阶段实施计划会话
-
-设计规格通过后，在新的会话中：
-
-```text
-读取阶段规格和当前代码
-→ 使用统一实施方案模板
-→ 明确文件、接口、数据、页面和测试
-→ 拆分可独立测试和提交的任务卡
-→ 自检覆盖、占位符和类型一致性
-→ 提交实施方案
-```
-
-## 5.3 阶段开发会话
-
-按实施任务卡独立执行，完成后回写：
-
-- 任务状态；
-- 提交号；
-- 测试命令、退出码和通过/失败/跳过数量；
-- 截图、报告或环境证据；
-- 最终接口、路由、配置和偏差；
-- 下一阶段可以依赖的稳定契约。
+不得为同一阶段再要求用户切换“规格会话”“计划会话”或“开发会话”。阶段管理会话可以调用执行任务，但用户始终在该阶段会话中完成设计确认和验收。
 
 # 6. 全局状态流转
 
 阶段状态：
 
 ```text
-待启动 → 设计中 → 规格待评审 → 计划中 → 可开发 → 开发中 → 待验收 → 已完成
+待启动 → 设计中 → 任务待确认 → 可派遣 → 派遣中 → 待验收 → 已完成
 ```
 
 发现跨阶段冲突时：
@@ -190,8 +180,8 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 
 # 8. PF-01 视觉、主题与平台外壳
 
-**状态：** 计划中（待新会话）
-**建议会话标题：** `PF-01 视觉主题与平台外壳详细设计`
+**状态：** 任务待确认（现有阶段管理会话继续）
+**建议会话标题：** `PF-01 视觉主题与平台外壳阶段管理`
 **输入：** 蓝图 04、05、28；已完成统一前端第一批；Identity 稳定前端契约。
 **目标：** 把已批准的工业视觉方向落实为可测试的 Design Token、主题恢复、PC/PDA/Mobile 外壳和通用管理组件规范。
 **依赖：** PF-00 的接口稳定；设计可以提前，最终集成验收必须等待 PF-00。
@@ -207,13 +197,13 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 - 主题持久化、首屏恢复、可访问性和视觉回归策略；
 - 对当前统一前端第一批的迁移范围和兼容策略。
 
-**交付：** 阶段规格、视觉验收基线、独立实施方案、可派遣任务卡。
+**交付：** 已批准阶段规格、视觉验收基线、实施文档 04、可派遣任务卡和执行记录。
 **完成门禁：** Identity 页面和三端外壳接入主题；自动化和截图验收通过；未引入业务假数据。
 
 # 9. PF-02 SystemData
 
 **状态：** 待启动
-**建议会话标题：** `PF-02 SystemData详细设计`
+**建议会话标题：** `PF-02 SystemData阶段管理`
 **输入：** 蓝图 05、13、23、31；PF-00 身份契约；PF-01 页面规范。
 **目标：** 建立行政组织、岗位、任职关系、菜单导航、功能开关、服务目录和主题默认值。
 **依赖：** PF-00；页面依赖 PF-01。
@@ -234,9 +224,9 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 # 10. PF-03 ReferenceData
 
 **状态：** 仅骨架，待独立会话复核
-**建议会话标题：** `PF-03 ReferenceData实施前复核与调整`
-**现有实施文档：** `docs/implementation/04-Industrial Platform ReferenceData Service开发实施方案.md`
-**输入：** 蓝图 05、07、08、21、26、27、31；现有 04 实施方案；PF-00/01/02 契约。
+**建议会话标题：** `PF-03 ReferenceData阶段管理`
+**现有实施文档：** `docs/implementation/06-Industrial Platform ReferenceData Service开发实施方案.md`
+**输入：** 蓝图 05、07、08、21、26、27、31；现有 06 实施方案；PF-00/01/02 契约。
 **目标：** 在不丢弃现有骨架和详细设计的前提下，复核字典、参数、元数据、动态配置和编码规则与新平台边界是否一致，再决定任务调整。
 **依赖：** PF-00；与 PF-02 对菜单、主题默认值和系统参数所有权达成明确契约。
 **禁止范围：** SystemData、MasterData 业务实体、Low Code 运行时。
@@ -251,33 +241,31 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 
 **完成门禁：** 五类能力纵向交付并连接真实 Gateway；缓存、Outbox、审计、页面、契约和 E2E 完成；不越界实现业务实体属性值。
 
-# 11. PF-04 平台通用服务波次
+# 11. PF-04 File / Notification / Audit
 
-PF-04A、PF-04B、PF-04C 必须分别开会话。三个模块不得合并成一个数据库或一个领域模型。
+PF-04 只使用一个阶段管理会话，输出实施文档 07。File、Notification、Audit 必须分开建模、分开数据归属并拆成可独立派遣的任务。
 
-## 11.1 PF-04A Audit
+## 11.1 Audit
 
 **状态：** 待启动
-**建议会话标题：** `PF-04A Audit统一审计详细设计`
+**建议会话标题：** `PF-04 File Notification Audit详细设计与任务派遣`
 **输入：** 蓝图 05、30、31；BuildingBlocks 日志和事件能力；PF-00 身份上下文。
 **目标：** 建立跨模块追加型审计事实源、查询权限、合规查看和可靠写入。
 **关键问题：** 事件契约、Outbox 接入、前后值边界、敏感字段、保留策略、查询索引、合规访问再审计、故障降级。
 **完成门禁：** Identity、SystemData 和至少一个平台服务可以可靠写入并查询审计；失败可监控且不静默丢失。
 
-## 11.2 PF-04B File
+## 11.2 File
 
 **状态：** 待启动
-**建议会话标题：** `PF-04B File文件中心详细设计`
-**输入：** 蓝图 05、20、27、31；对象存储和安全规范；PF-00/04A 契约。
+**输入：** 蓝图 05、20、27、31；对象存储和安全规范；PF-00 与 Audit 契约。
 **目标：** 建立上传会话、隔离、校验、扫描、授权下载、冻结、保留和清理。
 **关键问题：** `FileNId`、对象路径租户隔离、MIME/魔数、扫描适配、签名下载、配额、幂等、清理、审计和页面。
 **完成门禁：** 文件未经扫描不可被业务下载；扫描故障可见；授权、审计、保留和清理测试通过。
 
-## 11.3 PF-04C Notification
+## 11.3 Notification
 
 **状态：** 待启动
-**建议会话标题：** `PF-04C Notification通知中心详细设计`
-**输入：** 蓝图 05；PF-00/01/02/04A 契约；Realtime 可复用基础。
+**输入：** 蓝图 05；PF-00/01/02 与 Audit 契约；Realtime 可复用基础。
 **目标：** 建立公告、系统通知、个人收件箱、投递、已读和跳转目标。
 **关键问题：** 目标范围、优先级、发布时间、失效、幂等投递、离线读取、SignalR 推送、通知模板、权限、审计和三端页面。
 **完成门禁：** 系统到用户通知闭环完成，且与用户聊天边界明确分离。
@@ -285,8 +273,8 @@ PF-04A、PF-04B、PF-04C 必须分别开会话。三个模块不得合并成一�
 # 12. PF-05 Collaboration
 
 **状态：** 待启动
-**建议会话标题：** `PF-05 工业合规聊天详细设计`
-**输入：** 蓝图 05；PF-00、PF-01、PF-04A/B/C 契约。
+**建议会话标题：** `PF-05 Collaboration阶段管理`
+**输入：** 蓝图 05；PF-00、PF-01、PF-04 稳定契约。
 **目标：** 交付登录用户之间的一对一文本、图片和文件聊天。
 **依赖：** Identity、Audit、File；可消费 Notification/Realtime 基础。
 **禁止范围：** 群聊、语音、视频会议、外部联系人、机器人和远程控制。
@@ -306,7 +294,7 @@ PF-04A、PF-04B、PF-04C 必须分别开会话。三个模块不得合并成一�
 # 13. PF-06 RemoteAssistance
 
 **状态：** 待启动
-**建议会话标题：** `PF-06 远程协助验证与产品化设计`
+**建议会话标题：** `PF-06 RemoteAssistance阶段管理`
 **输入：** 蓝图 05；PF-05 会话契约；Screego 官方仓库和部署配置。
 **目标：** 先验证现场网络中的 WebRTC 屏幕共享，再决定 Screego 适配或自研轻量信令路线。
 **依赖：** PF-05；验证环境需具备内部 HTTPS、WebSocket 和可配置网络策略。
@@ -325,20 +313,21 @@ PF-04A、PF-04B、PF-04C 必须分别开会话。三个模块不得合并成一�
 **决策门禁：** 形成带证据的采用、适配或自研结论。验证失败时功能开关保持关闭，不阻塞 Collaboration。
 **产品完成门禁：** 从聊天发起、邀请、接受、共享、终止和元数据审计闭环通过。
 
-# 14. PF-07 运行治理
+# 14. PF-07 Scheduler / Platform Health
 
-## 14.1 PF-07A Scheduler
+PF-07 只使用一个阶段管理会话，输出实施文档 10。Scheduler 与 Platform Health 分开建模并拆成独立任务。
+
+## 14.1 Scheduler
 
 **状态：** 待启动
-**建议会话标题：** `PF-07A Scheduler调度中心详细设计`
+**建议会话标题：** `PF-07 Scheduler Platform Health详细设计与任务派遣`
 **目标：** 定义任务、Cron、启停、互斥、超时、重试、执行记录和人工触发。
 **边界：** Scheduler 不包含所属模块业务规则；处理器通过公开契约注册。
 **完成门禁：** 单实例和多实例互斥、失败重试、人工触发、审计、指标和管理页面通过。
 
-## 14.2 PF-07B Platform Health
+## 14.2 Platform Health
 
 **状态：** 待启动
-**建议会话标题：** `PF-07B Platform Health与服务目录聚合设计`
 **目标：** 聚合 API、数据库、缓存、消息、文件扫描、Realtime 和 RemoteAssistance 依赖摘要。
 **边界：** 不采集完整主机、进程、磁盘和日志告警。
 **完成门禁：** 工作台和运行治理页显示真实服务状态、降级原因和 TraceId，不展示伪造健康数据。
@@ -346,7 +335,7 @@ PF-04A、PF-04B、PF-04C 必须分别开会话。三个模块不得合并成一�
 # 15. PF-08 Low Code
 
 **状态：** 待启动
-**建议会话标题：** `PF-08 Low Code第一期详细设计`
+**建议会话标题：** `PF-08 Low Code阶段管理`
 **输入：** 蓝图 05、21、27、28、31；PF-01/02/03/04/07 稳定契约。
 **目标：** 交付受治理的数据模型、表单、列表、页面、权限、发布、版本和回滚。
 **禁止范围：** 任意 SQL、任意脚本、绕过权限、复杂工作流和插件市场。
@@ -356,27 +345,28 @@ PF-04A、PF-04B、PF-04C 必须分别开会话。三个模块不得合并成一�
 
 # 16. PF-09 Dashboard & Report
 
-## 16.1 PF-09A Dashboard
+PF-09 只使用一个阶段管理会话，输出实施文档 12。Dashboard 与 Report 共享受控数据集契约，但保持产品边界并拆成独立任务。
+
+## 16.1 Dashboard
 
 **状态：** 待启动
-**建议会话标题：** `PF-09A Dashboard看板详细设计`
+**建议会话标题：** `PF-09 Dashboard Report详细设计与任务派遣`
 **目标：** 设计数据集、指标、维度、图表、看板编排和大屏运行模式。
 **边界：** 不承担固定版式导出和业务录入。
 
-## 16.2 PF-09B Report
+## 16.2 Report
 
 **状态：** 待启动
-**建议会话标题：** `PF-09B Report报表详细设计`
 **目标：** 设计参数查询、固定版式、Excel/PDF 导出、定时生成和通知。
 **边界：** 长任务通过 Scheduler，结果通过 File，完成通过 Notification；前端不得提交任意 SQL。
 
-**共同门禁：** 先在两个独立会话中确认共享数据源/数据集契约，再分别编写实施方案和任务卡。
+**共同门禁：** 在同一阶段管理会话中确认共享数据源/数据集契约，并在实施文档 12 中分别建立 Dashboard 与 Report 任务依赖。
 
 # 17. PF-10 Server Monitor
 
 **状态：** 待启动
-**建议会话标题：** `PF-10 Server Monitor独立产品复核与实施设计`
-**输入：** 蓝图 02、05、20、30；PF-04C/07 契约。
+**建议会话标题：** `PF-10 Server Monitor阶段管理`
+**输入：** 蓝图 02、05、20、30；PF-04/07 契约。
 **目标：** 复核并实施主机、CPU、内存、磁盘、网络、进程、服务、端口、日志、告警和运维看板。
 **边界：** 与 Platform Health 分层；可共享指标/日志/通知基础设施，不共享领域所有权。
 **完成门禁：** 至少一个受管节点完成注册、采集、状态、告警、通知和处置记录闭环。
@@ -384,7 +374,7 @@ PF-04A、PF-04B、PF-04C 必须分别开会话。三个模块不得合并成一�
 # 18. PF-11 IoT Collector
 
 **状态：** 待启动
-**建议会话标题：** `PF-11 IoT Collector独立产品复核与实施设计`
+**建议会话标题：** `PF-11 IoT Collector阶段管理`
 **输入：** 蓝图 05、08、17、20、30；PF-07/10 可观测契约。
 **目标：** 复核并实施驱动、连接、点位、采集任务、边缘缓存、断线续传和数据质量。
 **边界：** 不承担 MasterData、报表和 MES 规则；设备业务档案仍归 MasterData。
@@ -395,13 +385,13 @@ PF-04A、PF-04B、PF-04C 必须分别开会话。三个模块不得合并成一�
 ## 19.1 MES-01 MasterData
 
 **状态：** 暂缓
-**现有实施文档：** `docs/implementation/05-Industrial Platform MasterData Service开发实施方案.md`
+**现有实施文档：** `docs/implementation/15-Industrial Platform MasterData Service开发实施方案.md`
 **恢复门禁：** PF-00～PF-07 完成；PF-08/09 是否前置由产品需要决定；必须新开会话复核现有设计与 SystemData、ReferenceData、File、Audit 和主题契约。
 
 ## 19.2 MES-02 OperationalData
 
 **状态：** 暂缓
-**现有实施文档：** `docs/implementation/06-Industrial Platform OperationalData Service开发实施方案.md`
+**现有实施文档：** `docs/implementation/16-Industrial Platform OperationalData Service开发实施方案.md`
 **恢复门禁：** MES-01 稳定契约完成，并在独立会话复核库存、WMS、追溯和现有任务卡。
 
 ## 19.3 MES-03 以后
@@ -425,50 +415,45 @@ WorkOrder、Weighting、Trace、BatchRecord 和生产闭环分别开会话设计
 
 # 21. 阶段跟踪表
 
-| 阶段 | 状态 | 设计会话 | 规格/蓝图 | 实施方案 | 开发提交 | 验收证据 |
+| 阶段 | 状态 | 阶段管理会话 | 设计依据 | 实施方案 | 派遣/提交 | 验收证据 |
 | --- | --- | --- | --- | --- | --- | --- |
 | PF-00 Identity | 开发中 | 现有 Identity 会话 | 蓝图 13、31 | 实施 03 | `d625597`、`e7f0e7a` 等 | 见实施 03 |
-| PF-01 视觉主题 | 计划中（待新会话） | PF-01 独立设计会话（规格已通过） | `docs/superpowers/specs/2026-08-11-pf-01-visual-theme-platform-shell-design.md` | 待新会话生成 | - | - |
-| PF-02 SystemData | 待启动 | - | 蓝图 05，待阶段规格 | 待阶段会话生成 | - | - |
-| PF-03 ReferenceData | 仅骨架 | - | 蓝图及现有设计待复核 | 实施 04 待修订 | - | - |
-| PF-04A Audit | 待启动 | - | 待阶段会话生成 | 待阶段会话生成 | - | - |
-| PF-04B File | 待启动 | - | 待阶段会话生成 | 待阶段会话生成 | - | - |
-| PF-04C Notification | 待启动 | - | 待阶段会话生成 | 待阶段会话生成 | - | - |
-| PF-05 Collaboration | 待启动 | - | 待阶段会话生成 | 待阶段会话生成 | - | - |
-| PF-06 RemoteAssistance | 待启动 | - | 待验证会话生成 | 待决策后生成 | - | - |
-| PF-07A Scheduler | 待启动 | - | 待阶段会话生成 | 待阶段会话生成 | - | - |
-| PF-07B Platform Health | 待启动 | - | 待阶段会话生成 | 待阶段会话生成 | - | - |
-| PF-08 Low Code | 待启动 | - | 蓝图 21 待复核 | 待阶段会话生成 | - | - |
-| PF-09A Dashboard | 待启动 | - | 蓝图 22 待复核 | 待阶段会话生成 | - | - |
-| PF-09B Report | 待启动 | - | 蓝图 22 待复核 | 待阶段会话生成 | - | - |
-| PF-10 Server Monitor | 待启动 | - | 蓝图 02 待复核 | 待阶段会话生成 | - | - |
-| PF-11 IoT Collector | 待启动 | - | 蓝图 17 待复核 | 待阶段会话生成 | - | - |
-| MES-01 MasterData | 暂缓 | - | 蓝图 14 待恢复复核 | 实施 05 暂缓 | - | - |
-| MES-02 OperationalData | 暂缓 | - | 蓝图 14A 待恢复复核 | 实施 06 暂缓 | - | - |
+| PF-01 视觉主题 | 任务待确认 | 现有 PF-01 会话继续 | 已批准 PF-01 规格 | 实施 04 待创建 | - | - |
+| PF-02 SystemData | 待启动 | 待创建 | 蓝图 05 | 实施 05 待创建 | - | - |
+| PF-03 ReferenceData | 仅骨架 | 待创建 | 蓝图及现有设计待复核 | 实施 06 待修订 | - | - |
+| PF-04 File / Notification / Audit | 待启动 | 待创建 | 蓝图 05、30、31 | 实施 07 待创建 | - | - |
+| PF-05 Collaboration | 待启动 | 待创建 | 蓝图 05 | 实施 08 待创建 | - | - |
+| PF-06 RemoteAssistance | 待启动 | 待创建 | 蓝图 05，先验证 | 实施 09 待创建 | - | - |
+| PF-07 Scheduler / Platform Health | 待启动 | 待创建 | 蓝图 05、30 | 实施 10 待创建 | - | - |
+| PF-08 Low Code | 待启动 | 待创建 | 蓝图 21 待复核 | 实施 11 待创建 | - | - |
+| PF-09 Dashboard & Report | 待启动 | 待创建 | 蓝图 22 待复核 | 实施 12 待创建 | - | - |
+| PF-10 Server Monitor | 待启动 | 待创建 | 蓝图 02 待复核 | 实施 13 待创建 | - | - |
+| PF-11 IoT Collector | 待启动 | 待创建 | 蓝图 17 待复核 | 实施 14 待创建 | - | - |
+| MES-01 MasterData | 暂缓 | 待恢复时创建 | 蓝图 14 待复核 | 实施 15 暂缓 | - | - |
+| MES-02 OperationalData | 暂缓 | 待恢复时创建 | 蓝图 14A 待复核 | 实施 16 暂缓 | - | - |
 
-# 22. 新阶段会话启动模板
+# 22. 新阶段管理会话启动模板
 
-开始某个阶段时，在新会话中发送对应任务卡。以下是 PF-01 的完整启动示例；其他阶段使用同一结构，并从跟踪表复制真实阶段编号、名称和输入文档：
+开始某个阶段时只创建一个管理会话。以下是 PF-02 的完整启动示例；其他阶段使用同一结构，并复制真实阶段编号、实施文档编号和输入蓝图：
 
 ```text
-开始 PF-01 视觉主题与平台外壳独立设计会话。
+开始 PF-02 SystemData 阶段管理会话。
 
 先读取：
 1. docs/blueprint/01-Industrial Platform 总体架构设计 V1.0.md
 2. docs/blueprint/05-Industrial Platform平台基础功能与独立模块设计.md
-3. docs/blueprint/09-Industrial Platform开发总TodoList.md 第 8 节 PF-01 任务卡
-4. docs/blueprint/04-Vue3 PCPDAMobile 三端统一架构设计.md
-5. docs/blueprint/28-Industrial Platform前端工程规范.md
-6. docs/implementation/02B-Industrial Platform统一前端第一批开发实施方案.md 和当前前端代码
+3. docs/blueprint/09-Industrial Platform开发总TodoList.md 第 9 节 PF-02 任务卡
+4. docs/implementation/TEMPLATE-开发实施方案.md（必须完整读取）
+5. CLAUDE.md、相关项目记忆、Identity/PF-01稳定契约和当前代码
 
-先核对当前真实状态，再逐个问题讨论。比较方案并分节让我确认；确认后写阶段规格并提交。不要在设计批准前开发代码。阶段规格通过后，在新的计划会话中使用 TEMPLATE-开发实施方案.md 编写详细实施方案和可派遣任务卡。
+这个会话只负责详细设计、任务派遣、跟踪和验收，不直接开发业务代码。先核对真实状态，再逐个问题讨论；设计确认后直接按母版创建 docs/implementation/05-Industrial Platform SystemData开发实施方案.md，生成九字段任务卡并派遣实际开发任务。开发结果持续回写同一实施文档和总TodoList，不再要求我切换规格会话、计划会话或开发会话。
 ```
 
 # 23. 本轮调整记录
 
 - 平台基础和独立模块优先于 MasterData、OperationalData 和 MES 业务扩张。
-- 保留实施文档 03/04/05/06 编号，新增 PF/MES 执行编号。
+- 实施文档按 PF/MES 阶段重排为 03～16；原 ReferenceData、MasterData、OperationalData 调整为 06、15、16。
 - Identity 记录为实际开发中，ReferenceData 记录为代码仅骨架。
 - MasterData、OperationalData 改为暂缓。
-- 删除旧的固定 MES Sprint 路线，改为阶段门禁和独立会话。
-- File、Notification、Audit、Scheduler、Platform Health、Dashboard、Report 使用子阶段拆分，避免单会话上下文过长。
+- 删除旧的固定 MES Sprint 路线，改为阶段门禁和单阶段单管理会话。
+- PF-01～PF-11 每阶段一个管理会话；PF-04、PF-07、PF-09 在同一阶段会话内保持模块分开建模和任务拆分。

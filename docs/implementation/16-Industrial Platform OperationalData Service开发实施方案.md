@@ -1,7 +1,9 @@
-# Industrial Platform OperationalData Service 开发 TODO
+# 16-Industrial Platform OperationalData Service开发实施方案
+
+# Industrial Platform OperationalData Service开发实施方案
 
 版本：v1.0
-当前阶段：Sprint 3
+当前阶段：MES-02，暂缓；达到总开发 TodoList 的恢复门禁后，由独立阶段管理会话复核并重新派遣任务
 蓝图依据：`docs/blueprint/14A-OperationalData Service详细设计.md`
 
 ## 1. 目标与边界
