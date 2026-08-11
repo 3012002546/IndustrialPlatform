@@ -154,6 +154,13 @@ pnpm test:e2e                   # 基于 pnpm preview,需先 build
 | --- | --- |
 | TASK-ID-007~016 | 服务端 RBAC/权限缓存、管理 API、Outbox 集成事件、前端接入与管理页、SSO 与联合验收 |
 
+### 会话进度快照(2026-08-11)
+
+- **当前状态:** TASK-ID-001~006 已完成并提交(develop),最新 `cd46e3c`(`feat(identity): add refresh rotation and session revocation`);全量 build 0 警告 0 错误、test 387/387、`--vulnerable` 25/25 项目干净;PostgreSQL/Redis 全链路(登录/刷新 E2E、撤销 fail-closed)「待验收」。
+- **暂停点:** 用户选择暂停,下一步 **TASK-ID-007(服务端 RBAC、权限缓存与用户上下文)**,建议提交 `feat(identity): add server-side rbac and permission cache`;设计依据 03 文档 §14/§18 + BuildingBlocks `Security`。
+- **ID-007 输入就绪:** token 已携带 `sub/user_name/tenant_id/role[]/sid/ver`;`AuthVersion` 递增(LogoutAllAsync/ChangePasswordHash)即权限缓存失效信号;`Identity` 自身端点直接读 token claims(`ICurrentUser.UserId` 为 Guid?,与 §12 `sub=UserNId` 存在已知偏差,见 TASK-ID-005 决策)。
+- **测试隐患(非回归):** Infrastructure.Tests 测试类构造函数清 bootstrap env 变量,与 `IdentityMigrationTests` 设置 env 的用例存在跨类竞态,全量跑曾偶发 1 个失败且未复现;后续新增 SQLite fixture 类沿用该模式时注意。
+
 ### 关键技术决策
 
 - **Contracts 零引用**:`IndustrialPlatform.Identity.Contracts` 无任何 ProjectReference;集成事件在 TASK-ID-009 引入 EventBus 引用时再更新架构测试。
