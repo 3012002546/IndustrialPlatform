@@ -3,7 +3,7 @@
 版本：V2.0
 状态：持续维护
 用途：总体阶段编排、独立会话派遣、阶段门禁和结果回写
-蓝图依据：`01-Industrial Platform 总体架构设计 V1.0.md`、`05-Industrial Platform平台基础功能与独立模块设计.md`
+蓝图依据：`01-Industrial Platform 总体架构设计 V1.0.md`、`05-Industrial Platform平台基础功能与独立模块设计.md`、`32-Industrial Platform Service Host与内部模块边界.md`
 
 ---
 
@@ -44,7 +44,7 @@
 10  PF-07 Scheduler / Platform Health
 11  PF-08 Low Code
 12  PF-09 Dashboard & Report
-13  PF-10 Server Monitor
+13  PF-10 Operations Center
 14  PF-11 IoT Collector
 15  MES-01 MasterData（原05）
 16  MES-02 OperationalData（原06）
@@ -57,6 +57,10 @@
 - `PF-*`：平台基础、平台服务和独立产品优先阶段。
 - `MES-*`：平台基础稳定后恢复的制造业务阶段。
 - PF-04、PF-07、PF-09 各使用一个阶段管理会话，但会话内仍要求相邻模块分开建模和拆分任务。
+
+## 2.3 阶段与 Service Host
+
+阶段不等于微服务。PF-02～PF-11 的宿主创建/扩展映射固定读取蓝图 32：PF-02/04/07 共用 `SystemData.Service`，PF-05/06 共用 `Collaboration.Service`，PF-08/09 共用 `PlatformStudio.Service`；PF-03 使用 `ReferenceData.Service`，PF-10 创建 `OperationsCenter.Service`，PF-11 创建 `IoTCollector.Service`。同宿主模块仍必须独立建模、独立 Schema 或表前缀、独立契约/权限/测试，禁止跨模块直读 Repository。
 
 # 3. 当前真实基线
 
@@ -100,7 +104,7 @@ PF-08 Low Code
                     ↓
 PF-09 Dashboard & Report
                     ↓
-PF-10 Server Monitor
+PF-10 Operations Center
                     ↓
 PF-11 IoT Collector
                     ↓
@@ -118,7 +122,7 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 - PF-04 使用一个阶段管理会话，File、Notification、Audit 分开建模和派遣；Collaboration 开发前至少需要 Audit 与 File 稳定契约。
 - PF-07 使用一个阶段管理会话，Scheduler 与 Platform Health 分开建模和派遣。
 - PF-09 使用一个阶段管理会话，Dashboard 与 Report 共享数据集契约但保持产品边界。
-- Server Monitor 与 IoT Collector 不互为领域依赖；PF-10 先执行是为了先具备运维观察能力。
+- Operations Center 与 IoT Collector 不互为领域依赖；PF-10 先执行是为了建立运维观察、实施知识与受控助手能力的统一宿主。
 
 # 5. 单阶段单管理会话工作流
 
@@ -203,6 +207,7 @@ PF-01～PF-11 每个阶段只创建一个阶段管理会话。该会话只负责
 # 9. PF-02 SystemData
 
 **状态：** 待启动
+**Service Host：** 创建 `SystemData.Service`；本阶段只交付 SystemData 模块。
 **建议会话标题：** `PF-02 SystemData阶段管理`
 **输入：** 蓝图 05、13、23、31；PF-00 身份契约；PF-01 页面规范。
 **目标：** 建立行政组织、岗位、任职关系、菜单导航、功能开关、服务目录和主题默认值。
@@ -224,6 +229,7 @@ PF-01～PF-11 每个阶段只创建一个阶段管理会话。该会话只负责
 # 10. PF-03 ReferenceData
 
 **状态：** 仅骨架，待独立会话复核
+**Service Host：** 继续利用现有 `ReferenceData.Service` 骨架；内部模块为 Dictionary、Parameter、Metadata、DynamicProperty、CodingRule。
 **建议会话标题：** `PF-03 ReferenceData阶段管理`
 **现有实施文档：** `docs/implementation/06-Industrial Platform ReferenceData Service开发实施方案.md`
 **输入：** 蓝图 05、07、08、21、26、27、31；现有 06 实施方案；PF-00/01/02 契约。
@@ -244,6 +250,8 @@ PF-01～PF-11 每个阶段只创建一个阶段管理会话。该会话只负责
 # 11. PF-04 File / Notification / Audit
 
 PF-04 只使用一个阶段管理会话，输出实施文档 07。File、Notification、Audit 必须分开建模、分开数据归属并拆成可独立派遣的任务。
+
+**Service Host：** 三个模块加入现有 `SystemData.Service`，不得创建当前独立 File/Audit/Notification Service Host。
 
 ## 11.1 Audit
 
@@ -273,6 +281,7 @@ PF-04 只使用一个阶段管理会话，输出实施文档 07。File、Notific
 # 12. PF-05 Collaboration
 
 **状态：** 待启动
+**Service Host：** 创建 `Collaboration.Service`；内部模块至少保持 Messaging、Presence、AttachmentIntegration 分界。
 **建议会话标题：** `PF-05 Collaboration阶段管理`
 **输入：** 蓝图 05；PF-00、PF-01、PF-04 稳定契约。
 **目标：** 交付登录用户之间的一对一文本、图片和文件聊天。
@@ -294,6 +303,7 @@ PF-04 只使用一个阶段管理会话，输出实施文档 07。File、Notific
 # 13. PF-06 RemoteAssistance
 
 **状态：** 待启动
+**Service Host：** RemoteAssistance 作为独立内部模块加入 `Collaboration.Service`，并保留未来物理拆分能力。
 **建议会话标题：** `PF-06 RemoteAssistance阶段管理`
 **输入：** 蓝图 05；PF-05 会话契约；Screego 官方仓库和部署配置。
 **目标：** 先验证现场网络中的 WebRTC 屏幕共享，再决定 Screego 适配或自研轻量信令路线。
@@ -317,6 +327,8 @@ PF-04 只使用一个阶段管理会话，输出实施文档 07。File、Notific
 
 PF-07 只使用一个阶段管理会话，输出实施文档 10。Scheduler 与 Platform Health 分开建模并拆成独立任务。
 
+**Service Host：** Scheduler 与 PlatformHealth 模块加入 `SystemData.Service`。
+
 ## 14.1 Scheduler
 
 **状态：** 待启动
@@ -335,6 +347,7 @@ PF-07 只使用一个阶段管理会话，输出实施文档 10。Scheduler 与 
 # 15. PF-08 Low Code
 
 **状态：** 待启动
+**Service Host：** 创建 `PlatformStudio.Service`；内部模块边界读取蓝图 32。
 **建议会话标题：** `PF-08 Low Code阶段管理`
 **输入：** 蓝图 05、21、27、28、31；PF-01/02/03/04/07 稳定契约。
 **目标：** 交付受治理的数据模型、表单、列表、页面、权限、发布、版本和回滚。
@@ -346,6 +359,8 @@ PF-07 只使用一个阶段管理会话，输出实施文档 10。Scheduler 与 
 # 16. PF-09 Dashboard & Report
 
 PF-09 只使用一个阶段管理会话，输出实施文档 12。Dashboard 与 Report 共享受控数据集契约，但保持产品边界并拆成独立任务。
+
+**Service Host：** Dashboard 与 Report 模块加入 `PlatformStudio.Service`，不得跨模块直读 DataSource/Dataset Repository。
 
 ## 16.1 Dashboard
 
@@ -362,18 +377,22 @@ PF-09 只使用一个阶段管理会话，输出实施文档 12。Dashboard 与 
 
 **共同门禁：** 在同一阶段管理会话中确认共享数据源/数据集契约，并在实施文档 12 中分别建立 Dashboard 与 Report 任务依赖。
 
-# 17. PF-10 Server Monitor
+# 17. PF-10 Operations Center
 
 **状态：** 待启动
-**建议会话标题：** `PF-10 Server Monitor阶段管理`
-**输入：** 蓝图 02、05、20、30；PF-04/07 契约。
-**目标：** 复核并实施主机、CPU、内存、磁盘、网络、进程、服务、端口、日志、告警和运维看板。
-**边界：** 与 Platform Health 分层；可共享指标/日志/通知基础设施，不共享领域所有权。
-**完成门禁：** 至少一个受管节点完成注册、采集、状态、告警、通知和处置记录闭环。
+**建议会话标题：** `PF-10 Operations Center阶段管理`
+**Service Host：** 创建 `OperationsCenter.Service`，内部包含 ServerMonitor、ProjectWorkspace、KnowledgeBase、IssueTracking、KnowledgeAssistant、DataAssistant、ModelGateway。
+**输入：** 蓝图 02、05、20、24、30、32；PF-04/07/09 稳定契约。
+**目标：** 在同一宿主内建立运维观察、实施项目知识作用域、问题跟踪、受控知识/数据助手和模型接入的独立模块边界。
+**母版边界：** ProjectWorkspace 不做计划、里程碑、预算或工时；KnowledgeBase 遵循“草稿→审核→发布→索引”，问题方案只能人工转为知识草稿；助手只访问当前项目内有权访问的已发布知识。KnowledgeAssistant 使用带引用与适用版本的 RAG；ModelGateway 默认本地模型，外部模型按项目默认关闭、密钥加密且调用可审计。DataAssistant 首期只访问受控 Dataset/只读视图并输出结构化查询计划，后续受限 Text-to-SQL 仍须白名单、AST、安全与权限校验，永远禁止自由访问生产库。文件上传复用 SystemData 的 File 模块。
+**ServerMonitor 边界：** 与 Platform Health 分层；首期不自动创建问题、不自动关联知识库、不主动介入问题闭环，只预留公开契约扩展点。
+**设计要求：** 各模块独立 Schema/表前缀、契约、权限和测试；不得在本总 Todo 中提前展开表、API 或页面。
+**完成门禁：** 由 PF-10 阶段管理任务在详细设计确认后定义；至少必须覆盖项目权限、知识发布与索引治理、可靠引用、模型密钥与调用审计、受控数据查询安全，以及一个受管节点的监控闭环。
 
 # 18. PF-11 IoT Collector
 
 **状态：** 待启动
+**Service Host：** 创建 `IoTCollector.Service`；内部模块为 Driver、DeviceConnection、Point、CollectionTask、EdgeManagement。
 **建议会话标题：** `PF-11 IoT Collector阶段管理`
 **输入：** 蓝图 05、08、17、20、30；PF-07/10 可观测契约。
 **目标：** 复核并实施驱动、连接、点位、采集任务、边缘缓存、断线续传和数据质量。
@@ -427,7 +446,7 @@ WorkOrder、Weighting、Trace、BatchRecord 和生产闭环分别开会话设计
 | PF-07 Scheduler / Platform Health | 待启动 | 待创建 | 蓝图 05、30 | 实施 10 待创建 | - | - |
 | PF-08 Low Code | 待启动 | 待创建 | 蓝图 21 待复核 | 实施 11 待创建 | - | - |
 | PF-09 Dashboard & Report | 待启动 | 待创建 | 蓝图 22 待复核 | 实施 12 待创建 | - | - |
-| PF-10 Server Monitor | 待启动 | 待创建 | 蓝图 02 待复核 | 实施 13 待创建 | - | - |
+| PF-10 Operations Center | 待启动 | 待创建 | 蓝图 02、32 待复核 | 实施 13 待创建 | - | - |
 | PF-11 IoT Collector | 待启动 | 待创建 | 蓝图 17 待复核 | 实施 14 待创建 | - | - |
 | MES-01 MasterData | 暂缓 | 待恢复时创建 | 蓝图 14 待复核 | 实施 15 暂缓 | - | - |
 | MES-02 OperationalData | 暂缓 | 待恢复时创建 | 蓝图 14A 待复核 | 实施 16 暂缓 | - | - |

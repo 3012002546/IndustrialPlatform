@@ -3,6 +3,7 @@
 版本：V1.0
 状态：已确认，正式蓝图
 设计来源：`docs/superpowers/specs/2026-08-11-platform-foundation-and-independent-modules-design.md`
+Service Host 母版：`32-Industrial Platform Service Host与内部模块边界.md`
 
 ---
 
@@ -19,7 +20,7 @@ Identity 完成后暂缓 MasterData、OperationalData 和 MES 生产业务扩张
 - 当前默认租户完整可用，同时保留多租户数据和基础设施边界。
 - 提供登录用户之间的一对一工业合规聊天、图片和文件传输。
 - 提供从聊天发起的合规屏幕共享和现场远程指导。
-- 将 Low Code、Dashboard & Report、Server Monitor、IoT Collector 保持为可独立演进产品。
+- 将 Platform Studio、Operations Center、IoT Collector 保持为可独立演进产品，并保持其内部模块边界。
 - 初期允许模块合并部署，但领域、契约和数据归属必须可拆分。
 
 # 3. 总体模块边界
@@ -37,7 +38,7 @@ Identity 完成后暂缓 MasterData、OperationalData 和 MES 生产业务扩张
 
 正式模块名固定为 `SystemData`，不得再使用 `Platform Administration`。
 
-## 3.2 可独立提取的平台服务
+## 3.2 可独立提取的平台模块
 
 | 模块 | 职责 |
 | --- | --- |
@@ -48,11 +49,11 @@ Identity 完成后暂缓 MasterData、OperationalData 和 MES 生产业务扩张
 | Scheduler | 任务定义、执行、互斥、重试、历史和人工触发 |
 | Realtime | SignalR 连接治理、用户连接映射、推送和多实例背板 |
 
-## 3.3 独立产品
+## 3.3 独立产品与 Service Host
 
 - Low Code：数据模型、表单、列表、页面编排和发布治理。
 - Dashboard & Report：数据源、数据集、指标、看板、报表和导出。
-- Server Monitor：主机、进程、服务、端口、日志、告警和运维看板。
+- Operations Center：实施项目工作区、知识库、问题跟踪、知识/数据助手、模型网关和 ServerMonitor；ServerMonitor 只是其内部模块。
 - IoT Collector：协议驱动、点位、采集任务、边缘缓存和断线续传。
 - MasterData 与 MES：平台基础稳定后恢复开发。
 
@@ -151,7 +152,7 @@ ReferenceData 继续使用现有服务骨架和重编号后的实施文档 06，
 
 ## 7.4 Scheduler 与 Platform Health
 
-Scheduler 管理任务运行，不包含任务所属模块的业务规则。Platform Health 只汇总平台服务和依赖状态，主机、进程、磁盘和日志告警进入 Server Monitor。
+Scheduler 管理任务运行，不包含任务所属模块的业务规则。Platform Health 只汇总平台服务和依赖状态，主机、进程、磁盘和日志告警进入 Operations Center 的 ServerMonitor 模块。
 
 # 8. 工业合规协作
 
@@ -202,13 +203,16 @@ Screego 只作为独立验证底座或可替换 WebRTC 引擎，不把源码合�
 
 三者可共享数据源和数据集契约，但分别建模。长时间报表进入后台任务，结果交给 File，完成后由 Notification 通知。
 
-## 9.3 Server Monitor 与 IoT Collector
+## 9.3 Operations Center 与 IoT Collector
 
-Server Monitor 观察平台和 IT 运行状态；IoT Collector 获取工业设备数据。两者可以共享日志、指标和告警基础设施，但不共享领域模型。
+Operations Center 的 ServerMonitor 模块观察平台和 IT 运行状态；IoT Collector 获取工业设备数据。两者可以共享日志、指标和告警基础设施，但不共享领域模型。Operations Center 的 ProjectWorkspace、KnowledgeBase、IssueTracking、KnowledgeAssistant、DataAssistant 与 ModelGateway 边界以蓝图 32 为准，详细设计留给 PF-10 阶段管理任务。
 
 # 10. 跨模块约束
 
+当前七个核心 Service Host 及其内部模块清单以蓝图 32 为准。阶段不等于微服务，共用宿主只代表部署合并。
+
 - 模块拥有自己的领域对象、应用用例、公开契约、数据表和迁移。
+- 同宿主模块使用独立 Schema 或表前缀、独立权限资源和独立测试。
 - 模块不得直接读取或写入其他模块数据表。
 - 跨模块状态使用公开 API、事件和 Outbox/Inbox。
 - API、SignalR 和后台任务都从可信身份上下文获取租户和主体。

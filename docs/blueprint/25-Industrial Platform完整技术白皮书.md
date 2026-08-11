@@ -4,6 +4,8 @@
 > 工业数字化执行平台
 > Technical White Paper V1.0
 
+> 平台基础层当前 Service Host 与内部模块边界以 `32-Industrial Platform Service Host与内部模块边界.md` 为权威母版；本文的长期目标服务名不等同于当前部署宿主。
+
 ---
 
 # 文档说明
@@ -159,7 +161,7 @@ Industrial Platform
 | Data Platform  | 工业数据分析 |
 | Low Code       | 快速配置   |
 | AI Assistant   | 工业智能助手 |
-| Server Monitor | 运维监控   |
+| Operations Center | 运维监控、实施知识与受控助手 |
 
 ---
 
@@ -219,42 +221,28 @@ Industrial Platform
 
 # 4. 微服务架构
 
-## 服务列表
+## 当前平台基础层 Service Host
 
 ```
 Industrial Platform
 
 ├── Identity Service
 
-├── Tenant Service
-
 ├── ReferenceData Service
 
-├── MasterData Service
+├── SystemData Service
 
-├── OperationalData Service
+├── Collaboration Service
 
-├── Planning Service
+├── PlatformStudio Service
 
-├── WorkOrder Service
+├── OperationsCenter Service
 
-├── Weighting Service
-
-├── IoT Collector Service
-
-├── Trace Service
-
-├── Batch Record Service
-
-├── Industrial Data Service
-
-├── Low Code Service
-
-├── AI Assistant Service
-
-└── Server Monitor Service
+└── IoTCollector Service
 
 ```
+
+七个宿主的内部模块、阶段映射和未来拆分规则见蓝图 32。MasterData、OperationalData、Planning、WorkOrder、Weighting、Trace、BatchRecord 与 Industrial Data 等名称保留为 MES 后续阶段或长期可拆分目标，不计入当前平台基础层七宿主。
 
 ---
 
@@ -800,6 +788,8 @@ AI
 
 # 15. AI平台
 
+当前平台基础层的 KnowledgeAssistant、DataAssistant 与 ModelGateway 属于 `OperationsCenter.Service` 的独立内部模块。KnowledgeAssistant 使用带引用与适用版本的 RAG；DataAssistant 首期只访问注册的受控 Dataset/只读视图，永远禁止模型自由访问生产库；外部模型按项目默认关闭且调用可审计。长期 AI 平台能力不得反向放宽这些边界。
+
 ## AI定位
 
 工业Copilot。
@@ -938,12 +928,12 @@ Line
 
 方式：
 
-## TenantId
+## TenantNId
 
 所有业务表：
 
 ```
-TenantId
+TenantNId
 
 ```
 

@@ -7,6 +7,8 @@
 >
 > 版本：v1.0
 
+> 当前平台基础层部署宿主以 `32-Industrial Platform Service Host与内部模块边界.md` 为准；本文中的其他服务名称表示 MES 后续阶段或未来可拆分目标。
+
 ---
 
 # 1. 部署架构定位
@@ -62,7 +64,17 @@ Industrial Platform采用：
 
         Identity
 
+        SystemData
+
         ReferenceData
+
+        Collaboration
+
+        PlatformStudio
+
+        OperationsCenter
+
+        IoTCollector
 
         MasterData
 
@@ -135,7 +147,17 @@ Industrial Platform
 
 ├── Identity
 
+├── SystemData
+
 ├── ReferenceData
+
+├── Collaboration
+
+├── PlatformStudio
+
+├── OperationsCenter
+
+├── IoTCollector
 
 ├── MasterData
 
@@ -198,7 +220,15 @@ Service Cluster
 
 Identity
 
+SystemData
+
 ReferenceData
+
+Collaboration
+
+PlatformStudio
+
+OperationsCenter
 
 MasterData
 
@@ -321,9 +351,9 @@ industrial-system
 
 ---
 
-# 5. 微服务部署模型
+# 5. Service Host 部署模型
 
-每个服务独立Deployment。
+当前每个 Service Host 独立 Deployment。同宿主内部模块不因阶段或领域名称自动拆成独立 Deployment；未来物理拆分目标仍按相同部署模型演进。
 
 例如：
 
@@ -508,7 +538,7 @@ etcd
 
 # 数据库策略
 
-每个服务独立数据库：
+当前按 Service Host 隔离数据库或数据库凭据；同宿主模块至少使用独立 Schema 或表前缀、独立迁移，禁止跨模块直读 Repository。未来拆分后可迁移为独立数据库：
 
 ```
 industrial_identity
@@ -922,7 +952,7 @@ Service
 
 Industrial Platform 自带：
 
-Server Monitor Service
+`OperationsCenter.Service` 的 ServerMonitor 模块
 
 结合：
 

@@ -157,9 +157,9 @@ backend
 
 ---
 
-# 5. Services 微服务目录
+# 5. Services 目录
 
-所有业务服务独立。
+平台基础层当前按蓝图 32 固定为七个核心 Service Host。阶段不等于微服务；共享宿主内的模块必须保持独立 Schema/表前缀、契约、权限、迁移和测试，禁止跨模块直读 Repository，并预留物理拆分。
 
 ```
 backend/services
@@ -167,16 +167,26 @@ backend/services
 │
 ├── Identity.Service
 │
-├── Permission.Service
-│
-├── Audit.Service
-│
-├── File.Service
-│
-├── Notification.Service
-│
+├── SystemData.Service
 │
 ├── ReferenceData.Service
+│
+├── Collaboration.Service
+│
+├── PlatformStudio.Service
+│
+├── OperationsCenter.Service
+│
+├── IoTCollector.Service
+```
+
+其中 `ReferenceData.Service` 继续利用现有骨架，其余宿主按 PF 阶段映射创建或扩展。Worker、Agent、Screego、TURN 和本地模型运行时位于宿主之外，是辅助部署单元，不计入七个核心 Service Host。
+
+以下制造域服务名保留为后续阶段或未来物理拆分目标，不属于当前平台基础层七宿主计数：
+
+```
+backend/services
+
 │
 ├── MasterData.Service
 │
@@ -192,26 +202,20 @@ backend/services
 │
 ├── Equipment.Service
 │
-├── IoTCollector.Service
-│
 ├── OEE.Service
 │
 ├── Quality.Service
 │
 ├── Trace.Service
 │
-├── BatchRecord.Service
-│
-├── Report.Service
-│
-├── Dashboard.Service
-│
-└── ServerMonitor.Api
+└── BatchRecord.Service
 ```
 
 ---
 
-# 6. 单个微服务内部结构
+# 6. 单个 Service Host 内部结构
+
+制造域未来独立服务可继续使用下列 Clean Architecture 示例。平台基础层共享宿主还必须在各层内按模块分区，模块间只通过公开应用契约协作。
 
 以：
 
@@ -542,7 +546,7 @@ RateLimit
 
 # 10. Worker服务
 
-后台任务。
+后台任务。Worker 是辅助部署单元，不计入核心 Service Host；领域规则和权威数据仍归对应宿主内模块。
 
 ```
 backend/workers

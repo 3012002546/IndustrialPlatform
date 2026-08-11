@@ -72,7 +72,7 @@ PF-06    RemoteAssistance 验证与试点
 PF-07    Scheduler / Platform Health（分别设计）
 PF-08    Low Code
 PF-09    Dashboard / Report（分别设计）
-PF-10    Server Monitor
+PF-10    Operations Center
 PF-11    IoT Collector
 MES-01   MasterData（暂缓）
 MES-02   OperationalData（暂缓）

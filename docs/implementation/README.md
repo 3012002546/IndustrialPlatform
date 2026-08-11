@@ -4,6 +4,8 @@
 
 总体开发优先级和阶段门禁统一读取 `docs/blueprint/09-Industrial Platform开发总TodoList.md`。PF-01～PF-11 与本目录 04～14 一一对应；MES 文档从 15 开始。
 
+所有 PF 阶段还必须读取 `docs/blueprint/32-Industrial Platform Service Host与内部模块边界.md`。阶段编号不等于 Service Host；后续阶段可以向前一阶段创建的宿主增加独立模块，但不得合并 Schema/表前缀、契约、权限或测试，也不得跨模块直读 Repository。
+
 ## 协作边界
 
 开发 TODO 按 `待细化 → 可派遣 → 已派遣 → 开发中 → 待验收 → 已完成` 流转。实现发现蓝图冲突时，状态改为 `设计待确认`，回到 `docs/blueprint` 修订后再派遣。
@@ -36,7 +38,7 @@
 | 10 | PF-07 Scheduler / Platform Health实施方案（待 PF-07 会话创建） | 两个模块分开建模，在同一阶段管理会话协调和派遣 |
 | 11 | PF-08 Low Code实施方案（待 PF-08 会话创建） | 待阶段管理会话设计和派遣 |
 | 12 | PF-09 Dashboard & Report实施方案（待 PF-09 会话创建） | 两个产品边界分开建模，在同一阶段管理会话协调和派遣 |
-| 13 | PF-10 Server Monitor实施方案（待 PF-10 会话创建） | 待阶段管理会话复核蓝图并派遣 |
+| 13 | PF-10 Operations Center实施方案（待 PF-10 会话创建） | 创建 `OperationsCenter.Service`；ServerMonitor 是内部模块，完整模块边界读取蓝图 32 |
 | 14 | PF-11 IoT Collector实施方案（待 PF-11 会话创建） | 待阶段管理会话复核蓝图并派遣 |
 | 15 | [MES-01 MasterData实施方案](15-Industrial%20Platform%20MasterData%20Service开发实施方案.md) | 暂缓；保留现有设计和未提交调整，恢复前复核 |
 | 16 | [MES-02 OperationalData实施方案](16-Industrial%20Platform%20OperationalData%20Service开发实施方案.md) | 暂缓；恢复前按母版重构和复核 |
@@ -54,7 +56,7 @@ BuildingBlocks / 可运行基线 / 统一前端第一批（已完成，Docker �
 → PF-07 Scheduler / Platform Health
 → PF-08 Low Code
 → PF-09 Dashboard / Report
-→ PF-10 Server Monitor
+→ PF-10 Operations Center
 → PF-11 IoT Collector
 → MES-01 MasterData
 → MES-02 OperationalData

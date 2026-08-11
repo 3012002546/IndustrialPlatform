@@ -13,12 +13,14 @@
 
 当前执行优先级由 [`09-Industrial Platform开发总TodoList.md`](09-Industrial%20Platform开发总TodoList.md) 的 PF/MES 阶段编号维护，不再由文档文件编号推断。当前主线为：`BuildingBlocks/可运行基线/统一前端（已完成） → PF-00 Identity（进行中） → PF-01～PF-11 平台基础与独立模块 → MES-01 MasterData → MES-02 OperationalData → 后续生产闭环`。
 
+平台基础层当前七个 Service Host、内部模块边界和阶段映射统一读取 [`32-Industrial Platform Service Host与内部模块边界.md`](32-Industrial%20Platform%20Service%20Host与内部模块边界.md)。阶段不等于微服务；旧文档中的独立 Service 名称在冲突时只表示未来拆分目标。
+
 ReferenceData 管理字典、配置、元数据和编码规则；SystemData 管理行政组织、岗位、菜单导航、功能开关、服务目录和主题默认值；MasterData 管理物料、设备、制造组织、仓库、库位和 BOM 等稳定主数据；OperationalData 管理库存批次、余额、预留和仓储业务单据。
 
 | 编号 | 文档 | 状态 | 前置阅读 | 说明 |
 | --- | --- | --- | --- | --- |
 | 01 | [总体架构设计](01-Industrial%20Platform%20总体架构设计%20V1.0.md) | 已整理 | — | 规划 |
-| 02 | [Server Monitor 独立产品设计](02-Server%20Monitor%20独立产品设计文档%20V1.0.md) | 已整理 | 01 | 规划 |
+| 02 | [Server Monitor 历史独立产品设计](02-Server%20Monitor%20独立产品设计文档%20V1.0.md) | 历史规划 | 01, 32 | 仅作为 Operations Center 的 ServerMonitor 模块详细设计输入，部署边界以 32 为准 |
 | 03 | [MES领域模型DDD设计](03-MES领域模型DDD设计.md) | 已整理 | 01 | 规划 |
 | 04 | [Vue3 PC/PDA/Mobile 三端统一架构设计](04-Vue3%20PCPDAMobile%20三端统一架构设计.md) | 已整理 | 01 | 规划 |
 | 05 | [平台基础功能与独立模块设计](05-Industrial%20Platform平台基础功能与独立模块设计.md) | 已确认 | 01, 04, 13, 21, 22, 30, 31 | 正式平台基础蓝图 |
@@ -49,4 +51,5 @@ ReferenceData 管理字典、配置、元数据和编码规则；SystemData 管�
 | 29 | [自动化测试体系](29-Industrial%20Platform自动化测试体系.md) | 已整理 | 01, 12 | 规划 |
 | 30 | [日志审计与可观测性平台设计](30-Industrial%20Platform日志审计与可观测性平台设计.md) | 已整理 | 01 | 规划 |
 | 31 | [权限体系与安全架构设计](31-Industrial%20Platform权限体系与安全架构设计.md) | 已整理 | 01, 13 | 规划 |
-| 后续设计 | [后续设计](后续设计.md) | 路线参考 | 01–31 | 后续章节生成提示词与路线参考 |
+| 32 | [Service Host 与内部模块边界](32-Industrial%20Platform%20Service%20Host与内部模块边界.md) | 已确认 | 01, 05, 09 | 平台基础层权威微服务母版 |
+| 后续设计 | [后续设计](后续设计.md) | 路线参考 | 01–32 | 后续章节生成提示词与路线参考 |

@@ -23,6 +23,8 @@
 
 提供统一架构标准。
 
+平台基础层当前 Service Host、内部模块和阶段映射以 `32-Industrial Platform Service Host与内部模块边界.md` 为权威母版；本文中按领域列出的独立 Service 名称如与母版冲突，表示未来可拆分目标，不表示当前独立部署宿主。
+
 ---
 
 ## 1.2 产品定位
@@ -107,7 +109,7 @@ Industrial Digital Platform
 
  ----------------             ----------------
 
- MES Service                  Server Monitor
+ MES Service                  Operations Center
 
  Planning                     Agent
 
@@ -204,7 +206,7 @@ Scheduler + Platform Health
       ↓
 Low Code + Dashboard & Report
       ↓
-Server Monitor + IoT Collector
+Operations Center + IoT Collector
       ↓
 MasterData + OperationalData + MES业务域
 ```
@@ -214,6 +216,8 @@ MasterData + OperationalData + MES业务域
 SystemData 负责行政组织、岗位、菜单导航、功能开关、服务目录和主题默认值；ReferenceData 负责字典、配置、元数据与编码规则；MasterData 负责物料、设备、制造组织、仓库、库位与 BOM 等业务主数据；OperationalData 负责库存批次、余额、预留、收发退和仓储业务单据。四者边界独立。
 
 平台基础功能、工业合规聊天、远程协助、主题体系和独立模块边界详见 `05-Industrial Platform平台基础功能与独立模块设计.md`。
+
+当前平台基础层固定为七个核心 Service Host：`Identity.Service`、`SystemData.Service`、`ReferenceData.Service`、`Collaboration.Service`、`PlatformStudio.Service`、`OperationsCenter.Service`、`IoTCollector.Service`。Worker、Agent、Screego、TURN 与本地模型运行时属于辅助部署单元，不计入核心 Service Host 数量。
 
 ---
 
@@ -253,9 +257,9 @@ SystemData 负责行政组织、岗位、菜单导航、功能开关、服务目
 
 ---
 
-## 4.2 微服务原则
+## 4.2 微服务与内部模块原则
 
-每个服务：
+独立 Service Host：
 
 拥有：
 
@@ -263,6 +267,8 @@ SystemData 负责行政组织、岗位、菜单导航、功能开关、服务目
 * 独立数据库
 * 独立部署
 * 独立扩展
+
+当前初期部署允许一个 Service Host 承载多个内部模块。共享宿主不等于共享领域：模块必须独立建模，使用独立 Schema 或表前缀、契约、权限、迁移与测试；禁止跨模块直读 Repository 或数据表，并预留未来物理拆分。阶段编号也不等于微服务数量。
 
 例如：
 
@@ -467,6 +473,8 @@ MinIO
 ---
 
 # 6. 微服务划分
+
+本章保留领域拆分和未来目标服务设计。当前平台基础层的正式部署宿主与模块归属读取蓝图 32，不得把下列每个领域标题直接解释为当前独立进程或数据库。
 
 # 6.1 基础平台服务
 
@@ -907,11 +915,13 @@ Quality
 
 ---
 
-# 7. Operation Platform（运维平台）
+# 7. Operations Center（运维与实施知识中心）
 
-## Server Monitor Service
+## OperationsCenter.Service
 
-独立项目。
+当前独立 Service Host，内部包含 `ServerMonitor`、`ProjectWorkspace`、`KnowledgeBase`、`IssueTracking`、`KnowledgeAssistant`、`DataAssistant` 和 `ModelGateway`。其权威母版边界见蓝图 32；各模块的表、API 和页面留给 PF-10 阶段管理任务设计。
+
+### ServerMonitor 模块
 
 定位：
 
@@ -1272,7 +1282,7 @@ Industrial Data
 本架构作为后续：
 
 * MES领域设计
-* Server Monitor设计
+* Operations Center设计
 * 前端三端架构
 * 开发路线规划
 
