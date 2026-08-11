@@ -1,3 +1,5 @@
+using IndustrialPlatform.Identity.Api.Authorization;
+using IndustrialPlatform.Identity.Application.Authorization;
 using IndustrialPlatform.Identity.Infrastructure.Security;
 using IndustrialPlatform.Security;
 using IndustrialPlatform.Web.Results;
@@ -55,10 +57,20 @@ public static class AuthenticationServiceCollectionExtensions
                     },
                     OnForbidden = context =>
                     {
-                        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                        // 按处理器写入的拒绝原因映射 401/403/503 信封(§18):会话失效 401、
+                        // 账号禁用/缺权限 403、安全存储不可用 503(fail-closed)。
+                        var reason = context.HttpContext.Items[PermissionAuthorizationHandler.DenialReasonItemsKey] as AuthorizationDenialReason?;
+                        var (statusCode, code, message) = reason switch
+                        {
+                            AuthorizationDenialReason.SessionInvalid => (StatusCodes.Status401Unauthorized, "401", "登录已失效，请重新登录。"),
+                            AuthorizationDenialReason.AccountDisabled => (StatusCodes.Status403Forbidden, "ID_PERMISSION_DENIED", "账号不可用，请联系管理员。"),
+                            AuthorizationDenialReason.SecurityStoreUnavailable => (StatusCodes.Status503ServiceUnavailable, "ID_AUTH_SECURITY_STORE_UNAVAILABLE", "认证服务暂时不可用，请稍后再试。"),
+                            _ => (StatusCodes.Status403Forbidden, "ID_PERMISSION_DENIED", "无权限执行此操作。"),
+                        };
+
+                        context.Response.StatusCode = statusCode;
                         context.Response.ContentType = "application/json; charset=utf-8";
-                        return context.Response.WriteAsJsonAsync(
-                            ApiResult.Fail<object?>("ID_PERMISSION_DENIED", "无权限执行此操作。"));
+                        return context.Response.WriteAsJsonAsync(ApiResult.Fail<object?>(code, message));
                     },
                 };
             });

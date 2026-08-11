@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using IndustrialPlatform.Identity.Application.Authentication;
+using IndustrialPlatform.Identity.Application.Authorization;
 using IndustrialPlatform.Identity.Contracts.Authentication;
 using IndustrialPlatform.Identity.Domain.LoginSecurity;
 using IndustrialPlatform.Identity.Domain.Passwords;
@@ -595,6 +596,40 @@ public class AuthenticationServiceTests
     }
 
     [Fact]
+    public async Task LogoutAllAsync_InvalidatesPermissionCache()
+    {
+        // Arrange: 数据库已提交新安全版本,提交后删除该用户全部版本缓存键(TASK-ID-007)
+        var user = User.Create(Tenant, "user.alice", "alice", "Alice", null, null, "hash-1");
+        var store = new FakeStore();
+        store.ByNId["user.alice"] = new AuthenticatedUser(user, [RoleId], [RoleNId]);
+        var cache = new FakePermissionCache();
+        var service = CreateService(store, new FakeHasher(Password), new FakeTokenFactory(), new FakeRefreshStore(), new FakeRateLimiter(), new FakeAuditSink(), permissionCache: cache);
+
+        // Act
+        await service.LogoutAllAsync("user.alice", CancellationToken.None);
+
+        // Assert: 提交后按租户+用户失效
+        Assert.Equal([(Tenant, "user.alice")], cache.Invalidated);
+    }
+
+    [Fact]
+    public async Task LogoutAllAsync_CacheInvalidateFailure_StillSucceeds()
+    {
+        // Arrange: 缓存失效为尽力而为,失败不阻断用例(TTL 兜底收敛)
+        var user = User.Create(Tenant, "user.alice", "alice", "Alice", null, null, "hash-1");
+        var store = new FakeStore();
+        store.ByNId["user.alice"] = new AuthenticatedUser(user, [RoleId], [RoleNId]);
+        var cache = new FakePermissionCache { ThrowOnInvalidate = true };
+        var service = CreateService(store, new FakeHasher(Password), new FakeTokenFactory(), new FakeRefreshStore(), new FakeRateLimiter(), new FakeAuditSink(), permissionCache: cache);
+
+        // Act
+        await service.LogoutAllAsync("user.alice", CancellationToken.None);
+
+        // Assert: 不抛错,数据库已提交
+        Assert.Equal(1, store.UpdateCount);
+    }
+
+    [Fact]
     public async Task LogoutAllAsync_UnknownUser_ThrowsSessionInvalid()
     {
         var service = CreateService(new FakeStore(), new FakeHasher(Password), new FakeTokenFactory(), new FakeRefreshStore(), new FakeRateLimiter(), new FakeAuditSink());
@@ -655,6 +690,23 @@ public class AuthenticationServiceTests
         Assert.Equal(user.Id, refresh.RevokedUserIds.Single());
     }
 
+    [Fact]
+    public async Task ChangePasswordAsync_InvalidatesPermissionCache()
+    {
+        // Arrange: 修改密码后提交并失效权限缓存(TASK-ID-007)
+        var user = User.Create(Tenant, "user.alice", "alice", "Alice", null, null, "hash-1");
+        var store = new FakeStore();
+        store.ByNId["user.alice"] = new AuthenticatedUser(user, [RoleId], [RoleNId]);
+        var cache = new FakePermissionCache();
+        var service = CreateService(store, new FakeHasher(Password), new FakeTokenFactory(), new FakeRefreshStore(), new FakeRateLimiter(), new FakeAuditSink(), permissionCache: cache);
+
+        // Act
+        await service.ChangePasswordAsync(new ChangePasswordRequest(Password, "New-Passw0rd!"), "user.alice", CancellationToken.None);
+
+        // Assert: 提交后按租户+用户失效
+        Assert.Equal([(Tenant, "user.alice")], cache.Invalidated);
+    }
+
     private static AuthenticationService CreateService(
         IAuthenticationStore store,
         IPasswordHasher hasher,
@@ -662,7 +714,8 @@ public class AuthenticationServiceTests
         IRefreshSessionStore refreshStore,
         ILoginRateLimiter rateLimiter,
         ILoginAuditSink auditSink,
-        ISessionRevocationStore? sessionRevocation = null)
+        ISessionRevocationStore? sessionRevocation = null,
+        IPermissionCache? permissionCache = null)
         => new(
             store,
             hasher,
@@ -671,6 +724,7 @@ public class AuthenticationServiceTests
             rateLimiter,
             auditSink,
             sessionRevocation ?? new FakeRevocationStore(),
+            permissionCache ?? new FakePermissionCache(),
             Options.Create(new AuthenticationOptions()),
             NullLogger<AuthenticationService>.Instance);
 
@@ -848,6 +902,32 @@ public class AuthenticationServiceTests
             }
 
             return Revoked.Contains(sessionNId);
+        }
+    }
+
+    private sealed class FakePermissionCache : IPermissionCache
+    {
+        public List<(string TenantNId, string UserNId)> Invalidated { get; } = [];
+        public bool ThrowOnInvalidate { get; set; }
+
+        public Task<UserSecurityCacheEntry?> TryGetUserSnapshotAsync(string tenantNId, string userNId, int authVersion, CancellationToken cancellationToken)
+            => Task.FromResult<UserSecurityCacheEntry?>(null);
+
+        public Task<IReadOnlyList<string>?> TryGetPermissionsAsync(string tenantNId, string userNId, int authVersion, CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyList<string>?>(null);
+
+        public Task SetAsync(AuthorizationSnapshot snapshot, CancellationToken cancellationToken)
+            => Task.CompletedTask;
+
+        public async Task InvalidateAsync(string tenantNId, string userNId, CancellationToken cancellationToken)
+        {
+            if (ThrowOnInvalidate)
+            {
+                await Task.Yield();
+                throw new InvalidOperationException("cache unavailable");
+            }
+
+            Invalidated.Add((tenantNId, userNId));
         }
     }
 }

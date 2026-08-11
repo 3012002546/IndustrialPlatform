@@ -1,9 +1,11 @@
 using IndustrialPlatform.ReferenceData.Api.Health;
 using IndustrialPlatform.ReferenceData.Infrastructure;
+using IndustrialPlatform.Web.Configuration;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.AddOptionalLocalDevelopmentInfrastructure(DevelopmentService.ReferenceData);
 builder.UseIndustrialSerilog();
 builder.Services.AddReferenceDataInfrastructure(builder.Configuration);
 builder.Services.AddHttpClient();

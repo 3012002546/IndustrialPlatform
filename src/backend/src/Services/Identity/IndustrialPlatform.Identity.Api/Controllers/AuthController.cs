@@ -19,10 +19,12 @@ namespace IndustrialPlatform.Identity.Api.Controllers;
 public sealed class AuthController : ControllerBase
 {
     private readonly IAuthenticationService _service;
+    private readonly ICurrentUser _currentUser;
 
-    public AuthController(IAuthenticationService service)
+    public AuthController(IAuthenticationService service, ICurrentUser currentUser)
     {
         _service = service;
+        _currentUser = currentUser;
     }
 
     /// <summary>登录:校验凭证并签发 Access/Refresh Token(§15.1)。</summary>
@@ -50,7 +52,7 @@ public sealed class AuthController : ControllerBase
     [HttpGet("me")]
     public async Task<ActionResult<AuthUser>> Me(CancellationToken cancellationToken)
     {
-        var userNId = User.FindFirstValue(ClaimConstants.UserId);
+        var userNId = _currentUser.UserNId;
         if (string.IsNullOrWhiteSpace(userNId))
         {
             return StatusCodeEnvelope(StatusCodes.Status401Unauthorized, "401", "登录已失效，请重新登录。");
@@ -112,7 +114,7 @@ public sealed class AuthController : ControllerBase
     [HttpPost("logout-all")]
     public async Task<IActionResult> LogoutAll(CancellationToken cancellationToken)
     {
-        var userNId = User.FindFirstValue(ClaimConstants.UserId);
+        var userNId = _currentUser.UserNId;
         if (string.IsNullOrWhiteSpace(userNId))
         {
             return StatusCodeEnvelope(StatusCodes.Status401Unauthorized, "401", "登录已失效，请重新登录。");
@@ -134,7 +136,7 @@ public sealed class AuthController : ControllerBase
     [HttpPost("change-password")]
     public async Task<IActionResult> ChangePassword(ChangePasswordRequest request, CancellationToken cancellationToken)
     {
-        var userNId = User.FindFirstValue(ClaimConstants.UserId);
+        var userNId = _currentUser.UserNId;
         if (string.IsNullOrWhiteSpace(userNId))
         {
             return StatusCodeEnvelope(StatusCodes.Status401Unauthorized, "401", "登录已失效，请重新登录。");

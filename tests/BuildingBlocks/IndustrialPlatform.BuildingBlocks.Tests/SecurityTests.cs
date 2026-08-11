@@ -11,16 +11,16 @@ public sealed class CurrentUserTests
     [Fact]
     public void AuthenticatedUser_ExposesClaims()
     {
-        var userId = Guid.NewGuid();
+        var userNId = "USR-ADMIN";
         var user = CreateCurrentUser(
-            new Claim(ClaimConstants.UserId, userId.ToString()),
+            new Claim(ClaimConstants.UserNId, userNId),
             new Claim(ClaimConstants.UserName, "admin"),
             new Claim(ClaimConstants.TenantId, "tenant-1"),
             new Claim(ClaimConstants.Role, "admin"),
             new Claim(ClaimConstants.Role, "operator"));
 
         Assert.True(user.IsAuthenticated);
-        Assert.Equal(userId, user.UserId);
+        Assert.Equal(userNId, user.UserNId);
         Assert.Equal("admin", user.UserName);
         Assert.Equal("tenant-1", user.TenantId);
         Assert.Equal(2, user.Roles.Count);
@@ -34,18 +34,19 @@ public sealed class CurrentUserTests
         var user = CreateCurrentUser(authenticationType: null, []);
 
         Assert.False(user.IsAuthenticated);
-        Assert.Null(user.UserId);
+        Assert.Null(user.UserNId);
         Assert.Null(user.UserName);
         Assert.Null(user.TenantId);
         Assert.Empty(user.Roles);
     }
 
     [Fact]
-    public void InvalidUserIdClaim_ReturnsNull()
+    public void UserNId_ReturnsSubClaimVerbatim()
     {
-        var user = CreateCurrentUser(new Claim(ClaimConstants.UserId, "not-a-guid"));
+        // §12:JWT sub 是 UserNId(如 USR-ADMIN),不是数据库 Guid
+        var user = CreateCurrentUser(new Claim(ClaimConstants.UserNId, "USR-ADMIN"));
 
-        Assert.Null(user.UserId);
+        Assert.Equal("USR-ADMIN", user.UserNId);
     }
 
     [Fact]
@@ -54,7 +55,7 @@ public sealed class CurrentUserTests
         var user = new CurrentUser(new HttpContextAccessor());
 
         Assert.False(user.IsAuthenticated);
-        Assert.Null(user.UserId);
+        Assert.Null(user.UserNId);
         Assert.Empty(user.Roles);
     }
 

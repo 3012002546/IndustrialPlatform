@@ -23,6 +23,20 @@ public sealed class ResultFilterTests
     }
 
     [Fact]
+    public async Task ObjectResult_WithDeclaredType_IsWrappedAndDeclaredTypeCleared()
+    {
+        // 模拟 ActionResult<T> 隐式转换:DeclaredType 被设置为 T,包装为 ApiResult 后必须清空,
+        // 否则输出格式化器按 T 反序列化 ApiResult 抛出 InvalidCastException。
+        var executed = await RunAsync(new ObjectResult("payload") { DeclaredType = typeof(string) });
+
+        var objectResult = Assert.IsType<ObjectResult>(executed.Result);
+        Assert.Null(objectResult.DeclaredType);
+        var apiResult = Assert.IsType<ApiResult<object>>(objectResult.Value);
+        Assert.True(apiResult.Success);
+        Assert.Equal("payload", apiResult.Data);
+    }
+
+    [Fact]
     public async Task ObjectResult_AlreadyWrapped_RemainsUntouched()
     {
         var original = ApiResult.Ok(new { Id = 7 });

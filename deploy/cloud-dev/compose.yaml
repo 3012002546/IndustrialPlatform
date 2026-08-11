@@ -1,0 +1,131 @@
+name: industrial-platform-dev
+
+x-service-defaults: &service-defaults
+  restart: unless-stopped
+  networks:
+    - backend
+
+services:
+  postgres:
+    <<: *service-defaults
+    profiles: [core]
+    image: postgres:18-alpine
+    container_name: industrial-platform-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-industrial_platform}
+      IDENTITY_DATABASE: ${IDENTITY_DATABASE:-identity_db}
+      REFERENCE_DATA_DATABASE: ${REFERENCE_DATA_DATABASE:-industrial_platform}
+    command:
+      - postgres
+      - -c
+      - max_connections=50
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - effective_cache_size=384MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - maintenance_work_mem=64MB
+      - -c
+      - wal_buffers=8MB
+    ports:
+      - "${TAILSCALE_IP:?TAILSCALE_IP is required}:5432:5432"
+    volumes:
+      # PostgreSQL 18 stores versioned clusters below /var/lib/postgresql.
+      - postgres-data:/var/lib/postgresql
+      - ./postgres/init-databases.sh:/docker-entrypoint-initdb.d/10-init-databases.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 15s
+    mem_limit: 768m
+    cpus: 1.0
+
+  redis:
+    <<: *service-defaults
+    profiles: [core]
+    image: redis:7.4-alpine
+    container_name: industrial-platform-redis
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --requirepass
+      - ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      - --maxmemory
+      - 192mb
+      - --maxmemory-policy
+      - allkeys-lru
+    ports:
+      - "${TAILSCALE_IP:?TAILSCALE_IP is required}:6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    mem_limit: 256m
+    cpus: 0.5
+
+  rabbitmq:
+    <<: *service-defaults
+    profiles: [messaging]
+    image: rabbitmq:4-management
+    container_name: industrial-platform-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER is required}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_DEFAULT_VHOST:-/}
+      RABBITMQ_VM_MEMORY_HIGH_WATERMARK_RELATIVE: "0.5"
+    ports:
+      - "${TAILSCALE_IP:?TAILSCALE_IP is required}:5672:5672"
+      - "${TAILSCALE_IP:?TAILSCALE_IP is required}:15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    mem_limit: 768m
+    cpus: 0.75
+
+  seq:
+    <<: *service-defaults
+    profiles: [observability]
+    image: datalust/seq:2025
+    container_name: industrial-platform-seq
+    environment:
+      ACCEPT_EULA: "Y"
+      SEQ_FIRSTRUN_ADMINPASSWORD: ${SEQ_ADMIN_PASSWORD:?SEQ_ADMIN_PASSWORD is required}
+    ports:
+      - "${TAILSCALE_IP:?TAILSCALE_IP is required}:5341:80"
+    volumes:
+      - seq-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/api"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 20s
+    mem_limit: 768m
+    cpus: 0.75
+
+volumes:
+  postgres-data:
+  redis-data:
+  rabbitmq-data:
+  seq-data:
+
+networks:
+  backend:
+    driver: bridge

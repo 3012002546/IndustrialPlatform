@@ -1,4 +1,5 @@
 using IndustrialPlatform.Identity.Application.Authentication;
+using IndustrialPlatform.Identity.Application.Authorization;
 using IndustrialPlatform.Identity.Domain.Passwords;
 using IndustrialPlatform.Identity.Infrastructure.Authentication;
 using IndustrialPlatform.Identity.Infrastructure.Passwords;
@@ -54,6 +55,10 @@ public static class DependencyInjection
         services.AddSingleton<ILoginAuditSink, LoginAuditSink>();
         services.AddSingleton<IRefreshSessionStore, RefreshSessionStore>();
         services.AddSingleton<ISessionRevocationStore, SessionRevocationStore>();
+
+        // 服务端授权存储端口(TASK-ID-007):租户校验的授权快照装载 + Redis 版本化权限缓存。
+        services.AddSingleton<IAuthorizationDataStore, AuthorizationDataStore>();
+        services.AddSingleton<IPermissionCache, PermissionCacheStore>();
 
         return services;
     }

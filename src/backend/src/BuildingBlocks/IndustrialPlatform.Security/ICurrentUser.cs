@@ -8,8 +8,8 @@ public interface ICurrentUser
     /// <summary>当前请求是否已认证。</summary>
     bool IsAuthenticated { get; }
 
-    /// <summary>当前用户标识,未认证时为 null。</summary>
-    Guid? UserId { get; }
+    /// <summary>当前用户业务标识(UserNId,来自 JWT sub),未认证时为 null。</summary>
+    string? UserNId { get; }
 
     /// <summary>当前用户名。</summary>
     string? UserName { get; }

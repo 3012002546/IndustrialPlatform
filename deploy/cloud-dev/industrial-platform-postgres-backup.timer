@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily Industrial Platform development PostgreSQL backup
+
+[Timer]
+OnCalendar=*-*-* 03:20:00 UTC
+Persistent=true
+RandomizedDelaySec=15m
+Unit=industrial-platform-postgres-backup.service
+
+[Install]
+WantedBy=timers.target

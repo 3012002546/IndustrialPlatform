@@ -5,10 +5,10 @@ namespace IndustrialPlatform.Security;
 /// </summary>
 public static class ClaimConstants
 {
-    /// <summary>用户标识(JWT 标准 subject)。</summary>
-    public const string UserId = "sub";
+    /// <summary>用户业务标识(JWT 标准 subject,值为 UserNId,§12)。</summary>
+    public const string UserNId = "sub";
 
-    /// <summary>用户名。</summary>
+    /// <summary>用户名(登录名)。</summary>
     public const string UserName = "user_name";
 
     /// <summary>租户标识。</summary>
@@ -16,4 +16,10 @@ public static class ClaimConstants
 
     /// <summary>角色(多个角色以多条同类型声明承载)。</summary>
     public const string Role = "role";
+
+    /// <summary>会话业务标识(RefreshSession.NId,§13 sid)。</summary>
+    public const string SessionId = "sid";
+
+    /// <summary>安全版本(用户 AuthVersion,旧会话失效判定,§12/§18)。</summary>
+    public const string AuthVersion = "ver";
 }

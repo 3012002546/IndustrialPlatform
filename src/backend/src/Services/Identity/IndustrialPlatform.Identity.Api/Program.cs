@@ -3,14 +3,19 @@ using IndustrialPlatform.Identity.Api.Health;
 using IndustrialPlatform.Identity.Application;
 using IndustrialPlatform.Identity.Application.Authentication;
 using IndustrialPlatform.Identity.Infrastructure;
+using IndustrialPlatform.Security;
+using IndustrialPlatform.Web.Configuration;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.AddOptionalLocalDevelopmentInfrastructure(DevelopmentService.Identity);
 builder.UseIndustrialSerilog();
 builder.Services.AddIdentityInfrastructure(builder.Configuration);
 builder.Services.AddIdentityApplication(builder.Configuration);
 builder.Services.AddIdentityAuthentication();
+builder.Services.AddIdentityAuthorization();
+builder.Services.AddCurrentUser();
 builder.Services.AddOpenApi();
 builder.Services.AddIndustrialApi(mvc => mvc.Conventions.Add(new RoutePrefixConvention()));
 builder.Services.AddHttpClient();

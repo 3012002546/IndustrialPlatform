@@ -21,10 +21,8 @@ public sealed class ConfigBindingTests
 
         var options = factory.Services.GetRequiredService<IOptions<SqlSugarOptions>>().Value;
 
-        Assert.Contains("Host=localhost", options.ConnectionString);
-        Assert.Contains("Database=identity_db", options.ConnectionString);
-        Assert.Contains("Password=sample-dev-password", options.ConnectionString);
-        Assert.Equal(SqlSugar.DbType.PostgreSQL, options.DbType);
+        Assert.Equal("Data Source=industrial-platform.identity.db", options.ConnectionString);
+        Assert.Equal(SqlSugar.DbType.Sqlite, options.DbType);
     }
 
     [Fact]
@@ -48,7 +46,7 @@ public sealed class ConfigBindingTests
         Assert.NotNull(options);
         Assert.Equal("Identity", options.ServiceName);
         Assert.NotNull(options.Seq);
-        Assert.True(options.Seq.Enabled);
+        Assert.False(options.Seq.Enabled);
         Assert.Equal("http://localhost:5341", options.Seq.ServerUrl);
     }
 

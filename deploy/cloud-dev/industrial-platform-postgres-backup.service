@@ -1,0 +1,11 @@
+[Unit]
+Description=Industrial Platform development PostgreSQL backup
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/industrial-platform-dev/backup-postgres.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

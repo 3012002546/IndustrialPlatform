@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Security.Cryptography;
+using IndustrialPlatform.Identity.Application.Authorization;
 using IndustrialPlatform.Identity.Contracts.Authentication;
 using IndustrialPlatform.Identity.Domain.LoginSecurity;
 using IndustrialPlatform.Identity.Domain.Passwords;
@@ -23,6 +24,7 @@ public sealed partial class AuthenticationService : IAuthenticationService
     private readonly ILoginRateLimiter _rateLimiter;
     private readonly ILoginAuditSink _auditSink;
     private readonly ISessionRevocationStore _sessionRevocation;
+    private readonly IPermissionCache _permissionCache;
     private readonly IOptions<AuthenticationOptions> _options;
     private readonly ILogger<AuthenticationService> _logger;
 
@@ -34,6 +36,7 @@ public sealed partial class AuthenticationService : IAuthenticationService
         ILoginRateLimiter rateLimiter,
         ILoginAuditSink auditSink,
         ISessionRevocationStore sessionRevocation,
+        IPermissionCache permissionCache,
         IOptions<AuthenticationOptions> options,
         ILogger<AuthenticationService> logger)
     {
@@ -44,6 +47,7 @@ public sealed partial class AuthenticationService : IAuthenticationService
         _rateLimiter = rateLimiter;
         _auditSink = auditSink;
         _sessionRevocation = sessionRevocation;
+        _permissionCache = permissionCache;
         _options = options;
         _logger = logger;
     }
@@ -318,6 +322,8 @@ public sealed partial class AuthenticationService : IAuthenticationService
         await _store.UpdateUserAsync(user, expectedOptimistic, expectedConcurrency, cancellationToken);
 
         await _refreshStore.RevokeAllForUserAsync(user.Id, "logout_all", cancellationToken);
+
+        await TryInvalidatePermissionCacheAsync(user, cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -348,6 +354,8 @@ public sealed partial class AuthenticationService : IAuthenticationService
         await _store.UpdateUserAsync(user, expectedOptimistic, expectedConcurrency, cancellationToken);
 
         await _refreshStore.RevokeAllForUserAsync(user.Id, "password_changed", cancellationToken);
+
+        await TryInvalidatePermissionCacheAsync(user, cancellationToken);
     }
 
     private async Task<AuthenticatedUser> RequireCurrentUserAsync(string userNId, CancellationToken cancellationToken)
@@ -395,11 +403,27 @@ public sealed partial class AuthenticationService : IAuthenticationService
         }
     }
 
+    /// <summary>权限缓存失效(尽力而为):数据库已提交新安全版本,删除旧版本缓存键,TTL 兜底收敛。</summary>
+    private async Task TryInvalidatePermissionCacheAsync(User user, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _permissionCache.InvalidateAsync(user.TenantNId, user.NId, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            LogPermissionCacheInvalidateFailed(_logger, ex);
+        }
+    }
+
     [LoggerMessage(EventId = 1001, Level = LogLevel.Error, Message = "刷新会话持久化失败,登录终止。")]
     private static partial void LogRefreshSessionPersistFailed(ILogger logger, Exception ex);
 
     [LoggerMessage(EventId = 1002, Level = LogLevel.Error, Message = "登录审计写入失败,已忽略。")]
     private static partial void LogAuditWriteFailed(ILogger logger, Exception ex);
+
+    [LoggerMessage(EventId = 1003, Level = LogLevel.Warning, Message = "权限缓存失效失败,已忽略(TTL 兜底)。")]
+    private static partial void LogPermissionCacheInvalidateFailed(ILogger logger, Exception ex);
 
     private static string? TraceId => Activity.Current?.TraceId.ToString();
 

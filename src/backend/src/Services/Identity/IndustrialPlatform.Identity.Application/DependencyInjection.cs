@@ -1,4 +1,5 @@
 using IndustrialPlatform.Identity.Application.Authentication;
+using IndustrialPlatform.Identity.Application.Authorization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -23,6 +24,12 @@ public static class DependencyInjection
         services.AddOptions<AuthenticationOptions>()
             .Bind(configuration.GetSection("Identity:Authentication"));
         services.AddSingleton<IAuthenticationService, AuthenticationService>();
+
+        // 服务端授权(TASK-ID-007):评估器、拒绝审计与授权配置;数据/缓存端口由基础设施注册。
+        services.AddOptions<AuthorizationOptions>()
+            .Bind(configuration.GetSection(AuthorizationOptions.SectionName));
+        services.AddSingleton<IPermissionEvaluator, PermissionEvaluator>();
+        services.AddSingleton<IAuthorizationDenialSink, AuthorizationDenialSink>();
 
         return services;
     }

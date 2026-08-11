@@ -27,6 +27,9 @@ public sealed class ResultFilter : IAsyncActionFilter
                 if (!IsApiResult(objectResult.Value))
                 {
                     objectResult.Value = Wrap(objectResult.Value, objectResult.StatusCode ?? StatusCodes.Status200OK);
+                    // 包装后运行时类型已变为 ApiResult,必须清空 DeclaredType
+                    // (ActionResult<T> 隐式转换会设置它),否则输出格式化器按 T 反序列化 ApiResult 导致 InvalidCastException。
+                    objectResult.DeclaredType = null;
                 }
 
                 break;

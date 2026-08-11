@@ -25,14 +25,7 @@ public class CurrentUser : ICurrentUser
     public bool IsAuthenticated => User?.Identity?.IsAuthenticated ?? false;
 
     /// <inheritdoc />
-    public Guid? UserId
-    {
-        get
-        {
-            var value = User?.FindFirst(ClaimConstants.UserId)?.Value;
-            return value is not null && Guid.TryParse(value, out var userId) ? userId : null;
-        }
-    }
+    public string? UserNId => User?.FindFirst(ClaimConstants.UserNId)?.Value;
 
     /// <inheritdoc />
     public string? UserName => User?.FindFirst(ClaimConstants.UserName)?.Value;
