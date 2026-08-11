@@ -1,3 +1,4 @@
+using IndustrialPlatform.Identity.Domain.Permissions;
 using IndustrialPlatform.Identity.Domain.Roles;
 using IndustrialPlatform.Identity.Infrastructure.Persistence.Entities;
 using IndustrialPlatform.Infrastructure.Database;
@@ -38,6 +39,51 @@ public sealed class RoleRepository : IRoleRepository
             .OrderBy(t => t.Id)
             .ToListAsync(cancellationToken);
         return TableMapper.ToRole(row, permissionRows.Select(TableMapper.ToRolePermission).ToList());
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyDictionary<Guid, string>> GetNIdsAsync(
+        IReadOnlyCollection<Guid> roleIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (roleIds.Count == 0)
+        {
+            return new Dictionary<Guid, string>();
+        }
+
+        var rows = await _dbContext.SqlSugar.Queryable<RoleTable>()
+            .Where(t => roleIds.Contains(t.Id) && !t.IsDeleted)
+            .Select(t => new { t.Id, t.NId })
+            .ToListAsync(cancellationToken);
+        return rows.ToDictionary(r => r.Id, r => r.NId);
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<Permission>> GetActivePermissionsForRolesAsync(
+        IReadOnlyCollection<Guid> roleIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (roleIds.Count == 0)
+        {
+            return [];
+        }
+
+        // 两段式查询:活动角色权限关联(子表与父级影子列均未删除)→ 去重权限 Id → 查询活动且启用权限
+        var permissionIds = await _dbContext.SqlSugar.Queryable<RolePermissionTable>()
+            .Where(t => roleIds.Contains(t.RoleId) && !t.IsDeleted && !t.RoleIsDeleted)
+            .Select(t => t.PermissionId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+        if (permissionIds.Count == 0)
+        {
+            return [];
+        }
+
+        var rows = await _dbContext.SqlSugar.Queryable<PermissionTable>()
+            .Where(t => permissionIds.Contains(t.Id) && !t.IsDeleted && t.Status == PermissionStatus.Active)
+            .OrderBy(t => t.NormalizedNId)
+            .ToListAsync(cancellationToken);
+        return rows.Select(TableMapper.ToPermission).ToList();
     }
 
     /// <inheritdoc/>

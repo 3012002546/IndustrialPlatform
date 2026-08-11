@@ -1,3 +1,4 @@
+using IndustrialPlatform.Identity.Domain.Identities;
 using IndustrialPlatform.Identity.Domain.Users;
 using IndustrialPlatform.Identity.Infrastructure.Persistence.Entities;
 using IndustrialPlatform.Infrastructure.Database;
@@ -27,14 +28,36 @@ public sealed class UserRepository : IUserRepository
         var row = await _dbContext.SqlSugar.Queryable<UserTable>()
             .Where(t => t.Id == id && !t.IsDeleted)
             .FirstAsync(cancellationToken);
-        if (row is null)
-        {
-            return null;
-        }
+        return row is null ? null : await LoadWithRolesAsync(row, cancellationToken);
+    }
 
-        // 活动角色关系:子表自身未删除 且 父级影子列未删除
+    /// <inheritdoc/>
+    public async Task<User?> GetByNormalizedLoginNameAsync(
+        string tenantNId,
+        string normalizedLoginName,
+        CancellationToken cancellationToken = default)
+    {
+        var row = await _dbContext.SqlSugar.Queryable<UserTable>()
+            .Where(t => t.TenantNId == tenantNId && t.NormalizedLoginName == normalizedLoginName && !t.IsDeleted)
+            .FirstAsync(cancellationToken);
+        return row is null ? null : await LoadWithRolesAsync(row, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<User?> GetByNIdAsync(string userNId, CancellationToken cancellationToken = default)
+    {
+        var normalized = NId.Create(userNId).Normalized;
+        var row = await _dbContext.SqlSugar.Queryable<UserTable>()
+            .Where(t => t.NormalizedNId == normalized && !t.IsDeleted)
+            .FirstAsync(cancellationToken);
+        return row is null ? null : await LoadWithRolesAsync(row, cancellationToken);
+    }
+
+    /// <summary>载入活动角色关系(子表自身未删除 且 父级影子列未删除)。</summary>
+    private async Task<User?> LoadWithRolesAsync(UserTable row, CancellationToken cancellationToken)
+    {
         var roleRows = await _dbContext.SqlSugar.Queryable<UserRoleTable>()
-            .Where(t => t.UserId == id && !t.IsDeleted && !t.UserIsDeleted)
+            .Where(t => t.UserId == row.Id && !t.IsDeleted && !t.UserIsDeleted)
             .OrderBy(t => t.Id)
             .ToListAsync(cancellationToken);
         return TableMapper.ToUser(row, roleRows.Select(TableMapper.ToUserRole).ToList());

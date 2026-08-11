@@ -1,7 +1,10 @@
+using IndustrialPlatform.Identity.Application.Authentication;
 using IndustrialPlatform.Identity.Domain.Passwords;
+using IndustrialPlatform.Identity.Infrastructure.Authentication;
 using IndustrialPlatform.Identity.Infrastructure.Passwords;
 using IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations;
 using IndustrialPlatform.Identity.Infrastructure.Persistence.Repositories;
+using IndustrialPlatform.Identity.Infrastructure.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -40,6 +43,16 @@ public static class DependencyInjection
         services.AddSingleton<IUserRepository, UserRepository>();
         services.AddSingleton<IRoleRepository, RoleRepository>();
         services.AddSingleton<IPermissionRepository, PermissionRepository>();
+
+        // 认证用例端口实现(TASK-ID-005):JWT 签发/JWKS/限流/审计/刷新会话。
+        services.AddOptions<JwtOptions>().Bind(configuration.GetSection(JwtOptions.SectionName));
+        services.AddSingleton<RsaSigningKeyProvider>();
+        services.AddSingleton<IAccessTokenFactory, AccessTokenFactory>();
+        services.AddSingleton<IJwksProvider, JwksProvider>();
+        services.AddSingleton<IAuthenticationStore, AuthenticationStore>();
+        services.AddSingleton<ILoginRateLimiter, LoginRateLimiter>();
+        services.AddSingleton<ILoginAuditSink, LoginAuditSink>();
+        services.AddSingleton<IRefreshSessionStore, RefreshSessionStore>();
 
         return services;
     }
