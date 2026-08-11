@@ -1538,7 +1538,7 @@ ID-009 + ID-012 + ID-015 → ID-016
 
 ## TASK-ID-002 实现用户、密码与登录安全领域
 
-**状态：** 可派遣
+**状态：** 已完成
 
 **目标：** 实现以NId为稳定业务身份的User聚合、LoginName登录凭据、密码策略、登录失败计数、临时锁定、状态和AuthVersion。
 
@@ -1911,7 +1911,7 @@ ID-009 + ID-012 + ID-015 → ID-016
 | 任务 | 状态 | 执行者/任务 | 提交 | 验证证据 | 结果回写 |
 | --- | --- | --- | --- | --- | --- |
 | TASK-ID-001 | 已完成 | 本轮 Claude 协作 | `feat(identity): align service contracts and database boundary` | 2026-08-11 全量 build 0 警告 0 错误;test 156/156(BB 104、Identity 26、RefData 13、Gateway 13);架构测试锁定 Contracts;迁移框架 SQLite 6 测试 | 新增 Contracts 项目;五层边界;`/api/v1` 路由约定;OpenAPI;`identity_db` 独立配置;迁移执行框架(账本 `identity_schema_migrations`、失败回滚、DB 不可达降级);`Microsoft.OpenApi` 钉到 2.7.5 规避 GHSA-v5pm-xwqc-g5wc;PostgreSQL 真实验证「待验收」 |
-| TASK-ID-002 | 可派遣 | - | - | - | - |
+| TASK-ID-002 | 已完成 | 本轮 Claude 协作 | `feat(identity): add user and login security domain` | 2026-08-11 全量 build 0 警告 0 错误;test 238/238(BB 104、Identity 108、RefData 13、Gateway 13);Domain.Tests 83(新增 82:NId/PasswordPolicy/LoginAttemptPolicy/User/登录安全) | 新增 `Users/User.cs` 聚合根(14 字段、Create/ChangeProfile/ChangeLoginName/ChangePasswordHash/RecordLoginFailure/RecordLoginSuccess/Disable/Enable/EnsureLoginAllowed/IncrementAuthVersion)、`Identities/NId.cs` 值对象(`Value`/`Normalized`,正则+规范化+大小写不敏感相等)、`Passwords/IPasswordHasher.cs` 端口 + `PasswordPolicy`(12~128、大写/小写/数字/特殊字符、不得等于 LoginName/NId)、`LoginSecurity/LoginAttemptPolicy`(默认 5 次 15 分钟)、三个领域事件;登录拒绝抛 `UnauthorizedException`;明文密码不进领域;BCrypt 实现留 TASK-ID-004 |
 | TASK-ID-003 | 可派遣 | - | - | - | - |
 | TASK-ID-004 | 可派遣 | - | - | - | - |
 | TASK-ID-005 | 可派遣 | - | - | - | - |
