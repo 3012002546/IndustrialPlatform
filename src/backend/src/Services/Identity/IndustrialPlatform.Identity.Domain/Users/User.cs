@@ -1,5 +1,6 @@
 using IndustrialPlatform.Identity.Domain.Identities;
 using IndustrialPlatform.Identity.Domain.LoginSecurity;
+using IndustrialPlatform.Identity.Domain.Roles;
 using IndustrialPlatform.SharedKernel.Entities;
 using IndustrialPlatform.SharedKernel.Exceptions;
 
@@ -67,6 +68,11 @@ public sealed class User : AggregateRoot
 
     /// <summary>最近一次成功登录时间。</summary>
     public DateTimeOffset? LastLoginOn { get; private set; }
+
+    private readonly List<UserRole> _userRoles = [];
+
+    /// <summary>已分配的用户角色关系(含已解除的软删除关系)。</summary>
+    public IReadOnlyCollection<UserRole> UserRoles => _userRoles;
 
     /// <summary>ORM 反序列化专用构造,非空字符串字段初始化后由持久化框架填充。</summary>
     private User()
@@ -344,6 +350,63 @@ public sealed class User : AggregateRoot
         EnsureCanModify();
 
         AuthVersion++;
+        Touch();
+    }
+
+    /// <summary>
+    /// 分配角色:跨租户、已删除角色或重复分配时抛出业务异常,
+    /// 否则新增关系并发布 <see cref="UserRolesChangedEvent"/> 作为权限缓存失效信号。
+    /// </summary>
+    /// <param name="role">待分配的角色聚合根。</param>
+    public void AssignRole(Role role)
+    {
+        ArgumentNullException.ThrowIfNull(role);
+        EnsureCanModify();
+
+        if (role.TenantNId != TenantNId)
+        {
+            throw new BusinessException("不能分配其他租户的角色。");
+        }
+
+        if (role.IsDeleted)
+        {
+            throw new BusinessException("已删除的角色不能分配。");
+        }
+
+        if (_userRoles.Any(ur => ur.RoleId == role.Id && !ur.IsDeleted))
+        {
+            throw new BusinessException("用户已拥有该角色。");
+        }
+
+        _userRoles.Add(new UserRole(TenantNId, Id, IsDeleted, role.Id, role.IsDeleted));
+        AddDomainEvent(new UserRolesChangedEvent(TenantNId, NId, role.NId));
+        Touch();
+    }
+
+    /// <summary>
+    /// 移除角色:找不到活动关系时幂等返回;系统角色的最后一名活动持有者禁止移除
+    /// (活动持有数由应用层快照传入)。实际变更时发布权限缓存失效事件。
+    /// </summary>
+    /// <param name="role">待移除的角色聚合根。</param>
+    /// <param name="activeHolderCountInTenant">该角色在租户内的活动持有者数量(含当前用户)。</param>
+    public void RemoveRole(Role role, int activeHolderCountInTenant)
+    {
+        ArgumentNullException.ThrowIfNull(role);
+        EnsureCanModify();
+
+        var relation = _userRoles.FirstOrDefault(ur => ur.RoleId == role.Id && !ur.IsDeleted);
+        if (relation is null)
+        {
+            return;
+        }
+
+        if (role.IsSystem && activeHolderCountInTenant <= 1)
+        {
+            throw new BusinessException("不能移除最后一名系统管理员,除非经过独立恢复流程。");
+        }
+
+        relation.MarkDeleted();
+        AddDomainEvent(new UserRolesChangedEvent(TenantNId, NId, role.NId));
         Touch();
     }
 

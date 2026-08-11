@@ -1560,7 +1560,7 @@ ID-009 + ID-012 + ID-015 → ID-016
 
 ## TASK-ID-003 实现角色、权限与关系领域
 
-**状态：** 可派遣
+**状态：** 已完成
 
 **目标：** 实现 Role、Permission、UserRole、RolePermission 和系统权限目录。
 
@@ -1912,7 +1912,7 @@ ID-009 + ID-012 + ID-015 → ID-016
 | --- | --- | --- | --- | --- | --- |
 | TASK-ID-001 | 已完成 | 本轮 Claude 协作 | `feat(identity): align service contracts and database boundary` | 2026-08-11 全量 build 0 警告 0 错误;test 156/156(BB 104、Identity 26、RefData 13、Gateway 13);架构测试锁定 Contracts;迁移框架 SQLite 6 测试 | 新增 Contracts 项目;五层边界;`/api/v1` 路由约定;OpenAPI;`identity_db` 独立配置;迁移执行框架(账本 `identity_schema_migrations`、失败回滚、DB 不可达降级);`Microsoft.OpenApi` 钉到 2.7.5 规避 GHSA-v5pm-xwqc-g5wc;PostgreSQL 真实验证「待验收」 |
 | TASK-ID-002 | 已完成 | 本轮 Claude 协作 | `feat(identity): add user and login security domain` | 2026-08-11 全量 build 0 警告 0 错误;test 238/238(BB 104、Identity 108、RefData 13、Gateway 13);Domain.Tests 83(新增 82:NId/PasswordPolicy/LoginAttemptPolicy/User/登录安全) | 新增 `Users/User.cs` 聚合根(14 字段、Create/ChangeProfile/ChangeLoginName/ChangePasswordHash/RecordLoginFailure/RecordLoginSuccess/Disable/Enable/EnsureLoginAllowed/IncrementAuthVersion)、`Identities/NId.cs` 值对象(`Value`/`Normalized`,正则+规范化+大小写不敏感相等)、`Passwords/IPasswordHasher.cs` 端口 + `PasswordPolicy`(12~128、大写/小写/数字/特殊字符、不得等于 LoginName/NId)、`LoginSecurity/LoginAttemptPolicy`(默认 5 次 15 分钟)、三个领域事件;登录拒绝抛 `UnauthorizedException`;明文密码不进领域;BCrypt 实现留 TASK-ID-004 |
-| TASK-ID-003 | 可派遣 | - | - | - | - |
+| TASK-ID-003 | 已完成 | 本轮 Claude 协作 | `feat(identity): add role based permission domain` | 2026-08-11 全量 build 0 警告 0 错误;test 286/286(BB 104、Identity 156、RefData 13、Gateway 13);Domain.Tests 133(新增 50:PermissionCatalog/Permission/Role/UserRole) | 新增 `Permissions/Permission.cs` 聚合根(NId/ParentPermissionNId/Type 创建后不可变、Status、ChangeProfile 无事件)、`PermissionType`/`PermissionStatus` 枚举、`PermissionCatalog`(17 个第一批 NId 常量 + `FirstBatchNIds`,§9.2);`Roles/Role.cs` 聚合根(TenantNId/NId/IsSystem 创建后不可变、ChangeProfile、AssignPermission/UnassignPermission 发布 `RolePermissionsChangedEvent`、`Delete` 系统角色保护)、`RolePermission.cs` 关系实体;`Users/UserRole.cs` 关系实体、`UserRolesChangedEvent`;`User.cs` 增量新增 `_userRoles`/`UserRoles`/`AssignRole`/`RemoveRole`(跨租户/已删除角色/重复分配守卫、幂等解除、最后系统管理员保护 `activeHolderCountInTenant<=1` 拒绝);关系实体复合外键影子列在领域层快照父级状态,父级删除后的批量更新与数据库约束留 TASK-ID-004,权限缓存订阅留 TASK-ID-007;`GlobalSuppressions.cs` 豁免 CA1711(Permission/RolePermission 为领域术语,§9.2/§9.3) |
 | TASK-ID-004 | 可派遣 | - | - | - | - |
 | TASK-ID-005 | 可派遣 | - | - | - | - |
 | TASK-ID-006 | 可派遣 | - | - | - | - |
