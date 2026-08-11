@@ -567,6 +567,17 @@ DDD Bound Context
 
 ---
 
+## 数据库初始化与环境引导
+
+- 当前服务器基础 PostgreSQL 18 与 SystemData 自身数据库仍由 `deploy/cloud-dev` Compose/init 或等价部署步骤做最小引导，解决 SystemData bootstrap paradox。
+- SystemData 启动后，其他服务数据库统一通过其数据库编排 API 登记、plan、provision/apply 和查询 Operation 状态；不部署独立 Database Migrator Service，不向业务 API 分发管理员凭据。
+- Development/测试可按策略自动 provision + migrate；生产默认 `plan → 审批 → 备份 → apply`。
+- provisioning 管理凭据由 Secret Provider/环境注入，并与 SystemData 普通运行连接分离；API、日志和审计不得返回或记录凭据。
+- SystemData 不可用或迁移失败时，目标服务保持 NotReady；禁止静默连接到错误数据库或自行建库。
+- `RemoteDevelopment.Enabled=false` 时服务保留 SQLite 本地回退；启用云端时使用 SystemData 编排的 PostgreSQL。完整流程读取蓝图 33。
+
+---
+
 # 10. Redis部署
 
 用途：

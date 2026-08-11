@@ -6,6 +6,17 @@
 
 ---
 
+# SystemData 数据库编排可观测性补充
+
+每个数据库编排操作必须使用稳定 `OperationId` 贯穿 API、Runner、迁移日志、Trace、指标和审计，并关联 `ServiceKey`、环境、Provider、DatabaseName、目标迁移版本、计划摘要、状态和耗时。
+
+- 指标至少覆盖排队/执行时长、成功/失败/超时、锁等待、重试、迁移版本差异和 NotReady 消费者数量。
+- 审计至少记录登记变更、plan、审批、备份确认、apply、失败恢复和人工重试；生产变更记录操作者/服务主体及批准依据。
+- 日志、Trace、审计载荷和 Operation 错误必须脱敏，禁止记录管理员连接串、密码、Secret、私钥或完整敏感环境变量。
+- SystemData 不可用、迁移失败、目标数据库错误和 advisory lock 超时必须产生可告警状态，不能静默降级。
+
+详细能力边界读取蓝图 33。
+
 # 1. 文档目标
 
 本文档设计 Industrial Platform 企业级日志、审计、监控、链路追踪体系。

@@ -216,8 +216,8 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 **状态：** 待启动
 **Service Host：** 创建 `SystemData.Service`；本阶段只交付 SystemData 模块。
 **建议会话标题：** `PF-02 SystemData阶段管理`
-**输入：** 蓝图 05、13、23、31；PF-00 身份契约；PF-01 页面规范。
-**目标：** 建立行政组织、岗位、任职关系、菜单导航、功能开关、服务目录和主题默认值。
+**输入：** 蓝图 05、07、13、20、23、27、30、31、32、33；PF-00 身份契约；PF-01 页面规范；PostgreSQL 18 与当前 `deploy/cloud-dev` 最小引导现状。
+**目标：** 建立行政组织、岗位、任职关系、菜单导航、功能开关、服务目录、主题默认值，以及后续服务数据库编排/环境引导能力。
 **依赖：** PF-00；页面依赖 PF-01。
 **禁止范围：** 制造组织、字典参数、物料设备、租户运营后台。
 
@@ -229,9 +229,14 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 - 服务目录、所有者、入口和健康地址；
 - 默认租户与用户主题覆盖规则；
 - 数据迁移、缓存、事件、审计和前端页面。
+- 服务 registration/manifest、dry-run/plan、异步 provision/apply、Operation 状态和受信查询 API；
+- SystemData 普通连接与 provisioning 管理凭据隔离，最小业务角色、审批、备份、审计、脱敏、限流和幂等；
+- PostgreSQL advisory lock、迁移历史、失败恢复、expand/contract、禁止多副本并发迁移和 readiness 门禁；
+- Development/测试自动策略、生产 `plan → 审批 → 备份 → apply`，以及 `RemoteDevelopment.Enabled=false` 的 SQLite 回退；
+- SystemData 自身数据库由基础设施最小引导的 bootstrap 例外，不得形成调用自身 API 的循环依赖。
 
-**交付：** SystemData 蓝图/规格、实施方案、任务卡和 PF-03/04 可消费契约。
-**完成门禁：** 管理员可完成组织、岗位、导航、开关、服务和主题管理；权限、审计、契约和关键 E2E 通过。
+**交付：** SystemData 蓝图/规格、实施方案、任务卡、数据库编排 API/manifest/readiness 母版和 PF-03/04 及后续服务可消费契约。
+**完成门禁：** 管理员可完成组织、岗位、导航、开关、服务和主题管理；受信测试服务可通过可追踪 `OperationId` 幂等完成非 SystemData PostgreSQL 数据库、最小角色/授权和版本化迁移，生产未审批/未备份 apply 被拒绝，多副本只迁移一次，失败消费者保持 NotReady，管理凭据不进入 API/数据库/日志/Trace/审计；SystemData 自身最小引导与 SQLite 回退有验证证据；不得使用 `EnsureCreated`。权限、审计、契约和关键 E2E 通过。
 
 # 10. PF-03 ReferenceData
 

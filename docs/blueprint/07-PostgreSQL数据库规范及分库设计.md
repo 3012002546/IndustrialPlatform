@@ -1084,14 +1084,13 @@ Migrations
 
 ---
 
-启动：
+启动时不得由各业务 API 使用管理员凭据直接执行 `DatabaseInitializer` 建库。后续服务通过声明式 manifest 与 `SystemData.Service` 数据库编排 API 握手：先登记/查询期望状态，再由 SystemData 生成 plan，并按环境策略异步 provision/apply；服务在目标迁移版本确认前保持 NotReady。
 
-自动执行：
+每个服务仍独立拥有 Migration Assembly/Bundle、迁移历史语义、expand/contract 说明和恢复方案。SystemData 只编排数据库、最小角色、授权、并发锁与迁移执行，不维护业务表定义。
 
-```csharp
-DatabaseInitializer
+Development/测试可以配置自动 provision + migrate；生产默认执行 `plan → 审批 → 备份 → apply`。禁止使用 `EnsureCreated` 或删除重建替代版本化迁移。同一数据库使用 PostgreSQL advisory lock 或等效分布式锁，禁止多个副本并发迁移。
 
-```
+SystemData 自身数据库由 PostgreSQL 18 Compose/init 或部署步骤最小引导，这是唯一 bootstrap 例外；SystemData API 只管理其他服务数据库。完整注册字段、安全、失败与本地 SQLite 回退规则读取蓝图 33。
 
 ---
 

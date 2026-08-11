@@ -20,6 +20,12 @@ Service Host 与内部模块：
 【读取蓝图 32，列出本阶段创建/扩展的 Service Host 和本阶段内部模块；明确阶段不等于 Service Host】
 ```
 
+数据库初始化与环境引导：
+
+```text
+【PF-02 及后续新服务读取蓝图 33；列出 ServiceKey/Provider/DatabaseName/迁移产物与版本/Owner/DesiredState/AutoProvision/AutoMigrate，SystemData 握手、OperationId、readiness、最小角色、备份和环境策略；不适用时说明原因】
+```
+
 技术：
 
 ```text
@@ -110,6 +116,8 @@ API/事件契约
 
 当多个模块共享 Service Host 时，还必须明确独立 Schema 或表前缀、公开应用契约、权限资源、迁移和测试边界；禁止跨模块直读 Repository 或数据表，并说明未来物理拆分路径。
 
+PF-02 及后续新服务还必须明确数据库初始化控制面：SystemData 负责登记、plan、provision/apply、Operation、数据库/角色/授权和迁移编排；当前服务拥有领域 Schema 与版本化迁移产物。必须写清 SystemData 不可用/迁移失败时 NotReady、Development/测试与生产策略、并发锁、幂等、Secret 隔离，以及 SystemData 自身由基础设施最小引导的唯一例外。禁止独立 Migrator Service、业务 API 管理员建库和 `EnsureCreated`。
+
 ---
 
 # 5. 项目结构与引用关系
@@ -185,6 +193,7 @@ tests/...
 - 唯一约束和索引。
 - 时间、精度和状态字段。
 - 乐观并发、软删除和迁移。
+- registration/manifest、迁移 Assembly/Bundle 或等价产物、迁移历史、SystemData OperationId、readiness 和备份登记。
 - 事务、Outbox/Inbox 和数据修复边界。
 
 数据表字段清单只列当前表业务字段，完整建表和迁移仍须应用第 6.1 节统一生命周期字段。父子表必须区分子表自身 `is_deleted` 与父引用快照 `{parent_entity}_is_deleted`，并明确复合外键、同步方式和查询过滤；跨服务引用必须明确不建立数据库外键。

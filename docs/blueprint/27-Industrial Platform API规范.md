@@ -553,6 +553,18 @@ Request：
 
 ---
 
+# SystemData 数据库编排 API 补充规范
+
+数据库初始化属于异步受控操作。SystemData 至少提供 service registration/query、dry-run/plan、apply/provision 和 operation status 能力；创建数据库、角色或执行迁移的请求必须快速返回 `OperationId`，不得以长时间同步 HTTP 等待完成。
+
+- 写请求必须携带幂等键；同一 `ServiceKey`、环境、目标版本和请求语义不得重复执行。
+- registration/manifest 只传服务标识、Provider、数据库名、迁移产物/版本、Owner、DesiredState 和环境策略，不传服务器管理员凭据。
+- API 只允许平台管理员或受信服务身份调用；生产 apply 必须绑定已批准 plan、审批和备份登记。
+- 响应与错误只返回脱敏状态、错误分类、`OperationId` 和 TraceId；不得返回连接串、密码、私钥或 Secret Provider 内容。
+- SystemData 不可用或 Operation 失败时，消费者 readiness 保持 NotReady，不得自行建库。
+
+具体状态机、并发锁、环境策略和 SystemData 自身 bootstrap 例外读取蓝图 33。
+
 # 20A. OperationalData API
 
 基础前缀：

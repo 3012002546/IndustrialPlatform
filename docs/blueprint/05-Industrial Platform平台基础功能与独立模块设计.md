@@ -30,7 +30,7 @@ Identity 完成后暂缓 MasterData、OperationalData 和 MES 生产业务扩张
 | 模块 | 权威职责 | 明确不负责 |
 | --- | --- | --- |
 | Identity | 用户、角色、权限、登录、令牌、会话、SSO | 组织、菜单、聊天内容 |
-| SystemData | 行政组织、岗位、菜单导航、功能开关、服务目录、主题默认值 | 制造组织、字典、业务主数据 |
+| SystemData | 行政组织、岗位、菜单导航、功能开关、服务目录、主题默认值、后续服务数据库编排与环境引导 | 制造组织、字典、业务主数据、业务表定义 |
 | ReferenceData | 字典、系统参数、元数据、动态属性、编码规则 | 物料、设备、工厂、库存 |
 | Audit | 统一接收、追加存储和查询审计事件 | 覆盖或修改业务历史 |
 | Workspace Query | 聚合个人工作台只读数据 | 业务写操作和来源数据所有权 |
@@ -130,8 +130,11 @@ Workspace Query 聚合待办与通知、未读聊天、最近访问、快捷入�
 - 功能开关；
 - 服务目录；
 - 租户默认主题和用户可选范围。
+- 后续服务的声明登记、数据库初始化 plan/apply、异步 Operation、最小角色/授权和版本化迁移编排。
 
 菜单控制导航，权限控制资源访问，两者通过稳定资源标识关联。
+
+数据库编排通过 SystemData API 统一管理，业务服务继续拥有领域 Schema 和迁移产物。SystemData 普通运行连接与 provisioning 管理凭据分离；生产默认执行 `plan → 审批 → 备份 → apply`。SystemData 自身数据库由 PostgreSQL 18 基础设施最小引导创建，不能依赖自身 API。完整边界读取蓝图 33。
 
 ## 7.2 ReferenceData
 
@@ -246,6 +249,7 @@ Operations Center 的 ServerMonitor 模块观察平台和 IT 运行状态，由 
 - 关键写操作产生审计事件。
 - API/事件契约有版本和契约测试。
 - 数据迁移、健康检查、指标和 TraceId 可用。
+- 后续新服务包含数据库注册清单、版本化迁移产物、SystemData 启动握手、NotReady 失败门禁、最小业务角色、备份登记和可观测 `OperationId`；不得使用 `EnsureCreated` 代替迁移。
 - 适用页面完成 PC 和对应 PDA/Mobile 路径。
 - 三套主题和明暗模式通过视觉检查。
 - 单元、集成、契约和关键流程 E2E 通过。

@@ -244,6 +244,8 @@ Industrial Platform
 
 七个宿主的内部模块、阶段映射和未来拆分规则见蓝图 32。MasterData、OperationalData、Planning、WorkOrder、Weighting、Trace、BatchRecord 与 Industrial Data 等名称保留为 MES 后续阶段或长期可拆分目标，不计入当前平台基础层七宿主。
 
+`SystemData.Service` 同时提供后续服务数据库编排/环境引导控制面。新服务以 manifest 声明数据库与迁移期望，SystemData 负责 plan、异步 provision/apply、最小角色/授权、Operation 状态和审计；业务服务仍拥有领域 Schema 与迁移产物。SystemData 自身数据库由 PostgreSQL 18 基础设施最小引导，不新增 Database Migrator 核心宿主，完整边界见蓝图 33。
+
 ---
 
 # 5. 技术架构

@@ -180,7 +180,7 @@ backend/services
 ├── IoTCollector.Service
 ```
 
-其中 `ReferenceData.Service` 继续利用现有骨架，其余宿主按 PF 阶段映射创建或扩展。Worker、Agent、Screego、TURN 和本地模型运行时位于宿主之外，是辅助部署单元，不计入七个核心 Service Host。
+其中 `ReferenceData.Service` 继续利用现有骨架，其余宿主按 PF 阶段映射创建或扩展。`SystemData.Service` 内含后续服务数据库编排/环境引导控制面；其内部 Runner 只是辅助执行细节，不新增独立 Database Migrator Service。Worker、Agent、Screego、TURN 和本地模型运行时位于宿主之外，是辅助部署单元，不计入七个核心 Service Host。
 
 以下制造域服务名保留为后续阶段或未来物理拆分目标，不属于当前平台基础层七宿主计数：
 
@@ -417,10 +417,18 @@ Persistence
 
 ├── Migrations
 
+├── DatabaseProvisioning
+│   ├── ServiceRegistration
+│   ├── MigrationManifest
+│   ├── SystemDataHandshake
+│   └── Readiness
+
 ├── Seed
 
 └── SqlSugar
 ```
+
+`Migrations` 由当前服务拥有并输出版本化 Assembly/Bundle 或等价产物；`DatabaseProvisioning` 只承载向 SystemData 登记、查询 Operation 和 readiness 门禁的客户端适配，不包含管理员凭据或自行建库逻辑。SystemData 自身数据库由基础设施最小引导，其他服务读取蓝图 33。
 
 ---
 

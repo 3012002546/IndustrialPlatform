@@ -6,6 +6,15 @@
 
 ---
 
+# SystemData 数据库编排安全补充
+
+- SystemData 普通运行连接与 provisioning 管理凭据使用不同身份、不同权限和不同 Secret；普通连接不能创建数据库、角色或跨库授权。
+- provisioning Secret 只能由 Secret Provider、容器/Kubernetes Secret 或受控环境注入，不写数据库、不经 API 返回、不记录日志/Trace/审计。
+- registration/query、plan、apply/provision 和 operation status 分别授权；查询和计划允许受信服务按自身 `ServiceKey` 最小访问，apply 仅平台管理员或获明确授权的发布服务执行。
+- 生产 apply 必须校验已批准 plan、备份登记、幂等键和目标环境；服务身份不得通过篡改 manifest 提升数据库权限。
+- SystemData 为每个服务授予最小业务数据库角色，业务服务不得持有管理员凭据，也不得在 SystemData 不可用时自行建库。
+- 所有调用执行认证、授权、限流、审计和脱敏，完整边界读取蓝图 33。
+
 # 1. 文档目标
 
 本文档设计 Industrial Platform 企业级权限、安全、身份认证体系。

@@ -8,7 +8,7 @@
 
 # 1. 文档定位与优先级
 
-本文固定 PF-02～PF-11 共用的当前部署宿主、内部模块边界和未来拆分规则，是平台基础层 Service Host 的权威母版。各阶段管理任务必须同时读取本文、`09-Industrial Platform开发总TodoList.md`、`TEMPLATE-开发实施方案.md`、项目记忆和当前代码。
+本文固定 PF-02～PF-11 共用的当前部署宿主、内部模块边界和未来拆分规则，是平台基础层 Service Host 的权威母版。各阶段管理任务必须同时读取本文、`33-Industrial Platform SystemData数据库编排与环境引导.md`、`09-Industrial Platform开发总TodoList.md`、`TEMPLATE-开发实施方案.md`、项目记忆和当前代码。
 
 旧蓝图中按领域列出的 `File Service`、`Audit Service`、`Dashboard Service`、`Server Monitor Service` 等名称，保留为领域设计或未来物理拆分目标；凡与本文的当前部署宿主清单冲突，以本文为准。
 
@@ -20,6 +20,7 @@
 - 禁止跨模块直读或写入其他模块的 Repository 或数据表；协作使用公开应用契约、API 或事件。
 - 模块间不建立数据库级跨模块外键。跨模块只保存稳定业务标识和必要快照，并按契约维护一致性。
 - 每个模块都必须能够在不改变外部语义的前提下迁移到独立进程和数据库，为未来物理拆分保留边界。
+- 后续服务数据库的创建、最小角色/授权和迁移执行统一由 `SystemData.Service` 的数据库编排 API 受控协调；业务服务仍拥有自己的 Schema 和迁移产物，不新增独立 Database Migrator 核心 Service Host。
 
 # 3. 当前核心 Service Host
 
@@ -44,7 +45,7 @@ Worker、Agent、Screego、TURN 和本地模型运行时是辅助部署单元，
 | 文档/阶段 | 阶段名称 | Service Host 动作 | 本阶段宿主内模块范围 |
 | --- | --- | --- | --- |
 | 03 / PF-00 | Identity | 正在开发 `Identity.Service` | Identity |
-| 05 / PF-02 | SystemData | 创建 `SystemData.Service` | SystemData |
+| 05 / PF-02 | SystemData | 创建 `SystemData.Service` | SystemData；包含数据库编排/环境引导能力 |
 | 06 / PF-03 | ReferenceData | 继续利用现有 `ReferenceData.Service` 骨架 | Dictionary、Parameter、Metadata、DynamicProperty、CodingRule |
 | 07 / PF-04 | File / Notification / Audit | 加入 `SystemData.Service` | File、Notification、Audit |
 | 08 / PF-05 | Collaboration | 创建 `Collaboration.Service` | Messaging、Presence、AttachmentIntegration |
@@ -101,3 +102,10 @@ PF-10A 的第一个设计门禁是逐项完成并确认以上闭环；在此之�
 每个 PF 阶段（包括 PF-10A）仍只创建一个阶段管理任务。阶段管理任务负责读取母版、蓝图、项目记忆与当前代码，反复完成详细设计、九字段任务卡、派遣、跟踪和验收，但不直接开发业务代码。
 
 本母版不定义各模块的表、字段、API、事件或页面。对应 PF 阶段必须在其唯一管理任务中完成详细设计，不得从本文摘要推断实现细节，也不得提前创建空的阶段实施方案。
+
+# 7. 数据库编排边界
+
+- `SystemData.Service` 内的数据库编排/环境引导是控制面能力，内部 Worker/Runner 只是辅助执行单元，不增加核心 Service Host 数量。
+- SystemData 管理其他服务的登记、plan、provision/apply、Operation 状态、数据库/角色/授权和迁移编排；各服务管理自己的领域 Schema、迁移产物与恢复说明。
+- SystemData 自身数据库是唯一 bootstrap 例外，由 PostgreSQL 18 基础设施最小引导创建；不得调用自身 API 创建自身数据库。
+- 新服务的 manifest、启动握手、readiness、环境策略、安全和验收统一读取蓝图 33。

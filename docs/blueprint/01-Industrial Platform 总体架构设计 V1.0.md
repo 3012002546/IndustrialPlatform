@@ -217,7 +217,7 @@ MasterData + OperationalData + MES业务域
 
 以上是产品开发优先级，不表示所有模块存在直接技术依赖。实际阶段编号、并行条件和门禁以 `09-Industrial Platform开发总TodoList.md` 为准。
 
-SystemData 负责行政组织、岗位、菜单导航、功能开关、服务目录和主题默认值；ReferenceData 负责字典、配置、元数据与编码规则；MasterData 负责物料、设备、制造组织、仓库、库位与 BOM 等业务主数据；OperationalData 负责库存批次、余额、预留、收发退和仓储业务单据。四者边界独立。
+SystemData 负责行政组织、岗位、菜单导航、功能开关、服务目录、主题默认值，以及后续服务数据库的受控编排与环境引导；ReferenceData 负责字典、配置、元数据与编码规则；MasterData 负责物料、设备、制造组织、仓库、库位与 BOM 等业务主数据；OperationalData 负责库存批次、余额、预留、收发退和仓储业务单据。四者边界独立。数据库编排只管理登记、plan/apply、数据库/角色/授权与迁移执行状态，各业务服务仍拥有自己的领域 Schema 和版本化迁移产物，完整决策读取蓝图 33。
 
 平台基础功能、工业合规聊天、远程协助、主题体系和独立模块边界详见 `05-Industrial Platform平台基础功能与独立模块设计.md`。
 
