@@ -16,6 +16,7 @@ TestResults/
 # Local configuration
 .env
 appsettings.*.local.json
+.ssh/
 
 # Local dev-run artifacts (PID files, service logs) created by deploy/scripts/dev.ps1
 .run/
