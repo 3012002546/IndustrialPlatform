@@ -28,4 +28,35 @@ public sealed class RolePermission : Entity
         PermissionId = permissionId;
         PermissionIsDeleted = permissionIsDeleted;
     }
+
+    /// <summary>持久化层重建专用构造,恢复全部业务字段与生命周期状态。</summary>
+    internal RolePermission(
+        Guid id,
+        Guid roleId,
+        bool roleIsDeleted,
+        Guid permissionId,
+        bool permissionIsDeleted,
+        bool isFrozen,
+        bool isLocked,
+        bool isDeleted,
+        string entityType,
+        DateTimeOffset createdOn,
+        DateTimeOffset lastUpdatedOn,
+        long optimisticVersion,
+        Guid concurrencyVersion)
+        : base(id)
+    {
+        RoleId = roleId;
+        RoleIsDeleted = roleIsDeleted;
+        PermissionId = permissionId;
+        PermissionIsDeleted = permissionIsDeleted;
+        IsFrozen = isFrozen;
+        IsLocked = isLocked;
+        IsDeleted = isDeleted;
+        EntityType = entityType;
+        CreatedOn = createdOn;
+        LastUpdatedOn = lastUpdatedOn;
+        OptimisticVersion = optimisticVersion;
+        ConcurrencyVersion = concurrencyVersion;
+    }
 }

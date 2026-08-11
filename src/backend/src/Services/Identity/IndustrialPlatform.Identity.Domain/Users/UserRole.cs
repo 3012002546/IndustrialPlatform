@@ -32,4 +32,37 @@ public sealed class UserRole : Entity
         RoleId = roleId;
         RoleIsDeleted = roleIsDeleted;
     }
+
+    /// <summary>持久化层重建专用构造,恢复全部业务字段与生命周期状态。</summary>
+    internal UserRole(
+        Guid id,
+        string tenantNId,
+        Guid userId,
+        bool userIsDeleted,
+        Guid roleId,
+        bool roleIsDeleted,
+        bool isFrozen,
+        bool isLocked,
+        bool isDeleted,
+        string entityType,
+        DateTimeOffset createdOn,
+        DateTimeOffset lastUpdatedOn,
+        long optimisticVersion,
+        Guid concurrencyVersion)
+        : base(id)
+    {
+        TenantNId = tenantNId;
+        UserId = userId;
+        UserIsDeleted = userIsDeleted;
+        RoleId = roleId;
+        RoleIsDeleted = roleIsDeleted;
+        IsFrozen = isFrozen;
+        IsLocked = isLocked;
+        IsDeleted = isDeleted;
+        EntityType = entityType;
+        CreatedOn = createdOn;
+        LastUpdatedOn = lastUpdatedOn;
+        OptimisticVersion = optimisticVersion;
+        ConcurrencyVersion = concurrencyVersion;
+    }
 }

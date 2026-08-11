@@ -119,7 +119,7 @@ pnpm test:e2e                   # 基于 pnpm preview,需先 build
 | Task-008 | Logging 组件:Serilog 配置(Console/File/Seq) + TraceId | `Logging/{Options,Enrichers,Internal,Extensions}` | 编译 + 选项绑定/增强器/DI 注册测试 ✅ |
 | 补充 | Security(ICurrentUser/ClaimConstants/CurrentUser) + Web(ApiResult/PageResult/ExceptionMiddleware/RequestLoggingMiddleware/ResultFilter) | `Security/*`、`Web/{Results,Middleware,Filters,Extensions}` | 编译 + 声明读取/结果包装/注册测试 ✅ |
 
-**当前测试:104 通过 / 0 失败**(BuildingBlocks 测试项目);全解决方案 286 通过 / 0 失败(BuildingBlocks 104、Identity 156、ReferenceData 13、Gateway 13)。
+**当前测试:104 通过 / 0 失败**(BuildingBlocks 测试项目);全解决方案 313 通过 / 0 失败(BuildingBlocks 104、Identity 183、ReferenceData 13、Gateway 13)。
 
 ### 关键技术决策
 
@@ -144,12 +144,13 @@ pnpm test:e2e                   # 基于 pnpm preview,需先 build
 | TASK-ID-001 | 对齐服务骨架、契约与独立数据库:新增 Contracts 项目(零 ProjectReference)、五层边界、`/api/v1` 路由约定(RoutePrefixConvention)、OpenAPI(`Microsoft.AspNetCore.OpenApi` 10.0.10)、`identity_db` 独立配置、测试项目重构为 5 个、迁移执行框架(SchemaMigrationRunner + 账本 `identity_schema_migrations` + 启动后台服务)、BuildingBlocks 架构测试同步锁定 Contracts | 2026-08-11 全量 build 0 警告 0 错误、test 156/156(BB 104、Identity 26、RefData 13、Gateway 13);迁移框架 SQLite 6 测试(账本创建/幂等/失败回滚/重试/DB 不可达降级);PostgreSQL 真实验证「待验收」 ✅ |
 | TASK-ID-002 | 用户、密码与登录安全领域:`Users/User.cs` 聚合根(14 字段,Create/ChangeProfile/ChangeLoginName/ChangePasswordHash/RecordLoginFailure/RecordLoginSuccess/Disable/Enable/EnsureLoginAllowed/IncrementAuthVersion,AuthVersion 安全版本递增使旧会话失效)、`Identities/NId.cs` 值对象(正则+规范化+大小写不敏感相等)、`Passwords/IPasswordHasher.cs` 端口 + `PasswordPolicy`(12~128、大写/小写/数字/特殊字符、不得等于 LoginName/NId)、`LoginSecurity/LoginAttemptPolicy`(默认 5 次 15 分钟)、三个领域事件(UserCreated/UserStatusChanged/UserSecurityChanged);登录拒绝抛 `UnauthorizedException` | 2026-08-11 全量 build 0 警告 0 错误、test 238/238(BB 104、Identity 108、RefData 13、Gateway 13);Domain.Tests 83(新增 82);明文密码不进领域,BCrypt 实现留 TASK-ID-004 ✅ |
 | TASK-ID-003 | Role、Permission 与关系领域:`Permissions/Permission.cs` 聚合根(NId/ParentPermissionNId/Type 创建后不可变、Status、ChangeProfile 无事件)、`PermissionType`/`PermissionStatus` 枚举、`PermissionCatalog`(17 个第一批 NId 常量,§9.2)、`Roles/Role.cs` 聚合根(IsSystem 创建后不可变、AssignPermission/UnassignPermission 发布 RolePermissionsChangedEvent、Delete 系统角色保护)、`RolePermission`/`UserRole` 关系实体与 `UserRolesChangedEvent`;`User.cs` 增量新增 AssignRole/RemoveRole(跨租户/已删除角色/重复分配守卫、幂等解除、最后系统管理员保护);复合外键影子列领域层快照,父级删除批量更新与 DB 约束留 TASK-ID-004,权限缓存订阅留 TASK-ID-007 | 2026-08-11 全量 build 0 警告 0 错误、test 286/286(BB 104、Identity 156、RefData 13、Gateway 13);Domain.Tests 133(新增 50);CA1711 经 `GlobalSuppressions.cs` 豁免(Permission/RolePermission 为领域术语) ✅ |
+| TASK-ID-004 | 持久化、迁移与初始化数据:POCO 表模型×5(`identity_user/role/permission/user_role/role_permission`,`[SugarTable]`+`[SugarColumn(ColumnName="snake_case")]`)+ `TableMapper` 双向映射 + 仓储×3(`IUser/IRole/IPermissionRepository`,软删除过滤、双重过滤载入子项、双版本并发原子更新、事务内子项 diff 同步、Permission.GetByNIdAsync/GetAllAsync)+ 迁移 11 步(9 建表 + 2 种子:17 权限目录 + development 租户 SYSTEM_ADMIN 系统角色 + 可选 bootstrap 管理员 env,幂等,BCrypt 因子 12 仅存哈希,绝不输出密码)+ `BcryptPasswordHasher`(BCrypt.Net-Next 4.0.3);DDL 按 DbType 分支(SQLite TEXT/INTEGER、PostgreSQL uuid/timestamptz),复合外键 `(id,is_deleted)` ON UPDATE CASCADE 同步子表影子列,部分唯一索引软删复用;SQLite 连接串 `Foreign Keys=True`;refresh_session/login_audit/operation_audit/outbox 仅建表 DDL;DI 注册 11 迁移步骤 + 3 仓储 + hasher | 2026-08-11 全量 build 0 警告 0 错误、test 313/313(BB 104、Identity 183、RefData 13、Gateway 13);Infrastructure.Tests 33(新增 27:迁移 9 + 仓储 13 + 哈希 5);PostgreSQL 真实验证「待验收」 ✅ |
 
 ### 待实施 ⏳
 
 | 任务 | 内容 |
 | --- | --- |
-| TASK-ID-004~016 | 持久化/迁移/种子、登录 JWT/JWKS、Refresh 旋转/Redis、服务端 RBAC/权限缓存、管理 API、Outbox 集成事件、前端接入与管理页、SSO 与联合验收 |
+| TASK-ID-005~016 | 登录 JWT/JWKS、Refresh 旋转/Redis、服务端 RBAC/权限缓存、管理 API、Outbox 集成事件、前端接入与管理页、SSO 与联合验收 |
 
 ### 关键技术决策
 

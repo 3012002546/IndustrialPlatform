@@ -132,6 +132,63 @@ public sealed class User : AggregateRoot
     }
 
     /// <summary>
+    /// 持久化层重建专用构造:从已持久化快照恢复聚合全部状态与生命周期字段,
+    /// 不发布任何领域事件,不重新校验(持久化数据假定已通过创建/变更校验)。
+    /// </summary>
+    internal User(
+        Guid id,
+        string tenantNId,
+        string nId,
+        string normalizedNId,
+        string loginName,
+        string normalizedLoginName,
+        string name,
+        string passwordHash,
+        string? email,
+        string? phone,
+        UserStatus status,
+        int failedLoginCount,
+        DateTimeOffset? lockedUntil,
+        int authVersion,
+        DateTimeOffset? lastLoginOn,
+        IReadOnlyCollection<UserRole> userRoles,
+        bool isFrozen,
+        bool isLocked,
+        bool isDeleted,
+        string entityType,
+        DateTimeOffset createdOn,
+        DateTimeOffset lastUpdatedOn,
+        long optimisticVersion,
+        Guid concurrencyVersion)
+        : base()
+    {
+        Id = id;
+        TenantNId = tenantNId;
+        NId = nId;
+        NormalizedNId = normalizedNId;
+        LoginName = loginName;
+        NormalizedLoginName = normalizedLoginName;
+        Name = name;
+        PasswordHash = passwordHash;
+        Email = email;
+        Phone = phone;
+        Status = status;
+        FailedLoginCount = failedLoginCount;
+        LockedUntil = lockedUntil;
+        AuthVersion = authVersion;
+        LastLoginOn = lastLoginOn;
+        _userRoles.AddRange(userRoles);
+        IsFrozen = isFrozen;
+        IsLocked = isLocked;
+        IsDeleted = isDeleted;
+        EntityType = entityType;
+        CreatedOn = createdOn;
+        LastUpdatedOn = lastUpdatedOn;
+        OptimisticVersion = optimisticVersion;
+        ConcurrencyVersion = concurrencyVersion;
+    }
+
+    /// <summary>
     /// 创建用户并校验全部字段,同时发布 <see cref="UserCreatedEvent"/>。
     /// 接收的是已哈希密码,明文密码由应用层在哈希前按
     /// <see cref="IndustrialPlatform.Identity.Domain.Passwords.PasswordPolicy"/> 校验。

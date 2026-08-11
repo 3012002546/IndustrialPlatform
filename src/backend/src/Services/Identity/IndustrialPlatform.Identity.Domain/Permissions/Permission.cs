@@ -83,6 +83,44 @@ public sealed class Permission : AggregateRoot
         Status = PermissionStatus.Active;
     }
 
+    /// <summary>持久化层重建专用构造,恢复全部业务字段与生命周期状态,不重新校验。</summary>
+    internal Permission(
+        Guid id,
+        string nId,
+        string normalizedNId,
+        string name,
+        PermissionType type,
+        string? parentPermissionNId,
+        string? description,
+        PermissionStatus status,
+        bool isFrozen,
+        bool isLocked,
+        bool isDeleted,
+        string entityType,
+        DateTimeOffset createdOn,
+        DateTimeOffset lastUpdatedOn,
+        long optimisticVersion,
+        Guid concurrencyVersion)
+        : base()
+    {
+        Id = id;
+        NId = nId;
+        NormalizedNId = normalizedNId;
+        Name = name;
+        Type = type;
+        ParentPermissionNId = parentPermissionNId;
+        Description = description;
+        Status = status;
+        IsFrozen = isFrozen;
+        IsLocked = isLocked;
+        IsDeleted = isDeleted;
+        EntityType = entityType;
+        CreatedOn = createdOn;
+        LastUpdatedOn = lastUpdatedOn;
+        OptimisticVersion = optimisticVersion;
+        ConcurrencyVersion = concurrencyVersion;
+    }
+
     /// <summary>
     /// 创建权限。业务标识与父级 NId 按 NId 规则校验并规范化;类型须为已定义枚举值。
     /// </summary>

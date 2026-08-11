@@ -67,6 +67,44 @@ public sealed class Role : AggregateRoot
         IsSystem = isSystem;
     }
 
+    /// <summary>持久化层重建专用构造,恢复全部业务字段、权限关系与生命周期状态,不重新校验。</summary>
+    internal Role(
+        Guid id,
+        string tenantNId,
+        string nId,
+        string normalizedNId,
+        string name,
+        string? description,
+        bool isSystem,
+        IReadOnlyCollection<RolePermission> permissions,
+        bool isFrozen,
+        bool isLocked,
+        bool isDeleted,
+        string entityType,
+        DateTimeOffset createdOn,
+        DateTimeOffset lastUpdatedOn,
+        long optimisticVersion,
+        Guid concurrencyVersion)
+        : base()
+    {
+        Id = id;
+        TenantNId = tenantNId;
+        NId = nId;
+        NormalizedNId = normalizedNId;
+        Name = name;
+        Description = description;
+        IsSystem = isSystem;
+        _permissions.AddRange(permissions);
+        IsFrozen = isFrozen;
+        IsLocked = isLocked;
+        IsDeleted = isDeleted;
+        EntityType = entityType;
+        CreatedOn = createdOn;
+        LastUpdatedOn = lastUpdatedOn;
+        OptimisticVersion = optimisticVersion;
+        ConcurrencyVersion = concurrencyVersion;
+    }
+
     /// <summary>
     /// 创建角色。业务标识按 NId 规则校验并规范化;系统角色标记创建后不可变。
     /// </summary>
