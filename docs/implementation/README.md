@@ -6,7 +6,7 @@
 
 所有 PF 阶段还必须读取 `docs/blueprint/32-Industrial Platform Service Host与内部模块边界.md`。阶段编号不等于 Service Host；后续阶段可以向前一阶段创建的宿主增加独立模块，但不得合并 Schema/表前缀、契约、权限或测试，也不得跨模块直读 Repository。
 
-PF-02 及其后的新服务必须读取 `docs/blueprint/33-Industrial Platform SystemData数据库编排与环境引导.md`。PF-02 把数据库编排/环境引导纳入 SystemData；后续服务必须交付 registration/manifest、服务自有迁移产物、SystemData 启动握手/readiness、最小业务角色、备份登记和可观测 `OperationId`，不得自行持有管理员凭据建库或使用 `EnsureCreated` 代替迁移。
+PF-02 及其后的新服务必须以 `docs/blueprint/07-PostgreSQL数据库规范及分库设计.md` 与 `docs/blueprint/33-Industrial Platform SystemData数据库编排与环境引导.md` 为权威拓扑来源，并以 `docs/implementation/05-Industrial Platform SystemData开发实施方案.md` 为 PF-02 控制面计划。PF-02 把数据库编排/环境引导纳入 SystemData；后续服务必须交付 registration/manifest、服务自有迁移产物、SystemData 启动握手/readiness、最小业务角色、备份登记和可观测 `OperationId`，不得自行持有管理员凭据建库或使用 `EnsureCreated` 代替迁移。
 
 ## 协作边界
 
@@ -32,7 +32,7 @@ PF-02 及其后的新服务必须读取 `docs/blueprint/33-Industrial Platform S
 | 02B | [统一前端第一批开发 TODO](02B-Industrial%20Platform统一前端第一批开发实施方案.md) | `TASK-FE-001～010` 已完成 |
 | 03 | [Identity Service实施方案](03-Industrial%20Platform%20Identity%20Service开发实施方案.md) | PF-00 已暂停；`TASK-ID-001～006` 已完成，恢复时从 `TASK-ID-007` 继续 |
 | 04 | [PF-01 视觉主题与平台外壳实施方案](04-Industrial%20Platform视觉主题与平台外壳开发实施方案.md) | 开发详细设计、依赖图和七张任务卡已完成；任务待确认，尚未开发 |
-| 05 | PF-02 SystemData实施方案（由 PF-02 会话维护） | 必须纳入蓝图 33 的数据库编排/环境引导范围；当前并行文档状态由 PF-02 会话回写 |
+| 05 | [PF-02 SystemData实施方案](05-Industrial%20Platform%20SystemData开发实施方案.md) | PF-02 控制面计划；数据库拓扑以蓝图 07、33 为准，当前为已形成设计/任务卡、待书面审阅，尚未开发 |
 | 06 | [PF-03 ReferenceData实施方案](06-Industrial%20Platform%20ReferenceData%20Service开发实施方案.md) | 代码仅骨架；现有详细设计和任务卡由 PF-03 会话复核 |
 | 07 | PF-04 File / Notification / Audit实施方案（待 PF-04 会话创建） | 三个模块分开建模，在同一阶段管理会话协调和派遣 |
 | 08 | PF-05 Collaboration实施方案（待 PF-05 会话创建） | 待阶段管理会话设计和派遣 |

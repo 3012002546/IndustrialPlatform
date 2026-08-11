@@ -23,7 +23,7 @@ Service Host 与内部模块：
 数据库初始化与环境引导：
 
 ```text
-【PF-02 及后续新服务读取蓝图 33；列出 ServiceKey/Provider/DatabaseName/迁移产物与版本/Owner/DesiredState/AutoProvision/AutoMigrate，SystemData 握手、OperationId、readiness、最小角色、备份和环境策略；不适用时说明原因】
+【PF-02 及后续新服务读取蓝图 07、33；列出 ServiceKey、Provider、LogicalDatabaseName、表前缀、服务自有 migration ledger、迁移产物与版本、Owner、DesiredState、AutoProvision/AutoMigrate 和 DatabaseTopology 模式/默认目标。必须记录 SystemData 解析后的 PhysicalDatabaseName 校验、握手 OperationId、readiness、同物理目标迁移锁、drift 行为、最小角色、备份和环境策略；Development 默认 Shared（可选 PerService），Test/Staging/Production 只能 PerService。服务不得自行选择物理目标；不适用时说明原因】
 ```
 
 技术：
@@ -116,7 +116,7 @@ API/事件契约
 
 当多个模块共享 Service Host 时，还必须明确独立 Schema 或表前缀、公开应用契约、权限资源、迁移和测试边界；禁止跨模块直读 Repository 或数据表，并说明未来物理拆分路径。
 
-PF-02 及后续新服务还必须明确数据库初始化控制面：SystemData 负责登记、plan、provision/apply、Operation、数据库/角色/授权和迁移编排；当前服务拥有领域 Schema 与版本化迁移产物。必须写清 SystemData 不可用/迁移失败时 NotReady、Development/测试与生产策略、并发锁、幂等、Secret 隔离，以及 SystemData 自身由基础设施最小引导的唯一例外。禁止独立 Migrator Service、业务 API 管理员建库和 `EnsureCreated`。
+PF-02 及后续新服务还必须明确数据库初始化控制面：SystemData 是物理目标唯一权威，负责登记、logical-to-physical resolution、plan、provision/apply、Operation、数据库/角色/授权和迁移编排；当前服务只拥有领域 Schema/表前缀与版本化迁移产物。必须写清 SystemData 不可用/迁移失败时 NotReady、同物理目标迁移锁、drift、Development Shared 默认/可选 PerService 与 Test/Staging/Production PerService、幂等、Secret 隔离，以及 SystemData 自身由基础设施最小引导的唯一例外。禁止独立 Migrator Service、业务 API 管理员建库和 `EnsureCreated`。
 
 ---
 

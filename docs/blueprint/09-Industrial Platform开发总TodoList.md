@@ -217,11 +217,13 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 **Service Host：** 创建 `SystemData.Service`；本阶段只交付 SystemData 模块。
 **建议会话标题：** `PF-02 SystemData阶段管理`
 **输入：** 蓝图 05、07、13、20、23、27、30、31、32、33；PF-00 身份契约；PF-01 页面规范；PostgreSQL 18 与当前 `deploy/cloud-dev` 最小引导现状。
-**目标：** 建立行政组织、岗位、任职关系、菜单导航、功能开关、服务目录、主题默认值，以及后续服务数据库编排/环境引导能力。
+**目标：** 以 SystemData 数据库编排/环境引导控制面为最高优先级，先建立后续服务的物理目标权威与验证，再交付行政组织、岗位、任职关系、菜单导航、功能开关、服务目录和主题默认值。
 **依赖：** PF-00；页面依赖 PF-01。
 **禁止范围：** 制造组织、字典参数、物料设备、租户运营后台。
 
 **设计会话必须解决：**
+
+- **最高优先级：** 先完成 `TASK-SD-001～004` 的设计、派遣和验收链（拓扑 resolver/bootstrap、logical/physical registration 与 plan、同物理目标锁定的 provision/migrate/drift、consumer handshake/readiness）；在该链满足编排门禁前，不得开始行政组织、菜单导航、主题等 `TASK-SD-005+` 工作。
 
 - 行政组织树、岗位和任职关系的不变量；
 - 菜单、路由、按钮资源与 Identity 权限的所有权和同步；
@@ -235,8 +237,8 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 - Development/测试自动策略、生产 `plan → 审批 → 备份 → apply`，以及 `RemoteDevelopment.Enabled=false` 的 SQLite 回退；
 - SystemData 自身数据库由基础设施最小引导的 bootstrap 例外，不得形成调用自身 API 的循环依赖。
 
-**交付：** SystemData 蓝图/规格、实施方案、任务卡、数据库编排 API/manifest/readiness 母版和 PF-03/04 及后续服务可消费契约。
-**完成门禁：** 管理员可完成组织、岗位、导航、开关、服务和主题管理；受信测试服务可通过可追踪 `OperationId` 幂等完成非 SystemData PostgreSQL 数据库、最小角色/授权和版本化迁移，生产未审批/未备份 apply 被拒绝，多副本只迁移一次，失败消费者保持 NotReady，管理凭据不进入 API/数据库/日志/Trace/审计；SystemData 自身最小引导与 SQLite 回退有验证证据；不得使用 `EnsureCreated`。权限、审计、契约和关键 E2E 通过。
+**交付：** SystemData 蓝图/规格、实施方案、任务卡、数据库编排 API/manifest/readiness 母版和 PF-03/04 及后续服务可消费契约；当前仅前述文档与任务卡已形成，尚未代表运行时实现或测试完成。
+**完成门禁：** 先证明 Development `Shared`（一个 PostgreSQL physical target、各服务独立迁移与 readiness）和 `PerService` 隔离均可用；Test/Staging/Production 仅允许 `PerService`，且生产 `apply` 必须通过审批与备份门禁。随后管理员可完成组织、岗位、导航、开关、服务和主题管理；受信测试服务可通过可追踪 `OperationId` 幂等完成非 SystemData PostgreSQL 数据库、最小角色/授权和版本化迁移，多副本只迁移一次，失败消费者保持 NotReady，管理凭据不进入 API/数据库/日志/Trace/审计；SystemData 自身最小引导与 SQLite 回退有验证证据；不得使用 `EnsureCreated`。权限、审计、契约和关键 E2E 通过。
 
 # 10. PF-03 ReferenceData
 
@@ -460,7 +462,7 @@ WorkOrder、Weighting、Trace、BatchRecord 和生产闭环分别开会话设计
 | --- | --- | --- | --- | --- | --- | --- |
 | PF-00 Identity | 已暂停 | 现有 Identity 会话 | 蓝图 13、31 | 实施 03 | `c7d371f`、`cd46e3c` 等；完成 TASK-ID-001～006 | 见实施 03；外部环境项仍待验收 |
 | PF-01 视觉主题 | 开发设计已完成，任务待确认 | 现有 PF-01 会话继续 | 已批准 PF-01 规格 | `docs/implementation/04-Industrial Platform视觉主题与平台外壳开发实施方案.md` | 设计提交 `e2d24a4`、`d7ef889`、`efb3b35`；尚无开发提交 | 尚未开发/验收 |
-| PF-02 SystemData | 待启动 | 待创建 | 蓝图 05 | 实施 05 待创建 | - | - |
+| PF-02 SystemData | 详细设计与任务卡已形成，待书面审阅；尚未开发 | 待创建 | 蓝图 05、07、33 | `docs/implementation/05-Industrial Platform SystemData开发实施方案.md` | 无运行时提交 | 尚无运行时测试/验收证据 |
 | PF-03 ReferenceData | 仅骨架 | 待创建 | 蓝图及现有设计待复核 | 实施 06 待修订 | - | - |
 | PF-04 File / Notification / Audit | 待启动 | 待创建 | 蓝图 05、30、31 | 实施 07 待创建 | - | - |
 | PF-05 Collaboration | 待启动 | 待创建 | 蓝图 05 | 实施 08 待创建 | - | - |
