@@ -119,6 +119,8 @@ SystemData API 只管理其他服务数据库。基础设施引导不得扩张�
 
 Shared SQLite（`SharedSqliteFile`）是 Development 默认；`PerService` SQLite 仅作为显式验证模式，且各服务继续使用自己的本地迁移路径。
 
+SQLite 与 PostgreSQL 均适用同一规范化目标、Shared 一次物理 provision、按服务的迁移 ledger/readiness、物理目标 DDL 串行化及 drift/显式迁移/import 规则。
+
 # 11. 新服务模板强制项
 
 后续微服务/Service Host 模板必须包含：
