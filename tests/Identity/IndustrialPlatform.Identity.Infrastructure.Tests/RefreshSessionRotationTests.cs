@@ -16,6 +16,7 @@ namespace IndustrialPlatform.Identity.Infrastructure.Tests;
 /// <summary>
 /// 刷新会话旋转与撤销测试(§13):哈希定位、原子防重放、Family 旋转、单会话/全部注销撤销。
 /// </summary>
+[Collection(BootstrapEnvironmentTestGroup.Name)]
 public sealed class RefreshSessionRotationTests : IDisposable
 {
     private static readonly string[] BootstrapEnvNames =

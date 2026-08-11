@@ -12,6 +12,7 @@ namespace IndustrialPlatform.Identity.Infrastructure.Tests;
 /// 约束索引、复合外键级联、拒绝不匹配写入与初始化幂等。
 /// (PostgreSQL 真实验证标记「待验收」。)
 /// </summary>
+[Collection(BootstrapEnvironmentTestGroup.Name)]
 public sealed class IdentityMigrationTests : IDisposable
 {
     private const string BootstrapTenantNId = "development";

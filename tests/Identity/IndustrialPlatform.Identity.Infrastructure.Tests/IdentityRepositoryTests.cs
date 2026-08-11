@@ -16,6 +16,7 @@ namespace IndustrialPlatform.Identity.Infrastructure.Tests;
 /// 身份库仓储集成测试:POCO↔聚合双向映射、软删除过滤、双版本并发与子项 diff 同步。
 /// (PostgreSQL 真实验证标记「待验收」。)
 /// </summary>
+[Collection(BootstrapEnvironmentTestGroup.Name)]
 public sealed class IdentityRepositoryTests : IDisposable
 {
     private const string TenantNId = "development";

@@ -18,6 +18,7 @@ namespace IndustrialPlatform.Identity.Infrastructure.Tests;
 /// <summary>
 /// 登录审计与刷新会话持久化测试(§13/§19.1):IP/User-Agent/Token 只存哈希、不落明文。
 /// </summary>
+[Collection(BootstrapEnvironmentTestGroup.Name)]
 public sealed class LoginAuditAndRefreshSessionStoreTests : IDisposable
 {
     private static readonly string[] BootstrapEnvNames =

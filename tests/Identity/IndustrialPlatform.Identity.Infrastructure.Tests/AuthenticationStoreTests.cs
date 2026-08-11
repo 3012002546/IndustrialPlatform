@@ -17,6 +17,7 @@ namespace IndustrialPlatform.Identity.Infrastructure.Tests;
 /// <summary>
 /// 认证用例持久化端口与仓储新方法测试:按规范化登录名/NId 查询、角色 NId 快照、活动权限查询。
 /// </summary>
+[Collection(BootstrapEnvironmentTestGroup.Name)]
 public sealed class AuthenticationStoreTests : IDisposable
 {
     private static readonly string[] BootstrapEnvNames =
