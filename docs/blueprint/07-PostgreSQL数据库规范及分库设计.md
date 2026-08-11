@@ -65,6 +65,8 @@ Industrial Platform：
 
 # 2. 数据库总体规划
 
+下列数据库名均为服务的逻辑身份，不是固定的物理部署拓扑。Test、Staging 和 Production 必须采用 `PerService` 物理拓扑；Development 默认可把这些逻辑身份映射到一个 Shared 目标（例如 `industrial_platform_dev`），而不改变服务边界。
+
 推荐：
 
 ## PostgreSQL Cluster
@@ -185,6 +187,8 @@ Equipment Service
 ---
 
 # 4. 数据库列表
+
+此表列的是逻辑数据库身份；实际 `LogicalDatabaseName` 到 `PhysicalDatabaseName` 的映射、Shared/PerService 校验和环境规则以蓝图 33 为准。
 
 | 服务         | 数据库           |
 | ---------- | ------------- |
@@ -1084,7 +1088,7 @@ Migrations
 
 ---
 
-启动时不得由各业务 API 使用管理员凭据直接执行 `DatabaseInitializer` 建库。后续服务通过声明式 manifest 与 `SystemData.Service` 数据库编排 API 握手：先登记/查询期望状态，再由 SystemData 生成 plan，并按环境策略异步 provision/apply；服务在目标迁移版本确认前保持 NotReady。
+启动时不得由各业务 API 使用管理员凭据直接执行 `DatabaseInitializer` 建库。后续服务通过声明式 manifest 与 `SystemData.Service` 数据库编排 API 握手：先登记/查询期望状态，再由 SystemData 生成 plan，并按环境策略异步 provision/apply；服务在目标迁移版本确认前保持 NotReady。`DatabaseName` 是稳定逻辑身份，完整的 `DatabaseTopology` 及其拓扑切换、drift 和 Shared 规则以蓝图 33 为准。
 
 每个服务仍独立拥有 Migration Assembly/Bundle、迁移历史语义、expand/contract 说明和恢复方案。SystemData 只编排数据库、最小角色、授权、并发锁与迁移执行，不维护业务表定义。
 

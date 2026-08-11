@@ -41,6 +41,8 @@ SystemData 至少提供以下受控能力：
 
 清单不得包含真实服务器地址、密码、私钥、管理员连接串或可还原的密钥材料。
 
+本文是可配置数据库拓扑的权威契约：共享物理存储绝不削弱服务的表前缀、迁移、Repository、API、事件或数据所有权边界。`DatabaseName` 是稳定的逻辑数据库身份（logical database identity），不因物理拓扑变更而改名。受信服务的环境配置还必须声明 `DatabaseTopology`：`Mode: Shared | PerService`、`SharedDatabaseName`、`SharedSqliteFile` 和 `ServiceDatabases:{ServiceKey}`。SystemData 将声明规范化为 `EnvironmentName`、`Mode`、`ServiceKey`、`Provider`、`LogicalDatabaseName`、`PhysicalDatabaseName`、`IsSharedPhysicalDatabase` 后再计划和执行；例如 Development 的 Shared PostgreSQL 可使用 `SharedDatabaseName: industrial_platform_dev`。
+
 # 4. 服务启动握手与就绪门禁
 
 启用远程 PostgreSQL 时，新服务启动顺序固定为：
@@ -58,6 +60,8 @@ SystemData 至少提供以下受控能力：
 ```
 
 SystemData 不可用、操作失败、目标版本不一致或连接指向错误数据库时，服务必须保持 `NotReady` 并给出明确且脱敏的错误、`OperationId` 和 TraceId。不得静默降级到错误数据库，不得临时使用管理员权限自行建库，也不得把 liveness 与 readiness 混为一体。
+
+拓扑变更绝不隐式复制数据；已填充的目标必须报告 drift，并要求显式迁移/import。SystemData 对 Shared 目标按服务、迁移产物和版本分别评估 readiness。
 
 # 5. 职责与数据所有权
 
@@ -88,6 +92,8 @@ SystemData 不直接编写、推断或长期维护业务表定义，不跨服务
 
 所有环境都使用版本化迁移；禁止使用 `EnsureCreated`、Code First 自动建表或删除重建代替迁移。破坏性变更采用 expand/contract，并在计划中提供兼容窗口、备份、回滚或恢复说明。
 
+Development 默认 `Shared`，也可显式使用 `PerService`；Test、Staging 和 Production 只允许 `PerService`，Shared 无效。
+
 # 8. 并发、失败与恢复
 
 - 同一目标数据库同一时间只允许一个迁移操作；使用 PostgreSQL advisory lock 或等效分布式锁。
@@ -95,6 +101,8 @@ SystemData 不直接编写、推断或长期维护业务表定义，不跨服务
 - 持久化计划摘要、目标版本、迁移历史、开始/结束时间、状态、脱敏错误和关联审计。
 - 多副本同时启动时，只有持锁执行者可以迁移；其他副本等待状态结果并保持 NotReady，不得并发执行。
 - 失败不得伪装成功；人工恢复后必须从可验证的迁移历史继续，而不是跳过未知步骤。
+
+Shared 模式下，SystemData 只 provision 一次物理数据库；每个服务独立执行自己的迁移产物和唯一 migration ledger。同一物理目标数据库的 DDL 必须通过 physical-target PostgreSQL advisory lock 或等效分布式锁串行化。
 
 # 9. SystemData 自身引导例外
 
@@ -108,6 +116,8 @@ SystemData API 只管理其他服务数据库。基础设施引导不得扩张�
 - 启用远程开发/云端环境时，各服务通过受控配置和 SystemData 使用 PostgreSQL 18。
 - 本地 SQLite 与云端 PostgreSQL 必须使用等价的版本语义和显式迁移，不得用 `EnsureCreated` 掩盖差异。
 - SystemData 不可用时，启用远程 PostgreSQL 的新服务保持 NotReady；不得回退到另一个数据库或管理员自建库。
+
+Shared SQLite（`SharedSqliteFile`）是 Development 默认；`PerService` SQLite 仅作为显式验证模式，且各服务继续使用自己的本地迁移路径。
 
 # 11. 新服务模板强制项
 
