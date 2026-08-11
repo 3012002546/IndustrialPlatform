@@ -1583,7 +1583,7 @@ TASK-SD-004 + 010 + 011 + 012
 
 **允许修改范围：** SystemData Contracts、共享测试 fixture/示例宿主、SystemData 集成/E2E 测试和编排说明；仅使用测试服务自有 Schema/迁移产物。禁止改造真实业务服务、创建新生产服务、修改并行部署文件或派遣 PF-03+。
 
-**预期输出：** DatabaseRegistration/Operation/Readiness v1 契约、测试服务 manifest 与签名迁移产物、Local SQLite 显式迁移和 Remote PostgreSQL 路径、liveness/readiness 区分、NotReady 503 响应及八项数据库编排验收报告模板。
+**预期输出：** DatabaseRegistration/Operation/Readiness v1 契约、测试服务 manifest 与签名迁移产物、Local SQLite 显式迁移和 Remote PostgreSQL 路径、liveness/readiness 区分、NotReady 503 响应及第 12 节十项拓扑验收报告模板。
 
 **验证与证据：** 从空环境验证 SystemData 无循环自举、测试服务注册/plan/apply、生产审批与备份、并发单迁移、Secret 扫描、失败 NotReady、SQLite/PG 显式迁移等第 12 节门禁；真实环境不足时保持待验收，不放行后续纵切。
 
