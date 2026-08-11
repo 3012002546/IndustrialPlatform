@@ -2,7 +2,7 @@
 
 本目录是 Industrial Platform 开发实施方案和可派遣开发 TODO 的唯一维护源。蓝图决策来自 `docs/blueprint`；实际开发在其他任务或被派遣的协作任务中完成，当前任务只负责拆分、派遣、跟踪、验收信息汇总和结果回写。
 
-总体开发优先级和阶段门禁统一读取 `docs/blueprint/09-Industrial Platform开发总TodoList.md`。PF-01～PF-11 与本目录 04～14 一一对应；MES 文档从 15 开始。
+总体开发优先级和阶段门禁统一读取 `docs/blueprint/09-Industrial Platform开发总TodoList.md`。PF-01～PF-10 对应本目录 04～13，PF-10A 使用 13A，PF-11 使用 14；MES 文档从 15 开始。
 
 所有 PF 阶段还必须读取 `docs/blueprint/32-Industrial Platform Service Host与内部模块边界.md`。阶段编号不等于 Service Host；后续阶段可以向前一阶段创建的宿主增加独立模块，但不得合并 Schema/表前缀、契约、权限或测试，也不得跨模块直读 Repository。
 
@@ -38,7 +38,8 @@
 | 10 | PF-07 Scheduler / Platform Health实施方案（待 PF-07 会话创建） | 两个模块分开建模，在同一阶段管理会话协调和派遣 |
 | 11 | PF-08 Low Code实施方案（待 PF-08 会话创建） | 待阶段管理会话设计和派遣 |
 | 12 | PF-09 Dashboard & Report实施方案（待 PF-09 会话创建） | 两个产品边界分开建模，在同一阶段管理会话协调和派遣 |
-| 13 | PF-10 Operations Center实施方案（待 PF-10 会话创建） | 创建 `OperationsCenter.Service`；ServerMonitor 是内部模块，完整模块边界读取蓝图 32 |
+| 13 | PF-10 ServerMonitor实施方案（待 PF-10 会话创建） | 创建 `OperationsCenter.Service`，本阶段只处理 ServerMonitor |
+| 13A | PF-10A Operations Center Knowledge & Assistant实施方案（待 PF-10A 会话创建） | 设计待确认；先补齐 IssueTracking 与 KnowledgeBase 完整数据闭环，不提前创建文档 |
 | 14 | PF-11 IoT Collector实施方案（待 PF-11 会话创建） | 待阶段管理会话复核蓝图并派遣 |
 | 15 | [MES-01 MasterData实施方案](15-Industrial%20Platform%20MasterData%20Service开发实施方案.md) | 暂缓；保留现有设计和未提交调整，恢复前复核 |
 | 16 | [MES-02 OperationalData实施方案](16-Industrial%20Platform%20OperationalData%20Service开发实施方案.md) | 暂缓；恢复前按母版重构和复核 |
@@ -56,7 +57,8 @@ BuildingBlocks / 可运行基线 / 统一前端第一批（已完成，Docker �
 → PF-07 Scheduler / Platform Health
 → PF-08 Low Code
 → PF-09 Dashboard / Report
-→ PF-10 Operations Center
+→ PF-10 ServerMonitor
+→ PF-10A Operations Center Knowledge & Assistant（设计待确认）
 → PF-11 IoT Collector
 → MES-01 MasterData
 → MES-02 OperationalData
@@ -65,4 +67,4 @@ BuildingBlocks / 可运行基线 / 统一前端第一批（已完成，Docker �
 
 BuildingBlocks 原基础搭建和 Entity 调整不重复派遣。详细任务状态在对应实施文档中维护；`docs/blueprint/09-Industrial Platform开发总TodoList.md` 只维护总体阶段、门禁、阶段管理会话入口和结果索引。
 
-每个 PF 阶段只开一个阶段管理会话。该会话根据蓝图、母版、项目记忆和当前代码反复完善详细设计，确认后直接在对应编号实施文档中生成九字段任务卡并负责派遣、跟踪和验收，不再拆成规格会话、计划会话和开发会话。被派遣任务继续按“后端用例与契约 → 对应页面 → 契约测试与关键路径 E2E → 阶段验收”纵向交付。
+每个 PF 阶段（包括 PF-10A）只开一个阶段管理会话。该会话根据蓝图、母版、项目记忆和当前代码反复完善详细设计，确认后直接在对应编号实施文档中生成九字段任务卡并负责派遣、跟踪和验收，不再拆成规格会话、计划会话和开发会话。被派遣任务继续按“后端用例与契约 → 对应页面 → 契约测试与关键路径 E2E → 阶段验收”纵向交付。

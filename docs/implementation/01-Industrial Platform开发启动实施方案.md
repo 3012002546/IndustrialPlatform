@@ -72,7 +72,8 @@ PF-06    RemoteAssistance 验证与试点
 PF-07    Scheduler / Platform Health（分别设计）
 PF-08    Low Code
 PF-09    Dashboard / Report（分别设计）
-PF-10    Operations Center
+PF-10    ServerMonitor
+PF-10A   Operations Center Knowledge & Assistant（设计待确认）
 PF-11    IoT Collector
 MES-01   MasterData（暂缓）
 MES-02   OperationalData（暂缓）
@@ -107,7 +108,7 @@ MES-03+  生产闭环服务
 
 当前正在执行实施文档 03。`TASK-ID-001/002` 已完成，继续 `TASK-ID-003～016`；完成用户、角色、权限、JWT、RefreshToken、注销与撤销，并把前端从 `MockAuthGateway` 切换到 `HttpAuthGateway`。阶段验收必须覆盖登录、刷新、401、403、菜单与按钮权限。
 
-## PF-01～PF-11 平台基础和独立模块
+## PF-01～PF-11（含 PF-10A）平台基础和独立模块
 
 详细边界读取 `docs/blueprint/05-Industrial Platform平台基础功能与独立模块设计.md`，执行顺序、阶段任务卡和阶段管理会话入口读取 `docs/blueprint/09-Industrial Platform开发总TodoList.md`。
 
@@ -940,7 +941,7 @@ GET
 ```text
 已完成：BuildingBlocks / Entity 调整 / 可运行基线主要范围 / 统一前端第一批
 → PF-00 Identity
-→ PF-01～PF-11 平台基础和独立模块
+→ PF-01～PF-11（含 PF-10A）平台基础和独立模块
 → MES-01 MasterData
 → MES-02 OperationalData
 → MES-03+ 生产闭环
@@ -974,7 +975,7 @@ GET
 
 ## 后续顺序
 
-- PF-04～PF-11 按总 TodoList 的阶段门禁推进。
+- PF-04～PF-11（含 PF-10A）按总 TodoList 的阶段门禁推进。
 - MasterData 和 OperationalData 暂缓，达到 MES 恢复门禁后分别复核。
 
 实施文档执行记录、提交和新鲜验证证据共同构成进度依据；`CLAUDE.md` 可以记录协作过程，但不替代正式验收。

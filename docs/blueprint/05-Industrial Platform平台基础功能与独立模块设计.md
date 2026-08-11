@@ -11,7 +11,7 @@ Service Host 母版：`32-Industrial Platform Service Host与内部模块边界.
 
 本文把已确认的平台基础功能、视觉体系、工业合规协作和独立产品路线纳入 `docs/blueprint` 正式维护源。
 
-Identity 完成后暂缓 MasterData、OperationalData 和 MES 生产业务扩张，优先形成可日常使用、可运维、可扩展的平台基础。PF-01～PF-11 各使用一个阶段管理会话，根据实施母版、项目记忆和当前代码完成详细设计、任务派遣、跟踪与验收；本文只固定跨阶段边界和不可反向修改的总体决策。
+Identity 完成后暂缓 MasterData、OperationalData 和 MES 生产业务扩张，优先形成可日常使用、可运维、可扩展的平台基础。每个 PF 阶段（含 PF-10A）各使用一个阶段管理会话，根据实施母版、项目记忆和当前代码完成详细设计、任务派遣、跟踪与验收；本文只固定跨阶段边界和不可反向修改的总体决策。
 
 # 2. 建设目标
 
@@ -205,7 +205,7 @@ Screego 只作为独立验证底座或可替换 WebRTC 引擎，不把源码合�
 
 ## 9.3 Operations Center 与 IoT Collector
 
-Operations Center 的 ServerMonitor 模块观察平台和 IT 运行状态；IoT Collector 获取工业设备数据。两者可以共享日志、指标和告警基础设施，但不共享领域模型。Operations Center 的 ProjectWorkspace、KnowledgeBase、IssueTracking、KnowledgeAssistant、DataAssistant 与 ModelGateway 边界以蓝图 32 为准，详细设计留给 PF-10 阶段管理任务。
+Operations Center 的 ServerMonitor 模块观察平台和 IT 运行状态，由 PF-10 单独处理；IoT Collector 获取工业设备数据。两者可以共享日志、指标和告警基础设施，但不共享领域模型。Operations Center 的 ProjectWorkspace、KnowledgeBase、IssueTracking、KnowledgeAssistant、DataAssistant 与 ModelGateway 进入 PF-10A，其边界以蓝图 32 为准；IssueTracking 与 KnowledgeBase 完整数据闭环仍为设计待确认，不得按既有原则摘要直接开发。
 
 # 10. 跨模块约束
 

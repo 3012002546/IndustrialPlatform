@@ -52,10 +52,13 @@ Worker、Agent、Screego、TURN 和本地模型运行时是辅助部署单元，
 | 10 / PF-07 | Scheduler / Platform Health | 加入 `SystemData.Service` | Scheduler、PlatformHealth |
 | 11 / PF-08 | Low Code | 创建 `PlatformStudio.Service` | DataSource、Dataset、LowCode、Publishing 的首期范围 |
 | 12 / PF-09 | Dashboard & Report | 加入 `PlatformStudio.Service` | Dashboard、Report，并复用受控 Dataset 契约 |
-| 13 / PF-10 | Operations Center | 创建 `OperationsCenter.Service` | 本文第 5 节所列模块；详细范围由 PF-10 管理任务确认 |
+| 13 / PF-10 | ServerMonitor | 创建 `OperationsCenter.Service` | 只交付 ServerMonitor；与知识、问题和助手模块保持隔离 |
+| 13A / PF-10A | Operations Center Knowledge & Assistant | 加入 `OperationsCenter.Service` | ProjectWorkspace、KnowledgeBase、IssueTracking、KnowledgeAssistant、DataAssistant、ModelGateway；进入实施前先补齐第 5.4 节的设计缺口 |
 | 14 / PF-11 | IoT Collector | 创建 `IoTCollector.Service` | Driver、DeviceConnection、Point、CollectionTask、EdgeManagement |
 
 # 5. Operations Center 母版边界
+
+本章只记录已经逐项确认的模块定位和安全边界，不代表 Operations Center 已完成详细设计。上一个设计会话确认到 DataAssistant 为止，尚未完成 IssueTracking 与 KnowledgeBase 的端到端数据闭环；PF-10A 必须先补齐该闭环并经用户确认，才能生成可派遣任务卡。
 
 ## 5.1 ProjectWorkspace 与知识治理
 
@@ -77,10 +80,24 @@ Worker、Agent、Screego、TURN 和本地模型运行时是辅助部署单元，
 
 ## 5.3 ServerMonitor
 
-`ServerMonitor` 是 `OperationsCenter.Service` 内部独立模块。第一阶段不自动创建问题、不自动关联 KnowledgeBase，也不主动介入问题闭环；只预留未来通过公开契约扩展的能力。
+`ServerMonitor` 是 `OperationsCenter.Service` 内部独立模块，由 PF-10 单独完成阶段设计、派遣和验收。PF-10 不得顺带实现 ProjectWorkspace、KnowledgeBase、IssueTracking 或助手模块。ServerMonitor 第一阶段不自动创建问题、不自动关联 KnowledgeBase，也不主动介入问题闭环；只预留未来通过公开契约扩展的能力。
+
+## 5.4 尚待 PF-10A 确认的完整闭环
+
+下列内容尚未完成详细设计，不得把第 5.1～5.2 节的原则性结论当作实现规格：
+
+- IssueTracking 从登记、分派、处理、验证到关闭的状态、不变量、权限和审计；
+- 问题附件、处理记录、解决方案与 ProjectWorkspace 的数据归属；
+- 解决方案人工转为知识草稿时的字段映射、来源追踪、幂等和版本关系；
+- KnowledgeBase 草稿、审核、发布、索引、停用、重发与回滚的完整状态机；
+- 知识版本、适用系统版本、附件、全文索引和向量索引的一致性及失败恢复；
+- IssueTracking、KnowledgeBase、File、KnowledgeAssistant 之间的 API/事件、事务和 Outbox/Inbox 边界；
+- 从问题解决到知识发布、再到助手带引用检索的端到端验收场景。
+
+PF-10A 的第一个设计门禁是逐项完成并确认以上闭环；在此之前该阶段状态统一为“设计待确认”。
 
 # 6. 阶段管理工作流
 
-PF-01～PF-11 每阶段仍只创建一个阶段管理任务。阶段管理任务负责读取母版、蓝图、项目记忆与当前代码，反复完成详细设计、九字段任务卡、派遣、跟踪和验收，但不直接开发业务代码。
+每个 PF 阶段（包括 PF-10A）仍只创建一个阶段管理任务。阶段管理任务负责读取母版、蓝图、项目记忆与当前代码，反复完成详细设计、九字段任务卡、派遣、跟踪和验收，但不直接开发业务代码。
 
 本母版不定义各模块的表、字段、API、事件或页面。对应 PF 阶段必须在其唯一管理任务中完成详细设计，不得从本文摘要推断实现细节，也不得提前创建空的阶段实施方案。

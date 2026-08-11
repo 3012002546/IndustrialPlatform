@@ -44,13 +44,14 @@
 10  PF-07 Scheduler / Platform Health
 11  PF-08 Low Code
 12  PF-09 Dashboard & Report
-13  PF-10 Operations Center
+13  PF-10 ServerMonitor
+13A PF-10A Operations Center Knowledge & Assistant
 14  PF-11 IoT Collector
 15  MES-01 MasterData（原05）
 16  MES-02 OperationalData（原06）
 ```
 
-04、05、07～14 在对应阶段管理会话中根据 `docs/implementation/TEMPLATE-开发实施方案.md` 创建，不提前生成空骨架。
+04、05、07～14 及 13A 在对应阶段管理会话中根据 `docs/implementation/TEMPLATE-开发实施方案.md` 创建，不提前生成空骨架。
 
 ## 2.2 执行阶段编号
 
@@ -60,7 +61,7 @@
 
 ## 2.3 阶段与 Service Host
 
-阶段不等于微服务。PF-02～PF-11 的宿主创建/扩展映射固定读取蓝图 32：PF-02/04/07 共用 `SystemData.Service`，PF-05/06 共用 `Collaboration.Service`，PF-08/09 共用 `PlatformStudio.Service`；PF-03 使用 `ReferenceData.Service`，PF-10 创建 `OperationsCenter.Service`，PF-11 创建 `IoTCollector.Service`。同宿主模块仍必须独立建模、独立 Schema 或表前缀、独立契约/权限/测试，禁止跨模块直读 Repository。
+阶段不等于微服务。PF-02～PF-11（含 PF-10A）的宿主创建/扩展映射固定读取蓝图 32：PF-02/04/07 共用 `SystemData.Service`，PF-05/06 共用 `Collaboration.Service`，PF-08/09 共用 `PlatformStudio.Service`；PF-03 使用 `ReferenceData.Service`；PF-10 创建 `OperationsCenter.Service` 并只处理 ServerMonitor，PF-10A 再加入知识、问题与助手模块；PF-11 创建 `IoTCollector.Service`。同宿主模块仍必须独立建模、独立 Schema 或表前缀、独立契约/权限/测试，禁止跨模块直读 Repository。
 
 # 3. 当前真实基线
 
@@ -104,7 +105,9 @@ PF-08 Low Code
                     ↓
 PF-09 Dashboard & Report
                     ↓
-PF-10 Operations Center
+PF-10 ServerMonitor
+                    ↓
+PF-10A Operations Center Knowledge & Assistant
                     ↓
 PF-11 IoT Collector
                     ↓
@@ -122,11 +125,12 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 - PF-04 使用一个阶段管理会话，File、Notification、Audit 分开建模和派遣；Collaboration 开发前至少需要 Audit 与 File 稳定契约。
 - PF-07 使用一个阶段管理会话，Scheduler 与 Platform Health 分开建模和派遣。
 - PF-09 使用一个阶段管理会话，Dashboard 与 Report 共享数据集契约但保持产品边界。
-- Operations Center 与 IoT Collector 不互为领域依赖；PF-10 先执行是为了建立运维观察、实施知识与受控助手能力的统一宿主。
+- PF-10 先创建 `OperationsCenter.Service` 并独立交付 ServerMonitor；PF-10A 才向同一宿主加入项目知识、问题与助手模块。
+- Operations Center 与 IoT Collector 不互为领域依赖；PF-11 的实际启动条件由阶段管理任务根据 PF-10A 的设计进度复核，不得把知识闭环未完成误报为已设计。
 
 # 5. 单阶段单管理会话工作流
 
-PF-01～PF-11 每个阶段只创建一个阶段管理会话。该会话只负责详细设计和任务派遣，不直接开发业务代码；实际编码由它派遣的执行任务完成。
+每个 PF 阶段（包括 PF-10A）只创建一个阶段管理会话。该会话只负责详细设计和任务派遣，不直接开发业务代码；实际编码由它派遣的执行任务完成。
 
 ```text
 读取总体蓝图、阶段任务卡和项目记忆
@@ -377,17 +381,27 @@ PF-09 只使用一个阶段管理会话，输出实施文档 12。Dashboard 与 
 
 **共同门禁：** 在同一阶段管理会话中确认共享数据源/数据集契约，并在实施文档 12 中分别建立 Dashboard 与 Report 任务依赖。
 
-# 17. PF-10 Operations Center
+# 17. PF-10 ServerMonitor
 
 **状态：** 待启动
-**建议会话标题：** `PF-10 Operations Center阶段管理`
-**Service Host：** 创建 `OperationsCenter.Service`，内部包含 ServerMonitor、ProjectWorkspace、KnowledgeBase、IssueTracking、KnowledgeAssistant、DataAssistant、ModelGateway。
-**输入：** 蓝图 02、05、20、24、30、32；PF-04/07/09 稳定契约。
-**目标：** 在同一宿主内建立运维观察、实施项目知识作用域、问题跟踪、受控知识/数据助手和模型接入的独立模块边界。
-**母版边界：** ProjectWorkspace 不做计划、里程碑、预算或工时；KnowledgeBase 遵循“草稿→审核→发布→索引”，问题方案只能人工转为知识草稿；助手只访问当前项目内有权访问的已发布知识。KnowledgeAssistant 使用带引用与适用版本的 RAG；ModelGateway 默认本地模型，外部模型按项目默认关闭、密钥加密且调用可审计。DataAssistant 首期只访问受控 Dataset/只读视图并输出结构化查询计划，后续受限 Text-to-SQL 仍须白名单、AST、安全与权限校验，永远禁止自由访问生产库。文件上传复用 SystemData 的 File 模块。
-**ServerMonitor 边界：** 与 Platform Health 分层；首期不自动创建问题、不自动关联知识库、不主动介入问题闭环，只预留公开契约扩展点。
-**设计要求：** 各模块独立 Schema/表前缀、契约、权限和测试；不得在本总 Todo 中提前展开表、API 或页面。
-**完成门禁：** 由 PF-10 阶段管理任务在详细设计确认后定义；至少必须覆盖项目权限、知识发布与索引治理、可靠引用、模型密钥与调用审计、受控数据查询安全，以及一个受管节点的监控闭环。
+**建议会话标题：** `PF-10 ServerMonitor阶段管理`
+**Service Host：** 创建 `OperationsCenter.Service`；本阶段只加入并交付 ServerMonitor 模块。
+**输入：** 蓝图 02、05、20、30、32；PF-04/07 稳定契约。
+**目标：** 独立复核并实施主机、CPU、内存、磁盘、网络、进程、服务、端口、日志、告警、Agent 和运维看板。
+**边界：** 与 Platform Health 分层；不实现 ProjectWorkspace、KnowledgeBase、IssueTracking、KnowledgeAssistant、DataAssistant 或 ModelGateway；首期不自动创建问题、不自动关联知识库、不主动介入问题闭环，只保留公开契约扩展点。
+**完成门禁：** 至少一个受管节点完成注册、采集、状态、告警、通知和处置记录闭环，且未越界实现 PF-10A 模块。
+
+# 17A. PF-10A Operations Center Knowledge & Assistant
+
+**状态：** 设计待确认
+**建议会话标题：** `PF-10A Operations Center知识问题与助手阶段管理`
+**Service Host：** 向既有 `OperationsCenter.Service` 加入 ProjectWorkspace、KnowledgeBase、IssueTracking、KnowledgeAssistant、DataAssistant、ModelGateway。
+**输入：** 蓝图 05、24、32；PF-04/09/10 稳定契约；上一个 Operations Center 设计会话的已确认记录。
+**已确认边界：** ProjectWorkspace 的最小知识/数据作用域；知识“草稿→审核→发布→索引”原则；知识内容类型；KnowledgeAssistant 的带引用 RAG；ModelGateway 的本地优先、DeepSeek 与 OpenAI-Compatible 适配；DataAssistant 的受控 Dataset、结构化查询计划和受限 Text-to-SQL 安全边界。
+**设计缺口：** 上一个会话只推进到 DataAssistant，尚未完成 IssueTracking 与 KnowledgeBase 的完整数据闭环。不得把现有原则性结论表述为完整数据模型、状态机或可派遣实施方案。
+**首要设计门禁：** 完成蓝图 32 第 5.4 节，包括问题登记到关闭、解决方案人工转知识草稿、知识审核发布与索引、失败恢复、模块契约/事件/事务，以及助手带引用检索的端到端闭环，并逐项取得用户确认。
+**禁止范围：** 在闭环确认前生成开发任务卡或派遣实现；ServerMonitor 的既有领域模型不得被知识/问题模块直接读取。
+**完成门禁：** 在阶段管理会话中补齐详细设计后另行定义，不得在本总 Todo 中预设表、API 或页面。
 
 # 18. PF-11 IoT Collector
 
@@ -446,7 +460,8 @@ WorkOrder、Weighting、Trace、BatchRecord 和生产闭环分别开会话设计
 | PF-07 Scheduler / Platform Health | 待启动 | 待创建 | 蓝图 05、30 | 实施 10 待创建 | - | - |
 | PF-08 Low Code | 待启动 | 待创建 | 蓝图 21 待复核 | 实施 11 待创建 | - | - |
 | PF-09 Dashboard & Report | 待启动 | 待创建 | 蓝图 22 待复核 | 实施 12 待创建 | - | - |
-| PF-10 Operations Center | 待启动 | 待创建 | 蓝图 02、32 待复核 | 实施 13 待创建 | - | - |
+| PF-10 ServerMonitor | 待启动 | 待创建 | 蓝图 02、32 待复核 | 实施 13 待创建 | - | - |
+| PF-10A Operations Center Knowledge & Assistant | 设计待确认 | 待创建 | 蓝图 32 第 5.4 节 | 实施 13A 待创建 | - | - |
 | PF-11 IoT Collector | 待启动 | 待创建 | 蓝图 17 待复核 | 实施 14 待创建 | - | - |
 | MES-01 MasterData | 暂缓 | 待恢复时创建 | 蓝图 14 待复核 | 实施 15 暂缓 | - | - |
 | MES-02 OperationalData | 暂缓 | 待恢复时创建 | 蓝图 14A 待复核 | 实施 16 暂缓 | - | - |
@@ -475,4 +490,4 @@ WorkOrder、Weighting、Trace、BatchRecord 和生产闭环分别开会话设计
 - Identity 记录为实际开发中，ReferenceData 记录为代码仅骨架。
 - MasterData、OperationalData 改为暂缓。
 - 删除旧的固定 MES Sprint 路线，改为阶段门禁和单阶段单管理会话。
-- PF-01～PF-11 每阶段一个管理会话；PF-04、PF-07、PF-09 在同一阶段会话内保持模块分开建模和任务拆分。
+- 每个 PF 阶段（含 PF-10A）一个管理会话；PF-04、PF-07、PF-09 在同一阶段会话内保持模块分开建模和任务拆分。

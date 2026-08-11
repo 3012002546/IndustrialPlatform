@@ -206,7 +206,11 @@ Scheduler + Platform Health
       ↓
 Low Code + Dashboard & Report
       ↓
-Operations Center + IoT Collector
+ServerMonitor
+      ↓
+Operations Center Knowledge & Assistant
+      ↓
+IoT Collector
       ↓
 MasterData + OperationalData + MES业务域
 ```
@@ -919,7 +923,7 @@ Quality
 
 ## OperationsCenter.Service
 
-当前独立 Service Host，内部包含 `ServerMonitor`、`ProjectWorkspace`、`KnowledgeBase`、`IssueTracking`、`KnowledgeAssistant`、`DataAssistant` 和 `ModelGateway`。其权威母版边界见蓝图 32；各模块的表、API 和页面留给 PF-10 阶段管理任务设计。
+当前独立 Service Host，内部包含 `ServerMonitor`、`ProjectWorkspace`、`KnowledgeBase`、`IssueTracking`、`KnowledgeAssistant`、`DataAssistant` 和 `ModelGateway`。其权威母版边界见蓝图 32；PF-10 单独处理 ServerMonitor，PF-10A 处理其余模块并先补齐 IssueTracking 与 KnowledgeBase 完整数据闭环。各模块的表、API 和页面留给对应阶段管理任务设计。
 
 ### ServerMonitor 模块
 
