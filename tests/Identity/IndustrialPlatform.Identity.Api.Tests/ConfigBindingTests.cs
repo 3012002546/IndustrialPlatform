@@ -6,7 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
-namespace IndustrialPlatform.Identity.Tests;
+namespace IndustrialPlatform.Identity.Api.Tests;
 
 /// <summary>
 /// 验证 appsettings.Development.json 的开发配置可正确绑定到 BuildingBlocks 组件选项,
@@ -22,6 +22,7 @@ public sealed class ConfigBindingTests
         var options = factory.Services.GetRequiredService<IOptions<SqlSugarOptions>>().Value;
 
         Assert.Contains("Host=localhost", options.ConnectionString);
+        Assert.Contains("Database=identity_db", options.ConnectionString);
         Assert.Contains("Password=sample-dev-password", options.ConnectionString);
         Assert.Equal(SqlSugar.DbType.PostgreSQL, options.DbType);
     }

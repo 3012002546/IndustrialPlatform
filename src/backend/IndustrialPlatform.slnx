@@ -12,13 +12,18 @@
     <Project Path="..\..\tests\BuildingBlocks\IndustrialPlatform.BuildingBlocks.Tests\IndustrialPlatform.BuildingBlocks.Tests.csproj" />
   </Folder>
   <Folder Name="/src/Services/Identity/">
+    <Project Path="src\Services\Identity\IndustrialPlatform.Identity.Contracts\IndustrialPlatform.Identity.Contracts.csproj" />
     <Project Path="src\Services\Identity\IndustrialPlatform.Identity.Domain\IndustrialPlatform.Identity.Domain.csproj" />
     <Project Path="src\Services\Identity\IndustrialPlatform.Identity.Application\IndustrialPlatform.Identity.Application.csproj" />
     <Project Path="src\Services\Identity\IndustrialPlatform.Identity.Infrastructure\IndustrialPlatform.Identity.Infrastructure.csproj" />
     <Project Path="src\Services\Identity\IndustrialPlatform.Identity.Api\IndustrialPlatform.Identity.Api.csproj" />
   </Folder>
   <Folder Name="/tests/Identity/">
-    <Project Path="..\..\tests\Identity\IndustrialPlatform.Identity.Tests\IndustrialPlatform.Identity.Tests.csproj" />
+    <Project Path="..\..\tests\Identity\IndustrialPlatform.Identity.Domain.Tests\IndustrialPlatform.Identity.Domain.Tests.csproj" />
+    <Project Path="..\..\tests\Identity\IndustrialPlatform.Identity.Application.Tests\IndustrialPlatform.Identity.Application.Tests.csproj" />
+    <Project Path="..\..\tests\Identity\IndustrialPlatform.Identity.Infrastructure.Tests\IndustrialPlatform.Identity.Infrastructure.Tests.csproj" />
+    <Project Path="..\..\tests\Identity\IndustrialPlatform.Identity.Api.Tests\IndustrialPlatform.Identity.Api.Tests.csproj" />
+    <Project Path="..\..\tests\Identity\IndustrialPlatform.Identity.Contract.Tests\IndustrialPlatform.Identity.Contract.Tests.csproj" />
   </Folder>
   <Folder Name="/src/Services/ReferenceData/">
     <Project Path="src\Services\ReferenceData\IndustrialPlatform.ReferenceData.Domain\IndustrialPlatform.ReferenceData.Domain.csproj" />

@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <!-- Contracts 仅承载跨进程 DTO 与集成事件;不引用 Domain/Infrastructure/Api(见 03 方案 §5) -->
+  </ItemGroup>
+
+</Project>

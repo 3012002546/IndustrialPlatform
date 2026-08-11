@@ -1516,7 +1516,7 @@ ID-009 + ID-012 + ID-015 → ID-016
 
 ## TASK-ID-001 对齐服务骨架、契约与独立数据库
 
-**状态：** 可派遣
+**状态：** 已完成
 
 **目标：** 在保留现有健康检查的基础上，固化五层边界、API 前缀、配置、测试项目和 `identity_db` 迁移基础。
 
@@ -1910,7 +1910,7 @@ ID-009 + ID-012 + ID-015 → ID-016
 
 | 任务 | 状态 | 执行者/任务 | 提交 | 验证证据 | 结果回写 |
 | --- | --- | --- | --- | --- | --- |
-| TASK-ID-001 | 可派遣 | - | - | - | - |
+| TASK-ID-001 | 已完成 | 本轮 Claude 协作 | `feat(identity): align service contracts and database boundary` | 2026-08-11 全量 build 0 警告 0 错误;test 156/156(BB 104、Identity 26、RefData 13、Gateway 13);架构测试锁定 Contracts;迁移框架 SQLite 6 测试 | 新增 Contracts 项目;五层边界;`/api/v1` 路由约定;OpenAPI;`identity_db` 独立配置;迁移执行框架(账本 `identity_schema_migrations`、失败回滚、DB 不可达降级);`Microsoft.OpenApi` 钉到 2.7.5 规避 GHSA-v5pm-xwqc-g5wc;PostgreSQL 真实验证「待验收」 |
 | TASK-ID-002 | 可派遣 | - | - | - | - |
 | TASK-ID-003 | 可派遣 | - | - | - | - |
 | TASK-ID-004 | 可派遣 | - | - | - | - |

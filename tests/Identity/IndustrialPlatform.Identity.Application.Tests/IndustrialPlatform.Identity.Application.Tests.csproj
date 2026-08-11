@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <IsPackable>false</IsPackable>
@@ -6,7 +6,6 @@
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
@@ -17,10 +16,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\src\backend\src\Services\Identity\IndustrialPlatform.Identity.Domain\IndustrialPlatform.Identity.Domain.csproj" />
     <ProjectReference Include="..\..\..\src\backend\src\Services\Identity\IndustrialPlatform.Identity.Application\IndustrialPlatform.Identity.Application.csproj" />
-    <ProjectReference Include="..\..\..\src\backend\src\Services\Identity\IndustrialPlatform.Identity.Infrastructure\IndustrialPlatform.Identity.Infrastructure.csproj" />
-    <ProjectReference Include="..\..\..\src\backend\src\Services\Identity\IndustrialPlatform.Identity.Api\IndustrialPlatform.Identity.Api.csproj" />
+    <ProjectReference Include="..\..\..\src\backend\src\Services\Identity\IndustrialPlatform.Identity.Domain\IndustrialPlatform.Identity.Domain.csproj" />
+    <ProjectReference Include="..\..\..\src\backend\src\BuildingBlocks\IndustrialPlatform.Application.Abstractions\IndustrialPlatform.Application.Abstractions.csproj" />
   </ItemGroup>
 
 </Project>

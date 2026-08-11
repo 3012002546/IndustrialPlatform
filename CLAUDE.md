@@ -119,7 +119,7 @@ pnpm test:e2e                   # 基于 pnpm preview,需先 build
 | Task-008 | Logging 组件:Serilog 配置(Console/File/Seq) + TraceId | `Logging/{Options,Enrichers,Internal,Extensions}` | 编译 + 选项绑定/增强器/DI 注册测试 ✅ |
 | 补充 | Security(ICurrentUser/ClaimConstants/CurrentUser) + Web(ApiResult/PageResult/ExceptionMiddleware/RequestLoggingMiddleware/ResultFilter) | `Security/*`、`Web/{Results,Middleware,Filters,Extensions}` | 编译 + 声明读取/结果包装/注册测试 ✅ |
 
-**当前测试:102 通过 / 0 失败**(BuildingBlocks 测试项目);全解决方案 140 通过 / 0 失败(BuildingBlocks 102、Identity 12、ReferenceData 13、Gateway 13)。
+**当前测试:104 通过 / 0 失败**(BuildingBlocks 测试项目);全解决方案 156 通过 / 0 失败(BuildingBlocks 104、Identity 26、ReferenceData 13、Gateway 13)。
 
 ### 关键技术决策
 
@@ -133,7 +133,28 @@ pnpm test:e2e                   # 基于 pnpm preview,需先 build
 - **Redis 连接不急切抛异常(TASK-BASE-003)**:`AddRedis` 的 `IConnectionMultiplexer` 使用 `AbortOnConnectFail=false`,Redis 不可达时返回断开的复用器并后台重试,避免首次解析即抛异常导致健康检查工厂逃逸成 500(仅当连接建立后 `PingAsync` 才报错,由检查捕获为 Unhealthy)。
 - **Gateway(TASK-BASE-004)**:YARP 2.3.0 反向代理(依赖方向仅 Logging/Web,不含业务)。统一入口 `http://localhost:5080`;`/identity`、`/referencedata` 前缀转发用 `PathRemovePrefix` transform 剥离(`PathPrefix` 是追加语义,踩坑点)。代理错误统一为 `ApiResult` 信封:`IForwarderErrorFeature` 中间件按 `ForwarderError` 映射 503「下游服务不可用」/ 504「网关转发请求超时」(YARP 2.3 无 `IProxyErrorHandler`),未匹配路由 fallback 404「路由不存在」。集群 `HttpRequest.ActivityTimeout` = `Gateway:RequestTimeoutSeconds`(默认 10s)驱动 504。平台健康聚合:`/health/ready` 对每个下游 GET `/health/ready`(超时 10s,匹配下游依赖全挂 ~6s 的最坏就绪耗时,3s 会临界截断),任一 Unhealthy 整体 503,响应不含凭据;`/health` 静态、`/health/live` 不查下游。开发期 CORS(`Gateway:Cors:AllowedOrigins`,默认 Vue3 dev 5173/preview 4173),预检在网关短路。测试配置注入须用 `UseSetting`(`ConfigureAppConfiguration` 晚于 Program 启动读取,对 minimal API 无效);.NET 10 无 `AddCheck(name, Func<IServiceProvider,IHealthCheck>)` 重载,参数化健康检查用 `AddTypeActivatedCheck<T>(name, ..., args: [...])`。
 
-## 可运行基线实施进度
+## Identity 服务实施进度
+
+实施方案见 `docs/implementation/03-Industrial Platform Identity Service开发实施方案.md`(TASK-ID-001~016)。
+
+### 已实现 ✅
+
+| 任务 | 内容 | 验收 |
+| --- | --- | --- |
+| TASK-ID-001 | 对齐服务骨架、契约与独立数据库:新增 Contracts 项目(零 ProjectReference)、五层边界、`/api/v1` 路由约定(RoutePrefixConvention)、OpenAPI(`Microsoft.AspNetCore.OpenApi` 10.0.10)、`identity_db` 独立配置、测试项目重构为 5 个、迁移执行框架(SchemaMigrationRunner + 账本 `identity_schema_migrations` + 启动后台服务)、BuildingBlocks 架构测试同步锁定 Contracts | 2026-08-11 全量 build 0 警告 0 错误、test 156/156(BB 104、Identity 26、RefData 13、Gateway 13);迁移框架 SQLite 6 测试(账本创建/幂等/失败回滚/重试/DB 不可达降级);PostgreSQL 真实验证「待验收」 ✅ |
+
+### 待实施 ⏳
+
+| 任务 | 内容 |
+| --- | --- |
+| TASK-ID-002~016 | 用户/密码/登录安全领域、Role/Permission 领域、持久化/迁移/种子、登录 JWT/JWKS、Refresh 旋转/Redis、服务端 RBAC/权限缓存、管理 API、Outbox 集成事件、前端接入与管理页、SSO 与联合验收 |
+
+### 关键技术决策
+
+- **Contracts 零引用**:`IndustrialPlatform.Identity.Contracts` 无任何 ProjectReference;集成事件在 TASK-ID-009 引入 EventBus 引用时再更新架构测试。
+- **迁移执行框架容忍 DB 不可用**:`SchemaMigrationBackgroundService` 启动时执行迁移,捕获 DB 不可达异常记录告警跳过,保持无 Docker 服务可运行基线(TASK-BASE-006)。每个步骤 `BeginTran → Apply → 记账 → Commit`,失败回滚且不记账;失败步骤的部分 DDL 会随事务回滚(实测验证)。
+- **依赖安全**:`Microsoft.AspNetCore.OpenApi` 的传递依赖 `Microsoft.OpenApi` 2.0.0 存在高严重性漏洞(GHSA-v5pm-xwqc-g5wc),已在 CPM 钉到 2.7.5(Identity.Api 与 Api.Tests 显式引用强制解析),NU1903 归零。
+- **测试项目结构**:Domain/Application/Infrastructure/Api/Contract 五个测试项目;Infrastructure.Tests 用 SQLite 模拟集成测试,PostgreSQL 真实验证「待验收」。
 
 实施方案见 `docs/implementation/02A-Industrial Platform可运行基线开发实施方案.md`。
 

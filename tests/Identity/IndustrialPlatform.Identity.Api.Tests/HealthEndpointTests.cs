@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
-namespace IndustrialPlatform.Identity.Tests;
+namespace IndustrialPlatform.Identity.Api.Tests;
 
 public sealed class HealthEndpointTests : IClassFixture<WebApplicationFactory<Program>>
 {
