@@ -28,8 +28,8 @@
 | 02 | [BuildingBlocks基础组件实施方案](02-Industrial%20Platform%20BuildingBlocks基础组件开发实施方案.md) | 原基础搭建已完成；`TASK-BB-010` Entity 生命周期/并发/软删除调整已完成 |
 | 02A | [可运行基线开发 TODO](02A-Industrial%20Platform可运行基线开发实施方案.md) | `TASK-BASE-001～006` 已完成（`BASE-002/003` 真实依赖与容器验收留待 Docker 环境，`BASE-005/006` 无 Docker 实测通过）；Phase 2 前端输入契约已登记 |
 | 02B | [统一前端第一批开发 TODO](02B-Industrial%20Platform统一前端第一批开发实施方案.md) | `TASK-FE-001～010` 已完成 |
-| 03 | [Identity Service实施方案](03-Industrial%20Platform%20Identity%20Service开发实施方案.md) | PF-00 开发中；`TASK-ID-001/002` 已完成，继续 `TASK-ID-003～016` |
-| 04 | [PF-01 视觉主题与平台外壳实施方案](04-Industrial%20Platform视觉主题与平台外壳开发实施方案.md) | 详细设计与七张任务卡已完成，任务拆分待用户确认 |
+| 03 | [Identity Service实施方案](03-Industrial%20Platform%20Identity%20Service开发实施方案.md) | PF-00 已暂停；`TASK-ID-001～006` 已完成，恢复时从 `TASK-ID-007` 继续 |
+| 04 | [PF-01 视觉主题与平台外壳实施方案](04-Industrial%20Platform视觉主题与平台外壳开发实施方案.md) | 开发详细设计、依赖图和七张任务卡已完成；任务待确认，尚未开发 |
 | 05 | PF-02 SystemData实施方案（待 PF-02 会话创建） | 待阶段管理会话设计和派遣 |
 | 06 | [PF-03 ReferenceData实施方案](06-Industrial%20Platform%20ReferenceData%20Service开发实施方案.md) | 代码仅骨架；现有详细设计和任务卡由 PF-03 会话复核 |
 | 07 | PF-04 File / Notification / Audit实施方案（待 PF-04 会话创建） | 三个模块分开建模，在同一阶段管理会话协调和派遣 |
@@ -48,8 +48,8 @@
 
 ```text
 BuildingBlocks / 可运行基线 / 统一前端第一批（已完成，Docker 实机项除外）
-→ PF-00 Identity（进行中）
-→ PF-01 视觉、主题与平台外壳
+→ PF-00 Identity（已暂停，停在 TASK-ID-007）
+→ PF-01 视觉、主题与平台外壳（开发设计已完成，任务待确认）
 → PF-02 SystemData + PF-03 ReferenceData
 → PF-04 File / Notification / Audit
 → PF-05 Collaboration

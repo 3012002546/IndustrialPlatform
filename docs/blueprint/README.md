@@ -11,7 +11,7 @@
 - API 使用包含 `Z` 或明确偏移量的 ISO 8601 / RFC 3339 时间字符串。
 - PostgreSQL 持久化瞬时时间统一使用 `timestamp with time zone`（`timestamptz`），以 UTC 保存；展示时按用户、工厂或设备时区转换。
 
-当前执行优先级由 [`09-Industrial Platform开发总TodoList.md`](09-Industrial%20Platform开发总TodoList.md) 的 PF/MES 阶段编号维护，不再由文档文件编号推断。当前主线为：`BuildingBlocks/可运行基线/统一前端（已完成） → PF-00 Identity（进行中） → PF-01～PF-10 → PF-10A Operations Center Knowledge & Assistant → PF-11 IoT Collector → MES-01 MasterData → MES-02 OperationalData → 后续生产闭环`。
+当前执行优先级由 [`09-Industrial Platform开发总TodoList.md`](09-Industrial%20Platform开发总TodoList.md) 的 PF/MES 阶段编号维护，不再由文档文件编号推断。当前状态为：`BuildingBlocks/可运行基线/统一前端（已完成） → PF-00 Identity（已暂停，停在 TASK-ID-007） → PF-01（开发设计已完成、任务待确认，尚未开发） → PF-02～PF-10 → PF-10A Operations Center Knowledge & Assistant → PF-11 IoT Collector → MES-01 MasterData → MES-02 OperationalData → 后续生产闭环`。
 
 平台基础层当前七个 Service Host、内部模块边界和阶段映射统一读取 [`32-Industrial Platform Service Host与内部模块边界.md`](32-Industrial%20Platform%20Service%20Host与内部模块边界.md)。阶段不等于微服务；旧文档中的独立 Service 名称在冲突时只表示未来拆分目标。
 

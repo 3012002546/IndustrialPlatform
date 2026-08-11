@@ -6,6 +6,8 @@
 
 版本：V1.0
 
+阶段状态：开发详细设计、任务依赖和七张九字段任务卡已编写完成；任务待确认，尚未开发。`TASK-PF01-007` 的最终联合验收仍等待 PF-00 恢复并稳定前端契约。
+
 阶段：PF-01「视觉、主题与平台外壳」；与 PF-00 后半段可并行，最终集成验收等待 PF-00 稳定前端契约，完成后向 PF-02 SystemData、PF-03 ReferenceData 及后续平台模块交付统一前端壳契约。
 
 模块或服务：
@@ -77,7 +79,7 @@ CSS Custom Properties / localStorage / matchMedia
 
 并行工作保护：
 
-- PF-00 正在修改 `Directory.Packages.props`、Identity 后端、契约和测试；PF-01 不得触碰、暂存或回退这些文件。
+- PF-00 已暂停在 `TASK-ID-007`，现有 Identity 提交和未完成范围仍归 PF-00；PF-01 不得触碰、暂存或回退 Identity 后端、契约、测试或相关包配置。
 - `docs/implementation/15-Industrial Platform MasterData Service开发实施方案.md` 存在用户未提交改写；PF-01 不得触碰、暂存或回退。
 - PF-01 代码任务只修改 `src/frontend` 内批准范围；文档任务只暂存实施 04 及必要的实施索引、总路线和自身执行记录。
 

@@ -72,7 +72,8 @@
 | BuildingBlocks | 已完成 | 原基础能力和 `TASK-BB-010` 已完成 |
 | 可运行基线 | 基本完成，Docker 实机待验收 | `TASK-BASE-001/003/004/005/006` 完成，`TASK-BASE-002` 待 Docker 环境验收 |
 | 统一前端第一批 | 已完成 | `TASK-FE-001～010` 执行记录均已完成 |
-| Identity | 开发中 | `TASK-ID-001/002` 已完成，`TASK-ID-003～016` 尚未完成 |
+| Identity | 已暂停 | `TASK-ID-001～006` 已完成，暂停点为 `TASK-ID-007`；恢复时从该任务继续 |
+| PF-01 视觉主题与平台外壳 | 开发设计已完成，任务待确认 | 实施 04 已包含完整详细设计、依赖图和七张九字段任务卡；尚未开发 |
 | ReferenceData | 仅骨架 | 已有健康检查、测试入口和详细实施方案，业务能力尚未开发 |
 | MasterData | 暂缓 | 实施方案存在，本轮不进入开发 |
 | OperationalData | 暂缓 | 实施方案存在，本轮不进入开发 |
@@ -85,9 +86,9 @@
 已完成基础
   BuildingBlocks / Runnable Baseline / Frontend First Batch
         ↓
-PF-00 Identity（当前进行中）
+PF-00 Identity（已暂停，停在 TASK-ID-007）
         ↓
-PF-01 视觉、主题与平台外壳
+PF-01 视觉、主题与平台外壳（开发设计已完成，任务待确认）
   ├──────────────┐
   ↓              ↓
 PF-02 SystemData  PF-03 ReferenceData
@@ -169,10 +170,10 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 
 # 7. PF-00 Identity
 
-**状态：** 开发中
+**状态：** 已暂停
 **现有实施文档：** `docs/implementation/03-Industrial Platform Identity Service开发实施方案.md`
 **目标：** 完成用户、角色、权限、本地登录、令牌、会话、企业 SSO 边界和三端真实登录闭环。
-**当前进度：** `TASK-ID-001/002` 已完成；从 `TASK-ID-003` 继续。
+**当前进度：** `TASK-ID-001～006` 已完成；当前不继续派遣，恢复时从 `TASK-ID-007` 继续。
 **前置：** BuildingBlocks、可运行基线、统一前端第一批。
 **禁止范围：** SystemData 行政组织、菜单所有权、聊天、业务数据权限模型扩张。
 
@@ -184,11 +185,13 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 - 输出 PF-01/02/03 可消费的用户、权限、会话和身份上下文契约；
 - Docker 缺失造成的外部验收项明确保留为待验收，不伪报完成。
 
-**下一会话：** 继续现有 Identity 开发任务，不在本路线会话展开 Identity 设计。
+**暂停点：** `TASK-ID-007` 服务端 RBAC、权限缓存与用户上下文。暂停不表示阶段完成，`TASK-ID-007～016` 仍未开发。
+
+**下一会话：** 用户恢复 PF-00 后继续现有 Identity 开发任务，不在其他阶段代做 Identity 剩余范围。
 
 # 8. PF-01 视觉、主题与平台外壳
 
-**状态：** 任务待确认（现有阶段管理会话继续）
+**状态：** 开发设计已完成，任务待确认（尚未开发）
 **建议会话标题：** `PF-01 视觉主题与平台外壳阶段管理`
 **输入：** 蓝图 04、05、28；已完成统一前端第一批；Identity 稳定前端契约。
 **目标：** 把已批准的工业视觉方向落实为可测试的 Design Token、主题恢复、PC/PDA/Mobile 外壳和通用管理组件规范。
@@ -205,7 +208,7 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 - 主题持久化、首屏恢复、可访问性和视觉回归策略；
 - 对当前统一前端第一批的迁移范围和兼容策略。
 
-**交付：** 已批准阶段规格、视觉验收基线、实施文档 04、可派遣任务卡和执行记录。
+**设计交付：** 已批准阶段规格、视觉验收基线、实施文档 04、任务依赖和七张九字段任务卡均已编写完成。当前尚无 PF-01 开发提交或新鲜验收证据；任务状态以实施 04 为准。
 **完成门禁：** Identity 页面和三端外壳接入主题；自动化和截图验收通过；未引入业务假数据。
 
 # 9. PF-02 SystemData
@@ -450,8 +453,8 @@ WorkOrder、Weighting、Trace、BatchRecord 和生产闭环分别开会话设计
 
 | 阶段 | 状态 | 阶段管理会话 | 设计依据 | 实施方案 | 派遣/提交 | 验收证据 |
 | --- | --- | --- | --- | --- | --- | --- |
-| PF-00 Identity | 开发中 | 现有 Identity 会话 | 蓝图 13、31 | 实施 03 | `d625597`、`e7f0e7a` 等 | 见实施 03 |
-| PF-01 视觉主题 | 任务待确认 | 现有 PF-01 会话继续 | 已批准 PF-01 规格 | `docs/implementation/04-Industrial Platform视觉主题与平台外壳开发实施方案.md` | - | - |
+| PF-00 Identity | 已暂停 | 现有 Identity 会话 | 蓝图 13、31 | 实施 03 | `c7d371f`、`cd46e3c` 等；完成 TASK-ID-001～006 | 见实施 03；外部环境项仍待验收 |
+| PF-01 视觉主题 | 开发设计已完成，任务待确认 | 现有 PF-01 会话继续 | 已批准 PF-01 规格 | `docs/implementation/04-Industrial Platform视觉主题与平台外壳开发实施方案.md` | 设计提交 `e2d24a4`、`d7ef889`、`efb3b35`；尚无开发提交 | 尚未开发/验收 |
 | PF-02 SystemData | 待启动 | 待创建 | 蓝图 05 | 实施 05 待创建 | - | - |
 | PF-03 ReferenceData | 仅骨架 | 待创建 | 蓝图及现有设计待复核 | 实施 06 待修订 | - | - |
 | PF-04 File / Notification / Audit | 待启动 | 待创建 | 蓝图 05、30、31 | 实施 07 待创建 | - | - |
@@ -487,7 +490,7 @@ WorkOrder、Weighting、Trace、BatchRecord 和生产闭环分别开会话设计
 
 - 平台基础和独立模块优先于 MasterData、OperationalData 和 MES 业务扩张。
 - 实施文档按 PF/MES 阶段重排为 03～16；原 ReferenceData、MasterData、OperationalData 调整为 06、15、16。
-- Identity 记录为实际开发中，ReferenceData 记录为代码仅骨架。
+- Identity 记录为已暂停且停在 `TASK-ID-007`，PF-01 记录为开发设计已完成但尚未开发，ReferenceData 记录为代码仅骨架。
 - MasterData、OperationalData 改为暂缓。
 - 删除旧的固定 MES Sprint 路线，改为阶段门禁和单阶段单管理会话。
 - 每个 PF 阶段（含 PF-10A）一个管理会话；PF-04、PF-07、PF-09 在同一阶段会话内保持模块分开建模和任务拆分。

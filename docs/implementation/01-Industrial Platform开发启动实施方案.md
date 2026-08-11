@@ -56,14 +56,14 @@ IndustrialPlatform
 
 # 2. 开发阶段总体规划
 
-当前进度以任务执行记录、提交和新鲜验证证据为准：BuildingBlocks、可运行基线和统一前端第一批已经完成主要范围，Docker 实机验收仍有保留项；Identity 正在开发；ReferenceData 代码只有服务骨架；MasterData 和 OperationalData 暂缓。
+当前进度以任务执行记录、提交和新鲜验证证据为准：BuildingBlocks、可运行基线和统一前端第一批已经完成主要范围，Docker 实机验收仍有保留项；Identity 已暂停在 `TASK-ID-007`；PF-01 开发设计已完成但尚未开发；ReferenceData 代码只有服务骨架；MasterData 和 OperationalData 暂缓。
 
 当前执行顺序：
 
 ```text
 已完成  BuildingBlocks / Entity 调整 / 可运行基线主要范围 / 统一前端第一批
-PF-00    Identity 登录与权限闭环（进行中）
-PF-01    视觉、主题与平台外壳
+PF-00    Identity 登录与权限闭环（已暂停，停在 TASK-ID-007）
+PF-01    视觉、主题与平台外壳（开发设计已完成，任务待确认）
 PF-02    SystemData
 PF-03    ReferenceData（现有骨架复核后继续）
 PF-04    Audit / File / Notification（分别设计）
@@ -106,11 +106,13 @@ MES-03+  生产闭环服务
 
 ## PF-00 Identity 登录闭环
 
-当前正在执行实施文档 03。`TASK-ID-001/002` 已完成，继续 `TASK-ID-003～016`；完成用户、角色、权限、JWT、RefreshToken、注销与撤销，并把前端从 `MockAuthGateway` 切换到 `HttpAuthGateway`。阶段验收必须覆盖登录、刷新、401、403、菜单与按钮权限。
+当前已暂停。`TASK-ID-001～006` 已完成，恢复时从 `TASK-ID-007` 继续；`TASK-ID-007～016` 仍未开发。后续范围继续完成服务端 RBAC、权限缓存、用户上下文、管理 API、审计/Outbox、真实前端、SSO 和联合验收，不得把暂停状态表述为阶段完成。
 
 ## PF-01～PF-11（含 PF-10A）平台基础和独立模块
 
 详细边界读取 `docs/blueprint/05-Industrial Platform平台基础功能与独立模块设计.md`，执行顺序、阶段任务卡和阶段管理会话入口读取 `docs/blueprint/09-Industrial Platform开发总TodoList.md`。
+
+PF-01 已完成开发详细设计、任务依赖和七张九字段任务卡，但尚未执行开发任务。任务确认后才能派遣；其中最终 Identity 联合集成验收仍等待 PF-00 恢复并稳定前端契约。
 
 每个阶段都遵循：
 
@@ -961,15 +963,15 @@ GET
 - 统一前端第一批 `TASK-FE-001～010`。
 - Identity、ReferenceData 服务骨架与健康检查。
 
-## 当前第一优先级
+## 当前暂停项
 
-- PF-00 Identity：`TASK-ID-001/002` 已完成，继续实施文档 03 的后续任务。
+- PF-00 Identity：`TASK-ID-001～006` 已完成，暂停点为 `TASK-ID-007`；等待用户明确恢复。
 
-## 第二优先级
+## 当前待确认项
 
-- PF-01 视觉、主题与平台外壳；现有阶段管理会话继续按母版生成实施文档 04 和任务卡。
+- PF-01 视觉、主题与平台外壳：实施文档 04 的开发详细设计、依赖图和七张九字段任务卡已完成；尚未开发，等待任务确认/派遣。
 
-## 第三优先级
+## 后续优先级
 
 - PF-02 SystemData 与 PF-03 ReferenceData；ReferenceData 当前代码只有骨架，开发前复核实施文档 06。
 
