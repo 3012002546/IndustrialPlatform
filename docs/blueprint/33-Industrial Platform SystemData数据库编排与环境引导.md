@@ -84,15 +84,27 @@ SystemData 不直接编写、推断或长期维护业务表定义，不跨服务
 
 # 7. 环境策略
 
+`DatabaseTopology` 与自动 plan/apply 是独立策略。拓扑矩阵如下：
+
+| 环境 | 允许的拓扑 |
+| --- | --- |
+| Development | 默认 `Shared`，可显式选择 `PerService` |
+| Test | 仅 `PerService` |
+| Staging | 仅 `PerService` |
+| Production | 仅 `PerService` |
+
+自动 plan/apply 矩阵如下：
+
 | 环境 | 默认策略 |
 | --- | --- |
-| Development / 自动化测试 | 可配置 `AutoProvision=true` 与 `AutoMigrate=true` |
+| Development | 可配置 `AutoProvision=true` 与 `AutoMigrate=true` |
+| Test | 可配置 `AutoProvision=true` 与 `AutoMigrate=true` |
 | Staging | 默认先 plan，可按发布策略批准自动 apply |
 | Production | 默认禁止自动创建和自动迁移；执行 `plan → 审批 → 备份 → apply → 验证` |
 
 所有环境都使用版本化迁移；禁止使用 `EnsureCreated`、Code First 自动建表或删除重建代替迁移。破坏性变更采用 expand/contract，并在计划中提供兼容窗口、备份、回滚或恢复说明。
 
-Development 默认 `Shared`，也可显式使用 `PerService`；Test、Staging 和 Production 只允许 `PerService`，Shared 无效。
+`Local` 只是使用 SQLite Provider 的 Development profile，仍按该 `DatabaseTopology` 矩阵解析；它不是第五种环境，也没有不同的拓扑语义。
 
 # 8. 并发、失败与恢复
 

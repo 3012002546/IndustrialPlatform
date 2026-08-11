@@ -102,7 +102,7 @@ SystemData 自身：PostgreSQL 18 基础设施最小引导 → SystemData 自有
 ## 1.4 执行前置
 
 ```text
-PostgreSQL 18 基础设施最小引导（创建 systemdata_db 与最小角色授权）
+PostgreSQL 18 基础设施最小引导（稳定逻辑 `systemdata_db`：Shared Development 物理创建 `industrial_platform_dev` 并运行 `system_data_schema_migrations`；PerService 物理创建 `systemdata_db`，以及最小角色授权）
                          → SystemData 自有迁移产物建立控制面 Schema
                          → 数据库编排注册/计划/审批/备份/异步执行/状态查询
                          → 其他服务数据库与自有迁移产物接入，NotReady 门禁
@@ -168,7 +168,7 @@ PF-03 / PF-04 消费 SystemData 稳定契约
 13. SystemData 返回带 PermissionNId 的候选导航，前端与当前 AuthUser 权限求交集；目标 API 仍独立授权。
 14. 数据库编排采用注册/查询、异步 plan、异步 apply 和 Operation 状态模型；业务服务拥有自己的 Schema 与不可变迁移产物。
 15. 生产环境必须按 `plan → 审批 → 备份证据 → apply → verify` 执行；计划过期、目标漂移或证据不匹配时拒绝执行。
-16. SystemData 自身是唯一引导例外：PostgreSQL 18 基础设施先创建 `systemdata_db` 与最小角色，SystemData 使用自有迁移产物建立控制面；不得循环调用自身编排 API。
+16. `systemdata_db` 始终是稳定逻辑身份；Shared Development 的基础设施只物理创建 `industrial_platform_dev` 并在其中运行 `system_data_schema_migrations`，PerService 才物理创建 `systemdata_db` 作为唯一引导例外。SystemData 使用自有迁移产物建立控制面；不得循环调用自身编排 API。
 17. 不创建独立 Migrator Service，不使用 `EnsureCreated`，不允许 API 提交任意 SQL、任意迁移路径、服务器地址或凭据。
 18. 数据库拓扑由受信任环境 `DatabaseTopologyOptions` 决定：`Mode`、`SharedDatabaseName`、`SharedSqliteFile`、`ServiceDatabases`；清单只保留稳定逻辑 `DatabaseName`，SystemData 将其解析为 `ResolvedDatabaseTarget(EnvironmentName, Mode, ServiceKey, Provider, LogicalDatabaseName, PhysicalDatabaseName, IsSharedPhysicalDatabase)`。
 19. 拒绝调用方提供物理目标、未知 Mode、非法名称、缺少映射以及 Development 之外的 Shared；已有数据的拓扑变化是 drift，绝不隐式 copy、rename、merge 或 split。
@@ -229,13 +229,13 @@ SystemData.Service / SystemData.Api
   ├─ SystemData.Domain
   ├─ SystemData.Contracts（零项目引用）
   └─ SystemData.Infrastructure
-       ├─ PostgreSQL systemdata_db / system_data_* 表
+       ├─ PostgreSQL 解析后的 SystemData 物理目标 / system_data_* 表
        ├─ Redis 版本化只读快照
        ├─ RabbitMQ Outbox
        └─ DatabaseOrchestration Runner（宿主内 BackgroundService）
 
 PostgreSQL 18 基础设施最小引导
-  → systemdata_db + SystemData owner/migrator/runtime 角色
+  → 解析逻辑 `systemdata_db` 的物理目标 + SystemData owner/migrator/runtime 角色
   → SystemData 自有迁移产物
   → DatabaseOrchestration 控制面
        ├─ 注册/查询 + dry-run/plan
@@ -265,7 +265,7 @@ PF-03/04/07 ← 资源清单、服务目录、主题/导航与事件契约
 
 ## 4.2 事务边界
 
-- 单个聚合写入、SystemData 本地审计和 Outbox 在同一 `systemdata_db` 事务提交。
+- 单个聚合写入、SystemData 本地审计和 Outbox 在同一解析后的 SystemData 物理目标事务提交。
 - 组织移动在一个事务中锁定移动节点、目标父节点和受影响边界，更新父引用及树修订号；不逐条重写后代的稳定身份。
 - 主任职切换在同一用户串行化事务中结束/拆分旧区间并创建新历史区间。
 - 菜单发布在一个事务中完成验证、不可变快照写入、当前版本指针切换、审计和 Outbox。
@@ -327,7 +327,7 @@ Contracts → 无项目引用
 
 # 6. 全局技术与实施约束
 
-- 数据库固定为 `systemdata_db`；本模块表前缀固定为 `system_data_`；迁移账本为 `system_data_schema_migrations`。
+- 稳定逻辑数据库身份固定为 `systemdata_db`；本模块表前缀固定为 `system_data_`；迁移账本为 `system_data_schema_migrations`，并在解析后的 SystemData 物理目标运行。
 - SystemData 自身数据库由 PostgreSQL 18 基础设施执行最小引导，随后由 SystemData 自有 migration runner 应用版本化迁移；控制 API 只编排其他服务数据库，禁止自举循环。
 - 所有环境禁止 `EnsureCreated`、运行时自动建删 Schema 和未版本化 Code First DDL；SQLite 本地替身也执行显式迁移。
 - 不创建独立 Migrator Service。数据库编排 Runner 是 `SystemData.Service` 内部托管组件，可与 API 同进程或使用同一宿主镜像独立副本运行，但不形成新的服务所有权边界。
@@ -398,7 +398,7 @@ RoleNIds       = JWT role[]
 
 ```text
 PostgreSQL 18 基础设施
-  → 创建 systemdata_db
+  → 解析逻辑 systemdata_db：Shared Development 创建 industrial_platform_dev；PerService 创建 systemdata_db
   → 创建并最小授权 systemdata_owner / systemdata_migrator / systemdata_runtime
   → 将对应 Secret 写入受控 Secret Provider
   → SystemData 自有 migration runner 校验数据库身份并应用签名迁移产物
@@ -409,7 +409,7 @@ PostgreSQL 18 基础设施
 - 基础设施只负责数据库、角色和最小 grant，不创建 `system_data_*` 业务表。
 - SystemData 自有 migration runner 只消费随服务发布、checksum 可验证的迁移产物；不得调用控制 API、`EnsureCreated` 或任意 SQL 管理端点。
 - SystemData 自身登记为 `ServiceKey=systemdata`、`Provider=PostgreSQL`、`DatabaseName=systemdata_db`、`MigrationAssembly=IndustrialPlatform.SystemData.Infrastructure`，但 `AutoProvision=false`、`AutoMigrate=false`，仅供查询和审计观察。
-- Shared Development 时，基础设施只创建一次 `industrial_platform_dev`；SystemData 在其中使用 `system_data_schema_migrations`。PerService 时保留 `systemdata_db` 作为 SystemData 自举例外。
+- Shared Development 时，基础设施只物理创建一次 `industrial_platform_dev`；SystemData 在其中运行 `system_data_schema_migrations`。PerService 时物理创建 `systemdata_db`，这是唯一的基础设施自举例外。
 - 当前未跟踪的 `deploy/cloud-dev/**` 只作为环境脚本意图输入；后续执行必须先核对、保留并与其所有者协调，不得由 PF-02 覆盖现有并行改动。
 
 ### 7.1.2 注册清单与环境策略
@@ -436,14 +436,25 @@ ManifestVersion / ManifestChecksum
 - 注册保留逻辑身份、解析后物理身份、拓扑 Mode/revision、Manifest/Artifact checksum 与 desired version；逻辑名不随物理部署拓扑改变。
 - Shared SQLite 是 Development 默认；PerService SQLite 仅为显式验证模式。远程模式开启后，SystemData/目标 PostgreSQL 不可用时禁止静默回退 SQLite。
 
-`DatabaseEnvironmentPolicy` 定义环境门禁：
+`DatabaseTopology` 先定义物理目标策略：
 
-| 环境 | 默认策略 |
+| 环境 | 允许的拓扑 |
 | --- | --- |
-| Local | 服务自有 SQLite 显式迁移；不经过控制面 |
-| Development/Test | 必须先 plan；可配置允许可信服务自动 approval/backup 豁免，apply 仍异步且受锁/幂等保护 |
+| Development | 默认 `Shared`，可显式选择 `PerService` |
+| Test | 仅 `PerService` |
+| Staging | 仅 `PerService` |
+| Production | 仅 `PerService` |
+
+`DatabaseEnvironmentPolicy` 独立定义自动 plan/apply 门禁：
+
+| 环境 | 自动 plan/apply 策略 |
+| --- | --- |
+| Development | 必须先 plan；可配置可信服务自动 approval/backup 豁免，apply 仍异步且受锁/幂等保护 |
+| Test | 必须先 plan；可配置可信服务自动 approval/backup 豁免，apply 仍异步且受锁/幂等保护 |
 | Staging | plan 后显式 apply；建议要求备份证据 |
 | Production | 强制 `plan → 审批 → 备份证据 → apply → verify`，任何环节不可跳过 |
+
+`Local` 只是使用 SQLite Provider 的 Development profile，仍由同一 `DatabaseTopology` 解析，不是第五种环境或另一套拓扑语义。
 
 ### 7.1.3 Plan、审批与备份证据
 
@@ -510,6 +521,7 @@ SanitizedErrorCode / SanitizedErrorSummary / TraceId
 - 远程环境不得在失败时启动在 SQLite、旧 Schema 或错误数据库上；写流量在 readiness 成功前不得进入。
 - PF-02 提供共享注册/readiness 契约和测试 fixture，供 PF-03+ 采用；具体业务服务仍负责在自身宿主接入，不由 SystemData 代写其业务代码。
 - fixture 必须覆盖 Shared/PerService SQLite 与 PostgreSQL；不得通过业务 API 创建数据库或用 `EnsureCreated` 绕过显式迁移。
+- `DatabaseReadinessV1` 只绑定 `ServiceKey`、`LogicalDatabaseName`、脱敏 `PhysicalDatabaseTarget/Fingerprint`、`ArtifactChecksum`、`DesiredVersion`、`ObservedVersion` 和 `TopologyRevision`；不得包含连接串、SQLite 路径或任何凭据。
 
 ## 7.2 AdministrativeOrganization 聚合
 
@@ -827,7 +839,7 @@ PcDensity = comfortable | compact
 
 ## 8.1 数据库与表
 
-数据库：`systemdata_db`。
+数据库：稳定逻辑身份为 `systemdata_db`；Shared Development 的物理目标为 `industrial_platform_dev` 并运行 `system_data_schema_migrations`，PerService 才物理引导 `systemdata_db`。
 
 | 表 | 主要业务字段 | 关键约束/索引 |
 | --- | --- | --- |
@@ -1115,7 +1127,8 @@ SystemData.OperationAudited.v1
 | 503 | `SD_DB_MIGRATION_FAILED` | 迁移失败且未证明可安全恢复 |
 | 503 | `SD_DB_NOT_READY` | 目标未达到 exact desired state |
 | 400 | `SD_DB_TOPOLOGY_UNSUPPORTED` | 不支持或未知的拓扑 Mode |
-| 400 | `SD_DB_SHARED_TARGET_MISSING` | Shared target 或服务物理映射缺失 |
+| 400 | `SD_DB_SHARED_TARGET_MISSING` | 缺少 Shared target |
+| 400 | `SD_DB_SERVICE_MAPPING_MISSING` | 缺少 PerService 的服务物理映射 |
 | 409 | `SD_DB_SHARED_ENVIRONMENT_FORBIDDEN` | Shared 不允许用于非 Development 环境 |
 | 409 | `SD_DB_TOPOLOGY_DRIFT` | 已有数据的拓扑或物理映射发生变化 |
 
@@ -1321,7 +1334,7 @@ systemdata_assignment_conflicts_total
 
 ## 12.1 迁移步骤
 
-迁移账本 `system_data_schema_migrations`，步骤按顺序幂等执行：
+迁移账本 `system_data_schema_migrations` 在解析后的 SystemData 物理目标运行，步骤按顺序幂等执行：
 
 ```text
 SDM-001 数据库环境策略与服务注册
@@ -1343,7 +1356,7 @@ SDM-016 默认租户 PF-01 合法主题策略种子
 ```
 
 - 每步 `BeginTran → Apply → 记账 → Commit`；失败回滚且不记账。
-- PostgreSQL 18 基础设施先创建 `systemdata_db` 与最小角色；SystemData 自有 migration runner 再执行 SDM-001～016。不得通过 DatabaseOrchestration API 自编排，不得使用 `EnsureCreated`。
+- PostgreSQL 18 基础设施将稳定逻辑 `systemdata_db` 解析为 Shared Development 的 `industrial_platform_dev`（并在那里运行 `system_data_schema_migrations`）或 PerService 的物理 `systemdata_db`（唯一引导例外），再创建最小角色；SystemData 自有 migration runner 执行 SDM-001～016。不得通过 DatabaseOrchestration API 自编排，不得使用 `EnsureCreated`。
 - PostgreSQL 验证 `uuid/timestamptz/boolean/snake_case`、部分唯一索引、复合外键和 `ON UPDATE CASCADE`。
 - SQLite 作为快速集成替身，连接启用 Foreign Keys；PostgreSQL advisory lock、时间区间并发和真实 DDL 必须在真库验收。
 - 默认租户 NId 来自显式配置；没有配置时不创建固定生产租户。Development 可以使用 `development`，但不创建虚假组织、用户或服务健康数据。
@@ -1517,7 +1530,7 @@ TASK-SD-004 + 010 + 011 + 012
 
 **允许修改范围：** 新建 `src/backend/src/Services/SystemData/**`、`tests/SystemData/**`；修改解决方案、BuildingBlocks 架构测试、Gateway 服务配置/测试和经协调后的 SystemData/PostgreSQL 引导配置。禁止覆盖当前并行 `deploy/cloud-dev/**`、实现业务领域、修改 Identity/ReferenceData、前端、实施 15 或后续同宿主模块。
 
-**预期输出：** 五层项目与引用测试、Contracts 零引用、Gateway 路由/OpenAPI、基础设施创建 `systemdata_db` 与 owner/migrator/runtime 最小角色的边界、SystemData 自有 `system_data_schema_migrations` runner、显式迁移、无 `EnsureCreated`、数据库身份/版本 readiness 和空 DatabaseOrchestration DI 扩展点。
+**预期输出：** 五层项目与引用测试、Contracts 零引用、Gateway 路由/OpenAPI、稳定逻辑 `systemdata_db` 的引导边界（Shared Development 物理 `industrial_platform_dev` 并运行 `system_data_schema_migrations`；PerService 物理 `systemdata_db`）及 owner/migrator/runtime 最小角色、SystemData 自有 runner、显式迁移、无 `EnsureCreated`、数据库身份/版本 readiness 和空 DatabaseOrchestration DI 扩展点。
 
 **验证与证据：** 先写架构/配置/路由/自举/迁移失败测试；在 PostgreSQL 18 空环境验证最小引导后 SDM-001～016 可执行、普通 runtime 无 DDL 权限、自身不调用编排 API、SQLite/PG 均显式迁移；全仓扫描 `EnsureCreated`，记录退出码、测试数和环境限制。
 
@@ -1801,7 +1814,7 @@ TASK-SD-004 + 010 + 011 + 012
 - 行政组织四类型、父子矩阵、多根公司、跨根公司移动和无隐式级联符合已确认规则。
 - 岗位组织专属；多任职、主任职、有效期和历史不可篡改规则通过并发测试。
 - 所有实体 NId、TenantNId、双版本、复合外键、软删除过滤和 `timestamptz` 落地。
-- `systemdata_db`、`system_data_*` 与迁移账本独立，未创建后续模块表。
+- 稳定逻辑 `systemdata_db`、`system_data_*` 与迁移账本独立，未创建后续模块表；Shared Development 物理使用 `industrial_platform_dev`，PerService 才物理使用 `systemdata_db`。
 
 ## 15.2 API、资源与协作
 
@@ -1886,7 +1899,7 @@ UI 与权限
   DatabaseProvisionPlanV1 / PlanChecksum / TargetStateFingerprint
   DatabaseApprovalV1 / DatabaseBackupEvidenceV1
   DatabaseProvisionOperationV1 / OperationId / Status / Phase / TraceId
-  DatabaseReadinessV1 / DesiredVersion / ObservedVersion / NotReady
+  DatabaseReadinessV1 / ServiceKey / LogicalDatabaseName / PhysicalDatabaseTargetOrFingerprint / ArtifactChecksum / DesiredVersion / ObservedVersion / TopologyRevision / NotReady（无连接串或凭据）
   业务服务自有 Schema、迁移产物与 migration ledger
   SystemData PostgreSQL 18 最小引导和自有显式迁移边界
 

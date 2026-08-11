@@ -68,7 +68,7 @@ Vue 3
 - Identity 已有 Domain、Application、Infrastructure、Api 四层项目骨架。
 - `/health`、`/health/live`、`/health/ready` 和 PostgreSQL/Redis/Seq 健康检查已存在。
 - 当前没有用户、角色、权限、数据库迁移、认证或业务 API。
-- 当前开发配置仍临时指向 `industrial_platform`，本阶段必须切换为 Identity 独立数据库 `identity_db`。
+- 当前开发配置仍临时指向 `industrial_platform`；`identity_db` 必须作为 `LogicalDatabaseName`，由 `DatabaseTopology` 解析到 Shared Development 或 PerService 的物理目标。
 - BuildingBlocks 已提供 `Guid` 用户标识、`ICurrentUser`、ClaimConstants、统一 ApiResult、异常中间件和日志基础。
 - 统一前端第一批完成后已具备登录页、AuthStore、`AuthGateway`、路由守卫和三端布局，但运行时仍使用 Mock。
 
