@@ -20,6 +20,7 @@ MasterData → OperationalData → WorkOrder / Weighting / Trace / BatchRecord
 
 - 对外保持一个 OperationalData 微服务，内部使用 Inventory、Lots、Documents、WarehouseOperations、WmsIntegration 模块。
 - 数据库名固定为 `operationaldata_db`；其他服务不得直接读写。
+- `operationaldata_db` 是稳定的 `LogicalDatabaseName`：Development 默认解析为配置的共享 PostgreSQL `industrial_platform_dev` 或共享 SQLite 文件；Test/Staging/Production 由 SystemData 解析为服务专属物理数据库。共享 Development 不允许跨服务表访问或合并迁移账本。
 - .NET 时间使用 `DateTimeOffset` / `DateTimeOffset?`，PostgreSQL 瞬时时间使用 `timestamptz`。
 - 余额只能由单据过账或冲销产生的不可变 StockTransaction 更新；禁止通用余额覆盖接口。
 - 单个仓库只能有 `Internal` 或 `ExternalWms` 一个库存权威源。

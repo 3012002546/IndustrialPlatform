@@ -260,6 +260,7 @@ Domain 只引用 SharedKernel；Application 可引用 Application.Abstractions�
 - 所有业务时间使用 `DateTimeOffset`，PostgreSQL 使用 `timestamptz` 并以 UTC 保存。
 - 聚合继承 BuildingBlocks 当前 Entity 生命周期、软删除和 `OptimisticVersion + ConcurrencyVersion` 双版本并发模型。
 - 数据库名固定为 `referencedata_db`；表名前缀固定为 `ref_`。
+- `referencedata_db` 是稳定的 `LogicalDatabaseName`：Development 默认解析为配置的共享 PostgreSQL `industrial_platform_dev` 或共享 SQLite 文件；Test/Staging/Production 由 SystemData 解析为服务专属物理数据库。共享 Development 不允许跨服务表访问或合并迁移账本。
 - 领域实体自身的稳定业务标识统一命名为 `NId`，禁止以 `Code` 表示实体业务标识；其他实体引用该业务标识时使用 `{EntityName}NId`，例如 `Material.NId` 与业务表中的 `MaterialNId`。
 - `Code` 只保留给“已经生成的业务编码值”等确实表达编码结果、而非实体身份的字段；NId 保存规范化比较值，展示名称保留原始大小写，同一作用域内大小写不敏感唯一。
 - 写请求不能从 Body 指定当前租户；租户必须来自已验证 JWT。平台级写入仅允许平台管理员权限。

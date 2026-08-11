@@ -538,7 +538,7 @@ etcd
 
 # 数据库策略
 
-当前按 Service Host 隔离数据库或数据库凭据；同宿主模块至少使用独立 Schema 或表前缀、独立迁移，禁止跨模块直读 Repository。未来拆分后可迁移为独立数据库：
+当前按 Service Host 隔离数据库或数据库凭据；同宿主模块至少使用独立 Schema 或表前缀、独立迁移，禁止跨模块直读 Repository。下列服务数据库名称是 `LogicalDatabaseName`，图示表达 Test/Staging/Production 的每服务物理数据库拓扑，物理目标由 SystemData 解析；Development 可使用配置的共享 PostgreSQL `industrial_platform_dev` 或共享 SQLite 文件，但仍禁止跨服务表访问和合并迁移账本。完整契约见蓝图 07、蓝图 33。未来拆分后可迁移为独立数据库：
 
 ```
 industrial_identity

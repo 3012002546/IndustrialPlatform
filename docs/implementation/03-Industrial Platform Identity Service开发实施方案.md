@@ -252,6 +252,7 @@ Contracts 只承载跨进程 DTO、集成事件和版本信息；禁止放置仓
 - 同库父子表使用子表 `{ParentEntity}_Id + {ParentEntity}_IsDeleted` 复合外键引用父表 `(Id, IsDeleted)`。子表自身 `IsDeleted` 保持独立；父表必须提供可引用唯一键，软删除/恢复通过 `ON UPDATE CASCADE` 或同事务等价机制同步父级删除影子列，查询有效子项同时过滤自身和父级删除状态。
 - PostgreSQL 物理字段使用 `snake_case`：`NId → n_id`、`TenantNId → tenant_n_id`、`UserNId → user_n_id`、`User_Id → user_id`、`User_IsDeleted → user_is_deleted`。跨服务、跨数据库只保存 `{EntityName}NId` 和必要快照，不建立数据库外键。
 - 数据库名固定为 `identity_db`；表名前缀固定为 `identity_`。
+- `identity_db` 是稳定的 `LogicalDatabaseName`：Development 默认解析为配置的共享 PostgreSQL `industrial_platform_dev` 或共享 SQLite 文件；Test/Staging/Production 由 SystemData 解析为服务专属物理数据库。共享 Development 不允许跨服务表访问或合并迁移账本。
 - 登录名和各实体 NId 使用规范化比较值，不依赖数据库默认大小写规则。
 - 写接口执行租户隔离、权限校验、乐观并发和操作审计。
 - 统一返回 `ApiResult<T>` / `PageResult<T>`，时间使用带偏移 ISO 8601。

@@ -54,6 +54,8 @@ Industrial Platform采用：
 
 最终数据库：
 
+下列名称是服务 `LogicalDatabaseName`，图示表达 Test/Staging/Production 的每服务物理数据库拓扑，物理目标由 SystemData 解析。Development 可使用配置的共享 PostgreSQL `industrial_platform_dev` 或共享 SQLite 文件，但仍禁止跨服务表访问和合并迁移账本；完整契约见蓝图 07、蓝图 33。
+
 ```
 industrial_platform
 

@@ -238,6 +238,7 @@ Api → Application + Contracts + Infrastructure + Web + Logging
 - 所有业务时间使用 `DateTimeOffset`/`DateTimeOffset?`；PostgreSQL 映射 `timestamptz`，禁止 `DateTime`。
 - 每个实体应用 BuildingBlocks `Entity` 的冻结、锁定、软删除、审计时间和双版本并发约束。写请求必须携带调用方读取时的 `OptimisticVersion` 与 `ConcurrencyVersion`。
 - 数据库固定为 `masterdata_db`，表前缀固定为 `md_`，PostgreSQL 物理名称使用 `snake_case`。
+- `masterdata_db` 是稳定的 `LogicalDatabaseName`：Development 默认解析为配置的共享 PostgreSQL `industrial_platform_dev` 或共享 SQLite 文件；Test/Staging/Production 由 SystemData 解析为服务专属物理数据库。共享 Development 不允许跨服务表访问或合并迁移账本。
 - 所有租户数据必须带 `TenantId` 并在仓储层强制隔离；工厂范围数据还必须通过授权过滤器限制 FactoryNId。
 - 发布版本不可原地修改。修订必须创建新草稿；失效通过状态与生效区间表达，历史记录不得物理覆盖。
 - API 基础路径固定为 `/api/v1/master-data`；Gateway 外部路径固定为 `/masterdata/api/v1/master-data`。
