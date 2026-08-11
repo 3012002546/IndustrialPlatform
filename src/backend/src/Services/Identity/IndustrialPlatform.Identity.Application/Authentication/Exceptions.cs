@@ -65,3 +65,21 @@ public sealed class SessionInvalidException : AuthenticationException
     {
     }
 }
+
+/// <summary>Refresh Token 无效/过期/已撤销(§17 ID_AUTH_REFRESH_INVALID)。</summary>
+public sealed class RefreshTokenInvalidException : AuthenticationException
+{
+    public RefreshTokenInvalidException()
+        : base(401, "ID_AUTH_REFRESH_INVALID", "刷新令牌无效或已过期，请重新登录。")
+    {
+    }
+}
+
+/// <summary>检测到 Refresh Token 重放(§17 ID_AUTH_REFRESH_REUSED);已撤销整个 Family,要求重新登录。</summary>
+public sealed class RefreshTokenReusedException : AuthenticationException
+{
+    public RefreshTokenReusedException()
+        : base(401, "ID_AUTH_REFRESH_REUSED", "检测到刷新令牌重用，会话已撤销，请重新登录。")
+    {
+    }
+}

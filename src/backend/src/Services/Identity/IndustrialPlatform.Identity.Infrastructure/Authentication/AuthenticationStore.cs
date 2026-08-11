@@ -39,6 +39,13 @@ public sealed class AuthenticationStore : IAuthenticationStore
     }
 
     /// <inheritdoc/>
+    public async Task<AuthenticatedUser?> FindByUserIdAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var user = await _users.GetByIdAsync(userId, cancellationToken);
+        return await BuildAsync(user, cancellationToken);
+    }
+
+    /// <inheritdoc/>
     public Task UpdateUserAsync(
         User user,
         long expectedOptimisticVersion,

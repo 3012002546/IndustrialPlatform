@@ -323,13 +323,346 @@ public class AuthenticationServiceTests
         Assert.Equal(401, ex.StatusCode);
     }
 
+    private static StoredRefreshSession Session(
+        Guid userId,
+        string nId = "SES-old",
+        string family = "FAM-1",
+        DateTimeOffset? expires = null,
+        DateTimeOffset? used = null,
+        DateTimeOffset? revoked = null,
+        string? replacedBy = null)
+        => new(
+            Guid.NewGuid(),
+            Tenant,
+            nId,
+            family,
+            userId,
+            false,
+            expires ?? DateTimeOffset.UtcNow.AddDays(7),
+            used,
+            revoked,
+            null,
+            replacedBy);
+
+    [Fact]
+    public async Task RefreshAsync_ValidToken_RotatesSameFamilyAndReturnsNewSession()
+    {
+        // Arrange
+        var user = User.Create(Tenant, "user.alice", "alice", "Alice", null, null, "hash-1");
+        var store = new FakeStore();
+        store.ByUserId[user.Id] = new AuthenticatedUser(user, [RoleId], [RoleNId]);
+        store.Permissions = [Permission.Create("perm.view", "查看", PermissionType.Menu, null, null)];
+        var refresh = new FakeRefreshStore { FindResult = Session(user.Id) };
+        var tokens = new FakeTokenFactory();
+        var service = CreateService(store, new FakeHasher(Password), tokens, refresh, new FakeRateLimiter(), new FakeAuditSink());
+
+        // Act
+        var result = await service.RefreshAsync(new RefreshRequest("raw-token"), "10.0.0.1", "test-agent", CancellationToken.None);
+
+        // Assert: 返回新会话契约
+        Assert.Equal("jwt-token", result.AccessToken);
+        Assert.False(string.IsNullOrWhiteSpace(result.RefreshToken));
+        Assert.Equal("user.alice", result.User.UserNId);
+        Assert.Equal(["perm.view"], result.User.PermissionNIds);
+
+        // Assert: 旋转同 Family、新 NId、新 Token,descriptor 的 sid=新会话、ver=当前 AuthVersion
+        var replacement = Assert.Single(refresh.RotatedReplacements);
+        Assert.Equal("FAM-1", replacement.FamilyNId);
+        Assert.StartsWith("SES-", replacement.NId);
+        Assert.NotEqual("SES-old", replacement.NId);
+        Assert.Equal(result.RefreshToken, replacement.RawToken);
+        Assert.Equal(user.Id, replacement.UserId);
+        Assert.NotNull(tokens.Descriptor);
+        Assert.Equal(tokens.Descriptor.SessionId, replacement.NId);
+        Assert.Equal(user.AuthVersion, tokens.Descriptor.AuthVersion);
+        Assert.Equal([RoleNId], tokens.Descriptor.Roles);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task RefreshAsync_EmptyToken_ThrowsValidation(string? refreshToken)
+    {
+        var service = CreateService(new FakeStore(), new FakeHasher(Password), new FakeTokenFactory(), new FakeRefreshStore(), new FakeRateLimiter(), new FakeAuditSink());
+
+        var ex = await Assert.ThrowsAsync<ValidationException>(() =>
+            service.RefreshAsync(new RefreshRequest(refreshToken), null, null, CancellationToken.None));
+
+        Assert.Contains("刷新令牌", ex.Message);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_UnknownToken_ThrowsRefreshTokenInvalid()
+    {
+        var service = CreateService(new FakeStore(), new FakeHasher(Password), new FakeTokenFactory(), new FakeRefreshStore(), new FakeRateLimiter(), new FakeAuditSink());
+
+        var ex = await Assert.ThrowsAsync<RefreshTokenInvalidException>(() =>
+            service.RefreshAsync(new RefreshRequest("ghost-token"), null, null, CancellationToken.None));
+
+        Assert.Equal("ID_AUTH_REFRESH_INVALID", ex.Code);
+        Assert.Equal(401, ex.StatusCode);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_ExpiredToken_ThrowsRefreshTokenInvalid()
+    {
+        var user = User.Create(Tenant, "user.alice", "alice", "Alice", null, null, "hash-1");
+        var store = new FakeStore();
+        store.ByUserId[user.Id] = new AuthenticatedUser(user, [RoleId], [RoleNId]);
+        var refresh = new FakeRefreshStore { FindResult = Session(user.Id, expires: DateTimeOffset.UtcNow.AddMinutes(-1)) };
+        var service = CreateService(store, new FakeHasher(Password), new FakeTokenFactory(), refresh, new FakeRateLimiter(), new FakeAuditSink());
+
+        await Assert.ThrowsAsync<RefreshTokenInvalidException>(() =>
+            service.RefreshAsync(new RefreshRequest("raw-token"), null, null, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task RefreshAsync_RevokedSession_ThrowsRefreshTokenInvalid()
+    {
+        var user = User.Create(Tenant, "user.alice", "alice", "Alice", null, null, "hash-1");
+        var store = new FakeStore();
+        store.ByUserId[user.Id] = new AuthenticatedUser(user, [RoleId], [RoleNId]);
+        var refresh = new FakeRefreshStore { FindResult = Session(user.Id, revoked: DateTimeOffset.UtcNow) };
+        var service = CreateService(store, new FakeHasher(Password), new FakeTokenFactory(), refresh, new FakeRateLimiter(), new FakeAuditSink());
+
+        await Assert.ThrowsAsync<RefreshTokenInvalidException>(() =>
+            service.RefreshAsync(new RefreshRequest("raw-token"), null, null, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task RefreshAsync_ReplacedSession_ThrowsRefreshTokenInvalid()
+    {
+        var user = User.Create(Tenant, "user.alice", "alice", "Alice", null, null, "hash-1");
+        var store = new FakeStore();
+        store.ByUserId[user.Id] = new AuthenticatedUser(user, [RoleId], [RoleNId]);
+        var refresh = new FakeRefreshStore { FindResult = Session(user.Id, replacedBy: "SES-newer") };
+        var service = CreateService(store, new FakeHasher(Password), new FakeTokenFactory(), refresh, new FakeRateLimiter(), new FakeAuditSink());
+
+        await Assert.ThrowsAsync<RefreshTokenInvalidException>(() =>
+            service.RefreshAsync(new RefreshRequest("raw-token"), null, null, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task RefreshAsync_ReusedToken_RevokesFamilyAndThrowsReused()
+    {
+        // Arrange
+        var user = User.Create(Tenant, "user.alice", "alice", "Alice", null, null, "hash-1");
+        var store = new FakeStore();
+        store.ByUserId[user.Id] = new AuthenticatedUser(user, [RoleId], [RoleNId]);
+        var refresh = new FakeRefreshStore { FindResult = Session(user.Id, used: DateTimeOffset.UtcNow.AddMinutes(-1)) };
+        var service = CreateService(store, new FakeHasher(Password), new FakeTokenFactory(), refresh, new FakeRateLimiter(), new FakeAuditSink());
+
+        // Act
+        var ex = await Assert.ThrowsAsync<RefreshTokenReusedException>(() =>
+            service.RefreshAsync(new RefreshRequest("raw-token"), null, null, CancellationToken.None));
+
+        // Assert: 重放撤销整个 Family
+        Assert.Equal("ID_AUTH_REFRESH_REUSED", ex.Code);
+        Assert.Contains("FAM-1", refresh.RevokedFamilies);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_ConcurrentReuse_RotateReturnsReused_RevokesFamilyAndThrowsReused()
+    {
+        // Arrange
+        var user = User.Create(Tenant, "user.alice", "alice", "Alice", null, null, "hash-1");
+        var store = new FakeStore();
+        store.ByUserId[user.Id] = new AuthenticatedUser(user, [RoleId], [RoleNId]);
+        var refresh = new FakeRefreshStore { FindResult = Session(user.Id), RotateResult = RefreshRotationStatus.Reused };
+        var service = CreateService(store, new FakeHasher(Password), new FakeTokenFactory(), refresh, new FakeRateLimiter(), new FakeAuditSink());
+
+        // Act
+        var ex = await Assert.ThrowsAsync<RefreshTokenReusedException>(() =>
+            service.RefreshAsync(new RefreshRequest("raw-token"), null, null, CancellationToken.None));
+
+        Assert.Equal("ID_AUTH_REFRESH_REUSED", ex.Code);
+        Assert.Contains("FAM-1", refresh.RevokedFamilies);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_RotateInvalid_ThrowsRefreshTokenInvalid()
+    {
+        // Arrange
+        var user = User.Create(Tenant, "user.alice", "alice", "Alice", null, null, "hash-1");
+        var store = new FakeStore();
+        store.ByUserId[user.Id] = new AuthenticatedUser(user, [RoleId], [RoleNId]);
+        var refresh = new FakeRefreshStore { FindResult = Session(user.Id), RotateResult = RefreshRotationStatus.Invalid };
+        var service = CreateService(store, new FakeHasher(Password), new FakeTokenFactory(), refresh, new FakeRateLimiter(), new FakeAuditSink());
+
+        await Assert.ThrowsAsync<RefreshTokenInvalidException>(() =>
+            service.RefreshAsync(new RefreshRequest("raw-token"), null, null, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task RefreshAsync_RevokedInRedis_ThrowsRefreshTokenInvalid()
+    {
+        // Arrange
+        var user = User.Create(Tenant, "user.alice", "alice", "Alice", null, null, "hash-1");
+        var store = new FakeStore();
+        store.ByUserId[user.Id] = new AuthenticatedUser(user, [RoleId], [RoleNId]);
+        var revocation = new FakeRevocationStore();
+        revocation.Revoked.Add("SES-old");
+        var refresh = new FakeRefreshStore { FindResult = Session(user.Id) };
+        var service = CreateService(store, new FakeHasher(Password), new FakeTokenFactory(), refresh, new FakeRateLimiter(), new FakeAuditSink(), revocation);
+
+        await Assert.ThrowsAsync<RefreshTokenInvalidException>(() =>
+            service.RefreshAsync(new RefreshRequest("raw-token"), null, null, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task RefreshAsync_RedisUnavailable_FailsClosedWithSecurityStoreUnavailable()
+    {
+        // Arrange: 撤销校验必须 fail-closed(§14),Redis 不可用不得放行
+        var user = User.Create(Tenant, "user.alice", "alice", "Alice", null, null, "hash-1");
+        var store = new FakeStore();
+        store.ByUserId[user.Id] = new AuthenticatedUser(user, [RoleId], [RoleNId]);
+        var revocation = new FakeRevocationStore { FailOnCheck = true };
+        var refresh = new FakeRefreshStore { FindResult = Session(user.Id) };
+        var service = CreateService(store, new FakeHasher(Password), new FakeTokenFactory(), refresh, new FakeRateLimiter(), new FakeAuditSink(), revocation);
+
+        var ex = await Assert.ThrowsAsync<SecurityStoreUnavailableException>(() =>
+            service.RefreshAsync(new RefreshRequest("raw-token"), null, null, CancellationToken.None));
+
+        Assert.Equal("ID_AUTH_SECURITY_STORE_UNAVAILABLE", ex.Code);
+        Assert.Equal(503, ex.StatusCode);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_UserDisabled_ThrowsRefreshTokenInvalid()
+    {
+        // Arrange
+        var user = User.Create(Tenant, "user.alice", "alice", "Alice", null, null, "hash-1");
+        user.Disable();
+        var store = new FakeStore();
+        store.ByUserId[user.Id] = new AuthenticatedUser(user, [RoleId], [RoleNId]);
+        var refresh = new FakeRefreshStore { FindResult = Session(user.Id) };
+        var service = CreateService(store, new FakeHasher(Password), new FakeTokenFactory(), refresh, new FakeRateLimiter(), new FakeAuditSink());
+
+        await Assert.ThrowsAsync<RefreshTokenInvalidException>(() =>
+            service.RefreshAsync(new RefreshRequest("raw-token"), null, null, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task LogoutAsync_RevokesFamilyAndWritesSidRevocation()
+    {
+        // Arrange
+        var user = User.Create(Tenant, "user.alice", "alice", "Alice", null, null, "hash-1");
+        var refresh = new FakeRefreshStore { FindResult = Session(user.Id) };
+        var revocation = new FakeRevocationStore();
+        var service = CreateService(new FakeStore(), new FakeHasher(Password), new FakeTokenFactory(), refresh, new FakeRateLimiter(), new FakeAuditSink(), revocation);
+
+        // Act
+        await service.LogoutAsync(new LogoutRequest("raw-token"), "SES-abc", TimeSpan.FromMinutes(30), CancellationToken.None);
+
+        // Assert: 撤销 Family + sid 写入撤销键
+        Assert.Contains("FAM-1", refresh.RevokedFamilies);
+        Assert.Equal([("SES-abc", TimeSpan.FromMinutes(30))], revocation.Revokes);
+    }
+
+    [Fact]
+    public async Task LogoutAsync_UnknownToken_StillSucceedsAndWritesSid()
+    {
+        // 重复注销幂等:未知 Token 不抛错,仍写 sid 撤销
+        var refresh = new FakeRefreshStore();
+        var revocation = new FakeRevocationStore();
+        var service = CreateService(new FakeStore(), new FakeHasher(Password), new FakeTokenFactory(), refresh, new FakeRateLimiter(), new FakeAuditSink(), revocation);
+
+        await service.LogoutAsync(new LogoutRequest("ghost-token"), "SES-abc", TimeSpan.FromMinutes(30), CancellationToken.None);
+
+        Assert.Empty(refresh.RevokedFamilies);
+        Assert.Single(revocation.Revokes);
+    }
+
+    [Fact]
+    public async Task LogoutAllAsync_RevokesAllSessionsAndIncrementsAuthVersion()
+    {
+        // Arrange
+        var user = User.Create(Tenant, "user.alice", "alice", "Alice", null, null, "hash-1");
+        var originalVersion = user.AuthVersion;
+        var store = new FakeStore();
+        store.ByNId["user.alice"] = new AuthenticatedUser(user, [RoleId], [RoleNId]);
+        var refresh = new FakeRefreshStore();
+        var service = CreateService(store, new FakeHasher(Password), new FakeTokenFactory(), refresh, new FakeRateLimiter(), new FakeAuditSink());
+
+        // Act
+        await service.LogoutAllAsync("user.alice", CancellationToken.None);
+
+        // Assert: 推进安全版本并撤销全部会话
+        Assert.Equal(originalVersion + 1, user.AuthVersion);
+        Assert.Equal(1, store.UpdateCount);
+        Assert.Equal(user.Id, refresh.RevokedUserIds.Single());
+    }
+
+    [Fact]
+    public async Task LogoutAllAsync_UnknownUser_ThrowsSessionInvalid()
+    {
+        var service = CreateService(new FakeStore(), new FakeHasher(Password), new FakeTokenFactory(), new FakeRefreshStore(), new FakeRateLimiter(), new FakeAuditSink());
+
+        var ex = await Assert.ThrowsAsync<SessionInvalidException>(() =>
+            service.LogoutAllAsync("user.ghost", CancellationToken.None));
+
+        Assert.Equal("401", ex.Code);
+    }
+
+    [Fact]
+    public async Task ChangePasswordAsync_WrongCurrentPassword_ThrowsInvalidCredentials()
+    {
+        // Arrange
+        var user = User.Create(Tenant, "user.alice", "alice", "Alice", null, null, "hash-1");
+        var store = new FakeStore();
+        store.ByNId["user.alice"] = new AuthenticatedUser(user, [RoleId], [RoleNId]);
+        var service = CreateService(store, new FakeHasher(Password), new FakeTokenFactory(), new FakeRefreshStore(), new FakeRateLimiter(), new FakeAuditSink());
+
+        // Act
+        await Assert.ThrowsAsync<InvalidCredentialsException>(() =>
+            service.ChangePasswordAsync(new ChangePasswordRequest("wrong-password", "New-Passw0rd!"), "user.alice", CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ChangePasswordAsync_WeakNewPassword_ThrowsValidation()
+    {
+        // Arrange
+        var user = User.Create(Tenant, "user.alice", "alice", "Alice", null, null, "hash-1");
+        var store = new FakeStore();
+        store.ByNId["user.alice"] = new AuthenticatedUser(user, [RoleId], [RoleNId]);
+        var service = CreateService(store, new FakeHasher(Password), new FakeTokenFactory(), new FakeRefreshStore(), new FakeRateLimiter(), new FakeAuditSink());
+
+        // Act
+        await Assert.ThrowsAsync<ValidationException>(() =>
+            service.ChangePasswordAsync(new ChangePasswordRequest(Password, "short"), "user.alice", CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ChangePasswordAsync_ValidPassword_UpdatesHashAndRevokesAllSessions()
+    {
+        // Arrange
+        var user = User.Create(Tenant, "user.alice", "alice", "Alice", null, null, "hash-1");
+        var originalVersion = user.AuthVersion;
+        var store = new FakeStore();
+        store.ByNId["user.alice"] = new AuthenticatedUser(user, [RoleId], [RoleNId]);
+        var refresh = new FakeRefreshStore();
+        var service = CreateService(store, new FakeHasher(Password), new FakeTokenFactory(), refresh, new FakeRateLimiter(), new FakeAuditSink());
+
+        // Act
+        const string newPassword = "New-Passw0rd!";
+        await service.ChangePasswordAsync(new ChangePasswordRequest(Password, newPassword), "user.alice", CancellationToken.None);
+
+        // Assert: 哈希更新、安全版本推进、全部会话撤销(前端需重新登录)
+        Assert.Equal("hash:" + newPassword, user.PasswordHash);
+        Assert.Equal(originalVersion + 1, user.AuthVersion);
+        Assert.Equal(1, store.UpdateCount);
+        Assert.Equal(user.Id, refresh.RevokedUserIds.Single());
+    }
+
     private static AuthenticationService CreateService(
         IAuthenticationStore store,
         IPasswordHasher hasher,
         IAccessTokenFactory tokenFactory,
         IRefreshSessionStore refreshStore,
         ILoginRateLimiter rateLimiter,
-        ILoginAuditSink auditSink)
+        ILoginAuditSink auditSink,
+        ISessionRevocationStore? sessionRevocation = null)
         => new(
             store,
             hasher,
@@ -337,6 +670,7 @@ public class AuthenticationServiceTests
             refreshStore,
             rateLimiter,
             auditSink,
+            sessionRevocation ?? new FakeRevocationStore(),
             Options.Create(new AuthenticationOptions()),
             NullLogger<AuthenticationService>.Instance);
 
@@ -344,6 +678,7 @@ public class AuthenticationServiceTests
     {
         public Dictionary<(string Tenant, string LoginName), AuthenticatedUser> ByLoginName { get; } = [];
         public Dictionary<string, AuthenticatedUser> ByNId { get; } = [];
+        public Dictionary<Guid, AuthenticatedUser> ByUserId { get; } = [];
         public IReadOnlyList<Permission> Permissions { get; set; } = [];
         public int FindByLoginNameCount { get; private set; }
         public int UpdateCount { get; private set; }
@@ -358,6 +693,9 @@ public class AuthenticationServiceTests
 
         public Task<AuthenticatedUser?> FindByNIdAsync(string userNId, CancellationToken cancellationToken)
             => Task.FromResult(ByNId.TryGetValue(userNId, out var account) ? account : null);
+
+        public Task<AuthenticatedUser?> FindByUserIdAsync(Guid userId, CancellationToken cancellationToken)
+            => Task.FromResult(ByUserId.TryGetValue(userId, out var account) ? account : null);
 
         public Task UpdateUserAsync(
             User user, long expectedOptimisticVersion, Guid expectedConcurrencyVersion, CancellationToken cancellationToken)
@@ -449,6 +787,11 @@ public class AuthenticationServiceTests
     {
         public List<NewRefreshSession> Sessions { get; } = [];
         public bool ThrowOnAdd { get; set; }
+        public StoredRefreshSession? FindResult { get; set; }
+        public RefreshRotationStatus RotateResult { get; set; } = RefreshRotationStatus.Rotated;
+        public List<string> RevokedFamilies { get; } = [];
+        public List<Guid> RevokedUserIds { get; } = [];
+        public List<NewRefreshSession> RotatedReplacements { get; } = [];
 
         public async Task AddAsync(NewRefreshSession session, CancellationToken cancellationToken)
         {
@@ -460,6 +803,51 @@ public class AuthenticationServiceTests
 
             Sessions.Add(session);
             await Task.CompletedTask;
+        }
+
+        public Task<StoredRefreshSession?> FindByRawTokenAsync(string rawToken, CancellationToken cancellationToken)
+            => Task.FromResult(FindResult);
+
+        public Task<RefreshRotationStatus> RotateAsync(Guid currentSessionId, NewRefreshSession replacement, CancellationToken cancellationToken)
+        {
+            RotatedReplacements.Add(replacement);
+            return Task.FromResult(RotateResult);
+        }
+
+        public Task RevokeFamilyAsync(string familyNId, string reason, CancellationToken cancellationToken)
+        {
+            RevokedFamilies.Add(familyNId);
+            return Task.CompletedTask;
+        }
+
+        public Task RevokeAllForUserAsync(Guid userId, string reason, CancellationToken cancellationToken)
+        {
+            RevokedUserIds.Add(userId);
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class FakeRevocationStore : ISessionRevocationStore
+    {
+        public HashSet<string> Revoked { get; } = [];
+        public bool FailOnCheck { get; set; }
+        public List<(string SessionNId, TimeSpan Ttl)> Revokes { get; } = [];
+
+        public Task RevokeAsync(string sessionNId, TimeSpan ttl, CancellationToken cancellationToken)
+        {
+            Revokes.Add((sessionNId, ttl));
+            return Task.CompletedTask;
+        }
+
+        public async Task<bool> IsRevokedAsync(string sessionNId, CancellationToken cancellationToken)
+        {
+            if (FailOnCheck)
+            {
+                await Task.Yield();
+                throw new SecurityStoreUnavailableException();
+            }
+
+            return Revoked.Contains(sessionNId);
         }
     }
 }

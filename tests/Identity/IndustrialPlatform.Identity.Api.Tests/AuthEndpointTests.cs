@@ -61,6 +61,64 @@ public sealed class AuthEndpointTests : IClassFixture<WebApplicationFactory<Prog
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal("ID_VALIDATION_FAILED", payload.RootElement.GetProperty("code").GetString());
     }
+
+    [Fact]
+    public async Task Refresh_EmptyBody_Returns400ValidationEnvelope()
+    {
+        using var client = factory.CreateClient();
+
+        using var response = await client.PostAsync(
+            "/api/v1/auth/refresh",
+            new StringContent("""{}""", Encoding.UTF8, "application/json"));
+        using var payload = JsonDocument.Parse(await response.Content.ReadAsStreamAsync());
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.False(payload.RootElement.GetProperty("success").GetBoolean());
+        Assert.Equal("ID_VALIDATION_FAILED", payload.RootElement.GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task Logout_WithoutToken_Returns401ApiResultEnvelope()
+    {
+        using var client = factory.CreateClient();
+
+        using var response = await client.PostAsync(
+            "/api/v1/auth/logout",
+            new StringContent("""{"refreshToken":"raw-token"}""", Encoding.UTF8, "application/json"));
+        using var payload = JsonDocument.Parse(await response.Content.ReadAsStreamAsync());
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.False(payload.RootElement.GetProperty("success").GetBoolean());
+        Assert.Equal("401", payload.RootElement.GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task LogoutAll_WithoutToken_Returns401ApiResultEnvelope()
+    {
+        using var client = factory.CreateClient();
+
+        using var response = await client.PostAsync(
+            "/api/v1/auth/logout-all",
+            new StringContent("""{}""", Encoding.UTF8, "application/json"));
+        using var payload = JsonDocument.Parse(await response.Content.ReadAsStreamAsync());
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal("401", payload.RootElement.GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task ChangePassword_WithoutToken_Returns401ApiResultEnvelope()
+    {
+        using var client = factory.CreateClient();
+
+        using var response = await client.PostAsync(
+            "/api/v1/auth/change-password",
+            new StringContent("""{"currentPassword":"old","newPassword":"New-Passw0rd!"}""", Encoding.UTF8, "application/json"));
+        using var payload = JsonDocument.Parse(await response.Content.ReadAsStreamAsync());
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal("401", payload.RootElement.GetProperty("code").GetString());
+    }
 }
 
 /// <summary>

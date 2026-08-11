@@ -53,6 +53,7 @@ public static class DependencyInjection
         services.AddSingleton<ILoginRateLimiter, LoginRateLimiter>();
         services.AddSingleton<ILoginAuditSink, LoginAuditSink>();
         services.AddSingleton<IRefreshSessionStore, RefreshSessionStore>();
+        services.AddSingleton<ISessionRevocationStore, SessionRevocationStore>();
 
         return services;
     }

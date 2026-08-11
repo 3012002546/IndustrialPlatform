@@ -33,3 +33,18 @@ public sealed record JwksKey(string Kty, string Kid, string N, string E, string 
 
 /// <summary>JWKS 文档:GET /.well-known/jwks.json 返回 {"keys": [...]}。</summary>
 public sealed record JwksDocument(IReadOnlyList<JwksKey> Keys);
+
+/// <summary>
+/// 刷新请求(§15.3)。属性可空:空值由服务层校验,避免 [ApiController] 推断 Required 破坏统一信封。
+/// </summary>
+public sealed record RefreshRequest(string? RefreshToken);
+
+/// <summary>
+/// 注销请求(§15.4)。注销接口要求 Bearer Access Token,重复注销保持幂等。
+/// </summary>
+public sealed record LogoutRequest(string? RefreshToken);
+
+/// <summary>
+/// 修改密码请求。要求 Bearer Access Token 与当前密码;成功后撤销该用户全部刷新会话并推进安全版本,前端需重新登录。
+/// </summary>
+public sealed record ChangePasswordRequest(string? CurrentPassword, string? NewPassword);

@@ -22,6 +22,7 @@ public sealed partial class AuthenticationService : IAuthenticationService
     private readonly IRefreshSessionStore _refreshStore;
     private readonly ILoginRateLimiter _rateLimiter;
     private readonly ILoginAuditSink _auditSink;
+    private readonly ISessionRevocationStore _sessionRevocation;
     private readonly IOptions<AuthenticationOptions> _options;
     private readonly ILogger<AuthenticationService> _logger;
 
@@ -32,6 +33,7 @@ public sealed partial class AuthenticationService : IAuthenticationService
         IRefreshSessionStore refreshStore,
         ILoginRateLimiter rateLimiter,
         ILoginAuditSink auditSink,
+        ISessionRevocationStore sessionRevocation,
         IOptions<AuthenticationOptions> options,
         ILogger<AuthenticationService> logger)
     {
@@ -41,6 +43,7 @@ public sealed partial class AuthenticationService : IAuthenticationService
         _refreshStore = refreshStore;
         _rateLimiter = rateLimiter;
         _auditSink = auditSink;
+        _sessionRevocation = sessionRevocation;
         _options = options;
         _logger = logger;
     }
@@ -183,6 +186,184 @@ public sealed partial class AuthenticationService : IAuthenticationService
         }
 
         return await BuildAuthUserAsync(account, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<AuthSession> RefreshAsync(
+        RefreshRequest request,
+        string? clientIp,
+        string? userAgent,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (string.IsNullOrWhiteSpace(request.RefreshToken))
+        {
+            throw new ValidationException("刷新令牌不能为空。");
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var session = await _refreshStore.FindByRawTokenAsync(request.RefreshToken, cancellationToken);
+        if (session is null)
+        {
+            throw new RefreshTokenInvalidException();
+        }
+
+        // Redis 会话撤销校验(fail-closed:Redis 不可用抛安全存储不可用,不得放行)
+        if (await _sessionRevocation.IsRevokedAsync(session.NId, cancellationToken))
+        {
+            throw new RefreshTokenInvalidException();
+        }
+
+        // 已使用过(顺序重放):撤销整个 Family,拒绝复用
+        if (session.UsedOn is not null)
+        {
+            await _refreshStore.RevokeFamilyAsync(session.FamilyNId, "replay", cancellationToken);
+            throw new RefreshTokenReusedException();
+        }
+
+        if (session.RevokedOn is not null || session.ReplacedBySessionNId is not null)
+        {
+            throw new RefreshTokenInvalidException();
+        }
+
+        if (session.ExpiresOn <= now)
+        {
+            throw new RefreshTokenInvalidException();
+        }
+
+        var account = await _store.FindByUserIdAsync(session.UserId, cancellationToken);
+        var user = account?.User;
+        if (user is null || user.IsDeleted || user.Status == UserStatus.Disabled)
+        {
+            throw new RefreshTokenInvalidException();
+        }
+
+        // 旋转:同 Family 生成新会话;并发/顺序重用由原子守卫兜底
+        var newSessionNId = GenerateSessionNId();
+        var newRawRefresh = GenerateRefreshToken();
+        var status = await _refreshStore.RotateAsync(
+            session.Id,
+            new NewRefreshSession(
+                session.TenantNId,
+                newSessionNId,
+                session.FamilyNId,
+                user.Id,
+                newRawRefresh,
+                now.AddDays(_options.Value.RefreshTokenLifetimeDays),
+                clientIp,
+                userAgent,
+                now),
+            cancellationToken);
+
+        if (status == RefreshRotationStatus.Reused)
+        {
+            await _refreshStore.RevokeFamilyAsync(session.FamilyNId, "replay", cancellationToken);
+            throw new RefreshTokenReusedException();
+        }
+
+        if (status != RefreshRotationStatus.Rotated)
+        {
+            throw new RefreshTokenInvalidException();
+        }
+
+        var accessToken = _tokenFactory.Create(new AccessTokenDescriptor(
+            user.NId,
+            user.LoginName,
+            user.TenantNId,
+            account!.RoleNIds,
+            newSessionNId,
+            user.AuthVersion,
+            now));
+
+        var authUser = await BuildAuthUserAsync(account, cancellationToken);
+        return new AuthSession(accessToken.Token, newRawRefresh, accessToken.ExpiresAt, authUser);
+    }
+
+    /// <inheritdoc/>
+    public async Task LogoutAsync(
+        LogoutRequest request,
+        string? sessionNId,
+        TimeSpan sidRevocationTtl,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        // 重复注销保持幂等,不暴露 Refresh Token 是否曾存在
+        if (!string.IsNullOrWhiteSpace(request.RefreshToken))
+        {
+            var session = await _refreshStore.FindByRawTokenAsync(request.RefreshToken, cancellationToken);
+            if (session is not null)
+            {
+                await _refreshStore.RevokeFamilyAsync(session.FamilyNId, "logout", cancellationToken);
+            }
+        }
+
+        // sid 撤销直到 Access Token 到期;Redis 写失败由存储告警,数据库撤销为权威
+        if (!string.IsNullOrWhiteSpace(sessionNId))
+        {
+            await _sessionRevocation.RevokeAsync(sessionNId, sidRevocationTtl, cancellationToken);
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task LogoutAllAsync(string userNId, CancellationToken cancellationToken)
+    {
+        var account = await RequireCurrentUserAsync(userNId, cancellationToken);
+        var user = account.User;
+
+        var expectedOptimistic = user.OptimisticVersion;
+        var expectedConcurrency = user.ConcurrencyVersion;
+        user.IncrementAuthVersion();
+        await _store.UpdateUserAsync(user, expectedOptimistic, expectedConcurrency, cancellationToken);
+
+        await _refreshStore.RevokeAllForUserAsync(user.Id, "logout_all", cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task ChangePasswordAsync(ChangePasswordRequest request, string userNId, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (string.IsNullOrEmpty(request.CurrentPassword))
+        {
+            throw new ValidationException("当前密码不能为空。");
+        }
+
+        var account = await RequireCurrentUserAsync(userNId, cancellationToken);
+        var user = account.User;
+
+        // Validate 保证非空后才可空感知
+        PasswordPolicy.Validate(request.NewPassword, user.LoginName, user.NId);
+        var newPassword = request.NewPassword!;
+
+        if (!_hasher.Verify(user.PasswordHash, request.CurrentPassword))
+        {
+            throw new InvalidCredentialsException();
+        }
+
+        var expectedOptimistic = user.OptimisticVersion;
+        var expectedConcurrency = user.ConcurrencyVersion;
+        user.ChangePasswordHash(_hasher.Hash(newPassword));
+        await _store.UpdateUserAsync(user, expectedOptimistic, expectedConcurrency, cancellationToken);
+
+        await _refreshStore.RevokeAllForUserAsync(user.Id, "password_changed", cancellationToken);
+    }
+
+    private async Task<AuthenticatedUser> RequireCurrentUserAsync(string userNId, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(userNId))
+        {
+            throw new SessionInvalidException();
+        }
+
+        var account = await _store.FindByNIdAsync(userNId, cancellationToken);
+        if (account is null || account.User.IsDeleted || account.User.Status == UserStatus.Disabled)
+        {
+            throw new SessionInvalidException();
+        }
+
+        return account;
     }
 
     private async Task<AuthUser> BuildAuthUserAsync(AuthenticatedUser account, CancellationToken cancellationToken)

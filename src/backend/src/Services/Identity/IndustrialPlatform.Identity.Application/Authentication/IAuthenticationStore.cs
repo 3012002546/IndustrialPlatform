@@ -24,6 +24,9 @@ public interface IAuthenticationStore
     /// <summary>按用户业务标识查询用户(含活动角色关系);不存在返回 <c>null</c>。</summary>
     Task<AuthenticatedUser?> FindByNIdAsync(string userNId, CancellationToken cancellationToken);
 
+    /// <summary>按数据库主键查询用户(含活动角色关系);不存在返回 <c>null</c>。供刷新会话按 UserId 装载用户。</summary>
+    Task<AuthenticatedUser?> FindByUserIdAsync(Guid userId, CancellationToken cancellationToken);
+
     /// <summary>以调用方读取时保存的原始双版本原子更新用户;版本不匹配抛并发异常。</summary>
     Task UpdateUserAsync(
         User user,
