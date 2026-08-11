@@ -418,7 +418,7 @@ WorkOrder、Weighting、Trace、BatchRecord 和生产闭环分别开会话设计
 | 阶段 | 状态 | 阶段管理会话 | 设计依据 | 实施方案 | 派遣/提交 | 验收证据 |
 | --- | --- | --- | --- | --- | --- | --- |
 | PF-00 Identity | 开发中 | 现有 Identity 会话 | 蓝图 13、31 | 实施 03 | `d625597`、`e7f0e7a` 等 | 见实施 03 |
-| PF-01 视觉主题 | 任务待确认 | 现有 PF-01 会话继续 | 已批准 PF-01 规格 | 实施 04 待创建 | - | - |
+| PF-01 视觉主题 | 任务待确认 | 现有 PF-01 会话继续 | 已批准 PF-01 规格 | `docs/implementation/04-Industrial Platform视觉主题与平台外壳开发实施方案.md` | - | - |
 | PF-02 SystemData | 待启动 | 待创建 | 蓝图 05 | 实施 05 待创建 | - | - |
 | PF-03 ReferenceData | 仅骨架 | 待创建 | 蓝图及现有设计待复核 | 实施 06 待修订 | - | - |
 | PF-04 File / Notification / Audit | 待启动 | 待创建 | 蓝图 05、30、31 | 实施 07 待创建 | - | - |
