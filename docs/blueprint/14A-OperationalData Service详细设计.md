@@ -520,7 +520,7 @@ InventoryLotStatusChanged
 → WMS 适配器
 ```
 
-具体任务编号、依赖、验证证据和结果回写位置统一维护在 `09-MES MVP第一阶段开发TodoList.md`。
+总体阶段、恢复门禁和结果索引统一维护在 `09-Industrial Platform开发总TodoList.md`；OperationalData 的详细任务继续维护在实施文档 06。
 
 ---
 

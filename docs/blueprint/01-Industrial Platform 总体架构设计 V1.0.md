@@ -135,7 +135,9 @@ Industrial Digital Platform
 
  Identity
 
- Permission
+ SystemData
+
+ ReferenceData
 
  Audit
 
@@ -143,11 +145,19 @@ Industrial Digital Platform
 
  Notification
 
- Report
+ Collaboration
+
+ Remote Assistance
+
+ Scheduler
+
+ Platform Health
+
+ Low Code
 
  Dashboard
 
- Archive
+ Report
 
 
  =================================================
@@ -175,21 +185,35 @@ Industrial Digital Platform
 
 ---
 
-## 3.2 基础服务依赖顺序
+## 3.2 当前平台优先开发顺序
 
 ```text
 BuildingBlocks
       ↓
 Identity
       ↓
-ReferenceData
+平台视觉与外壳
       ↓
-MasterData
+SystemData + ReferenceData
       ↓
-OperationalData
+Audit + File + Notification
+      ↓
+Collaboration + RemoteAssistance
+      ↓
+Scheduler + Platform Health
+      ↓
+Low Code + Dashboard & Report
+      ↓
+Server Monitor + IoT Collector
+      ↓
+MasterData + OperationalData + MES业务域
 ```
 
-ReferenceData 负责字典、配置、元数据与编码规则；MasterData 负责物料、设备、组织、仓库、库位与 BOM 等业务主数据；OperationalData 负责库存批次、余额、预留、收发退和仓储业务单据。三者边界独立，后续业务服务按上述顺序建立依赖。
+以上是产品开发优先级，不表示所有模块存在直接技术依赖。实际阶段编号、并行条件和门禁以 `09-Industrial Platform开发总TodoList.md` 为准。
+
+SystemData 负责行政组织、岗位、菜单导航、功能开关、服务目录和主题默认值；ReferenceData 负责字典、配置、元数据与编码规则；MasterData 负责物料、设备、制造组织、仓库、库位与 BOM 等业务主数据；OperationalData 负责库存批次、余额、预留、收发退和仓储业务单据。四者边界独立。
+
+平台基础功能、工业合规聊天、远程协助、主题体系和独立模块边界详见 `05-Industrial Platform平台基础功能与独立模块设计.md`。
 
 ---
 

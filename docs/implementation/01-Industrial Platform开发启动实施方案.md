@@ -28,7 +28,7 @@
 * 测试体系设计
 * 安全体系设计
 
-本阶段不再讨论架构设计。
+总体架构不在开发会话中随意变更；每个新增 PF/MES 阶段仍必须先在独立设计会话中形成书面规格，再进入实施计划和开发。
 
 目标：
 
@@ -56,20 +56,27 @@ IndustrialPlatform
 
 # 2. 开发阶段总体规划
 
-当前进度以 `CLAUDE.md` 为准。BuildingBlocks 已完成；Identity、ReferenceData 只有服务骨架；前端和 Docker 尚未实现。
+当前进度以任务执行记录、提交和新鲜验证证据为准：BuildingBlocks、可运行基线和统一前端第一批已经完成主要范围，Docker 实机验收仍有保留项；Identity 正在开发；ReferenceData 代码只有服务骨架；MasterData 和 OperationalData 暂缓。
 
 当前执行顺序：
 
 ```text
-Phase 0  BuildingBlocks 原基础搭建（已完成）
-Phase 0A Entity 生命周期与并发调整（TASK-BB-010）
-Phase 1  项目可运行基线剩余任务
-Phase 2  统一前端第一批
-Phase 3  Identity 登录闭环
-Phase 4  ReferenceData 服务 + 页面
-Phase 5  MasterData 服务 + 页面
-Phase 6  OperationalData 服务 + 页面
-Phase 7+ WorkOrder / Weighting / IoTCollector / Trace / BatchRecord 服务 + 页面
+已完成  BuildingBlocks / Entity 调整 / 可运行基线主要范围 / 统一前端第一批
+PF-00    Identity 登录与权限闭环（进行中）
+PF-01    视觉、主题与平台外壳
+PF-02    SystemData
+PF-03    ReferenceData（现有骨架复核后继续）
+PF-04    Audit / File / Notification（分别设计）
+PF-05    Collaboration
+PF-06    RemoteAssistance 验证与试点
+PF-07    Scheduler / Platform Health（分别设计）
+PF-08    Low Code
+PF-09    Dashboard / Report（分别设计）
+PF-10    Server Monitor
+PF-11    IoT Collector
+MES-01   MasterData（暂缓）
+MES-02   OperationalData（暂缓）
+MES-03+  生产闭环服务
 ```
 
 ## Phase 0 BuildingBlocks 原基础搭建（已完成）
@@ -96,23 +103,32 @@ Phase 7+ WorkOrder / Weighting / IoTCollector / Trace / BatchRecord 服务 + 页
 
 详细任务：`docs/implementation/02B-Industrial Platform统一前端第一批开发实施方案.md`。
 
-## Phase 3 Identity 登录闭环
+## PF-00 Identity 登录闭环
 
-在现有骨架上完成用户、角色、权限、JWT、RefreshToken、注销与撤销，并把前端从 `MockAuthGateway` 切换到 `HttpAuthGateway`。阶段验收必须覆盖登录、刷新、401、403、菜单与按钮权限。
+当前正在执行实施文档 03。`TASK-ID-001/002` 已完成，继续 `TASK-ID-003～016`；完成用户、角色、权限、JWT、RefreshToken、注销与撤销，并把前端从 `MockAuthGateway` 切换到 `HttpAuthGateway`。阶段验收必须覆盖登录、刷新、401、403、菜单与按钮权限。
 
-## Phase 4 ReferenceData 服务 + 页面
+## PF-01～PF-11 平台基础和独立模块
 
-完成字典、配置、元数据和编码规则，并在同阶段交付相应 PC 管理页面、契约测试和关键路径 E2E。ReferenceData 不承载物料、设备、制造组织或 BOM。
+详细边界读取 `docs/blueprint/05-Industrial Platform平台基础功能与独立模块设计.md`，执行顺序、阶段任务卡和独立会话入口读取 `docs/blueprint/09-Industrial Platform开发总TodoList.md`。
 
-## Phase 5 MasterData 服务 + 页面
+每个阶段都遵循：
 
-执行 `TASK-MD-001` 至 `TASK-MD-010`，并同步交付物料、单位、组织、仓库/库位、设备、BOM、工艺路线页面。详细任务见文档 05。
+```text
+独立设计会话
+→ 书面规格评审与提交
+→ 独立实施计划会话
+→ 实施方案和任务卡
+→ 开发会话
+→ 阶段验收和总 TodoList 回写
+```
 
-## Phase 6 OperationalData 服务 + 页面
+PF-03 ReferenceData 复用现有实施文档 04，但开发前必须独立复核当前骨架、任务状态以及与 SystemData 和主题体系的契约。
 
-执行 `TASK-OD-001` 至 `TASK-OD-009`，并同步交付库存查询、批次、收发退、调拨和盘点页面。详细任务见文档 06。
+## MES-01 MasterData 与 MES-02 OperationalData
 
-## Phase 7 以后：生产闭环服务纵向交付
+现有实施文档 05、06 保留但暂停执行。达到总 TodoList 规定的恢复门禁后，分别新开会话复核，再决定保留或调整原任务卡。
+
+## MES-03 以后：生产闭环服务纵向交付
 
 WorkOrder、Weighting、IoT Collector、Trace、BatchRecord 依次推进。每个阶段都遵循：
 
@@ -124,7 +140,7 @@ WorkOrder、Weighting、IoT Collector、Trace、BatchRecord 依次推进。每�
 → 阶段验收
 ```
 
-不再设置独立的末期“统一补前端”阶段。MVP 业务闭环在各服务纵向交付完成后进行全链路验收。
+不再设置独立的末期“统一补前端”阶段。MES 业务闭环在平台基础达到门禁并且各服务纵向交付完成后进行全链路验收。
 
 ---
 
@@ -918,31 +934,20 @@ GET
 
 ---
 
-# 18. MVP第一阶段开发路线
+# 18. 当前总体开发路线
 
-目标：先建立可运行产品骨架，再纵向完成工业生产闭环。
+目标：在已建立的可运行产品骨架上，先完成平台基础和独立模块，再恢复工业生产闭环。
 
 ```text
-BuildingBlocks 原基础搭建（已完成）
-↓
-TASK-BB-010 Entity 生命周期与并发调整
-↓
-可运行基线
-↓
-统一前端第一批
-↓
-Identity 登录闭环
-↓
-ReferenceData 服务 + 页面
-↓
-MasterData 服务 + 页面
-↓
-OperationalData 服务 + 页面
-↓
-WorkOrder / Weighting / IoTCollector / Trace / BatchRecord 服务 + 页面
-↓
-MVP 全链路验收
+已完成：BuildingBlocks / Entity 调整 / 可运行基线主要范围 / 统一前端第一批
+→ PF-00 Identity
+→ PF-01～PF-11 平台基础和独立模块
+→ MES-01 MasterData
+→ MES-02 OperationalData
+→ MES-03+ 生产闭环
 ```
+
+完整阶段和门禁只在 `docs/blueprint/09-Industrial Platform开发总TodoList.md` 维护。
 
 ---
 
@@ -952,28 +957,28 @@ MVP 全链路验收
 
 - Git 仓库、解决方案和后端目录骨架。
 - BuildingBlocks 共享组件及测试。
-- Identity、ReferenceData 服务骨架与 `/health`。
+- 可运行基线主要范围；Docker 实机项仍保留待验收。
+- 统一前端第一批 `TASK-FE-001～010`。
+- Identity、ReferenceData 服务骨架与健康检查。
 
 ## 当前第一优先级
 
-- `TASK-BB-010`：见 `02-Industrial Platform BuildingBlocks基础组件开发实施方案.md`。
+- PF-00 Identity：`TASK-ID-001/002` 已完成，继续实施文档 03 的后续任务。
 
 ## 第二优先级
 
-- `TASK-BASE-002` 至 `TASK-BASE-006`：见 `02A-Industrial Platform可运行基线开发实施方案.md`；已完成的 `TASK-BASE-001` 不重复执行。
+- PF-01 视觉、主题与平台外壳；在独立会话完成详细设计后实施。
 
 ## 第三优先级
 
-- `TASK-FE-001` 至 `TASK-FE-008`：见 `02B-Industrial Platform统一前端第一批开发实施方案.md`。
+- PF-02 SystemData 与 PF-03 ReferenceData；ReferenceData 当前代码只有骨架，开发前复核实施文档 04。
 
 ## 后续顺序
 
-- Identity 真实登录闭环。
-- ReferenceData 服务功能与管理页面。
-- MasterData 服务功能与管理页面。
-- OperationalData 服务功能与业务页面。
+- PF-04～PF-11 按总 TodoList 的阶段门禁推进。
+- MasterData 和 OperationalData 暂缓，达到 MES 恢复门禁后分别复核。
 
-`CLAUDE.md` 由代码协作方回写实际代码进度；本目录维护可派遣任务、验收证据和阶段依赖。
+实施文档执行记录、提交和新鲜验证证据共同构成进度依据；`CLAUDE.md` 可以记录协作过程，但不替代正式验收。
 
 ---
 

@@ -11,7 +11,9 @@
 - API 使用包含 `Z` 或明确偏移量的 ISO 8601 / RFC 3339 时间字符串。
 - PostgreSQL 持久化瞬时时间统一使用 `timestamp with time zone`（`timestamptz`），以 UTC 保存；展示时按用户、工厂或设备时区转换。
 
-基础服务的实现依赖顺序为：`BuildingBlocks → Identity → ReferenceData → MasterData → OperationalData`。ReferenceData 管理字典、配置、元数据和编码规则；MasterData 管理物料、设备、组织、仓库、库位和 BOM 等稳定主数据；OperationalData 管理库存批次、余额、预留和仓储业务单据。
+当前执行优先级由 [`09-Industrial Platform开发总TodoList.md`](09-Industrial%20Platform开发总TodoList.md) 的 PF/MES 阶段编号维护，不再由文档文件编号推断。当前主线为：`BuildingBlocks/可运行基线/统一前端（已完成） → PF-00 Identity（进行中） → PF-01～PF-11 平台基础与独立模块 → MES-01 MasterData → MES-02 OperationalData → 后续生产闭环`。
+
+ReferenceData 管理字典、配置、元数据和编码规则；SystemData 管理行政组织、岗位、菜单导航、功能开关、服务目录和主题默认值；MasterData 管理物料、设备、制造组织、仓库、库位和 BOM 等稳定主数据；OperationalData 管理库存批次、余额、预留和仓储业务单据。
 
 | 编号 | 文档 | 状态 | 前置阅读 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -19,10 +21,11 @@
 | 02 | [Server Monitor 独立产品设计](02-Server%20Monitor%20独立产品设计文档%20V1.0.md) | 已整理 | 01 | 规划 |
 | 03 | [MES领域模型DDD设计](03-MES领域模型DDD设计.md) | 已整理 | 01 | 规划 |
 | 04 | [Vue3 PC/PDA/Mobile 三端统一架构设计](04-Vue3%20PCPDAMobile%20三端统一架构设计.md) | 已整理 | 01 | 规划 |
+| 05 | [平台基础功能与独立模块设计](05-Industrial%20Platform平台基础功能与独立模块设计.md) | 已确认 | 01, 04, 13, 21, 22, 30, 31 | 正式平台基础蓝图 |
 | 06 | [微服务解决方案目录设计](06-Industrial%20Platform%20微服务解决方案目录设计.md) | 已整理 | 01 | 规划 |
 | 07 | [PostgreSQL数据库规范及分库设计](07-PostgreSQL数据库规范及分库设计.md) | 已整理 | 01 | 规划 |
 | 08 | [RabbitMQ事件总线设计规范](08-RabbitMQ事件总线设计规范.md) | 已整理 | 01 | 规划 |
-| 09 | [MES MVP第一阶段开发TodoList](09-MES%20MVP第一阶段开发TodoList.md) | 持续维护 | 01, 03, 14, 14A | TODO 拆分与派遣 |
+| 09 | [Industrial Platform开发总TodoList](09-Industrial%20Platform开发总TodoList.md) | 持续维护 | 01, 05 | PF/MES 阶段编排、独立会话与门禁 |
 | 10 | [Codex协作开发规范](10-Codex协作开发规范.md) | 持续维护 | 01 | 协作边界与派遣流程 |
 | 11 | [代码初始化设计](11-Industrial%20Platform代码初始化设计.md) | 已整理 | 01, 06 | 规划 |
 | 12 | [.NET10 Clean Architecture模板设计](12-.NET10%20Clean%20Architecture模板设计.md) | 已整理 | 11 | 规划 |
