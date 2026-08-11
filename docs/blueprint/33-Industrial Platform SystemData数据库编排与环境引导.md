@@ -31,7 +31,7 @@ SystemData 至少提供以下受控能力：
 | --- | --- |
 | `ServiceKey` | 稳定服务标识，不使用显示名称代替 |
 | `Provider` | 数据库提供程序；云端首期为 PostgreSQL，本地回退可为 SQLite |
-| `DatabaseName` | 目标数据库名称，不包含服务器地址或凭据 |
+| `DatabaseName` | 稳定的逻辑数据库身份，不包含服务器地址或凭据 |
 | `MigrationAssembly` / `MigrationBundle` | 服务拥有的迁移程序集、Bundle 或等价产物 |
 | `MigrationVersion` | 期望迁移版本或不可变产物版本 |
 | `Owner` | 服务/模块责任人或责任团队 |
@@ -112,7 +112,7 @@ SystemData API 只管理其他服务数据库。基础设施引导不得扩张�
 
 # 10. 本地回退
 
-- `RemoteDevelopment.Enabled=false` 时，各服务可以继续使用自己的 SQLite 本地回退和本地迁移路径。
+- `RemoteDevelopment.Enabled=false` 时，SQLite 物理目标仍按受信 `DatabaseTopology` 解析。
 - 启用远程开发/云端环境时，各服务通过受控配置和 SystemData 使用 PostgreSQL 18。
 - 本地 SQLite 与云端 PostgreSQL 必须使用等价的版本语义和显式迁移，不得用 `EnsureCreated` 掩盖差异。
 - SystemData 不可用时，启用远程 PostgreSQL 的新服务保持 NotReady；不得回退到另一个数据库或管理员自建库。

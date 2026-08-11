@@ -574,7 +574,7 @@ DDD Bound Context
 - Development/测试可按策略自动 provision + migrate；生产默认 `plan → 审批 → 备份 → apply`。
 - provisioning 管理凭据由 Secret Provider/环境注入，并与 SystemData 普通运行连接分离；API、日志和审计不得返回或记录凭据。
 - SystemData 不可用或迁移失败时，目标服务保持 NotReady；禁止静默连接到错误数据库或自行建库。
-- `RemoteDevelopment.Enabled=false` 时服务保留 SQLite 本地回退；启用云端时使用 SystemData 编排的 PostgreSQL。完整流程读取蓝图 33。
+- `RemoteDevelopment.Enabled=false` 时服务仍按蓝图 33 的 Development `DatabaseTopology` 使用 SQLite：默认 Shared，PerService 仅作显式验证；启用云端时使用 SystemData 编排的 PostgreSQL。完整流程读取蓝图 33。
 
 ---
 
