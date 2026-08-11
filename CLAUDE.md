@@ -159,7 +159,7 @@ pnpm test:e2e                   # 基于 pnpm preview,需先 build
 - **当前状态:** TASK-ID-001~006 已完成并提交(develop),最新 `cd46e3c`(`feat(identity): add refresh rotation and session revocation`);全量 build 0 警告 0 错误、test 387/387、`--vulnerable` 25/25 项目干净;PostgreSQL/Redis 全链路(登录/刷新 E2E、撤销 fail-closed)「待验收」。
 - **暂停点:** 用户选择暂停,下一步 **TASK-ID-007(服务端 RBAC、权限缓存与用户上下文)**,建议提交 `feat(identity): add server-side rbac and permission cache`;设计依据 03 文档 §14/§18 + BuildingBlocks `Security`。
 - **ID-007 输入就绪:** token 已携带 `sub/user_name/tenant_id/role[]/sid/ver`;`AuthVersion` 递增(LogoutAllAsync/ChangePasswordHash)即权限缓存失效信号;`Identity` 自身端点直接读 token claims(`ICurrentUser.UserId` 为 Guid?,与 §12 `sub=UserNId` 存在已知偏差,见 TASK-ID-005 决策)。
-- **测试隐患(非回归):** Infrastructure.Tests 测试类构造函数清 bootstrap env 变量,与 `IdentityMigrationTests` 设置 env 的用例存在跨类竞态,全量跑曾偶发 1 个失败且未复现;后续新增 SQLite fixture 类沿用该模式时注意。
+- **GitHub Actions Bootstrap 环境变量竞态(已修复):** 2026-08-11 `backend-ci` 在 Ubuntu 上失败的实际步骤是 `dotnet test`,不是编译;`IdentityMigrationTests` 两个 bootstrap 用例期望创建 1 个管理员但得到 0。根因是多个 Infrastructure.Tests 测试类并行读写进程级 `IDENTITY_BOOTSTRAP_*` 环境变量,其他类的清理会竞态清空迁移用例刚设置的值。修复提交 `667bebc` 使用 `BootstrapEnvironmentTestGroup` xUnit Collection,只串行化 `IdentityMigrationTests`、`IdentityRepositoryTests`、`AuthenticationStoreTests`、`LoginAuditAndRefreshSessionStoreTests`、`RefreshSessionRotationTests`,不关闭整个测试程序集并行。后续任何读写同组环境变量的测试类必须加入该 Collection,不得依赖 Windows 本地偶然通过。验证:原失败测试 2/2 通过、Infrastructure.Tests 56/56 连续 3 轮通过、全量 build 0 警告 0 错误、test 387/387,GitHub Actions run `31474513470` 成功。
 
 ### 关键技术决策
 
