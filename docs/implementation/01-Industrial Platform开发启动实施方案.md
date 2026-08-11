@@ -2,12 +2,26 @@
 
 # Industrial Platform开发启动实施方案
 
-版本：V1.0
+版本：V1.1
 阶段：Development Implementation Phase
 项目类型：工业数字化执行平台
 技术路线：
 
 .NET 10 + DDD + Clean Architecture + Microservices + Vue3
+
+---
+
+权威输入：
+
+- `docs/blueprint/01-Industrial Platform 总体架构设计 V1.0.md`
+- `docs/blueprint/05-Industrial Platform平台基础功能与独立模块设计.md`
+- `docs/blueprint/09-Industrial Platform开发总TodoList.md`
+- `docs/blueprint/32-Industrial Platform Service Host与内部模块边界.md`
+- `docs/blueprint/33-Industrial Platform SystemData数据库编排与环境引导.md`
+- `docs/implementation/README.md`
+- `docs/implementation/TEMPLATE-开发实施方案.md`
+
+本文保留仓库启动、目录和工程规范的历史入口价值，但不再单独维护阶段状态、Service Host 数量或数据库拓扑；与上述权威文档冲突时，以总 Todo、蓝图 32/33 和当前代码为准。
 
 ---
 
@@ -56,7 +70,7 @@ IndustrialPlatform
 
 # 2. 开发阶段总体规划
 
-当前进度以任务执行记录、提交和新鲜验证证据为准：BuildingBlocks、可运行基线和统一前端第一批已经完成主要范围，Docker 实机验收仍有保留项；Identity 已暂停在 `TASK-ID-007`；PF-01 开发设计已完成但尚未开发；ReferenceData 代码只有服务骨架；MasterData 和 OperationalData 暂缓。
+当前进度以总 Todo、实施文档执行记录、提交和新鲜验证证据为准：BuildingBlocks、可运行基线和统一前端第一批已经完成主要范围，Docker 实机验收仍有保留项；Identity 已暂停在 `TASK-ID-007`；PF-01 开发设计已完成但尚未开发；PF-02 SystemData 的详细设计和任务卡已形成、待书面审阅且尚未开发；ReferenceData 代码只有服务骨架；MasterData 和 OperationalData 暂缓。
 
 当前执行顺序：
 
@@ -64,9 +78,9 @@ IndustrialPlatform
 已完成  BuildingBlocks / Entity 调整 / 可运行基线主要范围 / 统一前端第一批
 PF-00    Identity 登录与权限闭环（已暂停，停在 TASK-ID-007）
 PF-01    视觉、主题与平台外壳（开发设计已完成，任务待确认）
-PF-02    SystemData
+PF-02    SystemData（详细设计与任务卡已形成，数据库编排优先，尚未开发）
 PF-03    ReferenceData（现有骨架复核后继续）
-PF-04    Audit / File / Notification（分别设计）
+PF-04    File / Notification / Audit（同阶段、分别设计）
 PF-05    Collaboration
 PF-06    RemoteAssistance 验证与试点
 PF-07    Scheduler / Platform Health（分别设计）
@@ -86,7 +100,7 @@ MES-03+  生产闭环服务
 
 ## Phase 0A Entity 生命周期与并发调整
 
-在任何业务实体开发和 `TASK-BASE-002` 前执行 `TASK-BB-010`：统一 Entity 字段、冻结/锁定/软删除状态、双版本并发和仓储原子更新。该任务只调整 BuildingBlocks 基线，不回退已经完成的 `TASK-BASE-001` 验证。
+`TASK-BB-010` 已完成：Entity 字段、冻结/锁定/软删除状态、双版本并发和仓储原子更新已进入 BuildingBlocks 基线，后续服务直接消费，不再重复派遣。
 
 ## Phase 1 项目可运行基线
 
@@ -110,7 +124,7 @@ MES-03+  生产闭环服务
 
 ## PF-01～PF-11（含 PF-10A）平台基础和独立模块
 
-详细边界读取 `docs/blueprint/05-Industrial Platform平台基础功能与独立模块设计.md`，执行顺序、阶段任务卡和阶段管理会话入口读取 `docs/blueprint/09-Industrial Platform开发总TodoList.md`。
+详细边界读取 `docs/blueprint/05-Industrial Platform平台基础功能与独立模块设计.md`，当前 Service Host 与内部模块读取蓝图 32，数据库拓扑与初始化控制面读取蓝图 07/33，执行顺序、阶段任务卡和阶段管理会话入口读取总 Todo。
 
 PF-01 已完成开发详细设计、任务依赖和七张九字段任务卡，但尚未执行开发任务。任务确认后才能派遣；其中最终 Identity 联合集成验收仍等待 PF-00 恢复并稳定前端契约。
 
@@ -124,6 +138,26 @@ PF-01 已完成开发详细设计、任务依赖和七张九字段任务卡，�
 → 跟踪、阶段验收和总 TodoList 回写
 ```
 
+阶段不等于微服务。平台基础层当前固定为七个核心 Service Host：`Identity.Service`、`SystemData.Service`、`ReferenceData.Service`、`Collaboration.Service`、`PlatformStudio.Service`、`OperationsCenter.Service`、`IoTCollector.Service`。Worker、Agent、Screego、TURN、本地模型运行时和数据库编排 Runner 是辅助部署单元，不计入核心宿主数量。同宿主模块仍必须独立建模、独立 Schema 或表前缀、独立契约/权限/迁移/测试，禁止跨模块直读 Repository。
+
+PF-02 的最高优先级是 `SystemData.Service` 数据库编排/环境引导控制面：先完成拓扑解析与 bootstrap、服务 registration/plan、provision/migrate/drift、消费者握手/readiness，再开始组织、导航、主题等后续 SystemData 工作。后续服务拥有自己的领域 Schema 和迁移产物；SystemData 负责编排数据库、最小角色/授权与迁移执行。SystemData 自身数据库由 PostgreSQL 18 基础设施最小引导，不创建独立 Migrator Service，不允许业务 API 使用管理员凭据自行建库，也不得使用 `EnsureCreated` 代替版本化迁移。
+
+当前阶段到宿主的正式映射：
+
+| 阶段 | Service Host 动作 | 本阶段范围 |
+| --- | --- | --- |
+| PF-02 | 创建 `SystemData.Service` | SystemData，数据库编排/环境引导最高优先 |
+| PF-03 | 继续利用 `ReferenceData.Service` 骨架 | Dictionary、Parameter、Metadata、DynamicProperty、CodingRule |
+| PF-04 | 扩展 `SystemData.Service` | File、Notification、Audit，分别建模 |
+| PF-05 | 创建 `Collaboration.Service` | Messaging、Presence、AttachmentIntegration |
+| PF-06 | 扩展 `Collaboration.Service` | RemoteAssistance |
+| PF-07 | 扩展 `SystemData.Service` | Scheduler、PlatformHealth，分别建模 |
+| PF-08 | 创建 `PlatformStudio.Service` | DataSource、Dataset、LowCode、Publishing 首期范围 |
+| PF-09 | 扩展 `PlatformStudio.Service` | Dashboard、Report |
+| PF-10 | 创建 `OperationsCenter.Service` | 只交付 ServerMonitor |
+| PF-10A | 扩展 `OperationsCenter.Service` | ProjectWorkspace、KnowledgeBase、IssueTracking、KnowledgeAssistant、DataAssistant、ModelGateway；完整闭环待确认 |
+| PF-11 | 创建 `IoTCollector.Service` | Driver、DeviceConnection、Point、CollectionTask、EdgeManagement |
+
 PF-03 ReferenceData 复用重编号后的实施文档 06，但开发前必须由 PF-03 阶段管理会话复核当前骨架、任务状态以及与 SystemData 和主题体系的契约。
 
 ## MES-01 MasterData 与 MES-02 OperationalData
@@ -132,7 +166,7 @@ MasterData、OperationalData 实施文档调整为 15、16 并暂停执行。达
 
 ## MES-03 以后：生产闭环服务纵向交付
 
-WorkOrder、Weighting、IoT Collector、Trace、BatchRecord 依次推进。每个阶段都遵循：
+WorkOrder、Weighting、Trace、BatchRecord 等生产闭环服务按总 Todo 门禁推进。IoT Collector 已属于 PF-11，不再重复列入 MES-03+。每个阶段都遵循：
 
 ```text
 服务领域与应用用例
@@ -270,9 +304,9 @@ refactor(domain): optimize entity
 
 ---
 
-# 4. 最终仓库目录
+# 4. 当前仓库顶层目录
 
-最终结构：
+当前正式结构：
 
 ```
 IndustrialPlatform
@@ -281,11 +315,9 @@ IndustrialPlatform
 
 ├── src
 
-│
-├── backend
+│   ├── backend
 
-│
-├── frontend
+│   └── frontend
 
 
 ├── tests
@@ -310,34 +342,23 @@ IndustrialPlatform
 目录：
 
 ```
-src
+src/backend
 ```
 
 结构：
 
 ```
-IndustrialPlatform
+src/backend
 
 ├── IndustrialPlatform.slnx
-
-
-├── src
-
-
-│
-├── BuildingBlocks
-
-
-│
-├── Services
-
-
-│
-├── Gateway
-
-
-
-└── Tools
+├── Directory.Build.props
+├── Directory.Packages.props
+├── global.json
+└── src
+    ├── BuildingBlocks
+    ├── Services
+    ├── Gateway
+    └── Tools（按需创建）
 ```
 
 ---
@@ -350,7 +371,7 @@ Solution：
 IndustrialPlatform.slnx
 ```
 
-项目结构：
+当前 Solution 已包含 BuildingBlocks、Gateway、Identity 和 ReferenceData 骨架；后续按阶段扩展的目标 Service Host 结构为：
 
 ```
 IndustrialPlatform.slnx
@@ -364,33 +385,26 @@ IndustrialPlatform.slnx
 
 ├── ReferenceData
 
+├── SystemData
 
-├── MasterData
+├── Collaboration
 
+├── PlatformStudio
 
-├── OperationalData
-
-
-├── WorkOrder
-
-
-├── Weighting
-
+├── OperationsCenter
 
 ├── IoTCollector
 
-
-├── Trace
-
-
-├── BatchRecord
+└── MES 后续服务（MasterData、OperationalData、WorkOrder、Weighting、Trace、BatchRecord 等）
 ```
+
+上述是 Solution Folder/项目分组，不表示每个 PF 阶段创建一个进程。七个当前核心 Service Host 及其内部模块映射只读取蓝图 32。
 
 ---
 
 # 7. Microservice工程结构规范
 
-以 Identity Service 为例：
+以当前服务宿主为例，每个可物理拆分服务使用五层边界：
 
 ```
 Identity
@@ -405,8 +419,12 @@ Identity
 ├── Identity.Domain
 
 
-└── Identity.Infrastructure
+├── Identity.Infrastructure
+
+└── Identity.Contracts
 ```
+
+Contracts 不引用 Domain/Infrastructure；共享宿主内的模块也必须使用公开应用契约协作，禁止跨模块直读 Repository 或表。
 
 ---
 
@@ -591,32 +609,18 @@ tests
 tests
 
 
+├── BuildingBlocks
+├── Gateway
+├── Identity
+├── ReferenceData
 ├── UnitTests
-
-
-│
-├── Identity.Tests
-
-├── ReferenceData.Tests
-
-├── MasterData.Tests
-
-├── OperationalData.Tests
-
-├── WorkOrder.Tests
-
-
 ├── IntegrationTests
-
-
 ├── ApiTests
-
-
 ├── PerformanceTests
-
-
 └── E2ETests
 ```
+
+后续 Service Host 和内部模块按自身边界增加测试项目；同宿主模块不能只依赖宿主级大测试集，必须保留独立单元、集成与契约验收入口。
 
 ---
 
@@ -666,6 +670,8 @@ deploy
 
 ├── docker-compose
 
+├── cloud-dev
+
 
 ├── kubernetes
 
@@ -678,6 +684,8 @@ deploy
 
 └── environment
 ```
+
+`deploy/cloud-dev` 承担 PostgreSQL 18 等远程开发基础设施及 SystemData 自身数据库的最小 bootstrap；后续业务数据库由 SystemData 编排 API 管理。真实服务器地址、密码、私钥和本地连接配置不得写入仓库文档。
 
 ---
 
@@ -833,50 +841,25 @@ Commit
 
 # 16. Codex任务模板
 
-每个可派遣任务必须包含：任务编号、目标、输入文档、依赖、允许修改范围、预期输出、验证命令或验收证据、结果回写位置和建议提交信息。
+每个任务以任务编号为标题，正文固定包含九个字段：状态、目标、输入文档、依赖、允许修改范围、预期输出、验证与证据、结果回写、建议提交。
 
 涉及路径、脚本、文件名大小写或换行符的任务，还必须在“要求/验收”中写明：目标 Runner 为 `ubuntu-latest`、路径分隔符兼容策略、Linux 大小写敏感约束、相应跨平台回归用例，以及 Release CI 命令和 GitHub Actions 运行证据。不得只填写“本地测试通过”。
 
+PF-02 及后续新服务任务还必须读取蓝图 33，明确 registration/manifest、逻辑/物理数据库目标、服务自有迁移产物、SystemData `OperationId`、握手/readiness、最小业务角色、备份登记、环境策略和失败门禁。任务不得授权业务 API 持有管理员凭据建库。
+
 示例：
 
-```
-任务：
-
-实现 Identity 登录接口
-
-
-背景：
-
-Industrial Platform
-
-
-技术：
-
-.NET10
-
-DDD
-
-Clean Architecture
-
-
-要求：
-
-1. 创建领域模型
-
-2. 创建Application Service
-
-3. 创建API接口
-
-4. 增加Unit Test
-
-5. 增加数据库实体
-
-
-验收：
-
-登录成功返回JWT Token
-
-测试通过
+```text
+## TASK-XXX-001【任务名称】
+状态：待细化/可派遣/已派遣/开发中/待验收/已完成
+目标：【一个独立、可验收的目标】
+输入文档：【本文章节、权威蓝图和前置契约】
+依赖：【前置任务或稳定契约】
+允许修改范围：【精确目录；同时列明禁止范围】
+预期输出：【代码、契约、迁移、页面或报告】
+验证与证据：【具体命令、场景、通过数量和外部待验收项】
+结果回写：【实施文档章节、执行记录和总 Todo 状态】
+建议提交：【Conventional Commit 信息】
 ```
 
 ---
@@ -898,23 +881,23 @@ Clean Architecture
 
 ## Database规范
 
-所有业务表必须包含：
+所有继承统一 Entity 生命周期的领域实体表必须包含：
 
 ```
 Id
-
-CreateTime
-
-CreateUser
-
-ModifyTime
-
-ModifyUser
-
+IsFrozen
+IsLocked
 IsDeleted
-
-Version
+EntityType
+CreatedOn
+LastUpdatedOn
+OptimisticVersion
+ConcurrencyVersion
 ```
+
+实体另有稳定业务标识时使用 `NId`；租户边界统一使用可信身份上下文提供的 `TenantNId`。完整字段、类型、软删除、双版本并发、复合外键和 `snake_case` 规则读取实施模板与蓝图 07，不得从本摘要自行推断迁移。
+
+数据库拓扑允许 Development 使用 `Shared` 或显式 `PerService`，Test/Staging/Production 只允许 `PerService`。共享物理数据库不合并 Schema/表前缀、迁移账本、Repository 或数据所有权。所有环境使用版本化迁移，禁止 `EnsureCreated`。
 
 ---
 
@@ -923,7 +906,7 @@ Version
 统一：
 
 ```
-/api/{service}/{resource}
+/api/v1/{resource}
 ```
 
 例如：
@@ -931,8 +914,10 @@ Version
 ```
 GET
 
-/api/workorder/orders
+/api/v1/workorders
 ```
+
+Gateway 外部路由、服务内部路径、信封、错误码、幂等和异步 Operation 统一读取蓝图 27；不得把示例路径当作所有模块的固定控制器结构。
 
 ---
 
@@ -942,8 +927,12 @@ GET
 
 ```text
 已完成：BuildingBlocks / Entity 调整 / 可运行基线主要范围 / 统一前端第一批
-→ PF-00 Identity
-→ PF-01～PF-11（含 PF-10A）平台基础和独立模块
+→ PF-00 Identity（已暂停，停在 TASK-ID-007）
+→ PF-01 视觉、主题与平台外壳（设计完成、尚未开发）
+→ PF-02 SystemData（设计/任务卡待书面审阅；先数据库编排控制面）+ PF-03 ReferenceData（骨架复核）
+→ PF-04～PF-10
+→ PF-10A Operations Center Knowledge & Assistant（IssueTracking/KnowledgeBase 完整闭环待确认）
+→ PF-11 IoT Collector
 → MES-01 MasterData
 → MES-02 OperationalData
 → MES-03+ 生产闭环
@@ -970,14 +959,18 @@ GET
 ## 当前待确认项
 
 - PF-01 视觉、主题与平台外壳：实施文档 04 的开发详细设计、依赖图和七张九字段任务卡已完成；尚未开发，等待任务确认/派遣。
+- PF-02 SystemData：实施文档 05 的详细设计和任务卡已形成、待书面审阅；尚无运行时代码或测试证据，不能标记为已开发。
+- PF-10A Operations Center Knowledge & Assistant：原则边界已确认到 DataAssistant，但 IssueTracking 与 KnowledgeBase 的问题处理、人工转知识、审核发布、索引和助手引用闭环仍待详细设计。
 
-## 后续优先级
+## 当前最高优先级
 
-- PF-02 SystemData 与 PF-03 ReferenceData；ReferenceData 当前代码只有骨架，开发前复核实施文档 06。
+- PF-02 先完成 `TASK-SD-001～004` 数据库拓扑 resolver/bootstrap、registration/plan、provision/migrate/drift 和 consumer handshake/readiness 的书面审阅、派遣与验收门禁；未满足前不得启动 `TASK-SD-005+` 行政组织、菜单、主题等能力。
+- PF-03 可并行复核 ReferenceData 实施文档 06，但必须消费 PF-02 数据库编排 manifest/readiness 契约，不能沿用服务自行建库或旧迁移启动方式。
 
 ## 后续顺序
 
 - PF-04～PF-11（含 PF-10A）按总 TodoList 的阶段门禁推进。
+- PF-10 只处理 ServerMonitor；PF-10A 单独补齐知识、问题与助手闭环，二者不能合并为一个阶段。
 - MasterData 和 OperationalData 暂缓，达到 MES 恢复门禁后分别复核。
 
 实施文档执行记录、提交和新鲜验证证据共同构成进度依据；`CLAUDE.md` 可以记录协作过程，但不替代正式验收。
@@ -998,3 +991,15 @@ GET
 ```
 
 达到上述标准后，才进入 Identity 真实登录闭环。
+
+该完成标准只描述已建立的历史可运行基线，不代表后续 Service Host 可以绕过数据库编排。PF-02 之后的新服务还必须证明：
+
+```text
+加载受信 DatabaseTopology 与 registration/manifest
+→ 通过 SystemData 获得 plan/OperationId
+→ 使用服务自有迁移产物达到期望版本
+→ SystemData 不可用、drift 或迁移失败时保持 NotReady
+→ Development 验证 Shared/PerService，Test/Staging/Production 只允许 PerService
+```
+
+SystemData 自身数据库继续由 PostgreSQL 18 Compose/init 或部署步骤做最小 bootstrap；生产默认执行 `plan → 审批 → 备份 → apply → 验证`。
