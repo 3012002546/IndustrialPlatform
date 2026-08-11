@@ -31,7 +31,7 @@ PF-02 及其后的新服务必须以 `docs/blueprint/07-PostgreSQL数据库规�
 | 02A | [可运行基线开发 TODO](02A-Industrial%20Platform可运行基线开发实施方案.md) | `TASK-BASE-001～006` 已完成（`BASE-002/003` 真实依赖与容器验收留待 Docker 环境，`BASE-005/006` 无 Docker 实测通过）；Phase 2 前端输入契约已登记 |
 | 02B | [统一前端第一批开发 TODO](02B-Industrial%20Platform统一前端第一批开发实施方案.md) | `TASK-FE-001～010` 已完成 |
 | 03 | [Identity Service实施方案](03-Industrial%20Platform%20Identity%20Service开发实施方案.md) | PF-00 已暂停；`TASK-ID-001～006` 已完成，恢复时从 `TASK-ID-007` 继续 |
-| 04 | [PF-01 视觉主题与平台外壳实施方案](04-Industrial%20Platform视觉主题与平台外壳开发实施方案.md) | 开发详细设计、依赖图和七张任务卡已完成；任务待确认，尚未开发 |
+| 04 | [PF-01 视觉主题与平台外壳实施方案](04-Industrial%20Platform视觉主题与平台外壳开发实施方案.md) | 详细设计与七张任务卡已批准；待派遣（仅任务规划），未授权修改代码 |
 | 05 | [PF-02 SystemData实施方案](05-Industrial%20Platform%20SystemData开发实施方案.md) | PF-02 控制面计划；数据库拓扑以蓝图 07、33 为准，当前为已形成设计/任务卡、待书面审阅，尚未开发 |
 | 06 | [PF-03 ReferenceData实施方案](06-Industrial%20Platform%20ReferenceData%20Service开发实施方案.md) | 代码仅骨架；现有详细设计和任务卡由 PF-03 会话复核 |
 | 07 | PF-04 File / Notification / Audit实施方案（待 PF-04 会话创建） | 三个模块分开建模，在同一阶段管理会话协调和派遣 |
@@ -51,7 +51,7 @@ PF-02 及其后的新服务必须以 `docs/blueprint/07-PostgreSQL数据库规�
 ```text
 BuildingBlocks / 可运行基线 / 统一前端第一批（已完成，Docker 实机项除外）
 → PF-00 Identity（已暂停，停在 TASK-ID-007）
-→ PF-01 视觉、主题与平台外壳（开发设计已完成，任务待确认）
+→ PF-01 视觉、主题与平台外壳（待派遣，仅任务规划）
 → PF-02 SystemData + PF-03 ReferenceData
 → PF-04 File / Notification / Audit
 → PF-05 Collaboration
