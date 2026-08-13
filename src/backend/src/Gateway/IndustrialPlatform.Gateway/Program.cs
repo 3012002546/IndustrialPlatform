@@ -22,6 +22,8 @@ builder.Services.AddCors(options =>
         else
         {
             policy.WithOrigins(origins);
+            // SSO 浏览器会话 Cookie(§26.4)经网关跨源读写:仅对显式源放行凭据。
+            policy.AllowCredentials();
         }
 
         policy.AllowAnyHeader().AllowAnyMethod();

@@ -1,0 +1,20 @@
+/*
+ * Density 层(PF-01 §7.5):PC 舒适/紧凑内容尺寸。
+ * 密度不得改变顶栏/工具轨/功能树/标签栏四项固定尺寸(PF-01 §6)。
+ * PDA/Mobile 触控下限由 foundation.css 触控 Token 保证,不随 PC 密度降低。
+ */
+
+:root,
+[data-ip-density='comfortable'] {
+  --ip-density-control-height: 32px;
+  --ip-density-control-gap: 12px;
+  --ip-density-content-padding: 16px;
+  --ip-density-table-row-height: 44px;
+}
+
+[data-ip-density='compact'] {
+  --ip-density-control-height: 28px;
+  --ip-density-control-gap: 8px;
+  --ip-density-content-padding: 12px;
+  --ip-density-table-row-height: 36px;
+}

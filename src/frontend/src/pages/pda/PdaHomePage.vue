@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 
 import AppEmptyState from '@/components/base/AppEmptyState.vue'
 import AppPage from '@/components/base/AppPage.vue'
 import { loadRuntimeConfig } from '@/config/runtimeConfig'
-import type { TerminalType } from '@/device/types'
+import { resolveActiveTerminal, type TerminalType } from '@/device'
 import { useAuthStore } from '@/stores/authStore'
 import { useDeviceStore } from '@/stores/deviceStore'
 
@@ -14,12 +15,17 @@ const TERMINAL_LABELS: Record<TerminalType, string> = {
   mobile: 'Mobile',
 }
 
+const route = useRoute()
 const authStore = useAuthStore()
 const deviceStore = useDeviceStore()
 const authMode = loadRuntimeConfig().authMode
 
 const displayName = computed(() => authStore.user?.displayName ?? '')
-const terminalLabel = computed(() => TERMINAL_LABELS[deviceStore.terminal] ?? deviceStore.terminal)
+// 终端文案单事实源:显式路由 meta.terminal 优先,无显式路由回退设备建议(§7.11)。
+const terminalLabel = computed(() => {
+  const active = resolveActiveTerminal(route.meta.terminal, deviceStore.terminal)
+  return TERMINAL_LABELS[active] ?? active
+})
 const authModeLabel = computed(() => (authMode === 'mock' ? 'Mock(演示数据)' : 'HTTP(真实服务)'))
 </script>
 

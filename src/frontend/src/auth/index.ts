@@ -1,6 +1,7 @@
 /** 认证边界统一出口。 */
 
 export {
+  AUTH_SESSION_HTTP_STORAGE_KEY,
   AUTH_SESSION_STORAGE_KEY,
   AUTH_SESSION_VERSION,
   clearAuthSession,
@@ -19,5 +20,6 @@ export {
   createMockAuthGateway,
   type MockAuthGatewayOptions,
 } from './mockAuthGateway'
+export { createHttpAuthGateway, type HttpAuthGatewayDeps } from './httpAuthGateway'
 export { getAuthGateway, getCurrentSession, setAuthGateway, setCurrentSession } from './gateway'
 export type { AuthGateway, AuthSession, AuthUser, LoginCommand } from './types'

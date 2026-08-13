@@ -1,5 +1,7 @@
+using IndustrialPlatform.Identity.Application.Management;
 using IndustrialPlatform.Identity.Domain.Identities;
 using IndustrialPlatform.Identity.Domain.Users;
+using IndustrialPlatform.Identity.Infrastructure.Outbox;
 using IndustrialPlatform.Identity.Infrastructure.Persistence.Entities;
 using IndustrialPlatform.Infrastructure.Database;
 using IndustrialPlatform.SharedKernel.Exceptions;
@@ -64,7 +66,11 @@ public sealed class UserRepository : IUserRepository
     }
 
     /// <inheritdoc/>
-    public async Task AddAsync(User user, CancellationToken cancellationToken = default)
+    public Task AddAsync(User user, CancellationToken cancellationToken = default)
+        => AddAsync(user, outboxEvents: null, cancellationToken);
+
+    /// <summary>新增用户,事务内级联活动角色关系与 Outbox 事件原子提交(§20);outboxEvents 为空时跳过 Outbox 写入。</summary>
+    public async Task AddAsync(User user, IReadOnlyCollection<OutboxEnvelope>? outboxEvents, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(user);
 
@@ -78,6 +84,8 @@ public sealed class UserRepository : IUserRepository
                 await sugar.Insertable(TableMapper.ToTable(relation)).ExecuteCommandAsync(cancellationToken);
             }
 
+            await OutboxRows.InsertAsync(sugar, outboxEvents, cancellationToken);
+
             sugar.Ado.CommitTran();
         }
         catch
@@ -88,10 +96,19 @@ public sealed class UserRepository : IUserRepository
     }
 
     /// <inheritdoc/>
+    public Task UpdateAsync(
+        User user,
+        long expectedOptimisticVersion,
+        Guid expectedConcurrencyVersion,
+        CancellationToken cancellationToken = default)
+        => UpdateAsync(user, expectedOptimisticVersion, expectedConcurrencyVersion, outboxEvents: null, cancellationToken);
+
+    /// <summary>按双版本原子更新用户与角色关系 diff,事务内与 Outbox 事件原子提交(§20);冲突抛并发异常;outboxEvents 为空时跳过 Outbox 写入。</summary>
     public async Task UpdateAsync(
         User user,
         long expectedOptimisticVersion,
         Guid expectedConcurrencyVersion,
+        IReadOnlyCollection<OutboxEnvelope>? outboxEvents,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(user);
@@ -108,6 +125,8 @@ public sealed class UserRepository : IUserRepository
             EnsureSingleRowAffected(affected, user, "更新");
 
             await SyncUserRolesAsync(sugar, user, cancellationToken);
+
+            await OutboxRows.InsertAsync(sugar, outboxEvents, cancellationToken);
 
             sugar.Ado.CommitTran();
         }

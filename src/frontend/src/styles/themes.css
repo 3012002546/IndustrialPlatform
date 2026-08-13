@@ -1,0 +1,128 @@
+/*
+ * Themes 层(PF-01 §7.5):三配色、明暗中性色、状态色及全部语义 Token。
+ * 根节点 data-ip-palette / data-ip-color-mode 由 index.html 预挂载脚本与 ThemeStore 维护。
+ * 组件只消费语义 Token,禁止新增品牌色魔法值;普通按钮/表格/抽屉不得使用渐变。
+ *
+ * 对比度说明:主色/状态色均保证白字或容器上普通文字 ≥ 4.5:1(见 themeContrast.spec.ts);
+ * 暗色模式主色族沿用亮色值,确保 Element Plus 主按钮白字在暗色下同样达标。
+ */
+
+/* ============ 默认:工业青 / 明亮 ============ */
+:root,
+[data-ip-palette='industrial-cyan'] {
+  --ip-color-primary: #0077a1;
+  --ip-color-primary-hover: #08688a;
+  --ip-color-primary-active: #0a5a78;
+  --ip-color-primary-bg: #e6f3f8;
+  --ip-color-on-primary: #ffffff;
+  --ip-focus-ring-color: rgb(0 119 161 / 0.45);
+
+  /* 已批准工业青顶栏渐变(§7.5);科技蓝/中性灰由对应色板块覆盖。 */
+  --ip-shell-topbar-background: linear-gradient(
+    90deg,
+    #006487 0%,
+    #006b91 24%,
+    #0077a1 58%,
+    #158dac 82%,
+    #087c9f 100%
+  );
+  --ip-shell-topbar-text: #ffffff;
+  --ip-shell-topbar-text-secondary: rgb(255 255 255 / 0.82);
+}
+
+/* ============ 科技蓝 ============ */
+[data-ip-palette='technology-blue'] {
+  --ip-color-primary: #2563eb;
+  --ip-color-primary-hover: #1d4ed8;
+  --ip-color-primary-active: #1e40af;
+  --ip-color-primary-bg: #eff6ff;
+  --ip-color-on-primary: #ffffff;
+  --ip-focus-ring-color: rgb(37 99 235 / 0.45);
+  --ip-shell-topbar-background: linear-gradient(
+    90deg,
+    #1e3a8a 0%,
+    #1d4ed8 35%,
+    #2563eb 65%,
+    #3b82f6 100%
+  );
+  --ip-shell-topbar-text: #ffffff;
+  --ip-shell-topbar-text-secondary: rgb(255 255 255 / 0.82);
+}
+
+/* ============ 中性灰 ============ */
+[data-ip-palette='neutral-gray'] {
+  --ip-color-primary: #4b5563;
+  --ip-color-primary-hover: #374151;
+  --ip-color-primary-active: #1f2937;
+  --ip-color-primary-bg: #f3f4f6;
+  --ip-color-on-primary: #ffffff;
+  --ip-focus-ring-color: rgb(75 85 99 / 0.45);
+  --ip-shell-topbar-background: linear-gradient(
+    90deg,
+    #1f2937 0%,
+    #374151 45%,
+    #4b5563 70%,
+    #6b7280 100%
+  );
+  --ip-shell-topbar-text: #ffffff;
+  --ip-shell-topbar-text-secondary: rgb(255 255 255 / 0.82);
+}
+
+/* ============ 明亮中性色与状态色(默认) ============ */
+:root {
+  --ip-color-text-primary: #1f2937;
+  --ip-color-text-secondary: #4b5563;
+  --ip-color-text-tertiary: #6b7280;
+  --ip-color-text-disabled: #9ca3af;
+  --ip-color-border: #e5e7eb;
+  --ip-color-border-strong: #d1d5db;
+  --ip-color-bg-page: #f3f4f6;
+  --ip-color-bg-container: #ffffff;
+  --ip-color-bg-muted: #f9fafb;
+  --ip-color-bg-overlay: rgb(17 24 39 / 0.5);
+
+  /* 状态色加深以满足普通文字 4.5:1(比第一批 #16a34a/#d97706/#dc2626 更深)。 */
+  --ip-color-success: #15803d;
+  --ip-color-success-bg: #f0fdf4;
+  --ip-color-warning: #b45309;
+  --ip-color-warning-bg: #fffbeb;
+  --ip-color-danger: #b91c1c;
+  --ip-color-danger-bg: #fef2f2;
+  --ip-color-error: #b91c1c;
+  --ip-color-error-bg: #fef2f2;
+  --ip-color-info: #475569;
+  --ip-color-info-bg: #f8fafc;
+}
+
+/* ============ 暗色中性色与状态色 ============ */
+[data-ip-color-mode='dark'] {
+  --ip-color-text-primary: #f9fafb;
+  --ip-color-text-secondary: #d1d5db;
+  --ip-color-text-tertiary: #9ca3af;
+  --ip-color-text-disabled: #6b7280;
+  --ip-color-border: #374151;
+  --ip-color-border-strong: #4b5563;
+  --ip-color-bg-page: #111827;
+  --ip-color-bg-container: #1f2937;
+  --ip-color-bg-muted: #374151;
+  --ip-color-bg-overlay: rgb(0 0 0 / 0.6);
+
+  --ip-color-success: #4ade80;
+  --ip-color-success-bg: rgb(74 222 128 / 0.16);
+  --ip-color-warning: #fbbf24;
+  --ip-color-warning-bg: rgb(251 191 36 / 0.16);
+  --ip-color-danger: #f87171;
+  --ip-color-danger-bg: rgb(248 113 113 / 0.16);
+  --ip-color-error: #f87171;
+  --ip-color-error-bg: rgb(248 113 113 / 0.16);
+  --ip-color-info: #94a3b8;
+  --ip-color-info-bg: rgb(148 163 184 / 0.16);
+}
+
+/* ============ 外壳表面(使用中性 Token,随明暗自适应) ============ */
+:root {
+  --ip-shell-toolrail-bg: var(--ip-color-bg-container);
+  --ip-shell-functiontree-bg: var(--ip-color-bg-container);
+  --ip-shell-tabs-bg: var(--ip-color-bg-muted);
+  --ip-shell-tabs-active-bg: var(--ip-color-bg-container);
+}

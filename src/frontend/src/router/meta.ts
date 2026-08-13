@@ -1,6 +1,6 @@
 /**
  * Route Meta 类型(§12.2):通过模块增强扩展 vue-router 的 RouteMeta。
- * 所有路由都必须提供 title;requiresAuth / permission / terminal 可选。
+ * 所有路由都必须提供 title;requiresAuth / permission / terminal / workspace 可选。
  */
 
 import 'vue-router'
@@ -16,6 +16,8 @@ export interface AppRouteMeta {
   permission?: string
   /** 显式终端路由(§11.2:显式访问不得自动改写)。 */
   terminal?: TerminalType
+  /** 工作区语义:fixed 固定工作台、business 受控业务标签、none 非工作区(PF-01 §7.9)。 */
+  workspace?: 'fixed' | 'business' | 'none'
 }
 
 declare module 'vue-router' {

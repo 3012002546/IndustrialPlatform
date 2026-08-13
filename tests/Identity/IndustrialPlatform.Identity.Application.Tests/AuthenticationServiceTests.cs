@@ -97,6 +97,44 @@ public class AuthenticationServiceTests
         Assert.Equal(originalConcurrency, expectedConcurrency);
     }
 
+    [Fact]
+    public async Task LoginAsync_SuccessUpdateConflict_RetriesAndStillReturnsSession()
+    {
+        // Arrange: 并发登录同一账号时,第一次成功登记的双版本更新冲突,重新装载后重试成功
+        var user = User.Create(Tenant, "user.alice", "alice", "Alice", null, null, "hash-1");
+        var store = new FakeStore { ConcurrentFailuresRemaining = 1 };
+        store.ByLoginName[(Tenant, "ALICE")] = new AuthenticatedUser(user, [RoleId], [RoleNId]);
+        store.ByUserId[user.Id] = new AuthenticatedUser(user, [RoleId], [RoleNId]);
+        var service = CreateService(store, new FakeHasher(Password), new FakeTokenFactory(), new FakeRefreshStore(), new FakeRateLimiter(), new FakeAuditSink());
+
+        // Act
+        var result = await service.LoginAsync(new LoginRequest("alice", Password), null, null, CancellationToken.None);
+
+        // Assert: 冲突被重试消化,登录成功而非 500;成功登记最终清零失败计数
+        Assert.Equal("jwt-token", result.AccessToken);
+        Assert.Equal(2, store.UpdateCount);
+        Assert.Equal(0, user.FailedLoginCount);
+    }
+
+    [Fact]
+    public async Task LoginAsync_FailureUpdateConflict_StillReturnsInvalidCredentials()
+    {
+        // Arrange: 并发失败登录时,失败计数登记冲突,重试后仍统一返回 401 防枚举(不得 500)
+        var user = User.Create(Tenant, "user.alice", "alice", "Alice", null, null, "hash-1");
+        var store = new FakeStore { ConcurrentFailuresRemaining = 1 };
+        store.ByLoginName[(Tenant, "ALICE")] = new AuthenticatedUser(user, [RoleId], [RoleNId]);
+        store.ByUserId[user.Id] = new AuthenticatedUser(user, [RoleId], [RoleNId]);
+        var service = CreateService(store, new FakeHasher(Password), new FakeTokenFactory(), new FakeRefreshStore(), new FakeRateLimiter(), new FakeAuditSink());
+
+        // Act
+        var ex = await Assert.ThrowsAsync<InvalidCredentialsException>(() =>
+            service.LoginAsync(new LoginRequest("alice", "wrong-password"), null, null, CancellationToken.None));
+
+        // Assert: 登记冲突被重试消化,仍返回 401
+        Assert.Equal("ID_AUTH_INVALID_CREDENTIALS", ex.Code);
+        Assert.Equal(2, store.UpdateCount);
+    }
+
     [Theory]
     [InlineData("alice", "wrong-password")]
     [InlineData("ghost", "Passw0rd!")]
@@ -736,6 +774,7 @@ public class AuthenticationServiceTests
         public IReadOnlyList<Permission> Permissions { get; set; } = [];
         public int FindByLoginNameCount { get; private set; }
         public int UpdateCount { get; private set; }
+        public int ConcurrentFailuresRemaining { get; set; }
         public (User User, long Optimistic, Guid Concurrency, CancellationToken Ct) LastUpdate { get; private set; }
 
         public Task<AuthenticatedUser?> FindByNormalizedLoginNameAsync(
@@ -755,6 +794,12 @@ public class AuthenticationServiceTests
             User user, long expectedOptimisticVersion, Guid expectedConcurrencyVersion, CancellationToken cancellationToken)
         {
             UpdateCount++;
+            if (ConcurrentFailuresRemaining > 0)
+            {
+                ConcurrentFailuresRemaining--;
+                throw new ConcurrencyException($"实体 {user.EntityType} 更新失败:并发版本不匹配或记录不存在。");
+            }
+
             LastUpdate = (user, expectedOptimisticVersion, expectedConcurrencyVersion, cancellationToken);
             return Task.CompletedTask;
         }

@@ -7,22 +7,24 @@
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { createMemoryHistory, createRouter } from 'vue-router'
 
 import { persistAuthSession } from '../fixtures/session'
 import PdaHomePage from '@/pages/pda/PdaHomePage.vue'
+import { routes } from '@/router/routes'
 import { useAuthStore } from '@/stores/authStore'
-import { useDeviceStore } from '@/stores/deviceStore'
 
 async function mountHome(permissions: string[] = ['platform.pda.view']): Promise<VueWrapper> {
-  // 生效终端置为 pda:真实 480×800 现场设备宽度 <768 属 Mobile 断点(§11.1),
-  // PDA 环境经手动覆盖键保证(§11.2),与设备 Store 单元测试一致。
-  localStorage.setItem('industrial-platform.terminal.override.v1', 'pda')
+  // 终端文案单事实源为路由 meta.terminal(/pda/home = 'pda',PF-01 §7.11),
+  // 不再写入 override 键;即使设备建议缺省为 pc,显式路由仍解析为 PDA。
   const pinia = createPinia()
   setActivePinia(pinia)
   persistAuthSession(permissions)
   await useAuthStore().restore()
-  useDeviceStore().init()
-  return mount(PdaHomePage, { global: { plugins: [pinia] } })
+  const router = createRouter({ history: createMemoryHistory(), routes })
+  await router.push('/pda/home')
+  await router.isReady()
+  return mount(PdaHomePage, { global: { plugins: [pinia, router] } })
 }
 
 describe('PdaHomePage', () => {

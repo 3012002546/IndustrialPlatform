@@ -1,88 +1,15 @@
 /*
- * Industrial Platform Design Token(第一批基线)。
+ * Design Token 统一入口(PF-01 §7.5):按固定顺序引入四层,并保留第一批变量兼容。
  *
- * 页面/组件不得重复散落同类魔法值;布局、颜色、间距一律引用此处 Token。
- * 终端差异(PDA/Mobile 触控尺寸、safe-area)集中在此定义。
+ * 页面/组件不得重复散落同类魔法值;布局、颜色、间距一律引用语义 Token。
  * 前缀 `ip-` = Industrial Platform。
+ *
+ * 说明:第一批变量名(--ip-color-primary、--ip-color-bg-page、--ip-color-border 等)
+ * 与新的语义 Token 同名同义,直接指向 themes.css 中随配色/明暗自适应的值;
+ * 新组件使用语义名,旧页面可在独立任务中逐步迁移,不维护两套颜色事实。
  */
 
-:root {
-  /* ---- 品牌色 ---- */
-  --ip-color-primary: #2563eb;
-  --ip-color-primary-hover: #1d4ed8;
-  --ip-color-primary-active: #1e40af;
-  --ip-color-primary-bg: #eff6ff;
-  --ip-color-success: #16a34a;
-  --ip-color-success-bg: #f0fdf4;
-  --ip-color-warning: #d97706;
-  --ip-color-warning-bg: #fffbeb;
-  --ip-color-danger: #dc2626;
-  --ip-color-danger-bg: #fef2f2;
-  --ip-color-info: #64748b;
-  --ip-color-info-bg: #f8fafc;
-
-  /* ---- 中性色 ---- */
-  --ip-color-text-primary: #1f2937;
-  --ip-color-text-secondary: #6b7280;
-  --ip-color-text-disabled: #9ca3af;
-  --ip-color-border: #e5e7eb;
-  --ip-color-border-strong: #d1d5db;
-  --ip-color-bg-page: #f3f4f6;
-  --ip-color-bg-container: #ffffff;
-  --ip-color-bg-muted: #f9fafb;
-
-  /* ---- 文字字号与行高 ---- */
-  --ip-font-size-xs: 12px;
-  --ip-font-size-sm: 13px;
-  --ip-font-size-md: 14px;
-  --ip-font-size-lg: 16px;
-  --ip-font-size-xl: 20px;
-  --ip-font-size-2xl: 24px;
-  --ip-line-height-tight: 1.25;
-  --ip-line-height-normal: 1.5;
-
-  /* ---- 间距 ---- */
-  --ip-space-1: 4px;
-  --ip-space-2: 8px;
-  --ip-space-3: 12px;
-  --ip-space-4: 16px;
-  --ip-space-5: 20px;
-  --ip-space-6: 24px;
-  --ip-space-8: 32px;
-  --ip-space-10: 40px;
-  --ip-space-12: 48px;
-
-  /* ---- 圆角 ---- */
-  --ip-radius-sm: 4px;
-  --ip-radius-md: 6px;
-  --ip-radius-lg: 8px;
-  --ip-radius-full: 9999px;
-
-  /* ---- 阴影 ---- */
-  --ip-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.05);
-  --ip-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --ip-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-
-  /* ---- 焦点环(WCAG 2.2 焦点可见) ---- */
-  --ip-focus-ring-color: rgb(37 99 235 / 0.45);
-  --ip-focus-ring-width: 3px;
-
-  /* ---- 布局:PC 管理框架 ---- */
-  --ip-pc-header-height: 56px;
-  --ip-pc-sidebar-width: 240px;
-  --ip-pc-sidebar-width-collapsed: 64px;
-
-  /* ---- 布局:PDA 现场壳 ---- */
-  --ip-pda-header-height: 48px; /* 与 --ip-touch-min-size 一致,保证顶栏即触控目标 */
-
-  /* ---- 布局:Mobile 壳 ---- */
-  --ip-mobile-header-height: 44px; /* 与 --ip-touch-min-size-mobile 一致,保证顶栏即触控目标 */
-
-  /* ---- 触控最小尺寸 ---- */
-  --ip-touch-min-size: 48px; /* PDA */
-  --ip-touch-min-size-mobile: 44px; /* Mobile */
-
-  /* ---- 安全区域 ---- */
-  --ip-safe-area-top: env(safe-area-inset-top, 0px);
-  --ip-safe-area-bottom: env(safe-area-inset-bottom, 0px);
-}
+@import './foundation.css';
+@import './themes.css';
+@import './density.css';
+@import './element-plus.css';

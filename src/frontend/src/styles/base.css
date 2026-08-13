@@ -3,10 +3,6 @@
  * Design Token 见 tokens.css(需在其之后引入)。
  */
 
-:root {
-  color-scheme: light;
-}
-
 html,
 body,
 #app {

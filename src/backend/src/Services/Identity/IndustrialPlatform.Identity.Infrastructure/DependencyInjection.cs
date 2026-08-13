@@ -1,11 +1,16 @@
 using IndustrialPlatform.Identity.Application.Authentication;
 using IndustrialPlatform.Identity.Application.Authorization;
+using IndustrialPlatform.Identity.Application.Management;
+using IndustrialPlatform.Identity.Application.Sso;
 using IndustrialPlatform.Identity.Domain.Passwords;
 using IndustrialPlatform.Identity.Infrastructure.Authentication;
+using IndustrialPlatform.Identity.Infrastructure.Management;
 using IndustrialPlatform.Identity.Infrastructure.Passwords;
+using IndustrialPlatform.Identity.Infrastructure.Outbox;
 using IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations;
 using IndustrialPlatform.Identity.Infrastructure.Persistence.Repositories;
 using IndustrialPlatform.Identity.Infrastructure.Security;
+using IndustrialPlatform.Identity.Infrastructure.Sso;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -29,6 +34,7 @@ public static class DependencyInjection
 
         services.AddSqlSugar(configuration);
         services.AddRedis(configuration);
+        services.AddEventBus(configuration);
 
         // 迁移执行框架与身份库迁移步骤(TASK-ID-004):9 建表 + 2 种子,运行器按 Id 排序幂等执行。
         services.AddTransient<ISchemaMigrationRunner, SchemaMigrationRunner>();
@@ -59,6 +65,24 @@ public static class DependencyInjection
         // 服务端授权存储端口(TASK-ID-007):租户校验的授权快照装载 + Redis 版本化权限缓存。
         services.AddSingleton<IAuthorizationDataStore, AuthorizationDataStore>();
         services.AddSingleton<IPermissionCache, PermissionCacheStore>();
+
+        // 管理用例持久化端口(TASK-ID-008):管理存储/操作审计/登录审计查询。
+        services.AddSingleton<IManagementStore, ManagementStore>();
+        services.AddSingleton<IOperationAuditSink, OperationAuditSink>();
+        services.AddSingleton<ILoginAuditQueryStore, LoginAuditQueryStore>();
+
+        // Outbox 发布管线(TASK-ID-009):后台发布器轮询未发布事件转发到 RabbitMQ,
+        // RabbitMQ 不可达时退避等待,不阻塞服务启动(保持无 Docker 可运行基线)。
+        services.AddHostedService<OutboxDispatcherBackgroundService>();
+
+        // SSO 持久化与外部 IdP 适配器(TASK-ID-013):Provider/账号/Client/浏览器会话存储、
+        // Redis 一次性票据存储、密钥解析、OIDC/SAML 适配器与协议工厂。
+        services.AddSingleton<ISsoStore, SsoStore>();
+        services.AddSingleton<ISsoTicketStore, SsoTicketStore>();
+        services.AddSingleton<ISsoSecretResolver, ConfigurationSsoSecretResolver>();
+        services.AddSingleton<IExternalIdentityProvider, OidcExternalIdentityProvider>();
+        services.AddSingleton<IExternalIdentityProvider, Saml2ExternalIdentityProvider>();
+        services.AddSingleton<IExternalIdentityProviderFactory, ExternalIdentityProviderFactory>();
 
         return services;
     }

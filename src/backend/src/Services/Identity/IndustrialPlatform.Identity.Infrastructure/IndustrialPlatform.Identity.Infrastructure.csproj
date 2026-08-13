@@ -5,6 +5,7 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <ProjectReference Include="..\IndustrialPlatform.Identity.Application\IndustrialPlatform.Identity.Application.csproj" />
     <ProjectReference Include="..\IndustrialPlatform.Identity.Domain\IndustrialPlatform.Identity.Domain.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\IndustrialPlatform.EventBus\IndustrialPlatform.EventBus.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\IndustrialPlatform.Infrastructure\IndustrialPlatform.Infrastructure.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\IndustrialPlatform.Logging\IndustrialPlatform.Logging.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\IndustrialPlatform.Security\IndustrialPlatform.Security.csproj" />

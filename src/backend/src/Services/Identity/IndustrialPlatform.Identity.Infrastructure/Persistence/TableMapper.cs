@@ -1,5 +1,7 @@
+using System.Text.Json;
 using IndustrialPlatform.Identity.Domain.Permissions;
 using IndustrialPlatform.Identity.Domain.Roles;
+using IndustrialPlatform.Identity.Domain.Sso;
 using IndustrialPlatform.Identity.Domain.Users;
 using IndustrialPlatform.Identity.Infrastructure.Persistence.Entities;
 
@@ -206,4 +208,240 @@ internal static class TableMapper
         row.LastUpdatedOn,
         row.OptimisticVersion,
         row.ConcurrencyVersion);
+
+    // ---- SSO(TASK-ID-013)----
+
+    public static SsoProviderTable ToTable(IdentitySsoProvider provider) => new()
+    {
+        Id = provider.Id,
+        IsFrozen = provider.IsFrozen,
+        IsLocked = provider.IsLocked,
+        IsDeleted = provider.IsDeleted,
+        EntityType = provider.EntityType,
+        CreatedOn = provider.CreatedOn,
+        LastUpdatedOn = provider.LastUpdatedOn,
+        OptimisticVersion = provider.OptimisticVersion,
+        ConcurrencyVersion = provider.ConcurrencyVersion,
+        TenantNId = provider.TenantNId,
+        NId = provider.NId,
+        NormalizedNId = provider.NormalizedNId,
+        Name = provider.Name,
+        Protocol = provider.Protocol,
+        AuthorityOrMetadataUrl = provider.AuthorityOrMetadataUrl,
+        ClientIdOrEntityId = provider.ClientIdOrEntityId,
+        SecretOrCertificateReference = provider.SecretOrCertificateReference,
+        CallbackPath = provider.CallbackPath,
+        Enabled = provider.Enabled,
+        AutoRedirect = provider.AutoRedirect,
+        ProvisioningMode = provider.ProvisioningMode,
+        LogoutMode = provider.LogoutMode,
+        AllowedEmailDomainsJson = JsonSerializer.Serialize(provider.AllowedEmailDomains),
+        JitDefaultRoleNIdsJson = JsonSerializer.Serialize(provider.JitDefaultRoleNIds),
+    };
+
+    public static IdentitySsoProvider ToSsoProvider(SsoProviderTable row) => new(
+        row.Id,
+        row.TenantNId,
+        row.NId,
+        row.NormalizedNId,
+        row.Name,
+        row.Protocol,
+        row.AuthorityOrMetadataUrl,
+        row.ClientIdOrEntityId,
+        row.SecretOrCertificateReference,
+        row.CallbackPath,
+        row.Enabled,
+        row.AutoRedirect,
+        row.ProvisioningMode,
+        row.LogoutMode,
+        DeserializeList(row.AllowedEmailDomainsJson),
+        DeserializeList(row.JitDefaultRoleNIdsJson),
+        row.IsFrozen,
+        row.IsLocked,
+        row.IsDeleted,
+        row.EntityType,
+        row.CreatedOn,
+        row.LastUpdatedOn,
+        row.OptimisticVersion,
+        row.ConcurrencyVersion);
+
+    public static SsoExternalAccountTable ToTable(IdentityExternalAccount account) => new()
+    {
+        Id = account.Id,
+        IsFrozen = account.IsFrozen,
+        IsLocked = account.IsLocked,
+        IsDeleted = account.IsDeleted,
+        EntityType = account.EntityType,
+        CreatedOn = account.CreatedOn,
+        LastUpdatedOn = account.LastUpdatedOn,
+        OptimisticVersion = account.OptimisticVersion,
+        ConcurrencyVersion = account.ConcurrencyVersion,
+        NId = account.NId,
+        NormalizedNId = account.NormalizedNId,
+        SsoProviderId = account.SsoProviderId,
+        SsoProviderIsDeleted = account.SsoProviderIsDeleted,
+        ExternalSubject = account.ExternalSubject,
+        UserId = account.UserId,
+        UserIsDeleted = account.UserIsDeleted,
+        ExternalName = account.ExternalName,
+        ExternalEmail = account.ExternalEmail,
+        LastLoginOn = account.LastLoginOn,
+    };
+
+    public static IdentityExternalAccount ToSsoExternalAccount(SsoExternalAccountTable row) => new(
+        row.Id,
+        row.NId,
+        row.NormalizedNId,
+        row.SsoProviderId,
+        row.SsoProviderIsDeleted,
+        row.ExternalSubject,
+        row.UserId,
+        row.UserIsDeleted,
+        row.ExternalName,
+        row.ExternalEmail,
+        row.LastLoginOn,
+        row.IsFrozen,
+        row.IsLocked,
+        row.IsDeleted,
+        row.EntityType,
+        row.CreatedOn,
+        row.LastUpdatedOn,
+        row.OptimisticVersion,
+        row.ConcurrencyVersion);
+
+    public static SsoClientTable ToTable(IdentitySsoClient client) => new()
+    {
+        Id = client.Id,
+        IsFrozen = client.IsFrozen,
+        IsLocked = client.IsLocked,
+        IsDeleted = client.IsDeleted,
+        EntityType = client.EntityType,
+        CreatedOn = client.CreatedOn,
+        LastUpdatedOn = client.LastUpdatedOn,
+        OptimisticVersion = client.OptimisticVersion,
+        ConcurrencyVersion = client.ConcurrencyVersion,
+        TenantNId = client.TenantNId,
+        NId = client.NId,
+        NormalizedNId = client.NormalizedNId,
+        Name = client.Name,
+        OAuthClientId = client.OAuthClientId,
+        Enabled = client.Enabled,
+    };
+
+    public static IdentitySsoClient ToSsoClient(SsoClientTable row, IReadOnlyCollection<IdentitySsoClientEndpoint> endpoints) => new(
+        row.Id,
+        row.TenantNId,
+        row.NId,
+        row.NormalizedNId,
+        row.Name,
+        row.OAuthClientId,
+        row.Enabled,
+        endpoints,
+        row.IsFrozen,
+        row.IsLocked,
+        row.IsDeleted,
+        row.EntityType,
+        row.CreatedOn,
+        row.LastUpdatedOn,
+        row.OptimisticVersion,
+        row.ConcurrencyVersion);
+
+    public static SsoClientEndpointTable ToTable(IdentitySsoClientEndpoint endpoint) => new()
+    {
+        Id = endpoint.Id,
+        IsFrozen = endpoint.IsFrozen,
+        IsLocked = endpoint.IsLocked,
+        IsDeleted = endpoint.IsDeleted,
+        EntityType = endpoint.EntityType,
+        CreatedOn = endpoint.CreatedOn,
+        LastUpdatedOn = endpoint.LastUpdatedOn,
+        OptimisticVersion = endpoint.OptimisticVersion,
+        ConcurrencyVersion = endpoint.ConcurrencyVersion,
+        SsoClientId = endpoint.SsoClientId,
+        SsoClientIsDeleted = endpoint.SsoClientIsDeleted,
+        NId = endpoint.NId,
+        EndpointType = endpoint.EndpointType,
+        Uri = endpoint.Uri,
+        NormalizedUri = endpoint.NormalizedUri,
+        Enabled = endpoint.Enabled,
+    };
+
+    public static IdentitySsoClientEndpoint ToSsoClientEndpoint(SsoClientEndpointTable row) => new(
+        row.Id,
+        row.SsoClientId,
+        row.SsoClientIsDeleted,
+        row.NId,
+        row.EndpointType,
+        row.Uri,
+        row.NormalizedUri,
+        row.Enabled,
+        row.IsFrozen,
+        row.IsLocked,
+        row.IsDeleted,
+        row.EntityType,
+        row.CreatedOn,
+        row.LastUpdatedOn,
+        row.OptimisticVersion,
+        row.ConcurrencyVersion);
+
+    public static SsoBrowserSessionTable ToTable(IdentitySsoBrowserSession session) => new()
+    {
+        Id = session.Id,
+        IsFrozen = session.IsFrozen,
+        IsLocked = session.IsLocked,
+        IsDeleted = session.IsDeleted,
+        EntityType = session.EntityType,
+        CreatedOn = session.CreatedOn,
+        LastUpdatedOn = session.LastUpdatedOn,
+        OptimisticVersion = session.OptimisticVersion,
+        ConcurrencyVersion = session.ConcurrencyVersion,
+        TenantNId = session.TenantNId,
+        NId = session.NId,
+        NormalizedNId = session.NormalizedNId,
+        ProviderNId = session.ProviderNId,
+        UserId = session.UserId,
+        UserIsDeleted = session.UserIsDeleted,
+        SessionHandleHash = session.SessionHandleHash,
+        AuthVersion = session.AuthVersion,
+        LastActivityOn = session.LastActivityOn,
+        ExpiresOn = session.ExpiresOn,
+        RevokedOn = session.RevokedOn,
+        RevokeReason = session.RevokeReason,
+    };
+
+    public static IdentitySsoBrowserSession ToSsoBrowserSession(SsoBrowserSessionTable row) => new(
+        row.Id,
+        row.TenantNId,
+        row.NId,
+        row.NormalizedNId,
+        row.ProviderNId,
+        row.UserId,
+        row.UserIsDeleted,
+        row.SessionHandleHash,
+        row.AuthVersion,
+        row.LastActivityOn,
+        row.ExpiresOn,
+        row.RevokedOn,
+        row.RevokeReason,
+        row.IsFrozen,
+        row.IsLocked,
+        row.IsDeleted,
+        row.EntityType,
+        row.CreatedOn,
+        row.LastUpdatedOn,
+        row.OptimisticVersion,
+        row.ConcurrencyVersion);
+
+    /// <summary>反序列化 JSON 列表字段(Provider 的域/角色列表);损坏数据按空列表容错。</summary>
+    private static List<string> DeserializeList(string json)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(json) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
 }

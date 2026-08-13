@@ -2,7 +2,12 @@ import { delay, http, HttpResponse } from 'msw'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 
 import { ApiError } from '@/api/errors'
-import { createHttpClient, type HttpClient, type HttpClientDeps } from '@/api/httpClient'
+import {
+  createHttpClient,
+  type HttpClient,
+  type HttpClientDeps,
+  type HttpAuthRefresh,
+} from '@/api/httpClient'
 
 import { server } from '../fixtures/mswServer'
 
@@ -230,5 +235,155 @@ describe('HttpClient — TraceId 与敏感日志', () => {
     expect(joined).not.toContain('super-secret-token')
     expect(joined).not.toContain('Authorization')
     expect(joined).not.toContain('Bearer')
+  })
+})
+
+describe('HttpClient — 401 单飞刷新与重试', () => {
+  function unauthorized(code = '401', message = '会话失效') {
+    return HttpResponse.json({ success: false, code, message, data: null }, { status: 401 })
+  }
+
+  function noOpAuth(): HttpAuthRefresh {
+    return {
+      isAuthPath: () => false,
+      refreshSession: async () => undefined,
+      onSessionExpired: () => undefined,
+    }
+  }
+
+  it('401 触发刷新并携带新 token 重试原请求一次', async () => {
+    let currentToken = 'old-token'
+    let refreshCalls = 0
+    server.use(
+      http.get(`${BASE}/api/resource`, (info) => {
+        if (info.request.headers.get('Authorization') !== 'Bearer new-token') {
+          return unauthorized('401', 'expired')
+        }
+        return okResult({ ok: true })
+      }),
+    )
+    const httpClient = createHttpClient({
+      baseUrl: BASE,
+      timeoutMs: 1000,
+      getCorrelationId: () => 'corr-001',
+      getToken: () => currentToken,
+      authRefresh: {
+        ...noOpAuth(),
+        refreshSession: async () => {
+          refreshCalls += 1
+          currentToken = 'new-token'
+        },
+      },
+    })
+    const data = await httpClient.get<{ ok: boolean }>('/api/resource')
+    expect(data).toEqual({ ok: true })
+    expect(refreshCalls).toBe(1)
+  })
+
+  it('刷新失败只通知一次会话失效并抛出原始 401,不无限重试', async () => {
+    let refreshCalls = 0
+    let expiredCalls = 0
+    server.use(http.get(`${BASE}/api/resource`, () => unauthorized('401', 'expired')))
+    const httpClient = createHttpClient({
+      baseUrl: BASE,
+      timeoutMs: 1000,
+      getCorrelationId: () => 'corr-001',
+      authRefresh: {
+        ...noOpAuth(),
+        refreshSession: async () => {
+          refreshCalls += 1
+          throw new Error('refresh failed')
+        },
+        onSessionExpired: () => {
+          expiredCalls += 1
+        },
+      },
+    })
+    const outcome = await httpClient.get('/api/resource').then(
+      () => null,
+      (error: unknown) => error,
+    )
+    expect(outcome).toBeInstanceOf(ApiError)
+    expect((outcome as ApiError).kind).toBe('unauthorized')
+    expect(refreshCalls).toBe(1)
+    expect(expiredCalls).toBe(1)
+  })
+
+  it('认证路径 401 不触发刷新(避免循环)', async () => {
+    let refreshCalls = 0
+    server.use(
+      http.post(`${BASE}/identity/api/v1/auth/login`, () =>
+        HttpResponse.json(
+          {
+            success: false,
+            code: 'ID_AUTH_INVALID_CREDENTIALS',
+            message: '用户名或密码错误。',
+            data: null,
+          },
+          { status: 401 },
+        ),
+      ),
+    )
+    const httpClient = createHttpClient({
+      baseUrl: BASE,
+      timeoutMs: 1000,
+      getCorrelationId: () => 'corr-001',
+      authRefresh: {
+        isAuthPath: (path) => path.includes('/auth/login'),
+        refreshSession: async () => {
+          refreshCalls += 1
+        },
+        onSessionExpired: () => undefined,
+      },
+    })
+    const outcome = await httpClient
+      .post('/identity/api/v1/auth/login', { loginName: 'x', password: 'y' })
+      .then(
+        () => null,
+        (error: unknown) => error,
+      )
+    const apiError = outcome as ApiError
+    expect(apiError.kind).toBe('unauthorized')
+    expect(apiError.details.code).toBe('ID_AUTH_INVALID_CREDENTIALS')
+    expect(apiError.details.message).toBe('用户名或密码错误。')
+    expect(refreshCalls).toBe(0)
+  })
+
+  it('并发 401 共享一次刷新,各自重试一次', async () => {
+    let currentToken = 'old'
+    let refreshCalls = 0
+    server.use(
+      http.get(`${BASE}/api/a`, (info) => {
+        if (info.request.headers.get('Authorization') !== 'Bearer new')
+          return unauthorized('401', 'e')
+        return okResult({ id: 'a' })
+      }),
+      http.get(`${BASE}/api/b`, (info) => {
+        if (info.request.headers.get('Authorization') !== 'Bearer new')
+          return unauthorized('401', 'e')
+        return okResult({ id: 'b' })
+      }),
+    )
+    const httpClient = createHttpClient({
+      baseUrl: BASE,
+      timeoutMs: 1000,
+      getCorrelationId: () => 'corr-001',
+      getToken: () => currentToken,
+      authRefresh: {
+        ...noOpAuth(),
+        refreshSession: async () => {
+          refreshCalls += 1
+          await delay(10)
+          currentToken = 'new'
+        },
+      },
+    })
+    const [a, b] = await Promise.all([
+      httpClient.get<{ id: string }>('/api/a'),
+      httpClient.get<{ id: string }>('/api/b'),
+    ])
+    expect(a).toEqual({ id: 'a' })
+    expect(b).toEqual({ id: 'b' })
+    expect(refreshCalls).toBe(1)
   })
 })

@@ -76,14 +76,19 @@ function mapAxiosError(error: AxiosError, correlationId: string): ApiError {
   const headers = error.response.headers as ResponseHeadersLike | undefined
   const traceId = extractTraceId(data, headers)
 
-  if (status === 401) {
-    return createApiError('unauthorized', DEFAULT_ERROR_MESSAGES.unauthorized, correlationId, {
-      status,
-      ...(traceId === undefined ? {} : { traceId }),
-    })
-  }
-  if (status === 403) {
-    return createApiError('forbidden', DEFAULT_ERROR_MESSAGES.forbidden, correlationId, {
+  if (status === 401 || status === 403) {
+    const kind = status === 401 ? 'unauthorized' : 'forbidden'
+    // 优先保留后端信封的 code/message(如 ID_AUTH_INVALID_CREDENTIALS「用户名或密码错误」、
+    // ID_PERMISSION_DENIED),便于页面展示准确原因;非法信封退回通用文案。
+    const envelope = parseEnvelope(data)
+    if (envelope.valid) {
+      return createApiError(kind, envelope.message, correlationId, {
+        status,
+        code: envelope.code,
+        ...(traceId === undefined ? {} : { traceId }),
+      })
+    }
+    return createApiError(kind, DEFAULT_ERROR_MESSAGES[kind], correlationId, {
       status,
       ...(traceId === undefined ? {} : { traceId }),
     })

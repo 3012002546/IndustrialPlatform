@@ -11,12 +11,26 @@ import { computed, ref } from 'vue'
 import { createApiError, DEFAULT_ERROR_MESSAGES } from '@/api/errors'
 import { createCorrelationId } from '@/api/correlation'
 import { getAuthGateway, setCurrentSession } from '@/auth/gateway'
-import { clearAuthSession, readAuthSession, writeAuthSession } from '@/auth/sessionStore'
+import {
+  AUTH_SESSION_HTTP_STORAGE_KEY,
+  AUTH_SESSION_STORAGE_KEY,
+  clearAuthSession,
+  readAuthSession,
+  writeAuthSession,
+} from '@/auth/sessionStore'
 import type { AuthSession, AuthUser, LoginCommand } from '@/auth/types'
+import { loadRuntimeConfig } from '@/config/runtimeConfig'
 
-/** 会话存储(Phase 2 限定 sessionStorage)。 */
+/** 会话存储(sessionStorage);按运行模式选键:http 用真实会话键,其余用 Mock 键。 */
 function defaultStorage(): Storage {
   return globalThis.sessionStorage
+}
+
+/** 会话键随认证模式:真实 Identity 与 Mock 会话互不串用(README「真实令牌策略」)。 */
+function sessionStorageKey(): string {
+  return loadRuntimeConfig().authMode === 'http'
+    ? AUTH_SESSION_HTTP_STORAGE_KEY
+    : AUTH_SESSION_STORAGE_KEY
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -42,9 +56,10 @@ export const useAuthStore = defineStore('auth', () => {
     if (restorePromise !== null) return restorePromise
     restorePromise = (async () => {
       const storage = defaultStorage()
-      const stored = readAuthSession(storage, Date.now())
+      const key = sessionStorageKey()
+      const stored = readAuthSession(storage, Date.now(), key)
       if (stored === null) {
-        clearAuthSession(storage)
+        clearAuthSession(storage, key)
       }
       commitSession(stored)
     })()
@@ -59,7 +74,13 @@ export const useAuthStore = defineStore('auth', () => {
   async function login(command: LoginCommand): Promise<void> {
     const authenticated = await getAuthGateway().login(command)
     commitSession(authenticated)
-    writeAuthSession(defaultStorage(), authenticated)
+    writeAuthSession(defaultStorage(), authenticated, sessionStorageKey())
+  }
+
+  /** SSO 票据交换成功后采纳线上会话(§26.5):提交并持久化,不经过 Gateway。 */
+  function adoptSession(value: AuthSession): void {
+    commitSession(value)
+    writeAuthSession(defaultStorage(), value, sessionStorageKey())
   }
 
   /** 刷新:单飞;无会话视为未登录;失败视为会话不可续,清理本地会话后抛出。 */
@@ -76,13 +97,13 @@ export const useAuthStore = defineStore('auth', () => {
     refreshPromise = (async () => {
       const refreshed = await getAuthGateway().refresh(current.refreshToken)
       commitSession(refreshed)
-      writeAuthSession(defaultStorage(), refreshed)
+      writeAuthSession(defaultStorage(), refreshed, sessionStorageKey())
     })()
     try {
       await refreshPromise
     } catch (error) {
       commitSession(null)
-      clearAuthSession(defaultStorage())
+      clearAuthSession(defaultStorage(), sessionStorageKey())
       throw error
     } finally {
       refreshPromise = null
@@ -97,9 +118,19 @@ export const useAuthStore = defineStore('auth', () => {
       // 网关退出失败不阻断本地清理
     } finally {
       commitSession(null)
-      clearAuthSession(defaultStorage())
+      clearAuthSession(defaultStorage(), sessionStorageKey())
     }
   }
 
-  return { session, user, isAuthenticated, restore, login, refresh, logout, hasPermission }
+  return {
+    session,
+    user,
+    isAuthenticated,
+    restore,
+    login,
+    refresh,
+    logout,
+    adoptSession,
+    hasPermission,
+  }
 })

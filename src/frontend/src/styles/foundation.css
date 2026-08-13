@@ -1,0 +1,71 @@
+/*
+ * Foundation 层(PF-01 §7.5):原始尺寸与固定布局 Token。
+ * 字号、间距、圆角、阴影、层级与固定尺寸集中在此,不随配色/明暗变化。
+ * 颜色见 themes.css;密度见 density.css;Element Plus 桥接见 element-plus.css。
+ */
+
+:root {
+  /* ---- 文字字号与行高 ---- */
+  --ip-font-size-xs: 12px;
+  --ip-font-size-sm: 13px;
+  --ip-font-size-md: 14px;
+  --ip-font-size-lg: 16px;
+  --ip-font-size-xl: 20px;
+  --ip-font-size-2xl: 24px;
+  --ip-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+  --ip-line-height-tight: 1.25;
+  --ip-line-height-normal: 1.5;
+
+  /* ---- 间距 ---- */
+  --ip-space-1: 4px;
+  --ip-space-2: 8px;
+  --ip-space-3: 12px;
+  --ip-space-4: 16px;
+  --ip-space-5: 20px;
+  --ip-space-6: 24px;
+  --ip-space-8: 32px;
+  --ip-space-10: 40px;
+  --ip-space-12: 48px;
+
+  /* ---- 圆角 ---- */
+  --ip-radius-sm: 4px;
+  --ip-radius-md: 6px;
+  --ip-radius-lg: 8px;
+  --ip-radius-full: 9999px;
+
+  /* ---- 阴影 ---- */
+  --ip-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.05);
+  --ip-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --ip-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+
+  /* ---- 层级 ---- */
+  --ip-z-sticky: 100;
+  --ip-z-dropdown: 1000;
+  --ip-z-drawer: 1100;
+  --ip-z-message: 1200;
+
+  /* ---- 布局固定尺寸(密度不得改变这四项,§6) ---- */
+  --ip-shell-topbar-height: 52px;
+  --ip-shell-toolrail-width: 52px;
+  --ip-shell-functiontree-width: 216px;
+  --ip-shell-tabs-height: 36px;
+
+  /* ---- 布局:PC 管理框架(第一批兼容尺寸,003 迁移到 shell Token) ---- */
+  --ip-pc-header-height: 56px;
+  --ip-pc-sidebar-width: 240px;
+  --ip-pc-sidebar-width-collapsed: 64px;
+
+  /* ---- 布局:PDA 现场壳 ---- */
+  --ip-pda-header-height: 48px; /* 与 --ip-touch-min-size 一致,保证顶栏即触控目标 */
+
+  /* ---- 布局:Mobile 壳 ---- */
+  --ip-mobile-header-height: 44px; /* 与 --ip-touch-min-size-mobile 一致,保证顶栏即触控目标 */
+
+  /* ---- 触控最小尺寸 ---- */
+  --ip-touch-min-size: 48px; /* PDA */
+  --ip-touch-min-size-mobile: 44px; /* Mobile */
+
+  /* ---- 安全区域 ---- */
+  --ip-safe-area-top: env(safe-area-inset-top, 0px);
+  --ip-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+}

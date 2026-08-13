@@ -1,17 +1,29 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { RouterView, useRouter } from 'vue-router'
+/**
+ * PC 平台外壳(PF-01 §7.8):组合四层——
+ * PlatformTopBar 52px → body(PlatformToolRail 52px + 功能树与内容工作区
+ * [PlatformFunctionTree 216px/0px + RouterView 内容画布])。
+ * 功能树收起状态由 ThemeStore 持久化,不再直接读写旧侧栏键。
+ */
+
+import { computed, ref, watch } from 'vue'
+import { RouterView, useRoute, useRouter } from 'vue-router'
 import { ElDropdown, ElDropdownItem, ElDropdownMenu } from 'element-plus'
 
 import MockModeBanner from '@/components/base/MockModeBanner.vue'
-import { pcNavigationItems } from '@/components/navigation/navigation'
-import PcNavMenu from '@/components/navigation/PcNavMenu.vue'
+import { pcNavigationGroups } from '@/components/navigation/navigation'
+import PcWorkspaceTabs from '@/components/shell/PcWorkspaceTabs.vue'
+import PlatformFunctionTree from '@/components/shell/PlatformFunctionTree.vue'
+import PlatformToolRail from '@/components/shell/PlatformToolRail.vue'
+import PlatformTopBar from '@/components/shell/PlatformTopBar.vue'
+import ThemeControl from '@/components/theme/ThemeControl.vue'
+import WorkspaceTabLimitDialog from '@/components/shell/WorkspaceTabLimitDialog.vue'
 import type { TerminalType } from '@/device/types'
 import { useAuthStore } from '@/stores/authStore'
 import { useDeviceStore } from '@/stores/deviceStore'
-
-/** 侧栏折叠状态持久化键(§14:刷新保持)。 */
-const PC_SIDEBAR_COLLAPSED_KEY = 'industrial-platform.pc.sidebar.collapsed.v1'
+import { useWorkspaceTabsStore } from '@/stores/workspaceTabsStore'
+import { buildTabId } from '@/workspace'
+import type { TabLimitResolution, WorkspaceTab } from '@/workspace'
 
 const TERMINAL_LABELS: Record<TerminalType, string> = {
   pc: 'PC',
@@ -20,27 +32,31 @@ const TERMINAL_LABELS: Record<TerminalType, string> = {
 }
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const deviceStore = useDeviceStore()
+const tabsStore = useWorkspaceTabsStore()
 
-function readCollapsed(): boolean {
-  try {
-    return globalThis.localStorage.getItem(PC_SIDEBAR_COLLAPSED_KEY) === '1'
-  } catch {
-    return false
-  }
-}
+/** 当前平台分组:默认第一个;路由变化时跟随所属分组。 */
+const activeGroupId = ref(pcNavigationGroups[0]?.id ?? '')
 
-const collapsed = ref(readCollapsed())
+watch(
+  () => route.name,
+  () => {
+    const group = pcNavigationGroups.find((g) =>
+      g.items.some((item) => item.routeName === route.name),
+    )
+    if (group !== undefined) activeGroupId.value = group.id
+  },
+  { immediate: true },
+)
 
-function toggleCollapsed(): void {
-  collapsed.value = !collapsed.value
-  try {
-    globalThis.localStorage.setItem(PC_SIDEBAR_COLLAPSED_KEY, collapsed.value ? '1' : '0')
-  } catch {
-    // 存储不可用(如隐私模式)不阻塞布局交互
-  }
-}
+const activeGroup = computed(
+  () => pcNavigationGroups.find((g) => g.id === activeGroupId.value) ?? null,
+)
+
+/** 当前组的全部 items(功能树内部再做权限过滤)。 */
+const activeGroupItems = computed(() => activeGroup.value?.items ?? [])
 
 const displayName = computed(() => authStore.user?.displayName ?? '')
 const terminalLabel = computed(() => TERMINAL_LABELS[deviceStore.terminal] ?? deviceStore.terminal)
@@ -60,62 +76,72 @@ async function handleLogout(): Promise<void> {
     await router.push({ name: 'login' })
   }
 }
+
+/** RouterView 内容 key:路由位置 + 当前激活标签的 reloadVersion,重挂载实现「重新加载」。 */
+const contentKey = computed(() => `${route.fullPath}:${tabsStore.activeTab?.reloadVersion ?? 0}`)
+
+/** 当前路由是否已展示该标签(按稳定标签 id 比较,容忍 vue-router 的 null 查询值)。 */
+function isCurrentTab(tab: WorkspaceTab): boolean {
+  return buildTabId(String(route.name ?? ''), route.params, route.query) === tab.id
+}
+
+/** 确定性导航到当前激活标签;已展示时不重复导航。 */
+function navigateToActive(): void {
+  const tab = tabsStore.activeTab
+  if (tab === null || isCurrentTab(tab)) return
+  void router.push({ name: tab.route.name, params: tab.route.params, query: tab.route.query })
+}
+
+function onActivate(tabId: string): void {
+  const tab = tabsStore.tabs.find((t) => t.id === tabId)
+  if (tab === undefined || isCurrentTab(tab)) return
+  void router.push({ name: tab.route.name, params: tab.route.params, query: tab.route.query })
+}
+
+function onClose(tabId: string): void {
+  tabsStore.closeTab(tabId)
+  navigateToActive()
+}
+
+function onCloseOthers(tabId: string): void {
+  tabsStore.closeOthers(tabId)
+  navigateToActive()
+}
+
+function onCloseRight(tabId: string): void {
+  tabsStore.closeRight(tabId)
+  navigateToActive()
+}
+
+/** 重新加载仅对当前激活标签生效(未激活标签的 reloadVersion 不驱动 RouterView)。 */
+function onReload(tabId: string): void {
+  if (tabsStore.activeTabId !== tabId) return
+  tabsStore.reloadCurrent()
+}
+
+function onLimitResolve(resolution: TabLimitResolution): void {
+  const target = tabsStore.resolvePending(resolution)
+  if (target === null) return
+  void router.push({ name: target.name, params: target.params, query: target.query })
+}
 </script>
 
 <template>
   <div class="ip-pc-layout">
     <a class="ip-pc-skip-link" href="#main-content">跳到主内容</a>
 
-    <header class="ip-pc-header">
-      <div class="ip-pc-header__left">
-        <button
-          type="button"
-          class="ip-pc-collapse"
-          data-testid="sidebar-toggle"
-          :aria-expanded="!collapsed"
-          aria-controls="ip-pc-sidebar"
-          @click="toggleCollapsed"
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="none"
-            aria-hidden="true"
-            focusable="false"
-          >
-            <rect x="2" y="3" width="12" height="1.5" rx="0.75" fill="currentColor" />
-            <rect x="2" y="7.25" width="12" height="1.5" rx="0.75" fill="currentColor" />
-            <rect x="2" y="11.5" width="8" height="1.5" rx="0.75" fill="currentColor" />
-          </svg>
-          <span class="ip-pc-visually-hidden">{{ collapsed ? '展开侧栏' : '折叠侧栏' }}</span>
-        </button>
+    <PlatformTopBar>
+      <template #brand>
         <span class="ip-pc-brand">Industrial Platform</span>
-      </div>
+        <span class="ip-pc-terminal" data-testid="terminal-info"> 终端 {{ terminalLabel }} </span>
+      </template>
 
-      <div class="ip-pc-header__right">
-        <span class="ip-pc-terminal" data-testid="terminal-info">
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 16 16"
-            fill="none"
-            aria-hidden="true"
-            focusable="false"
-          >
-            <rect x="1.5" y="3" width="13" height="10" rx="1.5" stroke="currentColor" />
-            <path
-              d="M5 6l2 2-2 2"
-              stroke="currentColor"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-          终端 {{ terminalLabel }}
-        </span>
-
+      <template #global-actions>
         <MockModeBanner />
+        <ThemeControl terminal="pc" />
+      </template>
 
+      <template #user>
         <ElDropdown trigger="click" @command="onUserCommand">
           <button type="button" class="ip-pc-user" data-testid="user-menu" aria-label="用户菜单">
             <svg
@@ -153,22 +179,33 @@ async function handleLogout(): Promise<void> {
             </ElDropdownMenu>
           </template>
         </ElDropdown>
-      </div>
-    </header>
+      </template>
+    </PlatformTopBar>
+
+    <PcWorkspaceTabs
+      @activate="onActivate"
+      @close="onClose"
+      @close-others="onCloseOthers"
+      @close-right="onCloseRight"
+      @reload="onReload"
+    />
 
     <div class="ip-pc-body">
-      <aside
-        id="ip-pc-sidebar"
-        class="ip-pc-sidebar"
-        :class="{ 'ip-pc-sidebar--collapsed': collapsed }"
-        aria-label="侧边导航"
-      >
-        <PcNavMenu :items="pcNavigationItems" :collapsed="collapsed" />
-      </aside>
-      <main id="main-content" class="ip-pc-main" tabindex="-1">
-        <RouterView />
-      </main>
+      <PlatformToolRail v-model:active-group-id="activeGroupId" :groups="pcNavigationGroups" />
+
+      <div class="ip-pc-function-and-workspace">
+        <PlatformFunctionTree
+          v-if="activeGroup !== null"
+          :label="activeGroup.label"
+          :items="activeGroupItems"
+        />
+        <main id="main-content" class="ip-pc-main" tabindex="-1">
+          <RouterView :key="contentKey" />
+        </main>
+      </div>
     </div>
+
+    <WorkspaceTabLimitDialog @resolve="onLimitResolve" />
   </div>
 </template>
 
@@ -179,54 +216,38 @@ async function handleLogout(): Promise<void> {
   height: 100vh;
 }
 
-.ip-pc-header {
+.ip-pc-body {
   display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: space-between;
-  height: var(--ip-pc-header-height);
-  padding: 0 var(--ip-space-4);
-  background: var(--ip-color-bg-container);
-  border-bottom: 1px solid var(--ip-color-border);
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
-.ip-pc-header__left,
-.ip-pc-header__right {
+.ip-pc-function-and-workspace {
   display: flex;
-  align-items: center;
-  gap: var(--ip-space-4);
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
 }
 
-.ip-pc-collapse {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  color: var(--ip-color-text-secondary);
-  background: transparent;
-  border: 0;
-  border-radius: var(--ip-radius-md);
-  cursor: pointer;
-}
-
-.ip-pc-collapse:hover {
-  background: var(--ip-color-bg-muted);
-  color: var(--ip-color-text-primary);
+.ip-pc-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: auto;
+  background: var(--ip-color-bg-page);
 }
 
 .ip-pc-brand {
   font-size: var(--ip-font-size-lg);
   font-weight: 600;
-  color: var(--ip-color-text-primary);
+  color: var(--ip-shell-topbar-text);
+  white-space: nowrap;
 }
 
 .ip-pc-terminal {
   display: inline-flex;
   align-items: center;
   gap: var(--ip-space-2);
-  color: var(--ip-color-text-secondary);
+  color: var(--ip-shell-topbar-text-secondary);
   font-size: var(--ip-font-size-sm);
   white-space: nowrap;
 }
@@ -237,7 +258,7 @@ async function handleLogout(): Promise<void> {
   gap: var(--ip-space-2);
   min-height: 32px;
   padding: 0 var(--ip-space-2);
-  color: var(--ip-color-text-primary);
+  color: var(--ip-shell-topbar-text);
   background: transparent;
   border: 0;
   border-radius: var(--ip-radius-md);
@@ -246,37 +267,11 @@ async function handleLogout(): Promise<void> {
 }
 
 .ip-pc-user:hover {
-  background: var(--ip-color-bg-muted);
+  background: rgb(255 255 255 / 0.12);
 }
 
 .ip-pc-user__caret {
-  color: var(--ip-color-text-disabled);
-}
-
-.ip-pc-body {
-  display: flex;
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
-.ip-pc-sidebar {
-  flex: 0 0 auto;
-  width: var(--ip-pc-sidebar-width);
-  overflow-y: auto;
-  background: var(--ip-color-bg-container);
-  border-right: 1px solid var(--ip-color-border);
-  transition: width 200ms ease;
-}
-
-.ip-pc-sidebar--collapsed {
-  width: var(--ip-pc-sidebar-width-collapsed);
-}
-
-.ip-pc-main {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: auto;
-  background: var(--ip-color-bg-page);
+  color: var(--ip-shell-topbar-text-secondary);
 }
 
 /* 跳到主内容入口(§14.1):视觉隐藏,聚焦时可见且置于最前。 */
@@ -299,20 +294,7 @@ async function handleLogout(): Promise<void> {
   top: var(--ip-space-2);
 }
 
-.ip-pc-visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-  border: 0;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .ip-pc-sidebar,
   .ip-pc-skip-link {
     transition: none;
   }

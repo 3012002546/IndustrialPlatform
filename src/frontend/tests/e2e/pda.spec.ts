@@ -49,10 +49,10 @@ test('顶栏提供返回/首页/退出三个触控入口', async ({ page }) => {
   await expect(page.getByTestId('logout-button')).toBeVisible()
 })
 
-test('48px 触控目标:返回/首页/退出按钮几何尺寸均不小于 48×48', async ({ page }) => {
+test('48px 触控目标:返回/首页/主题/退出按钮几何尺寸均不小于 48×48', async ({ page }) => {
   await login(page)
   await page.goto('/pda/home')
-  for (const testid of ['back-button', 'home-button', 'logout-button']) {
+  for (const testid of ['back-button', 'home-button', 'theme-control-trigger', 'logout-button']) {
     const box = await page.getByTestId(testid).boundingBox()
     expect(box).not.toBeNull()
     expect(box!.width).toBeGreaterThanOrEqual(48)
@@ -79,6 +79,9 @@ test('PDA 横竖屏目标视口无横向滚动并保存截图', async ({ page })
   await page.setViewportSize({ width: 480, height: 800 })
   await page.goto('/pda/home')
   await expect(page.getByRole('heading', { name: '现场任务将在业务阶段接入' })).toBeVisible()
+  // 480px 宽度自动识别为 Mobile 断点(§11.1),但显式路由 meta.terminal='pda'
+  // 是终端文案单事实源:无 override 时必须仍显示 PDA(PF-01 §7.11)。
+  await expect(page.getByTestId('terminal-info')).toContainText('PDA')
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   )

@@ -1,5 +1,7 @@
 using IndustrialPlatform.Identity.Application.Authentication;
 using IndustrialPlatform.Identity.Application.Authorization;
+using IndustrialPlatform.Identity.Application.Management;
+using IndustrialPlatform.Identity.Application.Sso;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -30,6 +32,18 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(AuthorizationOptions.SectionName));
         services.AddSingleton<IPermissionEvaluator, PermissionEvaluator>();
         services.AddSingleton<IAuthorizationDenialSink, AuthorizationDenialSink>();
+
+        // 管理用例(TASK-ID-008):用户/角色/权限/审计;持久化端口由基础设施注册。
+        services.AddSingleton<IUserManagementService, UserManagementService>();
+        services.AddSingleton<IRoleManagementService, RoleManagementService>();
+        services.AddSingleton<IPermissionQueryService, PermissionQueryService>();
+        services.AddSingleton<IAuditQueryService, AuditQueryService>();
+
+        // 企业级联合登录(TASK-ID-013):SSO 用例与管理用例;存储/票据/适配器端口由基础设施注册。
+        services.AddOptions<SsoOptions>()
+            .Bind(configuration.GetSection(SsoOptions.SectionName));
+        services.AddSingleton<ISsoService, SsoService>();
+        services.AddSingleton<ISsoManagementService, SsoManagementService>();
 
         return services;
     }

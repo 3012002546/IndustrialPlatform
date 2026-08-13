@@ -1,6 +1,7 @@
 /** 终端识别统一出口。 */
 
 export { detectTerminal } from './detect'
+export { resolveActiveTerminal } from './activeTerminal'
 export { getViewportInfo, type ViewportInfo } from './environment'
 export {
   TERMINAL_OVERRIDE_STORAGE_KEY,

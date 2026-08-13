@@ -9,6 +9,7 @@ node_modules/.tmp/
 # Test output
 coverage/
 playwright-report/
+playwright-report-real/
 test-results/
 
 # Local environment files (never commit real credentials)

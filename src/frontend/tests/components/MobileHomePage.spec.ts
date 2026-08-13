@@ -7,22 +7,24 @@
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { createMemoryHistory, createRouter } from 'vue-router'
 
 import { persistAuthSession } from '../fixtures/session'
 import MobileHomePage from '@/pages/mobile/MobileHomePage.vue'
+import { routes } from '@/router/routes'
 import { useAuthStore } from '@/stores/authStore'
-import { useDeviceStore } from '@/stores/deviceStore'
 
 async function mountHome(permissions: string[] = ['platform.mobile.view']): Promise<VueWrapper> {
-  // 生效终端置为 mobile:真实 360×800 设备宽度 <768 属 Mobile 断点(§11.1),
-  // 覆盖键显式保证(§11.2),与设备 Store 单元测试一致。
-  localStorage.setItem('industrial-platform.terminal.override.v1', 'mobile')
+  // 终端文案单事实源为路由 meta.terminal(/mobile/home = 'mobile',PF-01 §7.11),
+  // 不再写入 override 键;即使设备建议缺省为 pc,显式路由仍解析为 Mobile。
   const pinia = createPinia()
   setActivePinia(pinia)
   persistAuthSession(permissions)
   await useAuthStore().restore()
-  useDeviceStore().init()
-  return mount(MobileHomePage, { global: { plugins: [pinia] } })
+  const router = createRouter({ history: createMemoryHistory(), routes })
+  await router.push('/mobile/home')
+  await router.isReady()
+  return mount(MobileHomePage, { global: { plugins: [pinia, router] } })
 }
 
 describe('MobileHomePage', () => {

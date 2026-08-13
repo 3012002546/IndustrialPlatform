@@ -35,10 +35,20 @@ test('登录→三端→我的→退出全程无 console error / page error / �
   })
   page.on('pageerror', (err) => pageErrors.push(err.message))
 
-  // 完整关键路径:登录 → 三端 → 我的 → 退出
+  // 完整关键路径:登录 → PC → UI 基线(DEV 页 + 主题切换)→ PDA → Mobile → 我的 → 退出
   await login(page)
   await page.goto('/pc/home')
   await expect(page.getByRole('heading', { name: '业务指标将在后续阶段接入' })).toBeVisible()
+
+  // DEV-only 视觉基线页:渲染全部通用组件后不应产生 console/page error
+  await page.goto('/pc/ui-baseline')
+  await expect(page.getByTestId('ui-baseline')).toBeVisible()
+  // 主题切换(配色/明暗)不产生 console error 或敏感日志
+  await page.getByTestId('theme-control-trigger').click()
+  await page.getByTestId('theme-palette-technology-blue').check()
+  await page.getByTestId('theme-mode-dark').check()
+  await page.keyboard.press('Escape')
+
   await page.goto('/pda/home')
   await expect(page.getByRole('heading', { name: '现场任务将在业务阶段接入' })).toBeVisible()
   await page.goto('/mobile/home')

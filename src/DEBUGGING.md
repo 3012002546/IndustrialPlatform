@@ -1,20 +1,23 @@
 # 本地调试指南
 
-> 适用环境:Windows 11 / 无 Docker(基础设施不可用)。记录于 2026-08-10,配合第一批(FE-001~FE-010)三端统一前端 + 后端三服务验证结论。
+> 适用环境:Windows 11 / 本地无 Docker。数据库/缓存等依赖有两种形态:**无依赖 SQLite 基线**(2026-08-10 验证)与**经 RemoteDevelopment 连云端基础设施**(Tailnet,2026-08-12 验证)。本文记录于 2026-08-10,2026-08-12 更新启动方式勘误与云端联调结论,2026-08-13 补充 VS2026 与 VS Code 的详细调试步骤。
 
 ## 目录
 
 1. [已验证的运行状态](#一已验证的运行状态)
 2. [后端调试(VS2026)](#二后端调试vs2026)
-3. [前端调试(VS Code)](#三前端调试vs-code)
-4. [质量门禁命令](#四质量门禁命令)
-5. [无 Docker 环境的已知预期](#五无-docker-环境的已知预期)
+3. [后端调试(VS Code)](#三后端调试vs-code)
+4. [前端调试(VS Code)](#四前端调试vs-code)
+5. [质量门禁命令](#五质量门禁命令)
+6. [已知预期与注意事项](#六已知预期与注意事项)
 
 ---
 
 ## 一、已验证的运行状态
 
-无 Docker 环境下,手工启动后端三服务并逐项探测(探测后已停止,端口已释放):
+### 1.1 无依赖(SQLite)基线 —— 2026-08-10
+
+后端三服务手工启动后逐项探测(探测后已停止,端口已释放):
 
 | 探测项 | 结果 | 说明 |
 | --- | --- | --- |
@@ -24,13 +27,22 @@
 | 网关转发 `/identity/health` | ✅ `{"status":"Healthy","service":"Identity"}` | YARP 前缀剥离转发正常 |
 | 网关转发 `/referencedata/health` | ✅ `{"status":"Healthy","service":"ReferenceData"}` | 同上 |
 | `/health/live` | ✅ HTTP 200 | 存活探针 |
-| `/health/ready` | ⚠️ HTTP 503 | 预期:Postgres/Redis/RabbitMQ/Seq 未启动,依赖检查 Unhealthy,聚合 503 |
+| `/health/ready` | ⚠️ HTTP 503 | 预期:依赖全不可用,聚合 503(见 6.1) |
 | `/unknown` | ✅ HTTP 404 信封 | `{"success":false,"code":"404","message":"路由不存在","data":null}` |
 
-日志说明:
+### 1.2 连接云端基础设施 —— 2026-08-12 实测
 
-- 启动无异常;依赖健康检查报 `postgres/redis/rabbitmq Unhealthy` 属设计行为(TASK-BASE-003/004),非程序错误。
-- 中文日志在 Windows 控制台显示为乱码(GBK 编码),为已知显示问题,不影响运行与调试。
+私有配置 `RemoteDevelopment.Enabled=true` 时,后端连云端(Tailnet)PostgreSQL/Redis 真实依赖:
+
+| 探测项 | 结果 | 说明 |
+| --- | --- | --- |
+| 云端容器 postgres/redis/rabbitmq/seq | ✅ 全部 `running + healthy` | SSH `sudo docker inspect` 确认 |
+| Identity `/health/ready` | ✅ HTTP 200 Healthy | `postgres Healthy`、`redis Healthy`、`seq 未启用跳过`;**本地 SQLite 基线为 503** |
+| Identity 迁移 | ✅ 云端 `identity_db` 账本 16/16 | ID-004-12..16(SSO 新表)本次应用,幂等生效 |
+| Identity 登录链路 | ✅ 全走云端 | 错误密码 → `ID_AUTH_INVALID_CREDENTIALS`(防枚举);失败审计落库(`identity_login_audit.result=Failure`,IP 仅哈希) |
+| Gateway 转发 `/identity/health`、`/referencedata/health` | ✅ 转发正常 | 前缀剥离 |
+| Gateway `/health/ready` 聚合 | ⚠️ `service.identity Healthy` / `service.referencedata Unhealthy` | 后者源于下游 ReferenceData 的 rabbitmq 检查(见 6.2) |
+| ReferenceData `/health/ready` | ⚠️ Unhealthy | PG/Redis Healthy,rabbitmq 检查超时(见 6.2) |
 
 前端独立可跑全流程:第一批 E2E **35/35**(mock 登录 → PC/PDA/Mobile 三端首页 → 403/404 → 退出)已通过 Vite dev server 验证。
 
@@ -38,44 +50,248 @@
 
 ## 二、后端调试(VS2026)
 
-### 1. 打开解决方案
+> 后端三个服务:**Identity**(认证,`:5041`)、**ReferenceData**(基础数据,`:62311`)、**Gateway**(统一入口,`:5080`)。调试前先在 VS2026 打开解决方案。
+
+### 2.1 打开解决方案
 
 ```text
 src/backend/IndustrialPlatform.slnx
 ```
 
-### 2. 启动顺序与端口
+- VS2026 原生支持 `.slnx`(XML 解决方案格式),双击或用「打开解决方案」打开即可。仓库**没有** `.sln` 文件。
+- 首次打开会触发 NuGet 还原;若还原报错(Windows 常见),先设置本地 CLI home(见 2.4)。
 
-多启动项目:Identity、ReferenceData、Gateway 三个项目右键 → 设为启动项目(或配置多个启动项目)。
+### 2.2 配置多个启动项目
 
-端口已钉在各自 `launchSettings.json`,与 Gateway 路由一致:
+网关 + 服务要一起跑才能走通完整链路。两种方式:
 
-| 项目 | 端口 | 说明 |
-| --- | --- | --- |
-| `IndustrialPlatform.Identity.Api` | `http://localhost:5041` | 认证服务 |
-| `IndustrialPlatform.ReferenceData.Api` | `http://localhost:62311` | 基础数据服务(launchSettings 默认 `launchBrowser: true` 会弹浏览器,可忽略) |
-| `IndustrialPlatform.Gateway` | `http://localhost:5080` | YARP 统一入口 |
+**方式 A:多启动项目(推荐)**
+1. 解决方案资源管理器 → 右键 `IndustrialPlatform.slnx` → **配置启动项目**。
+2. 选「多个启动项目」,把以下三个设为 **启动**,其余设为「无」:
 
-### 3. 调试入口
+| 项目 | 操作 |
+| --- | --- |
+| `IndustrialPlatform.Gateway` | 启动 |
+| `IndustrialPlatform.Identity.Api` | 启动 |
+| `IndustrialPlatform.ReferenceData.Api` | 启动 |
 
-- 统一入口:**`http://localhost:5080`**(前端 `VITE_API_BASE_URL` 默认即此)。
-- 绕过网关直达服务:`http://localhost:5041`、`http://localhost:62311`。
-- 断点位置建议:各服务 `Health/` 目录下的依赖健康检查、Gateway 的 YARP 中间件、`IndustrialPlatform.Web.Middleware.RequestLoggingMiddleware`。
+3. 「操作」列的下拉框里还能选 **不调试启动**(只跑不挂调试器,启动快、适合只调某一个服务时其余当陪跑)。
 
-### 4. 环境准备
+> 该选择会被 VS 保存到 `src/backend/IndustrialPlatform.slnLaunch.user`(与 `.slnx` 同目录),下次打开自动恢复。
 
-- **NuGet 恢复异常时**:Windows 需设置本地 CLI home,在 VS 环境变量或命令行设 `DOTNET_CLI_HOME=<仓库根>\.dotnet_cli_home`(见 CLAUDE.md 提示)。
-- **环境变量**:运行配置选 `http` Profile 时即为 `Development` 环境。
-- **无 Docker 时**:依赖不可用属预期(见第五节),业务代码未触碰这些依赖时不阻塞调试;完整联调需先起 Docker Compose(`docker compose up -d`,见 `deploy/scripts/README.md`)。
+**方式 B:单服务调试**
+只想调 Identity 时,右键 `IndustrialPlatform.Identity.Api` → **设为启动项目** → F5;需要网关转发时再用 `dotnet run`(见 2.3)把其余服务跑起来。
+
+### 2.3 启动方式(关键,别踩 ContentRoot 坑)
+
+> ⚠️ **必须用 F5 或 `dotnet run --no-build --project <csproj>` 启动,让 ContentRoot = 项目目录。**
+> **不要**从仓库根裸跑 `dotnet bin/Debug/net10.0/*.dll` —— 那样 ContentRoot 变成仓库根,`appsettings.json`/`appsettings.Development.json` 全部不加载(私有配置虽经绝对路径加载,但基础配置缺失),Gateway 会因 `Services` 为空导致 YARP 路由全 404、健康检查为空。
+
+F5 / `dotnet run` 会读项目的 `Properties/launchSettings.json`,里面钉好端口并注入关键环境变量。三个服务的 profile 不一致,注意区分:
+
+| 项目 | profile 名 | URL | 注入的额外环境变量 |
+| --- | --- | --- | --- |
+| Identity | `http` | `http://localhost:5041` | `IndustrialPlatform__LocalConfigurationPath=../../../../appsettings.Development.local.json` |
+| Gateway | `http` | `http://localhost:5080` | 无(网关不需要私有 DB 配置) |
+| ReferenceData | `IndustrialPlatform.ReferenceData.Api` | `https://localhost:62310;http://localhost:62311` | `IndustrialPlatform__LocalConfigurationPath=../../../../appsettings.Development.local.json` |
+
+- ReferenceData 的 profile **不是** `http`,且默认 `launchBrowser: true`(F5 会弹浏览器,可忽略或改成 `false`)。
+- ReferenceData 走 https `62310` 首次会触发开发证书信任;只想 http 可把 `applicationUrl` 里的 https 段去掉,或直接在启动项目下拉选 http 段。
+
+**CLI 启动**(仓库根 `D:\Code\Industrial Platform\IndustrialPlatform`,先设 CLI home):
+
+```bash
+export DOTNET_CLI_HOME="$PWD/.dotnet_cli_home"
+
+dotnet run --no-build --project "src/backend/src/Services/Identity/IndustrialPlatform.Identity.Api/IndustrialPlatform.Identity.Api.csproj"
+dotnet run --no-build --project "src/backend/src/Services/ReferenceData/IndustrialPlatform.ReferenceData.Api/IndustrialPlatform.ReferenceData.Api.csproj"
+dotnet run --no-build --project "src/backend/src/Gateway/IndustrialPlatform.Gateway/IndustrialPlatform.Gateway.csproj"
+```
+
+`--no-build` 前提是先 `dotnet build` 过;`http` Profile 会注入 `IndustrialPlatform__LocalConfigurationPath` 并钉好端口。
+
+### 2.4 环境变量与私有配置
+
+- **NuGet 还原**:Windows 下 NuGet 还原异常时,设 `DOTNET_CLI_HOME=<仓库根>\.dotnet_cli_home`。可在「工具 → 选项 → 环境 → 环境变量」或项目属性里配,或只在命令行用 `export`。
+- **环境 = Development**:三个服务的 profile 都注入 `ASPNETCORE_ENVIRONMENT=Development`,所以启动即加载 `appsettings.Development.json`。
+- **私有配置**:`IndustrialPlatform__LocalConfigurationPath` 指向 `src/backend/appsettings.Development.local.json`(相对 ContentRoot 上跳 4 级)。该文件存在且 `RemoteDevelopment.Enabled=true` 时,后端自动连云端 PG/Redis(Tailnet),无需本地 Docker。文件在 `.gitignore` 中,**禁止提交其中的服务器地址/账号/密码/SSH**。
+- **bootstrap 管理员**:Identity 首次启动可选地按 `IDENTITY_BOOTSTRAP_*` 环境变量创建管理员 `admin.verify`(密码来自该环境变量,不在任何配置文件里)。需要在 VS 里设环境变量时,走「项目 → 属性 → 调试 → 环境变量」。
+
+### 2.5 断点与调试窗口
+
+- **设断点**:行首左侧槽单击,或光标停该行按 `F9`;再按 `F9` 删除。断点圆点空心(带警告)表示该代码当前未加载或符号不匹配。
+- **运行到断点**:`F5` 启动调试,命中后程序暂停。
+- **单步**:`F10` 逐过程(不进入函数)、`F11` 逐语句(进入函数)、`Shift+F11` 跳出当前函数、`F5` 继续到下一断点、`Shift+F5` 停止调试、`Ctrl+F5` 不调试直接启动。
+- **查看变量**:调试暂停时,悬停变量看值;`监视` 窗口可加表达式(如 `user.FailedLoginCount`);`局部变量` 窗口看当前作用域;`即时窗口` 可在暂停时执行 C# 表达式(如 `user.NId`)。
+- **调用堆栈**:`调用堆栈` 窗口看调用链,双击任意帧可跳转;对理解请求从 Gateway → 服务 → Application → Domain 的路径很有用。
+
+推荐断点位置:
+
+| 关注点 | 位置 |
+| --- | --- |
+| 登录编排/并发重试 | `Identity.Application/Authentication/AuthenticationService.cs` 的 `LoginAsync`、`RecordLoginSuccessAsync`、`RecordLoginFailureAsync` |
+| 乐观并发原子更新 | `Identity.Infrastructure/Persistence/Repositories/UserRepository.cs` 的 `UpdateAsync`/`UpdateParentAsync` |
+| 依赖健康检查 | 各服务 `Health/` 目录下的健康检查类 |
+| 网关转发/错误 | Gateway 的 YARP 中间件、`IndustrialPlatform.Web.Middleware.RequestLoggingMiddleware`、`ExceptionMiddleware` |
+
+### 2.6 条件断点、数据断点、异常设置
+
+- **条件断点**:右键断点 → 「条件」→ 输入表达式(如 `user.NId == "user.alice"`),或按命中次数(如第 2 次命中才停)。适合在循环/高频路径里只拦感兴趣的那一次。
+- **跟踪点(日志断点)**:右键断点 → 「操作」→ 勾选「继续执行」并填要输出的消息(如 `登录用户 {user.NId}`),不中断程序只打印到输出窗口,比到处加 `Console.WriteLine` 干净。
+- **数据断点**:在 `局部变量`/`监视` 里右键字段 → 「断开当值更改时」,字段被写时停;用于追踪「谁在改这个版本号/状态」这类问题。
+- **异常设置**(重要):`调试 → 窗口 → 异常设置`,勾选「公共语言运行时异常(Common Language Runtime Exceptions)」可让**任何**抛出的异常都停。但本项目大量「抛出即捕获」的领域异常(`DomainException`/`ConcurrencyException`/`UnauthorizedException` 等)会频繁中断;建议**默认不勾**,只在你怀疑某个异常时临时勾选并复现。
+
+### 2.7 热重载(Hot Reload)
+
+- 暂停或运行中修改 C# 后,点工具栏「火苗」图标(热重载)或默认快捷键(通常 `Alt+F10` 系列),把改动热应用,不重启进程。
+- 仅限方法体等可热应用改动;改签名、改属性、加类成员等会提示「不支持的更改」,此时需重启(F5 或 `Shift+F5` 后重跑)。
+- ASP.NET Core 项目热重载对控制器/服务方法内逻辑基本可用,是调 `AuthenticationService` 这类业务逻辑的高频手段。
+
+### 2.8 附加到已运行进程(可选)
+
+- `dotnet run` 启动的服务进程名是 `dotnet.exe`,多个 dotnet 进程并跑时难区分;要附加用 `调试 → 附加到进程`,按「标题」或「命令行」列分辨(命令行里带 `IndustrialPlatform.Identity.Api.dll` 那行即对应服务)。
+- 一般不需要:能用 F5 一步到位启动 + 调试,就别用附加;只有「服务已在跑、只想挂个调试器看某个请求」时才用。
+
+### 2.9 后端 VS2026 常见问题
+
+| 现象 | 处理 |
+| --- | --- |
+| 裸跑 DLL 后所有路由 404 / 健康检查为空 | ContentRoot 错位,改用 F5 或 `dotnet run --project` 启动(见 2.3) |
+| 端口被占 `:5041/:5080/:62311` | `netstat -ano | findstr :5041` 找 PID 后 `taskkill /PID <pid> /F`,或改 launchSettings 端口 |
+| NuGet 还原失败 | 设 `DOTNET_CLI_HOME`(见 2.4)后重新还原 |
+| SDK 版本告警 | 本机 10.0.400,`global.json` 钉 10.0.302 + `rollForward: latestFeature`,VS 正常解析 |
+| ReferenceData 弹浏览器 | profile `launchBrowser: true` 所致,忽略或改 `false` |
+| https 证书错误(62310) | `dotnet dev-certs https --trust` 信任开发证书,或只用 http 段 |
 
 ---
 
-## 三、前端调试(VS Code)
+## 三、后端调试(VS Code)
 
-### 1. 打开与工具链
+> VS2026 之外的替代:用 VS Code 的 **C# Dev Kit** 调试后端。核心区别是 VS Code 不读 `launchSettings.json` 的端口,**必须自己在 `launch.json` 里配 `cwd`(ContentRoot)与 `ASPNETCORE_URLS`**。
 
-- 打开目录:`src/frontend`。
-- 仓库根 `.mise.toml` 钉定 **node 24.18.0 / pnpm 11.16.0**。集成终端建议经 mise 生效 PATH;若 shell node 版本不对(如系统自带 node 22),一律用 `mise exec -- pnpm ...` 运行。
+### 3.1 安装扩展
+
+- 安装 **C# Dev Kit**(`ms-dotnettools.csdevkit`,会一并带上 C# 扩展与 .NET Install Tool)。
+- 用 VS Code 打开 `src/backend` 目录(或仓库根),C# Dev Kit 会自动发现 `IndustrialPlatform.slnx`。
+
+### 3.2 关键概念:ContentRoot 与端口
+
+VS Code 的 coreclr 调试器是直接拉起编译好的 DLL,与「裸跑 DLL」同一条路,**不读 launchSettings**。所以要手动补齐两件事:
+
+1. **`cwd` = 项目目录** → 让 `WebApplication.CreateBuilder` 的 ContentRoot 落在项目目录,`appsettings.json` 才能加载(否则又是「路由全 404」的坑)。
+2. **`ASPNETCORE_URLS` 钉端口** → launchSettings 里的 `applicationUrl` 对 DLL 直启无效,必须自己设。
+3. **`IndustrialPlatform__LocalConfigurationPath`** → 相对 ContentRoot 上跳 4 级,连云端基础设施时必填(与 Identity/ReferenceData 的 launchSettings 一致)。
+
+### 3.3 `.vscode/launch.json`(放在 `src/backend/.vscode/` 或仓库根 `.vscode/`)
+
+```jsonc
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Identity",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/Services/Identity/IndustrialPlatform.Identity.Api/bin/Debug/net10.0/IndustrialPlatform.Identity.Api.dll",
+      "cwd": "${workspaceFolder}/src/Services/Identity/IndustrialPlatform.Identity.Api",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5041",
+        "IndustrialPlatform__LocalConfigurationPath": "../../../../appsettings.Development.local.json"
+      },
+      "stopAtEntry": false
+    },
+    {
+      "name": "ReferenceData",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/Services/ReferenceData/IndustrialPlatform.ReferenceData.Api/bin/Debug/net10.0/IndustrialPlatform.ReferenceData.Api.dll",
+      "cwd": "${workspaceFolder}/src/Services/ReferenceData/IndustrialPlatform.ReferenceData.Api",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:62311",
+        "IndustrialPlatform__LocalConfigurationPath": "../../../../appsettings.Development.local.json"
+      },
+      "stopAtEntry": false
+    },
+    {
+      "name": "Gateway",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/Gateway/IndustrialPlatform.Gateway/bin/Debug/net10.0/IndustrialPlatform.Gateway.dll",
+      "cwd": "${workspaceFolder}/src/Gateway/IndustrialPlatform.Gateway",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5080"
+      },
+      "stopAtEntry": false
+    }
+  ],
+  "compounds": [
+    {
+      "name": "全部后端服务",
+      "configurations": ["Identity", "ReferenceData", "Gateway"]
+    }
+  ]
+}
+```
+
+> 上面 `${workspaceFolder}` 假设你打开的是 **`src/backend`** 目录;若打开的是仓库根,把路径里的 `src/` 前缀补成 `src/backend/src/...`,并把 `../../../../appsettings.Development.local.json` 保持不动(它相对的是各项目的 ContentRoot,不是 workspaceFolder)。
+
+### 3.4 `.vscode/tasks.json`(配合 preLaunchTask 自动构建)
+
+```jsonc
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build",
+      "command": "dotnet",
+      "type": "process",
+      "args": ["build", "IndustrialPlatform.slnx", "--nologo"],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": { "DOTNET_CLI_HOME": "${workspaceFolder}/.dotnet_cli_home" }
+      },
+      "problemMatcher": "$msCompile",
+      "group": { "kind": "build", "isDefault": true }
+    }
+  ]
+}
+```
+
+- `preLaunchTask: "build"` 会在 F5 前先 `dotnet build`,保证 `program` 指向的 DLL 是最新;若只想调不改代码,可去掉 `preLaunchTask` 改用 `--no-build`(但 coreclr 调试器本身不带 `--no-build`,需手动先 build)。
+
+### 3.5 调试流程与技巧
+
+1. F5(或「运行与调试」→ 选 **Identity** / **全部后端服务**)启动;命中断点即暂停。
+2. 与 VS2026 相同:F9 断点、F10/F11/Shift+F11 单步、悬停看值、`监视`/`局部变量`/`调用堆栈` 面板、条件断点、`调试控制台` 里执行表达式。
+3. **多服务并行**:选 `compounds` 里的「全部后端服务」一次性拉起三进程(各自一个调试会话,左上角可切换)。
+4. 想只调 Identity 又要网关转发,可:Identity 用 F5 调试,另外两个在集成终端用 `dotnet run --no-build --project ...` 跑。
+
+### 3.6 后端 VS Code 常见问题
+
+| 现象 | 处理 |
+| --- | --- |
+| 启动后全 404 / 配置缺失 | `cwd` 没指向项目目录,或 `ASPNETCORE_URLS` 没设(见 3.2) |
+| 连不上云端库 | `IndustrialPlatform__LocalConfigurationPath` 没设或相对路径错(cwd 不是项目目录导致) |
+| `preLaunchTask` 找不到 | 确认 `tasks.json` 与 `launch.json` 在同一 `.vscode/` 下、`label` 一致 |
+| 断点空心/「未加载符号」 | 没 build 或 DLL 路径/`program` 拼错,先 `dotnet build` 再 F5 |
+| 端口冲突 | 改 `env.ASPNETCORE_URLS` 的端口 |
+
+---
+
+## 四、前端调试(VS Code)
+
+> 前端 Vue 3 + Vite 单包工程,目录 `src/frontend`。调试分两种:浏览器调试(断点打在 `.ts`/`.vue`)与 Playwright E2E 调试。
+
+### 4.1 打开目录与工具链
+
+- 用 VS Code 打开 `src/frontend`(或作为多根工作区的一根)。
+- 仓库根 `.mise.toml` 钉定 **node 24.18.0 / pnpm 11.16.0**;集成终端若 node 版本不对(如系统自带 node 22),一律用 `mise exec -- pnpm ...`。
 
 ```bash
 cd src/frontend
@@ -83,9 +299,60 @@ pnpm install --frozen-lockfile   # 严格按锁文件
 pnpm dev                          # → http://localhost:5173
 ```
 
-### 2. 登录与三端访问
+- 前端只通过 `VITE_API_BASE_URL`(默认 `http://localhost:5080`,Gateway)访问后端,不直连服务端口。
 
-演示账号 `mock.admin` / `Mock@123456`(Mock 模式,无需后端)。
+### 4.2 安装插件
+
+- **Vue - Official(Volar)**:`.vue` 智能提示 + 模板/脚本类型检查;若类型报错是陈旧状态,命令面板执行 `Vue: Restart Vue Server`。
+- 可选:ESLint、Prettier(与 `pnpm lint` / `pnpm format:check` 对齐)。
+
+### 4.3 浏览器调试 `.vue` / `.ts`
+
+1. 集成终端先 `pnpm dev` 把 Vite 跑起来(5173)。
+2. 新增 `.vscode/launch.json`:
+
+```jsonc
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Vite: Chrome",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}"
+    },
+    {
+      "name": "Vite: Edge",
+      "type": "msedge",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}"
+    }
+  ]
+}
+```
+
+3. 在 `.vue` 的 `<script setup>` 或 `.ts` 里设断点,F5 启动 Chrome/Edge;Vite dev 默认带 sourcemap,断点能落回源码。
+4. 浏览器里触发登录/路由跳转,命中断点后在 VS Code 侧栏 `运行` 面板看变量、单步。
+
+> `.vue` 的 `<template>` 里也能断(经 sourcemap 映射),但 DOM 相关逻辑更建议用浏览器 DevTools 的 Elements/Sources 面板配合。
+
+### 4.4 认证模式(mock / http)
+
+运行配置由 `VITE_*` 环境变量决定(安全示例见 `.env.example`,真实凭据不得提交):
+
+| 变量 | 默认 | 说明 |
+| --- | --- | --- |
+| `VITE_API_BASE_URL` | `http://localhost:5080` | Gateway 统一入口 |
+| `VITE_AUTH_MODE` | `mock` | `mock` = 无后端即可跑;`http` = 真实 Identity 登录 |
+| `VITE_REQUEST_TIMEOUT_MS` | `10000` | HTTP 超时毫秒数 |
+
+- **mock 模式**:演示账号 `mock.admin` / `Mock@123456`,无需后端。
+- **http 模式**:要先把后端(Gateway + Identity)跑起来;登录走真实令牌,可配合后端断点联调。
+- 改环境变量可在项目根 `.env.local`(gitignore)里写 `VITE_AUTH_MODE=http` 后重启 `pnpm dev`。
+
+### 4.5 三端访问与终端模拟
 
 三端入口:
 
@@ -104,22 +371,34 @@ localStorage.setItem('industrial-platform.terminal.override.v1', 'mobile')// Mob
 localStorage.setItem('industrial-platform.terminal.override.v1', 'auto')  // 恢复自动识别
 ```
 
-注意:自动识别按 §11.1(宽度 `>=1200`→PC、`<768`→Mobile、`768–1199` 触控→PDA)。DevTools 设备模拟宽度小于 768 会识别为 **Mobile**,要调 PDA 必须用覆盖键或拉宽到 768–1199 + 触控。
+自动识别按 §11.1(宽度 `>=1200`→PC、`<768`→Mobile、`768–1199` 触控→PDA)。DevTools 设备模拟宽度小于 768 会识别为 **Mobile**;要调 PDA 必须用覆盖键,或拉宽到 768–1199 + 触控。
 
-### 3. 插件与调试配置
+### 4.6 Playwright E2E 调试
 
-- 安装 **Vue - Official(Volar)**,获得 `.vue` 智能提示与类型检查;若类型报错为陈旧状态,命令面板执行 `Vue: Restart Vue Server`。
-- 可选 `.vscode/launch.json`:Edge/Chrome 调试连 `http://localhost:5173`,断点打在 `.ts` / `.vue` `<script setup>` 内。
+- 装 **Playwright Test for VSCode**(`ms-playwright.playwright`),可在测试用例旁直接点运行/调试。
+- 命令行调试单个用例(先 `pnpm exec playwright install chromium`):
 
-### 4. 接入后端说明
+```bash
+pnpm exec playwright test --debug                       # 打开 Playwright Inspector 单步
+pnpm exec playwright test tests/e2e/login.spec.ts --debug
+pnpm exec playwright test --ui                         # 交互式 UI 模式
+```
 
-- 当前 `VITE_AUTH_MODE=mock`,前端只走 Mock 认证;`VITE_AUTH_MODE=http` 会抛 `RuntimeConfigError`(Phase 3 实现 HttpAuthGateway 后可用)。
-- `VITE_API_BASE_URL` 默认 `http://localhost:5080`(Gateway 统一入口)。
-- 生产构建禁止 mock(`VITE_AUTH_MODE=mock` 构建会失败,属设计约束)。
+- 两套配置:`playwright.config.ts`(mock 模式)与 `playwright.real.config.ts`(http 真实登录,`workers:1` 串行)。跑真实登录 E2E 前需后端 Gateway+Identity 已启动。
+
+### 4.7 前端常见问题
+
+| 现象 | 处理 |
+| --- | --- |
+| `.vue` 类型报错但代码没错 | `Vue: Restart Vue Server` 重启语言服务 |
+| pnpm 命令找不到 / node 版本错 | 用 `mise exec -- pnpm ...`,或确认 mise PATH 已注入 |
+| http 模式登录失败 | 后端 Gateway/Identity 没起,或 `VITE_API_BASE_URL` 不对 |
+| 生产构建禁止 mock | `VITE_AUTH_MODE=mock` 下 `pnpm build` 会失败(设计约束) |
+| 调试断点不进源码 | 确认 Vite dev 的 sourcemap 开启、`webRoot` 指向 `src/frontend` |
 
 ---
 
-## 四、质量门禁命令
+## 五、质量门禁命令
 
 每个命令要求退出码 0;覆盖率语句/分支/函数/行均不低于 70%。
 
@@ -138,15 +417,28 @@ dotnet build IndustrialPlatform.slnx
 dotnet test IndustrialPlatform.slnx
 ```
 
+> 2026-08-12 全量基线:后端 build 0 警告 0 错误、test **520/520**;前端 lint/typecheck 0、unit 223/223、build 通过、E2E 35/35。`test:unit:coverage` 当前 **38%(<70%)**,因 TASK-ID-010~015 新增 Identity/SSO 管理页无单测,属已知回归。
+
 ---
 
-## 五、无 Docker 环境的已知预期
+## 六、已知预期与注意事项
+
+### 6.1 无依赖(SQLite)基线
 
 | 现象 | 说明 |
 | --- | --- |
 | `/health/ready` 返回 503,耗时约 6~15s | 依赖健康检查 Postgres/Redis/RabbitMQ 均 Unhealthy(连接超时),聚合 503;**预期行为**,`/health` 与 `/health/live` 仍 200 |
-| 日志出现 `PostgreSQL 无法连接:SqlSugarException`、`Redis 无法连接`、`RabbitMQ 连接失败:localhost:5672` | 均为依赖缺失,**非程序错误**;ReferenceData 启动时还会提示「未注册任何消费事件,跳过 RabbitMQ 消费者」 |
+| 日志出现 `PostgreSQL 无法连接:SqlSugarException`、`Redis 无法连接`、`RabbitMQ 连接失败:localhost:5672` | 均为依赖缺失,**非程序错误**;Identity 启动时提示「未注册任何集成事件订阅,跳过 RabbitMQ 消费启动」 |
 | 控制台中文乱码 | Windows GBK 编码显示问题,不影响运行 |
 | `launchSettings` 启动 ReferenceData 弹浏览器 | 正常,`launchBrowser: true` 所致 |
 
-要完整联调(真实数据库/缓存/消息队列),需安装 Docker 后执行 `docker compose up -d`(见 `deploy/scripts/README.md`),届时 `/health/ready` 应转 200。
+### 6.2 云端连接模式(2026-08-12 实测发现)
+
+| 现象 | 说明 |
+| --- | --- |
+| **ReferenceData `/health/ready` 恒 Unhealthy** | `RabbitMqHealthCheck` 无条件注册且基础配置指向 `localhost:5672`;即使 `RabbitMq.Enabled=false` 也检查并超时(Identity 则不注册 rabbitmq 检查,不一致)。要让 ready 转绿,在私有配置 `RemoteDevelopment.RabbitMq.Enabled=true`(云端容器在跑,连上即绿)。**待协作方评估是否按 `RabbitMq.Enabled` 条件注册** |
+| Gateway `/health/ready` 聚合 `service.referencedata Unhealthy` | 源于下游 ReferenceData 的 rabbitmq 检查,同上 |
+| Identity `/health/ready` | ✅ Healthy(postgres/redis Healthy,seq 未启用跳过),无此问题 |
+| JWT `SigningKey` 为空 | 每次启动临时 RSA 密钥,重启后既有令牌失效;仅限开发环境,需持久化则配密钥 |
+
+要完整本地联调(不连云端),需安装 Docker 后执行 `docker compose up -d`(见 `deploy/scripts/README.md`),届时 `/health/ready` 应转 200。

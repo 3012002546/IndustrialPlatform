@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import MockModeBanner from '@/components/base/MockModeBanner.vue'
 import { ApiError, DEFAULT_ERROR_MESSAGES } from '@/api/errors'
+import { loadRuntimeConfig } from '@/config/runtimeConfig'
 import { ROUTE_NAMES } from '@/router/routes'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -33,6 +34,18 @@ const redirectTarget = computed<string | { name: string }>(() => {
     return raw
   }
   return { name: ROUTE_NAMES.root }
+})
+
+/** SSO 仅在真实认证模式下可用(企业登录源依赖 Identity 网关,§26)。 */
+const isHttpAuth = computed(() => loadRuntimeConfig().authMode === 'http')
+
+/** 传给企业登录页的 redirect:与 redirectTarget 同规则,仅站内相对路径。 */
+const ssoRedirectQuery = computed<{ redirect?: string }>(() => {
+  const raw = route.query.redirect
+  if (typeof raw === 'string' && raw.startsWith('/') && !raw.startsWith('//')) {
+    return { redirect: raw }
+  }
+  return {}
 })
 
 function focusFirstInvalid(): void {
@@ -158,6 +171,15 @@ async function onSubmit(): Promise<void> {
           {{ submitting ? '登录中…' : '登录' }}
         </button>
       </form>
+
+      <router-link
+        v-if="isHttpAuth"
+        class="login-card__sso"
+        data-testid="login-sso-link"
+        :to="{ name: ROUTE_NAMES.ssoLogin, query: ssoRedirectQuery }"
+      >
+        企业登录(SSO)
+      </router-link>
 
       <p class="login-card__hint">演示账号:mock.admin / Mock@123456</p>
     </section>
@@ -304,6 +326,17 @@ async function onSubmit(): Promise<void> {
 .login-card__submit:disabled {
   background: var(--ip-color-text-disabled);
   cursor: not-allowed;
+}
+
+.login-card__sso {
+  align-self: center;
+  font-size: var(--ip-font-size-sm);
+  color: var(--ip-color-primary);
+  text-decoration: none;
+}
+
+.login-card__sso:hover {
+  text-decoration: underline;
 }
 
 .login-card__hint {

@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <!-- Contracts 仅承载跨进程 DTO 与集成事件;不引用 Domain/Infrastructure/Api(见 03 方案 §5) -->
+    <!-- Contracts 承载跨进程 DTO 与集成事件;仅引用 EventBus 基类(事件元数据),不引用 Domain/Infrastructure/Api(见 03 方案 §5) -->
+    <ProjectReference Include="..\..\..\BuildingBlocks\IndustrialPlatform.EventBus\IndustrialPlatform.EventBus.csproj" />
   </ItemGroup>
 
 </Project>

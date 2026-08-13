@@ -1,4 +1,5 @@
 import { mount } from '@vue/test-utils'
+import { createPinia } from 'pinia'
 import { describe, expect, it } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
@@ -16,7 +17,8 @@ describe('App', () => {
     })
     await router.push('/')
     await router.isReady()
-    const wrapper = mount(App, { global: { plugins: [router] } })
+    // App.vue 顶层调用 useAuthStore(TASK-ID-011 权限响应),需先安装 Pinia。
+    const wrapper = mount(App, { global: { plugins: [createPinia(), router] } })
     expect(wrapper.text()).toContain('router-outlet-content')
   })
 })

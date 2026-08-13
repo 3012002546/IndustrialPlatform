@@ -53,6 +53,11 @@ public static class IdentitySchemaMigrations
             CreateTableStep("ID-004-07", "identity_login_audit", LoginAuditDdl),
             CreateTableStep("ID-004-08", "identity_operation_audit", OperationAuditDdl),
             CreateTableStep("ID-004-09", "identity_outbox", OutboxDdl),
+            CreateTableStep("ID-004-12", "identity_sso_provider", SsoProviderDdl),
+            CreateTableStep("ID-004-13", "identity_sso_external_account", SsoExternalAccountDdl),
+            CreateTableStep("ID-004-14", "identity_sso_client", SsoClientDdl),
+            CreateTableStep("ID-004-15", "identity_sso_client_endpoint", SsoClientEndpointDdl),
+            CreateTableStep("ID-004-16", "identity_sso_browser_session", SsoBrowserSessionDdl),
             new SchemaMigrationStep(
                 "ID-004-10",
                 "seed permission catalog, SYSTEM_ADMIN role and its permissions",
@@ -319,6 +324,145 @@ public static class IdentitySchemaMigrations
             {columns}
             );
             CREATE INDEX IF NOT EXISTS ix_outbox_publish ON identity_outbox (published_on, event_created_time);
+            """;
+    }
+
+    private static string SsoProviderDdl(DbType dbType)
+    {
+        var (g, t, b, big, f) = TypeWords(dbType);
+        var columns = string.Join(",\n",
+        [
+            CommonColumns(g, t, b, big),
+            "tenant_n_id TEXT NOT NULL",
+            "n_id TEXT NOT NULL",
+            "normalized_n_id TEXT NOT NULL",
+            "name TEXT NOT NULL",
+            "protocol INTEGER NOT NULL",
+            "authority_or_metadata_url TEXT NOT NULL",
+            "client_id_or_entity_id TEXT NOT NULL",
+            "secret_or_certificate_reference TEXT NULL",
+            "callback_path TEXT NOT NULL",
+            $"enabled {b} NOT NULL",
+            $"auto_redirect {b} NOT NULL",
+            "provisioning_mode INTEGER NOT NULL",
+            "logout_mode INTEGER NOT NULL",
+            "allowed_email_domains_json TEXT NOT NULL",
+            "jit_default_role_n_ids_json TEXT NOT NULL",
+            "CONSTRAINT uq_sso_provider_nid UNIQUE (tenant_n_id, normalized_n_id)",
+            "CONSTRAINT uq_sso_provider_id_isdel UNIQUE (id, is_deleted)",
+        ]);
+        return $"""
+            CREATE TABLE IF NOT EXISTS identity_sso_provider (
+            {columns}
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_sso_provider_active_client ON identity_sso_provider (tenant_n_id, client_id_or_entity_id) WHERE is_deleted = {f};
+            """;
+    }
+
+    private static string SsoExternalAccountDdl(DbType dbType)
+    {
+        var (g, t, b, big, f) = TypeWords(dbType);
+        var columns = string.Join(",\n",
+        [
+            CommonColumns(g, t, b, big),
+            "n_id TEXT NOT NULL",
+            "normalized_n_id TEXT NOT NULL",
+            $"sso_provider_id {g} NOT NULL",
+            $"sso_provider_is_deleted {b} NOT NULL",
+            "external_subject TEXT NOT NULL",
+            $"user_id {g} NOT NULL",
+            $"user_is_deleted {b} NOT NULL",
+            "external_name TEXT NULL",
+            "external_email TEXT NULL",
+            $"last_login_on {t} NULL",
+            "CONSTRAINT uq_sso_external_account_nid UNIQUE (n_id)",
+            "CONSTRAINT uq_sso_external_account_id_isdel UNIQUE (id, is_deleted)",
+            "FOREIGN KEY (sso_provider_id, sso_provider_is_deleted) REFERENCES identity_sso_provider (id, is_deleted) ON UPDATE CASCADE",
+            "FOREIGN KEY (user_id, user_is_deleted) REFERENCES identity_user (id, is_deleted) ON UPDATE CASCADE",
+        ]);
+        return $"""
+            CREATE TABLE IF NOT EXISTS identity_sso_external_account (
+            {columns}
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_sso_external_account_active ON identity_sso_external_account (sso_provider_id, external_subject) WHERE is_deleted = {f};
+            """;
+    }
+
+    private static string SsoClientDdl(DbType dbType)
+    {
+        var (g, t, b, big, f) = TypeWords(dbType);
+        var columns = string.Join(",\n",
+        [
+            CommonColumns(g, t, b, big),
+            "tenant_n_id TEXT NOT NULL",
+            "n_id TEXT NOT NULL",
+            "normalized_n_id TEXT NOT NULL",
+            "name TEXT NOT NULL",
+            "oauth_client_id TEXT NOT NULL",
+            $"enabled {b} NOT NULL",
+            "CONSTRAINT uq_sso_client_nid UNIQUE (tenant_n_id, normalized_n_id)",
+            "CONSTRAINT uq_sso_client_id_isdel UNIQUE (id, is_deleted)",
+        ]);
+        return $"""
+            CREATE TABLE IF NOT EXISTS identity_sso_client (
+            {columns}
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_sso_client_active_oauth ON identity_sso_client (tenant_n_id, oauth_client_id) WHERE is_deleted = {f};
+            """;
+    }
+
+    private static string SsoClientEndpointDdl(DbType dbType)
+    {
+        var (g, t, b, big, f) = TypeWords(dbType);
+        var columns = string.Join(",\n",
+        [
+            CommonColumns(g, t, b, big),
+            $"sso_client_id {g} NOT NULL",
+            $"sso_client_is_deleted {b} NOT NULL",
+            "n_id TEXT NOT NULL",
+            "endpoint_type INTEGER NOT NULL",
+            "uri TEXT NOT NULL",
+            "normalized_uri TEXT NOT NULL",
+            $"enabled {b} NOT NULL",
+            "FOREIGN KEY (sso_client_id, sso_client_is_deleted) REFERENCES identity_sso_client (id, is_deleted) ON UPDATE CASCADE",
+        ]);
+        return $"""
+            CREATE TABLE IF NOT EXISTS identity_sso_client_endpoint (
+            {columns}
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_sso_client_endpoint_active_nid ON identity_sso_client_endpoint (sso_client_id, n_id) WHERE is_deleted = {f};
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_sso_client_endpoint_active_uri ON identity_sso_client_endpoint (sso_client_id, endpoint_type, normalized_uri) WHERE is_deleted = {f};
+            """;
+    }
+
+    private static string SsoBrowserSessionDdl(DbType dbType)
+    {
+        var (g, t, b, big, f) = TypeWords(dbType);
+        var columns = string.Join(",\n",
+        [
+            CommonColumns(g, t, b, big),
+            "tenant_n_id TEXT NOT NULL",
+            "n_id TEXT NOT NULL",
+            "normalized_n_id TEXT NOT NULL",
+            "provider_n_id TEXT NOT NULL",
+            $"user_id {g} NOT NULL",
+            $"user_is_deleted {b} NOT NULL",
+            "session_handle_hash TEXT NOT NULL",
+            "auth_version INTEGER NOT NULL",
+            $"last_activity_on {t} NOT NULL",
+            $"expires_on {t} NOT NULL",
+            $"revoked_on {t} NULL",
+            "revoke_reason INTEGER NULL",
+            "CONSTRAINT uq_sso_browser_session_nid UNIQUE (n_id)",
+            "CONSTRAINT uq_sso_browser_session_id_isdel UNIQUE (id, is_deleted)",
+            "FOREIGN KEY (user_id, user_is_deleted) REFERENCES identity_user (id, is_deleted) ON UPDATE CASCADE",
+        ]);
+        return $"""
+            CREATE TABLE IF NOT EXISTS identity_sso_browser_session (
+            {columns}
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_sso_browser_session_active_handle ON identity_sso_browser_session (session_handle_hash) WHERE is_deleted = {f};
+            CREATE INDEX IF NOT EXISTS ix_sso_browser_session_tenant ON identity_sso_browser_session (tenant_n_id, user_id);
             """;
     }
 

@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { RouterView, useRouter } from 'vue-router'
+import { RouterView, useRoute, useRouter } from 'vue-router'
 
 import MockModeBanner from '@/components/base/MockModeBanner.vue'
-import type { TerminalType } from '@/device/types'
+import ThemeControl from '@/components/theme/ThemeControl.vue'
+import { resolveActiveTerminal, type TerminalType } from '@/device'
 import { ROUTE_NAMES } from '@/router/routes'
 import { useAuthStore } from '@/stores/authStore'
 import { useDeviceStore } from '@/stores/deviceStore'
@@ -15,11 +16,16 @@ const TERMINAL_LABELS: Record<TerminalType, string> = {
 }
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const deviceStore = useDeviceStore()
 
 const displayName = computed(() => authStore.user?.displayName ?? '')
-const terminalLabel = computed(() => TERMINAL_LABELS[deviceStore.terminal] ?? deviceStore.terminal)
+// 终端文案单事实源:显式路由 meta.terminal 优先,无显式路由回退设备建议(§7.11)。
+const terminalLabel = computed(() => {
+  const active = resolveActiveTerminal(route.meta.terminal, deviceStore.terminal)
+  return TERMINAL_LABELS[active] ?? active
+})
 
 function goHome(): void {
   void router.push({ name: ROUTE_NAMES.pdaHome })
@@ -135,6 +141,8 @@ async function handleLogout(): Promise<void> {
         </span>
 
         <MockModeBanner class="ip-pda-mock" label="Mock" />
+
+        <ThemeControl terminal="pda" />
 
         <button
           type="button"

@@ -3,7 +3,8 @@ import { computed } from 'vue'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
 
 import MockModeBanner from '@/components/base/MockModeBanner.vue'
-import type { TerminalType } from '@/device/types'
+import ThemeControl from '@/components/theme/ThemeControl.vue'
+import { resolveActiveTerminal, type TerminalType } from '@/device'
 import { ROUTE_NAMES } from '@/router/routes'
 import { useDeviceStore } from '@/stores/deviceStore'
 
@@ -28,7 +29,11 @@ const tabs: readonly MobileTab[] = [
 const route = useRoute()
 const deviceStore = useDeviceStore()
 
-const terminalLabel = computed(() => TERMINAL_LABELS[deviceStore.terminal] ?? deviceStore.terminal)
+// 终端文案单事实源:显式路由 meta.terminal 优先,无显式路由回退设备建议(§7.11)。
+const terminalLabel = computed(() => {
+  const active = resolveActiveTerminal(route.meta.terminal, deviceStore.terminal)
+  return TERMINAL_LABELS[active] ?? active
+})
 
 /** 当前 Tab 高亮:按路由名精确匹配。 */
 function isActive(tab: MobileTab): boolean {
@@ -63,6 +68,8 @@ function isActive(tab: MobileTab): boolean {
           终端 {{ terminalLabel }}
         </span>
         <MockModeBanner class="ip-mobile-mock" label="Mock" />
+
+        <ThemeControl terminal="mobile" />
       </div>
     </header>
 

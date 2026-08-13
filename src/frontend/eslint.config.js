@@ -13,6 +13,7 @@ export default withVueTs(
       '**/dist/**',
       '**/coverage/**',
       '**/playwright-report/**',
+      '**/playwright-report-real/**',
       '**/test-results/**',
       '**/node_modules/**',
       '**/*.tsbuildinfo',

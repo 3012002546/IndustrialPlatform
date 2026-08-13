@@ -58,9 +58,8 @@ describe('MobileLayout', () => {
   beforeEach(() => {
     sessionStorage.clear()
     localStorage.clear()
-    // 生效终端置为 mobile:真实 360×800 设备宽度 <768 属 Mobile 断点(§11.1),
-    // 覆盖键显式保证(§11.2),与设备 Store 单元测试一致。
-    localStorage.setItem('industrial-platform.terminal.override.v1', 'mobile')
+    // 终端文案单事实源为路由 meta.terminal(/mobile/* = 'mobile',PF-01 §7.11),
+    // 不再写入 override 键;即使设备建议缺省为 pc,显式路由仍解析为 Mobile。
   })
 
   it('渲染 header / main / 底部导航三段骨架,主内容可聚焦', async () => {

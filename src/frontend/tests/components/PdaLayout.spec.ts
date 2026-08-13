@@ -55,9 +55,8 @@ describe('PdaLayout', () => {
   beforeEach(() => {
     sessionStorage.clear()
     localStorage.clear()
-    // 生效终端置为 pda:真实 480×800 现场设备宽度 <768 属 Mobile 断点(§11.1),
-    // PDA 环境经手动覆盖键保证(§11.2),与设备 Store 单元测试一致。
-    localStorage.setItem('industrial-platform.terminal.override.v1', 'pda')
+    // 终端文案单事实源为路由 meta.terminal(/pda/home = 'pda',PF-01 §7.11),
+    // 不再写入 override 键;即使设备建议缺省为 pc,显式路由仍解析为 PDA。
   })
 
   it('渲染 header / main 骨架,主内容可聚焦', async () => {

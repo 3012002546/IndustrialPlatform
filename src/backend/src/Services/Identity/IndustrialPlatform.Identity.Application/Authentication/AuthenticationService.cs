@@ -95,10 +95,8 @@ public sealed partial class AuthenticationService : IAuthenticationService
         {
             if (user is not null)
             {
-                var expectedOptimistic = user.OptimisticVersion;
-                var expectedConcurrency = user.ConcurrencyVersion;
-                user.RecordLoginFailure(now, new LoginAttemptPolicy(options.MaxLoginFailures, options.LockDuration));
-                await _store.UpdateUserAsync(user, expectedOptimistic, expectedConcurrency, cancellationToken);
+                // 失败计数登记为尽力而为:并发失败登录的登记冲突不阻断返回 401(防枚举)。
+                await RecordLoginFailureAsync(user, now, options, cancellationToken);
             }
 
             await _rateLimiter.RecordLoginFailureAsync(tenantNId, normalizedLoginName, clientIp, cancellationToken);
@@ -126,11 +124,10 @@ public sealed partial class AuthenticationService : IAuthenticationService
             throw new RateLimitExceededException("登录失败次数过多，账号已临时锁定，请稍后再试。");
         }
 
-        // 成功:清零失败计数并记录最近登录时间
-        var successExpectedOptimistic = user.OptimisticVersion;
-        var successExpectedConcurrency = user.ConcurrencyVersion;
-        user.RecordLoginSuccess(now);
-        await _store.UpdateUserAsync(user, successExpectedOptimistic, successExpectedConcurrency, cancellationToken);
+        // 成功:清零失败计数并记录最近登录时间。
+        // 并发登录同一账号会触发双版本乐观并发冲突;重新装载后重试,连续冲突时降级为放弃登记,
+        // 登录本身不受影响,避免把并发登录整体 500 化。
+        await RecordLoginSuccessAsync(user, now, cancellationToken);
         await _rateLimiter.RecordLoginSuccessAsync(tenantNId, normalizedLoginName, clientIp, cancellationToken);
 
         // 刷新会话:只存哈希;持久化失败 → 安全存储不可用,不返回令牌
@@ -416,6 +413,85 @@ public sealed partial class AuthenticationService : IAuthenticationService
         }
     }
 
+    /// <summary>登录状态登记的最大重试次数(并发冲突时重新装载用户后重试)。</summary>
+    private const int LoginStateChangeRetryLimit = 3;
+
+    /// <summary>
+    /// 成功登录登记:清零失败计数与临时锁定并记录最近登录时间。
+    /// 并发登录同一账号时双版本更新可能冲突;重新装载用户后重试,
+    /// 连续冲突时降级为放弃本次登记(登录本身不受影响),避免把并发登录整体 500 化。
+    /// </summary>
+    private async Task RecordLoginSuccessAsync(User user, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            var expectedOptimistic = user.OptimisticVersion;
+            var expectedConcurrency = user.ConcurrencyVersion;
+            user.RecordLoginSuccess(now);
+
+            try
+            {
+                await _store.UpdateUserAsync(user, expectedOptimistic, expectedConcurrency, cancellationToken);
+                return;
+            }
+            catch (ConcurrencyException) when (attempt < LoginStateChangeRetryLimit)
+            {
+                var refreshed = await _store.FindByUserIdAsync(user.Id, cancellationToken);
+                if (refreshed is null || refreshed.User.IsDeleted || refreshed.User.Status == UserStatus.Disabled)
+                {
+                    throw new AccountDisabledException();
+                }
+
+                user = refreshed.User;
+            }
+            catch (ConcurrencyException)
+            {
+                LogLoginStateChangeSkipped(_logger, user.NId);
+                return;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 失败登录登记(尽力而为):递增连续失败计数、必要时触发临时锁定。
+    /// 并发失败登录的登记冲突时重新装载用户后重试,连续冲突降级为放弃登记;
+    /// 无论如何不得把登记失败转化为 500(登录失败本身由外层统一返回 401 防枚举)。
+    /// </summary>
+    private async Task RecordLoginFailureAsync(
+        User user,
+        DateTimeOffset now,
+        AuthenticationOptions options,
+        CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            var expectedOptimistic = user.OptimisticVersion;
+            var expectedConcurrency = user.ConcurrencyVersion;
+            user.RecordLoginFailure(now, new LoginAttemptPolicy(options.MaxLoginFailures, options.LockDuration));
+
+            try
+            {
+                await _store.UpdateUserAsync(user, expectedOptimistic, expectedConcurrency, cancellationToken);
+                return;
+            }
+            catch (ConcurrencyException) when (attempt < LoginStateChangeRetryLimit)
+            {
+                var refreshed = await _store.FindByUserIdAsync(user.Id, cancellationToken);
+                if (refreshed is null || refreshed.User.IsDeleted)
+                {
+                    return;
+                }
+
+                user = refreshed.User;
+            }
+            catch (ConcurrencyException)
+            {
+                LogLoginStateChangeSkipped(_logger, user.NId);
+                return;
+            }
+        }
+    }
+
     [LoggerMessage(EventId = 1001, Level = LogLevel.Error, Message = "刷新会话持久化失败,登录终止。")]
     private static partial void LogRefreshSessionPersistFailed(ILogger logger, Exception ex);
 
@@ -424,6 +500,9 @@ public sealed partial class AuthenticationService : IAuthenticationService
 
     [LoggerMessage(EventId = 1003, Level = LogLevel.Warning, Message = "权限缓存失效失败,已忽略(TTL 兜底)。")]
     private static partial void LogPermissionCacheInvalidateFailed(ILogger logger, Exception ex);
+
+    [LoggerMessage(EventId = 1004, Level = LogLevel.Warning, Message = "登录状态登记并发冲突,已降级放弃本次登记。用户: {userNId}")]
+    private static partial void LogLoginStateChangeSkipped(ILogger logger, string userNId);
 
     private static string? TraceId => Activity.Current?.TraceId.ToString();
 

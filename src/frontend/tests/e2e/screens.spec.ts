@@ -36,7 +36,7 @@ const VIEWPORTS = [
 ] as const
 
 for (const { name, size, path, heading } of VIEWPORTS) {
-  test(`${name} ${size[0]}×${size[1]} 视口:关键内容可见、无横向滚动并保存截图`, async ({
+  test(`${name} ${size[0]}×${size[1]} 视口:关键内容可见、无横向滚动、像素回归并保存截图`, async ({
     page,
   }) => {
     await login(page)
@@ -48,6 +48,11 @@ for (const { name, size, path, heading } of VIEWPORTS) {
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true)
+    // 像素回归基线(默认主题,阈值 1% 全局生效);PC 1440×900 仅在本处覆盖
+    await expect(page).toHaveScreenshot(`${name}-home-${size[0]}x${size[1]}.png`, {
+      fullPage: true,
+    })
+    // 证据截图(与历史规范文件名一致,供文档引用)
     await page.screenshot({
       path: `tests/e2e/screenshots/${name}-home-${size[0]}x${size[1]}.png`,
       fullPage: true,

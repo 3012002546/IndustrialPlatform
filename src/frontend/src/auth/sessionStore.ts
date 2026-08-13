@@ -7,6 +7,8 @@
 import type { AuthSession } from './types'
 
 export const AUTH_SESSION_STORAGE_KEY = 'industrial-platform.auth.mock.v1'
+/** Phase 3 真实会话存储键(与 Mock 隔离,README「真实令牌策略」)。 */
+export const AUTH_SESSION_HTTP_STORAGE_KEY = 'industrial-platform.auth.http.v1'
 export const AUTH_SESSION_VERSION = 1
 
 interface StoredSession {
@@ -64,18 +66,29 @@ export function parseStoredSession(raw: string | null, now: number): AuthSession
 
 export type SessionStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
 
-/** 读取会话;无有效会话返回 null。 */
-export function readAuthSession(storage: SessionStorage, now: number): AuthSession | null {
-  return parseStoredSession(storage.getItem(AUTH_SESSION_STORAGE_KEY), now)
+/** 读取会话;无有效会话返回 null。key 默认 Mock 键,Phase 3 真实会话传 HTTP 键。 */
+export function readAuthSession(
+  storage: SessionStorage,
+  now: number,
+  key: string = AUTH_SESSION_STORAGE_KEY,
+): AuthSession | null {
+  return parseStoredSession(storage.getItem(key), now)
 }
 
-/** 写入版本化会话。 */
-export function writeAuthSession(storage: SessionStorage, session: AuthSession): void {
+/** 写入版本化会话。key 默认 Mock 键,Phase 3 真实会话传 HTTP 键。 */
+export function writeAuthSession(
+  storage: SessionStorage,
+  session: AuthSession,
+  key: string = AUTH_SESSION_STORAGE_KEY,
+): void {
   const payload: StoredSession = { version: AUTH_SESSION_VERSION, session }
-  storage.setItem(AUTH_SESSION_STORAGE_KEY, JSON.stringify(payload))
+  storage.setItem(key, JSON.stringify(payload))
 }
 
-/** 清除会话。 */
-export function clearAuthSession(storage: Pick<SessionStorage, 'removeItem'>): void {
-  storage.removeItem(AUTH_SESSION_STORAGE_KEY)
+/** 清除会话。key 默认 Mock 键,Phase 3 真实会话传 HTTP 键。 */
+export function clearAuthSession(
+  storage: Pick<SessionStorage, 'removeItem'>,
+  key: string = AUTH_SESSION_STORAGE_KEY,
+): void {
+  storage.removeItem(key)
 }

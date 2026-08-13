@@ -1,0 +1,92 @@
+/*
+ * Element Plus 桥接层(PF-01 §7.5):把 --el-* 映射到 --ip-* 语义 Token。
+ * 必须在 element-plus/dist/index.css 之后引入(tokens.css 保证顺序)。
+ * 由于 --ip-* 本身随 data-ip-palette / data-ip-color-mode 变化,桥接层保持常量。
+ */
+
+:root,
+[data-ip-palette='industrial-cyan'],
+[data-ip-palette='technology-blue'],
+[data-ip-palette='neutral-gray'] {
+  --el-color-primary: var(--ip-color-primary);
+  --el-color-primary-light-3: color-mix(in srgb, var(--ip-color-primary) 70%, white);
+  --el-color-primary-light-5: color-mix(in srgb, var(--ip-color-primary) 50%, white);
+  --el-color-primary-light-7: color-mix(in srgb, var(--ip-color-primary) 30%, white);
+  --el-color-primary-light-8: color-mix(in srgb, var(--ip-color-primary) 20%, white);
+  --el-color-primary-light-9: color-mix(in srgb, var(--ip-color-primary) 10%, white);
+  --el-color-primary-dark-2: color-mix(in srgb, var(--ip-color-primary) 80%, black);
+
+  --el-color-success: var(--ip-color-success);
+  --el-color-success-light-3: color-mix(in srgb, var(--ip-color-success) 70%, white);
+  --el-color-success-light-5: color-mix(in srgb, var(--ip-color-success) 50%, white);
+  --el-color-success-light-7: color-mix(in srgb, var(--ip-color-success) 30%, white);
+  --el-color-success-light-8: color-mix(in srgb, var(--ip-color-success) 20%, white);
+  --el-color-success-light-9: color-mix(in srgb, var(--ip-color-success) 10%, white);
+  --el-color-success-dark-2: color-mix(in srgb, var(--ip-color-success) 80%, black);
+
+  --el-color-warning: var(--ip-color-warning);
+  --el-color-warning-light-3: color-mix(in srgb, var(--ip-color-warning) 70%, white);
+  --el-color-warning-light-5: color-mix(in srgb, var(--ip-color-warning) 50%, white);
+  --el-color-warning-light-7: color-mix(in srgb, var(--ip-color-warning) 30%, white);
+  --el-color-warning-light-8: color-mix(in srgb, var(--ip-color-warning) 20%, white);
+  --el-color-warning-light-9: color-mix(in srgb, var(--ip-color-warning) 10%, white);
+  --el-color-warning-dark-2: color-mix(in srgb, var(--ip-color-warning) 80%, black);
+
+  --el-color-danger: var(--ip-color-danger);
+  --el-color-danger-light-3: color-mix(in srgb, var(--ip-color-danger) 70%, white);
+  --el-color-danger-light-5: color-mix(in srgb, var(--ip-color-danger) 50%, white);
+  --el-color-danger-light-7: color-mix(in srgb, var(--ip-color-danger) 30%, white);
+  --el-color-danger-light-8: color-mix(in srgb, var(--ip-color-danger) 20%, white);
+  --el-color-danger-light-9: color-mix(in srgb, var(--ip-color-danger) 10%, white);
+  --el-color-danger-dark-2: color-mix(in srgb, var(--ip-color-danger) 80%, black);
+
+  --el-color-error: var(--ip-color-danger);
+  --el-color-error-light-3: color-mix(in srgb, var(--ip-color-danger) 70%, white);
+  --el-color-error-light-5: color-mix(in srgb, var(--ip-color-danger) 50%, white);
+  --el-color-error-light-7: color-mix(in srgb, var(--ip-color-danger) 30%, white);
+  --el-color-error-light-8: color-mix(in srgb, var(--ip-color-danger) 20%, white);
+  --el-color-error-light-9: color-mix(in srgb, var(--ip-color-danger) 10%, white);
+  --el-color-error-dark-2: color-mix(in srgb, var(--ip-color-danger) 80%, black);
+
+  --el-color-info: var(--ip-color-info);
+  --el-color-info-light-3: color-mix(in srgb, var(--ip-color-info) 70%, white);
+  --el-color-info-light-5: color-mix(in srgb, var(--ip-color-info) 50%, white);
+  --el-color-info-light-7: color-mix(in srgb, var(--ip-color-info) 30%, white);
+  --el-color-info-light-8: color-mix(in srgb, var(--ip-color-info) 20%, white);
+  --el-color-info-light-9: color-mix(in srgb, var(--ip-color-info) 10%, white);
+  --el-color-info-dark-2: color-mix(in srgb, var(--ip-color-info) 80%, black);
+
+  --el-text-color-primary: var(--ip-color-text-primary);
+  --el-text-color-regular: var(--ip-color-text-secondary);
+  --el-text-color-secondary: var(--ip-color-text-tertiary);
+  --el-text-color-placeholder: var(--ip-color-text-tertiary);
+  --el-text-color-disabled: var(--ip-color-text-disabled);
+
+  --el-border-color: var(--ip-color-border);
+  --el-border-color-light: var(--ip-color-border);
+  --el-border-color-lighter: var(--ip-color-border);
+  --el-border-color-extra-light: var(--ip-color-bg-muted);
+  --el-border-color-dark: var(--ip-color-border-strong);
+  --el-border-color-hover: var(--ip-color-border-strong);
+
+  --el-fill-color: var(--ip-color-bg-muted);
+  --el-fill-color-light: var(--ip-color-bg-muted);
+  --el-fill-color-lighter: var(--ip-color-bg-muted);
+  --el-fill-color-extra-light: var(--ip-color-bg-container);
+  --el-fill-color-dark: var(--ip-color-border);
+  --el-fill-color-blank: var(--ip-color-bg-container);
+
+  --el-bg-color: var(--ip-color-bg-container);
+  --el-bg-color-page: var(--ip-color-bg-page);
+  --el-bg-color-overlay: var(--ip-color-bg-container);
+  --el-mask-color: var(--ip-color-bg-overlay);
+  --el-disabled-bg-color: var(--ip-color-bg-muted);
+
+  --el-box-shadow: var(--ip-shadow-md);
+  --el-box-shadow-light: var(--ip-shadow-sm);
+  --el-box-shadow-lighter: var(--ip-shadow-sm);
+  --el-border-radius-base: var(--ip-radius-md);
+  --el-font-size-base: var(--ip-font-size-md);
+  --el-font-size-small: var(--ip-font-size-sm);
+  --el-font-size-large: var(--ip-font-size-lg);
+}

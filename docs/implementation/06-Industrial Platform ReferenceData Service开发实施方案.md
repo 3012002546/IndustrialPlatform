@@ -4,9 +4,9 @@
 
 > 当前里程碑范围：在现有四层服务骨架和健康检查基础上，完成字典、参数配置应用域（单值/多值）、EAV 动态配置集、元数据定义、编码规则、缓存与变更事件，并同步交付对应 PC 管理页面、契约测试和关键路径 E2E；物料、设备、工单等业务实体的 EAV 属性值、低代码页面运行时和规则引擎不在本阶段实现。
 
-版本：V2.3
+版本：V2.4（PF-03 详细设计复核版）
 
-所属项目开发路线阶段：PF-03「ReferenceData」。当前代码只有服务骨架，本文虽已有详细设计和任务卡，但必须在 PF-03 独立会话复核 SystemData、主题、权限和当前代码状态后重新确认任务状态；不得按旧 Phase 4 顺序直接派遣。阶段定义见 `docs/blueprint/09-Industrial Platform开发总TodoList.md`。
+所属项目开发路线阶段：PF-03「ReferenceData」。当前代码只有服务骨架；本文是在既有 V2.3 详细设计和 14 张任务卡上完成的复核调整，不是从零设计或平行方案。经本次逐项书面确认，`TASK-RD-001～014` 可进入“待派遣”，但复核完成不等于已经派遣或允许自动开始开发；任何实际派遣、开发和状态推进仍需另行明确指令。阶段定义见 `docs/blueprint/09-Industrial Platform开发总TodoList.md`。
 
 服务：
 
@@ -41,6 +41,9 @@ Vitest 4 + Playwright 1.62
 - `docs/blueprint/29-Industrial Platform自动化测试体系.md`
 - `docs/blueprint/30-Industrial Platform日志审计与可观测性平台设计.md`
 - `docs/blueprint/31-Industrial Platform权限体系与安全架构设计.md`
+- `docs/blueprint/32-Industrial Platform Service Host与内部模块边界.md`
+- `docs/blueprint/33-Industrial Platform SystemData数据库编排与环境引导.md`
+- `docs/implementation/05-Industrial Platform SystemData开发实施方案.md`
 - `docs/implementation/02-Industrial Platform BuildingBlocks基础组件开发实施方案.md`
 - `docs/implementation/02A-Industrial Platform可运行基线开发实施方案.md`
 - `docs/implementation/02B-Industrial Platform统一前端第一批开发实施方案.md`
@@ -65,23 +68,25 @@ Vitest 4 + Playwright 1.62
 - 现有单一测试项目覆盖程序集边界、开发配置绑定和健康检查；本次只核对源文件，不把这些测试表述为本轮重新执行的证据。
 - 尚无 ReferenceData 业务聚合、数据库迁移、业务 API、Contracts 项目、缓存策略、Outbox、权限和管理页面。
 - 统一前端当前仅有基础 Vue 工程文件，ReferenceData API、路由、Store 和页面均不存在。
-- V1.0 同时写有“仅创建项目骨架”和“完成业务能力”的冲突表述；V2.3 以 Phase 4 纵向交付为准，骨架不再作为待创建目标。
+- V1.0 同时写有“仅创建项目骨架”和“完成业务能力”的冲突表述；V2.4 以 PF-03 五模块纵向交付和当前真实骨架为准，骨架不再作为待创建目标。
 
 ## 1.3 执行前置
 
 ```text
 BuildingBlocks 与可运行基线
     ↓
-TASK-FE-010 统一前端第一批验收
+Identity 可信身份、TenantNId/UserNId 与权限判定契约就绪
     ↓
-TASK-ID-016 Identity 前后端联合验收
+PF-02 TASK-SD-001～004 数据库编排链验收
+    ↓
+PF-01 统一前端与真实 Gateway 基线可消费
     ↓
 TASK-RD-001～TASK-RD-014
     ↓
-MasterData 服务 + 页面
+MasterData 等下游按公开契约消费
 ```
 
-前置环境缺失不影响本文设计评审，但会阻止对应开发任务进入“已完成”。
+前置环境缺失不影响本文复核结论，但会阻止对应开发任务从“待派遣”进入开发或验收。不得再以旧 Identity 任务编号替代权威契约门禁。
 
 ---
 
@@ -98,15 +103,17 @@ MasterData 服务 + 页面
 
 ReferenceData 是定义和规则的权威来源，不是所有“基础数据”的统称。
 
+正式宿主固定为现有 `ReferenceData.Service`，不新建核心 Service Host。宿主内固定划分五个内部模块：`Dictionary`、`Parameter`、`Metadata`、`DynamicProperty`、`CodingRule`。五模块必须独立建模、独立 Schema 或等价表前缀、独立公开契约、权限、迁移账本、Outbox/Inbox、缓存命名空间和测试；禁止跨模块直读 Repository/数据表或建立数据库外键，模块间只通过公开契约协作，为未来物理拆分保留边界。
+
 ## 2.2 ReferenceData不负责
 
 | 不属于本服务的内容 | 权威归属 | 本服务允许保存的引用 |
 | --- | --- | --- |
-| 用户、角色、登录、SSO | Identity | `tenantId`、`userId` 和权限上下文 |
+| 用户、角色、登录、SSO | Identity | `TenantNId`、`UserNId` 和权限上下文 |
 | 物料、单位、设备、组织、工厂、仓库、库位、BOM、工艺路线 | MasterData | 对应实体 NId 或不透明外部标识，不建立跨库外键 |
 | 库存批次、余额、预留、收发退、调拨、盘点单据 | OperationalData | CodingRuleNId 和已生成编码 |
 | 工单、称量、追溯、批记录业务事实 | 对应业务服务 | DictionaryNId、ConfigurationKeyNId、元数据版本和编码结果 |
-| 密码、连接串、API Key、证书和私钥 | 密钥管理/部署配置 | 只允许保存非敏感业务配置 |
+| 密码、连接串、API Key、证书和私钥 | 受信 Secret Provider | Parameter 只允许保存 `SecretRef`、版本标识和脱敏状态，不保存或解析秘密本体 |
 | 物料、设备、工单等实体的动态属性实际值 | 拥有该实体的业务服务 | 元数据定义和 `schemaRevision` |
 | 低代码页面生成、任意脚本和规则执行 | 后续低代码平台 | 稳定的元数据读取 API |
 
@@ -117,6 +124,8 @@ ReferenceData 是定义和规则的权威来源，不是所有“基础数据”
 ## 2.3 本阶段取舍
 
 本阶段采用“核心 ReferenceData”边界：完整交付字典、参数配置应用域（单值/多值）、ReferenceData 自有动态配置集、元数据定义和编码规则。动态配置集允许保存配置记录和值，但只用于规则矩阵、映射表、阈值表等配置数据；不创建 `ref_entity_attribute_value`，不保存业务实体实例，不实现表单页面 JSON、动态列表运行时或通用规则引擎。
+
+`DynamicProperty` 是正式的大模块边界，覆盖动态属性及 EAV 能力；现有完整 `DynamicConfigDefinition` 并非临时模型或待机械改名对象，而是该模块当前的核心聚合根。其 `DynamicConfigFieldDefinition`、`DynamicConfigRecord`、`DynamicConfigFieldValue` 领域命名和版本化四表语义继续保留；模块级 Schema、API 前缀、权限、契约命名空间、迁移和测试统一归属 `DynamicProperty`。`Metadata` 负责实体 Schema/属性结构和兼容性差异，`DynamicProperty` 负责动态字段、记录和值；两者只通过 `EntitySchemaNId/schemaRevision` 等公开契约引用。
 
 三类容易混淆的能力按以下规则选择：
 
@@ -145,12 +154,12 @@ MasterData 等服务的运行时读取契约
     ↓
 契约测试、页面组件测试与关键路径 E2E
     ↓
-Phase 4 验收
+PF-03 验收
 ```
 
 统一前端只通过 Gateway 调用业务 API。MasterData 和后续服务只通过 ReferenceData.Contracts、同步 API 或版本化事件消费能力，禁止引用 ReferenceData.Domain/Infrastructure 或读取 `referencedata_db`。
 
-Phase 4 的用户界面仅面向 PC 管理端；PDA、Mobile 和独立看板不需要 ReferenceData 管理入口，但可以间接消费已发布结果。
+PF-03 的用户界面仅面向 PC 管理端；PDA、Mobile 和独立看板不需要 ReferenceData 管理入口，但可以间接消费已发布结果。
 
 ---
 
@@ -232,7 +241,7 @@ src/frontend/src
 ├── pages/pc/referenceData
 │   ├── dictionaries
 │   ├── configurations
-│   ├── dynamicConfigs
+│   ├── dynamicProperties
 │   ├── metadata
 │   └── codingRules
 ├── router/referenceDataRoutes.ts
@@ -256,19 +265,19 @@ Domain 只引用 SharedKernel；Application 可引用 Application.Abstractions�
 
 # 6. 全局技术与实施约束
 
-- 聚合和实体标识使用 `Guid`；`tenantId` 沿用 Identity 当前用户上下文的不透明非空字符串，平台级记录允许 `tenant_id` 为空。
+- 聚合和内部实体标识使用 `Guid`；租户与用户主体统一使用可信身份上下文的 `TenantNId`、`UserNId`。当前 BuildingBlocks/Identity 的旧租户属性命名偏移只能在宿主组合根临时适配，不得进入五模块公开契约、领域模型或持久化模型；平台级记录允许 `tenant_nid` 为空。
 - 所有业务时间使用 `DateTimeOffset`，PostgreSQL 使用 `timestamptz` 并以 UTC 保存。
 - 聚合继承 BuildingBlocks 当前 Entity 生命周期、软删除和 `OptimisticVersion + ConcurrencyVersion` 双版本并发模型。
-- 数据库名固定为 `referencedata_db`；表名前缀固定为 `ref_`。
-- `referencedata_db` 是稳定的 `LogicalDatabaseName`：Development 默认解析为配置的共享 PostgreSQL `industrial_platform_dev` 或共享 SQLite 文件；Test/Staging/Production 由 SystemData 解析为服务专属物理数据库。共享 Development 不允许跨服务表访问或合并迁移账本。
+- `referencedata_db` 是稳定的 `LogicalDatabaseName`，物理目标由 SystemData 的可信 `DatabaseTopology` 配置解析，业务 API 和 manifest 不接受地址、路径或凭据。Development 默认 `Shared`、可显式 `PerService`；Test/Staging/Production 只允许 `PerService`。
+- Shared 只共享物理数据库，不合并服务或模块的数据所有权。PostgreSQL 中五模块分别使用 `reference_dictionary`、`reference_parameter`、`reference_metadata`、`reference_dynamic_property`、`reference_coding_rule` Schema；SQLite 等不支持 Schema 的 Provider 使用等价模块前缀。每模块拥有独立 migration ledger、Repository、Outbox/Inbox 和最小权限。
 - 领域实体自身的稳定业务标识统一命名为 `NId`，禁止以 `Code` 表示实体业务标识；其他实体引用该业务标识时使用 `{EntityName}NId`，例如 `Material.NId` 与业务表中的 `MaterialNId`。
 - `Code` 只保留给“已经生成的业务编码值”等确实表达编码结果、而非实体身份的字段；NId 保存规范化比较值，展示名称保留原始大小写，同一作用域内大小写不敏感唯一。
-- 写请求不能从 Body 指定当前租户；租户必须来自已验证 JWT。平台级写入仅允许平台管理员权限。
+- 写请求不能从 Body 指定当前租户；`TenantNId/UserNId` 必须来自已验证 JWT/可信服务身份。平台级写入使用独立高权限声明，不与普通租户管理权限复用。
 - 统一返回 `ApiResult<T>` / `PageResult<T>`；时间使用含 `Z` 或偏移量的 ISO 8601 字符串。
-- 所有写接口执行权限校验、乐观并发和审计；编码生成额外要求 `Idempotency-Key`。
-- 不允许在业务配置中保存密码、Token、私钥、连接串或客户 IdP Secret。
+- 所有写接口执行模块独立权限校验和乐观并发；编码生成额外要求 `Idempotency-Key`。
+- Parameter 可保存普通非敏感值；密码、Token、私钥、连接串或客户 IdP Secret 只保存受信 Secret Provider 的 `SecretRef`、版本标识和脱敏状态，普通查询不得解析或返回秘密本体。
 - 每项任务执行 TDD，并记录命令、退出码、通过/失败/跳过数量、报告路径和外部环境限制。
-- 状态流转统一为 `待细化 → 可派遣 → 已派遣 → 开发中 → 待验收 → 已完成`；发现设计冲突时改为 `设计待确认`。
+- 状态流转统一为 `设计待确认 → 待派遣 → 已派遣 → 开发中 → 待验收 → 已完成`。本次只完成详细设计复核并获准将任务卡置为“待派遣”；未经后续明确指令不得进入“已派遣”。
 
 所有持久化实体必须直接继承 02 第 8 节定义的 BuildingBlocks Entity，公共字段和 PostgreSQL 列名固定为：
 
@@ -317,15 +326,15 @@ Factory
 
 约束：
 
-- `Platform`：`tenantId` 和 `scopeId` 均为空，仅平台管理员可维护。
-- `Tenant`：`tenantId` 来自 JWT，`scopeId` 为空。
-- `Factory`：`tenantId` 来自 JWT，`scopeId` 为工厂不透明标识。
+- `Platform`：`TenantNId` 和 `ScopeNId` 均为空，仅独立的平台级权限可维护。
+- `Tenant`：`TenantNId` 来自可信身份上下文，`ScopeNId` 为空；当前即使单租户也必须完整可用并携带该身份。
+- `Factory`：`TenantNId` 来自可信身份上下文，`ScopeNId` 为工厂不透明标识。
 - 有效值解析顺序为 `Factory → Tenant → Platform`，命中第一条已发布/启用记录即停止。
-- Phase 4 完成范围为 Platform 和 Tenant。Factory 模型与解析接口保留，但创建/更新必须在 Phase 5 提供工厂权威校验后启用；此前返回 `REF-SCOPE-FACTORY-NOT-READY`，不得接受无法验证归属的工厂标识。
+- PF-03 完整交付 Platform 和 Tenant。Factory 只保留契约扩展点，在 MasterData 提供权威工厂归属校验前，创建、更新和解析均保持禁用并返回 `REF-SCOPE-FACTORY-NOT-READY`；不得以旧 Phase 编号代替该依赖门禁。
 
 ## 7.2 发布型聚合
 
-字典、动态配置、元数据和编码规则统一使用：
+Dictionary、DynamicProperty、Metadata 和 CodingRule 统一使用：
 
 ```text
 Draft → Published → Superseded
@@ -358,7 +367,7 @@ Active ↔ Disabled
 核心字段：
 
 ```text
-TenantId: string?
+TenantNId: string?
 ScopeType: ReferenceScopeType
 ScopeId: string?
 NId: string
@@ -445,7 +454,7 @@ AppDomainNId 和 KeyNId 均不允许包含点号，避免完整路径无法无�
 以下只列业务字段；所有生命周期字段统一继承第 6 节和 BuildingBlocks Entity，不在业务模型中另造时间/状态字段：
 
 ```text
-TenantId: string?
+TenantNId: string?
 ScopeType: Platform | Tenant | Factory
 ScopeId: string?
 NId: string
@@ -623,7 +632,7 @@ Platform AppDomain/Key
 ## 10.3 DynamicConfigDefinition聚合
 
 ```text
-TenantId: string?
+TenantNId: string?
 ScopeType: Platform | Tenant
 ScopeId: string?
 NId: string                      // 跨修订稳定业务标识
@@ -794,7 +803,7 @@ JSON 只是 API 投影；数据库仍使用四表和强类型列，不把整份�
 核心字段：
 
 ```text
-TenantId: string?
+TenantNId: string?
 ScopeType: Platform | Tenant
 NId: string
 Name: string
@@ -849,7 +858,7 @@ Description: string?
 ## 12.1 CodingRule聚合
 
 ```text
-TenantId: string?
+TenantNId: string?
 ScopeType: Platform | Tenant
 NId: string
 Name: string
@@ -882,7 +891,7 @@ Status: Draft | Published | Superseded | Disabled
 
 # 13. 数据与持久化设计
 
-数据库：
+稳定逻辑数据库（物理目标由 SystemData 的可信 `DatabaseTopology` 解析）：
 
 ```text
 referencedata_db
@@ -892,25 +901,15 @@ referencedata_db
 
 | 表 | 主要内容 | 关键约束/索引 |
 | --- | --- | --- |
-| `ref_dictionary_definition` | 作用域、NId、Name、Description、Revision、Status、PublishedOn | 作用域+规范化NId+Revision唯一；同作用域同NId最多一个Published |
-| `ref_dictionary_item` | DictionaryDefinition_Id、DictionaryDefinition_IsDeleted、NId、Name、Description、Sort、Enabled | 父表复合外键；Definition+规范化NId唯一；Definition+Sort索引 |
-| `ref_configuration_app_domain` | 作用域、NId、Name、Description、Status、Revision | 作用域+规范化NId唯一；同作用域最多一个Active容器 |
-| `ref_configuration_key` | ConfigurationAppDomain_Id、ConfigurationAppDomain_IsDeleted、NId、Name、DataType、ValueMode、Value/DefaultValue、IsMandatory、IsReadOnly、DictionaryNId、Status、Sort | 父表复合外键；AppDomain+规范化NId唯一；AppDomain+Sort索引 |
-| `ref_configuration_key_multi_value` | ConfigurationKey_Id、ConfigurationKey_IsDeleted、NId、Name、Value、ValueHash、Sort、IsDefault、Enabled | 父表复合外键；Key+规范化NId唯一；Key+ValueHash部分唯一 |
-| `ref_configuration_history` | ConfigurationAppDomain_Id、ConfigurationAppDomain_IsDeleted、ConfigurationKey_Id、ConfigurationKey_IsDeleted、ObjectType、Revision、前后摘要、用户、原因、TraceId | 对非空父对象使用复合外键；AppDomain+Revision+Id唯一，只追加 |
-| `ref_dynamic_config_definition` | 作用域、NId、Name、Description、Revision、Status、PublishedOn | 作用域+规范化NId+Revision唯一；同NId最多一个Draft和Published |
-| `ref_dynamic_config_field` | DynamicConfigDefinition_Id、DynamicConfigDefinition_IsDeleted、NId、Name、DataType、校验、默认值、DictionaryNId、ReferenceTarget、Sort | 父表复合外键；Definition+规范化NId唯一；Definition+Sort索引 |
-| `ref_dynamic_config_record` | DynamicConfigDefinition_Id、DynamicConfigDefinition_IsDeleted、NId、Name、Category、Sort、Enabled | 父表复合外键；Definition+规范化NId唯一；Definition+Category+Sort索引 |
-| `ref_dynamic_config_value` | DynamicConfigDefinition_Id、DynamicConfigDefinition_IsDeleted、DynamicConfigRecord_Id、DynamicConfigRecord_IsDeleted、DynamicConfigFieldDefinition_Id、DynamicConfigFieldDefinition_IsDeleted、ValueType及各强类型值列 | 三组父表复合外键；Record+Field唯一；Definition修订一致性与类型列Check Constraint |
-| `ref_entity_schema` | 作用域、NId、Name、Description、Revision、Status、PublishedOn | 作用域+规范化NId+Revision唯一；最多一个Published |
-| `ref_attribute_definition` | EntitySchema_Id、EntitySchema_IsDeleted、NId、Name、类型、校验约束、DictionaryNId、ReferenceTarget、Sort | 父表复合外键；Schema+规范化NId唯一 |
-| `ref_coding_rule` | 作用域、NId、Name、TargetEntityNId、Template、ResetPolicy、Revision、Status | 作用域+规范化NId+Revision唯一；最多一个Published |
-| `ref_coding_sequence` | CodingRule_Id、CodingRule_IsDeleted、Revision、PeriodKey、ContextHash、CurrentValue | 父表复合外键；规则+Revision+PeriodKey+ContextHash唯一；原子推进 |
-| `ref_idempotency_record` | CodingRule_Id、CodingRule_IsDeleted、TenantId、Operation、Key、RequestHash、Response、ExpiresOn | 父表复合外键；TenantId+Operation+Key唯一 |
-| `ref_outbox_message` | EventId、Type、Version、Payload、EventCreatedTime、PublishedOn、RetryCount | EventId唯一；PublishedOn+EventCreatedTime索引 |
-| `ref_operation_audit` | TenantId、UserId、Action、ObjectType、ObjectId、前后摘要、TraceId | TenantId+时间、ObjectType+ObjectId索引 |
+| `reference_dictionary.dictionary_definition/item` | 字典定义、修订、项与发布 | 模块内复合外键；作用域+规范化NId+Revision唯一 |
+| `reference_parameter.configuration_app_domain/key/key_multi_value/history` | 参数应用域、键、单值/多值和领域历史 | 按 Key 整体覆盖；历史只追加；Secret 仅保存 SecretRef |
+| `reference_dynamic_property.dynamic_config_definition/field/record/value` | `DynamicConfigDefinition` 完整 EAV 聚合 | 四表同 Revision；强类型值 Check Constraint；整份原子发布 |
+| `reference_metadata.entity_schema/attribute_definition` | EntitySchema 完整快照与属性定义 | 属性只属于同一 Schema 修订；发布生成兼容性差异摘要 |
+| `reference_coding_rule.coding_rule/sequence/idempotency_record` | 规则、原子序列与幂等响应 | `TenantNId+RuleNId+IdempotencyKey` 幂等；Preview 不占号 |
+| 每模块 `outbox_message/inbox_message/consumer_checkpoint` | 模块独立事件发布、幂等消费与位点 | 不共表、不跨模块迁移；宿主仅复用组件 |
+| 每模块 `schema_migrations` | 模块独立迁移账本 | 独立记录 Desired/Observed Version；不得由共享账本掩盖失败 |
 
-上述“主要内容”有意不重复 Entity 生命周期字段。所有表均遵守第 6 节公共字段、父表 `(Id, IsDeleted)` 可引用唯一键及子表 `{ParentEntity}_Id + {ParentEntity}_IsDeleted` 复合外键规则。聚合根软删除通过父级影子列使全部子项不可见，子项自身的 `IsDeleted` 仍保持独立；不允许绕过聚合单独恢复子项。
+上述“主要内容”有意不重复 Entity 生命周期字段。所有领域表均遵守第 6 节公共字段、父表 `(Id, IsDeleted)` 可引用唯一键及子表 `{ParentEntity}_Id + {ParentEntity}_IsDeleted` 复合外键规则。聚合根软删除通过父级影子列使全部子项不可见，子项自身的 `IsDeleted` 仍保持独立；不允许绕过聚合单独恢复子项。模块之间不得建立外键，跨模块引用只保存稳定 NId/Revision 并通过公开契约校验。
 
 迁移规则：
 
@@ -919,6 +918,14 @@ referencedata_db
 - 平台级空租户的唯一约束使用明确的部分唯一索引，避免 `NULL` 导致重复。
 - 发布切换、动态配置四表快照、配置历史、编码生成和 Outbox 均使用本地事务；禁止分布式事务。
 - 本阶段创建的 EAV 值表只保存 ReferenceData 自有配置记录；不创建业务实体属性值表、低代码页面表或跨服务外键。
+
+## 13.1 SystemData 数据库编排消费与 readiness
+
+ReferenceData 只作为 PF-02 控制面的消费者，不重复实现数据库编排。宿主登记 `ServiceKey=referencedata`、`Provider`、稳定 `LogicalDatabaseName=referencedata_db`、Owner、DesiredState、AutoProvision/AutoMigrate，以及一个宿主级签名 Migration Bundle/Version；Bundle 内声明 Dictionary、Parameter、Metadata、DynamicProperty、CodingRule 五个独立迁移单元、账本和期望版本。物理目标完全由可信 `DatabaseTopology` 解析。
+
+启动握手固定为：`登记/查询 → plan/OperationId → provision/migrate/drift → 五模块版本复核 → readiness`。SystemData 不可用、目标错误、drift、任一模块迁移失败或版本不一致时，整个宿主保持 `NotReady`，但 liveness 仍可 Healthy；readiness 返回五模块脱敏状态、OperationId 和 TraceId，不泄露地址、路径或凭据，也不开放部分业务流量。
+
+Shared 物理目标只 provision 一次；同一物理目标 DDL 使用 PostgreSQL advisory lock 或等效锁串行化，迁移和 readiness 仍按模块独立报告。ReferenceData 不持有管理员凭据、不自行建库、不使用 `EnsureCreated`，也不在远程失败时回退 SQLite、旧 Schema 或错误数据库。拓扑变化不隐式 copy、rename、merge 或 split；已有数据必须报告 drift 并走显式迁移/import。SystemData 自身由 PostgreSQL 18 基础设施最小 bootstrap 的例外不属于 PF-03。
 
 ---
 
@@ -963,54 +970,53 @@ Gateway：/referencedata/api/v1/reference-data/**
 
 | Method | 服务内部路径 | Request/Response | 权限 |
 | --- | --- | --- | --- |
-| GET | `/admin/dictionaries` | Query → `PageResult<DictionarySummaryDto>` | `reference.dictionary.read` |
-| POST | `/admin/dictionaries` | `CreateDictionaryRequest` → `DictionaryDetailDto`，201 | `reference.dictionary.manage` |
-| GET | `/admin/dictionaries/{id}` | → `DictionaryDetailDto` | `reference.dictionary.read` |
-| PUT | `/admin/dictionaries/{id}` | `UpdateDictionaryRequest` → `DictionaryDetailDto` | `reference.dictionary.manage` |
-| POST | `/admin/dictionaries/{id}/clone` | 并发版本 → 新 Draft | `reference.dictionary.manage` |
-| POST | `/admin/dictionaries/{id}/publish` | 并发版本 → Published | `reference.dictionary.publish` |
-| POST | `/admin/dictionaries/{id}/disable` | 并发版本+原因 → Disabled | `reference.dictionary.publish` |
-| GET | `/admin/configuration-domains` | Query → `PageResult<ConfigurationAppDomainSummaryDto>` | `reference.configuration.read` |
-| POST | `/admin/configuration-domains` | `CreateConfigurationAppDomainRequest` → `ConfigurationAppDomainDetailDto`，201 | `reference.configuration.manage` |
-| GET | `/admin/configuration-domains/{id}` | → `ConfigurationAppDomainDetailDto` | `reference.configuration.read` |
-| PUT | `/admin/configuration-domains/{id}` | `UpdateConfigurationAppDomainRequest` → `ConfigurationAppDomainDetailDto` | `reference.configuration.manage` |
-| POST | `/admin/configuration-domains/{id}/enable` | `ChangeConfigurationStateRequest` → Domain DTO | `reference.configuration.manage` |
-| POST | `/admin/configuration-domains/{id}/disable` | `ChangeConfigurationStateRequest` → Domain DTO | `reference.configuration.manage` |
-| POST | `/admin/configuration-domains/{id}/keys` | `CreateConfigurationKeyRequest` → `ConfigurationKeyDto`，201 | `reference.configuration.manage` |
-| PUT | `/admin/configuration-domains/{id}/keys/{keyId}` | `UpdateConfigurationKeyRequest` → `ConfigurationKeyDto` | `reference.configuration.manage` |
-| POST | `/admin/configuration-domains/{id}/keys/{keyId}/enable` | `ChangeConfigurationStateRequest` → Key DTO | `reference.configuration.manage` |
-| POST | `/admin/configuration-domains/{id}/keys/{keyId}/disable` | `ChangeConfigurationStateRequest` → Key DTO | `reference.configuration.manage` |
-| POST | `/admin/configuration-domains/{id}/keys/{keyId}/values` | `CreateConfigurationMultiValueRequest` → MultiValue DTO，201 | `reference.configuration.manage` |
-| PUT | `/admin/configuration-domains/{id}/keys/{keyId}/values/{valueId}` | `UpdateConfigurationMultiValueRequest` → MultiValue DTO | `reference.configuration.manage` |
-| POST | `/admin/configuration-domains/{id}/keys/{keyId}/values/{valueId}/enable` | `ChangeConfigurationStateRequest` → MultiValue DTO | `reference.configuration.manage` |
-| POST | `/admin/configuration-domains/{id}/keys/{keyId}/values/{valueId}/disable` | `ChangeConfigurationStateRequest` → MultiValue DTO | `reference.configuration.manage` |
-| GET | `/admin/configuration-domains/{id}/keys/{keyId}/history` | → `PageResult<ConfigurationHistoryDto>` | `reference.configuration.read` |
-| GET | `/admin/dynamic-configs` | Query → `PageResult<DynamicConfigSummaryDto>` | `reference.dynamic-config.read` |
-| POST | `/admin/dynamic-configs` | `CreateDynamicConfigRequest` → `DynamicConfigDetailDto`，201 | `reference.dynamic-config.manage` |
-| GET | `/admin/dynamic-configs/{id}` | → `DynamicConfigDetailDto` | `reference.dynamic-config.read` |
-| PUT | `/admin/dynamic-configs/{id}` | `UpdateDynamicConfigRequest` → `DynamicConfigDetailDto` | `reference.dynamic-config.manage` |
-| POST | `/admin/dynamic-configs/{id}/records` | `CreateDynamicConfigRecordRequest` → `DynamicConfigRecordDto`，201 | `reference.dynamic-config.manage` |
-| PUT | `/admin/dynamic-configs/{id}/records/{recordId}` | `UpdateDynamicConfigRecordRequest` → `DynamicConfigRecordDto` | `reference.dynamic-config.manage` |
-| POST | `/admin/dynamic-configs/{id}/records/{recordId}/disable` | `PublishOrDisableRequest` → `DynamicConfigRecordDto` | `reference.dynamic-config.manage` |
-| POST | `/admin/dynamic-configs/{id}/clone` | `PublishOrDisableRequest` → 新 Draft | `reference.dynamic-config.manage` |
-| POST | `/admin/dynamic-configs/{id}/publish` | `PublishOrDisableRequest` → Published | `reference.dynamic-config.publish` |
-| POST | `/admin/dynamic-configs/{id}/disable` | `PublishOrDisableRequest` → Disabled | `reference.dynamic-config.publish` |
-| GET | `/admin/metadata-schemas` | Query → `PageResult<MetadataSchemaSummaryDto>` | `reference.metadata.read` |
-| POST | `/admin/metadata-schemas` | `CreateMetadataSchemaRequest` → `MetadataSchemaDetailDto`，201 | `reference.metadata.manage` |
-| GET | `/admin/metadata-schemas/{id}` | → `MetadataSchemaDetailDto` | `reference.metadata.read` |
-| PUT | `/admin/metadata-schemas/{id}` | `UpdateMetadataSchemaRequest` → `MetadataSchemaDetailDto` | `reference.metadata.manage` |
-| POST | `/admin/metadata-schemas/{id}/clone` | `PublishOrDisableRequest` → 新 Draft | `reference.metadata.manage` |
-| POST | `/admin/metadata-schemas/{id}/publish` | `PublishOrDisableRequest` → Published | `reference.metadata.publish` |
-| POST | `/admin/metadata-schemas/{id}/disable` | `PublishOrDisableRequest` → Disabled | `reference.metadata.publish` |
-| GET | `/admin/coding-rules` | Query → `PageResult<CodingRuleSummaryDto>` | `reference.coding-rule.read` |
-| POST | `/admin/coding-rules` | `CreateCodingRuleRequest` → `CodingRuleDetailDto`，201 | `reference.coding-rule.manage` |
-| GET | `/admin/coding-rules/{id}` | → `CodingRuleDetailDto` | `reference.coding-rule.read` |
-| PUT | `/admin/coding-rules/{id}` | `UpdateCodingRuleRequest` → `CodingRuleDetailDto` | `reference.coding-rule.manage` |
-| POST | `/admin/coding-rules/{id}/clone` | `PublishOrDisableRequest` → 新 Draft | `reference.coding-rule.manage` |
-| POST | `/admin/coding-rules/{id}/publish` | `PublishOrDisableRequest` → Published | `reference.coding-rule.publish` |
-| POST | `/admin/coding-rules/{id}/disable` | `PublishOrDisableRequest` → Disabled | `reference.coding-rule.publish` |
-| POST | `/admin/coding-rules/{id}/preview` | `PreviewCodeRequest` → `CodePreviewDto` | `reference.coding-rule.read` |
-| GET | `/admin/audits` | Query → `PageResult<ReferenceAuditDto>` | `reference.audit.read` |
+| GET | `/admin/dictionaries` | Query → `PageResult<DictionarySummaryDto>` | `ReferenceData.Dictionary.Read` |
+| POST | `/admin/dictionaries` | `CreateDictionaryRequest` → `DictionaryDetailDto`，201 | `ReferenceData.Dictionary.Create` |
+| GET | `/admin/dictionaries/{id}` | → `DictionaryDetailDto` | `ReferenceData.Dictionary.Read` |
+| PUT | `/admin/dictionaries/{id}` | `UpdateDictionaryRequest` → `DictionaryDetailDto` | `ReferenceData.Dictionary.Update` |
+| POST | `/admin/dictionaries/{id}/clone` | 并发版本 → 新 Draft | `ReferenceData.Dictionary.Create` |
+| POST | `/admin/dictionaries/{id}/publish` | 并发版本 → Published | `ReferenceData.Dictionary.Publish` |
+| POST | `/admin/dictionaries/{id}/disable` | 并发版本+原因 → Disabled | `ReferenceData.Dictionary.Disable` |
+| GET | `/admin/configuration-domains` | Query → `PageResult<ConfigurationAppDomainSummaryDto>` | `ReferenceData.Parameter.Read` |
+| POST | `/admin/configuration-domains` | `CreateConfigurationAppDomainRequest` → `ConfigurationAppDomainDetailDto`，201 | `ReferenceData.Parameter.Create` |
+| GET | `/admin/configuration-domains/{id}` | → `ConfigurationAppDomainDetailDto` | `ReferenceData.Parameter.Read` |
+| PUT | `/admin/configuration-domains/{id}` | `UpdateConfigurationAppDomainRequest` → `ConfigurationAppDomainDetailDto` | `ReferenceData.Parameter.Update` |
+| POST | `/admin/configuration-domains/{id}/enable` | `ChangeConfigurationStateRequest` → Domain DTO | `ReferenceData.Parameter.Update` |
+| POST | `/admin/configuration-domains/{id}/disable` | `ChangeConfigurationStateRequest` → Domain DTO | `ReferenceData.Parameter.Disable` |
+| POST | `/admin/configuration-domains/{id}/keys` | `CreateConfigurationKeyRequest` → `ConfigurationKeyDto`，201 | `ReferenceData.Parameter.Create` |
+| PUT | `/admin/configuration-domains/{id}/keys/{keyId}` | `UpdateConfigurationKeyRequest` → `ConfigurationKeyDto` | `ReferenceData.Parameter.Update` |
+| POST | `/admin/configuration-domains/{id}/keys/{keyId}/enable` | `ChangeConfigurationStateRequest` → Key DTO | `ReferenceData.Parameter.Update` |
+| POST | `/admin/configuration-domains/{id}/keys/{keyId}/disable` | `ChangeConfigurationStateRequest` → Key DTO | `ReferenceData.Parameter.Disable` |
+| POST | `/admin/configuration-domains/{id}/keys/{keyId}/values` | `CreateConfigurationMultiValueRequest` → MultiValue DTO，201 | `ReferenceData.Parameter.Create` |
+| PUT | `/admin/configuration-domains/{id}/keys/{keyId}/values/{valueId}` | `UpdateConfigurationMultiValueRequest` → MultiValue DTO | `ReferenceData.Parameter.Update` |
+| POST | `/admin/configuration-domains/{id}/keys/{keyId}/values/{valueId}/enable` | `ChangeConfigurationStateRequest` → MultiValue DTO | `ReferenceData.Parameter.Update` |
+| POST | `/admin/configuration-domains/{id}/keys/{keyId}/values/{valueId}/disable` | `ChangeConfigurationStateRequest` → MultiValue DTO | `ReferenceData.Parameter.Disable` |
+| GET | `/admin/configuration-domains/{id}/keys/{keyId}/history` | → `PageResult<ConfigurationHistoryDto>` | `ReferenceData.Parameter.Read` |
+| GET | `/admin/dynamic-properties/configurations` | Query → `PageResult<DynamicConfigSummaryDto>` | `ReferenceData.DynamicProperty.Read` |
+| POST | `/admin/dynamic-properties/configurations` | `CreateDynamicConfigRequest` → `DynamicConfigDetailDto`，201 | `ReferenceData.DynamicProperty.Create` |
+| GET | `/admin/dynamic-properties/configurations/{id}` | → `DynamicConfigDetailDto` | `ReferenceData.DynamicProperty.Read` |
+| PUT | `/admin/dynamic-properties/configurations/{id}` | `UpdateDynamicConfigRequest` → `DynamicConfigDetailDto` | `ReferenceData.DynamicProperty.Update` |
+| POST | `/admin/dynamic-properties/configurations/{id}/records` | `CreateDynamicConfigRecordRequest` → `DynamicConfigRecordDto`，201 | `ReferenceData.DynamicProperty.Update` |
+| PUT | `/admin/dynamic-properties/configurations/{id}/records/{recordId}` | `UpdateDynamicConfigRecordRequest` → `DynamicConfigRecordDto` | `ReferenceData.DynamicProperty.Update` |
+| POST | `/admin/dynamic-properties/configurations/{id}/records/{recordId}/disable` | `PublishOrDisableRequest` → `DynamicConfigRecordDto` | `ReferenceData.DynamicProperty.Disable` |
+| POST | `/admin/dynamic-properties/configurations/{id}/clone` | `PublishOrDisableRequest` → 新 Draft | `ReferenceData.DynamicProperty.Create` |
+| POST | `/admin/dynamic-properties/configurations/{id}/publish` | `PublishOrDisableRequest` → Published | `ReferenceData.DynamicProperty.Publish` |
+| POST | `/admin/dynamic-properties/configurations/{id}/disable` | `PublishOrDisableRequest` → Disabled | `ReferenceData.DynamicProperty.Disable` |
+| GET | `/admin/metadata-schemas` | Query → `PageResult<MetadataSchemaSummaryDto>` | `ReferenceData.Metadata.Read` |
+| POST | `/admin/metadata-schemas` | `CreateMetadataSchemaRequest` → `MetadataSchemaDetailDto`，201 | `ReferenceData.Metadata.Create` |
+| GET | `/admin/metadata-schemas/{id}` | → `MetadataSchemaDetailDto` | `ReferenceData.Metadata.Read` |
+| PUT | `/admin/metadata-schemas/{id}` | `UpdateMetadataSchemaRequest` → `MetadataSchemaDetailDto` | `ReferenceData.Metadata.Update` |
+| POST | `/admin/metadata-schemas/{id}/clone` | `PublishOrDisableRequest` → 新 Draft | `ReferenceData.Metadata.Create` |
+| POST | `/admin/metadata-schemas/{id}/publish` | `PublishOrDisableRequest` → Published | `ReferenceData.Metadata.Publish` |
+| POST | `/admin/metadata-schemas/{id}/disable` | `PublishOrDisableRequest` → Disabled | `ReferenceData.Metadata.Disable` |
+| GET | `/admin/coding-rules` | Query → `PageResult<CodingRuleSummaryDto>` | `ReferenceData.CodingRule.Read` |
+| POST | `/admin/coding-rules` | `CreateCodingRuleRequest` → `CodingRuleDetailDto`，201 | `ReferenceData.CodingRule.Create` |
+| GET | `/admin/coding-rules/{id}` | → `CodingRuleDetailDto` | `ReferenceData.CodingRule.Read` |
+| PUT | `/admin/coding-rules/{id}` | `UpdateCodingRuleRequest` → `CodingRuleDetailDto` | `ReferenceData.CodingRule.Update` |
+| POST | `/admin/coding-rules/{id}/clone` | `PublishOrDisableRequest` → 新 Draft | `ReferenceData.CodingRule.Create` |
+| POST | `/admin/coding-rules/{id}/publish` | `PublishOrDisableRequest` → Published | `ReferenceData.CodingRule.Publish` |
+| POST | `/admin/coding-rules/{id}/disable` | `PublishOrDisableRequest` → Disabled | `ReferenceData.CodingRule.Disable` |
+| POST | `/admin/coding-rules/{id}/preview` | `PreviewCodeRequest` → `CodePreviewDto` | `ReferenceData.CodingRule.Preview` |
 
 创建/更新 DTO 必须显式包含作用域、NId、名称和领域字段，禁止接收任意 JSON 后由服务静默猜测类型。
 
@@ -1074,15 +1080,15 @@ PublishOrDisableRequest
 
 | Method | 服务内部路径 | Response | 权限/调用约束 |
 | --- | --- | --- | --- |
-| GET | `/dictionaries/{nId}` | `EffectiveDictionaryDto` | `reference.dictionary.consume` |
-| GET | `/configuration-domains/{appDomainNId}` | `EffectiveConfigurationDomainDto` | `reference.configuration.consume`；最多500个Key |
-| GET | `/configuration-domains/{appDomainNId}/keys/{keyNId}` | `EffectiveConfigurationDto` | `reference.configuration.consume` |
-| GET | `/dynamic-configs/{nId}/schema` | `EffectiveDynamicConfigSchemaDto` | `reference.dynamic-config.consume` |
-| GET | `/dynamic-configs/{nId}/records?revision={revision}` | `PageResult<DynamicConfigRecordDto>` | `reference.dynamic-config.consume`；Revision 必填且必须分页 |
-| GET | `/dynamic-configs/{nId}/records/{recordNId}?revision={revision}` | `DynamicConfigRecordDto` | `reference.dynamic-config.consume`；Revision 必填 |
-| GET | `/metadata-schemas/{nId}` | `EffectiveSchemaDto` | `reference.metadata.consume` |
-| POST | `/coding-rules/{nId}/preview` | `CodePreviewDto`，不推进序列 | `reference.coding-rule.read` |
-| POST | `/coding-rules/{nId}/generate` | `GeneratedCodeDto` | `reference.coding-rule.generate`；必须有 Idempotency-Key |
+| GET | `/dictionaries/{nId}` | `EffectiveDictionaryDto` | `ReferenceData.Dictionary.Read` |
+| GET | `/configuration-domains/{appDomainNId}` | `EffectiveConfigurationDomainDto` | `ReferenceData.Parameter.Read`；最多500个Key |
+| GET | `/configuration-domains/{appDomainNId}/keys/{keyNId}` | `EffectiveConfigurationDto` | `ReferenceData.Parameter.Read` |
+| GET | `/dynamic-properties/configurations/{nId}/schema` | `EffectiveDynamicConfigSchemaDto` | `ReferenceData.DynamicProperty.Read` |
+| GET | `/dynamic-properties/configurations/{nId}/records?revision={revision}` | `PageResult<DynamicConfigRecordDto>` | `ReferenceData.DynamicProperty.Read`；Revision 必填且必须分页 |
+| GET | `/dynamic-properties/configurations/{nId}/records/{recordNId}?revision={revision}` | `DynamicConfigRecordDto` | `ReferenceData.DynamicProperty.Read`；Revision 必填 |
+| GET | `/metadata-schemas/{nId}` | `EffectiveSchemaDto` | `ReferenceData.Metadata.Read` |
+| POST | `/coding-rules/{nId}/preview` | `CodePreviewDto`，不推进序列 | `ReferenceData.CodingRule.Preview` |
+| POST | `/coding-rules/{nId}/generate` | `GeneratedCodeDto` | `ReferenceData.CodingRule.Generate`；必须有 Idempotency-Key |
 
 交互式请求沿用用户 JWT；后台服务身份和客户端凭据由 Identity 后续服务认证契约提供，在该契约落地前不得使用共享管理员 Token 替代。
 
@@ -1146,7 +1152,7 @@ industrial.reference-data.coding-rule.published.v1
 eventId: Guid
 eventVersion: 1
 createdTime: DateTimeOffset
-tenantId: string?
+tenantNId: string?
 scopeType: string
 scopeId: string?
 aggregateId: Guid
@@ -1159,7 +1165,7 @@ traceId: string?
 
 事件只包含定位、版本和缓存失效所需字段，不携带完整配置值、字典内容或敏感信息。消费者收到事件后按 API 拉取当前版本；重复事件按 EventId 去重，乱序事件按 Revision 丢弃旧版本。
 
-Outbox Worker 每秒轮询一次、每批最多 100 条；失败按 1、2、4、8、16、30、60、120、300 秒退避，累计 10 次失败后保留消息并触发告警，不自动丢弃。消息发布失败不回滚已提交业务事务。事件字段新增保持向后兼容，删除或改义必须发布 V2。
+五模块分别在自己的 Schema 中维护 Outbox、Inbox 和消费位点，宿主只复用发布、消费、重试与清理组件，不共用数据表。Outbox Worker 每秒轮询一次、每批最多 100 条；失败按 1、2、4、8、16、30、60、120、300 秒退避，累计 10 次失败后保留消息并触发告警，不自动丢弃。消息发布失败不回滚已提交业务事务。事件字段新增保持向后兼容，删除或改义必须发布 V2。
 
 ---
 
@@ -1171,12 +1177,12 @@ Outbox Worker 每秒轮询一次、每批最多 100 条；失败按 1、2、4、
 referencedata:v1:{tenantKey}:dictionary:{normalizedNId}
 referencedata:v1:{tenantKey}:configuration:{factoryKey}:{normalizedAppDomainNId}:{normalizedKeyNId}
 referencedata:v1:{tenantKey}:configuration-domain:{factoryKey}:{normalizedAppDomainNId}:{revision}
-referencedata:v1:{tenantKey}:dynamic-config:{normalizedNId}:{revision}:{pageKey}
+referencedata:dynamic-property:v1:{tenantKey}:dynamic-config:{normalizedNId}:{revision}:{pageKey}
 referencedata:v1:{tenantKey}:metadata:{normalizedNId}
 referencedata:v1:{tenantKey}:coding-rule:{normalizedNId}
 ```
 
-建议 TTL：字典 30 分钟、参数配置 Key/Domain 5 分钟、动态配置 Schema 15 分钟、动态配置记录页 5 分钟、元数据 15 分钟、编码规则 15 分钟；AppDomain/Key/MultiValue 修改提交成功后失效整个逻辑 AppDomain 的 Key 和 Domain 缓存，其他能力按 NId 失效。缓存值必须包含 Revision，禁止永久缓存“不存在”。
+五模块分别维护缓存命名空间与模块修订，不设置会造成跨模块联动失效的全局 `ReferenceDataRevision`。建议 TTL：字典 30 分钟、参数配置 Key/Domain 5 分钟、DynamicProperty Schema 15 分钟、动态配置记录页 5 分钟、元数据 15 分钟、编码规则 15 分钟；AppDomain/Key/MultiValue 修改提交成功后失效整个逻辑 AppDomain 的 Key 和 Domain 缓存，其他能力按 NId 失效。缓存值必须包含 Revision，禁止永久缓存“不存在”。
 
 一致性策略：
 
@@ -1199,7 +1205,7 @@ MasterData 及后续服务可稳定依赖：
 - 调用方必须设置不超过 Gateway 10 秒上限的超时；读取可对网络瞬时错误有限重试，编码生成只可携带同一 Idempotency-Key 重试。
 - 禁止消费者通过数据库、Redis Key 或内部实体结构耦合 ReferenceData。
 
-Factory 作用域在 MasterData 完成前保持不可写。Phase 5 应提供工厂归属校验适配器或稳定 API，再将 Factory 从受限状态切换为可用；不得在 ReferenceData 数据库建立工厂外键。
+Factory 作用域在 MasterData 提供权威工厂归属校验适配器或稳定 API 前保持不可写；门禁满足后才能从受限状态切换为可用。不得在 ReferenceData 数据库建立工厂外键。
 
 ---
 
@@ -1212,20 +1218,20 @@ PC 菜单：
 └── 参考数据
     ├── 字典管理
     ├── 参数配置
-    ├── 动态配置
+    ├── 动态属性
     ├── 元数据定义
     └── 编码规则
 ```
 
 | 路由 | 页面 | 路由权限 |
 | --- | --- | --- |
-| `/pc/system/reference-data/dictionaries` | 字典列表/详情 | `reference.dictionary.read` |
-| `/pc/system/reference-data/configurations` | 配置应用域/键/多值 | `reference.configuration.read` |
-| `/pc/system/reference-data/dynamic-configs` | 动态配置定义/字段/记录 | `reference.dynamic-config.read` |
-| `/pc/system/reference-data/metadata` | Schema 列表/编辑 | `reference.metadata.read` |
-| `/pc/system/reference-data/coding-rules` | 编码规则列表/预览 | `reference.coding-rule.read` |
+| `/pc/system/reference-data/dictionaries` | 字典列表/详情 | `ReferenceData.Dictionary.Read` |
+| `/pc/system/reference-data/configurations` | 配置应用域/键/多值 | `ReferenceData.Parameter.Read` |
+| `/pc/system/reference-data/dynamic-properties` | DynamicProperty 模块；编辑 DynamicConfigDefinition 字段/记录/值 | `ReferenceData.DynamicProperty.Read` |
+| `/pc/system/reference-data/metadata` | Schema 列表/编辑 | `ReferenceData.Metadata.Read` |
+| `/pc/system/reference-data/coding-rules` | 编码规则列表/预览 | `ReferenceData.CodingRule.Read` |
 
-按钮通过 PermissionGate 控制 manage、publish、audit 权限；前端隐藏按钮不替代服务端授权。五个页面使用 PCLayout，不增加 PDA/Mobile 管理路由。
+按钮通过 PermissionGate 控制五模块各自的 Read/Create/Update/Publish/Disable 权限；CodingRule 另有 Preview/Generate，Parameter 另有 ReadSecretReference。前端隐藏按钮不替代服务端授权。五个页面使用 PCLayout，不增加 PDA/Mobile 管理路由，也不建设统一审计页面。
 
 前端 API 层必须只暴露有类型的方法和统一错误对象，不允许页面直接创建 Axios 实例。MSW 仅用于组件测试和前置联调，联合验收必须切换真实 Gateway。
 
@@ -1253,7 +1259,7 @@ PC 菜单：
 - 新增/修改必须填写变更原因；历史抽屉显示 AppDomain Revision、对象层级、操作者、CreatedOn 和脱敏后的前后摘要。
 - 对疑似敏感 NId/Value 显示拒绝原因和密钥管理提示，不允许强行保存。
 
-## 20.3 动态配置
+## 20.3 DynamicProperty（动态属性）
 
 - 列表字段：NId、名称、作用域、Revision、状态、字段数、记录数、发布时间。
 - Draft 编辑页分为“字段定义”“配置记录”“发布校验”三个页签；Published/Superseded 只能查看。
@@ -1277,7 +1283,7 @@ PC 菜单：
 - 列表字段：NId、名称、TargetEntityNId、作用域、Revision、状态、模板、重置策略。
 - 编辑器只允许插入第 12.1 节 Token，并即时显示语法错误。
 - Preview 要求用户填写模板所需上下文，明确标注“不消耗正式序号”。
-- 页面不默认提供正式 Generate 操作；正式编码由拥有 `reference.coding-rule.generate` 的业务调用方生成。
+- 页面不默认提供正式 Generate 操作；正式编码由拥有 `ReferenceData.CodingRule.Generate` 的业务调用方生成。
 - 发布前展示样例、长度和序列分区说明；并发冲突行为与字典一致。
 
 ## 20.6 通用页面状态与可访问性
@@ -1326,17 +1332,17 @@ PC 菜单：
 
 ## 21.2 安全与授权
 
-- JWT 验证、`tenant_id` 和权限声明由 Identity 契约提供；缺少租户的租户级操作 fail-closed。
+- JWT 验证、`TenantNId/UserNId` 和权限声明由 Identity 权威契约提供；缺少租户的租户级操作 fail-closed。当前代码中的旧租户属性名仅为前置契约偏移，不得固化到本服务模型。
 - 所有查询在 Repository/Query 层强制租户过滤，不依赖 Controller 手工拼接。
-- 平台级维护、发布、审计和编码生成分别授权，禁止以一个“管理员”权限覆盖全部动作。
+- 五模块分别声明 `ReferenceData.{Module}.Read/Create/Update/Publish/Disable`；CodingRule 额外声明 Preview/Generate，Parameter 额外声明 ReadSecretReference。平台级维护使用独立高权限，禁止以一个“管理员”权限覆盖全部动作；Identity 负责权威判定和分配。
 - JSON、Pattern、EAV 字段和值和 Template 按类型、数量、长度与语法白名单校验；不执行表达式、脚本或动态 SQL。
 - 配置值、生成编码和事件负载记录时按字段规则脱敏；日志禁止输出 Authorization 和 Idempotency Record 完整响应。
 
 ## 21.3 审计与可观测性
 
-审计动作至少包括创建、更新、克隆、发布、禁用、配置解析异常、正式编码生成和权限拒绝。记录对象类型/ID、租户、用户、动作、原因、前后摘要、Revision、TraceId 和时间；敏感拒绝场景不保存被拒原值。在线审计保留 365 天，由每日清理任务按租户批量删除过期记录；法规或客户要求更长保留时由外部审计归档平台承接，不无限扩张业务库。
+ReferenceData 不建立 `ref_operation_audit`、统一审计查询 API、审计管理页面或合规保留策略。五模块只保留解释自身状态所需的领域历史和事务 Outbox；PF-04 Audit 是统一审计事实源。PF-04 契约未确认前，本阶段只定义标准审计事件适配门禁，不预设其 API。必要的宿主操作日志只作短期故障诊断，不承担合规审计，也不得保存敏感原值。
 
-结构化日志字段至少包括 `ServiceName`、`TraceId`、`TenantId`、`UserId`、`Operation`、`ObjectId`、`Revision`、`DurationMs` 和结果。指标至少包括 API 延迟/错误率、缓存命中率、数据库降级次数、Outbox 积压/重试、各类型发布次数、动态配置发布记录数/校验失败数、并发冲突和编码生成冲突。保留现有 live/ready 健康检查并纳入数据库、Redis、RabbitMQ 和 Seq 状态。
+结构化日志字段至少包括 `ServiceName`、`TraceId`、`TenantNId`、`UserNId`、`Module`、`Operation`、`ObjectNId`、`Revision`、`DurationMs` 和结果。指标至少包括 API 延迟/错误率、模块缓存命中率、数据库降级次数、各模块 Outbox/Inbox 积压与重试、发布次数、DynamicProperty 发布记录数/校验失败数、并发冲突和编码生成冲突。liveness 与 readiness 分离；readiness 汇总 SystemData 握手和五模块迁移版本，任一必需模块失败时整个宿主返回 503 `NotReady`。
 
 ---
 
@@ -1354,6 +1360,8 @@ PC 菜单：
 | Frontend Component | AppDomain/Key导航、Single/Multi编辑、ReadOnly禁用、显式空值提示、动态字段编辑、EAV记录分页、发布差异、权限按钮、冲突保留、错误映射 |
 | E2E | 登录→字典发布→运行时读取；应用域创建→单值/多值键→作用域解析；动态配置定义/记录/发布；Schema 发布；编码预览；幂等正式生成 |
 
+上述 Domain、Application、Infrastructure、API、Contract 五层测试必须按 Dictionary、Parameter、Metadata、DynamicProperty、CodingRule 分别建立边界，覆盖 `TenantNId` 隔离、权限拒绝、乐观并发、发布/覆盖或修订语义、独立 Schema/前缀、migration ledger、Outbox/Inbox 和缓存降级。SQLite 用于快速集成，真实 PostgreSQL 18 必须提供迁移、约束和并发证据；PC 关键路径必须经过真实 Gateway。
+
 ## 22.2 关键验收场景
 
 1. 平台发布字典，租户未覆盖时读取平台版本；租户发布同 NId 字典后读取完整租户版本。
@@ -1361,7 +1369,7 @@ PC 菜单：
 3. Single Key 按 Value→DefaultValue 解析；Mandatory 无值返回稳定错误；可选显式 null 阻断回退；ReadOnly 管理写入返回 409。
 4. Multi Key 只能使用明细表，按 Sort/NId 稳定返回；重复 NId/规范化值、默认项禁用、超过1000条或 Mandatory 空集合均被拒绝。
 5. AppDomain/Key/MultiValue 任一实际变化同时推进 AppDomain Revision、LastUpdatedOn、OptimisticVersion 和 ConcurrencyVersion，历史保存完整路径和 CreatedOn。
-6. Factory 参数配置在 Phase 5 前被明确拒绝；禁用高作用域 Domain/Key 后继续向下级作用域回退。
+6. Factory 参数配置在 MasterData 权威工厂归属校验就绪前被明确拒绝；禁用高作用域 Domain/Key 后继续向下级作用域回退。
 7. 动态配置 Draft 定义 Decimal、Boolean、Enum、DateTime 和 Json 字段并录入多行记录；发布后 Schema 与记录返回相同 Revision，跨 Revision 值写入被拒绝。
 8. 动态配置 Required 缺值、类型列不匹配、未发布 Enum 字典、重复 Record.NId、超过字段/记录上限时发布失败且不产生半发布数据。
 9. 租户动态配置发布后整份替换平台配置；禁用租户版本后回退平台版本，不发生隐式行合并。
@@ -1372,6 +1380,8 @@ PC 菜单：
 14. 无权限用户看不到管理按钮且直接调用 API 返回 403；跨租户 ID 返回 404 或统一拒绝，不泄露存在性。
 15. 发布写库成功但 RabbitMQ 暂时不可用时 Outbox 保留待重试，恢复后只发布兼容的 V1 事件。
 16. 子表写入不存在或 IsDeleted 不匹配的父表组合时数据库拒绝；主表软删除/恢复通过 ON UPDATE CASCADE 同步父级影子列，但不覆盖子表自身 IsDeleted，默认子表查询同时过滤两种删除状态。
+17. Development Shared/PerService 和 Test/Staging/Production PerService 均按可信配置解析；Shared 只 provision 一次，五模块迁移/账本/readiness 独立，同物理目标 DDL 串行。
+18. SystemData 不可用、目标错误、drift、任一模块迁移失败或版本不一致时宿主保持 NotReady，不使用管理员凭据、`EnsureCreated` 或错误数据库回退。
 
 ## 22.3 验证证据格式
 
@@ -1386,14 +1396,14 @@ TRX、coverage、Playwright report 或截图路径
 PostgreSQL / Redis / RabbitMQ / 浏览器等外部环境状态
 ```
 
-本次文档调整没有执行后端或前端测试；现有测试代码只能作为输入状态，不是 Phase 4 新鲜验证证据。
+本次文档调整没有执行后端或前端测试；现有骨架测试和 PF-02 尚未开发的 fixture 只能作为输入，不能作为 PF-03 新鲜验收证据。
 
 ---
 
 # 23. 开发任务依赖
 
 ```text
-TASK-FE-010 + TASK-ID-016 + TASK-BASE-006
+PF-01 Gateway/前端基线 + Identity 可信身份/权限契约 + PF-02 TASK-SD-001～004
                     ↓
               TASK-RD-001
                     ↓
@@ -1422,13 +1432,13 @@ TASK-RD-003～007 的领域与应用代码可分工并行，但都会影响迁�
 
 ## TASK-RD-001 对齐服务骨架、Contracts、鉴权与测试结构
 
-**状态：** 设计待确认（PF-03 独立会话复核）
+**状态：** 待派遣（PF-03 详细设计已确认；尚未实际派遣）
 
 **目标：** 在保留现有健康检查的基础上，将四层骨架扩展为母版规定的五层边界，固化 API 前缀、Identity 身份接入、配置和分层测试入口。
 
-**输入文档：** 本文第 1、4～6、15、21 节；TASK-BASE-006、TASK-FE-010、TASK-ID-016 的输出契约。
+**输入文档：** 本文第 1、4～6、15、21 节；PF-01 Gateway/前端基线及 Identity 可信身份、TenantNId/UserNId、权限判定契约。
 
-**依赖：** TASK-BASE-006、TASK-FE-010、TASK-ID-016 已完成。
+**依赖：** BuildingBlocks 可运行基线、PF-01 Gateway/前端基线和 Identity 可信身份/权限契约已达到可消费门禁；不绑定旧 TASK-ID 编号。
 
 **允许修改范围：** ReferenceData 后端项目、ReferenceData 测试、解决方案注册、Gateway 的 ReferenceData 路由测试和 ReferenceData 开发配置；不得新增领域业务、修改 Identity 业务实现或其他服务数据库。
 
@@ -1444,19 +1454,19 @@ TASK-RD-003～007 的领域与应用代码可分工并行，但都会影响迁�
 
 ## TASK-RD-002 实现公共作用域、发布版本与数据库基础
 
-**状态：** 设计待确认（PF-03 独立会话复核）
+**状态：** 待派遣（PF-03 详细设计已确认；尚未实际派遣）
 
-**目标：** 建立 ReferenceScope、发布状态、规范化 NId、02 Entity 生命周期、父表 Id+IsDeleted 复合外键、双版本并发、软删除、审计/Outbox/幂等基础表和迁移约束，为五类聚合提供共同基础。
+**目标：** 首先接入 SystemData 数据库编排控制面，再建立 ReferenceScope、发布状态、规范化 NId、五模块独立 Schema/前缀、迁移单元/账本、Outbox/Inbox、并发与软删除约束，并形成宿主汇总 readiness。
 
-**输入文档：** 本文第 6、7、13、14、21 节；BuildingBlocks 当前 Entity 与 Repository 契约。
+**输入文档：** 本文第 6、7、13、14、21、22 节；蓝图 07/33、实施 05 和 BuildingBlocks 当前 Entity/Repository 契约。
 
-**依赖：** TASK-RD-001。
+**依赖：** TASK-RD-001；PF-02 TASK-SD-001～004 数据库编排链通过书面契约与验收。
 
 **允许修改范围：** ReferenceData Domain/Application/Infrastructure/Contracts 的公共模块、数据库映射、迁移和对应测试；不得实现具体字典、配置、元数据或编码用例。
 
-**预期输出：** 作用域值对象、NId 规范化器、租户过滤、`created_on/last_updated_on` 等九个固定 Entity 列映射、所有主表 `(id,is_deleted)` 可引用唯一键、子表 `{parent}_id/{parent}_is_deleted` 复合外键与级联同步、并发映射、公共基础表迁移及迁移顺序约定。
+**预期输出：** `ServiceKey=referencedata` 登记和宿主 Migration Bundle、Shared/PerService 目标解析、五模块独立迁移单元/账本、SystemData Operation 握手、五模块版本汇总 readiness，以及作用域值对象、NId 规范化器、TenantNId 过滤、Entity 列/复合外键和并发映射。
 
-**验证与证据：** 覆盖 Platform/Tenant/Factory 约束、空租户部分唯一索引、跨租户隔离、Entity 九字段列名、CreatedOn/LastUpdatedOn 推进、双版本冲突、父表复合唯一键、外键 IsDeleted 不匹配拒绝、ON UPDATE CASCADE、子表自身/父级影子双重软删除过滤和迁移升级/回滚验证；扫描固定九列以外的重复创建/更新时间字段；记录 PostgreSQL 版本与命令证据。
+**验证与证据：** 覆盖 Development Shared/PerService、非 Development Shared 拒绝、错误目标/drift/迁移失败 NotReady、同物理目标 DDL 串行、五模块独立账本和无 `EnsureCreated`；同时覆盖 Platform/Tenant/Factory 门禁、跨 TenantNId 隔离、Entity 列、复合外键、双版本并发及迁移升级/恢复。
 
 **结果回写：** 回写实际表字段、索引名、迁移名、Factory 受限开关和任何与 BuildingBlocks 契约的偏差。
 
@@ -1466,7 +1476,7 @@ TASK-RD-003～007 的领域与应用代码可分工并行，但都会影响迁�
 
 ## TASK-RD-003 实现字典中心纵向闭环
 
-**状态：** 设计待确认（PF-03 独立会话复核）
+**状态：** 待派遣（PF-03 详细设计已确认；尚未实际派遣）
 
 **目标：** 完成 DictionaryDefinition/Item 聚合、持久化、管理 API、有效字典解析和发布版本行为。
 
@@ -1488,7 +1498,7 @@ TASK-RD-003～007 的领域与应用代码可分工并行，但都会影响迁�
 
 ## TASK-RD-004 实现配置应用域、单值键与多值键纵向闭环
 
-**状态：** 设计待确认（PF-03 独立会话复核）
+**状态：** 待派遣（PF-03 详细设计已确认；尚未实际派遣）
 
 **目标：** 完成 ConfigurationAppDomain 聚合、ConfigurationKey 单值/多值模式、MultiValue 明细、逐 Key 作用域覆盖、历史和有效值解析。
 
@@ -1508,19 +1518,19 @@ TASK-RD-003～007 的领域与应用代码可分工并行，但都会影响迁�
 
 ---
 
-## TASK-RD-005 实现EAV动态配置集纵向闭环
+## TASK-RD-005 实现DynamicProperty模块及EAV动态配置集纵向闭环
 
-**状态：** 设计待确认（PF-03 独立会话复核）
+**状态：** 待派遣（PF-03 详细设计已确认；尚未实际派遣）
 
-**目标：** 实现 ReferenceData 自有多行异构配置集的定义、字段、记录、强类型值、完整修订发布和运行时分页读取。
+**目标：** 以正式 `DynamicProperty` 模块边界实现 ReferenceData 自有完整 EAV，并保留 `DynamicConfigDefinition` 核心聚合及 Field/Record/Value 领域语义，交付完整修订发布和运行时分页读取。
 
 **输入文档：** 本文第 7、10、13～18、21、22 节；TASK-RD-003 已发布字典契约用于 Enum 字段校验。
 
 **依赖：** TASK-RD-002、TASK-RD-003。
 
-**允许修改范围：** ReferenceData 的 DynamicConfig Domain/Application/Contracts/Infrastructure/Api、四张 `ref_dynamic_config_*` 表迁移和对应测试；不得保存物料、设备、工单等业务实体值，不得加入脚本、公式、审批、低代码页面或通用分析引擎。
+**允许修改范围：** ReferenceData 的 DynamicProperty Domain/Application/Contracts/Infrastructure/Api、`reference_dynamic_property` Schema（SQLite 等价前缀）、独立迁移账本/Outbox/Inbox/缓存和对应测试；内部继续使用 DynamicConfigDefinition/Field/Record/Value，不得保存物料、设备、工单等业务实体值，不得加入脚本、公式、审批、低代码页面或通用分析引擎。
 
-**预期输出：** 全部实体使用 NId 的 DynamicConfigDefinition 聚合、Field/Record/Value 子项、父级 Id+IsDeleted 复合外键、四表同 Revision 约束、强类型值列、Draft 克隆、整份发布、作用域替换、管理/运行时 API、ReferenceDynamicConfigurationPublishedV1 Outbox 和审计。
+**预期输出：** 全部实体使用 NId 的 DynamicConfigDefinition 聚合、Field/Record/Value 子项、父级 Id+IsDeleted 复合外键、四表同 Revision 约束、强类型值列、Draft 克隆、整份发布、作用域替换、`/dynamic-properties/configurations` API、ReferenceDynamicConfigurationPublishedV1 和模块独立 Outbox/Inbox。
 
 **验证与证据：** 覆盖 Definition/Field/Record NId 唯一、三组父级 Id+IsDeleted 组合、九种字段类型、Required/默认值/精度/字典/引用约束、跨 Revision 拒绝、类型列 Check Constraint、10,000 行分页、整份租户覆盖、发布事务、并发冲突、权限和事件快照；记录 Domain/Application/API/PostgreSQL 测试命令与报告。
 
@@ -1532,7 +1542,7 @@ TASK-RD-003～007 的领域与应用代码可分工并行，但都会影响迁�
 
 ## TASK-RD-006 实现元数据定义纵向闭环
 
-**状态：** 设计待确认（PF-03 独立会话复核）
+**状态：** 待派遣（PF-03 详细设计已确认；尚未实际派遣）
 
 **目标：** 完成 EntitySchema/AttributeDefinition、类型专属约束、字典引用校验、发布版本和运行时读取。
 
@@ -1554,7 +1564,7 @@ TASK-RD-003～007 的领域与应用代码可分工并行，但都会影响迁�
 
 ## TASK-RD-007 实现编码规则与幂等序列生成
 
-**状态：** 设计待确认（PF-03 独立会话复核）
+**状态：** 待派遣（PF-03 详细设计已确认；尚未实际派遣）
 
 **目标：** 完成模板解析、规则发布、预览、数据库原子序列、周期重置和幂等正式编码生成。
 
@@ -1576,7 +1586,7 @@ TASK-RD-003～007 的领域与应用代码可分工并行，但都会影响迁�
 
 ## TASK-RD-008 实现缓存、降级与有效读取优化
 
-**状态：** 设计待确认（PF-03 独立会话复核）
+**状态：** 待派遣（PF-03 详细设计已确认；尚未实际派遣）
 
 **目标：** 为字典、参数配置应用域（单值/多值）、动态配置、元数据和编码规则五类运行时读取建立 Revision 感知的 Cache Aside、提交后失效、Redis 降级和指标。
 
@@ -1596,23 +1606,23 @@ TASK-RD-003～007 的领域与应用代码可分工并行，但都会影响迁�
 
 ---
 
-## TASK-RD-009 实现Outbox事件、审计与可观测性闭环
+## TASK-RD-009 实现模块Outbox/Inbox、审计适配与可观测性闭环
 
-**状态：** 设计待确认（PF-03 独立会话复核）
+**状态：** 待派遣（PF-03 详细设计已确认；尚未实际派遣）
 
-**目标：** 完成五个 V1 事件的事务 Outbox、发布重试、审计查询、日志脱敏、指标与健康诊断。
+**目标：** 完成五模块独立 Outbox/Inbox/消费位点、五个 V1 事件、发布重试、PF-04 Audit 适配门禁、日志脱敏、指标与健康诊断。
 
 **输入文档：** 本文第 13、16、21、22 节；RabbitMQ 事件总线规范和 BuildingBlocks EventBus。
 
 **依赖：** TASK-RD-003～TASK-RD-007。
 
-**允许修改范围：** ReferenceData Contracts/Application/Infrastructure/Api 的 Events、Outbox、Audit、Logging、Metrics、Health 和测试；不得把完整配置值写入事件或日志。
+**允许修改范围：** ReferenceData 五模块的 Events、Outbox/Inbox、Logging、Metrics、Health 和测试，以及宿主共享技术组件；不得建立统一审计事实表、审计查询 API/页面或把完整配置值写入事件和日志。
 
-**预期输出：** V1 事件、Outbox Worker、退避/告警、重复与乱序契约测试、审计查询 API、结构化日志和指标。
+**预期输出：** V1 事件、模块独立 Outbox/Inbox/位点、共享 Worker、退避/告警、重复与乱序契约测试、PF-04 Audit 契约适配门禁、结构化日志和指标。
 
-**验证与证据：** 覆盖业务事务与 Outbox 原子性、RabbitMQ 中断后恢复、重复发布容忍、事件 JSON 快照、敏感值扫描、审计权限和积压健康状态；记录消息环境与报告。
+**验证与证据：** 覆盖各模块业务事务与 Outbox 原子性、Inbox 幂等、RabbitMQ 中断后恢复、重复/乱序容忍、事件 JSON 快照、敏感值扫描、跨模块表隔离和积压健康状态；证明不存在竞争 PF-04 的统一审计表/API/页面。
 
-**结果回写：** 回写事件名/字段/路由键、重试参数、指标、审计保留策略和任务状态。
+**结果回写：** 回写事件名/字段/路由键、模块 Outbox/Inbox 表与重试参数、指标、PF-04 适配状态和任务状态。
 
 **建议提交：** `feat(referencedata): publish reference changes through outbox`
 
@@ -1620,7 +1630,7 @@ TASK-RD-003～007 的领域与应用代码可分工并行，但都会影响迁�
 
 ## TASK-RD-010 接入前端API、类型、路由与权限框架
 
-**状态：** 设计待确认（PF-03 独立会话复核）
+**状态：** 待派遣（PF-03 详细设计已确认；尚未实际派遣）
 
 **目标：** 在统一前端内建立 ReferenceData 类型化 API、Store、五个 PC 路由、菜单和权限边界，为页面任务提供稳定基座。
 
@@ -1642,7 +1652,7 @@ TASK-RD-003～007 的领域与应用代码可分工并行，但都会影响迁�
 
 ## TASK-RD-011 实现字典与参数配置PC页面
 
-**状态：** 设计待确认（PF-03 独立会话复核）
+**状态：** 待派遣（PF-03 详细设计已确认；尚未实际派遣）
 
 **目标：** 交付字典管理和参数配置两个可完成真实业务操作的 PC 页面。
 
@@ -1662,9 +1672,9 @@ TASK-RD-003～007 的领域与应用代码可分工并行，但都会影响迁�
 
 ---
 
-## TASK-RD-012 实现EAV动态配置PC页面
+## TASK-RD-012 实现DynamicProperty EAV动态属性PC页面
 
-**状态：** 设计待确认（PF-03 独立会话复核）
+**状态：** 待派遣（PF-03 详细设计已确认；尚未实际派遣）
 
 **目标：** 交付动态配置定义、字段设计、配置记录和值编辑、发布校验和版本查看的完整 PC 管理页面。
 
@@ -1672,7 +1682,7 @@ TASK-RD-003～007 的领域与应用代码可分工并行，但都会影响迁�
 
 **依赖：** TASK-RD-005、TASK-RD-010。
 
-**允许修改范围：** `src/frontend/src/pages/pc/referenceData/dynamicConfigs/**`、相关 API/Types/Store/组件/测试；不得生成业务运行页面，不得一次加载全部记录，不得在前端绕过服务端类型和发布校验。
+**允许修改范围：** `src/frontend/src/pages/pc/referenceData/dynamicProperties/**`、相关 API/Types/Store/组件/测试；页面入口与模块权限使用 DynamicProperty，内部表单继续呈现 DynamicConfigDefinition/Field/Record/Value；不得生成业务运行页面，不得一次加载全部记录，不得绕过服务端校验。
 
 **预期输出：** 动态配置列表、字段定义页、服务端分页记录表、字段驱动记录编辑表单、Revision 克隆/差异/发布、整份替换提示、权限按钮和并发冲突保留。
 
@@ -1686,7 +1696,7 @@ TASK-RD-003～007 的领域与应用代码可分工并行，但都会影响迁�
 
 ## TASK-RD-013 实现元数据与编码规则PC页面
 
-**状态：** 设计待确认（PF-03 独立会话复核）
+**状态：** 待派遣（PF-03 详细设计已确认；尚未实际派遣）
 
 **目标：** 交付元数据定义和编码规则两个 PC 页面，并守住“不保存业务实体 EAV 值、不生成低代码页面”的边界。
 
@@ -1708,9 +1718,9 @@ TASK-RD-003～007 的领域与应用代码可分工并行，但都会影响迁�
 
 ## TASK-RD-014 完成契约、E2E与PF-03联合验收
 
-**状态：** 设计待确认（PF-03 独立会话复核）
+**状态：** 待派遣（PF-03 详细设计已确认；尚未实际派遣）
 
-**目标：** 使用真实 Gateway、Identity、PostgreSQL、Redis、RabbitMQ 和浏览器验证 ReferenceData 全纵向链路，并冻结供 MasterData 使用的 V1 契约。
+**目标：** 使用真实 Gateway、Identity、SystemData 数据库编排、PostgreSQL、Redis、RabbitMQ 和浏览器验证 ReferenceData 五模块全纵向链路，并冻结供下游使用的 V1 契约。
 
 **输入文档：** 本文全部章节；TASK-RD-001～TASK-RD-013 的输出和执行记录。
 
@@ -1720,11 +1730,11 @@ TASK-RD-003～007 的领域与应用代码可分工并行，但都会影响迁�
 
 **预期输出：** 运行时 DTO/事件 V1 快照、全量测试报告、关键路径 E2E、故障降级证据、安全扫描结果、页面截图和 MasterData 输入契约。
 
-**验证与证据：** 执行后端 build/test、前端 lint/typecheck/unit/build/e2e、数据库迁移、Redis/RabbitMQ 故障场景和日志敏感信息扫描；记录退出码、数量、报告路径及环境版本。
+**验证与证据：** 执行后端 build/test、前端 lint/typecheck/unit/build/e2e；验证 Shared/PerService、SystemData 握手、五模块 migration ledger/readiness、错误目标/drift/迁移失败 NotReady、真实 PostgreSQL 18 约束、Redis/RabbitMQ 故障和敏感信息扫描；证明无 `EnsureCreated` 且业务 API 不创建数据库。
 
 **结果回写：** 更新本文完成标准、执行记录、最终 API/事件/权限/路由、已知限制和 MasterData 前置条件；任一外部环境未实测则保持“待验收”。
 
-**建议提交：** `test(referencedata): complete phase four acceptance`
+**建议提交：** `test(referencedata): complete pf03 acceptance`
 
 ---
 
@@ -1735,9 +1745,9 @@ TASK-RD-003～007 的领域与应用代码可分工并行，但都会影响迁�
 - 字典、参数配置应用域（单值/多值）、动态配置 EAV、元数据定义和编码规则均有明确聚合、不变量、状态和租户边界。
 - 所有领域实体以 NId 作为稳定业务标识，引用字段使用 `{EntityName}NId`；除正式生成的编码结果外，实体定义、DTO、API 和页面不存在 Code 业务标识。
 - 表定义只列业务字段；所有表统一具备 Entity 生命周期。每个同库父子关系均使用子表 `{ParentEntity}_Id + {ParentEntity}_IsDeleted` 引用父表 `(Id, IsDeleted)`，并验证级联同步及双重软删除过滤。
-- `referencedata_db` 迁移可在空库执行，唯一索引、软删除和双版本并发有真实 PostgreSQL 证据。
+- `referencedata_db` 按 SystemData 配置解析 Shared/PerService；五模块独立迁移单元、账本和 readiness 均有真实 PostgreSQL 18 证据。
 - 动态配置四表只允许同 Revision 关联，字段和值类型由领域与数据库约束双重保证，整份发布不产生半成品。
-- 发布/配置变更与 Outbox 原子；正式编码在并发和重试下不重复。
+- 发布/配置变更与各模块 Outbox 原子，Inbox 幂等；正式编码在并发和重试下不重复。
 - 动态配置值仅保存 ReferenceData 自有配置记录；未创建业务实体 EAV 值表、低代码页面运行时或跨服务外键。
 
 ## 25.2 API、事件与缓存
@@ -1755,15 +1765,16 @@ TASK-RD-003～007 的领域与应用代码可分工并行，但都会影响迁�
 
 ## 25.4 安全、审计与可观测性
 
-- 跨租户访问被拒绝；平台级管理、发布、审计和编码生成分权。
+- 跨 TenantNId 访问被拒绝；平台级管理、模块发布和编码生成分权。
 - 配置、日志、事件和错误响应无密码、Token、私钥、连接串和堆栈泄漏。
-- 关键变更可按 Tenant/User/Object/Revision/TraceId 追溯；Outbox、缓存和编码冲突可观测。
+- 关键变更可由模块领域历史和 Outbox 按 TenantNId/UserNId/ObjectNId/Revision/TraceId 解释；PF-04 Audit 承担统一审计事实，Outbox/Inbox、缓存和编码冲突可观测。
 
 ## 25.5 自动化与环境验收
 
 - Domain、Application、Infrastructure、API、Contract/Event、Frontend Component 和 E2E 的适用场景均有新鲜证据。
 - 后端 build/test 与前端 lint/typecheck/unit/build/e2e 的命令、退出码和数量已回写。
 - PostgreSQL、Redis、RabbitMQ、Gateway、Identity 和浏览器任一环境缺失时，对应任务只能标记“待验收”。
+- SystemData 控制面、Shared/PerService 拓扑、五模块版本汇总和 NotReady 故障门禁必须有新鲜证据；禁止 `EnsureCreated`、管理员自建库和错误数据库回退。
 
 ---
 
@@ -1771,20 +1782,20 @@ TASK-RD-003～007 的领域与应用代码可分工并行，但都会影响迁�
 
 | 任务 | 状态 | 执行者/任务 | 提交 | 验证证据 | 结果回写 |
 | --- | --- | --- | --- | --- | --- |
-| TASK-RD-001 | 设计待确认 | - | - | PF-03 独立会话复核 | - |
-| TASK-RD-002 | 设计待确认 | - | - | PF-03 独立会话复核 | - |
-| TASK-RD-003 | 设计待确认 | - | - | PF-03 独立会话复核 | - |
-| TASK-RD-004 | 设计待确认 | - | - | PF-03 独立会话复核 | - |
-| TASK-RD-005 | 设计待确认 | - | - | PF-03 独立会话复核 | - |
-| TASK-RD-006 | 设计待确认 | - | - | PF-03 独立会话复核 | - |
-| TASK-RD-007 | 设计待确认 | - | - | PF-03 独立会话复核 | - |
-| TASK-RD-008 | 设计待确认 | - | - | PF-03 独立会话复核 | - |
-| TASK-RD-009 | 设计待确认 | - | - | PF-03 独立会话复核 | - |
-| TASK-RD-010 | 设计待确认 | - | - | PF-03 独立会话复核 | - |
-| TASK-RD-011 | 设计待确认 | - | - | PF-03 独立会话复核 | - |
-| TASK-RD-012 | 设计待确认 | - | - | PF-03 独立会话复核 | - |
-| TASK-RD-013 | 设计待确认 | - | - | PF-03 独立会话复核 | - |
-| TASK-RD-014 | 设计待确认 | - | - | PF-03 独立会话复核 | - |
+| TASK-RD-001 | 待派遣 | - | - | PF-03 详细设计已确认，尚未实际派遣 | - |
+| TASK-RD-002 | 待派遣 | - | - | PF-03 详细设计已确认，尚未实际派遣 | - |
+| TASK-RD-003 | 待派遣 | - | - | PF-03 详细设计已确认，尚未实际派遣 | - |
+| TASK-RD-004 | 待派遣 | - | - | PF-03 详细设计已确认，尚未实际派遣 | - |
+| TASK-RD-005 | 待派遣 | - | - | PF-03 详细设计已确认，尚未实际派遣 | - |
+| TASK-RD-006 | 待派遣 | - | - | PF-03 详细设计已确认，尚未实际派遣 | - |
+| TASK-RD-007 | 待派遣 | - | - | PF-03 详细设计已确认，尚未实际派遣 | - |
+| TASK-RD-008 | 待派遣 | - | - | PF-03 详细设计已确认，尚未实际派遣 | - |
+| TASK-RD-009 | 待派遣 | - | - | PF-03 详细设计已确认，尚未实际派遣 | - |
+| TASK-RD-010 | 待派遣 | - | - | PF-03 详细设计已确认，尚未实际派遣 | - |
+| TASK-RD-011 | 待派遣 | - | - | PF-03 详细设计已确认，尚未实际派遣 | - |
+| TASK-RD-012 | 待派遣 | - | - | PF-03 详细设计已确认，尚未实际派遣 | - |
+| TASK-RD-013 | 待派遣 | - | - | PF-03 详细设计已确认，尚未实际派遣 | - |
+| TASK-RD-014 | 待派遣 | - | - | PF-03 详细设计已确认，尚未实际派遣 | - |
 
 ---
 
@@ -1802,9 +1813,9 @@ Gateway路径
   GET  /api/v1/reference-data/dictionaries/{nId}
   GET  /api/v1/reference-data/configuration-domains/{appDomainNId}
   GET  /api/v1/reference-data/configuration-domains/{appDomainNId}/keys/{keyNId}
-  GET  /api/v1/reference-data/dynamic-configs/{nId}/schema
-  GET  /api/v1/reference-data/dynamic-configs/{nId}/records?revision={revision}
-  GET  /api/v1/reference-data/dynamic-configs/{nId}/records/{recordNId}?revision={revision}
+  GET  /api/v1/reference-data/dynamic-properties/configurations/{nId}/schema
+  GET  /api/v1/reference-data/dynamic-properties/configurations/{nId}/records?revision={revision}
+  GET  /api/v1/reference-data/dynamic-properties/configurations/{nId}/records/{recordNId}?revision={revision}
   GET  /api/v1/reference-data/metadata-schemas/{nId}
   POST /api/v1/reference-data/coding-rules/{nId}/preview
   POST /api/v1/reference-data/coding-rules/{nId}/generate
@@ -1825,32 +1836,17 @@ V1事件
   ReferenceMetadataPublishedV1
   ReferenceCodingRulePublishedV1
 
-权限码
-  reference.dictionary.read
-  reference.dictionary.manage
-  reference.dictionary.publish
-  reference.dictionary.consume
-  reference.configuration.read
-  reference.configuration.manage
-  reference.configuration.consume
-  reference.dynamic-config.read
-  reference.dynamic-config.manage
-  reference.dynamic-config.publish
-  reference.dynamic-config.consume
-  reference.metadata.read
-  reference.metadata.manage
-  reference.metadata.publish
-  reference.metadata.consume
-  reference.coding-rule.read
-  reference.coding-rule.manage
-  reference.coding-rule.publish
-  reference.coding-rule.generate
-  reference.audit.read
+权限码（各模块按实际支持动作取子集）
+  ReferenceData.Dictionary.Read/Create/Update/Publish/Disable
+  ReferenceData.Parameter.Read/Create/Update/Disable/ReadSecretReference
+  ReferenceData.Metadata.Read/Create/Update/Publish/Disable
+  ReferenceData.DynamicProperty.Read/Create/Update/Publish/Disable
+  ReferenceData.CodingRule.Read/Create/Update/Publish/Disable/Preview/Generate
 
 前端路由
   /pc/system/reference-data/dictionaries
   /pc/system/reference-data/configurations
-  /pc/system/reference-data/dynamic-configs
+  /pc/system/reference-data/dynamic-properties
   /pc/system/reference-data/metadata
   /pc/system/reference-data/coding-rules
 ```

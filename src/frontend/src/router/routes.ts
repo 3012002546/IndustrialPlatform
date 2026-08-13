@@ -11,19 +11,40 @@ import type { RouteRecordRaw } from 'vue-router'
 import PcLayout from '@/layouts/PcLayout.vue'
 import PdaLayout from '@/layouts/PdaLayout.vue'
 import MobileLayout from '@/layouts/MobileLayout.vue'
+import StandaloneLayout from '@/layouts/StandaloneLayout.vue'
 import ForbiddenPage from '@/pages/public/ForbiddenPage.vue'
 import LoginPage from '@/pages/public/LoginPage.vue'
 import NotFoundPage from '@/pages/public/NotFoundPage.vue'
+import SsoCallbackPage from '@/pages/sso/SsoCallbackPage.vue'
+import SsoLoginPage from '@/pages/sso/SsoLoginPage.vue'
 import PcHomePage from '@/pages/pc/PcHomePage.vue'
+import IdentityAuditsPage from '@/pages/pc/identity/IdentityAuditsPage.vue'
+import IdentityPermissionsPage from '@/pages/pc/identity/IdentityPermissionsPage.vue'
+import IdentityRolesPage from '@/pages/pc/identity/IdentityRolesPage.vue'
+import IdentityUsersPage from '@/pages/pc/identity/IdentityUsersPage.vue'
+import SsoClientsPage from '@/pages/pc/identity/sso/SsoClientsPage.vue'
+import SsoProvidersPage from '@/pages/pc/identity/sso/SsoProvidersPage.vue'
+import WorkspaceTabsSandboxPage from '@/pages/dev/WorkspaceTabsSandboxPage.vue'
 import PdaHomePage from '@/pages/pda/PdaHomePage.vue'
 import MobileHomePage from '@/pages/mobile/MobileHomePage.vue'
 import MobileMyPage from '@/pages/mobile/MobileMyPage.vue'
+import { PERMISSIONS } from '@/permissions'
 
 export const ROUTE_NAMES = {
   root: 'root',
   login: 'login',
+  ssoLogin: 'sso-login',
+  ssoCallback: 'sso-callback',
   forbidden: 'forbidden',
   pcHome: 'pc-home',
+  identityUsers: 'identity-users',
+  identityRoles: 'identity-roles',
+  identityPermissions: 'identity-permissions',
+  identityAudits: 'identity-audits',
+  ssoProviders: 'sso-providers',
+  ssoClients: 'sso-clients',
+  workspaceTabsSandbox: 'workspace-tabs-sandbox',
+  uiBaseline: 'ui-baseline',
   pdaHome: 'pda-home',
   mobileHome: 'mobile-home',
   mobileMy: 'mobile-my',
@@ -55,6 +76,24 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: '登录' },
   },
   {
+    path: '/sso',
+    component: StandaloneLayout,
+    children: [
+      {
+        path: 'login',
+        name: ROUTE_NAMES.ssoLogin,
+        component: SsoLoginPage,
+        meta: { title: '企业登录' },
+      },
+    ],
+  },
+  {
+    path: '/auth/sso/callback',
+    name: ROUTE_NAMES.ssoCallback,
+    component: SsoCallbackPage,
+    meta: { title: '企业登录回调' },
+  },
+  {
     path: '/403',
     name: ROUTE_NAMES.forbidden,
     component: ForbiddenPage,
@@ -71,10 +110,117 @@ export const routes: RouteRecordRaw[] = [
         meta: {
           title: 'PC 首页',
           requiresAuth: true,
-          permission: 'platform.home.view',
+          permission: PERMISSIONS.platformHomeView,
           terminal: 'pc',
+          workspace: 'fixed',
         },
       },
+      {
+        path: 'identity/users',
+        name: ROUTE_NAMES.identityUsers,
+        component: IdentityUsersPage,
+        meta: {
+          title: '用户管理',
+          requiresAuth: true,
+          permission: PERMISSIONS.userView,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
+      {
+        path: 'identity/roles',
+        name: ROUTE_NAMES.identityRoles,
+        component: IdentityRolesPage,
+        meta: {
+          title: '角色权限',
+          requiresAuth: true,
+          permission: PERMISSIONS.roleView,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
+      {
+        path: 'identity/permissions',
+        name: ROUTE_NAMES.identityPermissions,
+        component: IdentityPermissionsPage,
+        meta: {
+          title: '权限目录',
+          requiresAuth: true,
+          permission: PERMISSIONS.permissionView,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
+      {
+        path: 'identity/audits',
+        name: ROUTE_NAMES.identityAudits,
+        component: IdentityAuditsPage,
+        meta: {
+          title: '登录审计',
+          requiresAuth: true,
+          permission: PERMISSIONS.auditLoginView,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
+      {
+        path: 'identity/sso/providers',
+        name: ROUTE_NAMES.ssoProviders,
+        component: SsoProvidersPage,
+        meta: {
+          title: '企业登录源',
+          requiresAuth: true,
+          permission: PERMISSIONS.ssoView,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
+      {
+        path: 'identity/sso/clients',
+        name: ROUTE_NAMES.ssoClients,
+        component: SsoClientsPage,
+        meta: {
+          title: 'SSO Client',
+          requiresAuth: true,
+          permission: PERMISSIONS.ssoView,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
+      // DEV-only 工作区沙箱:仅注册于 DEV/E2E,生产构建不含此路由与导航入口。
+      // 无权限门槛,供 12→13 上限阻断/关闭/复用/恢复 E2E 使用。
+      ...(import.meta.env.DEV
+        ? [
+            {
+              path: 'dev/workspace-tabs',
+              name: ROUTE_NAMES.workspaceTabsSandbox,
+              component: WorkspaceTabsSandboxPage,
+              meta: {
+                title: '工作区沙箱',
+                requiresAuth: true,
+                terminal: 'pc' as const,
+                workspace: 'business' as const,
+              },
+            },
+          ]
+        : []),
+      // DEV-only 视觉基线页:仅注册于 DEV/E2E,生产构建不含此路由与导航入口。
+      // workspace 置 none 跳过业务标签治理,供主题/密度视觉矩阵与键盘/缩放/无横向滚动验收。
+      ...(import.meta.env.DEV
+        ? [
+            {
+              path: 'ui-baseline',
+              name: ROUTE_NAMES.uiBaseline,
+              component: () => import('@/pages/dev/UiBaselinePage.vue'),
+              meta: {
+                title: 'UI 基线',
+                requiresAuth: true,
+                terminal: 'pc' as const,
+                workspace: 'none' as const,
+              },
+            },
+          ]
+        : []),
     ],
   },
   {
@@ -88,7 +234,7 @@ export const routes: RouteRecordRaw[] = [
         meta: {
           title: 'PDA 首页',
           requiresAuth: true,
-          permission: 'platform.pda.view',
+          permission: PERMISSIONS.platformPdaView,
           terminal: 'pda',
         },
       },
@@ -105,7 +251,7 @@ export const routes: RouteRecordRaw[] = [
         meta: {
           title: 'Mobile 首页',
           requiresAuth: true,
-          permission: 'platform.mobile.view',
+          permission: PERMISSIONS.platformMobileView,
           terminal: 'mobile',
         },
       },
@@ -116,7 +262,7 @@ export const routes: RouteRecordRaw[] = [
         meta: {
           title: '我的',
           requiresAuth: true,
-          permission: 'platform.mobile.view',
+          permission: PERMISSIONS.platformMobileView,
           terminal: 'mobile',
         },
       },

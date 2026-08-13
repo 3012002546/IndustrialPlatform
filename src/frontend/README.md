@@ -109,6 +109,8 @@ tests
 
 ## Phase 3 Identity 接入清单(HttpAuthGateway)
 
+> **已完成(2026-08-13):** HttpAuthGateway、真实令牌/刷新/撤销、权限映射、真实登录 E2E 均已落地(见 PF-01 实施 04 §16/§17、Identity 实施 03)。以下清单保留为历史实现记录。
+
 第一批为 Mock 认证边界;接入真实 Identity 时按以下清单,不重写现有页面与布局:
 
 1. **HttpAuthGateway**:实现 `AuthGateway` 契约(`src/auth/types.ts`)——`login/refresh/logout/getCurrentUser`,须通过可复用契约测试套件 `runAuthGatewayContractSuite`(`tests/contract/authGateway.spec.ts`)。装配点在 `src/app/createIndustrialApp.ts` `installAuthGateway()`(当前 `authMode=http` 抛 `RuntimeConfigError`,Phase 3 替换为真实实现)。
@@ -128,4 +130,4 @@ clean install → format:check → lint → typecheck → test:unit + coverage �
 
 ## 状态
 
-第一批(02B 实施方案)三端基础壳已完成(FE-001~FE-010),进度与执行记录见 `docs/implementation/02B-Industrial Platform统一前端第一批开发实施方案.md` 第 24 节。业务页面与真实 Identity 登录留待 Phase 3 及后续阶段。
+第一批(02B 实施方案)三端基础壳已完成(FE-001~FE-010),进度与执行记录见 `docs/implementation/02B-Industrial Platform统一前端第一批开发实施方案.md` 第 24 节。真实 Identity 登录(Phase 3)已接入并经真实 E2E 验证(见 PF-01 实施 04 §16);业务页面留待后续阶段。

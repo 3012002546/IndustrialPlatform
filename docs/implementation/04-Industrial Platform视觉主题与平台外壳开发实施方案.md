@@ -6,7 +6,7 @@
 
 版本：V1.0
 
-阶段状态：开发详细设计、任务依赖和七张九字段任务卡已获用户批准；当前为“待派遣（仅任务规划）”，尚未开发。除非用户主动明确要求修改代码，否则本会话不得派遣实际编码任务或修改 `src/**`。`TASK-PF01-007` 的最终联合验收仍等待 PF-00 恢复并稳定前端契约。
+阶段状态：开发详细设计、任务依赖和七张九字段任务卡已获用户批准；`TASK-PF01-001～007` 已全部完成（真实 Identity 联合验收 real E2E 19/19，外部真机 safe-area/现场浏览器项待验收）。执行记录见 §16，稳定契约见 §17。
 
 阶段：PF-01「视觉、主题与平台外壳」；与 PF-00 后半段可并行，最终集成验收等待 PF-00 稳定前端契约，完成后向 PF-02 SystemData、PF-03 ReferenceData 及后续平台模块交付统一前端壳契约。
 
@@ -897,11 +897,11 @@ TASK-PF01-007 Identity 集成与阶段收口
 
 # 14. 开发任务拆分
 
-七项任务拆分已获用户批准，当前统一保持“待派遣（仅任务规划）”。这是 PF-01 的用户指定冻结状态：只允许继续完善蓝图、详细设计和任务规划，不代表已授权派遣或修改代码。只有用户后续主动明确要求修改代码时，阶段管理会话才能按依赖将满足前置的任务改为“可派遣”并另行执行派遣。
+七项任务拆分已获用户批准并全部完成（TASK-PF01-001～007，执行记录见 §16）。真实 Identity 联合验收经云 Docker 环境通过（real E2E 19/19），外部真机 safe-area/现场浏览器项保持“待验收”。
 
 ## TASK-PF01-001 主题Token、预挂载恢复与偏好状态
 
-**状态：** 待派遣（仅任务规划）
+**状态：** 已完成
 
 **目标：** 建立三配色、明暗／系统模式、PC 密度、版本化用户偏好和首帧无闪烁恢复的稳定基础，使后续组件只消费统一语义 Token 与 ThemeStore。
 
@@ -930,7 +930,7 @@ TASK-PF01-007 Identity 集成与阶段收口
 
 ## TASK-PF01-002 主题入口与通用管理组件
 
-**状态：** 待派遣（仅任务规划）
+**状态：** 已完成
 
 **目标：** 提供三端共享 ThemeControl 以及查询、树表、表单抽屉、加载、无权限和降级状态组件，形成后续管理页面可直接消费的稳定契约。
 
@@ -958,7 +958,7 @@ TASK-PF01-007 Identity 集成与阶段收口
 
 ## TASK-PF01-003 实现PC顶栏、工具轨与功能树
 
-**状态：** 待派遣（仅任务规划）
+**状态：** 已完成
 
 **目标：** 将现有 PC 单侧栏迁移为 52px 渐变顶栏、52px 固定工具轨、216px 可收起功能树和内容工作区，并保持认证、权限、跳过链接和退出路径不退化。
 
@@ -987,7 +987,7 @@ TASK-PF01-007 Identity 集成与阶段收口
 
 ## TASK-PF01-004 实现受控业务标签治理
 
-**状态：** 待派遣（仅任务规划）
+**状态：** 已完成
 
 **目标：** 交付固定工作台、最多 12 个业务标签、导航前上限阻断、关闭／复用／重载和用户隔离恢复，使后续 PC 模块路由可直接接入。
 
@@ -1016,7 +1016,7 @@ TASK-PF01-007 Identity 集成与阶段收口
 
 ## TASK-PF01-005 校准PDA与Mobile终端外壳
 
-**状态：** 待派遣（仅任务规划）
+**状态：** 已完成
 
 **目标：** 让 PDA/Mobile 消费统一主题与状态组件，修复显式路由下终端文案双事实源，同时保持触控、安全区、键盘和无假业务入口基线。
 
@@ -1044,7 +1044,7 @@ TASK-PF01-007 Identity 集成与阶段收口
 
 ## TASK-PF01-006 完成视觉回归与可访问性验收基线
 
-**状态：** 待派遣（仅任务规划）
+**状态：** 已完成
 
 **目标：** 建立可重复的主题／密度／三端像素回归和管理组件视觉基线，并完成对比度、键盘、缩放、控制台和全量前端门禁。
 
@@ -1073,7 +1073,7 @@ TASK-PF01-007 Identity 集成与阶段收口
 
 ## TASK-PF01-007 完成Identity集成与PF-01阶段收口
 
-**状态：** 待派遣（仅任务规划）
+**状态：** 已完成
 
 **目标：** 在 PF-00 真实前端契约稳定后，验证登录、Identity 管理页面和权限导航完整消费 PF-01 主题与外壳，并形成 PF-02/03 可依赖的最终契约。
 
@@ -1148,13 +1148,13 @@ TASK-PF01-007 Identity 集成与阶段收口
 
 | 任务 | 状态 | 执行者/任务 | 提交 | 验证证据 | 结果回写 |
 | --- | --- | --- | --- | --- | --- |
-| TASK-PF01-001 | 待派遣（仅任务规划） | - | - | - | - |
-| TASK-PF01-002 | 待派遣（仅任务规划） | - | - | - | - |
-| TASK-PF01-003 | 待派遣（仅任务规划） | - | - | - | - |
-| TASK-PF01-004 | 待派遣（仅任务规划） | - | - | - | - |
-| TASK-PF01-005 | 待派遣（仅任务规划） | - | - | - | - |
-| TASK-PF01-006 | 待派遣（仅任务规划） | - | - | - | - |
-| TASK-PF01-007 | 待派遣（仅任务规划） | - | - | - | - |
+| TASK-PF01-001 | 已完成 | 编码:Claude | 未提交(按协作约定) | 2026-08-12 format:check/lint/typecheck 退出码 0;unit 294/294(33 文件,新增 theme 专项 85);build 通过(仅既有 chunk>500k 警告);E2E 35/35;根属性 data-ip-* + colorScheme 与暗色 bootstrap 有 unit/routerGuards 断言 | 存储键/类型/根属性见 §17;偏好合并用户>租户>产品;监听器 initialize 幂等 1 个、dispose 移除;旧侧栏键仅无用户快照时迁移,写失败保留旧键用产品默认;三配色对比度满足 WCAG(文字≥4.5、渐变≥3) |
+| TASK-PF01-002 | 已完成 | 编码:Claude | 未提交(按协作约定) | 2026-08-12 format:check/lint/typecheck 退出码 0;unit 327/327(40 文件);build 通过(仅既有 chunk>500k 警告) | 组件接口见 §17;ThemeControl PC 显示密度/PDA·Mobile 隐藏、radio 即时生效、Escape 归还焦点(attachTo body 断言);AppFormDrawer busy 防重、取消/关闭/Escape→cancel+update:modelValue、焦点归还打开前元素、PC 420/560/720 三档与 PDA/Mobile 全宽;AppQueryPanel 受控 collapsed 与 aria-expanded/controls;ElFocusTrap 按内部子路径导入(element-plus 主入口运行时与类型均不导出),测试顶层 vi.mock 该深路径;Loading/Permission/Degraded 三状态语义确定 |
+| TASK-PF01-003 | 已完成 | 编码:Claude | 未提交(按协作约定) | 2026-08-12 format/lint/typecheck 退出码 0;unit 345/345(43 文件,新增 navigation 6 + PlatformToolRail 6 + PlatformFunctionTree 7 + PlatformTopBar 5,PcLayout 重写 11);build 通过(仅既有 chunk>500k 警告);E2E 40/40(新增 pc-shell.spec 5:四区结构/跳过链接首焦点/工具轨切换+空功能树/收起展开/双 PC 视口截图) | PC DOM:`.ip-pc-layout`(flex column 100vh)→ `a.ip-pc-skip-link` → PlatformTopBar(`header.ip-topbar` 52px)→ `.ip-pc-body` → PlatformToolRail(`nav.ip-toolrail` 52px)+ `.ip-pc-function-and-workspace` → PlatformFunctionTree(`nav.ip-function-tree` 216px/0)+ `main#main-content[tabindex=-1]`;组件接口见 §17;PlatformTopBar 四具名槽 brand/global-search/global-actions/user,空 global-search 槽不渲染占位;PlatformToolRail props `{groups,activeGroupId}` + emit update:activeGroupId,aria-current=page/aria-pressed/title,选中=背景+侧边标记+字重;PlatformFunctionTree props `{label,items}`,内部权限过滤,收起状态=ThemeStore.preferences.pcFunctionTreeCollapsed(setPcFunctionTreeCollapsed),不直接读写 localStorage,aria-expanded/controls,RouterLink aria-current=page;NavigationGroup `{id,label,icon:Component,items}` 两分组(工作台 1 项/系统管理 6 项),仅真实 PC 路由;图标 `@element-plus/icons-vue@2.3.2` 由传递依赖升级为直接依赖;PcNavMenu 无消费者已删除(含 PcNavMenu.spec.ts);jsdom 不注入 SFC 样式,Token 消费以源文件 var 引用契约断言,像素级由 E2E 截图验收 |
+| TASK-PF01-004 | 已完成 | 编码:Claude | 未提交(按协作约定) | 2026-08-13 完整前端门禁全绿:format:check/lint/typecheck 退出码 0;unit 405/405(48 文件,新增 workspace 专项 26 + PcWorkspaceTabs 2 + WorkspaceTabLimitDialog 3,PcLayout 15、routerGuards 21);build 通过(仅既有 chunk>500k 警告);E2E 46/46(新增 workspace-tabs.spec 6,首次全量并行 6 失败为 Vite dev 冷编译并发瞬时超时,单独串行 23/23 证明非回归;playwright.config 本地加 retries 1 + workers 3 + timeout 60s 后全量 46/46、复跑仍 46/46) | 契约见 §17:固定工作台+12 业务标签;tab id=路由名+排序 params+排序 query(`&p=`/`&q=` 原始编码);守卫在权限判断后、确认前 requestOpen,limit-reached 已确立路由 return false、整页直达兜底 pc-home;reloadVersion 作 RouterView key;持久化键 `industrial-platform.pc.tabs.v1:<tenant>:<user>`;恢复按 Router 存在+workspace business+权限过滤 prune;关闭当前/其他/右侧仅在实际移除激活标签时改 activeTabId;resolvePending 返回导航目标(reuse→被复用标签路由,close-and-open→待开路由,cancel→null);对话框复用/关闭后打开经 resolvePending 驱动 |
+| TASK-PF01-005 | 已完成 | 编码:Claude | 未提交(按协作约定) | 2026-08-13 完整门禁:format:check/lint/typecheck 退出码 0;unit 408/408(49 文件,新增 activeTerminal 3);build 通过(仅既有 chunk>500k 警告);E2E 46/46(新增:480px 无 override 显示 PDA、360px 无 override 显示 Mobile、主题入口触控 ≥48×48/≥44×44、Mobile 键盘含主题入口);coverage 门禁 global 70% 未过(Identity-owned 页面遗留未覆盖,见 §17 已知限制;本次改动文件覆盖率均 ≥94%) | 终端权威见 §17(`resolveActiveTerminal`);PdaLayout/MobileLayout 顶栏右区接入 ThemeControl(terminal=pda/mobile);PDA 主题入口 48×48、Mobile 44×44(theme-control-trigger E2E bounding box);PDA/Mobile 布局与首页 terminalLabel 经 `resolveActiveTerminal(route.meta.terminal, deviceStore.terminal)` 解析;移除 PdaLayout/MobileLayout/PdaHomePage/MobileHomePage 测试写入 override 键依赖(改为真实路由装配);safe-area/screens 六视口无回归 |
+| TASK-PF01-006 | 已完成 | 编码:Claude | 未提交(按协作约定) | 2026-08-13 完整门禁:format:check/lint/typecheck 退出码 0;unit 408/408(49 文件);build 通过(仅既有 chunk>500k 警告),`grep` 验证 `ui-baseline`/`baseline-drawer-trigger`/`SAMPLE-0001` 等基线页代码不在生产 bundle;E2E 102/102;coverage 门禁 global 70% 未过(Identity-owned 页面遗留未覆盖,见 §17 已知限制,本次非回归) | 视觉矩阵 54 张快照:`tests/e2e/snapshots/`(`snapshotPathTemplate='{testDir}/snapshots/{testFilePath}/{arg}{ext}'`,阈值全局 `toHaveScreenshot.maxDiffPixelRatio=0.01`);PC 核心外壳 /pc/home 3×2×2=12(1280×720,舒适/紧凑两态截图一致证明「壳固定尺寸不随密度变化」)、PDA /pda/home 3×2×2 朝向=12、Mobile /mobile/home 3×2×2 宽度=12、UiBaseline /pc/ui-baseline 3×2×2=12(密度对控件高度的影响由本页承载);system 等价由 theme.spec 断言 DOM Token;theme.spec 覆盖三端选项/切换+持久化/system 跟随 OS/首帧暗色 bootstrap 无明亮底色/密度改控件高不改变壳/200% 缩放核心操作可用;console.spec 扩展含 UiBaseline+主题切换;screens.spec 六视口追加 toHaveScreenshot 回归;表单抽屉焦点进入/Escape 关闭/归还焦点 E2E | 基线页契约见 §17;DEV-only 页路由/组件经懒加载不在生产;`workspace:'none'` 跳过业务标签治理;UiBaselinePage 覆盖查询/树表/表单抽屉/Loading/Empty/Error/Permission/Degraded;无假 KPI/业务名;已知限制新增系统字体测量/截图基线为 Windows 环境生成 |
+| TASK-PF01-007 | 已完成 | 编码:Claude | 未提交(按协作约定) | 2026-08-13 静态门禁 format:check/lint/typecheck 退出码 0、unit 408/408(49 文件)、build 通过(仅既有 chunk>500k 警告)、mock E2E 102/102;真实 E2E(playwright.real.config.ts,http 模式 Gateway 5080→Identity 5041→云端 PG/Redis)**19/19**(real-login 7 + identity-pages 12 三主题截图);coverage 门禁 global 70% 未过(Identity-owned 页面遗留未覆盖,见 §17 已知限制,非本次回归) | 真实登录前预挂载/用户偏好绑定/刷新注销/用户切换/权限驱动守卫与标签恢复联合验收通过;real E2E 须 `workers=1` 串行——并行登录同一账号触发 Identity 登录成功更新的乐观并发冲突(`ConcurrencyException`→500),属 PF-00 后端问题(回 PF-00 修复,PF-01 不越界改后端);环境缓解不落文件(`Identity__Authentication__IpRateLimitMaxAttempts=10000` 限流键 relay 拥塞致无 TTL 残留、`Gateway__RequestTimeoutSeconds=60`);外部真机 safe-area/现场浏览器待验收 |
 
 执行记录只写实际提交和新鲜验证。第一批 212/212、35/35 仅作为历史基线，不复制为本轮通过证据。
 
@@ -1176,6 +1176,9 @@ NavigationItem / NavigationGroup
 RouteMeta.workspace = fixed | business | none
 WorkspaceTab / OpenTabResult
 
+resolveActiveTerminal(routeTerminal, deviceTerminal)
+ThemeControl(terminal: 'pc' | 'pda' | 'mobile')
+
 ThemeControl
 PlatformTopBar / PlatformToolRail / PlatformFunctionTree
 PcWorkspaceTabs / WorkspaceTabLimitDialog
@@ -1188,7 +1191,9 @@ AppPermissionState / AppDegradedState
 
 - `/pc` 使用完整平台壳，后续 PC 管理路由通过 Route Meta 和授权导航视图接入。
 - `/pda` 与 `/mobile` 使用各自终端壳，不复制 PC 标签模型。
+- 终端文案单事实源：PDA/Mobile 布局与首页的 `terminalLabel` 统一消费 `resolveActiveTerminal(route.meta.terminal, deviceStore.terminal)`（显式路由优先，无显式路由回退设备建议）；显示终端不再依赖 `deviceStore.terminal` 或 override 键。PDA/Mobile 顶栏右区均接入 `ThemeControl`（`terminal='pda'|'mobile'`，隐藏密度组），PDA 主题入口触控 ≥48×48、Mobile ≥44×44。
 - `/pc/ui-baseline` 只在 DEV/E2E 存在，生产模块不得链接。
+- 视觉基线契约：像素回归快照统一落在 `src/frontend/tests/e2e/snapshots/<spec>/<name>.png`，`snapshotPathTemplate` 指向该目录；`toHaveScreenshot` 阈值全局 `maxDiffPixelRatio=0.01`，不得逐用例放宽。矩阵维度为 3 配色 × 2 有效明暗 × (PC 2 密度 / PDA 2 朝向 / Mobile 2 宽度 / UiBaseline 2 密度)，system 模式等价对应有效明暗（DOM Token 断言）。`UiBaselinePage` 为 DEV-only 视觉基线页，覆盖 AppQueryPanel/AppTreeTableLayout/AppFormDrawer/AppLoadingState/AppEmptyState/AppErrorAlert/AppPermissionState/AppDegradedState，不含业务名与假 KPI；route meta 固定 `{ terminal:'pc', workspace:'none' }`（跳过业务标签治理），组件经 `import.meta.env.DEV` 懒加载，生产 bundle 不含组件代码。
 - 业务路由必须使用稳定 route name、title、permission 和 workspace；不得从菜单 label 推断权限。
 
 稳定本地键：
@@ -1200,12 +1205,25 @@ industrial-platform.pc.tabs.v1:<tenant>:<user>
 industrial-platform.terminal.override.v1
 ```
 
+工作区标签稳定契约：
+
+- 固定工作台(pc-home,`kind=fixed`)始终置前且不可关闭;业务标签(`kind=business`)上限 `MAX_BUSINESS_TABS=12`,第 13 个在路由确认前阻断并保留 `pending`,由 `WorkspaceTabLimitDialog` 展示。
+- 标签身份 `tab id = route.name + 排序后 params + 排序后 query`(确定性、非法值不抛);页面身份 `buildTabId` 输出如 `workspace-tabs-sandbox&q=slot=3`(query 原始 `=` 编码)。
+- 守卫决策顺序:恢复会话 → 主题绑定 → 公共/受保护 → 权限 → 工作区治理 → 终端分流 → 标题;工作区治理在权限判断后、导航确认前执行 `requestOpen`,`limit-reached` 时已确立路由 `return false`、整页直达(无匹配)兜底 `pc-home`。
+- `resolvePending(resolution)` 返回导航目标:reuse → 被复用标签的 route;close-and-open → 待开 route 且关闭目标标签;cancel → null。
+- 关闭当前/其他/右侧仅在实际移除**激活**标签时才改写 `activeTabId`;关闭后台标签不改变激活。
+- `reloadVersion` 递增经 RouterView key 重建内容区(`route.fullPath:reloadVersion`);标签操作事件 `activate/close/close-others/close-right/reload` 携带 `tabId`。
+- 恢复时按「Router 存在 + `meta.workspace==='business'` + 用户仍有权限」过滤;无权限/非法标签丢弃,`activeTabId` 非法回退首个标签,快照非法 JSON/版本回退空态。
+- 快照经 `industrial-platform.pc.tabs.v1:<tenant>:<user>` 持久化,scope 与主题偏好/会话用户一致(`dev-tenant:mock-admin-0001` 为 mock.admin 演示 scope),与主题 bootstrap 键分离。
+
 已知限制：
 
 - 租户默认主题来源要等 PF-02 设计；当前为空适配器和产品默认值。
-- 真实 Identity 登录与管理页面由 PF-00 任务实现，PF-01 只提供壳并最终联合验收。
+- 真实 Identity 登录与管理页面由 PF-00 任务实现，PF-01 提供壳；真实登录/三主题/权限导航联合验收已通过（real E2E 19/19，见 §16）。
+- 真实登录 E2E 须串行（`playwright.real.config.ts` `workers=1`）：并行登录同一账号会触发 Identity 登录成功更新的乐观并发冲突（`ConcurrencyException`→HTTP 500），属 PF-00 后端缺陷（回 PF-00 修复），PF-01 以串行 E2E 配置规避、不越界改后端。真实登录 E2E 前置后端运行 + 云端 PG/Redis 可达；登录限流键在 relay 拥塞下可能无 TTL 残留，需以高 `IpRateLimitMaxAttempts` 环境变量缓解（不落文件）。
 - PF-01 不定义后续模块字段、API、事件、菜单领域、角标或业务数据。
 - 主题设计器、任意自定义色板和跨设备服务端偏好同步不在本阶段。
+- `pnpm test:unit:coverage` global 阈值 70% 自 TASK-ID-011/014/015 起未通过：Identity 管理页/SSO 页/权限组件等 Identity-owned 文件无单元覆盖（IdentityUsersPage 2.12%、IdentityRolesPage 2.81%、IdentityAuditsPage 4.54%、SsoClientsPage 1.24%、SsoProvidersPage 1.12%、PermissionGate 0% 等，属 PF-00 范围）。PF-01 任务按既有模式运行 `pnpm test:unit`（不含 coverage 门禁）；TASK-PF01-005 改动文件覆盖率均 ≥94%，非本次回归。
 
 ---
 
