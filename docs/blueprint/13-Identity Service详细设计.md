@@ -69,8 +69,8 @@ Identity Service：
 | 能力   | 说明        |
 | ---- | --------- |
 | 用户管理 | 账号、状态、密码  |
-| 组织管理 | 公司、工厂、部门  |
-| 角色管理 | 岗位角色      |
+| 用户组管理 | 租户级安全主体；组织账号并通过角色批量授权，不允许嵌套或直接分配权限 |
+| 角色管理 | 安全角色；不得等同 SystemData 岗位 |
 | 权限管理 | 菜单、API权限  |
 | 认证   | 登录、Token  |
 | 授权   | RBAC      |
@@ -80,6 +80,8 @@ Identity Service：
 不负责：
 
 ```
+行政组织、岗位和用户任职（SystemData）
+
 业务数据权限
 
 生产权限
@@ -748,9 +750,9 @@ Request:
 ```json
 {
 
-"account":"admin",
+"account":"<loginName>",
 
-"password":"123456"
+"password":"<由Secret Provider或一次性引导提供，禁止写入文档/代码/配置/日志>"
 
 }
 

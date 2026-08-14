@@ -180,7 +180,7 @@ backend/services
 ├── IoTCollector.Service
 ```
 
-其中 `ReferenceData.Service` 继续利用现有骨架，其余宿主按 PF 阶段映射创建或扩展。`SystemData.Service` 内含后续服务数据库编排/环境引导控制面；其内部 Runner 只是辅助执行细节，不新增独立 Database Migrator Service。Worker、Agent、Screego、TURN 和本地模型运行时位于宿主之外，是辅助部署单元，不计入七个核心 Service Host。
+其中 `ReferenceData.Service` 继续利用现有骨架，其余宿主按 PF 阶段映射创建或扩展。`SystemData.Service` 内含后续服务通用初始化编排/环境引导控制面；其内部 Runner 只以受控一次性隔离任务或执行适配器调度服务自有迁移、种子和 initializer，不新增独立 Migrator/Seeder Service。Worker、Agent、Screego、TURN 和本地模型运行时位于宿主之外，是辅助部署单元，不计入七个核心 Service Host。
 
 以下制造域服务名保留为后续阶段或未来物理拆分目标，不属于当前平台基础层七宿主计数：
 
@@ -417,18 +417,30 @@ Persistence
 
 ├── Migrations
 
+├── Initialization
+│   ├── InitializationManifest
+│   ├── MigrationArtifact
+│   ├── SeedSets
+│   ├── InitializerAdapter
+│   └── Observations
+
 ├── DatabaseProvisioning
 │   ├── ServiceRegistration
-│   ├── MigrationManifest
+│   ├── ModuleRegistration
 │   ├── SystemDataHandshake
 │   └── Readiness
 
 ├── Seed
+│   ├── SystemBaseline
+│   ├── TenantBaseline
+│   ├── EnvironmentSample
+│   ├── SecretBootstrap
+│   └── SeedLedger
 
 └── SqlSugar
 ```
 
-`Migrations` 由当前服务拥有并输出版本化 Assembly/Bundle 或等价产物；`DatabaseProvisioning` 只承载向 SystemData 登记、查询 Operation 和 readiness 门禁的客户端适配，不包含管理员凭据或自行建库逻辑。SystemData 自身数据库由基础设施最小引导，其他服务读取蓝图 33。
+`Migrations`、`Seed` 和 `InitializerAdapter` 由当前服务/模块拥有并输出签名、不可变、版本化产物。每个模块强制声明 `ModuleKey`，使用独立表前缀、`<module>_schema_migrations`、`<module>_seed_ledger`、SeedKey/checksum 范围；共享宿主禁止宿主级模糊初始化大包。`DatabaseProvisioning` 只承载向 SystemData 登记、查询 Operation 和 readiness 门禁的客户端适配，不包含管理员凭据、自行建库、任意 SQL 或 Secret 传输逻辑。初始化器从本服务 Secret Provider 解析 Secret，只向 SystemData 回报脱敏 version/checksum/status/TraceId。SystemData 自身由基础设施最小引导后本地执行 Schema migration 与最小 SystemBaseline；其他服务读取蓝图 33。
 
 ---
 

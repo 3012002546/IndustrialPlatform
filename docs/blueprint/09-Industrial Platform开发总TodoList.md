@@ -72,8 +72,9 @@
 | BuildingBlocks | 已完成 | 原基础能力和 `TASK-BB-010` 已完成 |
 | 可运行基线 | 基本完成，Docker 实机待验收 | `TASK-BASE-001/003/004/005/006` 完成，`TASK-BASE-002` 待 Docker 环境验收 |
 | 统一前端第一批 | 已完成 | `TASK-FE-001～010` 执行记录均已完成 |
-| Identity | 已暂停 | `TASK-ID-001～006` 已完成，暂停点为 `TASK-ID-007`；恢复时从该任务继续 |
+| Identity | 补强设计已确认 | 历史 `TASK-ID-001～016` 已完成；用户组、安全删除、正式 admin 引导和管理闭环为新增 `TASK-ID-017～023`，尚未开发 |
 | PF-01 视觉主题与平台外壳 | 已完成（外部真机项待验收） | 实施 04 `TASK-PF01-001～007` 已完成；真实 Identity 联合验收 real E2E 19/19 |
+| PF-02 SystemData | 部分实现，通用初始化设计已确认 | `961cad4` 已提交骨架/控制面，`61753dc` 已提交 migration-only Runner/PG/SQLite adapter/tests；通用 Seed/Bootstrap 扩展尚未开发 |
 | ReferenceData | 仅骨架 | 已有健康检查、测试入口和详细实施方案，业务能力尚未开发 |
 | MasterData | 暂缓 | 实施方案存在，本轮不进入开发 |
 | OperationalData | 暂缓 | 实施方案存在，本轮不进入开发 |
@@ -86,7 +87,7 @@
 已完成基础
   BuildingBlocks / Runnable Baseline / Frontend First Batch
         ↓
-PF-00 Identity（已暂停，停在 TASK-ID-007）
+PF-00 Identity（历史 TASK-ID-001～016 已完成；补强 TASK-ID-017～023 尚未开发）
         ↓
 PF-01 视觉、主题与平台外壳（TASK-PF01-001～007 已完成）
   ├──────────────┐
@@ -170,22 +171,22 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 
 # 7. PF-00 Identity
 
-**状态：** 已暂停
+**状态：** 补强设计已确认，尚未派遣
 **现有实施文档：** `docs/implementation/03-Industrial Platform Identity Service开发实施方案.md`
 **目标：** 完成用户、角色、权限、本地登录、令牌、会话、企业 SSO 边界和三端真实登录闭环。
-**当前进度：** `TASK-ID-001～006` 已完成；当前不继续派遣，恢复时从 `TASK-ID-007` 继续。
+**当前进度：** 历史 `TASK-ID-001～016` 已由提交 `48c5374` 完成；新增 `TASK-ID-017～023` 覆盖用户组、安全删除、SystemData 协同 admin 引导、前端管理闭环和真实登录验收，设计已确认但尚未开发。
 **前置：** BuildingBlocks、可运行基线、统一前端第一批。
 **禁止范围：** SystemData 行政组织、菜单所有权、聊天、业务数据权限模型扩张。
 
 **完成门禁：**
 
-- `TASK-ID-001～016` 有完整执行记录；
+- `TASK-ID-001～016` 保留历史完成记录，`TASK-ID-017～023` 有完整新鲜执行记录；
 - 登录、刷新、注销、撤销、401、403、菜单/按钮权限契约和关键 E2E 通过；
 - 前端切换真实 `HttpAuthGateway`；
 - 输出 PF-01/02/03 可消费的用户、权限、会话和身份上下文契约；
 - Docker 缺失造成的外部验收项明确保留为待验收，不伪报完成。
 
-**暂停点：** `TASK-ID-007` 服务端 RBAC、权限缓存与用户上下文。暂停不表示阶段完成，`TASK-ID-007～016` 仍未开发。
+**补强起点：** 历史 `TASK-ID-001～016` 不重复派遣；下一项为 `TASK-ID-017` 用户组领域、持久化与授权求值。
 
 **下一会话：** 用户恢复 PF-00 后继续现有 Identity 开发任务，不在其他阶段代做 Identity 剩余范围。
 
@@ -213,17 +214,17 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 
 # 9. PF-02 SystemData
 
-**状态：** 待启动
+**状态：** 待派遣（设计已批准、存量部分实现）；migration-only Runner 已提交，通用扩展待派遣
 **Service Host：** 创建 `SystemData.Service`；本阶段只交付 SystemData 模块。
 **建议会话标题：** `PF-02 SystemData阶段管理`
 **输入：** 蓝图 05、07、13、20、23、27、30、31、32、33；PF-00 身份契约；PF-01 页面规范；PostgreSQL 18 与当前 `deploy/cloud-dev` 最小引导现状。
-**目标：** 以 SystemData 数据库编排/环境引导控制面为最高优先级，先建立后续服务的物理目标权威与验证，再交付行政组织、岗位、任职关系、菜单导航、功能开关、服务目录和主题默认值。
+**目标：** 以 SystemData 通用服务初始化控制面为最高优先级，统一 registration、plan、审批/备份、provision、迁移、RequiredSeed、按需 SecretBootstrap、Operation 和 readiness，再交付行政组织、岗位、任职关系、菜单导航、功能开关、服务目录和主题默认值。
 **依赖：** PF-00；页面依赖 PF-01。
 **禁止范围：** 制造组织、字典参数、物料设备、租户运营后台。
 
 **设计会话必须解决：**
 
-- **最高优先级：** 先完成 `TASK-SD-001～004` 的设计、派遣和验收链（拓扑 resolver/bootstrap、logical/physical registration 与 plan、同物理目标锁定的 provision/migrate/drift、consumer handshake/readiness）；在该链满足编排门禁前，不得开始行政组织、菜单导航、主题等 `TASK-SD-005+` 工作。
+- **最高优先级：** `TASK-SD-001～004` 是阻塞链。`961cad4` 已实现 001～002 并待验收；`61753dc` 已提交 003 的 migration-only Runner，但 migration/seed/bootstrap 通用扩展仍待派遣；004 完成 consumer handshake/readiness 与验收。在该链满足初始化门禁前，不得开始 `TASK-SD-005+`。
 
 - 行政组织树、岗位和任职关系的不变量；
 - 菜单、路由、按钮资源与 Identity 权限的所有权和同步；
@@ -231,14 +232,17 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 - 服务目录、所有者、入口和健康地址；
 - 默认租户与用户主题覆盖规则；
 - 数据迁移、缓存、事件、审计和前端页面。
-- 服务 registration/manifest、dry-run/plan、异步 provision/apply、Operation 状态和受信查询 API；
+- `ServiceKey + ModuleKey`、InitializationManifest/SeedSets、dry-run/plan、异步 initialize/apply、Operation 状态和受信查询 API；
+- `SystemBaseline/TenantBaseline/EnvironmentSample/SecretBootstrap` 四类种子、RequiredForReadiness、环境允许列表与依赖图；
+- 每模块 `<module>_schema_migrations + <module>_seed_ledger` 双账本、SeedObservation、checksum drift、DataPatch 和管理员维护数据保护；
 - SystemData 普通连接与 provisioning 管理凭据隔离，最小业务角色、审批、备份、审计、脱敏、限流和幂等；
-- PostgreSQL advisory lock、迁移历史、失败恢复、expand/contract、禁止多副本并发迁移和 readiness 门禁；
-- Development/测试自动策略、生产 `plan → 审批 → 备份 → apply`，以及 `RemoteDevelopment.Enabled=false` 的 SQLite 回退；
+- PostgreSQL advisory lock、迁移/种子历史、失败恢复、expand/contract、禁止多副本重复初始化和 readiness 门禁；
+- Development/Test 必要迁移/种子自动策略、EnvironmentSample 显式启用、生产 `plan → 审批 → 备份 → apply` 且禁止启动时播种，以及 SQLite 显式迁移/双账本语义；
+- 服务自有签名 migration/seed/initializer 产物与 Secret Provider；SystemData 不理解业务表、不直写 Repository、不接收或透传 Secret 值；
 - SystemData 自身数据库由基础设施最小引导的 bootstrap 例外，不得形成调用自身 API 的循环依赖。
 
-**交付：** SystemData 蓝图/规格、实施方案、任务卡、数据库编排 API/manifest/readiness 母版和 PF-03/04 及后续服务可消费契约；当前仅前述文档与任务卡已形成，尚未代表运行时实现或测试完成。
-**完成门禁：** 先证明 Development `Shared`（一个 PostgreSQL physical target、各服务独立迁移与 readiness）和 `PerService` 隔离均可用；Test/Staging/Production 仅允许 `PerService`，且生产 `apply` 必须通过审批与备份门禁。随后管理员可完成组织、岗位、导航、开关、服务和主题管理；受信测试服务可通过可追踪 `OperationId` 幂等完成非 SystemData PostgreSQL 数据库、最小角色/授权和版本化迁移，多副本只迁移一次，失败消费者保持 NotReady，管理凭据不进入 API/数据库/日志/Trace/审计；SystemData 自身最小引导与 SQLite 回退有验证证据；不得使用 `EnsureCreated`。权限、审计、契约和关键 E2E 通过。
+**交付：** SystemData 蓝图/实施方案/任务卡、Service Initialization API/manifest/双账本/readiness 母版和 PF-03+ 可消费契约。当前 `961cad4` 已提交骨架与控制面，`61753dc` 已提交 migration-only Runner；通用 Seed/Bootstrap 扩展和验收尚未完成，其他 SystemData 业务未开发。
+**完成门禁：** 覆盖首次初始化、重复 apply、并发多副本、迁移/种子版本升级、同版本 checksum drift、部分失败重试、缺 Secret、生产未审批/未备份、EnvironmentSample 环境拒绝、共享物理库多个 ModuleKey 隔离、管理员维护数据不被覆盖、SystemData 不可用消费者 NotReady 和 SystemData 自身无循环自举。所有服务/模块拥有自己的 Schema、初始化产物和双账本，SystemData 只保存脱敏 observation；随后管理员可完成组织、岗位、导航、开关、服务和主题管理。不得使用 `EnsureCreated`，权限、审计、契约和关键 E2E 通过。
 
 # 10. PF-03 ReferenceData
 
@@ -316,9 +320,10 @@ PF-04 只使用一个阶段管理会话，输出实施文档 07。File、Notific
 
 # 13. PF-06 RemoteAssistance
 
-**状态：** 待启动
+**状态：** 详细设计已确认，PoC 决策门禁待派遣
 **Service Host：** RemoteAssistance 作为独立内部模块加入 `Collaboration.Service`，并保留未来物理拆分能力。
 **建议会话标题：** `PF-06 RemoteAssistance阶段管理`
+**实施文档：** `docs/implementation/09-Industrial Platform RemoteAssistance开发实施方案.md`
 **输入：** 蓝图 05；PF-05 会话契约；Screego 官方仓库和部署配置。
 **目标：** 先验证现场网络中的 WebRTC 屏幕共享，再决定 Screego 适配或自研轻量信令路线。
 **依赖：** PF-05；验证环境需具备内部 HTTPS、WebSocket 和可配置网络策略。
@@ -335,6 +340,7 @@ PF-04 只使用一个阶段管理会话，输出实施文档 07。File、Notific
 - 独立路由/新窗口与可选 iframe 的权限兼容性。
 
 **决策门禁：** 形成带证据的采用、适配或自研结论。验证失败时功能开关保持关闭，不阻塞 Collaboration。
+**已确认方向（2026-08-14）：** 平台原生 RemoteAssistance 控制面与最小原生 WebRTC 信令作为推荐生产候选，未修改 Screego 仅作独立基准 PoC；先执行 `TASK-PF06-001` 双 PoC、现场网络与 GPL-3.0 交付门禁，证据和用户确认通过后才允许 `TASK-PF06-002～008` 进入领域、契约、适配、页面、部署与验收开发。当前未派遣、未开发、未构建、未测试。
 **产品完成门禁：** 从聊天发起、邀请、接受、共享、终止和元数据审计闭环通过。
 
 # 14. PF-07 Scheduler / Platform Health
@@ -460,13 +466,13 @@ WorkOrder、Weighting、Trace、BatchRecord 和生产闭环分别开会话设计
 
 | 阶段 | 状态 | 阶段管理会话 | 设计依据 | 实施方案 | 派遣/提交 | 验收证据 |
 | --- | --- | --- | --- | --- | --- | --- |
-| PF-00 Identity | 已暂停 | 现有 Identity 会话 | 蓝图 13、31 | 实施 03 | `c7d371f`、`cd46e3c` 等；完成 TASK-ID-001～006 | 见实施 03；外部环境项仍待验收 |
+| PF-00 Identity | 补强设计已确认，尚未派遣 | 现有 Identity 会话 | 蓝图 13、31、33 | 实施 03 | 历史提交 `48c5374` 完成 TASK-ID-001～016；TASK-ID-017～023 尚无实现提交 | 见实施 03；本轮仅完成设计，补强联合验收尚未执行 |
 | PF-01 视觉主题 | 已完成（外部真机项待验收） | 现有 PF-01 会话继续 | 已批准 PF-01 规格 | `docs/implementation/04-Industrial Platform视觉主题与平台外壳开发实施方案.md` | 设计提交 `e2d24a4`、`d7ef889`、`efb3b35`；开发未提交(按协作约定) | TASK-PF01-001～007 完成；静态门禁全绿、mock E2E 102/102、真实 Identity E2E 19/19 |
-| PF-02 SystemData | 详细设计与任务卡已形成，待书面审阅；尚未开发 | 待创建 | 蓝图 05、07、33 | `docs/implementation/05-Industrial Platform SystemData开发实施方案.md` | 无运行时提交 | 尚无运行时测试/验收证据 |
+| PF-02 SystemData | 部分实现；通用初始化设计已确认 | 现有 PF-02 会话 | 蓝图 05、07、33 V2.0 | `docs/implementation/05-Industrial Platform SystemData开发实施方案.md` | `961cad4` 已实现 001～002；`61753dc` 已提交 003 migration-only 基线 | 001～002 待验收；003 通用扩展待派遣；004+ 未实现，本轮未重跑测试 |
 | PF-03 ReferenceData | 仅骨架 | 待创建 | 蓝图及现有设计待复核 | 实施 06 待修订 | - | - |
 | PF-04 File / Notification / Audit | 待启动 | 待创建 | 蓝图 05、30、31 | 实施 07 待创建 | - | - |
 | PF-05 Collaboration | 待启动 | 待创建 | 蓝图 05 | 实施 08 待创建 | - | - |
-| PF-06 RemoteAssistance | 待启动 | 待创建 | 蓝图 05，先验证 | 实施 09 待创建 | - | - |
+| PF-06 RemoteAssistance | 详细设计已确认，PoC 门禁待派遣 | 当前 PF-06 阶段管理会话 | 蓝图 05、32、33；Screego/W3C 官方证据 | `docs/implementation/09-Industrial Platform RemoteAssistance开发实施方案.md` | 推荐平台原生控制面/最小信令，Screego 仅未修改基准 PoC | TASK-PF06-001 待另行派遣；002～008 门禁阻塞，未开发/未测试 |
 | PF-07 Scheduler / Platform Health | 待启动 | 待创建 | 蓝图 05、30 | 实施 10 待创建 | - | - |
 | PF-08 Low Code | 待启动 | 待创建 | 蓝图 21 待复核 | 实施 11 待创建 | - | - |
 | PF-09 Dashboard & Report | 待启动 | 待创建 | 蓝图 22 待复核 | 实施 12 待创建 | - | - |
@@ -497,7 +503,7 @@ WorkOrder、Weighting、Trace、BatchRecord 和生产闭环分别开会话设计
 
 - 平台基础和独立模块优先于 MasterData、OperationalData 和 MES 业务扩张。
 - 实施文档按 PF/MES 阶段重排为 03～16；原 ReferenceData、MasterData、OperationalData 调整为 06、15、16。
-- Identity 记录为已暂停且停在 `TASK-ID-007`，PF-01 记录为开发设计已完成但尚未开发，ReferenceData 记录为代码仅骨架。
+- Identity 历史实现证据校准为 `TASK-ID-001～016` 已完成；用户组、安全删除、正式 admin 引导和管理闭环登记为新增 `TASK-ID-017～023`，不把设计完成写成开发完成。
 - MasterData、OperationalData 改为暂缓。
 - 删除旧的固定 MES Sprint 路线，改为阶段门禁和单阶段单管理会话。
 - 每个 PF 阶段（含 PF-10A）一个管理会话；PF-04、PF-07、PF-09 在同一阶段会话内保持模块分开建模和任务拆分。

@@ -11,9 +11,9 @@
 - API 使用包含 `Z` 或明确偏移量的 ISO 8601 / RFC 3339 时间字符串。
 - PostgreSQL 持久化瞬时时间统一使用 `timestamp with time zone`（`timestamptz`），以 UTC 保存；展示时按用户、工厂或设备时区转换。
 
-当前执行优先级由 [`09-Industrial Platform开发总TodoList.md`](09-Industrial%20Platform开发总TodoList.md) 的 PF/MES 阶段编号维护，不再由文档文件编号推断。当前状态为：`BuildingBlocks/可运行基线/统一前端（已完成） → PF-00 Identity（已暂停，停在 TASK-ID-007） → PF-01（开发设计已完成、任务待确认，尚未开发） → PF-02～PF-10 → PF-10A Operations Center Knowledge & Assistant → PF-11 IoT Collector → MES-01 MasterData → MES-02 OperationalData → 后续生产闭环`。
+当前执行优先级由 [`09-Industrial Platform开发总TodoList.md`](09-Industrial%20Platform开发总TodoList.md) 的 PF/MES 阶段编号维护，不再由文档文件编号推断。当前状态为：`BuildingBlocks/可运行基线/统一前端（已完成） → PF-00 Identity（历史 001～016 已完成，补强 017～023 尚未开发） → PF-01（001～007 已完成） → PF-02（001～002 待验收、003 migration-only 已提交且通用扩展待派遣） → PF-03～PF-10 → PF-10A → PF-11 → MES 阶段`。
 
-平台基础层当前七个 Service Host、内部模块边界和阶段映射统一读取 [`32-Industrial Platform Service Host与内部模块边界.md`](32-Industrial%20Platform%20Service%20Host与内部模块边界.md)。阶段不等于微服务；旧文档中的独立 Service 名称在冲突时只表示未来拆分目标。后续服务数据库初始化、环境引导和迁移编排统一读取 [`33-Industrial Platform SystemData数据库编排与环境引导.md`](33-Industrial%20Platform%20SystemData数据库编排与环境引导.md)。
+平台基础层当前七个 Service Host、内部模块边界和阶段映射统一读取 [`32-Industrial Platform Service Host与内部模块边界.md`](32-Industrial%20Platform%20Service%20Host与内部模块边界.md)。阶段不等于微服务；旧文档中的独立 Service 名称在冲突时只表示未来拆分目标。PF-03+ 服务/模块的数据库、迁移、种子、一次性引导和 readiness 统一读取 [`33-Industrial Platform SystemData数据库编排与环境引导.md`](33-Industrial%20Platform%20SystemData数据库编排与环境引导.md)。
 
 ReferenceData 管理字典、配置、元数据和编码规则；SystemData 管理行政组织、岗位、菜单导航、功能开关、服务目录和主题默认值；MasterData 管理物料、设备、制造组织、仓库、库位和 BOM 等稳定主数据；OperationalData 管理库存批次、余额、预留和仓储业务单据。
 
@@ -52,5 +52,5 @@ ReferenceData 管理字典、配置、元数据和编码规则；SystemData 管�
 | 30 | [日志审计与可观测性平台设计](30-Industrial%20Platform日志审计与可观测性平台设计.md) | 已整理 | 01 | 规划 |
 | 31 | [权限体系与安全架构设计](31-Industrial%20Platform权限体系与安全架构设计.md) | 已整理 | 01, 13 | 规划 |
 | 32 | [Service Host 与内部模块边界](32-Industrial%20Platform%20Service%20Host与内部模块边界.md) | 已确认 | 01, 05, 09 | 平台基础层权威微服务母版 |
-| 33 | [SystemData 数据库编排与环境引导](33-Industrial%20Platform%20SystemData数据库编排与环境引导.md) | 已确认 | 05, 07, 20, 27, 30, 31, 32 | 后续服务数据库初始化权威母版 |
+| 33 | [SystemData 服务初始化编排与环境引导](33-Industrial%20Platform%20SystemData数据库编排与环境引导.md) | 已确认 V2.0 | 05, 06, 07, 20, 27, 30, 31, 32 | PF-03+ 服务/模块初始化权威母版 |
 | 后续设计 | [后续设计](后续设计.md) | 路线参考 | 01–33 | 后续章节生成提示词与路线参考 |

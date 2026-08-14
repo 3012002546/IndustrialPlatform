@@ -20,10 +20,10 @@ Service Host 与内部模块：
 【读取蓝图 32，列出本阶段创建/扩展的 Service Host 和本阶段内部模块；明确阶段不等于 Service Host】
 ```
 
-数据库初始化与环境引导：
+服务初始化与环境引导：
 
 ```text
-【PF-02 及后续新服务读取蓝图 07、33；列出 ServiceKey、Provider、LogicalDatabaseName、表前缀、服务自有 migration ledger、迁移产物与版本、Owner、DesiredState、AutoProvision/AutoMigrate 和 DatabaseTopology 模式/默认目标。必须记录 SystemData 解析后的 PhysicalDatabaseName 校验、握手 OperationId、readiness、同物理目标迁移锁、drift 行为、最小角色、备份和环境策略；Development 默认 Shared（可选 PerService），Test/Staging/Production 只能 PerService。服务不得自行选择物理目标；不适用时说明原因】
+【PF-02 及后续新服务读取蓝图 07、33；列出 ServiceKey、强制 ModuleKey、Provider、LogicalDatabaseName、表前缀、每模块自有 <module>_schema_migrations 与 <module>_seed_ledger、InitializationManifest/SeedSets、迁移/种子/initializer 产物与 version/checksum/signature、Owner、DesiredState、AutoProvision/AutoMigrate 和 DatabaseTopology。SeedSet 至少声明 SeedKey、SeedVersion、SeedClass、Scope、ArtifactId/Checksum/Signature、RequiredForReadiness、AllowedEnvironments、DependsOnMigrationVersion、DependsOnSeedKeys、BootstrapPolicy。必须记录 SystemData 解析后的目标校验、OperationId、readiness、锁、drift、最小角色、审批/备份和环境策略；Development/Test 可按策略自动执行必要迁移/种子，EnvironmentSample 仅显式启用，Staging/Production 禁止启动时自动播种。服务不得自行选择物理目标或向 SystemData 传 Secret；不适用时说明原因】
 ```
 
 技术：
@@ -116,7 +116,7 @@ API/事件契约
 
 当多个模块共享 Service Host 时，还必须明确独立 Schema 或表前缀、公开应用契约、权限资源、迁移和测试边界；禁止跨模块直读 Repository 或数据表，并说明未来物理拆分路径。
 
-PF-02 及后续新服务还必须明确数据库初始化控制面：SystemData 是物理目标唯一权威，负责登记、logical-to-physical resolution、plan、provision/apply、Operation、数据库/角色/授权和迁移编排；当前服务只拥有领域 Schema/表前缀与版本化迁移产物。必须写清 SystemData 不可用/迁移失败时 NotReady、同物理目标迁移锁、drift、Development Shared 默认/可选 PerService 与 Test/Staging/Production PerService、幂等、Secret 隔离，以及 SystemData 自身由基础设施最小引导的唯一例外。禁止独立 Migrator Service、业务 API 管理员建库和 `EnsureCreated`。
+PF-02 及后续新服务还必须明确 Service Initialization Pipeline：SystemData 是控制面，负责 registration、logical-to-physical resolution、plan、审批/备份、provision、SchemaMigration、RequiredSeed、按需 SecretBootstrap、Operation 和 readiness；当前服务/模块拥有领域 Schema、表前缀、迁移/种子/initializer 产物和双账本。必须写清 SystemData 不可用或必要初始化未完成时 NotReady、同物理目标与 ModuleKey 锁、checksum drift、Development/Test 自动策略、EnvironmentSample 禁入 Staging/Production、幂等、Secret 隔离，以及 SystemData 自身由基础设施最小引导后本地 migration+SystemBaseline 的唯一例外。禁止独立 Migrator/Seeder Service、业务 API 管理员建库、SystemData 直写业务 Repository、`EnsureCreated` 和向控制面传任意 SQL/路径/命令/Secret。
 
 ---
 
@@ -194,6 +194,7 @@ tests/...
 - 时间、精度和状态字段。
 - 乐观并发、软删除和迁移。
 - registration/manifest、迁移 Assembly/Bundle 或等价产物、迁移历史、SystemData OperationId、readiness 和备份登记。
+- InitializationManifest/SeedSets、四类种子、每模块双账本、SeedObservation、DataPatch 与管理员维护数据保护边界。
 - 事务、Outbox/Inbox 和数据修复边界。
 
 数据表字段清单只列当前表业务字段，完整建表和迁移仍须应用第 6.1 节统一生命周期字段。父子表必须区分子表自身 `is_deleted` 与父引用快照 `{parent_entity}_is_deleted`，并明确复合外键、同步方式和查询过滤；跨服务引用必须明确不建立数据库外键。
@@ -248,6 +249,7 @@ API 必须明确：
 - 审计场景和前后值边界。
 - TraceId、结构化日志、指标和健康检查。
 - fail-open/fail-closed 决策。
+- 初始化器 Secret Provider 边界；SystemData 只能传非敏感上下文并接收脱敏 version/checksum/status/TraceId。
 
 ---
 
@@ -266,6 +268,8 @@ E2E
 ```
 
 根据模块选择适用层次，并给出具体场景矩阵。不得只写“测试通过”。
+
+PF-02 及后续服务至少覆盖首次初始化、重复 apply、并发多副本、版本升级、同版本 checksum drift、部分失败重试、缺 Secret、生产未审批/未备份拒绝、EnvironmentSample 环境拒绝、共享物理库多个 ModuleKey 隔离、管理员维护数据不被覆盖、SystemData 不可用消费者 NotReady 和 SystemData 自身无循环自举。
 
 所有验证证据至少记录：
 

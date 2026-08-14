@@ -4,9 +4,9 @@
 
 > 当前里程碑范围：完成 Identity 本地认证、客户 OIDC/SAML 联邦单点登录、用户/角色/权限管理、统一前端接入及看板/追溯类独立页面认证恢复，形成可供后续业务服务复用的身份与授权闭环；本阶段不实现看板、追溯业务页面本身。
 
-版本：V2.1
+版本：V3.0
 
-阶段状态：已暂停。`TASK-ID-001～007` 已完成，暂停点为 `TASK-ID-008`；恢复前不得继续派遣 `TASK-ID-008～016`，暂停不表示 PF-00 已完成。
+阶段状态：补强设计已确认，尚未派遣。历史 `TASK-ID-001～016` 已由提交 `48c5374` 完成；本轮仅新增 `TASK-ID-017～023` 的用户组、安全删除、正式 admin 引导及管理闭环设计，不把设计完成表述为开发完成。
 
 所属项目开发路线阶段：Phase 3「Identity 服务 + 页面」；前置为 Phase 2「统一前端第一批」，完成后向 Phase 4「ReferenceData 服务 + 页面」交付身份、权限和 SSO 契约。阶段定义见《01-Industrial Platform开发启动实施方案》第 2 节“开发阶段总体规划”。
 
@@ -67,10 +67,10 @@ Vue 3
 
 - Identity 已有 Domain、Application、Infrastructure、Api 四层项目骨架。
 - `/health`、`/health/live`、`/health/ready` 和 PostgreSQL/Redis/Seq 健康检查已存在。
-- 当前没有用户、角色、权限、数据库迁移、认证或业务 API。
+- 当前真实代码已经具备用户、角色、权限、数据库迁移、本地认证、会话、SSO、管理 API、管理页面、Outbox 和真实登录 E2E；历史实现范围为 `TASK-ID-001～016`，证据提交为 `48c5374`。
 - 当前开发配置仍临时指向 `industrial_platform`；`identity_db` 必须作为 `LogicalDatabaseName`，由 `DatabaseTopology` 解析到 Shared Development 或 PerService 的物理目标。
 - BuildingBlocks 已提供 `Guid` 用户标识、`ICurrentUser`、ClaimConstants、统一 ApiResult、异常中间件和日志基础。
-- 统一前端第一批完成后已具备登录页、AuthStore、`AuthGateway`、路由守卫和三端布局，但运行时仍使用 Mock。
+- 统一前端已具备 `HttpAuthGateway` 和真实 Identity 登录；生产构建禁止 Mock，但开发默认仍为 `VITE_AUTH_MODE=mock`，首次部署也缺少可验收的正式 admin 引导，因此联合验收入口仍不完整。
 
 ## 1.3 执行前置
 
@@ -772,7 +772,12 @@ Identity API 使用 NId 契约，HttpAuthGateway 通过显式 Mapper 适配 02B 
 
 ```text
 CreateUserRequest
-  nId, loginName, name, initialPassword, email, phone, roleNIds[]
+  nId, loginName, name, email, phone, roleNIds[]
+
+  初始密码不由 API/页面传入；Identity 为每个用户生成独立的一次性随机临时密码
+
+CreateUserResult
+  user, temporaryPassword（仅本次成功响应出现，不可再次查询）
 
 UpdateUserRequest
   loginName, name, email, phone,
@@ -936,27 +941,13 @@ Sso:StateLifetimeMinutes = 5
 Sso:AllowedClockSkewSeconds = 120
 ```
 
-私钥、初始管理员密码和真实连接凭据不得提交仓库。
+私钥和真实连接凭据仍按基础设施安全规则管理。admin 与普通用户的初始密码不进入任何配置文件、代码常量或环境变量，统一由 Identity 使用密码学安全随机数生成。
 
 ## 21.2 初始化数据
 
-迁移/种子数据：
+历史实现已经提供权限目录、`SYSTEM_ADMIN` 和可选环境变量 bootstrap，但“数据库无任何用户才创建”、随机内部 Id、缺少种子账本/审计/首次改密及环境策略，不能作为正式初始化契约。
 
-- 权限目录。
-- `SYSTEM_ADMIN` 系统角色及全部第一批权限。
-- 可选初始管理员。
-- 租户级 SSO Provider/Client 仅创建结构，不提交客户地址、证书私钥或 Client Secret。
-
-初始管理员只在数据库没有用户且显式提供以下环境变量时创建：
-
-```text
-IDENTITY_BOOTSTRAP_TENANT_NID
-IDENTITY_BOOTSTRAP_USER_NID
-IDENTITY_BOOTSTRAP_LOGIN_NAME
-IDENTITY_BOOTSTRAP_PASSWORD
-```
-
-初始化必须幂等，不输出密码。生产环境缺少显式初始化配置时不得创建固定默认账号。
+正式设计以 29A.4 为准：SystemData 编排 Identity 自有迁移和三层种子；稳定 `ADMIN`/`SYSTEM_ADMIN`、`identity_seed_ledger`、一次性随机临时密码、重复执行不覆盖及紧急恢复门禁全部由 TASK-ID-019 补强。内置 admin 不强制首次改密；普通新建用户使用各自独立的随机临时密码并强制首次登录改密。租户级 SSO Provider/Client 仍只创建结构，不提交客户地址、证书私钥或 Client Secret。
 
 ---
 
@@ -1490,6 +1481,188 @@ OpenAPI/契约测试
 
 ---
 
+# 29A. PF-00补强详细设计
+
+## 29A.1 权威边界与现状判定
+
+- Identity 继续拥有账号、凭据、用户状态、角色、权限、用户组、会话和 SSO；SystemData 只拥有行政组织、岗位和用户任职，不复制账号、凭据、角色或用户组。
+- 用户、角色、权限、登录、刷新、注销、SSO、管理 API 和现有 PC 管理页属于历史已实现能力；用户组、安全删除、正式 admin 引导和相应完整管理 E2E 属于新增方案，状态不得混写。
+- 当前为单租户可用形态，但所有聚合、关系、API、事件、缓存键、种子账本和审计继续显式携带 `TenantNId`。
+
+## 29A.2 用户组领域语义
+
+用户组是 Identity 内的租户级安全主体，仅用于批量组织账号并统一授予角色。它不代表部门、岗位、班组或任职，不构成行政层级，不保存 `OrganizationNId` 或 `PositionNId`，也不允许 SystemData 直读或复制用户组。
+
+固定授权模型：
+
+```text
+User ──直接分配──> Role ──> Permission
+  └──成员关系──> UserGroup ──分配──> Role ──> Permission
+
+EffectiveRoleNIds = DirectRoleNIds ∪ GroupRoleNIds
+EffectivePermissionNIds = 所有有效角色的 PermissionNIds 去重并排序
+```
+
+- 用户组可以分配角色，不允许直接分配权限；权限只能经 Role 授予。
+- 用户仍可直接分配角色，API 和页面必须区分直接角色、用户组继承角色和最终有效角色。
+- 第一阶段禁止用户组嵌套，任何父组、子组或组成员为组的请求均不进入契约。
+- 组状态为 `Active/Disabled`；禁用组立即停止贡献角色，但保留成员和角色配置以便恢复。
+- 组 NId 在租户内全历史大小写不敏感唯一，创建后不可修改或复用。
+
+新增聚合与关系：
+
+| 对象/表 | 主要业务字段 | 约束 |
+| --- | --- | --- |
+| `UserGroup` / `identity_user_group` | TenantNId、NId、NormalizedNId、Name、Description、Status | TenantNId+NormalizedNId全历史唯一；`(Id,IsDeleted)`可引用唯一键 |
+| `UserGroupMembership` / `identity_user_group_membership` | TenantNId、User_Id、User_IsDeleted、UserGroup_Id、UserGroup_IsDeleted | 活动关系 TenantNId+User_Id+UserGroup_Id 唯一；两组复合外键 |
+| `UserGroupRole` / `identity_user_group_role` | TenantNId、UserGroup_Id、UserGroup_IsDeleted、Role_Id、Role_IsDeleted | 活动关系 TenantNId+UserGroup_Id+Role_Id 唯一；两组复合外键 |
+
+父级软删除通过 `ON UPDATE CASCADE` 或同事务等价机制同步父删除快照；有效关系同时过滤关系自身和两端父级删除状态。成员或组角色变化必须推进所有受影响用户的授权版本，失效权限缓存并撤销现有会话，使新增和移除权限都在下一次认证前生效。
+
+## 29A.3 用户安全删除与恢复
+
+`DELETE /api/v1/users/{userNId}` 表示不可登录的安全软删除墓碑，不允许正常业务流程物理删除用户：
+
+1. 校验双版本、删除原因、操作者权限、禁止删除自己以及最后一个可用系统管理员。
+2. 推进 `AuthVersion`，撤销该用户全部 Refresh/SSO/浏览器会话并失效权限缓存。
+3. 将直接角色、用户组成员关系等活动授权关系软删除；历史审计、Outbox 和跨服务 `UserNId` 引用继续有效。
+4. 对用户执行 `MarkDeleted`；默认查询排除，管理员可用 `includeDeleted=true` 查询墓碑。
+5. `UserNId`、NormalizedNId 和 NormalizedLoginName 永久保留，不因删除释放，禁止其他账号复用。
+
+`POST /api/v1/users/{userNId}/restore` 仅恢复账号墓碑，不自动恢复已移除的角色、用户组、凭据有效性或会话。恢复后账号保持 `Disabled`，管理员必须显式分配授权、重置密码并启用。恢复和删除均写不可抵赖操作审计及版本化集成事件。个人资料匿名化属于独立合规流程，不由普通删除隐式执行。
+
+内置 `ADMIN` 用户禁止普通删除；系统在每个启用的租户中必须至少保留一个未删除、未禁用、可登录且持有 `SYSTEM_ADMIN` 的管理员。禁用、删除、移除直接/组继承管理员角色、禁用管理员所属组等所有路径都使用同一权威计数守卫。
+
+## 29A.4 SystemData协同数据库与种子初始化
+
+SystemData 只编排，Identity 拥有 Schema、种子内容、迁移账本和执行器。首次部署固定流程：
+
+```text
+受控部署身份注册 Identity manifest
+→ SystemData plan / approval / backup / provision
+→ Identity 自有 SchemaMigration
+→ Identity SystemSeed
+→ Identity BootstrapAdmin
+→ Identity Verify
+→ 回报同一 SystemData OperationNId
+→ readiness 暴露 schemaVersion / seedVersion / bootstrapStatus
+```
+
+SystemData registration/plan 新增的非敏感契约为 `SeedArtifactId`、`SeedVersion`、`SeedChecksum`、`BootstrapPolicy`；SystemData 不接收任意 SQL、密码哈希或持久化明文密码，不直读 `identity_db`。首次编排使用受控部署/服务身份，不能依赖尚未创建的 admin。Identity Runner 生成的 admin 临时密码只允许在成功结果的受保护响应中由 SystemData 向当前初始化调用方内存透传一次，禁止写入 Operation、数据库、日志、Trace、审计、事件或重试载荷。
+
+Identity 新增 `identity_seed_ledger`：
+
+```text
+SeedNId
+SeedVersion
+TenantNId
+Checksum
+Status
+AppliedOn
+SystemDataOperationNId
+TraceId
+```
+
+种子分层：
+
+- `SystemCatalogSeed`：幂等补齐权限目录、稳定 `SYSTEM_ADMIN` 角色及系统角色权限；不覆盖普通角色或管理员人工配置。
+- `TenantSecuritySeed`：按 `TenantNId` 确认租户级系统角色；不创建任何 SystemData 组织、岗位或任职。
+- `BootstrapAdminSeed`：使用代码内稳定标识常量 `UserNId=ADMIN`、稳定内部 Id、登录名 `admin`，绑定 `SYSTEM_ADMIN`；使用 `RandomNumberGenerator` 生成不少于 20 个字符且满足密码策略的随机初始密码，只保存 BCrypt 哈希。
+
+Bootstrap 规则：
+
+- Development、Test、Staging、Production 使用同一随机生成规则，不读取固定密码配置；Test 只断言生成值满足策略且不复用，不固定真实密码。
+- 首次引导仅在 admin 不存在时执行；创建成功后自动封闭入口，再启用只能走审计化紧急恢复。
+- 创建 admin 后设置 `MustChangePassword=false`；管理员后续改密和凭据轮换由正常管理流程自行执行。admin 创建成功即关闭一次性引导，重复启动不得覆盖其密码。
+- 重复启动、重复 apply 和迁移重试只核验并补齐不可变系统目录，绝不覆盖已存在 admin 的密码、资料、状态或授权。
+- admin 已存在但被禁用、删除、失去系统管理员角色或凭据遗失时，普通种子失败并返回可诊断状态，不自动修复；恢复必须经过独立审批和审计。
+- admin 临时密码只允许领取一次；初始化调用方未保存或遗失时不得重新读取原密码，必须走紧急密码重置并生成新的随机临时密码。
+
+Identity readiness 同时校验数据库已 provision、SchemaVersion、SeedVersion、系统角色权限完整性及环境要求的 admin 是否已创建；admin 创建成功即可结束 `BootstrapPending`，不以 admin 是否改密作为 readiness 条件。
+
+普通用户创建策略：从公开 `CreateUserRequest` 删除 `InitialPassword`，标准 PC 管理页面也不显示密码输入框。服务端为每个新用户使用 `RandomNumberGenerator` 生成独立、不少于 20 个字符且满足密码策略的一次性临时密码，只保存 BCrypt 哈希；`CreateUserResult.temporaryPassword` 仅在本次 201 响应出现一次。所有非内置新用户设置 `MustChangePassword=true`，首次登录只允许修改密码和注销；改密成功推进凭据版本、撤销其他会话并清除该标记。
+
+临时密码响应必须使用 HTTPS、`Cache-Control: no-store`，不得进入通用响应日志、审计、Trace、事件、前端持久化或错误报告。管理员关闭一次性展示弹窗后无法再次查询；遗失时调用密码重置，重置用例同样生成并仅返回一次新的随机临时密码，不接受管理员指定或复用共享默认密码。
+
+## 29A.5 API与权限契约
+
+新增权限码：
+
+```text
+identity.user.delete
+identity.user.restore
+identity.user.reset-password
+identity.user-group.view
+identity.user-group.create
+identity.user-group.update
+identity.user-group.status
+identity.user-group.assign-member
+identity.user-group.assign-role
+identity.user-group.delete
+identity.user-group.restore
+identity.bootstrap.view
+identity.bootstrap.recover
+```
+
+新增/调整 API：
+
+| 方法与路径 | 权限 | 关键契约 |
+| --- | --- | --- |
+| `GET /api/v1/users` | `identity.user.view` | 增加 groupNId、roleNId、includeDeleted；返回直接/组继承/有效角色摘要 |
+| `DELETE /api/v1/users/{userNId}` | `identity.user.delete` | 原因+双版本；安全软删除 |
+| `POST /api/v1/users/{userNId}/restore` | `identity.user.restore` | 原因+双版本；恢复为 Disabled 且无自动授权 |
+| `POST /api/v1/users/{userNId}/reset-password` | `identity.user.reset-password` | 重置后强制改密并撤销全部会话 |
+| `GET /api/v1/user-groups`、`GET /{groupNId}` | `identity.user-group.view` | 分页查询、状态、成员数、角色数、双版本 |
+| `POST /api/v1/user-groups` | `identity.user-group.create` | 创建组，可原子提交初始成员和角色 |
+| `PUT /api/v1/user-groups/{groupNId}` | `identity.user-group.update` | 修改 Name/Description，NId 不可修改 |
+| `PUT /api/v1/user-groups/{groupNId}/status` | `identity.user-group.status` | 启用/禁用并刷新受影响用户授权 |
+| `PUT /api/v1/user-groups/{groupNId}/members` | `identity.user-group.assign-member` | 最终成员集+双版本，幂等收敛 |
+| `PUT /api/v1/user-groups/{groupNId}/roles` | `identity.user-group.assign-role` | 最终角色集+双版本，不接受 PermissionNId |
+| `DELETE /api/v1/user-groups/{groupNId}` | `identity.user-group.delete` | 软删除、解除有效关系、最后管理员守卫 |
+| `POST /api/v1/user-groups/{groupNId}/restore` | `identity.user-group.restore` | 恢复为 Disabled，不自动恢复关系 |
+| `GET /api/v1/bootstrap/status` | `identity.bootstrap.view`或受控部署身份 | 仅返回状态/版本，不返回 Secret |
+| `POST /api/v1/bootstrap/recover` | `identity.bootstrap.recover`+部署审批 | 仅接受一次性恢复引用和审批关联，不接受明文密码 |
+
+所有写接口要求 `expectedOptimisticVersion`、`expectedConcurrencyVersion`、Idempotency-Key、TraceId 和审计原因；409 返回 `ID_CONCURRENCY_CONFLICT` 或 `ID_IDEMPOTENCY_CONFLICT`。
+
+新增错误码：`ID_USER_DELETED`、`ID_USER_LOGIN_NAME_RESERVED`、`ID_LAST_ADMIN_REQUIRED`、`ID_GROUP_NOT_FOUND`、`ID_GROUP_NID_CONFLICT`、`ID_GROUP_DISABLED`、`ID_GROUP_ROLE_INVALID`、`ID_BOOTSTRAP_PENDING`、`ID_BOOTSTRAP_CREDENTIAL_ALREADY_RETRIEVED`、`ID_BOOTSTRAP_RECOVERY_REQUIRED`。
+
+## 29A.6 事件、缓存、审计与并发
+
+新增版本化 Outbox 事件：`identity.user.deleted.v1`、`identity.user.restored.v1`、`identity.user-group.created.v1`、`identity.user-group.changed.v1`、`identity.user-group.membership-changed.v1`、`identity.user-group.roles-changed.v1`。载荷仅含 TenantNId、对象 NId、受影响 UserNId 集合或批次引用、版本和发生时间，不含密码、Secret、邮箱、电话或数据库 Guid。
+
+用户组状态、成员和角色变化按事务写入聚合、授权版本与 Outbox。大批量用户通过持久化失效批次逐页推进，完成前授权校验按组/关系版本拒绝陈旧缓存；不得仅发布消息后异步等待形成越权窗口。操作审计记录操作者、原因、对象、前后差异摘要、受影响数量、SystemDataOperationNId/TraceId，敏感凭据字段始终排除。
+
+## 29A.7 前端页面与交互
+
+- 保留 `/pc/identity/users`，补充详情查看、按角色/用户组过滤、直接角色/组继承角色来源展示、安全删除、已删除查询与恢复、独立密码重置权限和首次改密状态。
+- 新增 `/pc/identity/user-groups`，提供查询、创建、编辑、启用/禁用、成员管理、角色管理、安全删除和恢复；页面不得出现组织树或岗位选择。
+- 登录页在 HTTP 模式处理 `ID_BOOTSTRAP_PENDING`；创建用户/重置密码成功后使用禁止缓存和持久化的一次性弹窗展示临时密码并支持复制；普通新用户首次登录根据 `MustChangePassword` 强制进入改密页，内置 admin 不受该门禁影响。
+- Development 默认运行说明改为真实 HTTP 联合验收路径；Mock 只保留显式 UI/单元测试模式，生产、Staging 和联合验收配置禁止 Mock。
+- 所有按钮由对应 PermissionGate 控制，服务端仍执行权威授权；409 提示重新加载，最后管理员冲突给出明确不可执行原因。
+
+## 29A.8 测试矩阵与验收路径
+
+后端覆盖：组不变量、禁止嵌套、有效角色并集、跨租户拒绝、三张表复合外键、幂等关系收敛、组禁用/删除缓存与会话失效、用户墓碑及标识永久保留、恢复为 Disabled、所有最后管理员路径、种子重复执行、不覆盖已改密码、Secret 缺失/泄漏扫描、SystemData Operation 关联、事件契约、双版本并发和幂等键冲突。
+
+前端覆盖：真实 API 契约、用户/组页面单元测试、权限按钮、角色来源、删除/恢复确认、普通新用户首次改密路由、admin 不强制改密和 Mock 环境门禁。
+
+阶段验收固定为：
+
+```text
+SystemData provision/apply
+→ Identity 确认 Schema/Seed/admin 已创建并结束 BootstrapPending
+→ admin 直接真实登录
+→ 创建普通用户并验证独立随机临时密码仅展示一次与首次强制改密
+→ 查询/编辑用户
+→ 创建用户组并加入/移出用户
+→ 给用户组分配/移除角色并验证权限立即生效
+→ 禁用/恢复用户与用户组
+→ 安全删除/恢复用户并验证 UserNId/登录标识不复用
+→ 核对审计、Outbox、缓存和会话失效
+→ 验证生产/Staging/联合验收无 mock.admin 依赖
+```
+
 # 30. 开发任务依赖
 
 ```text
@@ -1504,6 +1677,22 @@ ID-005 + ID-006 + ID-007 → ID-013
 ID-010 + ID-013 → ID-014
 ID-008 + ID-011 + ID-013 + ID-014 → ID-015
 ID-009 + ID-012 + ID-015 → ID-016
+
+历史 ID-001～016（已完成）
+    ↓
+ID-017 用户组领域/持久化/授权
+    ↓
+ID-018 安全删除恢复
+    ↓
+ID-019 SystemData编排与admin引导
+    ↓
+ID-020 管理API契约
+    ↓
+ID-021 前端管理闭环
+    ↓
+ID-022 真实登录验收门禁
+    ↓
+ID-023 PF-00补强联合验收
 ```
 
 - ID-002（用户/密码）和 ID-003（角色/权限）在 ID-001 后可并行。
@@ -1512,6 +1701,9 @@ ID-009 + ID-012 + ID-015 → ID-016
 - ID-013 建立联邦 SSO 后端能力；ID-014 完成登录页、callback 和独立页面恢复。
 - ID-015 完成 SSO 管理页面和客户协议联调。
 - ID-016 是前后端联合验收，不替代各任务自己的测试。
+- ID-017～023 是本轮新增补强任务，不覆盖或重新编号历史任务。
+- ID-019 可先实现 Identity 自有种子，只有 SystemData 执行器扩展点稳定后才能完成联合验收。
+- ID-023 是唯一可以把 PF-00 补强范围标记完成的阶段门禁。
 
 ---
 
@@ -1673,7 +1865,7 @@ ID-009 + ID-012 + ID-015 → ID-016
 
 ## TASK-ID-008 实现用户角色管理API与审计
 
-**状态：** 可派遣
+**状态：** 已完成（历史证据：提交 `48c5374`）
 
 **目标：** 实现用户、角色、权限目录和登录审计 API，并保证全部写操作可审计。
 
@@ -1695,7 +1887,7 @@ ID-009 + ID-012 + ID-015 → ID-016
 
 ## TASK-ID-009 发布Identity集成事件
 
-**状态：** 可派遣
+**状态：** 已完成（历史证据：提交 `48c5374`）
 
 **目标：** 通过 Outbox 发布稳定的用户和权限变化事件，并建立消费者契约夹具。
 
@@ -1717,7 +1909,7 @@ ID-009 + ID-012 + ID-015 → ID-016
 
 ## TASK-ID-010 前端接入HttpAuthGateway与真实会话
 
-**状态：** 可派遣
+**状态：** 已完成（历史证据：提交 `48c5374`）
 
 **目标：** 用 `HttpAuthGateway` 替换生产运行时 Mock，并实现单飞刷新、请求重试和真实注销。
 
@@ -1739,7 +1931,7 @@ ID-009 + ID-012 + ID-015 → ID-016
 
 ## TASK-ID-011 前端实现权限导航与操作权限
 
-**状态：** 可派遣
+**状态：** 已完成（历史证据：提交 `48c5374`）
 
 **目标：** 将真实 permissions 接入路由、菜单和按钮级交互控制。
 
@@ -1761,7 +1953,7 @@ ID-009 + ID-012 + ID-015 → ID-016
 
 ## TASK-ID-012 前端实现Identity管理页面
 
-**状态：** 可派遣
+**状态：** 已完成（历史证据：提交 `48c5374`）
 
 **目标：** 实现用户、角色权限、权限目录和登录审计 PC 页面并连接真实 API。
 
@@ -1783,7 +1975,7 @@ ID-009 + ID-012 + ID-015 → ID-016
 
 ## TASK-ID-013 实现客户统一身份平台联邦SSO
 
-**状态：** 可派遣
+**状态：** 已完成（历史证据：提交 `48c5374`）
 
 **目标：** 实现租户级 OIDC/SAML Provider、外部账号映射、一次性票据、平台 SSO Client 和可配置单点注销。
 
@@ -1805,7 +1997,7 @@ ID-009 + ID-012 + ID-015 → ID-016
 
 ## TASK-ID-014 前端接入SSO登录与独立页面恢复
 
-**状态：** 可派遣
+**状态：** 已完成（历史证据：提交 `48c5374`）
 
 **目标：** 在统一登录页接入企业登录入口、回调票据交换和认证后原始深链接恢复。
 
@@ -1827,7 +2019,7 @@ ID-009 + ID-012 + ID-015 → ID-016
 
 ## TASK-ID-015 实现SSO管理页面与客户协议联调
 
-**状态：** 可派遣
+**状态：** 已完成（历史证据：提交 `48c5374`）
 
 **目标：** 提供租户管理员可用的 SSO Provider、平台 Client、外部账号绑定和连接测试页面，并完成标准 IdP 联调。
 
@@ -1849,7 +2041,7 @@ ID-009 + ID-012 + ID-015 → ID-016
 
 ## TASK-ID-016 完成Identity前后端联合验收
 
-**状态：** 可派遣
+**状态：** 已完成（历史证据：提交 `48c5374`；外部环境项目继续按原记录保留待验收）
 
 **目标：** 从新环境完成本地登录、联邦 SSO、独立页面恢复、刷新、权限和管理页面的端到端验收，并形成后续服务身份输入契约。
 
@@ -1868,6 +2060,146 @@ ID-009 + ID-012 + ID-015 → ID-016
 **建议提交：** `feat(identity): complete local and federated authentication flow`
 
 ---
+
+## TASK-ID-017 实现用户组领域、持久化与授权求值
+
+**状态：** 可派遣
+
+**目标：** 按 29A.2 建立不可嵌套的租户级用户组、成员和组角色模型，并将组继承角色纳入权威权限快照。
+
+**输入文档：** 本文 6、8、9、14、18、29A.1、29A.2、29A.6；BuildingBlocks Entity 生命周期契约。
+
+**依赖：** 历史 TASK-ID-001～016。
+
+**允许修改范围：** Identity Domain/Application/Infrastructure 的 UserGroup、授权求值、迁移、仓储与对应后端测试；不得修改 SystemData 组织/岗位模型或前端。
+
+**预期输出：** `UserGroup` 聚合、`UserGroupMembership`/`UserGroupRole` 关系、三张表及复合外键迁移、仓储、有效角色并集算法、授权版本/缓存/会话失效和 Outbox 原子写入。
+
+**验证与证据：** TDD 覆盖 NId 全历史唯一、跨租户、禁止嵌套、重复成员/角色幂等、禁用组、直接与继承角色去重、复合外键、双重删除过滤、最后管理员守卫、缓存与会话立即失效；记录命令、退出码、测试数和迁移版本。
+
+**结果回写：** 回写表结构、领域不变量、缓存键/版本、事件版本、测试数、提交和外部 PostgreSQL 待验收项。
+
+**建议提交：** `feat(identity): add user group authorization model`
+
+## TASK-ID-018 实现用户与用户组安全删除恢复
+
+**状态：** 可派遣
+
+**目标：** 实现 29A.3 的不可物理删除墓碑、永久标识保留、受控恢复和统一最后管理员保护。
+
+**输入文档：** 本文 8、11、13、19、20、29A.3、29A.5、29A.6。
+
+**依赖：** TASK-ID-017。
+
+**允许修改范围：** Identity Domain/Application/Infrastructure/Contracts/Api 的用户与用户组生命周期、授权关系、事件、审计及对应后端测试；不得实现资料匿名化或物理清理。
+
+**预期输出：** 用户/组删除与恢复 API、墓碑查询、登录标识永久保留约束、会话撤销、关系解除、恢复为 Disabled、最后管理员统一守卫、错误码和版本化事件。
+
+**验证与证据：** 覆盖删除自己/ADMIN/最后管理员拒绝、直接与组继承管理员路径、删除后登录/刷新拒绝、UserNId/LoginName 不复用、跨服务 NId 保持、恢复不自动恢复授权、并发冲突、审计和 Outbox 原子性。
+
+**结果回写：** 回写最终删除/恢复契约、唯一索引语义、错误码、事件载荷、测试证据和已知限制。
+
+**建议提交：** `feat(identity): add safe user and group lifecycle`
+
+## TASK-ID-019 接入SystemData编排与正式admin引导
+
+**状态：** 可派遣
+
+**目标：** 按 29A.4 将 Identity Schema/Seed/admin 引导接入 SystemData Operation，同时保证随机临时密码一次性安全交付、稳定标识、admin 不强制改密和重复执行不覆盖。
+
+**输入文档：** 蓝图 07、33；SystemData 实施 05 的 registration/plan/apply/readiness 契约；本文 21、29A.4、29A.5、29A.8。
+
+**依赖：** TASK-ID-017、TASK-ID-018；SystemData 数据库编排执行器具备相应扩展点后进行联合验收。
+
+**允许修改范围：** Identity 种子迁移/执行器、配置、Contracts/Api readiness/bootstrap 状态、SystemData 数据库编排的最小公开契约扩展及双方测试；不得让 SystemData 引用 Identity Infrastructure、直写 Identity 表或接收 Secret 值。
+
+**预期输出：** `identity_seed_ledger`、三层幂等种子、稳定 ADMIN/SYSTEM_ADMIN、安全随机密码生成器、admin 一次性凭据交付、admin `MustChangePassword=false`、SystemData 五阶段 Operation、bootstrap status/readiness 和紧急恢复门禁。
+
+**验证与证据：** 覆盖首次部署、随机密码长度/字符策略/不重复、一次性领取、重复启动/apply、并发执行、已改密码不覆盖、已有异常 admin 不自动修复、admin 登录不触发首次改密、明文不进数据库/Operation/日志/Trace/审计/事件、SystemData 仅内存透传本次初始化结果。
+
+**结果回写：** 双向回写 manifest/plan/step/readiness 契约、迁移与种子版本、一次性凭据领取规则、验收 OperationNId 和失败恢复步骤。
+
+**建议提交：** `feat(identity): add orchestrated admin bootstrap`
+
+## TASK-ID-020 补齐用户与用户组管理API契约
+
+**状态：** 可派遣
+
+**目标：** 交付 29A.5 的查询过滤、详情、随机临时密码创建、编辑、状态、成员、角色、删除/恢复、随机临时密码重置和 bootstrap 状态完整 API。
+
+**输入文档：** 本文 16、17、19、27、29A.2～29A.6。
+
+**依赖：** TASK-ID-017～019。
+
+**允许修改范围：** Identity Contracts/Application/Api、OpenAPI/契约测试和管理 API 测试；不得新增组直接权限或组织/岗位字段。
+
+**预期输出：** 稳定 camelCase DTO、`CreateUserResult`/密码重置一次性临时凭据响应、分页过滤、直接/继承/有效角色投影、13 个新增权限码、幂等键、双版本并发、统一错误信封、操作审计和 OpenAPI 契约。
+
+**验证与证据：** 覆盖所有端点的 200/201/204/400/401/403/404/409/429/503，权限逐项拒绝、跨租户、非法角色/成员、并发与幂等冲突、Secret/内部 Guid 不泄漏和契约序列化。
+
+**结果回写：** 回写最终路由、DTO、权限码、错误码、OpenAPI 快照、测试数和提交。
+
+**建议提交：** `feat(identity): complete user group management api`
+
+## TASK-ID-021 完成用户与用户组前端管理闭环
+
+**状态：** 可派遣
+
+**目标：** 在真实 Identity API 上补齐用户管理并新增用户组页面，形成可操作且能解释授权来源的管理闭环。
+
+**输入文档：** 本文 22～25、27、29A.5、29A.7；PF-01 主题与平台外壳稳定契约。
+
+**依赖：** TASK-ID-020。
+
+**允许修改范围：** `src/frontend/src/api/identity`、权限目录、路由/导航、Identity 用户/用户组/首次改密页面及对应前端单元和契约测试；不得重构平台外壳或加入 SystemData 组织树。
+
+**预期输出：** 用户详情和组合过滤、角色来源、创建用户无需页面输入初始密码、创建/重置后一次性临时密码展示与复制、独立密码重置权限、删除/墓碑/恢复、`/pc/identity/user-groups` 全 CRUD/状态/成员/角色/删除恢复、普通新用户首次改密强制路由和 BootstrapPending 诊断。
+
+**验证与证据：** Vitest 覆盖 API 映射、无密码创建表单、临时密码仅展示一次且不进入存储、PermissionGate、409 重载、最后管理员错误、角色来源、普通用户首次改密守卫及 admin 豁免；浏览器组件测试覆盖键盘、焦点、复制、关闭后不可恢复、加载/空/错误/无权限状态及三主题适配。
+
+**结果回写：** 回写路由、导航、权限按钮矩阵、交互偏差、前端测试数、覆盖率和提交。
+
+**建议提交：** `feat(frontend): complete identity user group management`
+
+## TASK-ID-022 消除联合验收对Mock账户依赖
+
+**状态：** 可派遣
+
+**目标：** 将 Development 联合验收、Staging 和 Production 固定为真实 HTTP Identity 路径，Mock 只保留显式单元/UI测试用途。
+
+**输入文档：** 本文 3、22、23、28、29A.4、29A.7；前端 runtimeConfig、真实登录 Playwright 配置。
+
+**依赖：** TASK-ID-019、TASK-ID-021。
+
+**允许修改范围：** 前端运行配置、环境示例、登录/首次改密流程、真实 E2E 配置与相关说明；不得删除 Mock 测试替身或写入固定 admin 密码。
+
+**预期输出：** 环境模式门禁、真实 admin 引导状态提示、普通用户首次改密流程、无 `mock.admin` 的真实登录夹具、生产/Staging/联合验收 fail-fast 配置及凭据脱敏。
+
+**验证与证据：** 构建期和运行期验证禁 Mock 环境拒绝启动；真实登录、刷新、注销、首次改密和管理页面 E2E 不引用 `mock.admin`/`Mock@123456`；Mock 契约测试仍可独立运行。
+
+**结果回写：** 回写环境矩阵、启动命令、Secret 注入方式、E2E 测试数、日志泄漏扫描和提交。
+
+**建议提交：** `test(identity): require real login for acceptance`
+
+## TASK-ID-023 完成PF-00补强联合验收
+
+**状态：** 可派遣
+
+**目标：** 按 29A.8 从 SystemData 数据库初始化到用户安全删除完成全链路验收，并冻结后续服务可消费契约。
+
+**输入文档：** TASK-ID-017～022 全部结果；本文 29A.8、32、34。
+
+**依赖：** TASK-ID-017～022。
+
+**允许修改范围：** Identity/SystemData/前端联合验收测试、验收脚本、README 和本文执行记录；只修复验收阻塞缺陷，不扩展新领域能力。
+
+**预期输出：** SystemData Operation、Schema/Seed/admin、真实登录、用户/组管理、授权生效、禁用恢复、安全删除、审计/事件/缓存/会话的端到端证据，以及正式下一阶段输入契约。
+
+**验证与证据：** 严格执行 29A.8 固定路径；后端 Release build/test、前端 format/lint/typecheck/unit/coverage/build、真实 Playwright E2E、Secret 扫描和 `git diff --check` 全部记录退出码、通过/失败/跳过数、报告路径和外部环境条件。
+
+**结果回写：** 更新 TASK-ID-017～023 状态、最终 API/权限/事件/配置、SystemData OperationNId、测试报告、已知偏差和 PF-02/PF-03 输入契约；未经全部证据不得把 PF-00 标记已完成。
+
+**建议提交：** `test(identity): verify identity administration lifecycle`
 
 # 32. Identity完成标准
 
@@ -1916,19 +2248,26 @@ ID-009 + ID-012 + ID-015 → ID-016
 | TASK-ID-001 | 已完成 | 本轮 Claude 协作 | `feat(identity): align service contracts and database boundary` | 2026-08-11 全量 build 0 警告 0 错误;test 156/156(BB 104、Identity 26、RefData 13、Gateway 13);架构测试锁定 Contracts;迁移框架 SQLite 6 测试 | 新增 Contracts 项目;五层边界;`/api/v1` 路由约定;OpenAPI;`identity_db` 独立配置;迁移执行框架(账本 `identity_schema_migrations`、失败回滚、DB 不可达降级);`Microsoft.OpenApi` 钉到 2.7.5 规避 GHSA-v5pm-xwqc-g5wc;PostgreSQL 真实验证「待验收」 |
 | TASK-ID-002 | 已完成 | 本轮 Claude 协作 | `feat(identity): add user and login security domain` | 2026-08-11 全量 build 0 警告 0 错误;test 238/238(BB 104、Identity 108、RefData 13、Gateway 13);Domain.Tests 83(新增 82:NId/PasswordPolicy/LoginAttemptPolicy/User/登录安全) | 新增 `Users/User.cs` 聚合根(14 字段、Create/ChangeProfile/ChangeLoginName/ChangePasswordHash/RecordLoginFailure/RecordLoginSuccess/Disable/Enable/EnsureLoginAllowed/IncrementAuthVersion)、`Identities/NId.cs` 值对象(`Value`/`Normalized`,正则+规范化+大小写不敏感相等)、`Passwords/IPasswordHasher.cs` 端口 + `PasswordPolicy`(12~128、大写/小写/数字/特殊字符、不得等于 LoginName/NId)、`LoginSecurity/LoginAttemptPolicy`(默认 5 次 15 分钟)、三个领域事件;登录拒绝抛 `UnauthorizedException`;明文密码不进领域;BCrypt 实现留 TASK-ID-004 |
 | TASK-ID-003 | 已完成 | 本轮 Claude 协作 | `feat(identity): add role based permission domain` | 2026-08-11 全量 build 0 警告 0 错误;test 286/286(BB 104、Identity 156、RefData 13、Gateway 13);Domain.Tests 133(新增 50:PermissionCatalog/Permission/Role/UserRole) | 新增 `Permissions/Permission.cs` 聚合根(NId/ParentPermissionNId/Type 创建后不可变、Status、ChangeProfile 无事件)、`PermissionType`/`PermissionStatus` 枚举、`PermissionCatalog`(17 个第一批 NId 常量 + `FirstBatchNIds`,§9.2);`Roles/Role.cs` 聚合根(TenantNId/NId/IsSystem 创建后不可变、ChangeProfile、AssignPermission/UnassignPermission 发布 `RolePermissionsChangedEvent`、`Delete` 系统角色保护)、`RolePermission.cs` 关系实体;`Users/UserRole.cs` 关系实体、`UserRolesChangedEvent`;`User.cs` 增量新增 `_userRoles`/`UserRoles`/`AssignRole`/`RemoveRole`(跨租户/已删除角色/重复分配守卫、幂等解除、最后系统管理员保护 `activeHolderCountInTenant<=1` 拒绝);关系实体复合外键影子列在领域层快照父级状态,父级删除后的批量更新与数据库约束留 TASK-ID-004,权限缓存订阅留 TASK-ID-007;`GlobalSuppressions.cs` 豁免 CA1711(Permission/RolePermission 为领域术语,§9.2/§9.3) |
-| TASK-ID-004 | 已完成 | 本轮 Claude 协作 | `feat(identity): add persistence migrations and seed data` | 2026-08-11 全量 build 0 警告 0 错误;test 313/313(BB 104、Identity 183、RefData 13、Gateway 13);Infrastructure.Tests 33(新增 27:迁移 9 + 仓储 13 + 哈希 5);PostgreSQL 真实验证「待验收」 | 新增 `Persistence/Entities/*Table.cs` POCO×5(identity_user/role/permission/user_role/role_permission,`[SugarTable]`+`[SugarColumn(ColumnName="snake_case")]`,public 无参构造)、`Persistence/TableMapper.cs` POCO↔聚合双向映射、`Persistence/Repositories/{IUser,IRole,IPermission}Repository`+实现×3(软删除过滤、双重过滤载入子项、双版本并发原子更新、事务内子项 diff 同步、Permission.GetByNIdAsync/GetAllAsync)、`Persistence/Migrations/IdentitySchemaMigrations.cs` 11 步(9 建表 + 2 种子:17 权限目录 + development 租户 SYSTEM_ADMIN 系统角色 + 可选 bootstrap 管理员 env 变量,幂等 check-then-insert,密码 BCrypt 因子 12 仅存哈希)、`Passwords/BcryptPasswordHasher.cs`(BCrypt.Net-Next 4.0.3,`IPasswordHasher` 实现);DDL 按 DbType 分支(SQLite TEXT/INTEGER/partial index `WHERE is_deleted = 0`、PostgreSQL uuid/timestamptz/BOOLEAN/partial `WHERE is_deleted = false`),复合外键 `(id,is_deleted)` ON UPDATE CASCADE 同步子表父级影子列,部分唯一索引软删后 NId/登录名复用;SQLite 连接串 `Foreign Keys=True`;`DependencyInjection.cs` 注册 11 迁移步骤 + 3 仓储 + `BcryptPasswordHasher`;refresh_session/login_audit/operation_audit/outbox 仅建表 DDL(实体/仓储留 ID-005/008/009),五张 SSO 表留 TASK-ID-013 |
+| TASK-ID-004 | 已完成 | 本轮 Claude 协作 | `feat(identity): add persistence migrations and seed data` | 2026-08-11 全量 build 0 警告 0 错误;test 313/313(BB 104、Identity 183、RefData 13、Gateway 13);Infrastructure.Tests 33(新增 27:迁移 9 + 仓储 13 + 哈希 5);PostgreSQL 真实验证「待验收」 | 历史实现新增五表、仓储、11 步迁移、权限/SYSTEM_ADMIN/可选 admin 种子和 BCrypt；历史部分唯一索引允许软删后复用及“数据库存在任意用户即跳过 admin”的行为不再是目标契约，由 TASK-ID-018/019 迁移为标识永久保留和正式引导 |
 | TASK-ID-005 | 已完成 | 本轮 Claude 协作 | `feat(identity): add login and signed access tokens` | 2026-08-11 全量 build 0 警告 0 错误;test 354/354(BB 104、Identity 224(Domain 133 + Infra 48 + Api 22 + App 20 + Contract 1)、RefData 13、Gateway 13);Application.Tests 20(新增)、Infrastructure.Tests 48(新增 15:密钥/签发/JWKS/审计/刷新/仓储)、Api.Tests 22(新增 4:JWKS no-store、me 401 信封、login 400 信封、login E2E 门控);登录 E2E 与 PostgreSQL 真实验证「待验收」(IDENTITY_E2E_DB=1) | 新增 Contracts `Authentication/AuthenticationContracts.cs`(LoginRequest 可空属性防 `[ApiController]` 推断 Required、AuthUser/AuthSession(accessToken/refreshToken/expiresAt/user)、JwksKey/JwksDocument camelCase 即 RFC 7517);Application 层(`Authentication/`):`AuthenticationOptions`(DefaultTenantNId=development/MaxLoginFailures=5/LockDuration=15m/IpRateLimitMaxAttempts=20/IpRateLimitWindow=1m/RefreshTokenLifetimeDays=7)、`Exceptions.cs`(AuthenticationException 基类 + InvalidCredentials 401/AccountDisabled 403/RateLimitExceeded 429/SecurityStoreUnavailable 503/SessionInvalid 401,§17 错误码)、端口(`IAuthenticationStore`/`IAccessTokenFactory`/`IJwksProvider`/`ILoginRateLimiter`/`ILoginAuditSink`/`IRefreshSessionStore`)、`AuthenticationService` 登录编排(校验→IP 限流→防枚举→持久锁/组合锁→RecordLoginSuccess→签发 sessionNId(`SES-`)+32B token→刷新会话哈希落库→token 签发→AuthUser+审计;LoggerMessage 记录 1001/1002,密码/Token/哈希/用户是否存在绝不进 message)+`AddIdentityApplication`;Infrastructure:实体 `LoginAuditTable`/`RefreshSessionTable`(ID-004 DDL 对齐)、`Security/Hashing.cs`(Sha256Hex)、`JwtOptions`(Identity:Jwt)/`RsaSigningKeyProvider`(空配置→RSA.Create(2048) 临时密钥+告警;配置 PEM→ImportFromPem,非法→启动失败 fail-closed)、`AccessTokenFactory`(RS256,kid 由 SigningCredentials.Key.KeyId 自动写 Header,claims=sub(userNId)/user_name/tenant_id/role[](RoleNId)/sid/ver/jti,不写 Guid/完整 permissions)、`JwksProvider`、`LoginRateLimiter`(Redis INCR/EXPIRE,键 `identity:rate:login:ip:{ipHash}`+`identity:login:fail:{tenant}:{normalized}:{ipHash}`,非 OCE 异常告警+降级放行)、`LoginAuditSink`/`RefreshSessionStore`(IP/UA/Token 只存 SHA-256 hex)、仓储扩展(GetByNormalizedLoginNameAsync/GetByNIdAsync/GetNIdsAsync/GetActivePermissionsForRolesAsync)、DI;Api:`AuthController`(POST api/v1/auth/login AllowAnonymous、GET api/v1/auth/me Authorize、`[ResponseCache(NoStore=true)]`,catch ValidationException→400 ID_VALIDATION_FAILED / AuthenticationException→按码 StatusCode,信封 ApiResult)、`AddIdentityAuthentication`(JwtBearer 自校验公钥验签+iss/aud/lifetime/ClockSkew 30s、MapInboundClaims=false、NameClaimType/RoleClaimType 对齐、OnChallenge 401「401」/OnForbidden 403 ID_PERMISSION_DENIED 统一信封)、Program(UseRouting/UseAuthentication/UseAuthorization/MapControllers + `/.well-known/jwks.json` minimal API no-store)、appsettings 加 Identity:Jwt/Authentication;`Directory.Packages.props` 钉 JwtBearer 10.0.10(对齐 MS.AspNetCore 10.0.10) |
 | TASK-ID-006 | 已完成 | 本轮 Claude 协作 | `feat(identity): add refresh rotation and session revocation` | 2026-08-11 全量 build 0 警告 0 错误;test 387/387(BB 104、Identity 257(Domain 133 + Infra 56 + Api 26 + App 41 + Contract 1)、RefData 13、Gateway 13);Application.Tests 41(新增 21:旋转/重放/注销/改密)、Infrastructure.Tests 56(新增 8:旋转/撤销)、Api.Tests 26(新增 4:refresh 空体 400 信封、logout/logout-all/change-password 无 token 401 信封);`--vulnerable` 25/25 项目干净;PostgreSQL/Redis 真实验证「待验收」 | 新增 Contracts `Authentication/AuthenticationContracts.cs` 三个 DTO(RefreshRequest/LogoutRequest/ChangePasswordRequest,可空属性防 Required 推断);Application `Authentication/`:`Exceptions.cs` 新增 `RefreshTokenInvalidException`(401 `ID_AUTH_REFRESH_INVALID`)/`RefreshTokenReusedException`(401 `ID_AUTH_REFRESH_REUSED`);`IRefreshSessionStore` 扩展(StoredRefreshSession 投影/`RefreshRotationStatus{Rotated,Reused,Invalid}`/FindByRawTokenAsync/RotateAsync/RevokeFamilyAsync/RevokeAllForUserAsync)、新增 `ISessionRevocationStore`(RevokeAsync 尽力而为写 Redis/IsRevokedAsync fail-closed 抛 SecurityStoreUnavailable 503)、`IAuthenticationStore.FindByUserIdAsync`、`IAuthenticationService` 新增四用例 + `AuthenticationService` 实现(RefreshAsync:非空校验→SHA-256 定位→Redis sid 撤销校验 fail-closed→顺序重放撤销 Family+REUSED→已撤销/被替换/过期→INVALID→用户已删/禁用→INVALID→原子 RotateAsync→签发新 token(`sid`=新 sessionNId/`ver`=AuthVersion)→完整 AuthSession;LogoutAsync 撤销 Family+写 sid 撤销键,幂等;LogoutAllAsync/ChangePasswordAsync 捕获原始双版本→IncrementAuthVersion/ChangePasswordHash→双版本 UpdateUserAsync→RevokeAllForUserAsync);Infrastructure:`RefreshSessionStore` 四方法(FindByRawToken 哈希定位、RotateAsync 事务内先插替代会话再原子 UPDATE 守卫 `used_on IS NULL AND revoked_on IS NULL AND !is_deleted`,并发/顺序重用→Reused、RevokeFamilyAsync/RevokeAllForUserAsync 幂等置 RevokedOn+RevokeReason)、新增 `SessionRevocationStore`(Redis 键 `identity:session:revoked:{sid}`,写失败告警、校验失败抛 503 fail-closed)、`AuthenticationStore.FindByUserIdAsync`(组合 GetByIdAsync)、DI 注册 ISessionRevocationStore;Api:`AuthController` 新增 refresh(AllowAnonymous)/logout(Authorize,读 `sid`/`exp` claim 算 sid 撤销 TTL)/logout-all/change-password(Authorize,读 `sub`),catch ValidationException→400 ID_VALIDATION_FAILED、AuthenticationException→按码,成功返回 `ApiResult.Ok` 信封(ResultFilter 透传);§17 错误码 401 `ID_AUTH_REFRESH_INVALID`/`ID_AUTH_REFRESH_REUSED`、503 `ID_AUTH_SECURITY_STORE_UNAVAILABLE`(fail-closed);Token=32B base64url 不透明值、7 天(`RefreshTokenLifetimeDays`),只存 SHA-256 hex;E2E(IDENTITY_E2E_DB=1)与 PostgreSQL/Redis 真实验证「待验收」 |
 | TASK-ID-007 | 已完成 | 本轮 Claude 协作 | `feat(identity): add tenant aware permission authorization` | 2026-08-11 全量 build 0 警告 0 错误;test 422 通过 / 2 失败(2 失败为协作方未提交的 `DevelopmentInfrastructureConfigurationTests` 数据拓扑 WIP,`Apply` 的 Seq/RabbitMQ 新增 `Enabled` 门控与测试夹具不一致,非本任务回归且不在 387 基线内);Identity 289(Domain 133 + Infra 61 + Api 33 + App 61 + Contract 1);新增 32:Application.Tests 20(PermissionEvaluatorTests 17 + AuthenticationServiceTests 缓存失效 3)、Infrastructure.Tests 5(AuthorizationDataStoreTests)、Api.Tests 7(PermissionAuthorizationTests 全栈探针) | 新增 Application `Authorization/` 模块(§14/§18):`IAuthorizationDataStore`(GetSnapshotAsync 显式租户校验,防跨租户越权)、`IPermissionCache`(用户状态+权限集版本化缓存端口)、`IAuthorizationDenialSink`(拒绝审计端口)、`IPermissionEvaluator`/`PermissionEvaluator`(撤销 fail-closed→版本化缓存命中快速裁决→DB 权威装载回填缓存→状态/权限裁决,缓存不可用降级 DB,授权数据/撤销存储不可用抛 `SecurityStoreUnavailableException`)、`AuthorizationDenialReason`(None/SessionInvalid/AccountDisabled/MissingPermission/SecurityStoreUnavailable)、`AuthorizationOptions`(PermissionCacheTtl 默认 15m,`Identity:Authorization`)、`AuthorizationDenialSink` 结构化日志;`AuthenticationService` 登出全部/改密推进 AuthVersion 后失效权限缓存(best-effort);Infrastructure `Authentication/`:`AuthorizationDataStore`(组合 User+Role 仓储,权限集与登录 `AuthUser.PermissionNIds` 同源同序,`GetActivePermissionsForRolesAsync`+Distinct/Order)、`PermissionCacheStore`(Redis 键 `identity:user:{tenant}:{user}:v{ver}` 状态 + `identity:permission:{tenant}:{user}:v{ver}` 权限集,TTL,Invalidate 按 `:v*` 前缀 SCAN 删除并转义 glob 元字符,断连跳过);Api `Authorization/`:`PermissionRequirement`+`PermissionAuthorizationHandler`(读 `sub`/`tenant_id`/`sid`/`ver` 声明,经 `IPermissionEvaluator` 裁决,拒绝原因写 `HttpContext.Items`)、`PermissionPolicies`(前缀 `permission:`,17 个策略常量按 `PermissionCatalog.FirstBatchNIds` 注册)、`AddIdentityAuthorization`;`AuthenticationServiceCollectionExtensions.OnForbidden` 按拒绝原因映射信封:SessionInvalid→401「401」/AccountDisabled→403 账号不可用/SecurityStoreUnavailable→503 `ID_AUTH_SECURITY_STORE_UNAVAILABLE`/缺权限→403 `ID_PERMISSION_DENIED`;BuildingBlocks Security `ICurrentUser` 改为仅暴露 `UserNId`(string,原 Guid? `UserId` 移除,§12 偏差收敛);权限集与登录响应一致、系统管理员无隐藏绕过(仅显式目录权限) |
-| TASK-ID-008 | 可派遣 | - | - | - | - |
-| TASK-ID-009 | 可派遣 | - | - | - | - |
-| TASK-ID-010 | 可派遣 | - | - | - | - |
-| TASK-ID-011 | 可派遣 | - | - | - | - |
-| TASK-ID-012 | 可派遣 | - | - | - | - |
-| TASK-ID-013 | 可派遣 | - | - | - | - |
-| TASK-ID-014 | 可派遣 | - | - | - | - |
-| TASK-ID-015 | 可派遣 | - | - | - | - |
-| TASK-ID-016 | 可派遣 | - | - | - | - |
+| TASK-ID-008 | 已完成 | 历史 Identity 实现 | `48c5374` | 用户/角色/权限/审计管理服务与 API 测试已进入该提交；本轮未重跑 | 真实代码具备用户查询、创建、编辑、状态、角色分配和密码重置 |
+| TASK-ID-009 | 已完成 | 历史 Identity 实现 | `48c5374` | Outbox 与事件契约测试已进入该提交；本轮未重跑 | Identity 版本化集成事件已实现 |
+| TASK-ID-010 | 已完成 | 历史 Identity 实现 | `48c5374` | HttpAuthGateway 契约测试已进入该提交；本轮未重跑 | 真实 HTTP 认证已实现，开发默认 Mock 偏差转入 ID-022 |
+| TASK-ID-011 | 已完成 | 历史 Identity/PF-01 实现 | `48c5374` | 权限路由/导航/按钮测试已进入该提交；本轮未重跑 | PermissionGate 与真实权限导航已实现 |
+| TASK-ID-012 | 已完成 | 历史 Identity 实现 | `48c5374` | 用户/角色/权限/审计页面与视觉 E2E 已进入该提交；本轮未重跑 | 页面已有真实 CRUD 子集，用户组与删除闭环转入 ID-021 |
+| TASK-ID-013 | 已完成 | 历史 Identity 实现 | `48c5374` | SSO Domain/Application/Infrastructure/API 测试已进入该提交；本轮未重跑 | OIDC/SAML、外部账号和平台 SSO Client 已实现 |
+| TASK-ID-014 | 已完成 | 历史 Identity 实现 | `48c5374` | SSO 登录、callback 与恢复页面测试已进入该提交；本轮未重跑 | 前端 SSO 与原路返回已实现 |
+| TASK-ID-015 | 已完成 | 历史 Identity 实现 | `48c5374` | SSO Provider/Client 管理页及测试已进入该提交；本轮未重跑 | SSO 管理闭环已实现，外部客户协议环境项按原记录待验收 |
+| TASK-ID-016 | 已完成 | 历史联合验收 | `48c5374` | 历史记录：后端 520、前端 223 测试；真实 Identity E2E 证据见 PF-01 记录；本轮未重跑 | 原 PF-00 范围完成，新增补强不倒推历史状态 |
+| TASK-ID-017 | 可派遣 | - | - | - | - |
+| TASK-ID-018 | 可派遣 | - | - | - | - |
+| TASK-ID-019 | 可派遣 | - | - | - | - |
+| TASK-ID-020 | 可派遣 | - | - | - | - |
+| TASK-ID-021 | 可派遣 | - | - | - | - |
+| TASK-ID-022 | 可派遣 | - | - | - | - |
+| TASK-ID-023 | 可派遣 | - | - | - | - |
 
 ---
 
@@ -1978,7 +2317,7 @@ StandaloneLayout与认证后原路返回约定
 - [x] 本地登录、OIDC/SAML、平台 SSO Client、独立页面原路返回和本地账号回退边界明确。
 - [x] API、JWT、ICurrentUser、事件、前端 AuthUser 和 PermissionGate 的 NId 命名前后一致。
 - [x] 后端、前端、契约、数据库和 E2E 均有具体测试场景及证据格式。
-- [x] 16 张任务卡均具备状态、目标、输入文档、依赖、允许修改范围、预期输出、验证与证据、结果回写、建议提交九字段。
+- [x] 23 张任务卡均具备状态、目标、输入文档、依赖、允许修改范围、预期输出、验证与证据、结果回写、建议提交九字段；ID-001～016 为历史完成，ID-017～023 为新增可派遣任务。
 - [x] 任务依赖、任务卡和执行记录编号一一对应。
 - [x] 本次仅调整实施方案，未将历史测试描述为本轮新鲜验证证据。
 - [x] `git diff --check` 通过。

@@ -52,6 +52,14 @@ public sealed class ProjectReferenceArchitectureTests
                 ["IndustrialPlatform.Infrastructure", "IndustrialPlatform.Logging", "IndustrialPlatform.Security", "IndustrialPlatform.SystemData.Application", "IndustrialPlatform.SystemData.Domain"],
         };
 
+    private static readonly string[] ApprovedSystemDataTestingReferences =
+    [
+        "IndustrialPlatform.SystemData.Application",
+        "IndustrialPlatform.SystemData.Contracts",
+        "IndustrialPlatform.SystemData.Domain",
+        "IndustrialPlatform.SystemData.Infrastructure",
+    ];
+
     [Fact]
     public void ProductionProjectGraphMatchesApprovedSkeleton()
     {
@@ -70,6 +78,19 @@ public sealed class ProjectReferenceArchitectureTests
 
             Assert.Equal(expectedReferences.Order(StringComparer.Ordinal), actualReferences);
         }
+    }
+
+    [Fact]
+    public void SystemDataTestingFixtureReferencesOnlyApprovedProjects()
+    {
+        // 共享测试 fixture 只允许引用 SystemData 四层应用项目,禁止引用测试项目或其他服务/组件。
+        var repositoryRoot = FindRepositoryRoot();
+        const string fixtureProjectPath =
+            "tests/SystemData/IndustrialPlatform.SystemData.Testing/IndustrialPlatform.SystemData.Testing.csproj";
+
+        var actualReferences = ReadProjectReferences(Path.Combine(repositoryRoot, fixtureProjectPath));
+
+        Assert.Equal(ApprovedSystemDataTestingReferences.Order(StringComparer.Ordinal), actualReferences);
     }
 
     [Theory]
