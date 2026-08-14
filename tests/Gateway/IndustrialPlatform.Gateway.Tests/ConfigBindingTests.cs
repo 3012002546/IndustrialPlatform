@@ -25,6 +25,10 @@ public sealed class ConfigBindingTests
 
         var referenceData = Assert.Single(options.Services, service => service.Name == "referencedata");
         Assert.Equal("/referencedata", referenceData.PathPrefix);
+
+        var systemData = Assert.Single(options.Services, service => service.Name == "systemdata");
+        Assert.Equal("/systemdata", systemData.PathPrefix);
+        Assert.Equal("http://localhost:5042", systemData.DestinationUrl);
     }
 
     [Fact]

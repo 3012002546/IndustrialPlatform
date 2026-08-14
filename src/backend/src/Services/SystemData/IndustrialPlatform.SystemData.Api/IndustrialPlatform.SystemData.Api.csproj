@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <!-- 钉定传递依赖 Microsoft.OpenApi 到已修复版本(2.7.5+),规避 GHSA-v5pm-xwqc-g5wc -->
+    <PackageReference Include="Microsoft.OpenApi" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\IndustrialPlatform.SystemData.Application\IndustrialPlatform.SystemData.Application.csproj" />
+    <ProjectReference Include="..\IndustrialPlatform.SystemData.Contracts\IndustrialPlatform.SystemData.Contracts.csproj" />
+    <ProjectReference Include="..\IndustrialPlatform.SystemData.Infrastructure\IndustrialPlatform.SystemData.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\IndustrialPlatform.Web\IndustrialPlatform.Web.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -40,6 +40,16 @@ public sealed class ProjectReferenceArchitectureTests
                 ["IndustrialPlatform.SharedKernel"],
             ["src/backend/src/Services/ReferenceData/IndustrialPlatform.ReferenceData.Infrastructure/IndustrialPlatform.ReferenceData.Infrastructure.csproj"] =
                 ["IndustrialPlatform.EventBus", "IndustrialPlatform.Infrastructure", "IndustrialPlatform.Logging", "IndustrialPlatform.ReferenceData.Application", "IndustrialPlatform.ReferenceData.Domain"],
+            ["src/backend/src/Services/SystemData/IndustrialPlatform.SystemData.Api/IndustrialPlatform.SystemData.Api.csproj"] =
+                ["IndustrialPlatform.SystemData.Application", "IndustrialPlatform.SystemData.Contracts", "IndustrialPlatform.SystemData.Infrastructure", "IndustrialPlatform.Web"],
+            ["src/backend/src/Services/SystemData/IndustrialPlatform.SystemData.Application/IndustrialPlatform.SystemData.Application.csproj"] =
+                ["IndustrialPlatform.Application.Abstractions", "IndustrialPlatform.SystemData.Contracts", "IndustrialPlatform.SystemData.Domain"],
+            ["src/backend/src/Services/SystemData/IndustrialPlatform.SystemData.Contracts/IndustrialPlatform.SystemData.Contracts.csproj"] =
+                [],
+            ["src/backend/src/Services/SystemData/IndustrialPlatform.SystemData.Domain/IndustrialPlatform.SystemData.Domain.csproj"] =
+                ["IndustrialPlatform.SharedKernel"],
+            ["src/backend/src/Services/SystemData/IndustrialPlatform.SystemData.Infrastructure/IndustrialPlatform.SystemData.Infrastructure.csproj"] =
+                ["IndustrialPlatform.Infrastructure", "IndustrialPlatform.Logging", "IndustrialPlatform.Security", "IndustrialPlatform.SystemData.Application", "IndustrialPlatform.SystemData.Domain"],
         };
 
     [Fact]
@@ -65,6 +75,10 @@ public sealed class ProjectReferenceArchitectureTests
     [Theory]
     [InlineData("Identity", "ReferenceData")]
     [InlineData("ReferenceData", "Identity")]
+    [InlineData("Identity", "SystemData")]
+    [InlineData("ReferenceData", "SystemData")]
+    [InlineData("SystemData", "Identity")]
+    [InlineData("SystemData", "ReferenceData")]
     public void ServiceDoesNotReferenceAnotherService(string serviceName, string forbiddenServiceName)
     {
         var serviceRoot = Path.Combine(FindRepositoryRoot(), "src", "backend", "src", "Services", serviceName);

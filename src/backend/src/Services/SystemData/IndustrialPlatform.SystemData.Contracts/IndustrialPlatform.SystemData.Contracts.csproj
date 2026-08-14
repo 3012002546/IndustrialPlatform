@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <!-- Contracts 承载跨进程 DTO 与集成事件;TASK-SD-001 阶段零项目引用(见 05 方案 §5)。
+         后续集成事件/事件枚举引入后,再按需引用 EventBus 基类。 -->
+  </ItemGroup>
+
+</Project>

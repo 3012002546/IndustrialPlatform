@@ -10,6 +10,7 @@ public enum DevelopmentService
 {
     Identity,
     ReferenceData,
+    SystemData,
 }
 
 /// <summary>
@@ -64,9 +65,13 @@ public static class DevelopmentInfrastructureConfiguration
         var host = Required(section, "Host");
         var postgres = section.GetRequiredSection("PostgreSql");
         var redis = section.GetRequiredSection("Redis");
-        var database = service == DevelopmentService.Identity
-            ? Required(postgres, "IdentityDatabase")
-            : Required(postgres, "ReferenceDataDatabase");
+        var database = service switch
+        {
+            DevelopmentService.Identity => Required(postgres, "IdentityDatabase"),
+            DevelopmentService.ReferenceData => Required(postgres, "ReferenceDataDatabase"),
+            DevelopmentService.SystemData => Required(postgres, "SystemDataDatabase"),
+            _ => throw new InvalidOperationException($"Unsupported development service: {service}."),
+        };
 
         var sql = new DbConnectionStringBuilder
         {

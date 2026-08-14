@@ -26,8 +26,14 @@ internal static class TestGateway
                 builder.UseSetting("Gateway:Services:0:Name", "stub");
                 builder.UseSetting("Gateway:Services:0:PathPrefix", "/stub");
                 builder.UseSetting("Gateway:Services:0:DestinationUrl", destinationUrl);
-                builder.UseSetting("Gateway:Services:1:PathPrefix", string.Empty);
-                builder.UseSetting("Gateway:Services:1:DestinationUrl", string.Empty);
+                // 中和 appsettings.Development.json 中索引 1 起的其余服务(如 referencedata/systemdata),
+                // 使其 PathPrefix/DestinationUrl 为空,经 GatewayRouteFactory.IsValid 过滤后不参与路由与就绪聚合,
+                // 避免泄漏指向不可达 localhost 端口的健康检查。上界覆盖未来新增服务,避免逐条追加。
+                for (var i = 1; i <= 10; i++)
+                {
+                    builder.UseSetting($"Gateway:Services:{i}:PathPrefix", string.Empty);
+                    builder.UseSetting($"Gateway:Services:{i}:DestinationUrl", string.Empty);
+                }
                 builder.UseSetting("Gateway:RequestTimeoutSeconds", timeoutSeconds.ToString(CultureInfo.InvariantCulture));
             });
     }

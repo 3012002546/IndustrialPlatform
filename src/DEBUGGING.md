@@ -101,7 +101,7 @@ F5 / `dotnet run` 会读项目的 `Properties/launchSettings.json`,里面钉好�
 **CLI 启动**(仓库根 `D:\Code\Industrial Platform\IndustrialPlatform`,先设 CLI home):
 
 ```bash
-export DOTNET_CLI_HOME="$PWD/.dotnet_cli_home"
+export DOTNET_CLI_HOME="$(git rev-parse --show-toplevel)/.dotnet_cli_home"
 
 dotnet run --no-build --project "src/backend/src/Services/Identity/IndustrialPlatform.Identity.Api/IndustrialPlatform.Identity.Api.csproj"
 dotnet run --no-build --project "src/backend/src/Services/ReferenceData/IndustrialPlatform.ReferenceData.Api/IndustrialPlatform.ReferenceData.Api.csproj"

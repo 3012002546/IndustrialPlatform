@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\IndustrialPlatform.SystemData.Contracts\IndustrialPlatform.SystemData.Contracts.csproj" />
+    <ProjectReference Include="..\IndustrialPlatform.SystemData.Domain\IndustrialPlatform.SystemData.Domain.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\IndustrialPlatform.Application.Abstractions\IndustrialPlatform.Application.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

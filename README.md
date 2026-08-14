@@ -17,7 +17,7 @@
 
 ```powershell
 # 1. 设置本地 CLI home(Windows 必需,否则 NuGet 恢复异常)
-$env:DOTNET_CLI_HOME = (Join-Path (Get-Location) '.dotnet_cli_home')
+$env:DOTNET_CLI_HOME = (Join-Path (git rev-parse --show-toplevel) '.dotnet_cli_home')
 
 # 2. 构建
 dotnet build src/backend/IndustrialPlatform.slnx

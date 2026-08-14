@@ -1,4 +1,5 @@
 <Solution>
+  <Folder Name="/src/" />
   <Folder Name="/src/BuildingBlocks/">
     <Project Path="src\BuildingBlocks\IndustrialPlatform.SharedKernel\IndustrialPlatform.SharedKernel.csproj" />
     <Project Path="src\BuildingBlocks\IndustrialPlatform.Application.Abstractions\IndustrialPlatform.Application.Abstractions.csproj" />
@@ -8,9 +9,11 @@
     <Project Path="src\BuildingBlocks\IndustrialPlatform.Web\IndustrialPlatform.Web.csproj" />
     <Project Path="src\BuildingBlocks\IndustrialPlatform.Security\IndustrialPlatform.Security.csproj" />
   </Folder>
+  <Folder Name="/tests/" />
   <Folder Name="/tests/BuildingBlocks/">
     <Project Path="..\..\tests\BuildingBlocks\IndustrialPlatform.BuildingBlocks.Tests\IndustrialPlatform.BuildingBlocks.Tests.csproj" />
   </Folder>
+  <Folder Name="/src/Services/" />
   <Folder Name="/src/Services/Identity/">
     <Project Path="src\Services\Identity\IndustrialPlatform.Identity.Contracts\IndustrialPlatform.Identity.Contracts.csproj" />
     <Project Path="src\Services\Identity\IndustrialPlatform.Identity.Domain\IndustrialPlatform.Identity.Domain.csproj" />
@@ -24,6 +27,20 @@
     <Project Path="..\..\tests\Identity\IndustrialPlatform.Identity.Infrastructure.Tests\IndustrialPlatform.Identity.Infrastructure.Tests.csproj" />
     <Project Path="..\..\tests\Identity\IndustrialPlatform.Identity.Api.Tests\IndustrialPlatform.Identity.Api.Tests.csproj" />
     <Project Path="..\..\tests\Identity\IndustrialPlatform.Identity.Contract.Tests\IndustrialPlatform.Identity.Contract.Tests.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/SystemData/">
+    <Project Path="src\Services\SystemData\IndustrialPlatform.SystemData.Contracts\IndustrialPlatform.SystemData.Contracts.csproj" />
+    <Project Path="src\Services\SystemData\IndustrialPlatform.SystemData.Domain\IndustrialPlatform.SystemData.Domain.csproj" />
+    <Project Path="src\Services\SystemData\IndustrialPlatform.SystemData.Application\IndustrialPlatform.SystemData.Application.csproj" />
+    <Project Path="src\Services\SystemData\IndustrialPlatform.SystemData.Infrastructure\IndustrialPlatform.SystemData.Infrastructure.csproj" />
+    <Project Path="src\Services\SystemData\IndustrialPlatform.SystemData.Api\IndustrialPlatform.SystemData.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/SystemData/">
+    <Project Path="..\..\tests\SystemData\IndustrialPlatform.SystemData.Domain.Tests\IndustrialPlatform.SystemData.Domain.Tests.csproj" />
+    <Project Path="..\..\tests\SystemData\IndustrialPlatform.SystemData.Application.Tests\IndustrialPlatform.SystemData.Application.Tests.csproj" />
+    <Project Path="..\..\tests\SystemData\IndustrialPlatform.SystemData.Infrastructure.Tests\IndustrialPlatform.SystemData.Infrastructure.Tests.csproj" />
+    <Project Path="..\..\tests\SystemData\IndustrialPlatform.SystemData.Api.Tests\IndustrialPlatform.SystemData.Api.Tests.csproj" />
+    <Project Path="..\..\tests\SystemData\IndustrialPlatform.SystemData.Contract.Tests\IndustrialPlatform.SystemData.Contract.Tests.csproj" />
   </Folder>
   <Folder Name="/src/Services/ReferenceData/">
     <Project Path="src\Services\ReferenceData\IndustrialPlatform.ReferenceData.Domain\IndustrialPlatform.ReferenceData.Domain.csproj" />

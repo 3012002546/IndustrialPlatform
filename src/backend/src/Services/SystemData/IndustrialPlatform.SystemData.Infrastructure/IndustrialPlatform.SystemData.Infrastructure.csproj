@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\IndustrialPlatform.SystemData.Application\IndustrialPlatform.SystemData.Application.csproj" />
+    <ProjectReference Include="..\IndustrialPlatform.SystemData.Domain\IndustrialPlatform.SystemData.Domain.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\IndustrialPlatform.Infrastructure\IndustrialPlatform.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\IndustrialPlatform.Logging\IndustrialPlatform.Logging.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\IndustrialPlatform.Security\IndustrialPlatform.Security.csproj" />
+  </ItemGroup>
+
+</Project>
