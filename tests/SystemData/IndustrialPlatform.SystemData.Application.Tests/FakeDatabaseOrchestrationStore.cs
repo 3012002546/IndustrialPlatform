@@ -186,6 +186,39 @@ public sealed class FakeDatabaseOrchestrationStore : IDatabaseOrchestrationStore
     public Task<DatabaseProvisionOperation?> GetOperationAsync(string tenantNId, string operationNId, CancellationToken cancellationToken) =>
         Task.FromResult(_operations.TryGetValue(OperationKey(tenantNId, operationNId), out var operation) ? operation : null);
 
+    /// <summary>已登记操作(测试只读辅助)。</summary>
+    public IReadOnlyList<DatabaseProvisionOperation> Operations => [.. _operations.Values];
+
+    /// <summary>已登记计划(测试只读辅助)。</summary>
+    public IReadOnlyList<DatabaseProvisionPlan> Plans => [.. _plans.Values];
+
+    /// <inheritdoc />
+    public Task<DatabaseProvisionOperation?> ClaimNextOperationAsync(
+        string leaseOwner,
+        DateTimeOffset now,
+        TimeSpan leaseDuration,
+        CancellationToken cancellationToken)
+    {
+        var candidate = _operations.Values
+            .Where(operation => operation.Status == OperationStatus.Queued && operation.TimeoutOn > now)
+            .OrderBy(operation => operation.QueuedOn)
+            .FirstOrDefault();
+        if (candidate is null)
+        {
+            return Task.FromResult<DatabaseProvisionOperation?>(null);
+        }
+
+        // 对齐真实 store:先捕获 Start 前的双版本,Start 推进后以该版本原子写回。
+        var key = OperationKey(candidate.TenantNId, candidate.OperationNId);
+        var expectedOptimistic = candidate.OptimisticVersion;
+        var expectedConcurrency = candidate.ConcurrencyVersion;
+        candidate.Start(leaseOwner, now, leaseDuration);
+        candidate.ClearDomainEvents();
+        _operations[key] = candidate;
+        _operationVersions[key] = (candidate.OptimisticVersion, candidate.ConcurrencyVersion);
+        return Task.FromResult<DatabaseProvisionOperation?>(candidate);
+    }
+
     /// <inheritdoc />
     public Task<DatabaseProvisionOperation?> FindOperationByIdempotencyKeyAsync(string tenantNId, string idempotencyKey, CancellationToken cancellationToken) =>
         Task.FromResult(_operations.Values.FirstOrDefault(operation =>

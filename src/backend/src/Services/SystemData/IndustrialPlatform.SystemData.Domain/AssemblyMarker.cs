@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("IndustrialPlatform.SystemData.Infrastructure")]
+[assembly: InternalsVisibleTo("IndustrialPlatform.SystemData.Application")]
 [assembly: InternalsVisibleTo("IndustrialPlatform.SystemData.Domain.Tests")]
 [assembly: InternalsVisibleTo("IndustrialPlatform.SystemData.Application.Tests")]
 [assembly: InternalsVisibleTo("IndustrialPlatform.SystemData.Infrastructure.Tests")]

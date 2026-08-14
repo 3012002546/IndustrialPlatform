@@ -1,5 +1,7 @@
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration;
+using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Runner;
 using IndustrialPlatform.SystemData.Infrastructure.DatabaseOrchestration;
+using IndustrialPlatform.SystemData.Infrastructure.DatabaseOrchestration.Runner;
 using IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations;
 using IndustrialPlatform.SystemData.Infrastructure.Topology;
 using Microsoft.Extensions.Configuration;
@@ -42,6 +44,32 @@ public static class DependencyInjection
         // 数据库编排(TASK-SD-002):持久化端口与可信拓扑提供(TASK-SD-001 的 DatabaseTopologyOptions 已注册)。
         services.AddSingleton<IDatabaseOrchestrationStore, DatabaseOrchestrationStore>();
         services.AddSingleton<IDatabaseTopologyProvider, ConfigurationDatabaseTopologyProvider>();
+
+        // 数据库编排 Runner(TASK-SD-003):选项绑定 + 目标适配器路由 + 凭据/产物/校验端口 + 编排核心 + 后台驱动。
+        // 端口生命周期:适配器具体类与路由均由容器解析,编排核心只依赖端口接口,不感知驱动。
+        services.AddOptions<DatabaseOperationRunnerOptions>()
+            .Bind(configuration.GetSection(DatabaseOperationRunnerOptions.SectionName));
+
+        services.AddSingleton<PostgreSqlTargetDatabaseAdapter>();
+        services.AddSingleton<SqliteTargetDatabaseAdapter>();
+        services.AddSingleton<DatabaseTargetAdapterRouter>();
+        services.AddSingleton<ITargetDatabaseInspector>(sp => sp.GetRequiredService<DatabaseTargetAdapterRouter>());
+        services.AddSingleton<ITargetDatabaseProvisioner>(sp => sp.GetRequiredService<DatabaseTargetAdapterRouter>());
+        services.AddSingleton<IMigrationExecutor>(sp => sp.GetRequiredService<DatabaseTargetAdapterRouter>());
+        services.AddSingleton<ITargetDatabaseAdvisoryLock>(sp => sp.GetRequiredService<DatabaseTargetAdapterRouter>());
+
+        services.AddSingleton<MigrationArtifactChecksumVerifier>();
+        services.AddSingleton<IMigrationArtifactVerifier>(sp => sp.GetRequiredService<MigrationArtifactChecksumVerifier>());
+        services.AddSingleton<FileSystemArtifactStore>();
+        services.AddSingleton<IMigrationArtifactStore>(sp => sp.GetRequiredService<FileSystemArtifactStore>());
+        services.AddSingleton<EnvironmentCredentialResolver>();
+        services.AddSingleton<IDatabaseCredentialResolver>(sp => sp.GetRequiredService<EnvironmentCredentialResolver>());
+        services.AddSingleton<FileCredentialSink>();
+        services.AddSingleton<IDatabaseCredentialSink>(sp => sp.GetRequiredService<FileCredentialSink>());
+
+        services.AddSingleton<DatabaseOperationRunner>();
+        services.AddSingleton<IOperationRunnerCoordinator>(sp => sp.GetRequiredService<DatabaseOperationRunner>());
+        services.AddHostedService<DatabaseOrchestrationRunnerHostedService>();
 
         return services;
     }

@@ -85,6 +85,17 @@ public interface IDatabaseOrchestrationStore
     /// <summary>分页查询操作(含步骤),按入队时间倒序。</summary>
     Task<DatabaseOrchestrationPageResult<DatabaseProvisionOperation>> QueryOperationsAsync(OperationListFilter filter, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// 原子领取一个 Queued 且未超时的操作并转 Running(DB-backed queue,SD-003 Runner 驱动)。
+    /// PostgreSQL 实现使用 <c>FOR UPDATE SKIP LOCKED</c>;SQLite 替身以事务 + 乐观版本保证单执行。
+    /// 无可领取返回 <c>null</c>;并发冲突由实现内吞并继续领取下一条。
+    /// </summary>
+    Task<DatabaseProvisionOperation?> ClaimNextOperationAsync(
+        string leaseOwner,
+        DateTimeOffset now,
+        TimeSpan leaseDuration,
+        CancellationToken cancellationToken);
+
     // ===== 迁移观察 =====
 
     /// <summary>查询某数据库身份最近一次观察;不存在返回 <c>null</c>。</summary>

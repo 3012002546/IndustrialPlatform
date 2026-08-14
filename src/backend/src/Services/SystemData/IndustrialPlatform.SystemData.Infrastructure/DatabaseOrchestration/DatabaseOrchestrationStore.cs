@@ -322,6 +322,145 @@ public sealed class DatabaseOrchestrationStore : IDatabaseOrchestrationStore
     }
 
     /// <inheritdoc />
+    public async Task<DatabaseProvisionOperation?> ClaimNextOperationAsync(
+        string leaseOwner,
+        DateTimeOffset now,
+        TimeSpan leaseDuration,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(leaseOwner);
+
+        var sugar = _dbContext.SqlSugar;
+        var isPostgreSql = sugar.CurrentConnectionConfig.DbType == DbType.PostgreSQL;
+
+        // 有限次数循环:并发领取冲突(其他 Runner 已 Start 同一条)时吞掉并继续取下一条。
+        for (var attempt = 0; attempt < MaxClaimAttempts; attempt++)
+        {
+            var claimed = await TryClaimNextAsync(sugar, isPostgreSql, leaseOwner, now, leaseDuration, cancellationToken);
+            if (claimed is not null)
+            {
+                return claimed;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>在单个事务内领取一条操作并转 Running;并发冲突时回滚返回 <c>null</c> 供上层继续。</summary>
+    private async Task<DatabaseProvisionOperation?> TryClaimNextAsync(
+        ISqlSugarClient sugar,
+        bool isPostgreSql,
+        string leaseOwner,
+        DateTimeOffset now,
+        TimeSpan leaseDuration,
+        CancellationToken cancellationToken)
+    {
+        sugar.Ado.BeginTran();
+        try
+        {
+            var candidateId = isPostgreSql
+                ? await SelectNextCandidatePostgreSqlAsync(sugar, now, cancellationToken)
+                : await SelectNextCandidateSqliteAsync(sugar, now, cancellationToken);
+            if (candidateId is null)
+            {
+                sugar.Ado.RollbackTran();
+                return null;
+            }
+
+            var row = await sugar.Queryable<DatabaseProvisionOperationTable>()
+                .Where(t => t.Id == candidateId.Value)
+                .FirstAsync(cancellationToken);
+            if (row is null)
+            {
+                sugar.Ado.RollbackTran();
+                return null;
+            }
+
+            var steps = await LoadOperationStepsAsync(row.Id, cancellationToken);
+            var operation = TableMapper.ToOperation(row, steps);
+            var expectedOptimisticVersion = row.OptimisticVersion;
+            var expectedConcurrencyVersion = row.ConcurrencyVersion;
+
+            operation.Start(leaseOwner, now, leaseDuration);
+
+            var affected = await sugar.Updateable(TableMapper.ToTable(operation))
+                .Where(t => t.Id == operation.Id
+                    && !t.IsDeleted
+                    && t.OptimisticVersion == expectedOptimisticVersion
+                    && t.ConcurrencyVersion == expectedConcurrencyVersion)
+                .ExecuteCommandAsync(cancellationToken);
+            if (affected != 1)
+            {
+                // 已被其他 Runner 领取(双版本已推进),回滚返回 null 继续取下一条。
+                sugar.Ado.RollbackTran();
+                return null;
+            }
+
+            foreach (var step in operation.Steps)
+            {
+                await sugar.Updateable(TableMapper.ToTable(step, operation.Id, operation.IsDeleted))
+                    .Where(t => t.Id == step.Id
+                        && t.OptimisticVersion == step.OptimisticVersion
+                        && t.ConcurrencyVersion == step.ConcurrencyVersion)
+                    .ExecuteCommandAsync(cancellationToken);
+            }
+
+            sugar.Ado.CommitTran();
+            return operation;
+        }
+        catch (ConcurrencyException)
+        {
+            sugar.Ado.RollbackTran();
+            return null;
+        }
+        catch (Exception ex) when (IsUniqueConstraintViolation(ex))
+        {
+            sugar.Ado.RollbackTran();
+            return null;
+        }
+    }
+
+    /// <summary>PostgreSQL:FOR UPDATE SKIP LOCKED 原子领取,跳过被其他 Runner 锁定的行(物理列 snake_case)。</summary>
+    private static async Task<Guid?> SelectNextCandidatePostgreSqlAsync(
+        ISqlSugarClient sugar,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT id FROM system_data_database_operation
+            WHERE status = @status AND timeout_on > @now AND is_deleted = 0
+            ORDER BY queued_on ASC
+            LIMIT 1
+            FOR UPDATE SKIP LOCKED
+            """;
+        var parameters = new[]
+        {
+            new SugarParameter("@status", (int)OperationStatus.Queued),
+            new SugarParameter("@now", now),
+        };
+        var raw = await sugar.Ado.GetScalarAsync(sql, parameters);
+        return raw switch
+        {
+            null or DBNull => null,
+            Guid guid => guid,
+            _ => null,
+        };
+    }
+
+    /// <summary>SQLite 替身:事务内查最早未超时 Queued 行(单写者由事务 + 乐观版本兜底)。</summary>
+    private static async Task<Guid?> SelectNextCandidateSqliteAsync(
+        ISqlSugarClient sugar,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var row = await sugar.Queryable<DatabaseProvisionOperationTable>()
+            .Where(t => t.Status == OperationStatus.Queued && t.TimeoutOn > now && !t.IsDeleted)
+            .OrderBy(t => t.QueuedOn)
+            .FirstAsync(cancellationToken);
+        return row?.Id;
+    }
+
+    /// <inheritdoc />
     public async Task AddOperationAsync(DatabaseProvisionOperation operation, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(operation);
@@ -456,6 +595,9 @@ public sealed class DatabaseOrchestrationStore : IDatabaseOrchestrationStore
     }
 
     // ===== 私有辅助 =====
+
+    /// <summary>单轮 claim 的最大并发冲突重试次数(吞掉冲突继续取下一条)。</summary>
+    private const int MaxClaimAttempts = 10;
 
     private async Task<IReadOnlyList<DatabasePlanStep>> LoadPlanStepsAsync(
         Guid planId,
