@@ -179,6 +179,111 @@ public sealed class RolePermissionsChangedEvent : IdentityIntegrationEvent
 }
 
 /// <summary>
+/// 用户组创建集成事件(<c>Identity.UserGroupCreated.v1</c>)。subjectNId 为 UserGroupNId。
+/// 载荷只含租户、组 NId 与非敏感资料摘要,不含数据库主键。
+/// </summary>
+public sealed class UserGroupCreatedEvent : IdentityIntegrationEvent
+{
+    /// <inheritdoc/>
+    [JsonIgnore]
+    public override string EventTypeName => "Identity.UserGroupCreated.v1";
+
+    /// <summary>线上事件类型名。</summary>
+    public override string EventType => EventTypeName;
+
+    /// <summary>用户组名称。</summary>
+    public string Name { get; }
+
+    /// <summary>用户组状态(<c>Active</c> / <c>Disabled</c>)。</summary>
+    public string Status { get; }
+
+    /// <summary>初始化用户组创建事件。</summary>
+    [JsonConstructor]
+    public UserGroupCreatedEvent(string tenantNId, string subjectNId, string name, string status)
+        : base(tenantNId, subjectNId)
+    {
+        Name = name;
+        Status = status;
+    }
+}
+
+/// <summary>
+/// 用户组资料/状态变更集成事件(<c>Identity.UserGroupChanged.v1</c>)。subjectNId 为 UserGroupNId。
+/// 载荷只含租户、组 NId 与非敏感资料摘要,不含数据库主键。
+/// </summary>
+public sealed class UserGroupChangedEvent : IdentityIntegrationEvent
+{
+    /// <inheritdoc/>
+    [JsonIgnore]
+    public override string EventTypeName => "Identity.UserGroupChanged.v1";
+
+    /// <summary>线上事件类型名。</summary>
+    public override string EventType => EventTypeName;
+
+    /// <summary>用户组名称。</summary>
+    public string Name { get; }
+
+    /// <summary>用户组状态(<c>Active</c> / <c>Disabled</c>)。</summary>
+    public string Status { get; }
+
+    /// <summary>初始化用户组资料/状态变更事件。</summary>
+    [JsonConstructor]
+    public UserGroupChangedEvent(string tenantNId, string subjectNId, string name, string status)
+        : base(tenantNId, subjectNId)
+    {
+        Name = name;
+        Status = status;
+    }
+}
+
+/// <summary>
+/// 用户组成员变更集成事件(<c>Identity.UserGroupMembershipChanged.v1</c>)。subjectNId 为 UserGroupNId,
+/// userNId 为该次加入/移出的受影响用户业务标识。不含数据库主键。
+/// </summary>
+public sealed class UserGroupMembershipChangedEvent : IdentityIntegrationEvent
+{
+    /// <inheritdoc/>
+    [JsonIgnore]
+    public override string EventTypeName => "Identity.UserGroupMembershipChanged.v1";
+
+    /// <summary>线上事件类型名。</summary>
+    public override string EventType => EventTypeName;
+
+    /// <summary>受影响的成员用户业务标识。</summary>
+    public string UserNId { get; }
+
+    /// <summary>初始化用户组成员变更事件。</summary>
+    [JsonConstructor]
+    public UserGroupMembershipChangedEvent(string tenantNId, string subjectNId, string userNId)
+        : base(tenantNId, subjectNId)
+    {
+        UserNId = userNId;
+    }
+}
+
+/// <summary>
+/// 用户组角色变更集成事件(<c>Identity.UserGroupRolesChanged.v1</c>)。subjectNId 为 UserGroupNId。
+/// 受影响用户为组内全部成员,事件以组 NId 作为批次引用;平台自身的授权版本推进/缓存失效/
+/// 会话撤销由应用层同步完成。不含数据库主键。
+/// </summary>
+public sealed class UserGroupRolesChangedEvent : IdentityIntegrationEvent
+{
+    /// <inheritdoc/>
+    [JsonIgnore]
+    public override string EventTypeName => "Identity.UserGroupRolesChanged.v1";
+
+    /// <summary>线上事件类型名。</summary>
+    public override string EventType => EventTypeName;
+
+    /// <summary>初始化用户组角色变更事件。</summary>
+    [JsonConstructor]
+    public UserGroupRolesChangedEvent(string tenantNId, string subjectNId)
+        : base(tenantNId, subjectNId)
+    {
+    }
+}
+
+/// <summary>
 /// 集成事件 JSON 序列化助手:与 BuildingBlocks <c>RabbitMqEventBus</c> 一致的小驼峰、忽略 null 配置。
 /// 保证 Outbox 载荷与直发载荷字节语义一致(序列化兼容)。
 /// </summary>

@@ -58,6 +58,15 @@ public sealed class PermissionNIdConflictException : ManagementException
     }
 }
 
+/// <summary>用户组业务标识冲突(§29A.5 ID_GROUP_NID_CONFLICT)。</summary>
+public sealed class GroupNIdConflictException : ManagementException
+{
+    public GroupNIdConflictException()
+        : base(409, "ID_GROUP_NID_CONFLICT", "用户组业务标识已存在。")
+    {
+    }
+}
+
 /// <summary>乐观并发冲突(§17 ID_CONCURRENCY_CONFLICT)。</summary>
 public sealed class ConcurrencyConflictException : ManagementException
 {

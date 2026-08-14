@@ -3,6 +3,7 @@ using IndustrialPlatform.Identity.Domain.Identities;
 using IndustrialPlatform.Identity.Domain.Permissions;
 using IndustrialPlatform.Identity.Domain.Roles;
 using IndustrialPlatform.Identity.Domain.Users;
+using IndustrialPlatform.Identity.Domain.UserGroups;
 using IndustrialPlatform.Identity.Infrastructure.Persistence;
 using IndustrialPlatform.Identity.Infrastructure.Persistence.Entities;
 using IndustrialPlatform.Identity.Infrastructure.Persistence.Repositories;
@@ -244,24 +245,49 @@ public sealed class ManagementStore : IManagementStore
         => await _permissionRepository.GetAllAsync(cancellationToken);
 
     /// <inheritdoc/>
+    /// <remarks>权威计数(§29A.3):有效持有者 = 直接分配 ∪ 用户组继承(组未删除且 Active)。</remarks>
     public async Task<int> CountActiveRoleHoldersAsync(Guid roleId, string tenantNId, CancellationToken cancellationToken)
     {
-        return await _dbContext.SqlSugar.Queryable<UserRoleTable>()
+        var directIds = await _dbContext.SqlSugar.Queryable<UserRoleTable>()
             .Where(t => t.RoleId == roleId && !t.IsDeleted && !t.UserIsDeleted && !t.RoleIsDeleted)
             .InnerJoin<UserTable>((ur, u) => ur.UserId == u.Id && u.TenantNId == tenantNId && !u.IsDeleted && u.Status == UserStatus.Active)
-            .CountAsync(cancellationToken);
+            .Select((ur, u) => u.Id)
+            .ToListAsync(cancellationToken);
+
+        var groupIds = await _dbContext.SqlSugar.Queryable<UserGroupMembershipTable>()
+            .InnerJoin<UserGroupTable>((m, g) => m.UserGroupId == g.Id && g.TenantNId == tenantNId && !g.IsDeleted && g.Status == UserGroupStatus.Active)
+            .InnerJoin<UserGroupRoleTable>((m, g, r) => m.UserGroupId == r.UserGroupId && r.RoleId == roleId && !r.IsDeleted && !r.UserGroupIsDeleted && !r.RoleIsDeleted)
+            .InnerJoin<UserTable>((m, g, r, u) => m.UserId == u.Id && u.TenantNId == tenantNId && !u.IsDeleted && u.Status == UserStatus.Active)
+            .Where((m, g, r, u) => m.TenantNId == tenantNId && !m.IsDeleted && !m.UserIsDeleted && !m.UserGroupIsDeleted)
+            .Select((m, g, r, u) => u.Id)
+            .ToListAsync(cancellationToken);
+
+        return directIds.Concat(groupIds).Distinct().Count();
     }
 
     /// <inheritdoc/>
+    /// <remarks>有效持有者 = 直接分配 ∪ 用户组继承(§29A.2),供角色权限变化后的缓存失效。</remarks>
     public async Task<IReadOnlyList<string>> GetUserNIdsForRoleAsync(Guid roleId, string tenantNId, CancellationToken cancellationToken)
     {
         // 多表 OrderBy 存在 SqlSugar 别名限制(Join 别名须与 OrderBy 一致),统一取回后内存排序。
-        var nIds = await _dbContext.SqlSugar.Queryable<UserRoleTable>()
+        var directNIds = await _dbContext.SqlSugar.Queryable<UserRoleTable>()
             .Where(t => t.RoleId == roleId && !t.IsDeleted && !t.UserIsDeleted && !t.RoleIsDeleted)
             .InnerJoin<UserTable>((ur, u) => ur.UserId == u.Id && u.TenantNId == tenantNId && !u.IsDeleted)
             .Select((ur, u) => u.NId)
             .ToListAsync(cancellationToken);
-        return nIds.OrderBy(n => n, StringComparer.Ordinal).ToList();
+
+        var groupNIds = await _dbContext.SqlSugar.Queryable<UserGroupMembershipTable>()
+            .InnerJoin<UserGroupTable>((m, g) => m.UserGroupId == g.Id && g.TenantNId == tenantNId && !g.IsDeleted && g.Status == UserGroupStatus.Active)
+            .InnerJoin<UserGroupRoleTable>((m, g, r) => m.UserGroupId == r.UserGroupId && r.RoleId == roleId && !r.IsDeleted && !r.UserGroupIsDeleted && !r.RoleIsDeleted)
+            .InnerJoin<UserTable>((m, g, r, u) => m.UserId == u.Id && u.TenantNId == tenantNId && !u.IsDeleted)
+            .Where((m, g, r, u) => m.TenantNId == tenantNId && !m.IsDeleted && !m.UserIsDeleted && !m.UserGroupIsDeleted)
+            .Select((m, g, r, u) => u.NId)
+            .ToListAsync(cancellationToken);
+
+        return directNIds.Concat(groupNIds)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(n => n, StringComparer.Ordinal)
+            .ToList();
     }
 
     /// <inheritdoc/>

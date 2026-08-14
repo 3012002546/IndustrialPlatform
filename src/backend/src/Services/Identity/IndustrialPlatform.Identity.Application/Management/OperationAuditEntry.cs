@@ -33,6 +33,24 @@ public static class OperationAction
     /// <summary>分配角色权限。</summary>
     public const string RoleAssignPermissions = "role.assign_permissions";
 
+    /// <summary>创建用户组。</summary>
+    public const string UserGroupCreate = "user_group.create";
+
+    /// <summary>修改用户组资料。</summary>
+    public const string UserGroupUpdate = "user_group.update";
+
+    /// <summary>禁用用户组。</summary>
+    public const string UserGroupDisable = "user_group.disable";
+
+    /// <summary>启用用户组。</summary>
+    public const string UserGroupEnable = "user_group.enable";
+
+    /// <summary>设置用户组成员集。</summary>
+    public const string UserGroupSetMembers = "user_group.set_members";
+
+    /// <summary>设置用户组角色集。</summary>
+    public const string UserGroupSetRoles = "user_group.set_roles";
+
     /// <summary>创建企业登录源。</summary>
     public const string SsoProviderCreate = "sso.provider.create";
 
@@ -84,6 +102,9 @@ public static class OperationObjectType
 
     /// <summary>角色对象。</summary>
     public const string Role = "role";
+
+    /// <summary>用户组对象。</summary>
+    public const string UserGroup = "user_group";
 
     /// <summary>企业登录源对象。</summary>
     public const string SsoProvider = "sso.provider";

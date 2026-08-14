@@ -5,20 +5,24 @@ using IndustrialPlatform.Identity.Infrastructure.Persistence.Repositories;
 namespace IndustrialPlatform.Identity.Infrastructure.Authentication;
 
 /// <summary>
-/// 认证用例持久化端口实现:组合用户/角色仓储,装配活动角色与角色 NId 快照。
+/// 认证用例持久化端口实现:组合用户/角色/用户组仓储,装配有效角色
+/// (直接分配 ∪ 用户组继承,§29A.2)与角色 NId 快照。
 /// </summary>
 public sealed class AuthenticationStore : IAuthenticationStore
 {
     private readonly IUserRepository _users;
     private readonly IRoleRepository _roles;
+    private readonly IUserGroupRepository _userGroups;
 
     /// <summary>初始化认证仓储组合。</summary>
-    public AuthenticationStore(IUserRepository users, IRoleRepository roles)
+    public AuthenticationStore(IUserRepository users, IRoleRepository roles, IUserGroupRepository userGroups)
     {
         ArgumentNullException.ThrowIfNull(users);
         ArgumentNullException.ThrowIfNull(roles);
+        ArgumentNullException.ThrowIfNull(userGroups);
         _users = users;
         _roles = roles;
+        _userGroups = userGroups;
     }
 
     /// <inheritdoc/>
@@ -59,7 +63,7 @@ public sealed class AuthenticationStore : IAuthenticationStore
         CancellationToken cancellationToken)
         => _roles.GetActivePermissionsForRolesAsync(roleIds, cancellationToken);
 
-    /// <summary>装配活动角色:过滤角色已删除/快照失效的关系,保持 RoleIds 与 RoleNIds 一一对应。</summary>
+    /// <summary>装配有效角色:直接分配 ∪ 组继承,过滤角色已删除/快照失效的关系,保持 RoleIds 与 RoleNIds 一一对应。</summary>
     private async Task<AuthenticatedUser?> BuildAsync(User? user, CancellationToken cancellationToken)
     {
         if (user is null)
@@ -67,7 +71,9 @@ public sealed class AuthenticationStore : IAuthenticationStore
             return null;
         }
 
-        var roleIds = user.UserRoles.Where(r => !r.IsDeleted).Select(r => r.RoleId).ToList();
+        var directRoleIds = user.UserRoles.Where(r => !r.IsDeleted).Select(r => r.RoleId).ToList();
+        var groupRoleIds = await _userGroups.GetRoleIdsForUserAsync(user.Id, user.TenantNId, cancellationToken);
+        var roleIds = directRoleIds.Concat(groupRoleIds).Distinct().ToList();
         var roleNIdByRoleId = await _roles.GetNIdsAsync(roleIds, cancellationToken);
         var activeRoleIds = roleIds.Where(roleNIdByRoleId.ContainsKey).ToList();
         var activeRoleNIds = activeRoleIds.Select(id => roleNIdByRoleId[id]).ToList();

@@ -58,6 +58,9 @@ public static class IdentitySchemaMigrations
             CreateTableStep("ID-004-14", "identity_sso_client", SsoClientDdl),
             CreateTableStep("ID-004-15", "identity_sso_client_endpoint", SsoClientEndpointDdl),
             CreateTableStep("ID-004-16", "identity_sso_browser_session", SsoBrowserSessionDdl),
+            CreateTableStep("ID-017-01", "identity_user_group", UserGroupDdl),
+            CreateTableStep("ID-017-02", "identity_user_group_membership", UserGroupMembershipDdl),
+            CreateTableStep("ID-017-03", "identity_user_group_role", UserGroupRoleDdl),
             new SchemaMigrationStep(
                 "ID-004-10",
                 "seed permission catalog, SYSTEM_ADMIN role and its permissions",
@@ -463,6 +466,74 @@ public static class IdentitySchemaMigrations
             );
             CREATE UNIQUE INDEX IF NOT EXISTS ux_sso_browser_session_active_handle ON identity_sso_browser_session (session_handle_hash) WHERE is_deleted = {f};
             CREATE INDEX IF NOT EXISTS ix_sso_browser_session_tenant ON identity_sso_browser_session (tenant_n_id, user_id);
+            """;
+    }
+
+    private static string UserGroupDdl(DbType dbType)
+    {
+        var (g, t, b, big, _) = TypeWords(dbType);
+        var columns = string.Join(",\n",
+        [
+            CommonColumns(g, t, b, big),
+            "tenant_n_id TEXT NOT NULL",
+            "n_id TEXT NOT NULL",
+            "normalized_n_id TEXT NOT NULL",
+            "name TEXT NOT NULL",
+            "description TEXT NULL",
+            "status INTEGER NOT NULL",
+            "CONSTRAINT uq_user_group_nid UNIQUE (tenant_n_id, normalized_n_id)",
+            "CONSTRAINT uq_user_group_id_isdel UNIQUE (id, is_deleted)",
+        ]);
+        return $"""
+            CREATE TABLE IF NOT EXISTS identity_user_group (
+            {columns}
+            );
+            """;
+    }
+
+    private static string UserGroupMembershipDdl(DbType dbType)
+    {
+        var (g, t, b, big, f) = TypeWords(dbType);
+        var columns = string.Join(",\n",
+        [
+            CommonColumns(g, t, b, big),
+            "tenant_n_id TEXT NOT NULL",
+            $"user_group_id {g} NOT NULL",
+            $"user_group_is_deleted {b} NOT NULL",
+            $"user_id {g} NOT NULL",
+            $"user_is_deleted {b} NOT NULL",
+            "FOREIGN KEY (user_group_id, user_group_is_deleted) REFERENCES identity_user_group (id, is_deleted) ON UPDATE CASCADE",
+            "FOREIGN KEY (user_id, user_is_deleted) REFERENCES identity_user (id, is_deleted) ON UPDATE CASCADE",
+        ]);
+        return $"""
+            CREATE TABLE IF NOT EXISTS identity_user_group_membership (
+            {columns}
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_user_group_membership_active ON identity_user_group_membership (tenant_n_id, user_id, user_group_id) WHERE is_deleted = {f};
+            CREATE INDEX IF NOT EXISTS ix_user_group_membership_group ON identity_user_group_membership (user_group_id);
+            """;
+    }
+
+    private static string UserGroupRoleDdl(DbType dbType)
+    {
+        var (g, t, b, big, f) = TypeWords(dbType);
+        var columns = string.Join(",\n",
+        [
+            CommonColumns(g, t, b, big),
+            "tenant_n_id TEXT NOT NULL",
+            $"user_group_id {g} NOT NULL",
+            $"user_group_is_deleted {b} NOT NULL",
+            $"role_id {g} NOT NULL",
+            $"role_is_deleted {b} NOT NULL",
+            "FOREIGN KEY (user_group_id, user_group_is_deleted) REFERENCES identity_user_group (id, is_deleted) ON UPDATE CASCADE",
+            "FOREIGN KEY (role_id, role_is_deleted) REFERENCES identity_role (id, is_deleted) ON UPDATE CASCADE",
+        ]);
+        return $"""
+            CREATE TABLE IF NOT EXISTS identity_user_group_role (
+            {columns}
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_user_group_role_active ON identity_user_group_role (tenant_n_id, user_group_id, role_id) WHERE is_deleted = {f};
+            CREATE INDEX IF NOT EXISTS ix_user_group_role_group ON identity_user_group_role (user_group_id);
             """;
     }
 

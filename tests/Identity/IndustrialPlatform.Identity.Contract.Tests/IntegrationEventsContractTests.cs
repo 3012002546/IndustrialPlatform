@@ -18,6 +18,10 @@ public sealed class IntegrationEventsContractTests
     private static readonly UserSecurityChangedEvent UserSecurityChanged = new(Tenant, "alice.user", "PasswordChanged", 5);
     private static readonly UserRolesChangedEvent UserRolesChanged = new(Tenant, "alice.user", "role.operator");
     private static readonly RolePermissionsChangedEvent RolePermissionsChanged = new(Tenant, "role.operator", "permission.order.create");
+    private static readonly UserGroupCreatedEvent UserGroupCreated = new(Tenant, "group.ops", "运维组", "Active");
+    private static readonly UserGroupChangedEvent UserGroupChanged = new(Tenant, "group.ops", "运维组", "Disabled");
+    private static readonly UserGroupMembershipChangedEvent UserGroupMembershipChanged = new(Tenant, "group.ops", "alice.user");
+    private static readonly UserGroupRolesChangedEvent UserGroupRolesChanged = new(Tenant, "group.ops");
 
     public static TheoryData<IdentityIntegrationEvent, string> VersionedEventTypeSamples => new()
     {
@@ -26,6 +30,10 @@ public sealed class IntegrationEventsContractTests
         { UserSecurityChanged, "Identity.UserSecurityChanged.v1" },
         { UserRolesChanged, "Identity.UserRolesChanged.v1" },
         { RolePermissionsChanged, "Identity.RolePermissionsChanged.v1" },
+        { UserGroupCreated, "Identity.UserGroupCreated.v1" },
+        { UserGroupChanged, "Identity.UserGroupChanged.v1" },
+        { UserGroupMembershipChanged, "Identity.UserGroupMembershipChanged.v1" },
+        { UserGroupRolesChanged, "Identity.UserGroupRolesChanged.v1" },
     };
 
     public static TheoryData<IdentityIntegrationEvent> AllSampleEvents => new()
@@ -35,6 +43,10 @@ public sealed class IntegrationEventsContractTests
         { UserSecurityChanged },
         { UserRolesChanged },
         { RolePermissionsChanged },
+        { UserGroupCreated },
+        { UserGroupChanged },
+        { UserGroupMembershipChanged },
+        { UserGroupRolesChanged },
     };
 
     [Theory]
@@ -158,5 +170,57 @@ public sealed class IntegrationEventsContractTests
         Assert.Equal(RolePermissionsChanged.TenantNId, restored.TenantNId);
         Assert.Equal(RolePermissionsChanged.SubjectNId, restored.SubjectNId);
         Assert.Equal(RolePermissionsChanged.PermissionNId, restored.PermissionNId);
+    }
+
+    [Fact]
+    public void UserGroupEventTypeNamesMatchContract()
+    {
+        string[] actual =
+        [
+            UserGroupCreated.EventTypeName,
+            UserGroupChanged.EventTypeName,
+            UserGroupMembershipChanged.EventTypeName,
+            UserGroupRolesChanged.EventTypeName,
+        ];
+        string[] expected =
+        [
+            "Identity.UserGroupCreated.v1",
+            "Identity.UserGroupChanged.v1",
+            "Identity.UserGroupMembershipChanged.v1",
+            "Identity.UserGroupRolesChanged.v1",
+        ];
+
+        Assert.Equal(expected.Order(StringComparer.Ordinal), actual.Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void UserGroupCreatedEvent_RoundTripsThroughJsonConstructor()
+    {
+        var restored = JsonSerializer.Deserialize<UserGroupCreatedEvent>(IntegrationEventJson.Serialize(UserGroupCreated), IntegrationEventJson.Options)!;
+
+        Assert.Equal(UserGroupCreated.EventId, restored.EventId);
+        Assert.Equal(UserGroupCreated.TenantNId, restored.TenantNId);
+        Assert.Equal(UserGroupCreated.SubjectNId, restored.SubjectNId);
+        Assert.Equal(UserGroupCreated.Name, restored.Name);
+        Assert.Equal(UserGroupCreated.Status, restored.Status);
+    }
+
+    [Fact]
+    public void UserGroupMembershipChangedEvent_RoundTripsThroughJsonConstructor()
+    {
+        var restored = JsonSerializer.Deserialize<UserGroupMembershipChangedEvent>(IntegrationEventJson.Serialize(UserGroupMembershipChanged), IntegrationEventJson.Options)!;
+
+        Assert.Equal(UserGroupMembershipChanged.TenantNId, restored.TenantNId);
+        Assert.Equal(UserGroupMembershipChanged.SubjectNId, restored.SubjectNId);
+        Assert.Equal(UserGroupMembershipChanged.UserNId, restored.UserNId);
+    }
+
+    [Fact]
+    public void UserGroupRolesChangedEvent_RoundTripsThroughJsonConstructor()
+    {
+        var restored = JsonSerializer.Deserialize<UserGroupRolesChangedEvent>(IntegrationEventJson.Serialize(UserGroupRolesChanged), IntegrationEventJson.Options)!;
+
+        Assert.Equal(UserGroupRolesChanged.TenantNId, restored.TenantNId);
+        Assert.Equal(UserGroupRolesChanged.SubjectNId, restored.SubjectNId);
     }
 }

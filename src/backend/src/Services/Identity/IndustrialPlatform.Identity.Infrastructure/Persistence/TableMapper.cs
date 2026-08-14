@@ -3,6 +3,7 @@ using IndustrialPlatform.Identity.Domain.Permissions;
 using IndustrialPlatform.Identity.Domain.Roles;
 using IndustrialPlatform.Identity.Domain.Sso;
 using IndustrialPlatform.Identity.Domain.Users;
+using IndustrialPlatform.Identity.Domain.UserGroups;
 using IndustrialPlatform.Identity.Infrastructure.Persistence.Entities;
 
 namespace IndustrialPlatform.Identity.Infrastructure.Persistence;
@@ -209,8 +210,118 @@ internal static class TableMapper
         row.OptimisticVersion,
         row.ConcurrencyVersion);
 
-    // ---- SSO(TASK-ID-013)----
+    // ---- 用户组(TASK-ID-017)----
 
+    public static UserGroupTable ToTable(UserGroup group) => new()
+    {
+        Id = group.Id,
+        IsFrozen = group.IsFrozen,
+        IsLocked = group.IsLocked,
+        IsDeleted = group.IsDeleted,
+        EntityType = group.EntityType,
+        CreatedOn = group.CreatedOn,
+        LastUpdatedOn = group.LastUpdatedOn,
+        OptimisticVersion = group.OptimisticVersion,
+        ConcurrencyVersion = group.ConcurrencyVersion,
+        TenantNId = group.TenantNId,
+        NId = group.NId,
+        NormalizedNId = group.NormalizedNId,
+        Name = group.Name,
+        Description = group.Description,
+        Status = group.Status,
+    };
+
+    public static UserGroup ToUserGroup(
+        UserGroupTable row,
+        IReadOnlyCollection<UserGroupMembership> memberships,
+        IReadOnlyCollection<UserGroupRole> roles) => new(
+        row.Id,
+        row.TenantNId,
+        row.NId,
+        row.NormalizedNId,
+        row.Name,
+        row.Description,
+        row.Status,
+        memberships,
+        roles,
+        row.IsFrozen,
+        row.IsLocked,
+        row.IsDeleted,
+        row.EntityType,
+        row.CreatedOn,
+        row.LastUpdatedOn,
+        row.OptimisticVersion,
+        row.ConcurrencyVersion);
+
+    public static UserGroupMembershipTable ToTable(UserGroupMembership membership) => new()
+    {
+        Id = membership.Id,
+        IsFrozen = membership.IsFrozen,
+        IsLocked = membership.IsLocked,
+        IsDeleted = membership.IsDeleted,
+        EntityType = membership.EntityType,
+        CreatedOn = membership.CreatedOn,
+        LastUpdatedOn = membership.LastUpdatedOn,
+        OptimisticVersion = membership.OptimisticVersion,
+        ConcurrencyVersion = membership.ConcurrencyVersion,
+        TenantNId = membership.TenantNId,
+        UserGroupId = membership.UserGroupId,
+        UserGroupIsDeleted = membership.UserGroupIsDeleted,
+        UserId = membership.UserId,
+        UserIsDeleted = membership.UserIsDeleted,
+    };
+
+    public static UserGroupMembership ToUserGroupMembership(UserGroupMembershipTable row) => new(
+        row.Id,
+        row.TenantNId,
+        row.UserGroupId,
+        row.UserGroupIsDeleted,
+        row.UserId,
+        row.UserIsDeleted,
+        row.IsFrozen,
+        row.IsLocked,
+        row.IsDeleted,
+        row.EntityType,
+        row.CreatedOn,
+        row.LastUpdatedOn,
+        row.OptimisticVersion,
+        row.ConcurrencyVersion);
+
+    public static UserGroupRoleTable ToTable(UserGroupRole role) => new()
+    {
+        Id = role.Id,
+        IsFrozen = role.IsFrozen,
+        IsLocked = role.IsLocked,
+        IsDeleted = role.IsDeleted,
+        EntityType = role.EntityType,
+        CreatedOn = role.CreatedOn,
+        LastUpdatedOn = role.LastUpdatedOn,
+        OptimisticVersion = role.OptimisticVersion,
+        ConcurrencyVersion = role.ConcurrencyVersion,
+        TenantNId = role.TenantNId,
+        UserGroupId = role.UserGroupId,
+        UserGroupIsDeleted = role.UserGroupIsDeleted,
+        RoleId = role.RoleId,
+        RoleIsDeleted = role.RoleIsDeleted,
+    };
+
+    public static UserGroupRole ToUserGroupRole(UserGroupRoleTable row) => new(
+        row.Id,
+        row.TenantNId,
+        row.UserGroupId,
+        row.UserGroupIsDeleted,
+        row.RoleId,
+        row.RoleIsDeleted,
+        row.IsFrozen,
+        row.IsLocked,
+        row.IsDeleted,
+        row.EntityType,
+        row.CreatedOn,
+        row.LastUpdatedOn,
+        row.OptimisticVersion,
+        row.ConcurrencyVersion);
+
+    // ---- SSO(TASK-ID-013)----
     public static SsoProviderTable ToTable(IdentitySsoProvider provider) => new()
     {
         Id = provider.Id,

@@ -1,6 +1,7 @@
 using IndustrialPlatform.Identity.Domain.Permissions;
 using IndustrialPlatform.Identity.Domain.Roles;
 using IndustrialPlatform.Identity.Domain.Users;
+using IndustrialPlatform.Identity.Domain.UserGroups;
 using IndustrialPlatform.Identity.Infrastructure.Authentication;
 using IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations;
 using IndustrialPlatform.Identity.Infrastructure.Persistence.Repositories;
@@ -41,6 +42,7 @@ public sealed class AuthorizationDataStoreTests : IDisposable
     private readonly UserRepository _users;
     private readonly RoleRepository _roles;
     private readonly PermissionRepository _permissions;
+    private readonly UserGroupRepository _userGroups;
 
     public AuthorizationDataStoreTests()
     {
@@ -64,6 +66,7 @@ public sealed class AuthorizationDataStoreTests : IDisposable
         _users = new UserRepository(_dbContext);
         _roles = new RoleRepository(_dbContext);
         _permissions = new PermissionRepository(_dbContext);
+        _userGroups = new UserGroupRepository(_dbContext);
     }
 
     public void Dispose()
@@ -105,7 +108,7 @@ public sealed class AuthorizationDataStoreTests : IDisposable
         var user = await SeedAliceWithPermissionAsync();
 
         // Act
-        var store = new AuthorizationDataStore(_users, _roles);
+        var store = new AuthorizationDataStore(_users, _roles, _userGroups);
         var snapshot = await store.GetSnapshotAsync(TenantNId, "user.alice", CancellationToken.None);
 
         // Assert: 快照含租户/用户/状态/安全版本与权限集
@@ -124,7 +127,7 @@ public sealed class AuthorizationDataStoreTests : IDisposable
         await SeedAliceWithPermissionAsync();
 
         // Act
-        var store = new AuthorizationDataStore(_users, _roles);
+        var store = new AuthorizationDataStore(_users, _roles, _userGroups);
         var snapshot = await store.GetSnapshotAsync(OtherTenantNId, "user.alice", CancellationToken.None);
 
         // Assert
@@ -135,7 +138,7 @@ public sealed class AuthorizationDataStoreTests : IDisposable
     public async Task GetSnapshotAsync_UnknownUser_ReturnsNull()
     {
         // Arrange
-        var store = new AuthorizationDataStore(_users, _roles);
+        var store = new AuthorizationDataStore(_users, _roles, _userGroups);
 
         // Act
         var snapshot = await store.GetSnapshotAsync(TenantNId, "user.ghost", CancellationToken.None);
@@ -157,7 +160,7 @@ public sealed class AuthorizationDataStoreTests : IDisposable
         await _users.UpdateAsync(loaded, optimistic, concurrency);
 
         // Act
-        var store = new AuthorizationDataStore(_users, _roles);
+        var store = new AuthorizationDataStore(_users, _roles, _userGroups);
         var snapshot = await store.GetSnapshotAsync(TenantNId, "user.alice", CancellationToken.None);
 
         // Assert: 禁用状态进入快照,供授权评估拒绝
@@ -179,11 +182,105 @@ public sealed class AuthorizationDataStoreTests : IDisposable
         await _roles.DeleteAsync(roleAggregate!, roleAggregate!.OptimisticVersion, roleAggregate.ConcurrencyVersion);
 
         // Act: 角色删除后,其权限不再出现在用户快照(角色权限变化驱动失效的证据)
-        var store = new AuthorizationDataStore(_users, _roles);
+        var store = new AuthorizationDataStore(_users, _roles, _userGroups);
         var snapshot = await store.GetSnapshotAsync(TenantNId, "user.alice", CancellationToken.None);
 
         // Assert
         Assert.NotNull(snapshot);
         Assert.Empty(snapshot!.PermissionNIds);
+    }
+
+    /// <summary>种子:直接角色(permA)+ 用户组角色(permB)的 Alice,用于有效角色并集断言(§29A.2)。</summary>
+    private async Task SeedAliceWithDirectAndGroupRolesAsync()
+    {
+        var directPermission = await _permissions.GetByNIdAsync("identity.user.view");
+        Assert.NotNull(directPermission);
+        var directRole = Role.Create(TenantNId, "role.direct", "直接角色", null, isSystem: false);
+        directRole.AssignPermission(directPermission!);
+        await _roles.AddAsync(directRole);
+
+        var groupPermission = await _permissions.GetByNIdAsync("identity.role.view");
+        Assert.NotNull(groupPermission);
+        var groupRole = Role.Create(TenantNId, "role.group", "组角色", null, isSystem: false);
+        groupRole.AssignPermission(groupPermission!);
+        await _roles.AddAsync(groupRole);
+
+        var alice = User.Create(TenantNId, "user.alice", "alice", "Alice", null, null, PasswordHash);
+        alice.AssignRole(directRole);
+        await _users.AddAsync(alice);
+
+        var group = UserGroup.Create(TenantNId, "group.ops", "运维组", null);
+        group.AssignMember(alice);
+        group.AssignRole(groupRole);
+        await _userGroups.AddAsync(group, [], CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task GetSnapshotAsync_IncludesGroupInheritedPermissions()
+    {
+        // Arrange: 直接角色 identity.user.view + 组角色 identity.role.view(§29A.2 有效角色并集)
+        await SeedAliceWithDirectAndGroupRolesAsync();
+
+        // Act
+        var store = new AuthorizationDataStore(_users, _roles, _userGroups);
+        var snapshot = await store.GetSnapshotAsync(TenantNId, "user.alice", CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(snapshot);
+        Assert.Equal(["identity.role.view", "identity.user.view"], snapshot!.PermissionNIds);
+    }
+
+    [Fact]
+    public async Task GetSnapshotAsync_DisabledGroup_ExcludesGroupPermissions()
+    {
+        // Arrange
+        await SeedAliceWithDirectAndGroupRolesAsync();
+        var group = await _userGroups.GetByNIdAsync("group.ops", CancellationToken.None);
+        Assert.NotNull(group);
+        var optimistic = group!.OptimisticVersion;
+        var concurrency = group.ConcurrencyVersion;
+        group.Disable();
+        await _userGroups.UpdateAsync(group, optimistic, concurrency, [], CancellationToken.None);
+
+        // Act: 禁用组立即停止贡献角色(§29A.2)
+        var store = new AuthorizationDataStore(_users, _roles, _userGroups);
+        var snapshot = await store.GetSnapshotAsync(TenantNId, "user.alice", CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(snapshot);
+        Assert.Equal(["identity.user.view"], snapshot!.PermissionNIds);
+    }
+
+    [Fact]
+    public async Task GetSnapshotAsync_DirectAndGroupPermissions_AreDeduplicated()
+    {
+        // Arrange: 同一权限经直接角色与组角色各持有一次 → 快照去重(§29A.2 去重并排序)
+        var permission = await _permissions.GetByNIdAsync("identity.user.view");
+        Assert.NotNull(permission);
+
+        var directRole = Role.Create(TenantNId, "role.direct", "直接角色", null, isSystem: false);
+        directRole.AssignPermission(permission!);
+        await _roles.AddAsync(directRole);
+
+        var groupRole = Role.Create(TenantNId, "role.group", "组角色", null, isSystem: false);
+        groupRole.AssignPermission(permission!);
+        await _roles.AddAsync(groupRole);
+
+        var alice = User.Create(TenantNId, "user.alice", "alice", "Alice", null, null, PasswordHash);
+        alice.AssignRole(directRole);
+        await _users.AddAsync(alice);
+
+        var group = UserGroup.Create(TenantNId, "group.ops", "运维组", null);
+        group.AssignMember(alice);
+        group.AssignRole(groupRole);
+        await _userGroups.AddAsync(group, [], CancellationToken.None);
+
+        // Act
+        var store = new AuthorizationDataStore(_users, _roles, _userGroups);
+        var snapshot = await store.GetSnapshotAsync(TenantNId, "user.alice", CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(snapshot);
+        Assert.Equal(["identity.user.view"], snapshot!.PermissionNIds);
     }
 }

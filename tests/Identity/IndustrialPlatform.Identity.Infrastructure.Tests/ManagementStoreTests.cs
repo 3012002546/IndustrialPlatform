@@ -7,6 +7,7 @@ using IndustrialPlatform.Identity.Application.Management;
 using IndustrialPlatform.Identity.Domain.Permissions;
 using IndustrialPlatform.Identity.Domain.Roles;
 using IndustrialPlatform.Identity.Domain.Users;
+using IndustrialPlatform.Identity.Domain.UserGroups;
 using IndustrialPlatform.Identity.Infrastructure.Management;
 using IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations;
 using IndustrialPlatform.Identity.Infrastructure.Persistence.Repositories;
@@ -49,6 +50,7 @@ public sealed class ManagementStoreTests : IDisposable
     private readonly UserRepository _users;
     private readonly RoleRepository _roles;
     private readonly PermissionRepository _permissions;
+    private readonly UserGroupRepository _userGroups;
 
     public ManagementStoreTests()
     {
@@ -72,6 +74,7 @@ public sealed class ManagementStoreTests : IDisposable
         _users = new UserRepository(_dbContext);
         _roles = new RoleRepository(_dbContext);
         _permissions = new PermissionRepository(_dbContext);
+        _userGroups = new UserGroupRepository(_dbContext);
         _store = new ManagementStore(_dbContext, _users, _roles, _permissions);
     }
 
@@ -317,5 +320,61 @@ public sealed class ManagementStoreTests : IDisposable
 
         await Assert.ThrowsAsync<ConcurrencyException>(() =>
             _store.UpdateUserAsync(loaded!, loaded!.OptimisticVersion - 1, loaded.ConcurrencyVersion, [], CancellationToken.None));
+    }
+
+    /// <summary>种子:用户经活动用户组持有角色(组继承持有者,§29A.3 权威计数)。</summary>
+    private async Task SeedGroupHolderAsync(string userNId, string loginName, Role role)
+    {
+        var user = await SeedUserAsync(userNId, loginName);
+        var group = UserGroup.Create(TenantNId, "group." + userNId, "组", null);
+        group.AssignMember(user);
+        group.AssignRole(role);
+        await _userGroups.AddAsync(group, [], CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task CountActiveRoleHoldersAsync_IncludesGroupInheritedHolders()
+    {
+        var role = await SeedRoleAsync("role.operator");
+        // 直接持有:alice;组继承持有:bob;无关用户:carol
+        await SeedUserAsync("alice.user", "alice", role);
+        await SeedGroupHolderAsync("bob.user", "bob", role);
+        await SeedUserAsync("carol.user", "carol");
+
+        var holders = await _store.CountActiveRoleHoldersAsync(role.Id, TenantNId, CancellationToken.None);
+
+        Assert.Equal(2, holders);
+    }
+
+    [Fact]
+    public async Task CountActiveRoleHoldersAsync_ExcludesDisabledGroupHolders()
+    {
+        var role = await SeedRoleAsync("role.operator");
+        await SeedUserAsync("alice.user", "alice", role);
+        await SeedGroupHolderAsync("bob.user", "bob", role);
+
+        // 禁用 bob 所在组 → 组继承不再计数
+        var group = await _userGroups.GetByNIdAsync("group.bob.user", CancellationToken.None);
+        Assert.NotNull(group);
+        var optimistic = group!.OptimisticVersion;
+        var concurrency = group.ConcurrencyVersion;
+        group.Disable();
+        await _userGroups.UpdateAsync(group, optimistic, concurrency, [], CancellationToken.None);
+
+        var holders = await _store.CountActiveRoleHoldersAsync(role.Id, TenantNId, CancellationToken.None);
+
+        Assert.Equal(1, holders);
+    }
+
+    [Fact]
+    public async Task GetUserNIdsForRoleAsync_IncludesGroupInheritedHolders_Sorted()
+    {
+        var role = await SeedRoleAsync("role.operator");
+        await SeedUserAsync("alice.user", "alice", role);
+        await SeedGroupHolderAsync("bob.user", "bob", role);
+
+        var nIds = await _store.GetUserNIdsForRoleAsync(role.Id, TenantNId, CancellationToken.None);
+
+        Assert.Equal(["alice.user", "bob.user"], nIds);
     }
 }

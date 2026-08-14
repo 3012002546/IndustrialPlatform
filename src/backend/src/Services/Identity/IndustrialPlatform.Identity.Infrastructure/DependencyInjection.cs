@@ -2,6 +2,7 @@ using IndustrialPlatform.Identity.Application.Authentication;
 using IndustrialPlatform.Identity.Application.Authorization;
 using IndustrialPlatform.Identity.Application.Management;
 using IndustrialPlatform.Identity.Application.Sso;
+using IndustrialPlatform.Identity.Application.UserGroups;
 using IndustrialPlatform.Identity.Domain.Passwords;
 using IndustrialPlatform.Identity.Infrastructure.Authentication;
 using IndustrialPlatform.Identity.Infrastructure.Management;
@@ -50,6 +51,7 @@ public static class DependencyInjection
         services.AddSingleton<IUserRepository, UserRepository>();
         services.AddSingleton<IRoleRepository, RoleRepository>();
         services.AddSingleton<IPermissionRepository, PermissionRepository>();
+        services.AddSingleton<IUserGroupRepository, UserGroupRepository>();
 
         // 认证用例端口实现(TASK-ID-005):JWT 签发/JWKS/限流/审计/刷新会话。
         services.AddOptions<JwtOptions>().Bind(configuration.GetSection(JwtOptions.SectionName));
@@ -70,6 +72,9 @@ public static class DependencyInjection
         services.AddSingleton<IManagementStore, ManagementStore>();
         services.AddSingleton<IOperationAuditSink, OperationAuditSink>();
         services.AddSingleton<ILoginAuditQueryStore, LoginAuditQueryStore>();
+
+        // 用户组持久化端口(TASK-ID-017):用户组存储(聚合装载/原子写/授权求值辅助查询)。
+        services.AddSingleton<IUserGroupStore, UserGroupStore>();
 
         // Outbox 发布管线(TASK-ID-009):后台发布器轮询未发布事件转发到 RabbitMQ,
         // RabbitMQ 不可达时退避等待,不阻塞服务启动(保持无 Docker 可运行基线)。
