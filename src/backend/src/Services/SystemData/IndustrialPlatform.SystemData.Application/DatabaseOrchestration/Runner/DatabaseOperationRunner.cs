@@ -29,6 +29,10 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
     private readonly IDatabaseCredentialResolver _credentialResolver;
     private readonly IDatabaseCredentialSink _credentialSink;
     private readonly ITargetDatabaseAdvisoryLock _advisoryLock;
+    private readonly ISeedArtifactStore _seedArtifactStore;
+    private readonly ISeedArtifactVerifier _seedArtifactVerifier;
+    private readonly IReadOnlyList<ISeedExecutor> _seedExecutors;
+    private readonly ISeedSecretResolver _seedSecretResolver;
 
     private ActiveOperation? _active;
     private IDisposable? _lockHandle;
@@ -51,7 +55,11 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
         IMigrationExecutor migrationExecutor,
         IDatabaseCredentialResolver credentialResolver,
         IDatabaseCredentialSink credentialSink,
-        ITargetDatabaseAdvisoryLock advisoryLock)
+        ITargetDatabaseAdvisoryLock advisoryLock,
+        ISeedArtifactStore seedArtifactStore,
+        ISeedArtifactVerifier seedArtifactVerifier,
+        IEnumerable<ISeedExecutor> seedExecutors,
+        ISeedSecretResolver seedSecretResolver)
     {
         _store = store;
         _topologyProvider = topologyProvider;
@@ -67,6 +75,10 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
         _credentialResolver = credentialResolver;
         _credentialSink = credentialSink;
         _advisoryLock = advisoryLock;
+        _seedArtifactStore = seedArtifactStore;
+        _seedArtifactVerifier = seedArtifactVerifier;
+        _seedExecutors = (seedExecutors ?? []).ToList();
+        _seedSecretResolver = seedSecretResolver;
     }
 
     /// <inheritdoc />
@@ -148,6 +160,7 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
         CancellationToken cancellationToken)
     {
         var context = new RunContext();
+        context.SeedArtifacts = new Dictionary<string, SeedArtifact>(StringComparer.Ordinal);
         var topology = _topologyProvider.GetTopology();
         var policy = await EnvironmentPolicyResolver.ResolveAsync(
             _store, _options.Value, operation.TenantNId, operation.EnvironmentNId, topology, cancellationToken);
@@ -202,7 +215,7 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
                 }
             }
             else if (execution.Outcome == PhaseOutcome.RetryableFailure
-                     && operation.Phase < OperationPhase.Migrate
+                     && operation.Phase < OperationPhase.SchemaMigration
                      && preMigrationRetries < maxPreMigrationRetries)
             {
                 // 迁移前瞬时失败受限重试;不推进阶段,下一轮循环重跑当前阶段。
@@ -212,7 +225,7 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
             {
                 operation.Fail(execution.ErrorCode!, execution.ErrorSummary!, now);
                 await SaveOperationAsync(operation, cancellationToken);
-                if (operation.Phase >= OperationPhase.Migrate)
+                if (operation.Phase >= OperationPhase.SchemaMigration)
                 {
                     await MarkRegistrationNotReadyAsync(context, operation, cancellationToken);
                 }
@@ -233,7 +246,9 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
             OperationPhase.ProvisionDatabase => await ExecuteProvisionDatabaseAsync(context, operation, cancellationToken),
             OperationPhase.ProvisionRoles => await ExecuteProvisionRolesAsync(context, operation, cancellationToken),
             OperationPhase.Backup => await ExecuteBackupAsync(context, operation, cancellationToken),
-            OperationPhase.Migrate => await ExecuteMigrateAsync(context, operation, cancellationToken),
+            OperationPhase.SchemaMigration => await ExecuteSchemaMigrationAsync(context, operation, cancellationToken),
+            OperationPhase.RequiredSeed => await ExecuteRequiredSeedAsync(context, operation, cancellationToken),
+            OperationPhase.SecretBootstrap => await ExecuteSecretBootstrapAsync(context, operation, cancellationToken),
             OperationPhase.Verify => await ExecuteVerifyAsync(context, operation, cancellationToken),
             _ => FatalFailure(DatabaseOrchestrationRunnerErrors.InternalFailure, "未知操作阶段。"),
         };
@@ -292,7 +307,7 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
                 cancellationToken);
             context.Credentials = credentials;
 
-            var inspection = await _inspector.InspectAsync(target, credentials, cancellationToken);
+            var inspection = await _inspector.InspectAsync(target, credentials, operation.ModuleKey, cancellationToken);
             context.Inspection = inspection;
 
             if (operation.Kind == OperationKind.Plan)
@@ -437,7 +452,7 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
         }
     }
 
-    private async Task<PhaseExecution> ExecuteMigrateAsync(
+    private async Task<PhaseExecution> ExecuteSchemaMigrationAsync(
         RunContext context,
         DatabaseProvisionOperation operation,
         CancellationToken cancellationToken)
@@ -462,7 +477,12 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
             }
 
             var migrator = context.Credentials.Migrator;
-            var result = await _migrationExecutor.ApplyAsync(context.Target!, artifact, migrator, cancellationToken);
+            var result = await _migrationExecutor.ApplyAsync(
+                context.Target!,
+                artifact,
+                migrator,
+                operation.ModuleKey,
+                cancellationToken);
             context.Artifact = artifact;
             context.Inspection = new DatabaseTargetInspection(
                 DatabaseExists: true,
@@ -491,11 +511,18 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
         try
         {
             var registration = context.Registration!;
-            var inspection = await _inspector.InspectAsync(context.Target!, context.Credentials!, cancellationToken);
+            var inspection = await _inspector.InspectAsync(
+                context.Target!,
+                context.Credentials!,
+                operation.ModuleKey,
+                cancellationToken);
             if (!string.Equals(inspection.CurrentVersion, operation.RequestedVersion, StringComparison.Ordinal))
             {
                 throw new TargetMismatchException("迁移后目标版本与期望版本不一致。");
             }
+
+            context.Inspection = inspection;
+            await VerifyRequiredSeedsAsync(context, operation, cancellationToken);
 
             var identityFingerprint = ComputeDatabaseIdentityFingerprint(registration);
             var observation = DatabaseMigrationObservation.Record(
@@ -523,6 +550,315 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
         }
     }
 
+    // ===== 种子阶段(TASK-SD-004)=====
+
+    /// <summary>RequiredSeed:按依赖顺序执行全部 RequiredForReadiness 种子;无则跳过。</summary>
+    private async Task<PhaseExecution> ExecuteRequiredSeedAsync(
+        RunContext context,
+        DatabaseProvisionOperation operation,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var registration = context.Registration!;
+            var requiredSeeds = registration.SeedSets.Where(seed => seed.RequiredForReadiness).ToList();
+            if (requiredSeeds.Count == 0)
+            {
+                return Success();
+            }
+
+            foreach (var seed in TopologicalOrder(requiredSeeds))
+            {
+                var result = await ExecuteOneSeedAsync(context, operation, seed, cancellationToken);
+                if (!result.Succeeded)
+                {
+                    return FatalFailure(
+                        result.ErrorCode ?? DatabaseOrchestrationRunnerErrors.SeedFailed,
+                        result.ErrorSummary ?? $"RequiredForReadiness 种子 {seed.SeedKey} 执行失败。");
+                }
+            }
+
+            return Success();
+        }
+        catch (DatabaseOrchestrationException exception)
+        {
+            return FatalFailure(exception);
+        }
+        catch (Exception)
+        {
+            return TransientFailure();
+        }
+    }
+
+    /// <summary>SecretBootstrap:按需执行 SecretBootstrap 种子;环境 allowlist 不包含当前环境则拒绝。</summary>
+    private async Task<PhaseExecution> ExecuteSecretBootstrapAsync(
+        RunContext context,
+        DatabaseProvisionOperation operation,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var registration = context.Registration!;
+            var bootstrapSeeds = registration.SeedSets.Where(seed => seed.SeedClass == SeedClass.SecretBootstrap).ToList();
+            if (bootstrapSeeds.Count == 0)
+            {
+                return Success();
+            }
+
+            var environmentKind = context.Policy!.EnvironmentKind;
+            foreach (var seed in TopologicalOrder(bootstrapSeeds))
+            {
+                if (!seed.IsAllowedIn(environmentKind))
+                {
+                    return FatalFailure(
+                        DatabaseOrchestrationRunnerErrors.SampleEnvironmentForbidden,
+                        $"SecretBootstrap 种子 {seed.SeedKey} 不被当前环境 allowlist 允许。");
+                }
+
+                var artifact = await _seedArtifactStore.ResolveAsync(seed.SeedArtifactId, cancellationToken);
+                context.SeedArtifacts![seed.SeedKey] = artifact;
+                var verified = await _seedArtifactVerifier.VerifyAsync(
+                    artifact, seed.SeedChecksum, seed.SeedSignature, cancellationToken);
+                if (!verified)
+                {
+                    throw new SeedChecksumDriftException(seed.SeedKey);
+                }
+
+                var secret = await _seedSecretResolver.TryResolveAsync(
+                    seed.SeedKey,
+                    operation.EnvironmentNId,
+                    operation.ServiceKey,
+                    operation.ModuleKey,
+                    cancellationToken);
+                if (secret is null)
+                {
+                    if (seed.BootstrapPolicy == BootstrapPolicy.SkipWhenMissing)
+                    {
+                        // 记账 Skipped,不阻塞 readiness。
+                        return Success();
+                    }
+
+                    throw new BootstrapSecretMissingException(seed.SeedKey);
+                }
+
+                var connection = context.Credentials?.Migrator ?? context.Credentials?.Admin;
+                if (connection is null)
+                {
+                    return FatalFailure(DatabaseOrchestrationRunnerErrors.SecretUnavailable, "缺少目标凭据。");
+                }
+
+                var executor = GetSeedExecutor(artifact.ExecutorKind);
+                var request = new SeedExecutionRequest(
+                    seed,
+                    artifact,
+                    context.Target!,
+                    connection,
+                    operation.ModuleKey,
+                    operation.EnvironmentNId,
+                    secret,
+                    operation.OperationNId,
+                    operation.TraceId);
+                var result = await executor.ExecuteAsync(request, cancellationToken);
+                if (!result.Succeeded)
+                {
+                    return FatalFailure(
+                        result.ErrorCode ?? DatabaseOrchestrationRunnerErrors.SeedFailed,
+                        result.ErrorSummary ?? $"SecretBootstrap 种子 {seed.SeedKey} 执行失败。");
+                }
+
+                if (result.Status == SeedStatus.Applied)
+                {
+                    context.AppliedSeedKeys.Add(seed.SeedKey);
+                    await RecordSeedObservationAsync(context, operation, seed, result, cancellationToken);
+                }
+            }
+
+            return Success();
+        }
+        catch (DatabaseOrchestrationException exception)
+        {
+            return FatalFailure(exception);
+        }
+        catch (Exception)
+        {
+            return TransientFailure();
+        }
+    }
+
+    /// <summary>执行单个 RequiredForReadiness 种子:环境门禁→依赖门禁→产物解析/校验→执行→记账观察。</summary>
+    private async Task<SeedExecutionResult> ExecuteOneSeedAsync(
+        RunContext context,
+        DatabaseProvisionOperation operation,
+        SeedSet seed,
+        CancellationToken cancellationToken)
+    {
+        var environmentKind = context.Policy!.EnvironmentKind;
+
+        // 环境门禁:EnvironmentSample 在 Staging/Production 拒绝(注册/计划/apply 三层外的最终守卫)。
+        if (seed.SeedClass == SeedClass.EnvironmentSample
+            && environmentKind is DatabaseEnvironmentKind.Staging or DatabaseEnvironmentKind.Production)
+        {
+            throw new SampleEnvironmentForbiddenException();
+        }
+
+        if (!seed.IsAllowedIn(environmentKind))
+        {
+            return new SeedExecutionResult(true, SeedStatus.Skipped, null, null, "环境 allowlist 不含当前环境,跳过。");
+        }
+
+        // 前置迁移版本门禁:未达到 DependsOnMigrationVersion 则拒绝执行。
+        if (!string.IsNullOrWhiteSpace(seed.DependsOnMigrationVersion)
+            && !string.Equals(context.Inspection?.CurrentVersion, seed.DependsOnMigrationVersion, StringComparison.Ordinal))
+        {
+            throw new SeedDependencyUnsatisfiedException($"种子 {seed.SeedKey} 依赖迁移版本 {seed.DependsOnMigrationVersion} 未达到。");
+        }
+
+        var artifact = await _seedArtifactStore.ResolveAsync(seed.SeedArtifactId, cancellationToken);
+        context.SeedArtifacts![seed.SeedKey] = artifact;
+        var verified = await _seedArtifactVerifier.VerifyAsync(
+            artifact, seed.SeedChecksum, seed.SeedSignature, cancellationToken);
+        if (!verified)
+        {
+            throw new SeedChecksumDriftException(seed.SeedKey);
+        }
+
+        var connection = context.Credentials?.Migrator ?? context.Credentials?.Admin;
+        if (connection is null)
+        {
+            return new SeedExecutionResult(
+                false,
+                SeedStatus.Failed,
+                null,
+                DatabaseOrchestrationRunnerErrors.SecretUnavailable,
+                "缺少目标凭据。");
+        }
+
+        var executor = GetSeedExecutor(artifact.ExecutorKind);
+        var request = new SeedExecutionRequest(
+            seed,
+            artifact,
+            context.Target!,
+            connection,
+            operation.ModuleKey,
+            operation.EnvironmentNId,
+            SecretValue: null,
+            operation.OperationNId,
+            operation.TraceId);
+        var result = await executor.ExecuteAsync(request, cancellationToken);
+        if (result.Succeeded && result.Status == SeedStatus.Applied)
+        {
+            context.AppliedSeedKeys.Add(seed.SeedKey);
+            await RecordSeedObservationAsync(context, operation, seed, result, cancellationToken);
+        }
+
+        return result;
+    }
+
+    /// <summary>校验全部 RequiredForReadiness 种子在目标账本达到期望版本。</summary>
+    private async Task VerifyRequiredSeedsAsync(
+        RunContext context,
+        DatabaseProvisionOperation operation,
+        CancellationToken cancellationToken)
+    {
+        var registration = context.Registration!;
+        var connection = context.Credentials?.Migrator ?? context.Credentials?.Admin;
+        if (connection is null)
+        {
+            throw new DatabaseOrchestrationRunnerException(
+                500,
+                DatabaseOrchestrationRunnerErrors.SecretUnavailable,
+                "缺少目标凭据,无法校验种子账本。");
+        }
+
+        var requiredSeeds = registration.SeedSets.Where(seed => seed.RequiredForReadiness).ToList();
+        foreach (var seed in requiredSeeds)
+        {
+            var artifact = context.SeedArtifacts?.GetValueOrDefault(seed.SeedKey)
+                ?? await _seedArtifactStore.ResolveAsync(seed.SeedArtifactId, cancellationToken);
+            var executor = GetSeedExecutor(artifact.ExecutorKind);
+            var entry = await executor.ReadLedgerAsync(
+                new SeedLedgerQuery(
+                    operation.TenantNId,
+                    operation.EnvironmentNId,
+                    operation.ServiceKey,
+                    operation.ModuleKey,
+                    seed.SeedKey,
+                    seed.SeedVersion,
+                    operation.OperationNId,
+                    operation.TraceId,
+                    context.Target!,
+                    connection),
+                cancellationToken);
+            if (entry is null
+                || entry.Status != SeedStatus.Applied
+                || !string.Equals(entry.SeedVersion, seed.SeedVersion, StringComparison.Ordinal))
+            {
+                throw new TargetMismatchException($"RequiredForReadiness 种子 {seed.SeedKey} 未达到期望版本。");
+            }
+        }
+    }
+
+    /// <summary>按依赖顺序拓扑排序种子(注册时已拒绝环)。</summary>
+    private static List<SeedSet> TopologicalOrder(List<SeedSet> seeds)
+    {
+        var byKey = seeds.ToDictionary(seed => seed.SeedKey, StringComparer.Ordinal);
+        var result = new List<SeedSet>(seeds.Count);
+        var visited = new HashSet<string>(StringComparer.Ordinal);
+
+        void Visit(SeedSet seed)
+        {
+            if (!visited.Add(seed.SeedKey))
+            {
+                return;
+            }
+
+            foreach (var dependency in seed.DependencySeedKeys)
+            {
+                if (byKey.TryGetValue(dependency, out var dependencySeed))
+                {
+                    Visit(dependencySeed);
+                }
+            }
+
+            result.Add(seed);
+        }
+
+        foreach (var seed in seeds.OrderBy(seed => seed.SeedKey, StringComparer.Ordinal))
+        {
+            Visit(seed);
+        }
+
+        return result;
+    }
+
+    private ISeedExecutor GetSeedExecutor(SeedExecutorKind kind) =>
+        _seedExecutors.FirstOrDefault(executor => executor.Kind == kind)
+        ?? throw new InvalidOperationException($"缺少种子执行器:{kind}。");
+
+    /// <summary>种子记账成功后写控制面脱敏观察(本地账本是权威,控制面只存观察)。</summary>
+    private async Task RecordSeedObservationAsync(
+        RunContext context,
+        DatabaseProvisionOperation operation,
+        SeedSet seed,
+        SeedExecutionResult result,
+        CancellationToken cancellationToken)
+    {
+        var observation = DatabaseSeedObservation.Record(
+            operation.TenantNId,
+            operation.EnvironmentNId,
+            operation.ServiceKey,
+            operation.ModuleKey,
+            seed.SeedKey,
+            seed.SeedVersion,
+            seed.SeedChecksum,
+            seed.Scope,
+            result.Status,
+            result.AppliedOn,
+            operation.OperationNId,
+            VerificationStatus.Verified);
+        await _store.AddSeedObservationAsync(observation, cancellationToken);
+    }
+
     // ===== 子过程 =====
 
     private async Task<DatabaseRegistration> GetRegistrationAsync(
@@ -539,6 +875,7 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
             operation.TenantNId,
             operation.EnvironmentNId,
             operation.ServiceKey,
+            operation.ModuleKey,
             cancellationToken)
             ?? throw new RegistrationNotFoundException();
         context.Registration = registration;
@@ -646,7 +983,8 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
             requiredPolicies,
             expiresOn,
             operation.CreatedByUserNId,
-            steps);
+            steps,
+            operation.ModuleKey);
         plan.ClearDomainEvents();
         await _store.AddPlanAsync(plan, cancellationToken);
         context.Plan = plan;
@@ -671,7 +1009,7 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
         }
 
         var connection = context.Credentials.Migrator ?? context.Credentials.Admin!;
-        var key = DatabaseTargetLockKey.FromTarget(operation.EnvironmentNId, target);
+        var key = DatabaseTargetLockKey.FromTarget(operation.EnvironmentNId, operation.ModuleKey, target);
         var handle = await _advisoryLock.AcquireAsync(
             key,
             connection,
@@ -741,7 +1079,9 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
             plan.RequestedMigrationVersion,
             registration.DesiredState.ToString(),
             policy.ApprovalRequired,
-            policy.BackupRequired);
+            policy.BackupRequired,
+            registration.ModuleKey,
+            SeedCanonicals(registration));
 
     private static string ComputeTargetStateFingerprint(
         DatabaseRegistration registration,
@@ -760,7 +1100,13 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
             requestedVersion,
             registration.DesiredState.ToString(),
             policy.ApprovalRequired,
-            policy.BackupRequired);
+            policy.BackupRequired,
+            registration.ModuleKey,
+            SeedCanonicals(registration));
+
+    /// <summary>注册清单种子声明的规范化文本列表(指纹纳入种子集合)。</summary>
+    private static List<string> SeedCanonicals(DatabaseRegistration registration) =>
+        registration.SeedSets.Select(seed => seed.ToChecksumCanonical()).ToList();
 
     private static string ComputeDatabaseIdentityFingerprint(DatabaseRegistration registration) =>
         DatabaseTopologyFingerprint.ComputeDatabaseIdentityFingerprint(
@@ -817,6 +1163,12 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
         public ResolvedPolicy? Policy { get; set; }
 
         public DatabaseMigrationArtifact? Artifact { get; set; }
+
+        /// <summary>本次执行解析到的种子产物,按 SeedKey 索引(Verify 复用,避免二次解析)。</summary>
+        public Dictionary<string, SeedArtifact>? SeedArtifacts { get; set; }
+
+        /// <summary>本次执行已记账 Applied 的种子 key(供 Verify/日志观察)。</summary>
+        public HashSet<string> AppliedSeedKeys { get; } = new(StringComparer.Ordinal);
     }
 
     /// <summary>阶段执行结果。</summary>

@@ -20,7 +20,10 @@ public interface IDatabaseOrchestrationStore
 
     // ===== 注册清单 =====
 
-    /// <summary>按 (TenantNId, EnvironmentNId, ServiceKey) 查询注册清单;不存在返回 <c>null</c>。</summary>
+    /// <summary>按 (TenantNId, EnvironmentNId, ServiceKey, ModuleKey) 查询注册清单;不存在返回 <c>null</c>。</summary>
+    Task<DatabaseRegistration?> GetRegistrationAsync(string tenantNId, string environmentNId, string serviceKey, string moduleKey, CancellationToken cancellationToken);
+
+    /// <summary>v1 兼容:按 (TenantNId, EnvironmentNId, ServiceKey) 查询默认模块(moduleKey = serviceKey)注册清单;不存在返回 <c>null</c>。</summary>
     Task<DatabaseRegistration?> GetRegistrationAsync(string tenantNId, string environmentNId, string serviceKey, CancellationToken cancellationToken);
 
     /// <summary>新增注册清单(唯一键冲突抛并发异常)。</summary>
@@ -103,6 +106,20 @@ public interface IDatabaseOrchestrationStore
 
     /// <summary>新增迁移观察(只追加)。</summary>
     Task AddObservationAsync(DatabaseMigrationObservation observation, CancellationToken cancellationToken);
+
+    // ===== 种子观察(TASK-SD-004,控制面 system_data_seed_observation)=====
+
+    /// <summary>按 (Tenant, Env, ServiceKey, ModuleKey, SeedKey) 查询最近一次种子观察;不存在返回 <c>null</c>。</summary>
+    Task<DatabaseSeedObservation?> GetLatestSeedObservationAsync(
+        string tenantNId,
+        string environmentNId,
+        string serviceKey,
+        string moduleKey,
+        string seedKey,
+        CancellationToken cancellationToken);
+
+    /// <summary>新增种子观察(只追加)。</summary>
+    Task AddSeedObservationAsync(DatabaseSeedObservation observation, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -111,8 +128,8 @@ public interface IDatabaseOrchestrationStore
 /// </summary>
 public sealed record DatabaseOrchestrationPageResult<T>(IReadOnlyList<T> Items, long Total, int PageIndex, int PageSize);
 
-/// <summary>注册清单列表过滤。租户隔离在存储层实施;ServiceKey 为包含匹配。</summary>
-public sealed record RegistrationListFilter(string TenantNId, string? ServiceKey, int PageIndex, int PageSize);
+/// <summary>注册清单列表过滤。租户隔离在存储层实施;ServiceKey/ModuleKey 为包含匹配。</summary>
+public sealed record RegistrationListFilter(string TenantNId, string? ServiceKey, string? ModuleKey, int PageIndex, int PageSize);
 
 /// <summary>计划列表过滤。</summary>
 public sealed record PlanListFilter(string TenantNId, int PageIndex, int PageSize);

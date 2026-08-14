@@ -23,6 +23,7 @@ internal static class EnvironmentPolicyResolver
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(topology);
 
+        var environmentKind = ParseEnvironmentKind(topology.EnvironmentName);
         var stored = await store.GetEnvironmentPolicyAsync(tenantNId, environmentNId, cancellationToken);
         if (stored is not null)
         {
@@ -32,7 +33,8 @@ internal static class EnvironmentPolicyResolver
                 stored.PlanTtlSeconds,
                 stored.PlanTimeoutSeconds,
                 stored.ApplyTimeoutSeconds,
-                stored.MaxPreMigrationRetries);
+                stored.MaxPreMigrationRetries,
+                stored.EnvironmentKind);
         }
 
         var production = string.Equals(topology.EnvironmentName, "Production", StringComparison.Ordinal);
@@ -42,6 +44,13 @@ internal static class EnvironmentPolicyResolver
             options.PlanTtlSeconds,
             options.PlanTimeoutSeconds,
             options.ApplyTimeoutSeconds,
-            options.MaxPreMigrationRetries);
+            options.MaxPreMigrationRetries,
+            environmentKind);
     }
+
+    /// <summary>由受信任拓扑环境名解析环境种类;未知环境回退 Development(开发基线)。</summary>
+    internal static DatabaseEnvironmentKind ParseEnvironmentKind(string environmentName) =>
+        Enum.TryParse<DatabaseEnvironmentKind>(environmentName, ignoreCase: true, out var kind)
+            ? kind
+            : DatabaseEnvironmentKind.Development;
 }

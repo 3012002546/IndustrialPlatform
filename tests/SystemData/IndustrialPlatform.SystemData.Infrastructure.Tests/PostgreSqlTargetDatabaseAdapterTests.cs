@@ -20,6 +20,9 @@ public sealed class PostgreSqlTargetDatabaseAdapterTests
 
     private static CancellationToken Ct => CancellationToken.None;
 
+    /// <summary>被测模块标识(账本表名按 {moduleKey}_schema_migrations 派生)。</summary>
+    private const string ModuleKey = "systemdata";
+
     private static bool Enabled =>
         string.Equals(Environment.GetEnvironmentVariable(EnvGate), "1", StringComparison.Ordinal);
 
@@ -64,7 +67,7 @@ public sealed class PostgreSqlTargetDatabaseAdapterTests
         }
 
         var admin = AdminConnection();
-        var inspection = await Adapter.InspectAsync(Target(admin.Database), Credentials(admin), Ct);
+        var inspection = await Adapter.InspectAsync(Target(admin.Database), Credentials(admin), ModuleKey, Ct);
 
         Assert.True(inspection.DatabaseExists);
     }
@@ -106,10 +109,10 @@ public sealed class PostgreSqlTargetDatabaseAdapterTests
                 new DatabaseMigrationArtifactStep(2, "step-2", "CREATE TABLE sd3_test_step2 (id integer NOT NULL PRIMARY KEY);", null, false),
             ]);
 
-        var result = await Adapter.ApplyAsync(target, artifact, AdminConnection(), Ct);
+        var result = await Adapter.ApplyAsync(target, artifact, AdminConnection(), ModuleKey, Ct);
 
         Assert.Equal(2, result.AppliedStepCount);
-        var inspection = await Adapter.InspectAsync(target, Credentials(admin), Ct);
+        var inspection = await Adapter.InspectAsync(target, Credentials(admin), ModuleKey, Ct);
         Assert.Equal("9.9.9", inspection.CurrentVersion);
         Assert.Equal(["step-1", "step-2"], inspection.AppliedStepIds);
     }
@@ -123,7 +126,7 @@ public sealed class PostgreSqlTargetDatabaseAdapterTests
         }
 
         var admin = AdminConnection();
-        var key = DatabaseTargetLockKey.FromTarget("Development", Target(admin.Database));
+        var key = DatabaseTargetLockKey.FromTarget("Development", ModuleKey, Target(admin.Database));
 
         var first = await Adapter.AcquireAsync(key, admin, TimeSpan.FromSeconds(2), Ct);
         Assert.NotNull(first);

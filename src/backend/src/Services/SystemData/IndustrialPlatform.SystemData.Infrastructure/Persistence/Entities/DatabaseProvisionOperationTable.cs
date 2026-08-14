@@ -52,6 +52,9 @@ public sealed class DatabaseProvisionOperationTable
     [SugarColumn(ColumnName = "service_key")]
     public string ServiceKey { get; set; } = string.Empty;
 
+    [SugarColumn(ColumnName = "module_key")]
+    public string ModuleKey { get; set; } = string.Empty;
+
     [SugarColumn(ColumnName = "plan_n_id")]
     public string? PlanNId { get; set; }
 

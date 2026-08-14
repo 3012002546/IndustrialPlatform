@@ -18,6 +18,7 @@ public sealed class SqliteTargetDatabaseAdapter : ITargetDatabaseInspector, ITar
     public async Task<DatabaseTargetInspection> InspectAsync(
         ResolvedDatabaseTarget target,
         DatabaseTargetCredentials credentials,
+        string moduleKey,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(credentials);
@@ -34,13 +35,13 @@ public sealed class SqliteTargetDatabaseAdapter : ITargetDatabaseInspector, ITar
             return new DatabaseTargetInspection(DatabaseExists: false, CurrentVersion: null, null, []);
         }
 
-        if (!await LedgerTableExistsAsync(file, cancellationToken))
+        if (!await LedgerTableExistsAsync(file, moduleKey, cancellationToken))
         {
             return new DatabaseTargetInspection(DatabaseExists: true, CurrentVersion: null, null, []);
         }
 
-        var currentVersion = await ReadScalarAsync<string?>(file, MigrationLedgerContracts.LatestVersionSql, cancellationToken);
-        var appliedIds = await ReadAppliedStepIdsAsync(file, cancellationToken);
+        var currentVersion = await ReadScalarAsync<string?>(file, MigrationLedgerContracts.LatestVersionSql(moduleKey), cancellationToken);
+        var appliedIds = await ReadAppliedStepIdsAsync(file, moduleKey, cancellationToken);
         return new DatabaseTargetInspection(DatabaseExists: true, currentVersion, null, appliedIds);
     }
 
@@ -99,6 +100,7 @@ public sealed class SqliteTargetDatabaseAdapter : ITargetDatabaseInspector, ITar
         ResolvedDatabaseTarget target,
         DatabaseMigrationArtifact artifact,
         TargetDatabaseConnection migrator,
+        string moduleKey,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(artifact);
@@ -112,9 +114,9 @@ public sealed class SqliteTargetDatabaseAdapter : ITargetDatabaseInspector, ITar
 
         await using var conn = new SqliteConnection(BuildConnectionString(file));
         await conn.OpenAsync(cancellationToken);
-        await EnsureLedgerTableAsync(conn, cancellationToken);
+        await EnsureLedgerTableAsync(conn, moduleKey, cancellationToken);
 
-        var appliedIds = await ReadAppliedStepIdsAsync(file, cancellationToken);
+        var appliedIds = await ReadAppliedStepIdsAsync(file, moduleKey, cancellationToken);
         var appliedSet = appliedIds.ToHashSet(StringComparer.Ordinal);
         var pending = artifact.Steps
             .Where(step => !appliedSet.Contains(step.StepId))
@@ -134,7 +136,7 @@ public sealed class SqliteTargetDatabaseAdapter : ITargetDatabaseInspector, ITar
 
                 await using var recordCmd = conn.CreateCommand();
                 recordCmd.Transaction = (SqliteTransaction)transaction;
-                recordCmd.CommandText = MigrationLedgerContracts.RecordStepSql;
+                recordCmd.CommandText = MigrationLedgerContracts.RecordStepSql(moduleKey);
                 recordCmd.Parameters.AddWithValue("migrationId", step.StepId);
                 recordCmd.Parameters.AddWithValue("version", artifact.Version);
                 recordCmd.Parameters.AddWithValue("appliedOn", DateTimeOffset.UtcNow);
@@ -189,13 +191,13 @@ public sealed class SqliteTargetDatabaseAdapter : ITargetDatabaseInspector, ITar
     private static string BuildConnectionString(string file) =>
         new SqliteConnectionStringBuilder { DataSource = file, Mode = SqliteOpenMode.ReadWriteCreate }.ToString();
 
-    private static async Task<bool> LedgerTableExistsAsync(string file, CancellationToken cancellationToken)
+    private static async Task<bool> LedgerTableExistsAsync(string file, string moduleKey, CancellationToken cancellationToken)
     {
         await using var conn = new SqliteConnection(BuildConnectionString(file));
         await conn.OpenAsync(cancellationToken);
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT COUNT(1) FROM sqlite_master WHERE type = 'table' AND name = $name";
-        cmd.Parameters.AddWithValue("name", MigrationLedgerContracts.TableName);
+        cmd.Parameters.AddWithValue("name", MigrationLedgerContracts.TableName(moduleKey));
         var count = Convert.ToInt32(await cmd.ExecuteScalarAsync(cancellationToken), System.Globalization.CultureInfo.InvariantCulture);
         return count > 0;
     }
@@ -210,13 +212,13 @@ public sealed class SqliteTargetDatabaseAdapter : ITargetDatabaseInspector, ITar
         return raw is null or DBNull ? default : (T)raw;
     }
 
-    private static async Task<IReadOnlyList<string>> ReadAppliedStepIdsAsync(string file, CancellationToken cancellationToken)
+    private static async Task<IReadOnlyList<string>> ReadAppliedStepIdsAsync(string file, string moduleKey, CancellationToken cancellationToken)
     {
         var ids = new List<string>();
         await using var conn = new SqliteConnection(BuildConnectionString(file));
         await conn.OpenAsync(cancellationToken);
         await using var cmd = conn.CreateCommand();
-        cmd.CommandText = MigrationLedgerContracts.AppliedIdsSql;
+        cmd.CommandText = MigrationLedgerContracts.AppliedIdsSql(moduleKey);
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
         {
@@ -226,10 +228,10 @@ public sealed class SqliteTargetDatabaseAdapter : ITargetDatabaseInspector, ITar
         return ids;
     }
 
-    private static async Task EnsureLedgerTableAsync(SqliteConnection conn, CancellationToken cancellationToken)
+    private static async Task EnsureLedgerTableAsync(SqliteConnection conn, string moduleKey, CancellationToken cancellationToken)
     {
         await using var cmd = conn.CreateCommand();
-        cmd.CommandText = MigrationLedgerContracts.EnsureTableSql("TEXT");
+        cmd.CommandText = MigrationLedgerContracts.EnsureTableSql(moduleKey, "TEXT");
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
 

@@ -12,6 +12,7 @@ public sealed class DatabaseRegistrationChangedEvent : IDomainEvent
         string tenantNId,
         string environmentNId,
         string serviceKey,
+        string moduleKey,
         string logicalDatabaseName,
         DesiredState desiredState,
         string manifestVersion,
@@ -20,6 +21,7 @@ public sealed class DatabaseRegistrationChangedEvent : IDomainEvent
         TenantNId = tenantNId;
         EnvironmentNId = environmentNId;
         ServiceKey = serviceKey;
+        ModuleKey = moduleKey;
         LogicalDatabaseName = logicalDatabaseName;
         DesiredState = desiredState;
         ManifestVersion = manifestVersion;
@@ -35,6 +37,9 @@ public sealed class DatabaseRegistrationChangedEvent : IDomainEvent
 
     /// <summary>服务稳定键。</summary>
     public string ServiceKey { get; }
+
+    /// <summary>模块标识。</summary>
+    public string ModuleKey { get; }
 
     /// <summary>稳定逻辑库名。</summary>
     public string LogicalDatabaseName { get; }
@@ -118,6 +123,66 @@ public sealed class DatabaseOperationStatusChangedEvent : IDomainEvent
     public OperationPhase Phase { get; }
 
     public string TraceId { get; }
+
+    /// <inheritdoc />
+    public DateTimeOffset OccurredOn { get; }
+}
+
+/// <summary>
+/// 种子应用后发布(TASK-SD-004)。仅携带稳定身份、版本与校验和,不含种子内容、
+/// Secret 值、SQL 或任何凭据(蓝图 §5.3 脱敏观察)。
+/// </summary>
+public sealed class SeedAppliedEvent : IDomainEvent
+{
+    public SeedAppliedEvent(
+        string tenantNId,
+        string environmentNId,
+        string serviceKey,
+        string moduleKey,
+        string seedKey,
+        string seedVersion,
+        string checksum,
+        SeedScope scope,
+        string operationNId)
+    {
+        TenantNId = tenantNId;
+        EnvironmentNId = environmentNId;
+        ServiceKey = serviceKey;
+        ModuleKey = moduleKey;
+        SeedKey = seedKey;
+        SeedVersion = seedVersion;
+        Checksum = checksum;
+        Scope = scope;
+        OperationNId = operationNId;
+        OccurredOn = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>租户业务标识。</summary>
+    public string TenantNId { get; }
+
+    /// <summary>环境业务标识。</summary>
+    public string EnvironmentNId { get; }
+
+    /// <summary>服务稳定键。</summary>
+    public string ServiceKey { get; }
+
+    /// <summary>模块标识。</summary>
+    public string ModuleKey { get; }
+
+    /// <summary>稳定种子键。</summary>
+    public string SeedKey { get; }
+
+    /// <summary>种子版本。</summary>
+    public string SeedVersion { get; }
+
+    /// <summary>种子产物校验和(非 Secret)。</summary>
+    public string Checksum { get; }
+
+    /// <summary>种子作用域。</summary>
+    public SeedScope Scope { get; }
+
+    /// <summary>产生该应用的操作业务标识。</summary>
+    public string OperationNId { get; }
 
     /// <inheritdoc />
     public DateTimeOffset OccurredOn { get; }

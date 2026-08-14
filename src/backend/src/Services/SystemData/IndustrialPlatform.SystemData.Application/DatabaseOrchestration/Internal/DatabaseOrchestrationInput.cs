@@ -32,6 +32,11 @@ internal static class DatabaseOrchestrationInput
         throw new ValidationFailedException($"{paramName} 无效:{value}。");
     }
 
+    /// <summary>可空枚举名解析;空白返回 null,非法仍抛 SD_VALIDATION_FAILED。</summary>
+    public static T? ParseOptionalEnum<T>(string? value, string paramName)
+        where T : struct, Enum =>
+        string.IsNullOrWhiteSpace(value) ? null : ParseEnum<T>(value, paramName);
+
     /// <summary>生成带前缀的业务标识(如 <c>OP-&lt;guid&gt;</c>)。</summary>
     public static string NewNId(string prefix) => NId.Create($"{prefix}-{Guid.NewGuid():N}").Value;
 }

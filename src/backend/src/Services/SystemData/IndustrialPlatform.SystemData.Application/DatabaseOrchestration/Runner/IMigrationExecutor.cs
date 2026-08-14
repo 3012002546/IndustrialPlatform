@@ -9,9 +9,11 @@ namespace IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Runner
 public interface IMigrationExecutor
 {
     /// <summary>在目标库应用迁移产物(仅执行未记账步骤),返回应用步骤数与结果版本。</summary>
+    /// <param name="moduleKey">模块标识(账本表名 {moduleKey}_schema_migrations 的派生依据)。</param>
     Task<MigrationExecutionResult> ApplyAsync(
         ResolvedDatabaseTarget target,
         DatabaseMigrationArtifact artifact,
         TargetDatabaseConnection migrator,
+        string moduleKey,
         CancellationToken cancellationToken);
 }

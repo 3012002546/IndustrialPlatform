@@ -180,6 +180,7 @@ public sealed class DatabaseOperationRunnerTests
         public Task<DatabaseTargetInspection> InspectAsync(
             ResolvedDatabaseTarget target,
             DatabaseTargetCredentials credentials,
+            string moduleKey,
             CancellationToken cancellationToken)
         {
             InspectCallCount++;
@@ -212,6 +213,7 @@ public sealed class DatabaseOperationRunnerTests
             ResolvedDatabaseTarget target,
             DatabaseMigrationArtifact artifact,
             TargetDatabaseConnection migrator,
+            string moduleKey,
             CancellationToken cancellationToken)
         {
             if (_executeFailure is not null)
@@ -264,6 +266,55 @@ public sealed class DatabaseOperationRunnerTests
             ProvisionedRoles roles,
             CancellationToken cancellationToken) =>
             Task.CompletedTask;
+    }
+
+    private sealed class FakeSeedArtifactStore : ISeedArtifactStore
+    {
+        public Task<SeedArtifact> ResolveAsync(string seedArtifactId, CancellationToken cancellationToken) =>
+            Task.FromResult(new SeedArtifact(
+                seedArtifactId,
+                "1.0.0",
+                Sha("seed"),
+                "sig-ref",
+                SeedExecutorKind.SqlBundle,
+                [new SeedArtifactStep(1, "seed-1", "INSERT INTO t VALUES (1);", null)]));
+    }
+
+    private sealed class FakeSeedArtifactVerifier : ISeedArtifactVerifier
+    {
+        public Task<bool> VerifyAsync(
+            SeedArtifact artifact,
+            string checksum,
+            string? signatureRef,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(true);
+    }
+
+    private sealed class FakeSeedExecutor : ISeedExecutor
+    {
+        public SeedExecutorKind Kind => SeedExecutorKind.SqlBundle;
+
+        public Task<SeedLedgerEntry?> ReadLedgerAsync(SeedLedgerQuery query, CancellationToken cancellationToken) =>
+            Task.FromResult<SeedLedgerEntry?>(null);
+
+        public Task<SeedExecutionResult> ExecuteAsync(SeedExecutionRequest request, CancellationToken cancellationToken) =>
+            Task.FromResult(new SeedExecutionResult(
+                true,
+                SeedStatus.Applied,
+                DateTimeOffset.UtcNow,
+                null,
+                null));
+    }
+
+    private sealed class FakeSeedSecretResolver : ISeedSecretResolver
+    {
+        public Task<string?> TryResolveAsync(
+            string secretRef,
+            string environmentNId,
+            string serviceKey,
+            string moduleKey,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<string?>("resolved-secret");
     }
 
     private sealed class FakeAdvisoryLock : ITargetDatabaseAdvisoryLock
@@ -320,7 +371,11 @@ public sealed class DatabaseOperationRunnerTests
             adapter,
             new FakeCredentialPort(),
             new FakeCredentialPort(),
-            lockPort ?? new FakeAdvisoryLock());
+            lockPort ?? new FakeAdvisoryLock(),
+            new FakeSeedArtifactStore(),
+            new FakeSeedArtifactVerifier(),
+            [new FakeSeedExecutor()],
+            new FakeSeedSecretResolver());
     }
 
     private static DatabaseRegistrationManifestV1 CreateManifest(string version = "9.9.9") => new()

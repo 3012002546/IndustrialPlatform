@@ -11,9 +11,11 @@ public interface ITargetDatabaseInspector
     /// <summary>检查目标数据库(只读,不修改目标)。</summary>
     /// <param name="target">已解析物理目标。</param>
     /// <param name="credentials">目标凭据(migrator/runtime,取决于角色)。</param>
+    /// <param name="moduleKey">模块标识(账本表名前缀 {moduleKey}_schema_migrations 的派生依据)。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     Task<DatabaseTargetInspection> InspectAsync(
         ResolvedDatabaseTarget target,
         DatabaseTargetCredentials credentials,
+        string moduleKey,
         CancellationToken cancellationToken);
 }

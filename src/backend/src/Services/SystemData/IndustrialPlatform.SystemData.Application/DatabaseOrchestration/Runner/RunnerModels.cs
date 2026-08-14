@@ -58,15 +58,20 @@ public sealed record ProvisionedRoles(TargetDatabaseConnection Migrator, TargetD
 public sealed record MigrationExecutionResult(int AppliedStepCount, string ResultingVersion);
 
 /// <summary>
-/// 同物理目标 advisory lock 键(EnvironmentNId + Provider + PhysicalDatabaseName)。
+/// 同物理目标 advisory lock 键(EnvironmentNId + ModuleKey + Provider + PhysicalDatabaseName)。
 /// 派生 64 位键供 PostgreSQL <c>pg_advisory_lock</c> 使用;SHA-256 规范化后取前 8 字节。
+/// 含 ModuleKey 使同库不同模块的编排可并行(各自账本范围独立,物理锁仍兜底)。
 /// </summary>
-public sealed record DatabaseTargetLockKey(string EnvironmentNId, string Provider, string PhysicalDatabaseName)
+public sealed record DatabaseTargetLockKey(
+    string EnvironmentNId,
+    string ModuleKey,
+    string Provider,
+    string PhysicalDatabaseName)
 {
     /// <summary>从已解析目标构造锁键。</summary>
-    public static DatabaseTargetLockKey FromTarget(string environmentNId, ResolvedDatabaseTarget target) =>
-        new(environmentNId, target.Provider.ToString(), target.PhysicalDatabaseName);
+    public static DatabaseTargetLockKey FromTarget(string environmentNId, string moduleKey, ResolvedDatabaseTarget target) =>
+        new(environmentNId, moduleKey, target.Provider.ToString(), target.PhysicalDatabaseName);
 
     /// <summary>规范化文本(参与锁键派生,不含 Secret)。</summary>
-    public string ToCanonical() => $"{EnvironmentNId}|{Provider}|{PhysicalDatabaseName}";
+    public string ToCanonical() => $"{EnvironmentNId}|{ModuleKey}|{Provider}|{PhysicalDatabaseName}";
 }

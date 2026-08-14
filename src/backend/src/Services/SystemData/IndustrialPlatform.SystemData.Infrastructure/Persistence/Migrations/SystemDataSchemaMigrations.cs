@@ -3,8 +3,9 @@ using SqlSugar;
 namespace IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations;
 
 /// <summary>
-/// SystemData 库全部迁移步骤(TASK-SD-002 九张数据库编排控制面表),由 SchemaMigrationRunner 按标识排序执行。
-/// SDM-001 环境策略/注册清单、SDM-002 不可变计划/计划步骤/审批/备份证据、SDM-003 Operation/步骤/迁移观察。
+/// SystemData 库全部迁移步骤(TASK-SD-002 九张数据库编排控制面表 + TASK-SD-004 模块作用域 ALTER 与种子观察表),由 SchemaMigrationRunner 按标识排序执行。
+/// SDM-001 环境策略/注册清单、SDM-002 不可变计划/计划步骤/审批/备份证据、SDM-003 Operation/步骤/迁移观察、
+/// SDM-004-01 注册清单模块作用域(module_key/seed_sets 列 + 唯一索引重建为四元组)、SDM-004-02 种子观察表。
 /// DDL 类型词按目标数据库分支(SQLite 用 TEXT/INTEGER,PostgreSQL 用 uuid/timestamptz/BOOLEAN/BIGINT);
 /// 无种子数据,环境策略默认由 Application 解析回退,不硬编码租户。
 /// </summary>
@@ -28,6 +29,8 @@ public static class SystemDataSchemaMigrations
             SystemDataMigrationHelpers.CreateTableStep("SDM-003-01", "system_data_database_operation", OperationDdl),
             SystemDataMigrationHelpers.CreateTableStep("SDM-003-02", "system_data_database_operation_step", OperationStepDdl),
             SystemDataMigrationHelpers.CreateTableStep("SDM-003-03", "system_data_database_migration_observation", MigrationObservationDdl),
+            SystemDataMigrationHelpers.CreateRawStep("SDM-004-01", "alter registration module scope", RegistrationModuleScopeAlterDdl),
+            SystemDataMigrationHelpers.CreateTableStep("SDM-004-02", "system_data_seed_observation", SeedObservationDdl),
         ];
     }
 
@@ -292,6 +295,58 @@ public static class SystemDataSchemaMigrations
             {columns}
             );
             CREATE INDEX IF NOT EXISTS ix_migration_observation_target ON system_data_database_migration_observation (tenant_n_id, environment_n_id, service_key, observed_on);
+            """;
+    }
+
+    /// <summary>
+    /// SDM-004-01:模块作用域列。注册清单增 module_key/seed_sets 列并重建唯一索引为
+    /// (tenant_n_id, environment_n_id, service_key, module_key);plan/operation 表同步增
+    /// module_key 列(既有行回填 = service_key,保持 v1 兼容)。
+    /// </summary>
+    private static string RegistrationModuleScopeAlterDdl(DbType dbType)
+    {
+        var (_, _, _, _, f) = SystemDataMigrationHelpers.TypeWords(dbType);
+        // SQLite 不支持 ADD COLUMN IF NOT EXISTS;既有索引由 SDM-001-02 创建,直接 DROP 再重建四元组部分唯一索引。
+        var ifNotExists = dbType == DbType.PostgreSQL ? " IF NOT EXISTS" : string.Empty;
+        return $"""
+            ALTER TABLE system_data_database_registration ADD COLUMN{ifNotExists} module_key TEXT NULL;
+            UPDATE system_data_database_registration SET module_key = service_key WHERE module_key IS NULL;
+            ALTER TABLE system_data_database_registration ADD COLUMN{ifNotExists} seed_sets TEXT NULL;
+            DROP INDEX IF EXISTS ux_registration_active;
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_registration_active ON system_data_database_registration (tenant_n_id, environment_n_id, service_key, module_key) WHERE is_deleted = {f};
+            ALTER TABLE system_data_database_plan ADD COLUMN{ifNotExists} module_key TEXT NULL;
+            UPDATE system_data_database_plan SET module_key = service_key WHERE module_key IS NULL;
+            ALTER TABLE system_data_database_operation ADD COLUMN{ifNotExists} module_key TEXT NULL;
+            UPDATE system_data_database_operation SET module_key = service_key WHERE module_key IS NULL;
+            """;
+    }
+
+    /// <summary>SDM-004-02:脱敏种子观察表(只追加;索引按 (tenant_n_id, environment_n_id, service_key, module_key, seed_key))。</summary>
+    private static string SeedObservationDdl(DbType dbType)
+    {
+        var (g, t, b, big, _) = SystemDataMigrationHelpers.TypeWords(dbType);
+        var columns = string.Join(",\n",
+        [
+            SystemDataMigrationHelpers.CommonColumns(g, t, b, big),
+            "tenant_n_id TEXT NOT NULL",
+            "environment_n_id TEXT NOT NULL",
+            "service_key TEXT NOT NULL",
+            "module_key TEXT NOT NULL",
+            "seed_key TEXT NOT NULL",
+            "seed_version TEXT NOT NULL",
+            "checksum TEXT NOT NULL",
+            "scope INTEGER NOT NULL",
+            "status INTEGER NOT NULL",
+            $"applied_on {t} NULL",
+            "operation_n_id TEXT NULL",
+            "verification_status INTEGER NOT NULL",
+            "CONSTRAINT uq_seed_observation_id_isdel UNIQUE (id, is_deleted)",
+        ]);
+        return $"""
+            CREATE TABLE IF NOT EXISTS system_data_seed_observation (
+            {columns}
+            );
+            CREATE INDEX IF NOT EXISTS ix_seed_observation_target ON system_data_seed_observation (tenant_n_id, environment_n_id, service_key, module_key, seed_key, created_on);
             """;
     }
 }

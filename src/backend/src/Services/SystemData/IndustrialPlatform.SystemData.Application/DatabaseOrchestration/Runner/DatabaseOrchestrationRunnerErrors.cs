@@ -57,4 +57,21 @@ public static class DatabaseOrchestrationRunnerErrors
 
     /// <summary>内部未知失败(不泄漏异常细节)。</summary>
     public const string InternalFailure = "SD_DB_INTERNAL_FAILURE";
+
+    // ===== TASK-SD-004 种子执行错误码 =====
+
+    /// <summary>种子执行失败且未证明可安全恢复(对齐 §9.9 SD_INIT_INITIALIZER_FAILED 语义)。</summary>
+    public const string SeedFailed = "SD_INIT_INITIALIZER_FAILED";
+
+    /// <summary>种子校验和漂移。</summary>
+    public const string SeedChecksumDrift = "SD_INIT_SEED_CHECKSUM_DRIFT";
+
+    /// <summary>种子前置条件不满足。</summary>
+    public const string SeedDependencyUnsatisfied = "SD_INIT_SEED_DEPENDENCY_UNSATISFIED";
+
+    /// <summary>EnvironmentSample 种子在 Staging/Production 拒绝。</summary>
+    public const string SampleEnvironmentForbidden = "SD_INIT_SAMPLE_ENVIRONMENT_FORBIDDEN";
+
+    /// <summary>SecretBootstrap 缺 Secret。</summary>
+    public const string BootstrapSecretMissing = "SD_INIT_BOOTSTRAP_SECRET_MISSING";
 }

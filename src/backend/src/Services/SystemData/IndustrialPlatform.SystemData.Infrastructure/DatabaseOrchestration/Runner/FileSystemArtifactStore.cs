@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Options;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Runner;
@@ -8,15 +9,17 @@ using Microsoft.Extensions.Options;
 namespace IndustrialPlatform.SystemData.Infrastructure.DatabaseOrchestration.Runner;
 
 /// <summary>
-/// 迁移产物文件系统实现(05 方案 §7.1.5 本地替身):从 <see cref="DatabaseOperationRunnerOptions.ArtifactRootPath"/>
+/// 迁移/种子产物文件系统实现(05 方案 §7.1.5 本地替身):从 <see cref="DatabaseOperationRunnerOptions.ArtifactRootPath"/>
 /// 目录按不可变标识读取 <c>&lt;artifactId&gt;.json</c>。产物含完整 SQL,只经签名产物校验后执行;
 /// 云 Artifact Registry 接入留后续。文件不存在/不可读/反序列化失败映射 SD_DB_ARTIFACT_INVALID。
+/// 迁移与种子产物同目录共存,按各自不可变标识区分。
 /// </summary>
-public sealed class FileSystemArtifactStore : IMigrationArtifactStore
+public sealed class FileSystemArtifactStore : IMigrationArtifactStore, ISeedArtifactStore
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
     };
 
     private readonly IOptions<DatabaseOperationRunnerOptions> _options;
@@ -57,6 +60,39 @@ public sealed class FileSystemArtifactStore : IMigrationArtifactStore
         catch (JsonException)
         {
             throw new DatabaseOrchestrationRunnerException(500, DatabaseOrchestrationRunnerErrors.ArtifactInvalid, "迁移产物格式无效。");
+        }
+    }
+
+    // ISeedArtifactStore.ResolveAsync 与 IMigrationArtifactStore.ResolveAsync 签名相同仅返回类型不同,
+    // 不能按返回类型重载,故种子解析走显式接口实现(经接口注入调用)。
+    async Task<SeedArtifact> ISeedArtifactStore.ResolveAsync(string seedArtifactId, CancellationToken cancellationToken)
+    {
+        var root = _options.Value.ArtifactRootPath;
+        if (string.IsNullOrWhiteSpace(root))
+        {
+            throw new DatabaseOrchestrationRunnerException(500, DatabaseOrchestrationRunnerErrors.ArtifactInvalid, "未配置种子产物根目录。");
+        }
+
+        var path = Path.Combine(root, $"{SanitizeFileName(seedArtifactId)}.json");
+        if (!File.Exists(path))
+        {
+            throw new DatabaseOrchestrationRunnerException(404, DatabaseOrchestrationRunnerErrors.ArtifactInvalid, "种子产物不存在。");
+        }
+
+        try
+        {
+            var json = await File.ReadAllTextAsync(path, Encoding.UTF8, cancellationToken);
+            var artifact = JsonSerializer.Deserialize<SeedArtifact>(json, JsonOptions);
+            if (artifact is null || string.IsNullOrWhiteSpace(artifact.ArtifactId))
+            {
+                throw new DatabaseOrchestrationRunnerException(500, DatabaseOrchestrationRunnerErrors.ArtifactInvalid, "种子产物内容无效。");
+            }
+
+            return artifact;
+        }
+        catch (JsonException)
+        {
+            throw new DatabaseOrchestrationRunnerException(500, DatabaseOrchestrationRunnerErrors.ArtifactInvalid, "种子产物格式无效。");
         }
     }
 

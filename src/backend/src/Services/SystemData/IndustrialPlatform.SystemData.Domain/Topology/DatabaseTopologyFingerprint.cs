@@ -34,8 +34,9 @@ public static class DatabaseTopologyFingerprint
     }
 
     /// <summary>
-    /// 目标状态指纹:绑定目标身份、拓扑模式/revision、迁移产物与请求版本与期望状态。
-    /// apply 前重新计算并对比,任一输入变化均视为 drift(05 方案 §7.1.3)。
+    /// 目标状态指纹:绑定目标身份、模块、拓扑模式/revision、迁移产物、种子声明与请求版本与期望状态。
+    /// apply 前重新计算并对比,任一输入变化均视为 drift(05 方案 §7.1.3;TASK-SD-004 纳入 ModuleKey/SeedSets)。
+    /// <paramref name="seedCanonicals"/> 由注册清单的 <see cref="SeedSet.ToChecksumCanonical"/> 生成。
     /// </summary>
     public static string ComputeTargetStateFingerprint(
         string environmentNId,
@@ -49,12 +50,16 @@ public static class DatabaseTopologyFingerprint
         string requestedVersion,
         string desiredState,
         bool approvalRequired,
-        bool backupRequired)
+        bool backupRequired,
+        string? moduleKey = null,
+        IReadOnlyCollection<string>? seedCanonicals = null)
     {
+        var seeds = string.Join(";", seedCanonicals ?? []);
         var canonical = string.Join("|",
         [
             environmentNId,
             serviceKey,
+            moduleKey ?? serviceKey,
             provider,
             logicalDatabaseName,
             physicalDatabaseName,
@@ -65,6 +70,7 @@ public static class DatabaseTopologyFingerprint
             desiredState,
             approvalRequired ? "1" : "0",
             backupRequired ? "1" : "0",
+            seeds,
         ]);
 
         return Sha256Hex(canonical);
@@ -92,7 +98,7 @@ public static class DatabaseTopologyFingerprint
         return Sha256Hex(canonical);
     }
 
-    /// <summary>计划校验和:覆盖计划身份、目标指纹、风险与全部步骤内容;成功后不可变(§8.1 checksum 唯一)。</summary>
+    /// <summary>计划校验和:覆盖计划身份、模块、目标指纹、风险与全部步骤内容;成功后不可变(§8.1 checksum 唯一)。</summary>
     public static string ComputePlanChecksum(
         string planNId,
         string tenantNId,
@@ -104,7 +110,8 @@ public static class DatabaseTopologyFingerprint
         string riskLevel,
         bool destructiveChangeDetected,
         string requiredPolicies,
-        IReadOnlyCollection<string> stepCanonicals)
+        IReadOnlyCollection<string> stepCanonicals,
+        string? moduleKey = null)
     {
         var steps = string.Join(";", stepCanonicals ?? []);
         var canonical = string.Join("|",
@@ -113,6 +120,7 @@ public static class DatabaseTopologyFingerprint
             tenantNId,
             environmentNId,
             serviceKey,
+            moduleKey ?? serviceKey,
             requestedVersion,
             currentVersion,
             targetStateFingerprint,

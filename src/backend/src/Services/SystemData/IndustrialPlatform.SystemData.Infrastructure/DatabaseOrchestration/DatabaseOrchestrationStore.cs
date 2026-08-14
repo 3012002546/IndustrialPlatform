@@ -9,7 +9,7 @@ using SqlSugar;
 namespace IndustrialPlatform.SystemData.Infrastructure.DatabaseOrchestration;
 
 /// <summary>
-/// 数据库编排持久化端口实现(05 方案 §8.1 九张控制面表)。
+/// 数据库编排持久化端口实现(05 方案 §8.1 控制面表;SD-004 增种子观察与模块作用域注册)。
 /// 自定义仓储风格:软删除过滤(自身 + 父引用影子列)、唯一键冲突映射并发异常、
 /// 双版本原子更新影响行数非 1 抛并发异常、父子聚合(计划/操作)步骤批量装载与事务内原子写入。
 /// 跨服务计划/审批/备份证据只按 PlanNId 引用,不建立数据库外键(方案 §8.1)。
@@ -51,16 +51,26 @@ public sealed class DatabaseOrchestrationStore : IDatabaseOrchestrationStore
     // ===== 注册清单 =====
 
     /// <inheritdoc />
+    public Task<DatabaseRegistration?> GetRegistrationAsync(
+        string tenantNId,
+        string environmentNId,
+        string serviceKey,
+        CancellationToken cancellationToken) =>
+        GetRegistrationAsync(tenantNId, environmentNId, serviceKey, moduleKey: serviceKey, cancellationToken);
+
+    /// <inheritdoc />
     public async Task<DatabaseRegistration?> GetRegistrationAsync(
         string tenantNId,
         string environmentNId,
         string serviceKey,
+        string moduleKey,
         CancellationToken cancellationToken)
     {
         var row = await _dbContext.SqlSugar.Queryable<DatabaseRegistrationTable>()
             .Where(t => t.TenantNId == tenantNId
                 && t.EnvironmentNId == environmentNId
                 && t.ServiceKey == serviceKey
+                && t.ModuleKey == moduleKey
                 && !t.IsDeleted)
             .FirstAsync(cancellationToken);
         return row is null ? null : TableMapper.ToRegistration(row);
@@ -105,6 +115,11 @@ public sealed class DatabaseOrchestrationStore : IDatabaseOrchestrationStore
         if (!string.IsNullOrWhiteSpace(filter.ServiceKey))
         {
             query = query.Where(t => t.ServiceKey.Contains(filter.ServiceKey.Trim()));
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.ModuleKey))
+        {
+            query = query.Where(t => t.ModuleKey.Contains(filter.ModuleKey.Trim()));
         }
 
         var total = await query.CountAsync(cancellationToken);
@@ -588,6 +603,38 @@ public sealed class DatabaseOrchestrationStore : IDatabaseOrchestrationStore
     /// <inheritdoc />
     public async Task AddObservationAsync(
         DatabaseMigrationObservation observation,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(observation);
+        await InsertWithConflictGuardAsync(TableMapper.ToTable(observation), cancellationToken);
+    }
+
+    // ===== 种子观察 =====
+
+    /// <inheritdoc />
+    public async Task<DatabaseSeedObservation?> GetLatestSeedObservationAsync(
+        string tenantNId,
+        string environmentNId,
+        string serviceKey,
+        string moduleKey,
+        string seedKey,
+        CancellationToken cancellationToken)
+    {
+        var row = await _dbContext.SqlSugar.Queryable<DatabaseSeedObservationTable>()
+            .Where(t => t.TenantNId == tenantNId
+                && t.EnvironmentNId == environmentNId
+                && t.ServiceKey == serviceKey
+                && t.ModuleKey == moduleKey
+                && t.SeedKey == seedKey
+                && !t.IsDeleted)
+            .OrderBy(t => t.CreatedOn, OrderByType.Desc)
+            .FirstAsync(cancellationToken);
+        return row is null ? null : TableMapper.ToObservation(row);
+    }
+
+    /// <inheritdoc />
+    public async Task AddSeedObservationAsync(
+        DatabaseSeedObservation observation,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(observation);

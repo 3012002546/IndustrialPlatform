@@ -1,3 +1,4 @@
+using System.Text.Json;
 using IndustrialPlatform.SystemData.Domain.DatabaseOrchestration;
 using IndustrialPlatform.SystemData.Infrastructure.Persistence.Entities;
 
@@ -72,6 +73,8 @@ internal static class TableMapper
         TenantNId = registration.TenantNId,
         EnvironmentNId = registration.EnvironmentNId,
         ServiceKey = registration.ServiceKey,
+        ModuleKey = registration.ModuleKey,
+        SeedSets = SerializeSeedSets(registration.SeedSets),
         Provider = registration.Provider,
         LogicalDatabaseName = registration.LogicalDatabaseName,
         PhysicalDatabaseName = registration.PhysicalDatabaseName,
@@ -96,6 +99,7 @@ internal static class TableMapper
         row.TenantNId,
         row.EnvironmentNId,
         row.ServiceKey,
+        row.ModuleKey,
         row.Provider,
         row.LogicalDatabaseName,
         row.PhysicalDatabaseName,
@@ -112,6 +116,7 @@ internal static class TableMapper
         row.AutoMigrate,
         row.ManifestVersion,
         row.ManifestChecksum,
+        DeserializeSeedSets(row.SeedSets),
         row.Status,
         row.IsFrozen,
         row.IsLocked,
@@ -121,6 +126,94 @@ internal static class TableMapper
         row.LastUpdatedOn,
         row.OptimisticVersion,
         row.ConcurrencyVersion);
+
+    // ===== 种子声明 JSON 序列化 =====
+
+    /// <summary>种子声明集合 → JSON 文本(枚举以名字符串存储;空集合存空串)。</summary>
+    private static string SerializeSeedSets(IReadOnlyCollection<SeedSet> seedSets) =>
+        seedSets.Count == 0
+            ? string.Empty
+            : JsonSerializer.Serialize(seedSets.Select(ToSeedSetDto).ToList());
+
+    /// <summary>JSON 文本 → 种子声明集合(重建构造不重新校验)。</summary>
+    private static List<SeedSet> DeserializeSeedSets(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return [];
+        }
+
+        var dtos = JsonSerializer.Deserialize<List<SeedSetPersistenceDto>>(json);
+        if (dtos is null || dtos.Count == 0)
+        {
+            return [];
+        }
+
+        return dtos.Select(ToSeedSet).ToList();
+    }
+
+    private static SeedSetPersistenceDto ToSeedSetDto(SeedSet seed) => new()
+    {
+        SeedKey = seed.SeedKey,
+        SeedVersion = seed.SeedVersion,
+        SeedClass = seed.SeedClass.ToString(),
+        Scope = seed.Scope.ToString(),
+        SeedArtifactId = seed.SeedArtifactId,
+        SeedChecksum = seed.SeedChecksum,
+        SeedSignature = seed.SeedSignature,
+        RequiredForReadiness = seed.RequiredForReadiness,
+        AllowedEnvironments = seed.AllowedEnvironments,
+        DependsOnMigrationVersion = seed.DependsOnMigrationVersion,
+        DependsOnSeedKeys = seed.DependsOnSeedKeys,
+        BootstrapPolicy = seed.BootstrapPolicy.ToString(),
+    };
+
+    private static SeedSet ToSeedSet(SeedSetPersistenceDto dto) => new(
+        dto.SeedKey,
+        dto.SeedVersion,
+        ParseEnum<SeedClass>(dto.SeedClass),
+        ParseEnum<SeedScope>(dto.Scope),
+        dto.SeedArtifactId,
+        dto.SeedChecksum,
+        dto.SeedSignature,
+        dto.RequiredForReadiness,
+        dto.AllowedEnvironments,
+        dto.DependsOnMigrationVersion,
+        dto.DependsOnSeedKeys,
+        ParseEnum<BootstrapPolicy>(dto.BootstrapPolicy),
+        skipValidation: true);
+
+    private static T ParseEnum<T>(string value)
+        where T : struct, Enum =>
+        Enum.TryParse<T>(value, ignoreCase: true, out var parsed) ? parsed : default;
+
+    /// <summary>种子声明的持久化中间模型(公开 get/set 供 STJ 序列化)。</summary>
+    private sealed class SeedSetPersistenceDto
+    {
+        public string SeedKey { get; set; } = string.Empty;
+
+        public string SeedVersion { get; set; } = string.Empty;
+
+        public string SeedClass { get; set; } = string.Empty;
+
+        public string Scope { get; set; } = string.Empty;
+
+        public string SeedArtifactId { get; set; } = string.Empty;
+
+        public string SeedChecksum { get; set; } = string.Empty;
+
+        public string? SeedSignature { get; set; }
+
+        public bool RequiredForReadiness { get; set; }
+
+        public string AllowedEnvironments { get; set; } = string.Empty;
+
+        public string? DependsOnMigrationVersion { get; set; }
+
+        public string? DependsOnSeedKeys { get; set; }
+
+        public string BootstrapPolicy { get; set; } = string.Empty;
+    }
 
     // ===== 不可变计划 =====
 
@@ -139,6 +232,7 @@ internal static class TableMapper
         PlanNId = plan.PlanNId,
         EnvironmentNId = plan.EnvironmentNId,
         ServiceKey = plan.ServiceKey,
+        ModuleKey = plan.ModuleKey,
         RequestedMigrationVersion = plan.RequestedMigrationVersion,
         CurrentMigrationVersion = plan.CurrentMigrationVersion,
         TargetStateFingerprint = plan.TargetStateFingerprint,
@@ -158,6 +252,7 @@ internal static class TableMapper
         row.PlanNId,
         row.EnvironmentNId,
         row.ServiceKey,
+        row.ModuleKey,
         row.RequestedMigrationVersion,
         row.CurrentMigrationVersion,
         row.TargetStateFingerprint,
@@ -329,6 +424,7 @@ internal static class TableMapper
         Kind = operation.Kind,
         EnvironmentNId = operation.EnvironmentNId,
         ServiceKey = operation.ServiceKey,
+        ModuleKey = operation.ModuleKey,
         PlanNId = operation.PlanNId,
         RequestedVersion = operation.RequestedVersion,
         IdempotencyKey = operation.IdempotencyKey,
@@ -358,6 +454,7 @@ internal static class TableMapper
         row.Kind,
         row.EnvironmentNId,
         row.ServiceKey,
+        row.ModuleKey,
         row.PlanNId,
         row.RequestedVersion,
         row.IdempotencyKey,
@@ -461,6 +558,56 @@ internal static class TableMapper
         row.ObservedVersion,
         row.ArtifactChecksum,
         row.ObservedOn,
+        row.OperationNId,
+        row.VerificationStatus,
+        row.IsFrozen,
+        row.IsLocked,
+        row.IsDeleted,
+        row.EntityType,
+        row.CreatedOn,
+        row.LastUpdatedOn,
+        row.OptimisticVersion,
+        row.ConcurrencyVersion);
+
+    // ===== 种子观察 =====
+
+    public static DatabaseSeedObservationTable ToTable(DatabaseSeedObservation observation) => new()
+    {
+        Id = observation.Id,
+        IsFrozen = observation.IsFrozen,
+        IsLocked = observation.IsLocked,
+        IsDeleted = observation.IsDeleted,
+        EntityType = observation.EntityType,
+        CreatedOn = observation.CreatedOn,
+        LastUpdatedOn = observation.LastUpdatedOn,
+        OptimisticVersion = observation.OptimisticVersion,
+        ConcurrencyVersion = observation.ConcurrencyVersion,
+        TenantNId = observation.TenantNId,
+        EnvironmentNId = observation.EnvironmentNId,
+        ServiceKey = observation.ServiceKey,
+        ModuleKey = observation.ModuleKey,
+        SeedKey = observation.SeedKey,
+        SeedVersion = observation.SeedVersion,
+        Checksum = observation.Checksum,
+        Scope = observation.Scope,
+        Status = observation.Status,
+        AppliedOn = observation.AppliedOn,
+        OperationNId = observation.OperationNId,
+        VerificationStatus = observation.VerificationStatus,
+    };
+
+    public static DatabaseSeedObservation ToObservation(DatabaseSeedObservationTable row) => new(
+        row.Id,
+        row.TenantNId,
+        row.EnvironmentNId,
+        row.ServiceKey,
+        row.ModuleKey,
+        row.SeedKey,
+        row.SeedVersion,
+        row.Checksum,
+        row.Scope,
+        row.Status,
+        row.AppliedOn,
         row.OperationNId,
         row.VerificationStatus,
         row.IsFrozen,

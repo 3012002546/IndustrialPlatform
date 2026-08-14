@@ -36,6 +36,9 @@ public sealed class DatabaseProvisionOperation : AggregateRoot
     /// <summary>服务稳定键。</summary>
     public string ServiceKey { get; private set; }
 
+    /// <summary>模块标识;按 (ServiceKey, ModuleKey) 粒度,plan/operation/readiness 共用。</summary>
+    public string ModuleKey { get; private set; }
+
     /// <summary>关联计划业务标识(Apply 操作绑定)。</summary>
     public string? PlanNId { get; private set; }
 
@@ -101,6 +104,7 @@ public sealed class DatabaseProvisionOperation : AggregateRoot
         OperationNId = string.Empty;
         EnvironmentNId = string.Empty;
         ServiceKey = string.Empty;
+        ModuleKey = string.Empty;
         RequestedVersion = string.Empty;
         IdempotencyKey = string.Empty;
         RequestHash = string.Empty;
@@ -114,6 +118,7 @@ public sealed class DatabaseProvisionOperation : AggregateRoot
         OperationKind kind,
         string environmentNId,
         string serviceKey,
+        string? moduleKey,
         string? planNId,
         string requestedVersion,
         string idempotencyKey,
@@ -129,6 +134,10 @@ public sealed class DatabaseProvisionOperation : AggregateRoot
         EnvironmentNId = DatabaseOrchestrationGuard.RequireNId(environmentNId, "操作的环境标识不能为空。");
         ServiceKey = DatabaseOrchestrationGuard.RequireTrimmedNonEmpty(
             serviceKey, "服务键不能为空。", DatabaseRegistration.ServiceKeyMaxLength, $"服务键长度不能超过 {DatabaseRegistration.ServiceKeyMaxLength} 个字符。");
+        ModuleKey = moduleKey is null
+            ? serviceKey
+            : DatabaseOrchestrationGuard.RequireTrimmedNonEmpty(
+                moduleKey, "模块标识不能为空。", DatabaseRegistration.ModuleKeyMaxLength, $"模块标识长度不能超过 {DatabaseRegistration.ModuleKeyMaxLength} 个字符。");
         PlanNId = planNId is null
             ? null
             : DatabaseOrchestrationGuard.RequireNId(planNId, "关联计划标识不能为空。");
@@ -163,6 +172,7 @@ public sealed class DatabaseProvisionOperation : AggregateRoot
         OperationKind kind,
         string environmentNId,
         string serviceKey,
+        string moduleKey,
         string? planNId,
         string requestedVersion,
         string idempotencyKey,
@@ -198,6 +208,7 @@ public sealed class DatabaseProvisionOperation : AggregateRoot
         Kind = kind;
         EnvironmentNId = environmentNId;
         ServiceKey = serviceKey;
+        ModuleKey = moduleKey;
         PlanNId = planNId;
         RequestedVersion = requestedVersion;
         IdempotencyKey = idempotencyKey;
@@ -227,7 +238,7 @@ public sealed class DatabaseProvisionOperation : AggregateRoot
         ConcurrencyVersion = concurrencyVersion;
     }
 
-    /// <summary>入队操作(Status = Queued,Phase = Validate)。</summary>
+    /// <summary>入队操作(Status = Queued,Phase = Validate)。v1 兼容:moduleKey 缺省 = serviceKey。</summary>
     public static DatabaseProvisionOperation Enqueue(
         string tenantNId,
         string operationNId,
@@ -241,13 +252,15 @@ public sealed class DatabaseProvisionOperation : AggregateRoot
         DateTimeOffset timeoutOn,
         string traceId,
         string createdByUserNId,
-        IReadOnlyCollection<OperationPhase>? phases = null)
+        IReadOnlyCollection<OperationPhase>? phases = null,
+        string? moduleKey = null)
         => new(
             tenantNId,
             operationNId,
             kind,
             environmentNId,
             serviceKey,
+            moduleKey,
             planNId,
             requestedVersion,
             idempotencyKey,
@@ -415,7 +428,7 @@ public sealed class DatabaseProvisionOperation : AggregateRoot
         }
     }
 
-    /// <summary>全部阶段(顺序:Validate→Inspect→ProvisionDatabase→ProvisionRoles→Backup→Migrate→Verify)。</summary>
+    /// <summary>全部阶段(顺序:Validate→Inspect→ProvisionDatabase→ProvisionRoles→Backup→SchemaMigration→RequiredSeed→SecretBootstrap→Verify)。</summary>
     internal static readonly OperationPhase[] AllPhases =
     [
         OperationPhase.Validate,
@@ -423,7 +436,9 @@ public sealed class DatabaseProvisionOperation : AggregateRoot
         OperationPhase.ProvisionDatabase,
         OperationPhase.ProvisionRoles,
         OperationPhase.Backup,
-        OperationPhase.Migrate,
+        OperationPhase.SchemaMigration,
+        OperationPhase.RequiredSeed,
+        OperationPhase.SecretBootstrap,
         OperationPhase.Verify,
     ];
 

@@ -17,6 +17,13 @@ internal static class SystemDataMigrationHelpers
         Func<DbType, string> ddlBuilder) =>
         new(id, $"create {tableName}", (sugar, _) => sugar.Ado.ExecuteCommandAsync(ddlBuilder(sugar.CurrentConnectionConfig.DbType)));
 
+    /// <summary>创建非建表 DDL 迁移步骤(如 ALTER/索引重建),事务由运行器包裹。</summary>
+    public static SchemaMigrationStep CreateRawStep(
+        string id,
+        string description,
+        Func<DbType, string> ddlBuilder) =>
+        new(id, description, (sugar, _) => sugar.Ado.ExecuteCommandAsync(ddlBuilder(sugar.CurrentConnectionConfig.DbType)));
+
     /// <summary>按目标数据库类型给出 (Guid, DateTimeOffset, Boolean, BigInt, false 字面量) 类型词。</summary>
     public static (string G, string T, string B, string Big, string F) TypeWords(DbType dbType) =>
         dbType switch

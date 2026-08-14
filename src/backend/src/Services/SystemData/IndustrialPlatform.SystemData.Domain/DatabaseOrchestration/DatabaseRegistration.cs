@@ -31,6 +31,9 @@ public sealed class DatabaseRegistration : AggregateRoot
     /// <summary>签名最大长度。</summary>
     public const int SignatureMaxLength = 512;
 
+    /// <summary>模块标识最大长度。</summary>
+    public const int ModuleKeyMaxLength = 128;
+
     /// <summary>租户业务标识。</summary>
     public string TenantNId { get; private set; }
 
@@ -39,6 +42,9 @@ public sealed class DatabaseRegistration : AggregateRoot
 
     /// <summary>服务稳定键。</summary>
     public string ServiceKey { get; private set; }
+
+    /// <summary>强制模块标识;注册身份按 (TenantNId, EnvironmentNId, ServiceKey, ModuleKey) 唯一,v1 兼容默认 = ServiceKey。</summary>
+    public string ModuleKey { get; private set; }
 
     /// <summary>数据库提供程序标识(<c>Sqlite</c>/<c>PostgreSQL</c>)。</summary>
     public string Provider { get; private set; }
@@ -91,11 +97,15 @@ public sealed class DatabaseRegistration : AggregateRoot
     /// <summary>注册清单状态。</summary>
     public RegistrationStatus Status { get; private set; }
 
+    /// <summary>本模块版本化种子声明集合(不含种子内容,只含校验和等非敏感元数据)。</summary>
+    public IReadOnlyCollection<SeedSet> SeedSets { get; private set; }
+
     private DatabaseRegistration()
     {
         TenantNId = string.Empty;
         EnvironmentNId = string.Empty;
         ServiceKey = string.Empty;
+        ModuleKey = string.Empty;
         Provider = string.Empty;
         LogicalDatabaseName = string.Empty;
         PhysicalDatabaseName = string.Empty;
@@ -107,12 +117,14 @@ public sealed class DatabaseRegistration : AggregateRoot
         OwnerNId = string.Empty;
         ManifestVersion = string.Empty;
         ManifestChecksum = string.Empty;
+        SeedSets = [];
     }
 
     private DatabaseRegistration(
         string tenantNId,
         string environmentNId,
         string serviceKey,
+        string moduleKey,
         string provider,
         string logicalDatabaseName,
         string physicalDatabaseName,
@@ -128,12 +140,15 @@ public sealed class DatabaseRegistration : AggregateRoot
         bool autoProvision,
         bool autoMigrate,
         string manifestVersion,
-        string manifestChecksum)
+        string manifestChecksum,
+        IReadOnlyCollection<SeedSet>? seedSets)
     {
         TenantNId = DatabaseOrchestrationGuard.RequireNId(tenantNId, "注册清单的租户标识不能为空。");
         EnvironmentNId = DatabaseOrchestrationGuard.RequireNId(environmentNId, "注册清单的环境标识不能为空。");
         ServiceKey = DatabaseOrchestrationGuard.RequireTrimmedNonEmpty(
             serviceKey, "服务键不能为空。", ServiceKeyMaxLength, $"服务键长度不能超过 {ServiceKeyMaxLength} 个字符。");
+        ModuleKey = DatabaseOrchestrationGuard.RequireTrimmedNonEmpty(
+            moduleKey, "模块标识不能为空。", ModuleKeyMaxLength, $"模块标识长度不能超过 {ModuleKeyMaxLength} 个字符。");
         Provider = DatabaseOrchestrationGuard.RequireTrimmedNonEmpty(
             provider, "数据库提供程序不能为空。", ProviderMaxLength, $"提供程序标识长度不能超过 {ProviderMaxLength} 个字符。");
         LogicalDatabaseName = DatabaseOrchestrationGuard.RequireTrimmedNonEmpty(
@@ -157,6 +172,7 @@ public sealed class DatabaseRegistration : AggregateRoot
         ManifestVersion = DatabaseOrchestrationGuard.RequireTrimmedNonEmpty(
             manifestVersion, "清单版本不能为空。", VersionMaxLength, $"清单版本长度不能超过 {VersionMaxLength} 个字符。");
         ManifestChecksum = DatabaseOrchestrationGuard.RequireSha256Hex(manifestChecksum, "清单校验和不能为空。");
+        SeedSets = SeedSetGuard.Validate(seedSets);
         Status = RegistrationStatus.Registered;
         AddDomainEvent(CreateChangedEvent());
     }
@@ -167,6 +183,7 @@ public sealed class DatabaseRegistration : AggregateRoot
         string tenantNId,
         string environmentNId,
         string serviceKey,
+        string moduleKey,
         string provider,
         string logicalDatabaseName,
         string physicalDatabaseName,
@@ -183,6 +200,7 @@ public sealed class DatabaseRegistration : AggregateRoot
         bool autoMigrate,
         string manifestVersion,
         string manifestChecksum,
+        IReadOnlyCollection<SeedSet>? seedSets,
         RegistrationStatus status,
         bool isFrozen,
         bool isLocked,
@@ -198,6 +216,7 @@ public sealed class DatabaseRegistration : AggregateRoot
         TenantNId = tenantNId;
         EnvironmentNId = environmentNId;
         ServiceKey = serviceKey;
+        ModuleKey = moduleKey;
         Provider = provider;
         LogicalDatabaseName = logicalDatabaseName;
         PhysicalDatabaseName = physicalDatabaseName;
@@ -214,6 +233,7 @@ public sealed class DatabaseRegistration : AggregateRoot
         AutoMigrate = autoMigrate;
         ManifestVersion = manifestVersion;
         ManifestChecksum = manifestChecksum;
+        SeedSets = seedSets ?? [];
         Status = status;
         IsFrozen = isFrozen;
         IsLocked = isLocked;
@@ -225,7 +245,7 @@ public sealed class DatabaseRegistration : AggregateRoot
         ConcurrencyVersion = concurrencyVersion;
     }
 
-    /// <summary>创建注册清单(Status = Registered)。</summary>
+    /// <summary>创建注册清单(Status = Registered)。v1 兼容:moduleKey = serviceKey、SeedSets 空。</summary>
     public static DatabaseRegistration Register(
         string tenantNId,
         string environmentNId,
@@ -245,11 +265,14 @@ public sealed class DatabaseRegistration : AggregateRoot
         bool autoProvision,
         bool autoMigrate,
         string manifestVersion,
-        string manifestChecksum)
+        string manifestChecksum,
+        IReadOnlyCollection<SeedSet>? seedSets = null,
+        string? moduleKey = null)
         => new(
             tenantNId,
             environmentNId,
             serviceKey,
+            moduleKey ?? serviceKey,
             provider,
             logicalDatabaseName,
             physicalDatabaseName,
@@ -265,9 +288,10 @@ public sealed class DatabaseRegistration : AggregateRoot
             autoProvision,
             autoMigrate,
             manifestVersion,
-            manifestChecksum);
+            manifestChecksum,
+            seedSets);
 
-    /// <summary>以新版本清单重注册(应用层已裁决版本冲突),发布变更事件。</summary>
+    /// <summary>以新版本清单重注册(应用层已裁决版本冲突),发布变更事件。模块身份不可变。</summary>
     public void ReRegister(
         string provider,
         string logicalDatabaseName,
@@ -283,7 +307,8 @@ public sealed class DatabaseRegistration : AggregateRoot
         bool autoProvision,
         bool autoMigrate,
         string manifestVersion,
-        string manifestChecksum)
+        string manifestChecksum,
+        IReadOnlyCollection<SeedSet>? seedSets = null)
     {
         EnsureCanModify();
         Provider = DatabaseOrchestrationGuard.RequireTrimmedNonEmpty(
@@ -308,6 +333,7 @@ public sealed class DatabaseRegistration : AggregateRoot
         ManifestVersion = DatabaseOrchestrationGuard.RequireTrimmedNonEmpty(
             manifestVersion, "清单版本不能为空。", VersionMaxLength, $"清单版本长度不能超过 {VersionMaxLength} 个字符。");
         ManifestChecksum = DatabaseOrchestrationGuard.RequireSha256Hex(manifestChecksum, "清单校验和不能为空。");
+        SeedSets = SeedSetGuard.Validate(seedSets);
         Status = RegistrationStatus.Registered;
         AddDomainEvent(CreateChangedEvent());
         Touch();
@@ -335,6 +361,7 @@ public sealed class DatabaseRegistration : AggregateRoot
             TenantNId,
             EnvironmentNId,
             ServiceKey,
+            ModuleKey,
             LogicalDatabaseName,
             DesiredState,
             ManifestVersion,

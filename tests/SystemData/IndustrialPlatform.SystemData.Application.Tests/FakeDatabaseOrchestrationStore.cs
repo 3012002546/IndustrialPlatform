@@ -21,6 +21,7 @@ public sealed class FakeDatabaseOrchestrationStore : IDatabaseOrchestrationStore
     private readonly Dictionary<string, DatabaseBackupEvidence> _evidences = [];
     private readonly Dictionary<string, DatabaseProvisionOperation> _operations = [];
     private readonly List<DatabaseMigrationObservation> _observations = [];
+    private readonly List<DatabaseSeedObservation> _seedObservations = [];
 
     private readonly Dictionary<string, (long Optimistic, Guid Concurrency)> _registrationVersions = [];
     private readonly Dictionary<string, (long Optimistic, Guid Concurrency)> _evidenceVersions = [];
@@ -48,13 +49,17 @@ public sealed class FakeDatabaseOrchestrationStore : IDatabaseOrchestrationStore
     // ===== 注册清单 =====
 
     /// <inheritdoc />
+    public Task<DatabaseRegistration?> GetRegistrationAsync(string tenantNId, string environmentNId, string serviceKey, string moduleKey, CancellationToken cancellationToken) =>
+        Task.FromResult(_registrations.TryGetValue(RegistrationKey(tenantNId, environmentNId, serviceKey, moduleKey), out var registration) ? registration : null);
+
+    /// <inheritdoc />
     public Task<DatabaseRegistration?> GetRegistrationAsync(string tenantNId, string environmentNId, string serviceKey, CancellationToken cancellationToken) =>
-        Task.FromResult(_registrations.TryGetValue(RegistrationKey(tenantNId, environmentNId, serviceKey), out var registration) ? registration : null);
+        GetRegistrationAsync(tenantNId, environmentNId, serviceKey, moduleKey: serviceKey, cancellationToken);
 
     /// <inheritdoc />
     public Task AddRegistrationAsync(DatabaseRegistration registration, CancellationToken cancellationToken)
     {
-        var key = RegistrationKey(registration.TenantNId, registration.EnvironmentNId, registration.ServiceKey);
+        var key = RegistrationKey(registration.TenantNId, registration.EnvironmentNId, registration.ServiceKey, registration.ModuleKey);
         if (_registrations.ContainsKey(key))
         {
             throw new ConcurrencyException("注册清单已存在。");
@@ -68,7 +73,7 @@ public sealed class FakeDatabaseOrchestrationStore : IDatabaseOrchestrationStore
     /// <inheritdoc />
     public Task UpdateRegistrationAsync(DatabaseRegistration registration, long expectedOptimisticVersion, Guid expectedConcurrencyVersion, CancellationToken cancellationToken)
     {
-        var key = RegistrationKey(registration.TenantNId, registration.EnvironmentNId, registration.ServiceKey);
+        var key = RegistrationKey(registration.TenantNId, registration.EnvironmentNId, registration.ServiceKey, registration.ModuleKey);
         EnsureVersion(key, _registrationVersions, expectedOptimisticVersion, expectedConcurrencyVersion);
         _registrations[key] = registration;
         _registrationVersions[key] = (registration.OptimisticVersion, registration.ConcurrencyVersion);
@@ -81,6 +86,7 @@ public sealed class FakeDatabaseOrchestrationStore : IDatabaseOrchestrationStore
         var items = _registrations.Values
             .Where(registration => registration.TenantNId == filter.TenantNId)
             .Where(registration => filter.ServiceKey is null || registration.ServiceKey.Contains(filter.ServiceKey, StringComparison.Ordinal))
+            .Where(registration => filter.ModuleKey is null || registration.ModuleKey.Contains(filter.ModuleKey, StringComparison.Ordinal))
             .OrderByDescending(registration => registration.CreatedOn)
             .ToList();
         return Task.FromResult(Page(filter.PageIndex, filter.PageSize, items));
@@ -279,6 +285,33 @@ public sealed class FakeDatabaseOrchestrationStore : IDatabaseOrchestrationStore
         return Task.CompletedTask;
     }
 
+    // ===== 种子观察 =====
+
+    /// <inheritdoc />
+    public Task<DatabaseSeedObservation?> GetLatestSeedObservationAsync(
+        string tenantNId,
+        string environmentNId,
+        string serviceKey,
+        string moduleKey,
+        string seedKey,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(_seedObservations
+            .Where(observation =>
+                observation.TenantNId == tenantNId
+                && observation.EnvironmentNId == environmentNId
+                && observation.ServiceKey == serviceKey
+                && observation.ModuleKey == moduleKey
+                && observation.SeedKey == seedKey)
+            .OrderByDescending(observation => observation.CreatedOn)
+            .FirstOrDefault());
+
+    /// <inheritdoc />
+    public Task AddSeedObservationAsync(DatabaseSeedObservation observation, CancellationToken cancellationToken)
+    {
+        _seedObservations.Add(observation);
+        return Task.CompletedTask;
+    }
+
     // ===== 内部助手 =====
 
     private static void EnsureVersion(
@@ -303,7 +336,7 @@ public sealed class FakeDatabaseOrchestrationStore : IDatabaseOrchestrationStore
 
     private static string PolicyKey(string tenantNId, string environmentNId) => $"{tenantNId}|{environmentNId}";
 
-    private static string RegistrationKey(string tenantNId, string environmentNId, string serviceKey) => $"{tenantNId}|{environmentNId}|{serviceKey}";
+    private static string RegistrationKey(string tenantNId, string environmentNId, string serviceKey, string moduleKey) => $"{tenantNId}|{environmentNId}|{serviceKey}|{moduleKey}";
 
     private static string PlanKey(string tenantNId, string planNId) => $"{tenantNId}|{planNId}";
 

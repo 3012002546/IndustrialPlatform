@@ -173,3 +173,57 @@ public sealed class TargetMismatchException : DatabaseOrchestrationException
     {
     }
 }
+
+/// <summary>种子校验和漂移:同 key/scope/version 不同 checksum,拒绝重注册/执行(§9.9 SD_INIT_SEED_CHECKSUM_DRIFT)。</summary>
+public sealed class SeedChecksumDriftException : DatabaseOrchestrationException
+{
+    public SeedChecksumDriftException(string seedKey)
+        : base(409, "SD_INIT_SEED_CHECKSUM_DRIFT", $"种子 {seedKey} 同版本校验和漂移,拒绝应用。")
+    {
+    }
+}
+
+/// <summary>种子前置条件不满足(依赖种子/迁移版本未达)(§9.9 SD_INIT_SEED_DEPENDENCY_UNSATISFIED)。</summary>
+public sealed class SeedDependencyUnsatisfiedException : DatabaseOrchestrationException
+{
+    public SeedDependencyUnsatisfiedException(string message)
+        : base(409, "SD_INIT_SEED_DEPENDENCY_UNSATISFIED", message)
+    {
+    }
+}
+
+/// <summary>EnvironmentSample 种子在 Staging/Production 被拒绝(§9.9 SD_INIT_SAMPLE_ENVIRONMENT_FORBIDDEN)。</summary>
+public sealed class SampleEnvironmentForbiddenException : DatabaseOrchestrationException
+{
+    public SampleEnvironmentForbiddenException()
+        : base(409, "SD_INIT_SAMPLE_ENVIRONMENT_FORBIDDEN", "EnvironmentSample 种子禁止在 Staging/Production 环境执行。")
+    {
+    }
+}
+
+/// <summary>注册/执行所需管理数据冲突(§9.9 SD_INIT_ADMIN_DATA_CONFLICT)。</summary>
+public sealed class AdminDataConflictException : DatabaseOrchestrationException
+{
+    public AdminDataConflictException(string message)
+        : base(409, "SD_INIT_ADMIN_DATA_CONFLICT", message)
+    {
+    }
+}
+
+/// <summary>SecretBootstrap 缺 Secret 且策略 fail-closed(§9.9 SD_INIT_BOOTSTRAP_SECRET_MISSING)。</summary>
+public sealed class BootstrapSecretMissingException : DatabaseOrchestrationException
+{
+    public BootstrapSecretMissingException(string seedKey)
+        : base(409, "SD_INIT_BOOTSTRAP_SECRET_MISSING", $"SecretBootstrap 种子 {seedKey} 缺少秘密,拒绝初始化。")
+    {
+    }
+}
+
+/// <summary>服务 initializer 执行失败(§9.9 SD_INIT_INITIALIZER_FAILED)。</summary>
+public sealed class InitializerFailedException : DatabaseOrchestrationException
+{
+    public InitializerFailedException(string message)
+        : base(500, "SD_INIT_INITIALIZER_FAILED", message)
+    {
+    }
+}

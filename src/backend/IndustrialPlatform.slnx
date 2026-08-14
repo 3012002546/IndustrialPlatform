@@ -41,6 +41,7 @@
     <Project Path="..\..\tests\SystemData\IndustrialPlatform.SystemData.Infrastructure.Tests\IndustrialPlatform.SystemData.Infrastructure.Tests.csproj" />
     <Project Path="..\..\tests\SystemData\IndustrialPlatform.SystemData.Api.Tests\IndustrialPlatform.SystemData.Api.Tests.csproj" />
     <Project Path="..\..\tests\SystemData\IndustrialPlatform.SystemData.Contract.Tests\IndustrialPlatform.SystemData.Contract.Tests.csproj" />
+    <Project Path="..\..\tests\SystemData\IndustrialPlatform.SystemData.Testing\IndustrialPlatform.SystemData.Testing.csproj" />
   </Folder>
   <Folder Name="/src/Services/ReferenceData/">
     <Project Path="src\Services\ReferenceData\IndustrialPlatform.ReferenceData.Domain\IndustrialPlatform.ReferenceData.Domain.csproj" />

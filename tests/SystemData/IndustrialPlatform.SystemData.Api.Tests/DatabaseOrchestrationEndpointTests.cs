@@ -77,7 +77,7 @@ public sealed class DatabaseOrchestrationEndpointTests
         await SendAsync(client, HttpMethod.Put, "/api/v1/database-orchestration/registrations/systemdata", Manifest());
         await SendAsync(client, HttpMethod.Put, "/api/v1/database-orchestration/registrations/systemdata", Manifest());
 
-        var page = await store.QueryRegistrationsAsync(new RegistrationListFilter(Tenant, null, 1, 20), CancellationToken.None);
+        var page = await store.QueryRegistrationsAsync(new RegistrationListFilter(Tenant, null, ModuleKey: null, 1, 20), CancellationToken.None);
         Assert.Equal(1, page.Total);
     }
 
@@ -309,7 +309,7 @@ public sealed class DatabaseOrchestrationEndpointTests
         var data = payload.RootElement.GetProperty("data");
         Assert.Equal("OP-001", data.GetProperty("operationNId").GetString());
         Assert.Equal("Apply", data.GetProperty("kind").GetString());
-        Assert.Equal(7, data.GetProperty("steps").GetArrayLength());
+        Assert.Equal(DatabaseProvisionOperation.AllPhases.Length, data.GetProperty("steps").GetArrayLength());
     }
 
     [Fact]

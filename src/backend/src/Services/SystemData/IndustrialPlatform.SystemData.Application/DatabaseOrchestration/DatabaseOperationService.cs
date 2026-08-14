@@ -43,6 +43,23 @@ public interface IOperationService
 
     /// <summary>查询服务数据库就绪状态(注册清单 + 最近观察);未就绪返回 Ready=false,由控制器映射 503 SD_DB_NOT_READY。</summary>
     Task<DatabaseReadinessV1> GetReadinessAsync(string tenantNId, string serviceKey, string traceId, CancellationToken cancellationToken);
+
+    /// <summary>v2:入队模块级异步 apply(POST service-initialization/operations/apply)。</summary>
+    Task<EnqueueOperationV1> EnqueueApplyModuleAsync(
+        string tenantNId,
+        string actorUserNId,
+        string idempotencyKey,
+        ServiceInitializationApplyRequestV2 request,
+        string traceId,
+        CancellationToken cancellationToken);
+
+    /// <summary>v2:查询模块级服务初始化就绪(migration + RequiredSeed + bootstrap);未就绪返回 Ready=false,由控制器映射 503 SD_DB_NOT_READY。</summary>
+    Task<ServiceInitializationReadinessV2> GetReadinessV2Async(
+        string tenantNId,
+        string serviceKey,
+        string moduleKey,
+        string traceId,
+        CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -165,6 +182,116 @@ public sealed class DatabaseOperationService : IOperationService
             timeoutOn,
             traceId,
             actorUserNId);
+        operation.ClearDomainEvents();
+        await WriteGuard.ExecuteAsync(() => _store.AddOperationAsync(operation, cancellationToken));
+        return ToEnqueueV1(operation);
+    }
+
+    /// <inheritdoc />
+    public async Task<EnqueueOperationV1> EnqueueApplyModuleAsync(
+        string tenantNId,
+        string actorUserNId,
+        string idempotencyKey,
+        ServiceInitializationApplyRequestV2 request,
+        string traceId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var topology = _topologyProvider.GetTopology();
+        var idempotencyKeyTrimmed = DatabaseOrchestrationInput.Require(idempotencyKey, "幂等键不能为空。");
+        var planNId = DatabaseOrchestrationInput.Require(request.PlanNId, "计划标识不能为空。");
+        var moduleKey = DatabaseOrchestrationInput.Require(request.ModuleKey, "模块标识不能为空。");
+        var now = DateTimeOffset.UtcNow;
+
+        var plan = await _store.GetPlanAsync(tenantNId, planNId, cancellationToken)
+            ?? throw new NotFoundException();
+        if (plan.IsExpired(now))
+        {
+            throw new PlanExpiredException();
+        }
+
+        var registration = await _store.GetRegistrationAsync(tenantNId, plan.EnvironmentNId, plan.ServiceKey, moduleKey, cancellationToken)
+            ?? throw new TargetMismatchException("目标服务注册清单不存在。");
+
+        var topologyRevision = DatabaseTopologyFingerprint.ComputeTopologyRevision(topology);
+        if (!string.Equals(registration.TopologyRevision, topologyRevision, StringComparison.Ordinal))
+        {
+            throw new TopologyDriftException();
+        }
+
+        var policy = await EnvironmentPolicyResolver.ResolveAsync(
+            _store, _options.Value, tenantNId, plan.EnvironmentNId, topology, cancellationToken);
+        var currentFingerprint = DatabaseTopologyFingerprint.ComputeTargetStateFingerprint(
+            plan.EnvironmentNId,
+            plan.ServiceKey,
+            registration.Provider,
+            registration.LogicalDatabaseName,
+            registration.PhysicalDatabaseName,
+            registration.TopologyMode,
+            registration.TopologyRevision,
+            registration.ArtifactChecksum,
+            plan.RequestedMigrationVersion,
+            registration.DesiredState.ToString(),
+            policy.ApprovalRequired,
+            policy.BackupRequired,
+            registration.ModuleKey,
+            registration.SeedSets.Select(seed => seed.ToChecksumCanonical()).ToList());
+        if (!plan.MatchesTargetStateFingerprint(currentFingerprint))
+        {
+            throw new PlanDriftException();
+        }
+
+        if (!string.Equals(plan.RequestedMigrationVersion, registration.MigrationVersion, StringComparison.Ordinal))
+        {
+            throw new TargetMismatchException("计划请求版本与注册清单当前版本不一致。");
+        }
+
+        // apply 层 EnvironmentSample 门禁(蓝图 §12.3 第三层)。
+        var environmentKind = EnvironmentPolicyResolver.ParseEnvironmentKind(plan.EnvironmentNId);
+        if (environmentKind is DatabaseEnvironmentKind.Staging or DatabaseEnvironmentKind.Production
+            && registration.SeedSets.Any(seed => seed.SeedClass == SeedClass.EnvironmentSample))
+        {
+            throw new SampleEnvironmentForbiddenException();
+        }
+
+        if (policy.ApprovalRequired && !await _approvalService.IsApprovedForAsync(tenantNId, plan, cancellationToken))
+        {
+            throw new ApprovalRequiredException();
+        }
+
+        if (policy.BackupRequired && !await _backupService.IsVerifiedForAsync(tenantNId, plan, cancellationToken))
+        {
+            throw new BackupRequiredException();
+        }
+
+        var requestHash = RequestHasher.HashApplyRequestV2(planNId, moduleKey, request.RequestedVersion);
+        var existing = await _store.FindOperationByIdempotencyKeyAsync(tenantNId, idempotencyKeyTrimmed, cancellationToken);
+        if (existing is not null)
+        {
+            if (existing.MatchesRequestHash(requestHash))
+            {
+                return ToEnqueueV1(existing);
+            }
+
+            throw new OperationConflictException("同一幂等键已用于不同请求。");
+        }
+
+        var timeoutOn = now.AddSeconds(policy.ApplyTimeoutSeconds);
+        var operation = DatabaseProvisionOperation.Enqueue(
+            tenantNId,
+            DatabaseOrchestrationInput.NewNId("OP"),
+            OperationKind.Apply,
+            plan.EnvironmentNId,
+            plan.ServiceKey,
+            plan.PlanNId,
+            plan.RequestedMigrationVersion,
+            idempotencyKeyTrimmed,
+            requestHash,
+            timeoutOn,
+            traceId,
+            actorUserNId,
+            moduleKey: moduleKey);
         operation.ClearDomainEvents();
         await WriteGuard.ExecuteAsync(() => _store.AddOperationAsync(operation, cancellationToken));
         return ToEnqueueV1(operation);
@@ -334,6 +461,126 @@ public sealed class DatabaseOperationService : IOperationService
         };
     }
 
+    /// <inheritdoc />
+    public async Task<ServiceInitializationReadinessV2> GetReadinessV2Async(
+        string tenantNId,
+        string serviceKey,
+        string moduleKey,
+        string traceId,
+        CancellationToken cancellationToken)
+    {
+        var serviceKeyTrimmed = DatabaseOrchestrationInput.Require(serviceKey, "服务键不能为空。");
+        var moduleKeyTrimmed = DatabaseOrchestrationInput.Require(moduleKey, "模块标识不能为空。");
+        var topology = _topologyProvider.GetTopology();
+        var environmentNId = topology.EnvironmentName;
+
+        var registration = await _store.GetRegistrationAsync(tenantNId, environmentNId, serviceKeyTrimmed, moduleKeyTrimmed, cancellationToken);
+        if (registration is null)
+        {
+            return NotReadyV2(serviceKeyTrimmed, moduleKeyTrimmed, "服务数据库尚未注册。", traceId);
+        }
+
+        var observation = await _store.GetLatestObservationAsync(tenantNId, environmentNId, serviceKeyTrimmed, cancellationToken);
+        var migrationReady = registration.Status == RegistrationStatus.Registered
+                             && observation is not null
+                             && string.Equals(observation.ObservedVersion, registration.MigrationVersion, StringComparison.Ordinal);
+
+        var seedStates = new List<SeedReadinessV2>();
+        var requiredSeedReady = true;
+        var bootstrapReady = true;
+        string? reason = null;
+
+        foreach (var seed in registration.SeedSets.OrderBy(seed => seed.SeedKey, StringComparer.Ordinal))
+        {
+            var latest = await _store.GetLatestSeedObservationAsync(
+                tenantNId, environmentNId, serviceKeyTrimmed, moduleKeyTrimmed, seed.SeedKey, cancellationToken);
+            var applied = latest is not null
+                          && latest.Status == SeedStatus.Applied
+                          && string.Equals(latest.SeedVersion, seed.SeedVersion, StringComparison.Ordinal);
+            seedStates.Add(new SeedReadinessV2
+            {
+                SeedKey = seed.SeedKey,
+                SeedVersion = seed.SeedVersion,
+                Status = latest is null ? SeedStatus.Pending.ToString() : latest.Status.ToString(),
+                AppliedOn = latest?.AppliedOn,
+            });
+
+            if (seed.SeedClass == SeedClass.SecretBootstrap)
+            {
+                // bootstrap 完成 = 已应用,或按 SkipWhenMissing 策略记账 Skipped(不阻塞 readiness)。
+                var skippedByPolicy = latest is not null
+                                      && latest.Status == SeedStatus.Skipped
+                                      && string.Equals(latest.SeedVersion, seed.SeedVersion, StringComparison.Ordinal);
+                if (!applied && !skippedByPolicy)
+                {
+                    bootstrapReady = false;
+                    reason ??= $"SecretBootstrap 种子 {seed.SeedKey} 尚未完成。";
+                }
+            }
+            else if (seed.RequiredForReadiness && !applied)
+            {
+                requiredSeedReady = false;
+                reason ??= $"RequiredForReadiness 种子 {seed.SeedKey} 未达到期望版本。";
+            }
+        }
+
+        var ready = migrationReady && requiredSeedReady && bootstrapReady;
+        return new ServiceInitializationReadinessV2
+        {
+            ServiceKey = serviceKeyTrimmed,
+            ModuleKey = moduleKeyTrimmed,
+            LogicalDatabaseName = registration.LogicalDatabaseName,
+            PhysicalDatabaseTarget = Mask(registration.PhysicalDatabaseName),
+            DatabaseIdentityFingerprint = DatabaseTopologyFingerprint.ComputeDatabaseIdentityFingerprint(
+                environmentNId,
+                serviceKeyTrimmed,
+                registration.Provider,
+                registration.LogicalDatabaseName,
+                registration.PhysicalDatabaseName,
+                registration.TopologyRevision),
+            ArtifactChecksum = registration.ArtifactChecksum,
+            DesiredMigrationVersion = registration.MigrationVersion,
+            ObservedMigrationVersion = observation?.ObservedVersion,
+            ObservedOn = observation?.ObservedOn,
+            TopologyRevision = registration.TopologyRevision,
+            MigrationReady = migrationReady,
+            RequiredSeedReady = requiredSeedReady,
+            BootstrapReady = bootstrapReady,
+            Seeds = seedStates,
+            Ready = ready,
+            Status = ready ? "Ready" : "NotReady",
+            Reason = ready ? null : reason ?? BuildNotReadyReason(migrationReady),
+            OperationNId = observation?.OperationNId,
+            TraceId = traceId,
+        };
+    }
+
+    private static string BuildNotReadyReason(bool migrationReady) =>
+        migrationReady ? "初始化未完成,请检查种子与 bootstrap 状态。" : "目标数据库未达到期望迁移版本。";
+
+    private static ServiceInitializationReadinessV2 NotReadyV2(string serviceKey, string moduleKey, string reason, string traceId) => new()
+    {
+        ServiceKey = serviceKey,
+        ModuleKey = moduleKey,
+        LogicalDatabaseName = string.Empty,
+        PhysicalDatabaseTarget = "***",
+        DatabaseIdentityFingerprint = string.Empty,
+        ArtifactChecksum = string.Empty,
+        DesiredMigrationVersion = string.Empty,
+        ObservedMigrationVersion = null,
+        ObservedOn = null,
+        TopologyRevision = string.Empty,
+        MigrationReady = false,
+        RequiredSeedReady = false,
+        BootstrapReady = false,
+        Seeds = null,
+        Ready = false,
+        Status = "NotReady",
+        Reason = reason,
+        OperationNId = null,
+        TraceId = traceId,
+    };
+
     private async Task<DatabaseProvisionOperation> GetRequiredOperationAsync(
         string tenantNId,
         string operationNId,
@@ -382,11 +629,12 @@ public sealed class DatabaseOperationService : IOperationService
         Kind = operation.Kind.ToString(),
         EnvironmentNId = operation.EnvironmentNId,
         ServiceKey = operation.ServiceKey,
+        ModuleKey = operation.ModuleKey,
         PlanNId = operation.PlanNId,
         RequestedVersion = operation.RequestedVersion,
         IdempotencyKey = operation.IdempotencyKey,
         Status = operation.Status.ToString(),
-        Phase = operation.Phase.ToString(),
+        Phase = ToV1Phase(operation.Phase),
         Attempt = operation.Attempt,
         LeaseOwner = operation.LeaseOwner,
         QueuedOn = operation.QueuedOn,
@@ -400,10 +648,14 @@ public sealed class DatabaseOperationService : IOperationService
         Steps = operation.Steps.Select(ToStepV1).ToList(),
     };
 
+    /// <summary>v1 线兼容:SchemaMigration 阶段在 v1 契约中映射为 <c>Migrate</c>。</summary>
+    private static string ToV1Phase(OperationPhase phase) =>
+        phase == OperationPhase.SchemaMigration ? "Migrate" : phase.ToString();
+
     private static DatabaseOperationStepV1 ToStepV1(DatabaseOperationStep step) => new()
     {
         Sequence = step.Sequence,
-        Phase = step.Phase.ToString(),
+        Phase = ToV1Phase(step.Phase),
         Status = step.Status.ToString(),
         Attempt = step.Attempt,
         StartedOn = step.StartedOn,

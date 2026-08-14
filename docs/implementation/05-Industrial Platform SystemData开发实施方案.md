@@ -2,13 +2,13 @@
 
 # Industrial Platform SystemData开发实施方案
 
-> 当前里程碑范围：创建 `SystemData.Service`，优先交付数据库编排与环境引导，再交付 SystemData 内部模块的行政组织、岗位、用户任职、菜单导航、功能开关、服务目录、租户默认主题和用户可选主题范围；File、Notification、Audit、Scheduler、PlatformHealth 仅保留未来同宿主模块边界，本阶段不设计或实现其业务能力。
+> 当前里程碑范围：创建 `SystemData.Service`，把已实现的数据库编排基线升级为通用 `Service Initialization Pipeline`，统一迁移、种子、一次性引导与 readiness，再交付 SystemData 内部模块的行政组织、岗位、用户任职、菜单导航、功能开关、服务目录和主题策略；File、Notification、Audit、Scheduler、PlatformHealth 本阶段只定义未来初始化协议，不设计或实现其业务能力。
 
-版本：V1.0
+版本：V1.1
 
-阶段：PF-02 SystemData；前置 Identity 已暂停在 `TASK-ID-007`、PF-01 仅完成设计尚未开发。本方案区分当前可依赖提交、后续稳定契约和待联合验收项，不把未完成契约写成现有实现。
+阶段：PF-02 SystemData；前置 Identity 历史 `TASK-ID-001～016` 与 PF-01 `TASK-PF01-001～007` 已完成，Identity 补强 `TASK-ID-017～023` 尚未开发。本方案区分当前可依赖提交、后续稳定契约和待联合验收项，不把补强设计写成现有实现。
 
-阶段状态：最终轮蓝图与详细设计已获用户批准，十三张九字段任务卡状态为“待派遣”；尚未派遣、开发、构建或测试。除非用户主动明确要求修改代码或执行派遣，否则本阶段只维护蓝图和详细设计。
+阶段管理状态：存量实现已提交、SD-004 已完成待验收。`961cad4` 已实现 TASK-SD-001～002，状态为待验收；并行提交 `61753dc` 已交付 TASK-SD-003 的 migration-only Runner/PG/SQLite adapter/tests；TASK-SD-004 已派遣并完成（ServiceInitialization 握手/NotReady 契约、Runner RequiredSeed/SecretBootstrap、双账本与 13 项门禁测试落地，SystemData 5 项目 242/242 全绿，PostgreSQL 种子账本语义云端 Docker 真实验证 3/3），提交待确认；TASK-SD-005～013 尚未实现。除非用户主动明确要求修改代码或执行派遣，本会话只维护蓝图和详细设计。
 
 模块或服务：
 
@@ -37,14 +37,16 @@ Vue 3 + TypeScript + Pinia + Vue Router + Element Plus
 Vitest + Playwright + xUnit
 ```
 
-数据库初始化与环境引导：
+服务初始化与环境引导：
 
 ```text
-SystemData 自身：PostgreSQL 18 基础设施最小引导 → SystemData 自有显式迁移
-其他服务：registration/query → async dry-run/plan → approval/backup → async provision/apply → Operation status/readiness
-所有权：业务服务自有 Schema、迁移产物与 migration ledger；SystemData 只拥有编排控制面
-禁止：独立 Migrator Service、EnsureCreated、任意 SQL/路径/凭据 API、远程失败回退 SQLite
+SystemData 自身：基础设施最小引导 → 本地 SchemaMigration → 最小 SystemBaseline → API/Runner
+其他服务：Registration → Plan → ProvisionDatabase → ProvisionRoles → Backup → SchemaMigration → RequiredSeed → SecretBootstrap（按需）→ Verify → Healthy
+所有权：各服务/模块自有 Schema、迁移/种子/initializer 产物、schema migration ledger 与 seed ledger；SystemData 只拥有控制面和脱敏 observation
+禁止：独立 Migrator/Seeder Service、EnsureCreated、任意 SQL/路径/命令/凭据 API、SystemData 直写业务 Repository 或接收 Secret 值
 ```
+
+Identity 首个消费者案例（PF-00 已确认）：Identity 将既有 `SchemaMigration → SystemSeed → BootstrapAdmin → Verify` 改写为通用协议实例。权限目录和 `SYSTEM_ADMIN` 属于 `SystemBaseline`，租户安全关系属于 `TenantBaseline`，`ADMIN` 属于 `SecretBootstrap`。Identity 自有 `identity_schema_migrations`、`identity_seed_ledger`、初始化产物和 initializer；initializer 自行解析 Identity Secret Provider，只向 SystemData 回报脱敏 version/checksum/status/TraceId。SystemData 不接收、透传或保存 admin 密码、密码哈希、Token 或 Secret 值。具体临时密码交付、首次改密和恢复规则仍以 Identity 实施 03 的 29A.4 与 TASK-ID-019 为准，本方案不覆盖 PF-00 并行细则。
 
 规格与蓝图依据：
 
@@ -60,7 +62,7 @@ SystemData 自身：PostgreSQL 18 基础设施最小引导 → SystemData 自有
 - `docs/implementation/04-Industrial Platform视觉主题与平台外壳开发实施方案.md`
 - `docs/implementation/TEMPLATE-开发实施方案.md`
 
-设计优先级：蓝图 33 的数据库编排与环境引导为 PF-02 最高优先级输入；蓝图 13、23、31 中把行政组织、制造组织、租户运营或菜单归入 Identity 的旧描述，已被蓝图 05、09、32 和本阶段已确认边界覆盖。
+设计优先级：蓝图 33 V2.0 的 Service Initialization Pipeline 为 PF-02 最高优先级输入；现有数据库编排 API/Operation 保持兼容，迁移、种子、bootstrap 和 readiness 在其上扩展。蓝图 13、23、31 中把行政组织、制造组织、租户运营或菜单归入 Identity 的旧描述，已被蓝图 05、09、32 和本阶段已确认边界覆盖。
 
 ---
 
@@ -74,18 +76,17 @@ SystemData 自身：PostgreSQL 18 基础设施最小引导 → SystemData 自有
 
 ## 1.2 当前输入状态
 
-截至 2026-08-11，实际仓库状态如下：
+截至 2026-08-14，实际仓库状态如下：
 
-- 分支为 `develop`；数据库初始化架构母版提交为 `81adb57764455a1231ac67b480107ac1a2f5e739`。本轮核对时存在不属于 PF-02 的并行未提交改动及未跟踪 `deploy/cloud-dev/**`，本任务只读取其环境意图，不修改、暂存、回退或提交这些文件。
-- 仓库不存在 `SystemData.Service`、SystemData 后端项目、测试项目、数据库、Gateway 路由或前端页面。
-- Gateway 当前只注册 `/identity` 和 `/referencedata`。
-- Identity 的 `TASK-ID-001～006` 已提交；登录、刷新、注销、JWT `sub=UserNId` 以及 `AuthUser(UserNId, TenantNId, RoleNIds, PermissionNIds)` 是当前可见实现。
-- Identity 的 `TASK-ID-007～016` 未开发；策略授权、权限缓存、管理 API、权限注册、集成事件和真实前端接入不是稳定实现。
-- BuildingBlocks `ICurrentUser.UserId` 当前仍为 `Guid?`，与 JWT `sub=UserNId` 不兼容；PF-02 不得把 UserNId 解析为 Guid 或把该偏差伪装为已解决。
-- 前端当前仍使用 `AuthUser.userId/tenantId`、Mock Auth、固定科技蓝 Token、旧 PC 外壳和静态首页菜单。
-- PF-01 已批准目标契约包括 `ThemeStore`、`TenantUiDefaultsSource`、`NavigationGroup`、受控业务标签和通用管理组件，但这些契约尚未实现。
+- 分支为 `develop`，本轮最终核对 HEAD 为 `61753dc`，远端仍为 `961cad4`。`961cad4` 已创建 SystemData 五层项目、Gateway `/systemdata`、拓扑、自迁移和控制面；`61753dc` 进一步提交 migration-only Runner、PG/SQLite adapter 和测试资产。
+- `961cad4` 是代码面与测试资产存在的可验证证据；本设计轮没有重新 build/test，因此 TASK-SD-001～002 只能标记“待验收”，不能仅凭提交标记阶段完成。
+- `61753dc` 的 Runner 阶段仍为 `Validate → Inspect → ProvisionDatabase → ProvisionRoles → Backup → Migrate → Verify`，尚无 RequiredSeed/SecretBootstrap；该提交是兼容实现基线，不等于通用初始化扩展完成。本轮不修改其源码或测试。
+- PF-00 正在并行修改实施 03、蓝图 13/31、总 Todo 和实施索引；其写入本文的 Identity 种子协同结论已吸收为通用协议首个消费者，本任务不覆盖 PF-00 详细规则。
+- PF-00 当前实施 03 WIP 仍含“admin 临时密码由 SystemData 内存透传一次”的旧句；该句与本轮已批准的“SystemData 不接收/透传 Secret 值”冲突，不能视为稳定契约，必须由 PF-00 会话改为 Identity 自有一次性领取/交付边界。本任务只登记冲突，不修改实施 03。
+- Identity 历史 `TASK-ID-001～016` 与 PF-01 `TASK-PF01-001～007` 已由提交 `48c5374` 完成；Identity 补强 `TASK-ID-017～023` 仅设计确认、尚未开发。
+- BuildingBlocks `ICurrentUser.UserNId : string?`、真实 `HttpAuthGateway`、PermissionGate 和 PF-01 平台壳已存在；本文旧有 Guid/Mock/PF-01 未实现阻塞描述不再作为当前事实。
 - `ReferenceData.Service` 只有现有四层骨架；SystemData 不接管字典、系统参数、元数据、动态属性或编码规则。
-- 蓝图 33 已把数据库编排与环境引导明确纳入 PF-02：SystemData 提供注册/查询、异步计划与执行、Operation 状态；业务服务仍拥有自身 Schema 和迁移产物。
+- 蓝图 33 V2.0 已把数据库编排提升为通用 Service Initialization Pipeline：SystemData 统一控制迁移、种子、bootstrap 与 readiness，业务服务/模块仍拥有内容和双账本。
 - `docs/implementation/15-Industrial Platform MasterData Service开发实施方案.md` 当前已由 `a35ff32` 提交；无论其提交状态如何，PF-02 都不得修改、暂存、回退或重写该文件。
 
 本轮只编写设计文档，没有执行构建、测试或环境联调。03、04、CLAUDE.md 中的测试数字均为历史输入，不是本轮证据。
@@ -94,25 +95,27 @@ SystemData 自身：PostgreSQL 18 基础设施最小引导 → SystemData 自有
 
 | 级别 | 可依赖内容 | PF-02 行为 |
 | --- | --- | --- |
-| 当前已提交 | JWT `sub/user_name/tenant_id/role/sid/ver`、AuthUser NId DTO、统一信封、Entity、SqlSugar、Redis、EventBus、Gateway 基线 | 可作为代码基线，但必须正视 `ICurrentUser` 类型偏差 |
-| 当前已提交 | 蓝图 33 的数据库编排边界、PostgreSQL 18 最小引导原则、生产审批/备份门禁 | 作为 PF-02 高优先级设计输入；不代表 SystemData 编排实现或云开发脚本已完成 |
-| 后续稳定契约 | Identity 权限策略、权限清单注册、用户目录查询、用户/权限变化事件、前端真实 AuthUser；PF-01 主题与外壳端口 | 在 Contracts、端口和契约测试中明确，真实适配和联合验收等待前置任务 |
-| 不可依赖 | 未实现的 Identity 管理 API/Outbox 事件、PF-01 组件代码、未来 Audit/File/Notification/Scheduler/PlatformHealth | 不得按现有实现调用或写成已完成 |
+| 当前已提交 | `961cad4` 的 SystemData 骨架、拓扑、自迁移、registration/plan/approval/backup/Operation 控制面和测试资产 | 可继续兼容扩展；因本轮未重跑，只能作为已实现/待验收基线 |
+| 当前已提交 | `48c5374` 的 Identity/PF-01 稳定实现、字符串 UserNId 上下文、真实前端认证与平台壳 | 可作为现有契约；补强 TASK-ID-017～023 仍不得假定已实现 |
+| 当前已提交 | `61753dc` 的 TASK-SD-003 migration-only Runner、PG/SQLite adapter、store/DI/config/tests | 作为兼容子流程；本轮未重跑，RequiredSeed/SecretBootstrap 扩展仍待派遣 |
+| 后续稳定契约 | InitializationManifest/SeedSets、initializer adapter、SeedObservation、双账本 readiness 与 Identity bootstrap 细则 | 在 Contracts、端口和契约测试中冻结，真实实现/联合验收等待执行任务 |
+| 不可依赖 | `61753dc` 尚未包含的 RequiredSeed/SecretBootstrap/双账本扩展，以及未来 Audit/File/Notification/Scheduler/PlatformHealth 业务实现 | 不得写成已完成或越界直读其 Repository/账本 |
 
 ## 1.4 执行前置
 
 ```text
 PostgreSQL 18 基础设施最小引导（稳定逻辑 `systemdata_db`：Shared Development 物理创建 `industrial_platform_dev` 并运行 `system_data_schema_migrations`；PerService 物理创建 `systemdata_db`，以及最小角色授权）
-                         → SystemData 自有迁移产物建立控制面 Schema
-                         → 数据库编排注册/计划/审批/备份/异步执行/状态查询
-                         → 其他服务数据库与自有迁移产物接入，NotReady 门禁
+                         → SystemData 本地 SchemaMigration + 最小 SystemBaseline 建立控制面
+                         → Registration/Plan/Approval/Backup/Operation（961cad4 已实现，待验收）
+                         → Runner 扩展 SchemaMigration/RequiredSeed/SecretBootstrap/Verify
+                         → 其他服务/模块以 InitializationManifest、双账本和 NotReady 接入
 
 BuildingBlocks / 可运行基线 / 统一前端第一批（历史已完成）
                          ↓
 PF-02 后端隔离设计与实现任务
                          ↓
-PF-00 TASK-ID-007～011 稳定授权、用户目录和前端身份契约
-PF-01 TASK-PF01-001～004 稳定主题、外壳、导航和管理组件
+PF-00/PF-01 历史稳定契约（已实现）
+PF-00 TASK-ID-017～023 补强契约（仅相关联合验收依赖）
                          ↓
 PF-02 真实 Identity/PF-01 适配、页面与联合验收
                          ↓
@@ -125,7 +128,8 @@ PF-03 / PF-04 消费 SystemData 稳定契约
 
 ## 2.1 负责
 
-- 数据库编排与环境引导：服务注册/查询、dry-run/plan、审批与备份证据、异步 provision/apply、Operation 状态、幂等和 readiness 查询。
+- 通用服务初始化编排：registration/query、dry-run/plan、审批与备份、provision、SchemaMigration、RequiredSeed、按需 SecretBootstrap、Operation、幂等和 readiness。
+- InitializationManifest/SeedSets 元数据校验、环境门禁、受控 initializer 调度和脱敏 migration/seed/bootstrap observation。
 - 行政组织树：公司、部门、科室、班组。
 - 岗位实例及其行政组织归属。
 - Identity 用户与岗位之间的时间化任职关系和主任职。
@@ -145,7 +149,8 @@ PF-03 / PF-04 消费 SystemData 稳定契约
 | 用户账号、密码、角色、权限分配、令牌、会话、SSO | Identity |
 | 租户开通、停用、套餐、订阅、配额、计费 | 未来 Tenant/运营能力 |
 | 业务服务 Schema 定义、迁移代码/Bundle、迁移兼容性和回退策略 | 各业务服务自身 |
-| 独立 Migrator Service、任意 SQL 执行平台、Secret 管理产品 | 不创建；分别使用 SystemData 内部 Runner、签名迁移产物和既有 Secret Provider |
+| 业务种子内容、initializer、schema/seed 双账本和管理员维护数据 | 各业务服务/模块自身 |
+| 独立 Migrator/Seeder Service、任意 SQL 执行平台、Secret 管理产品 | 不创建；分别使用 SystemData 内部 Runner、签名初始化产物和服务自有 Secret Provider |
 | 文件隔离扫描、通知收件箱、统一审计事实源 | PF-04 的 File/Notification/Audit 模块 |
 | 任务调度和平台健康聚合 | PF-07 的 Scheduler/PlatformHealth 模块 |
 | 物料、设备、库存或 MES 业务权限 | 对应业务模块 |
@@ -166,10 +171,13 @@ PF-03 / PF-04 消费 SystemData 稳定契约
 11. 模块声明版本化权限清单，Identity 幂等注册；SystemData 不直接写 Identity 数据库。
 12. 菜单使用草稿与不可变发布快照，显式发布、原子切换并保留上一版本回滚。
 13. SystemData 返回带 PermissionNId 的候选导航，前端与当前 AuthUser 权限求交集；目标 API 仍独立授权。
-14. 数据库编排采用注册/查询、异步 plan、异步 apply 和 Operation 状态模型；业务服务拥有自己的 Schema 与不可变迁移产物。
+14. Service Initialization Pipeline 采用注册/查询、异步 plan/apply 和 Operation 状态模型；业务服务/模块拥有自己的 Schema、迁移/种子/initializer 产物和双账本。
 15. 生产环境必须按 `plan → 审批 → 备份证据 → apply → verify` 执行；计划过期、目标漂移或证据不匹配时拒绝执行。
 16. `systemdata_db` 始终是稳定逻辑身份；Shared Development 的基础设施只物理创建 `industrial_platform_dev` 并在其中运行 `system_data_schema_migrations`，PerService 才物理创建 `systemdata_db` 作为唯一引导例外。SystemData 使用自有迁移产物建立控制面；不得循环调用自身编排 API。
-17. 不创建独立 Migrator Service，不使用 `EnsureCreated`，不允许 API 提交任意 SQL、任意迁移路径、服务器地址或凭据。
+17. 不创建独立 Migrator/Seeder Service，不使用 `EnsureCreated`，不允许 API 提交任意 SQL、路径、命令、服务器地址或凭据。
+18. `ModuleKey` 强制存在；同宿主模块必须独立表前缀、SeedKey/checksum 范围、`<module>_schema_migrations` 与 `<module>_seed_ledger`。
+19. 四类种子固定为 SystemBaseline、TenantBaseline、EnvironmentSample、SecretBootstrap；普通业务创建用户的初始密码不属于种子。
+20. SystemData 只传非敏感 Operation/目标/租户/期望版本上下文；服务 initializer 自行解析 Secret Provider，SystemData 不接收或透传 Secret 值。
 18. 数据库拓扑由受信任环境 `DatabaseTopologyOptions` 决定：`Mode`、`SharedDatabaseName`、`SharedSqliteFile`、`ServiceDatabases`；清单只保留稳定逻辑 `DatabaseName`，SystemData 将其解析为 `ResolvedDatabaseTarget(EnvironmentName, Mode, ServiceKey, Provider, LogicalDatabaseName, PhysicalDatabaseName, IsSharedPhysicalDatabase)`。
 19. 拒绝调用方提供物理目标、未知 Mode、非法名称、缺少映射以及 Development 之外的 Shared；已有数据的拓扑变化是 drift，绝不隐式 copy、rename、merge 或 split。
 
@@ -184,7 +192,7 @@ PostgreSQL 18 最小引导
     ↓
 SystemData 自有迁移 + 数据库注册/Plan/Operation/Runner/NotReady
     ↓
-数据库编排十项拓扑门禁验收
+服务初始化十三项门禁验收
     ↓
 SystemData 其他领域与迁移
     ↓
@@ -205,7 +213,7 @@ PF-02 阶段验收
 
 - SystemData 只保存 `UserNId`、`PermissionNId` 等跨服务稳定标识和必要显示快照，不保存 Identity 数据库 Guid，不建跨库外键。
 - 菜单是导航，不是授权；前端隐藏、终端可见性和功能开关均不能替代目标 API 的权限校验。
-- PF-01 未开发前，后端和前端适配器只按实施 04 已批准契约设计；不得声称组件已存在。
+- PF-01 平台壳与真实 Identity 前端契约已由 `48c5374` 实现；PF-02 适配必须消费其公开端口，不复制或重构内部实现。
 - Identity 不可用时不得新增或发布无法验证权限绑定的菜单，但现有已发布导航可以按降级规则继续服务。
 - PF-04 Audit 稳定前，SystemData 在自身事务内写本地追加审计与 Outbox；后续通过公开事件接入统一 Audit，不直写 Audit 表。
 
@@ -330,7 +338,7 @@ Contracts → 无项目引用
 - 稳定逻辑数据库身份固定为 `systemdata_db`；本模块表前缀固定为 `system_data_`；迁移账本为 `system_data_schema_migrations`，并在解析后的 SystemData 物理目标运行。
 - SystemData 自身数据库由 PostgreSQL 18 基础设施执行最小引导，随后由 SystemData 自有 migration runner 应用版本化迁移；控制 API 只编排其他服务数据库，禁止自举循环。
 - 所有环境禁止 `EnsureCreated`、运行时自动建删 Schema 和未版本化 Code First DDL；SQLite 本地替身也执行显式迁移。
-- 不创建独立 Migrator Service。数据库编排 Runner 是 `SystemData.Service` 内部托管组件，可与 API 同进程或使用同一宿主镜像独立副本运行，但不形成新的服务所有权边界。
+- 不创建独立 Migrator/Seeder Service。初始化 Runner 是 `SystemData.Service` 内部托管组件，可与 API 同进程或使用同一宿主镜像的一次性隔离任务运行，但不形成新的服务所有权边界。
 - 后续 File/Notification/Audit/Scheduler/PlatformHealth 必须使用自己的表前缀和迁移账本，不复用 `system_data_`。
 - 内部主键使用 `Guid`；领域与跨服务稳定身份使用 `NId`。
 - NId 去除首尾空格，长度 1～128，匹配 `^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$`，保存规范化比较值，创建后不可修改。
@@ -388,7 +396,7 @@ RoleNIds       = JWT role[]
 
 # 7. 领域模型详细设计
 
-## 7.1 数据库编排与环境引导
+## 7.1 Service Initialization Pipeline 与环境引导
 
 拓扑规则补充（以蓝图 33 为准）：`DatabaseTopologyOptions` 为可信环境配置，包含 `Mode`、`SharedDatabaseName`、`SharedSqliteFile`、`ServiceDatabases`。服务清单始终登记稳定逻辑 `DatabaseName`；SystemData 在运行时解析 `ResolvedDatabaseTarget` 的 `EnvironmentName`、`Mode`、`ServiceKey`、`Provider`、`LogicalDatabaseName`、`PhysicalDatabaseName` 与 `IsSharedPhysicalDatabase`。API 不接受物理目标、路径、地址或凭据；未知模式、非法名称、缺失 shared target/mapping 和非 Development Shared 一律拒绝且不作静默回退。
 
@@ -402,37 +410,44 @@ PostgreSQL 18 基础设施
   → 创建并最小授权 systemdata_owner / systemdata_migrator / systemdata_runtime
   → 将对应 Secret 写入受控 Secret Provider
   → SystemData 自有 migration runner 校验数据库身份并应用签名迁移产物
+  → SystemData 本地执行最小 SystemBaseline 并写 system_data_seed_ledger
   → SystemData readiness 成功
-  → 开放对其他服务的 DatabaseOrchestration API
+  → 开放对其他服务的 ServiceInitialization API/Runner
 ```
 
 - 基础设施只负责数据库、角色和最小 grant，不创建 `system_data_*` 业务表。
-- SystemData 自有 migration runner 只消费随服务发布、checksum 可验证的迁移产物；不得调用控制 API、`EnsureCreated` 或任意 SQL 管理端点。
-- SystemData 自身登记为 `ServiceKey=systemdata`、`Provider=PostgreSQL`、`DatabaseName=systemdata_db`、`MigrationAssembly=IndustrialPlatform.SystemData.Infrastructure`，但 `AutoProvision=false`、`AutoMigrate=false`，仅供查询和审计观察。
+- SystemData 自有本地 runner 只消费随服务发布、checksum 可验证的迁移/SystemBaseline 产物；复用通用 version/checksum/双账本语义，但不得调用控制 API、`EnsureCreated` 或任意 SQL 管理端点。
+- SystemData 自身登记为 `ServiceKey=systemdata`、`ModuleKey=systemdata`、`Provider=PostgreSQL`、`DatabaseName=systemdata_db`、`MigrationArtifactId=IndustrialPlatform.SystemData.Infrastructure`，但 `AutoProvision=false`、`AutoMigrate=false`，仅供查询和审计观察。
 - Shared Development 时，基础设施只物理创建一次 `industrial_platform_dev`；SystemData 在其中运行 `system_data_schema_migrations`。PerService 时物理创建 `systemdata_db`，这是唯一的基础设施自举例外。
 - 当前未跟踪的 `deploy/cloud-dev/**` 只作为环境脚本意图输入；后续执行必须先核对、保留并与其所有者协调，不得由 PF-02 覆盖现有并行改动。
 
 ### 7.1.2 注册清单与环境策略
 
-`DatabaseRegistrationManifestV1` 由服务所有者发布，SystemData 校验并保存版本化注册：
+`ServiceInitializationManifestV1` 由服务/模块所有者发布，SystemData 校验并保存版本化注册。现有 `DatabaseRegistrationManifestV1` 作为无 SeedSets 的兼容输入保留：
 
 ```text
 TenantNId / EnvironmentNId
-ServiceKey / Provider = PostgreSQL
+ServiceKey / ModuleKey / Provider = PostgreSQL | SQLite
 DatabaseName
-MigrationAssembly or MigrationBundleId
-MigrationVersion / ArtifactChecksum / ArtifactSignature
+MigrationArtifactId / MigrationVersion / MigrationChecksum / MigrationSignature
 OwnerNId / DesiredState
 RequiredRoles = Migrator | Runtime
 AutoProvision / AutoMigrate
 CompatibilityMode = ExpandContract
 BackupPolicyNId / RecoveryMetadata
 ManifestVersion / ManifestChecksum
+SeedSets[] {
+  SeedKey / SeedVersion / SeedClass / Scope
+  SeedArtifactId / SeedChecksum / SeedSignature
+  RequiredForReadiness / AllowedEnvironments
+  DependsOnMigrationVersion / DependsOnSeedKeys
+  BootstrapPolicy
+}
 ```
 
-- `ServiceKey`、环境和租户共同确定注册身份；同一版本同 checksum 幂等，不同内容冲突。
-- 业务服务拥有 Schema、迁移源码、Bundle、版本兼容性和恢复说明；SystemData 只验证允许列表、签名/checksum、环境策略并执行。
-- 清单不得包含服务器地址、管理员连接串、密码、任意角色名、SQL 或文件系统路径。数据库名、角色名由可信规则从环境和 ServiceKey 派生并二次校验。
+- `ServiceKey + ModuleKey`、环境、租户和 Scope 共同确定初始化身份；同版本同 checksum 幂等，不同内容 drift。
+- 业务服务/模块拥有 Schema、迁移/种子内容、initializer Bundle、版本兼容性和恢复说明；SystemData 只验证 allowlist、签名/checksum、依赖和环境策略并调度。
+- 清单、API 和控制表不得包含种子实际内容、服务器地址、管理员连接串、密码、Token、密码哈希、Secret、任意角色名、SQL、路径或命令。
 - 注册保留逻辑身份、解析后物理身份、拓扑 Mode/revision、Manifest/Artifact checksum 与 desired version；逻辑名不随物理部署拓扑改变。
 - Shared SQLite 是 Development 默认；PerService SQLite 仅为显式验证模式。远程模式开启后，SystemData/目标 PostgreSQL 不可用时禁止静默回退 SQLite。
 
@@ -456,6 +471,17 @@ ManifestVersion / ManifestChecksum
 
 `Local` 只是使用 SQLite Provider 的 Development profile，仍由同一 `DatabaseTopology` 解析，不是第五种环境或另一套拓扑语义。
 
+四类 SeedSet：
+
+| SeedClass | 内容边界 | readiness/环境 |
+| --- | --- | --- |
+| `SystemBaseline` | 权限码、系统角色、内置状态、驱动类型等平台必需目录 | 默认 RequiredForReadiness |
+| `TenantBaseline` | 租户默认配置、分类、策略 | manifest 决定是否 RequiredForReadiness |
+| `EnvironmentSample` | Development/Test 样例 | 必须显式启用；Staging/Production 拒绝 |
+| `SecretBootstrap` | Identity admin 等一次性敏感引导 | 环境策略显式允许；缺 Secret 时失败并 NotReady |
+
+普通业务运行时创建用户所使用的初始密码不是种子，不得通过初始化管道替代业务用例。
+
 ### 7.1.3 Plan、审批与备份证据
 
 Plan 本身是异步操作：`POST /plans` 返回 `202 + OperationId`，Runner 检查目标数据库身份、当前迁移版本、角色/grant、待执行产物和环境策略，成功后生成不可变 `DatabaseProvisionPlan`：
@@ -463,6 +489,7 @@ Plan 本身是异步操作：`POST /plans` 返回 `202 + OperationId`，Runner �
 ```text
 PlanNId / TenantNId / EnvironmentNId / ServiceKey
 RequestedMigrationVersion / CurrentMigrationVersion
+RequestedSeedVersions[] / CurrentSeedObservations[]
 TargetStateFingerprint / PlanChecksum
 Steps[] / RiskLevel / DestructiveChangeDetected
 RequiredApprovalPolicy / RequiredBackupPolicy
@@ -470,7 +497,7 @@ CreatedOn / ExpiresOn（默认 30 分钟）
 ```
 
 - 每一步包含稳定 StepKind、顺序、输入摘要、前置/后置条件和风险，不返回 Secret、原始连接串或完整 SQL。
-- apply 必须重新 inspect；目标状态指纹、清单版本、迁移产物 checksum 或环境策略变化均视为 drift，返回冲突并要求重新 plan。
+- apply 必须重新 inspect；目标状态指纹、清单版本、迁移/种子产物 checksum、依赖图或环境策略变化均视为 drift，返回冲突并要求重新 plan。
 - 已有数据的拓扑 Mode、物理映射或 revision 变化同样是 drift；不得自动复制、重命名、合并或拆分数据库。
 - `DatabaseApproval` 记录审批人、权限、理由、时间，并绑定 PlanNId、PlanChecksum、EnvironmentNId 和目标指纹。
 - `DatabaseBackupEvidence` 记录备份提供者、备份标识、完成时间、验证状态、保留策略和目标指纹，不保存备份凭据。生产 apply 只接受未过期、已验证且与计划完全匹配的证据。
@@ -484,28 +511,46 @@ OperationId / OperationNId / Kind = Plan | Apply
 TenantNId / EnvironmentNId / ServiceKey / PlanNId
 RequestedVersion / IdempotencyKey / RequestHash
 Status = Queued | Running | Succeeded | Failed | Cancelled | TimedOut
-Phase = Validate | Inspect | ProvisionDatabase | ProvisionRoles | Backup | Migrate | Verify
+Phase = Validate | Inspect | ProvisionDatabase | ProvisionRoles | Backup | SchemaMigration | RequiredSeed | SecretBootstrap | Verify
 Attempt / LeaseOwner / LeaseExpiresOn / HeartbeatOn
 QueuedOn / StartedOn / CompletedOn / TimeoutOn
 SanitizedErrorCode / SanitizedErrorSummary / TraceId
 ```
 
 - API 只入队并返回 `202`；Runner 使用数据库可靠队列与 `FOR UPDATE SKIP LOCKED` 领取操作，不引入独立消息消费者服务。
+- `961cad4`/当前 WIP 的 `OperationPhase.Migrate` 在 v1 兼容层映射为 `SchemaMigration`；持久化值不得原位破坏，新增阶段须用显式兼容映射和迁移测试。
 - Shared provision 按 PhysicalDatabaseName 去重；迁移和 readiness 始终按 ServiceKey 独立执行与报告，因此一个服务失败只令该服务 NotReady。
 - 推荐 Runner lease 60 秒、heartbeat 15 秒、poll 2 秒；plan 默认超时 2 分钟，apply 默认 30 分钟，均由环境策略限定范围。
 - 同一 `Idempotency-Key + RequestHash` 返回原 Operation；同 Key 不同请求返回 409。每个步骤单独记录 attempt、起止时间、结果和脱敏诊断。
-- 只对迁移前可证明幂等的瞬时失败最多自动重试 3 次；迁移失败不得盲重试，除非迁移产物声明可恢复且重新 inspect 证明安全。
+- SchemaMigration、RequiredSeed 与 SecretBootstrap 分别建立可验证恢复边界；失败只从本地账本证明安全的边界重试，已成功步骤不重做。迁移或 initializer 失败不得盲重试。
 - 取消只允许 Queued 或安全阶段边界；不得中断正在提交的迁移事务。超时后释放 lease 前先检查数据库会话与实际版本，避免双执行。
 
 ### 7.1.5 锁、权限、Secret 与目标角色
 
-- provision/migrate/verify 关键区对 `EnvironmentNId + Provider + PhysicalDatabaseName` 获取 PostgreSQL advisory lock；多副本并发时只有一个同物理目标 Operation 可进入，锁等待仍受 Operation 超时控制。
+- provision/migration/seed/bootstrap/verify 关键区对物理目标获取 advisory lock，并叠加 ModuleKey/Scope 与本地账本幂等；多副本并发时同一初始化身份只执行一次。
 - `provision admin` 只负责创建数据库/角色/grant；每服务 `migrator` 仅可在自身数据库/Schema 执行所需 DDL；`runtime` 仅获必需 DML。SystemData 普通运行连接不得拥有创建数据库或角色权限。
 - provision admin Secret 只从环境变量、容器/Kubernetes Secret 或既有 Secret Provider 临时解析；控制面只保存 SecretRef、版本或 fingerprint，不保存值。
 - 新生成的目标 runtime/migrator Secret 直接写入配置的 Secret Sink；API 只返回 credential version/fingerprint。日志、Trace、审计、异常、事件、数据库快照和测试夹具均执行敏感信息扫描。
-- 迁移产物从可信 Artifact Registry 按不可变标识获取，执行前验证 checksum/签名；进程启动使用参数数组且禁止 Shell 插值，限制工作目录、网络、执行身份、时限和输出大小。
+- migration/seed/initializer 产物从可信 Artifact Registry 按不可变标识获取，执行前验证 allowlist、checksum/签名；可支持简单签名 SQL seed bundle 与服务自有 initializer bundle，但禁止 API 传任意 SQL/路径/命令。Runner 以受控一次性隔离任务/适配器执行，只传非敏感上下文。
+- 服务 initializer 自行解析本服务 Secret Provider，只回报脱敏 version/checksum/status/TraceId；SystemData 不接收或透传 Secret 值。
 
-### 7.1.6 服务启动握手与 NotReady
+### 7.1.6 双账本、SeedObservation 与数据保护
+
+每个 ServiceKey/ModuleKey 分别拥有 `<module>_schema_migrations` 与 `<module>_seed_ledger`。共享宿主内 SystemData、File、Audit、Scheduler 等模块必须使用独立账本范围、表前缀、SeedKey/checksum 和锁键，禁止宿主级初始化大包。
+
+seed ledger 最少记录：
+
+```text
+TenantNId / ModuleKey / SeedKey / SeedVersion / Checksum / Scope
+Status / AppliedOn / OperationNId / TraceId
+```
+
+- 本地账本是权威；SystemData 只保存 `SeedObservation` 和初始化摘要，不跨库直读。
+- 相同 key/scope/version/checksum 重跑幂等成功；同版本不同 checksum 为 drift 并拒绝。
+- 版本升级新增 ledger 版本；失败只从可验证边界继续，不静默覆盖成功记录。
+- 种子不得覆盖管理员维护数据。删除或修正必须使用显式 `DataPatch`，并在 plan 中列出风险、影响范围、备份与恢复说明。
+
+### 7.1.7 服务启动握手与 NotReady
 
 其他业务服务启动时必须：
 
@@ -513,13 +558,13 @@ SanitizedErrorCode / SanitizedErrorSummary / TraceId
 注册/查询 desired state
   → 请求或获取 Plan/Apply Operation
   → 轮询/观察 Operation
-  → 使用自身 runtime Secret 验证 database identity + migration version
+  → 使用自身 runtime Secret 验证 database identity + migration version + required seed ledger + bootstrap status
   → exact desired state 才 Ready
 ```
 
 - liveness 只证明进程活着；数据库未就绪、SystemData 不可达、迁移失败或版本不匹配时 readiness 返回 503 `NotReady`，包含脱敏原因、OperationId 和 TraceId，不泄露地址/凭据。
 - 远程环境不得在失败时启动在 SQLite、旧 Schema 或错误数据库上；写流量在 readiness 成功前不得进入。
-- PF-02 提供共享注册/readiness 契约和测试 fixture，供 PF-03+ 采用；具体业务服务仍负责在自身宿主接入，不由 SystemData 代写其业务代码。
+- PF-02 提供共享 InitializationManifest/Operation/readiness 契约和测试 fixture，供 PF-03+ 采用；具体业务服务仍负责在自身宿主接入，不由 SystemData 代写其业务代码。
 - fixture 必须覆盖 Shared/PerService SQLite 与 PostgreSQL；不得通过业务 API 创建数据库或用 `EnsureCreated` 绕过显式迁移。
 - `DatabaseReadinessV1` 只绑定 `ServiceKey`、`LogicalDatabaseName`、脱敏 `PhysicalDatabaseTarget/Fingerprint`、`ArtifactChecksum`、`DesiredVersion`、`ObservedVersion` 和 `TopologyRevision`；不得包含连接串、SQLite 路径或任何凭据。
 
@@ -844,14 +889,17 @@ PcDensity = comfortable | compact
 | 表 | 主要业务字段 | 关键约束/索引 |
 | --- | --- | --- |
 | `system_data_database_environment_policy` | TenantNId、EnvironmentNId、EnvironmentKind、ApprovalRequired、BackupRequired、PlanTtlSeconds、Plan/ApplyTimeoutSeconds、MaxPreMigrationRetries、PolicyRevision | Tenant+Environment唯一；生产强制审批与备份检查 |
-| `system_data_database_registration` | TenantNId、EnvironmentNId、ServiceKey、Provider、LogicalDatabaseName、PhysicalDatabaseName、IsSharedPhysicalDatabase、TopologyMode/Revision、MigrationArtifactId、MigrationVersion、ArtifactChecksum/Signature、OwnerNId、DesiredState、AutoProvision/AutoMigrate、ManifestVersion/Checksum、Status | Tenant+Environment+ServiceKey唯一；逻辑/物理身份、拓扑 revision 与产物不可变身份索引 |
-| `system_data_database_plan` | TenantNId、PlanNId、EnvironmentNId、ServiceKey、Requested/CurrentVersion、TargetStateFingerprint、PlanChecksum、RiskLevel、DestructiveChangeDetected、RequiredPolicies、ExpiresOn | PlanNId唯一；checksum唯一；过期索引；成功后不可变 |
+| `system_data_database_registration` | TenantNId、EnvironmentNId、ServiceKey、ModuleKey、Provider、LogicalDatabaseName、PhysicalDatabaseName、IsSharedPhysicalDatabase、TopologyMode/Revision、MigrationArtifactId/Version/Checksum/Signature、OwnerNId、DesiredState、AutoProvision/AutoMigrate、ManifestVersion/Checksum、Status | Tenant+Environment+Service+Module唯一；保留现有表名兼容数据库控制面 |
+| `system_data_initialization_seed_set` | Registration父引用、ModuleKey、SeedKey、SeedVersion、SeedClass、Scope、ArtifactId/Checksum/Signature、RequiredForReadiness、AllowedEnvironments、DependsOnMigrationVersion、DependsOnSeedKeys、BootstrapPolicy | Registration+Module+SeedKey+Scope+Version唯一；只存元数据，不存内容/Secret |
+| `system_data_database_plan` | TenantNId、PlanNId、EnvironmentNId、ServiceKey、ModuleKey、Requested/CurrentMigrationVersion、RequestedSeedVersions、CurrentSeedObservation摘要、TargetStateFingerprint、PlanChecksum、RiskLevel、DestructiveChangeDetected、RequiredPolicies、ExpiresOn | PlanNId唯一；checksum唯一；过期索引；成功后不可变 |
 | `system_data_database_plan_step` | Plan父引用、Sequence、StepKind、InputSummary、PreconditionSummary、PostconditionSummary、RiskLevel | Plan+Sequence唯一；不可变；不保存 SQL/Secret |
 | `system_data_database_approval` | TenantNId、ApprovalNId、PlanNId、PlanChecksum、TargetStateFingerprint、ApprovedByUserNId、Reason、ApprovedOn、ExpiresOn | Plan+审批策略唯一；证据绑定索引；只追加 |
 | `system_data_database_backup_evidence` | TenantNId、EvidenceNId、PlanNId、PlanChecksum、TargetStateFingerprint、Provider、BackupReference、CompletedOn、VerifiedOn、RetentionUntil、Status | Plan+证据唯一；不得保存访问 Secret |
-| `system_data_database_operation` | TenantNId、OperationNId、Kind、EnvironmentNId、ServiceKey、PlanNId、RequestedVersion、IdempotencyKey、RequestHash、Status、Phase、Attempt、LeaseOwner/Expiry、HeartbeatOn、TimeoutOn、SanitizedError、TraceId | OperationNId唯一；Tenant+IdempotencyKey唯一；状态/lease/队列索引 |
+| `system_data_database_operation` | TenantNId、OperationNId、Kind、EnvironmentNId、ServiceKey、ModuleKey、PlanNId、RequestedMigration/SeedVersions、IdempotencyKey、RequestHash、Status、Phase、Attempt、LeaseOwner/Expiry、HeartbeatOn、TimeoutOn、SanitizedError、TraceId | OperationNId唯一；Tenant+IdempotencyKey唯一；状态/lease/队列索引；保留现有表名 |
 | `system_data_database_operation_step` | Operation父引用、Sequence、Phase、Attempt、Status、StartedOn、CompletedOn、SanitizedError | Operation+Sequence+Attempt唯一；只追加诊断 |
 | `system_data_database_migration_observation` | TenantNId、EnvironmentNId、ServiceKey、DatabaseIdentityFingerprint、ObservedVersion、ArtifactChecksum、ObservedOn、OperationNId、VerificationStatus | Tenant+Environment+Service+ObservedOn索引；不替代服务自有迁移账本 |
+| `system_data_seed_observation` | TenantNId、EnvironmentNId、ServiceKey、ModuleKey、SeedKey、SeedVersion、SeedClass、Scope、Checksum、Status、ObservedOn、OperationNId、TraceId | 只保存脱敏观察；不替代 `<module>_seed_ledger`，不含内容/Secret |
+| `system_data_seed_ledger` | TenantNId、ModuleKey、SeedKey、SeedVersion、Checksum、Scope、Status、AppliedOn、OperationNId、TraceId | SystemData 自身本地权威账本；相同版本同 checksum 幂等，不同 checksum drift |
 | `system_data_organization` | TenantNId、NId、NormalizedNId、Name、Type、ParentOrganizationNId、ParentOrganization_Id/IsDeleted、DisplayOrder、Status | Tenant+NormalizedNId全历史唯一；同父活动名称唯一；父复合外键；Tenant+Parent+Status+Order索引 |
 | `system_data_position` | TenantNId、NId、NormalizedNId、OrganizationNId、Organization_Id/IsDeleted、Name、Description、DisplayOrder、Status | Tenant+NormalizedNId全历史唯一；同组织活动名称唯一；组织复合外键 |
 | `system_data_user_assignment` | TenantNId、NId、NormalizedNId、UserNId、UserDisplayNameSnapshot、OrganizationNId、PositionNId、Position_Id/IsDeleted、IsPrimary、EffectiveFrom/To、State、CancelledOn、CancelReason | Tenant+NormalizedNId唯一；区间检查；User+time、Position+time索引；Position复合外键 |
@@ -896,24 +944,26 @@ Gateway：/systemdata/**
 
 Gateway 使用 `PathRemovePrefix=/systemdata`。所有运行端点要求已认证租户上下文；管理端点另要求 PermissionNId。GET 支持 `ETag`/`If-None-Match`，敏感用户目录响应使用 `Cache-Control: no-store`。
 
-## 9.2 数据库编排 API
+## 9.2 Service Initialization API
+
+`961cad4` 已提交的 `/api/v1/database-orchestration/**` 作为 migration-only v1 兼容面保留；当 registration 不含 SeedSets/SecretBootstrap 时可继续工作。通用协议使用 `/api/v1/service-initialization/**`，复用同一底层 Plan/Operation 身份，禁止同一请求在两套控制面重复执行。
 
 | Method | 内部路径 | 权限/主体 | 用途 |
 | --- | --- | --- | --- |
-| PUT | `/api/v1/database-orchestration/registrations/{serviceKey}` | 可信服务身份或 `systemdata.database-orchestration.register` | 幂等注册版本化清单 |
-| GET | `/api/v1/database-orchestration/registrations` | `systemdata.database-orchestration.view` | 按环境、服务、状态查询 |
-| GET | `/api/v1/database-orchestration/registrations/{serviceKey}` | 可信服务身份或 view | 查询 desired/current 摘要 |
-| POST | `/api/v1/database-orchestration/plans` | `systemdata.database-orchestration.plan` | 返回 202 和 Plan Operation |
-| GET | `/api/v1/database-orchestration/plans/{planNId}` | view | 查询不可变计划与门禁状态 |
-| POST | `/api/v1/database-orchestration/plans/{planNId}/approvals` | `systemdata.database-orchestration.approve` | 记录绑定计划的审批证据 |
-| POST | `/api/v1/database-orchestration/plans/{planNId}/backup-evidence` | `systemdata.database-orchestration.backup` | 登记并验证备份证据 |
-| POST | `/api/v1/database-orchestration/operations/apply` | `systemdata.database-orchestration.apply` | 返回 202 和 Apply Operation |
-| GET | `/api/v1/database-orchestration/operations/{operationNId}` | 可信服务身份或 view | 查询状态、阶段和脱敏错误 |
-| GET | `/api/v1/database-orchestration/operations` | view | 管理检索 |
-| POST | `/api/v1/database-orchestration/operations/{operationNId}/cancel` | `systemdata.database-orchestration.cancel` | 在允许边界取消 |
-| GET | `/api/v1/database-orchestration/readiness/{serviceKey}` | 可信服务身份 | 返回 desired/observed/version/NotReady 摘要 |
+| PUT | `/api/v1/service-initialization/registrations/{serviceKey}/{moduleKey}` | 可信服务身份或 `systemdata.service-initialization.register` | 幂等注册 InitializationManifest/SeedSets |
+| GET | `/api/v1/service-initialization/registrations` | `systemdata.service-initialization.view` | 按环境、服务、模块、状态查询 |
+| GET | `/api/v1/service-initialization/registrations/{serviceKey}/{moduleKey}` | 可信服务身份或 view | 查询 desired/current migration+seed 摘要 |
+| POST | `/api/v1/service-initialization/plans` | `systemdata.service-initialization.plan` | 返回 202 和 Plan Operation |
+| GET | `/api/v1/service-initialization/plans/{planNId}` | view | 查询不可变阶段、依赖与门禁 |
+| POST | `/api/v1/service-initialization/plans/{planNId}/approvals` | `systemdata.service-initialization.approve` | 记录绑定计划的审批证据 |
+| POST | `/api/v1/service-initialization/plans/{planNId}/backup-evidence` | `systemdata.service-initialization.backup` | 登记并验证备份证据 |
+| POST | `/api/v1/service-initialization/operations/apply` | `systemdata.service-initialization.apply` | 返回 202 和 Initialize Operation |
+| GET | `/api/v1/service-initialization/operations/{operationNId}` | 可信服务身份或 view | 查询阶段、seed observation 和脱敏错误 |
+| GET | `/api/v1/service-initialization/operations` | view | 管理检索 |
+| POST | `/api/v1/service-initialization/operations/{operationNId}/cancel` | `systemdata.service-initialization.cancel` | 在允许边界取消 |
+| GET | `/api/v1/service-initialization/readiness/{serviceKey}/{moduleKey}` | 可信服务身份 | 返回 migration/required seed/bootstrap readiness |
 
-所有 POST/PUT 携带 `Idempotency-Key`；注册清单和 apply 请求同时携带语义 request hash。响应不返回数据库地址、角色密码、SecretRef、SQL 或原始迁移输出。服务身份的最终 token/scope 契约必须等待 Identity 稳定并做联合验收；未稳定前使用契约夹具，不能写成现有实现。
+所有 POST/PUT 携带 `Idempotency-Key`；注册清单和 apply 请求同时携带语义 request hash。响应不返回种子内容、数据库地址、角色密码、SecretRef/值、SQL、命令或原始 initializer 输出。v1→v2 adapter 必须有契约测试，migration-only 请求的 OperationId/idempotency 语义不得改变。
 
 ## 9.3 组织、岗位和任职 API
 
@@ -1032,7 +1082,16 @@ systemdata.database-orchestration.apply
 systemdata.database-orchestration.approve
 systemdata.database-orchestration.backup
 systemdata.database-orchestration.cancel
+systemdata.service-initialization.view
+systemdata.service-initialization.register
+systemdata.service-initialization.plan
+systemdata.service-initialization.apply
+systemdata.service-initialization.approve
+systemdata.service-initialization.backup
+systemdata.service-initialization.cancel
 ```
+
+`systemdata.service-initialization.*` 是 v2 规范权限；migration-only v1 端点在兼容期继续接受对应 `systemdata.database-orchestration.*`。两组权限一一映射并分别审计，不得用旧权限隐式扩大 Seed/Bootstrap 管理能力；兼容期结束需显式版本迁移。
 
 权限清单契约：
 
@@ -1083,11 +1142,14 @@ SystemData.ThemePolicyChanged.v1
 SystemData.DatabaseRegistrationChanged.v1
 SystemData.DatabasePlanCompleted.v1
 SystemData.DatabaseOperationStatusChanged.v1
+SystemData.ServiceInitializationRegistrationChanged.v1
+SystemData.ServiceInitializationPlanCompleted.v1
+SystemData.ServiceInitializationOperationStatusChanged.v1
 SystemData.OperationAudited.v1
 ```
 
 - 业务写、本地审计和 Outbox 同事务；发布至少一次。
-- 事件不包含数据库 Guid、完整树、完整菜单、用户权限集合、连接地址、SecretRef/值、SQL、迁移原始输出或敏感 Owner 联系信息。数据库事件只携带 ServiceKey、EnvironmentNId、公开版本、状态、OperationId、PlanChecksum 和 TraceId。`SystemData.OperationAudited.v1` 只携带已脱敏的 ActorUserNId、Action、ObjectType/ObjectNId、Reason、Before/After 摘要和 TraceId，供 PF-04 后续接收。
+- 事件不包含数据库 Guid、完整树、完整菜单、用户权限集合、种子内容、连接地址、SecretRef/值、SQL/命令、initializer 原始输出或敏感 Owner 联系信息。初始化事件只携带 ServiceKey、ModuleKey、EnvironmentNId、公开 migration/seed 版本与 checksum、状态、OperationId、PlanChecksum 和 TraceId。数据库 v1 事件在 migration-only 兼容期保留。`SystemData.OperationAudited.v1` 只携带已脱敏摘要，供 PF-04 后续接收。
 - 消费者按 eventId 去重，按 tenantNId + subjectNId + revision 丢弃乱序旧事件；收到事件后通过 API 拉取当前快照。
 - Outbox 失败可重试并可观测，不能回滚已提交业务事实。
 
@@ -1125,6 +1187,12 @@ SystemData.OperationAudited.v1
 | 409 | `SD_DB_TARGET_MISMATCH` | 数据库身份或当前版本与注册不符 |
 | 503 | `SD_DB_SECRET_UNAVAILABLE` | 必需 Secret 无法安全解析 |
 | 503 | `SD_DB_MIGRATION_FAILED` | 迁移失败且未证明可安全恢复 |
+| 409 | `SD_INIT_SEED_CHECKSUM_DRIFT` | 相同 SeedKey/Scope/Version 出现不同 checksum |
+| 409 | `SD_INIT_SEED_DEPENDENCY_UNSATISFIED` | 迁移版本或 SeedKey 依赖未满足 |
+| 409 | `SD_INIT_SAMPLE_ENVIRONMENT_FORBIDDEN` | EnvironmentSample 禁止进入当前环境 |
+| 409 | `SD_INIT_ADMIN_DATA_CONFLICT` | 种子将覆盖管理员维护数据，必须使用显式 DataPatch |
+| 503 | `SD_INIT_BOOTSTRAP_SECRET_MISSING` | SecretBootstrap 缺少服务自有 Secret |
+| 503 | `SD_INIT_INITIALIZER_FAILED` | 服务 initializer 失败，仅允许脱敏诊断 |
 | 503 | `SD_DB_NOT_READY` | 目标未达到 exact desired state |
 | 400 | `SD_DB_TOPOLOGY_UNSUPPORTED` | 不支持或未知的拓扑 Mode |
 | 400 | `SD_DB_SHARED_TARGET_MISSING` | 缺少 Shared target |
@@ -1136,7 +1204,7 @@ SystemData.OperationAudited.v1
 
 # 10. 页面与交互设计
 
-PF-02 管理能力只提供 PC 页面；PDA/Mobile 不复制后台。三端仅消费发布导航、有效功能开关和主题策略。页面以实施 04 已批准契约为目标，当前不得声称 PF-01 组件已经存在。
+PF-02 管理能力只提供 PC 页面；PDA/Mobile 不复制后台。三端仅消费发布导航、有效功能开关和主题策略。页面复用 `48c5374` 已实现的 PF-01 公开组件契约，不复制平台壳内部实现。
 
 ## 10.1 路由
 
@@ -1148,16 +1216,16 @@ PF-02 管理能力只提供 PC 页面；PDA/Mobile 不复制后台。三端仅�
 | `/pc/systemdata/features` | `systemdata.feature.view` | 功能开关 |
 | `/pc/systemdata/services` | `systemdata.service-catalog.view` | 服务目录 |
 | `/pc/systemdata/themes` | `systemdata.theme-policy.view` | 租户主题策略 |
-| `/pc/systemdata/database-orchestration` | `systemdata.database-orchestration.view` | 数据库注册、计划与 Operation |
+| `/pc/systemdata/service-initialization` | `systemdata.service-initialization.view` | 服务/模块注册、SeedSets、计划与 Operation；旧路由重定向兼容 |
 
 所有路由使用稳定 route name、PermissionNId 和 `workspace: 'business'`；通过 PF-01 `NavigationGroup` 接入，不直接修改平台外壳内部状态。
 
-## 10.2 数据库编排页
+## 10.2 服务初始化编排页
 
-- 四个页签：服务注册、计划、Operation、环境策略；默认先展示生产门禁和失败/运行中操作，并显示拓扑 Mode/revision 与逻辑到物理映射（从不显示连接信息）。
+- 五个页签：服务/模块注册、SeedSets、计划、Operation、环境策略；默认先展示生产门禁和失败/运行中操作，并显示拓扑 Mode/revision 与逻辑到物理映射（从不显示连接信息）。
 - 计划详情以步骤、风险、目标版本、checksum、过期时间和 drift 状态展示；不显示完整 SQL、地址、连接串、SecretRef 或原始迁移输出。
 - 生产 apply 操作区按顺序展示审批、备份证据和最终确认；任何证据缺失或不匹配时按钮禁用并显示稳定错误码。
-- Operation 展示 Queued/Running/终态、当前 Phase、心跳、脱敏诊断、OperationId 和 TraceId；只在安全阶段显示取消。
+- Operation 展示 Queued/Running/终态以及 SchemaMigration、RequiredSeed、SecretBootstrap、Verify 阶段和各 ModuleKey 的脱敏 observation；只在安全阶段显示取消。
 - 页面不得提供任意 SQL、任意产物路径、服务器地址、角色名或 Secret 输入框。
 
 ## 10.3 行政组织与岗位页
@@ -1215,7 +1283,7 @@ PF-02 管理能力只提供 PC 页面；PDA/Mobile 不复制后台。三端仅�
 ## 10.9 页面状态与可访问性
 
 - 所有页面覆盖 Loading、Empty、Error、Permission、Degraded、Concurrency 六类状态。
-- 使用 PF-01 `AppQueryPanel`、`AppTreeTableLayout`、`AppFormDrawer` 和状态组件；PF-01 未实现时任务保持依赖阻塞。
+- 使用 PF-01 `AppQueryPanel`、`AppTreeTableLayout`、`AppFormDrawer` 和状态组件；若实际公开 API 与实施 04 有偏差，先记录契约偏差，不在 PF-02 重构 PF-01。
 - 键盘可完成树导航、表格操作、抽屉、发布和回滚；焦点在关闭后返回触发点。
 - 1280×720、1440×900 无页面级横向滚动；200% 缩放仍可访问主要操作。
 - 只有真实 TraceId 存在时显示；不显示数据库 Id、完整缓存键或敏感 URL。
@@ -1319,10 +1387,10 @@ systemdata_assignment_conflicts_total
 - `/health/ready`：PostgreSQL 必需；Redis/RabbitMQ/Identity 分别报告依赖状态和降级，不泄露连接信息。
 - PostgreSQL 不可用时 readiness Unhealthy；Redis/RabbitMQ 失败是否降级由检查标签表达，Gateway 聚合沿用现有规则。
 
-## 11.8 数据库编排安全、审计与可观测性
+## 11.8 服务初始化安全、审计与可观测性
 
-- 注册变更、plan 完成、审批、备份证据、apply、取消、超时、重试、锁冲突和每次状态转换均写本地追加审计；高权限操作必须记录 Actor、理由、PlanChecksum、OperationId 和 TraceId。
-- 审计与 Operation 只保存脱敏摘要；Secret 值、连接串、服务器地址、SQL、完整异常和迁移 stdout/stderr 禁止进入日志、Trace、事件或数据库。
+- 注册/SeedSets 变更、plan 完成、审批、备份证据、apply、migration/seed/bootstrap、取消、超时、重试、锁冲突和每次状态转换均写本地追加审计；高权限操作必须记录 Actor、理由、PlanChecksum、OperationId 和 TraceId。
+- 审计与 Operation 只保存脱敏摘要；种子内容、Secret 值、连接串、服务器地址、SQL、命令、完整异常和 initializer stdout/stderr 禁止进入日志、Trace、事件或数据库。
 - Operation 状态机是权威，不缓存计划/执行写模型；管理查询可使用短 TTL 投影，但 apply、审批、备份与取消必须读数据库并校验 revision/checksum。
 - 指标至少包括 `systemdata_db_orchestration_queued/running/failed_total`、`duration_seconds`、`lock_wait_seconds`、`retry_total`、`plan_drift_total`、`not_ready_total`，标签只用 EnvironmentKind、Provider、Phase、Status，不使用数据库名或 ServiceKey 造成高基数泄露。
 - 编排 API、事件和审计仅暴露安全的逻辑/物理身份元数据与 topology revision；绝不返回连接串、SQLite 路径、地址或凭据。
@@ -1337,9 +1405,9 @@ systemdata_assignment_conflicts_total
 迁移账本 `system_data_schema_migrations` 在解析后的 SystemData 物理目标运行，步骤按顺序幂等执行：
 
 ```text
-SDM-001 数据库环境策略与服务注册
+SDM-001 环境策略、服务/模块注册与 Initialization SeedSet 元数据
 SDM-002 不可变计划、计划步骤、审批与备份证据
-SDM-003 Operation、Operation Step 与迁移观察
+SDM-003 Operation/Step、迁移/种子观察与 SystemData 自身 seed ledger
 SDM-004 组织表及自引用约束
 SDM-005 岗位表及组织复合外键
 SDM-006 任职表、区间检查和索引
@@ -1360,15 +1428,15 @@ SDM-016 默认租户 PF-01 合法主题策略种子
 - PostgreSQL 验证 `uuid/timestamptz/boolean/snake_case`、部分唯一索引、复合外键和 `ON UPDATE CASCADE`。
 - SQLite 作为快速集成替身，连接启用 Foreign Keys；PostgreSQL advisory lock、时间区间并发和真实 DDL 必须在真库验收。
 - 默认租户 NId 来自显式配置；没有配置时不创建固定生产租户。Development 可以使用 `development`，但不创建虚假组织、用户或服务健康数据。
-- 种子只注册 SystemData 内置权限声明、资源、空导航骨架、SystemData 功能定义、真实 SystemData.Service 目录声明和 PF-01 合法主题策略；不创建示例公司、岗位、任职或伪健康状态。
+- SDM-013～016 属 SystemData 自身 `SystemBaseline/TenantBaseline`，必须写 `system_data_seed_ledger`；不创建 EnvironmentSample 公司、岗位、任职或伪健康状态。删除/修正使用显式 DataPatch，不覆盖管理员维护数据。
 
 ## 12.2 测试层次
 
 | 层次 | 具体范围 |
 | --- | --- |
-| Domain | 编排注册/计划/Operation 状态机与门禁、组织父子矩阵/循环/移动/停用、岗位归属、任职区间/主任职/历史、菜单树、功能优先级、服务 URL、主题策略 |
-| Application | 编排幂等/审批/备份/readiness、租户隔离、权限、Identity 端口失败、移动预览、主任职切换、发布/回滚、审计/Outbox 原子性、并发 |
-| Infrastructure | PostgreSQL 18 自举、显式迁移、可靠队列、lease/heartbeat、provision、角色最小授权、产物校验、PostgreSQL/SQLite 映射、advisory lock、Redis 缓存、Outbox、对账 |
+| Domain | InitializationManifest/SeedSets、四类种子、计划/Operation/双账本状态机与门禁，以及既有 SystemData 领域不变量 |
+| Application | 初始化幂等/依赖/审批/备份/readiness/observation、租户隔离、权限和既有应用用例 |
+| Infrastructure | PostgreSQL 18 自举、显式迁移/种子、可靠队列、lease/heartbeat、受控 initializer、最小角色、产物校验、PG/SQLite、advisory lock、缓存/Outbox |
 | API | 所有端点、信封、400/401/403/404/409/503、ETag、no-store、OpenAPI |
 | Contract/Event | DTO JSON、Permission/Resource Manifest、事件 v1、敏感字段扫描、兼容夹具 |
 | Frontend Component | 七个管理页面、权限、抽屉、树、发布、编排门禁、冲突和降级状态 |
@@ -1376,17 +1444,20 @@ SDM-016 默认租户 PF-01 合法主题策略种子
 
 ## 12.3 核心测试矩阵
 
-数据库编排：
+服务初始化编排：
 
-- 可信测试服务注册并查询；同清单幂等，不同 checksum 冲突，非法数据库名、任意路径/SQL/角色名拒绝。
-- plan 异步完成并输出无 Secret 的不可变步骤；过期、产物变化、目标版本变化和环境策略变化均触发 drift。
-- Development 为一个非 SystemData 测试服务异步创建 PostgreSQL 数据库、migrator/runtime 最小角色并执行测试服务自有签名迁移产物。
-- Production 缺审批或备份证据拒绝；证据与 plan checksum/目标指纹不一致拒绝；完整 `plan→approval→backup→apply→verify` 成功。
-- 多 Runner/多副本并发对同一环境+数据库只执行一次迁移；advisory lock、idempotency、lease 失效接管、heartbeat、取消和超时行为可复现。
-- 迁移前瞬时失败最多重试 3 次；迁移中失败不盲重试；错误仅返回稳定 code、OperationId、TraceId 和脱敏摘要。
-- provision admin、migrator、runtime 权限逐项验证；Secret 扫描覆盖 API、控制表、日志、Trace、审计、事件和报告。
-- SystemData 自身仅经 PostgreSQL 18 最小引导和自有迁移建立，证明没有循环依赖；全仓无 `EnsureCreated`。
-- Local SQLite 与 Remote PostgreSQL 都使用显式迁移；远程失败不回退 SQLite。消费者在错误数据库、版本未达标、SystemData/迁移失败时保持 `NotReady`。
+- 首次初始化完成 provision、角色、SchemaMigration、RequiredSeed、按需 SecretBootstrap、Verify 和 Healthy。
+- 相同 manifest 重复 apply 幂等；多副本通过 advisory lock + ModuleKey/Scope + 双账本只执行一次。
+- 迁移/种子版本升级追加执行；相同 key/scope/version 不同 checksum drift 拒绝。
+- SchemaMigration、RequiredSeed 或 initializer 部分失败只从可验证账本边界重试。
+- 缺必需 Secret 时 SecretBootstrap 失败且消费者 NotReady；SystemData API/表/log/Trace/audit/event 不出现 Secret 值。
+- Production 缺审批或备份证据拒绝；完整 `plan→approval→backup→apply→verify` 成功，禁止启动时自动播种。
+- EnvironmentSample 仅 Development/Test 显式启用，Staging/Production registration/plan/apply 均拒绝。
+- 共享物理库多个 ModuleKey 的表前缀、schema/seed ledger、SeedKey/checksum 和锁范围隔离。
+- 重复 SystemBaseline/TenantBaseline 不覆盖管理员维护数据；删除/修正只接受显式 DataPatch、风险和恢复说明。
+- SystemData 不可用或 initialization 未达期望时消费者 NotReady；不得回退 SQLite、Mock、默认密码或旧 Schema。
+- SystemData 自身仅经 PostgreSQL 18 最小引导、本地迁移和最小 SystemBaseline 建立，无循环 API；全仓无 `EnsureCreated`。
+- 简单签名 SQL seed bundle 与服务 initializer bundle 均执行 allowlist/checksum/签名校验，任意 SQL/路径/命令/API 输入拒绝。
 - 拓扑验收（十项）：(1) Shared SQLite Development 默认；(2) Shared PostgreSQL 只 provision 一次、服务迁移独立；(3) Development PerService；(4) 非 Development Shared 拒绝；(5) 缺失/非法 target 或 mapping 拒绝；(6) 同物理目标 DDL 串行；(7) 单服务失败隔离并 NotReady；(8) 已有数据拓扑变更 drift 拒绝；(9) API/事件/日志无凭据泄露；(10) 无 `EnsureCreated` 且业务 API 不创建数据库。
 
 组织/岗位：
@@ -1428,9 +1499,9 @@ SDM-016 默认租户 PF-01 合法主题策略种子
 
 ## 12.4 关键 E2E
 
-1. 从 PostgreSQL 18 空环境最小引导 SystemData，执行 SDM-001～016 并证明无自编排循环与 `EnsureCreated`。
-2. 注册测试服务，在 Development 完成异步 plan/apply、数据库/最小角色创建、自有迁移和 exact-version readiness。
-3. 在 Production 验证审批/备份缺失拒绝、证据绑定、并发单执行、Secret 扫描和消费者 NotReady。
+1. 从 PostgreSQL 18 空环境最小引导 SystemData，本地执行 SDM-001～016 和最小 SystemBaseline，证明双账本、无循环 API 与无 `EnsureCreated`。
+2. 注册含两个 ModuleKey 的测试宿主，在 Development 完成异步 plan/apply、最小角色、迁移、RequiredSeed、可选样例和 exact-version readiness。
+3. 在 Production 验证审批/备份、EnvironmentSample 拒绝、SecretBootstrap 缺 Secret、并发单执行、checksum drift、管理员数据保护和消费者 NotReady。
 4. 创建两个根公司，建立部门/科室/班组和岗位，跨根公司移动部门并验证 NId、后代、岗位和任职保持。
 5. 创建主任职和兼任，安排未来调岗，原子切换主任职并查询历史时间线。
 6. 注册 SystemData 内置资源与权限回执，编辑草稿、三终端预览、发布、权限求交集和回滚。
@@ -1464,17 +1535,17 @@ pnpm build
 pnpm test:e2e
 ```
 
-每条证据记录命令、退出码、通过/失败/跳过数量、覆盖率、报告/截图路径、依赖提交和外部限制。PostgreSQL/Redis/RabbitMQ、真实 Identity 和 PF-01 未具备时相关项目只能标记“待验收”。
+每条证据记录命令、退出码、通过/失败/跳过数量、覆盖率、报告/截图路径、依赖提交和外部限制。`961cad4` 的测试资产不是本轮新鲜执行证据；PostgreSQL/Redis/RabbitMQ 或真实环境未验证的项目只能标记“待验收”。
 
 ---
 
 # 13. 开发任务依赖
 
 ```text
-TASK-SD-001 服务骨架、SystemData 自身 PostgreSQL 18 最小引导与迁移边界
-    → TASK-SD-002 数据库注册、Plan、审批、备份与 Operation 控制面
-        → TASK-SD-003 内部 Runner、Secret/角色、provision/migrate/verify
-            → TASK-SD-004 消费服务握手、NotReady 契约与数据库编排验收夹具
+TASK-SD-001 服务骨架、SystemData 自身最小引导与迁移边界（961cad4 已实现，待验收）
+    → TASK-SD-002 数据库注册、Plan、审批、备份与 Operation 控制面基线（961cad4 已实现，待验收）
+        → TASK-SD-003 通用初始化 Manifest/双账本/Runner、migration/seed/bootstrap（61753dc 已有 migration-only 基线；扩展待派遣）
+            → TASK-SD-004 消费服务握手、NotReady 契约与初始化验收夹具
 
 TASK-SD-004
     ├→ TASK-SD-005 组织、岗位、任职领域与持久化
@@ -1487,14 +1558,12 @@ TASK-SD-006 + 007 + 008 + 009
     → TASK-SD-010 缓存、审计、Outbox、对账与真实 Identity 适配
 
 TASK-SD-007 + 008 + 009
-    + PF-01 TASK-PF01-001/003/004
-    + Identity TASK-ID-010/011
+    + 已满足基线：PF-01/Identity `48c5374`
     → TASK-SD-011 前端运行适配器
 
 TASK-SD-002 + 003 + 006 + 007 + 008 + 009
-    + PF-01 TASK-PF01-002/003/004
-    + Identity TASK-ID-010/011
-    → TASK-SD-012 PC 管理页面（含数据库编排）
+    + 已满足基线：PF-01/Identity `48c5374`
+    → TASK-SD-012 PC 管理页面（含服务初始化）
 
 TASK-SD-004 + 010 + 011 + 012
     → TASK-SD-013 契约、E2E 与阶段验收
@@ -1502,29 +1571,27 @@ TASK-SD-004 + 010 + 011 + 012
 
 并行与冲突规则：
 
-- 001→002→003→004 是最高优先级串行链；数据库控制面和 NotReady 门禁未通过前，不启动其他 SystemData 业务纵切。
+- 001→002→003→004 是最高优先级串行链；001～002 有 `961cad4` 实现待验收，003 有 `61753dc` migration-only 基线但通用扩展待派遣，004 未实现。初始化与 NotReady 门禁未通过前，不启动其他 SystemData 业务纵切。
 - 005、007、008、009 在 004 后可并行，但各自只修改所属目录；006 只消费 005 的领域和仓储。
-- 003 是唯一允许使用 provision admin、执行签名迁移产物和持有目标 advisory lock 的任务；不得创建独立 Migrator Service。
+- 003 是唯一允许使用 provision admin、调度签名 migration/seed/initializer 产物和持有目标 advisory lock 的任务；不得创建独立 Migrator/Seeder Service，SystemData 不接收业务 Secret 值。
 - 010 是唯一允许接入真实 Identity、Redis、RabbitMQ 和跨领域一致性装配的任务；前置契约未稳定时保持阻塞。
 - 011 与 012 可并行；011 只修改 runtime adapters/stores，012 只修改管理 pages/components/routes。
 - 013 只修复验收阻塞缺陷，不扩张业务范围。
-- 任何任务不得触碰实施 15、Identity-owned 文件、PF-01 并行未提交改动或其他阶段模块。
+- 任何任务不得触碰实施 15、Identity/PF-01 受保护文件或其他阶段模块；跨阶段契约只做双方批准的精确增量。
 
 ---
 
 # 14. 开发任务拆分
 
-任务卡已经用户最终轮批准，统一标记为“待派遣”。“待派遣”只表示设计卡可供未来执行，不代表已经创建执行任务；除非用户主动明确要求修改代码或执行派遣，本阶段不会自动创建执行任务，也不会修改业务代码。
+任务卡设计已经用户批准，并按最终 HEAD 校准：001～002 为待验收；003 的 migration-only 子范围已由 `61753dc` 提交，但通用初始化扩展为待派遣；004～013 为待派遣。状态不构成本会话派遣授权。
 
 ## TASK-SD-001 创建服务骨架与 SystemData 自身最小引导边界
 
-**状态：** 待派遣
+**状态：** 待验收（`961cad4` 已实现代码与测试资产，本轮未重新 build/test，真实 PostgreSQL 18 自举证据仍待验收）
 
 **目标：** 创建 `SystemData.Service` 五层项目和测试基线，实现受信任 topology options/resolver，冻结 PostgreSQL 18 基础设施最小引导、三类分权连接、SystemData 自有显式迁移、无循环自编排和 readiness 边界。
 
-**编排门禁优先级：** TASK-SD-001 至 TASK-SD-004 是阻塞性的最高优先级链：001 实现 topology options/resolver 与 SystemData bootstrap；002 实现 logical/physical 持久化、registration、plan/validation；003 实现 physical-target provision 去重、锁、per-service migrations/drift；004 实现 handshake/readiness 与 shared/per-service fixture。TASK-SD-005+ 在 001～004 通过编排门禁前不得开始。
-
-**输入文档：** 本文第 1～7.1.1、8、9.1、11.7～11.8、12.1 节；蓝图 32、33；模板数据库初始化要求；母版 `81adb57`；现有 Gateway 与 `deploy/cloud-dev/**` 当前并行状态。
+**输入文档：** 本文第 1～7.1.1、8、9.1、11.7～11.8、12.1 节；蓝图 32、33 V2.0；提交 `961cad4`；现有 Gateway 与受保护的部署/Runner 并行状态。
 
 **依赖：** BuildingBlocks、可运行基线历史已完成；无 PF-02 前置任务。
 
@@ -1540,11 +1607,11 @@ TASK-SD-004 + 010 + 011 + 012
 
 ---
 
-## TASK-SD-002 实现数据库注册、Plan 与 Operation 控制面
+## TASK-SD-002 实现数据库注册、Plan 与 Operation 控制面基线
 
-**状态：** 待派遣
+**状态：** 待验收（`961cad4` 已实现 migration-only v1 控制面与测试资产，本轮未重跑；InitializationManifest/SeedSets 扩展归 TASK-SD-003）
 
-**目标：** 实现保留 logical/physical identity 与 topology revision 的注册/查询、异步 dry-run/plan/validation、审批、备份证据、异步 apply 入队和 Operation 状态机，冻结不含 Secret 的公开契约。
+**目标：** 交付保留 logical/physical identity 与 topology revision 的 migration-only v1 注册/查询、异步 dry-run/plan/validation、审批、备份证据、apply 入队和 Operation 状态机，作为通用初始化协议的兼容基线。
 
 **输入文档：** 本文第 2.3、4、6、7.1.2～7.1.4、8、9.1～9.2、9.6、9.8～9.9、11.1、11.3、11.8、12 节；蓝图 33；TASK-SD-001 输出。
 
@@ -1552,7 +1619,7 @@ TASK-SD-004 + 010 + 011 + 012
 
 **允许修改范围：** SystemData DatabaseOrchestration 的 Domain/Application/Contracts/Infrastructure/Api，SDM-001～003 与对应测试。只创建控制面状态、仓储和 API；禁止 provision 连接、实际迁移执行、修改业务服务迁移、创建独立服务或触碰并行部署文件。
 
-**预期输出：** DatabaseRegistrationManifestV1、EnvironmentPolicy、不可变 Plan/Step、Approval、BackupEvidence、Operation/Step 状态机；注册/查询、plan/apply 202、状态/取消/readiness API；幂等键/request hash、计划 TTL/drift、生产门禁、七项权限、稳定错误码和无 Secret 事件。
+**预期输出：** 已由 `961cad4` 提交的 DatabaseRegistrationManifestV1、EnvironmentPolicy、Plan/Step、Approval、BackupEvidence、Operation/Step、registration/plan/apply/status/cancel/readiness API、幂等/drift/生产门禁和无 Secret 事件；不把尚未实现的 SeedSets 写入本任务完成范围。
 
 **验证与证据：** TDD 覆盖清单幂等/冲突、非法输入、异步 plan/apply、状态转换、过期/drift、审批/备份绑定、取消边界、租户/权限、OpenAPI/JSON/event 兼容和敏感字段扫描；不以 Mock Operation 证明真实迁移完成。
 
@@ -1562,21 +1629,21 @@ TASK-SD-004 + 010 + 011 + 012
 
 ---
 
-## TASK-SD-003 实现内部数据库编排 Runner
+## TASK-SD-003 将内部 Runner 扩展为通用服务初始化 Pipeline
 
-**状态：** 待派遣
+**状态：** 待派遣（`61753dc` 已提交 migration-only Runner/PG/SQLite adapter/tests；本卡剩余通用 seed/bootstrap/双账本扩展尚未开发）
 
-**目标：** 在 `SystemData.Service` 宿主内部实现按 physical target 去重和加锁、每服务迁移/drift 的可靠 Operation Runner、安全 Secret 解析、目标数据库/最小角色 provision、签名迁移产物 apply、verify 和故障恢复，不创建独立 Migrator Service。
+**目标：** 保留当前 provision/migrate/verify WIP，在 `SystemData.Service` 内扩展 InitializationManifest/SeedSets、双账本 observation、SchemaMigration、RequiredSeed、按需 SecretBootstrap、Verify 与 readiness，形成通用 Service Initialization Pipeline。
 
-**输入文档：** 本文第 4.2、6、7.1.3～7.1.5、8、9.2、9.8～9.9、11.3、11.8、12 节；蓝图 33；TASK-SD-002 输出。
+**输入文档：** 本文第 4.2、6、7.1.2～7.1.7、8、9.2、9.8～9.9、11.3、11.8、12 节；蓝图 33 V2.0；TASK-SD-002 与提交 `61753dc`。
 
 **依赖：** TASK-SD-002；测试环境需 PostgreSQL 18、受控 Artifact Registry/fixture 和隔离 Secret Provider/Sink。
 
-**允许修改范围：** SystemData Application/Infrastructure/Api 的 DatabaseOrchestration Runner、Secret/Artifact/Provisioning adapters、配置、指标、健康和 Infrastructure/API 测试。禁止修改任何业务服务 Schema/迁移源码、返回凭据、引入 Shell 拼接、独立服务或 `EnsureCreated`。
+**允许修改范围：** 未来执行任务可增量修改 SystemData Domain/Application/Contracts/Infrastructure/Api 的 ServiceInitialization/DatabaseOrchestration、Runner、migration/seed/initializer adapters、SeedObservation/控制面迁移、配置与测试。禁止回退 `61753dc`、修改业务服务 Schema/种子内容、直写 Repository、接收/透传 Secret、Shell 拼接、独立 Migrator/Seeder Service 或 `EnsureCreated`。
 
-**预期输出：** DB-backed queue、`FOR UPDATE SKIP LOCKED`、lease/heartbeat、超时/安全取消、同目标 advisory lock、三类连接与最小角色、checksum/签名校验、直接 Secret Sink、provision/migrate/verify、脱敏错误、受限重试和迁移观察。
+**预期输出：** ServiceInitializationManifestV1/SeedSets、v1 兼容 adapter、DB-backed queue、lease/heartbeat、advisory lock、受控一次性 initializer、两类 seed bundle adapter、schema/seed observation、四类种子环境门禁、双账本幂等、DataPatch 保护、Secret Provider 隔离、provision/migration/seed/bootstrap/verify 与脱敏错误。
 
-**验证与证据：** PostgreSQL 18 真库覆盖多副本单执行、lease 接管、幂等、锁超时、角色权限、错误数据库、产物篡改、迁移失败不盲重试、Secret/API/log/trace/audit/event 扫描；记录真实 DDL、grants、测试数和环境限制。
+**验证与证据：** 覆盖第 12.3 节全部初始化门禁；记录真实 DDL/grants、测试数和敏感扫描。`61753dc` 只证明 migration-only 代码/测试资产已提交，本轮未重跑且不能替代 seed/bootstrap 验收。
 
 **结果回写：** 回写 Runner 部署形态、时序参数、锁键算法、角色/grant、Secret/Artifact provider、超时重试、指标、测试数、提交和安全证据。
 
@@ -1584,25 +1651,25 @@ TASK-SD-004 + 010 + 011 + 012
 
 ---
 
-## TASK-SD-004 交付服务握手、NotReady 契约与编排验收夹具
+## TASK-SD-004 交付初始化握手、NotReady 契约与验收夹具
 
-**状态：** 待派遣
+**状态：** 待验收
 
-**目标：** 提供后续服务可复用的注册、Operation 观察、数据库身份/迁移版本校验和 NotReady 契约，并用 shared/per-service fixture 完成 Development 与 Production 编排门禁验收。
+**目标：** 提供 PF-03+ 可复用的 ServiceKey/ModuleKey 注册、Operation 观察、迁移/RequiredSeed/bootstrap 校验和 NotReady 契约，并用多模块 fixture 完成 Development/Test 与 Production 初始化门禁验收。
 
-**输入文档：** 本文第 3、7.1.6、9.2、9.9、10.2、11.8、12.2～12.5 节；蓝图 33；TASK-SD-001～003 输出。
+**输入文档：** 本文第 3、7.1.7、9.2、9.9、10.2、11.8、12.2～12.5 节；蓝图 33 V2.0；TASK-SD-001～003 输出。
 
 **依赖：** TASK-SD-003。
 
 **允许修改范围：** SystemData Contracts、共享测试 fixture/示例宿主、SystemData 集成/E2E 测试和编排说明；仅使用测试服务自有 Schema/迁移产物。禁止改造真实业务服务、创建新生产服务、修改并行部署文件或派遣 PF-03+。
 
-**预期输出：** DatabaseRegistration/Operation/Readiness v1 契约、测试服务 manifest 与签名迁移产物、Local SQLite 显式迁移和 Remote PostgreSQL 路径、liveness/readiness 区分、NotReady 503 响应及第 12 节十项拓扑验收报告模板。
+**预期输出：** ServiceInitializationManifest/SeedSets/Operation/Readiness v2 与 migration-only v1 兼容夹具、含两个 ModuleKey 的测试宿主、签名迁移/种子/initializer 产物、PG/SQLite 双账本路径、NotReady 503 和第 12 节验收报告。
 
-**验证与证据：** 从空环境验证 SystemData 无循环自举、测试服务注册/plan/apply、生产审批与备份、并发单迁移、Secret 扫描、失败 NotReady、SQLite/PG 显式迁移等第 12 节门禁；真实环境不足时保持待验收，不放行后续纵切。
+**验证与证据：** 2026-08-14 新鲜验证——SystemData 5 项目 **242/242 全绿**（Application 82 / Infrastructure 60 / Domain 59 / Api 27 / Contract 14），SD-003 基线 211 无回归；新增 13 项门禁测试（握手 5、账本 5、环境门禁 4、模块隔离 1）落于 4 个验收文件，另账本执行语义 7 + PostgreSQL E2E 3（env 门控早退）；各项目 build 0 警告 0 错误；全 slnx 构建被协作方 Identity WIP 的 2 处既有错误阻断（非本任务范围）。**PostgreSQL 真实验证（云端 Docker，`SYSTEMDATA_PG_E2E=1`）`SeedLedgerPostgreSqlE2ETests` 3/3 通过**：种子账本幂等重放/版本升级追加/缺 Secret fail-closed 三语义在真实 PG `timestamptz` 上成立；跨运行幂等（多次执行不追加账本行）与自清理（`DropTestTablesAsync` 删迁移账本/种子账本/业务表，云端不留痕）一并实证。余下待验收：全 Runner 生产门禁（plan→审批→备份→apply）、Redis/RabbitMQ 真实环境。
 
-**结果回写：** 回写共享契约版本、fixture 路径、测试产物版本、NotReady DTO、全部命令/退出码/报告、提交和仍待真实环境验收项。
+**结果回写：** 契约 v2：`ServiceInitializationManifestV2`/`SeedSetV1`/`OperationV2`/`ReadinessV2`/`NotReadyV2`，v1 线 `SchemaMigration→"Migrate"` 映射兼容。fixture 路径：`tests/SystemData/IndustrialPlatform.SystemData.Testing/`（示例宿主 `TestInitializableService`：ModuleA=module-a 2 条 SQL 种子、ModuleB=module-b 1 条 SecretBootstrap 种子；`TestFixtureScope`/`TestArtifactWriter`/`TestTargetDatabase`/`TestSeedSets`；门禁夹具 `InitializationGateHarness`）。Runner 扩展：`OperationPhase` v2（RequiredSeed=6/SecretBootstrap=7/Verify=8）；RequiredSeed 按 SeedKey 字母序逐种子执行 + 本地账本幂等；SecretBootstrap 缺 Secret fail-closed（`SD_INIT_BOOTSTRAP_SECRET_MISSING`）。双账本 `{moduleKey}_schema_migrations`/`{moduleKey}_seed_ledger`。验证中修复：Gate05 种子命名强制字母序（成功种子先记账、失败种子不记账）；OperationPhase 7→9 阶段数断言 4 处改引 `DatabaseProvisionOperation.AllPhases.Length`；PG E2E 测试表名改用 `SeedLedgerContracts.TableName`/`MigrationLedgerContracts.TableName`（`SanitizeModuleKey` 转安全标识，`module-pg-e2e` 连字符致 PG 语法错误 42601）；Infrastructure 程序集补 `InternalsVisibleTo("IndustrialPlatform.SystemData.Infrastructure.Tests")`；幂等重放时间戳断言改瞬间容差比较（PG `timestamptz` 微秒截断 + 会话时区偏移）。**PostgreSQL 真账本语义已验证（云端 Docker，3/3）**；待验收：全 Runner 生产门禁、Redis/RabbitMQ 真实环境。提交待确认。
 
-**建议提交：** `test(systemdata): verify database orchestration readiness`
+**建议提交：** `feat(systemdata): deliver initialization handshake and readiness fixtures (SD-004)`
 
 ---
 
@@ -1642,7 +1709,7 @@ TASK-SD-004 + 010 + 011 + 012
 
 **预期输出：** 第 9.2 节全部端点和 DTO、过滤/分页、移动预览 revision、结构化冲突、`IIdentityUserDirectory` 应用端口与测试替身、PermissionNId Policy 声明、本地审计命令和契约夹具。
 
-**验证与证据：** 覆盖成功、400、401、403、404、409、503、租户伪造、双版本、用户目录失败、响应无数据库 Id；生成 OpenAPI/JSON 契约报告。真实 Identity 未稳定时明确标记适配待验收。
+**验证与证据：** 覆盖成功、400、401、403、404、409、503、租户伪造、双版本、用户目录失败、响应无数据库 Id；生成 OpenAPI/JSON 契约报告，并以 `48c5374` 的真实 Identity 契约做联合验证。
 
 **结果回写：** 回写最终路由、DTO、权限码、错误码、分页/过滤、Identity 端口、测试数、提交和待验收项。
 
@@ -1662,7 +1729,7 @@ TASK-SD-004 + 010 + 011 + 012
 
 **允许修改范围：** SystemData Domain/Application/Contracts/Infrastructure/Api 的 Resources/Manifests/Navigation，SDM-007～008 和 SDM-013 中对应种子、测试。只允许增加跨服务契约夹具，不修改 Identity 或前端实现。
 
-**预期输出：** 版本化清单和 checksum 幂等、ResourceNId/PermissionNId 分离、SystemData 22 项权限声明、草稿树、三终端约束、完整发布校验、不可变快照、Previous 回滚、runtime navigation/ETag 和前端权限过滤纯契约。
+**预期输出：** 版本化清单和 checksum 幂等、ResourceNId/PermissionNId 分离、SystemData 29 项权限声明（含 v1/v2 初始化兼容权限）、草稿树、三终端约束、完整发布校验、不可变快照、Previous 回滚、runtime navigation/ETag 和前端权限过滤纯契约。
 
 **验证与证据：** 覆盖清单冲突、未知/退休资源、父子循环、路由/终端/功能/权限回执、原子发布、快照不可变、回滚、checksum 损坏、候选导航 JSON 和敏感字段扫描。真实 Identity 注册保持待验收。
 
@@ -1724,7 +1791,7 @@ TASK-SD-004 + 010 + 011 + 012
 
 **输入文档：** 本文第 4、8、9.6～9.8、11、12 节；TASK-SD-002～009 输出；PF-00 恢复后批准的主体、用户目录、权限注册和事件契约。
 
-**依赖：** TASK-SD-006、007、008、009；真实适配还依赖 Identity TASK-ID-007～009 的稳定输出。前置未满足时不得将本任务标记完成。
+**依赖：** TASK-SD-006、007、008、009；Identity/PF-01 历史稳定基线由 `48c5374` 满足，Identity 补强仅在涉及 admin 初始化联合验收时作为外部依赖。
 
 **允许修改范围：** SystemData Application/Infrastructure/Api 的 Caching/Auditing/Outbox/Reconciliation/IdentityAdapters、SDM-012、配置、健康/指标和测试；只允许在 Identity Contracts 增加双方已批准的契约夹具。禁止修改 Identity Domain/Infrastructure、PF-04 Audit 实现或 PF-07 Scheduler/PlatformHealth。
 
@@ -1744,9 +1811,9 @@ TASK-SD-004 + 010 + 011 + 012
 
 **目标：** 在 PF-01 和真实 AuthUser 稳定后，实现候选导航权限求交集、功能快照、TenantUiDefaultsSource、ETag 重验证和降级状态，使三端外壳消费真实 SystemData。
 
-**输入文档：** 本文第 3、9.4～9.5、10、11.2、11.4、12 节；TASK-SD-007～009；PF-01 TASK-PF01-001/003/004；Identity TASK-ID-010/011。
+**输入文档：** 本文第 3、9.4～9.5、10、11.2、11.4、12 节；TASK-SD-007～009；`48c5374` 的 PF-01/Identity 公开契约。
 
-**依赖：** TASK-SD-007、008、009、PF-01 TASK-PF01-001/003/004、Identity TASK-ID-010/011。
+**依赖：** TASK-SD-007、008、009；PF-01/Identity 基线已满足。
 
 **允许修改范围：** 创建 `src/frontend/src/api/systemData/**`、`systemData/runtime/**`、`stores/systemData/**` 和对应 unit/contract/E2E；只通过 PF-01 公开端口最小修改 app 装配。禁止修改 PF-01 shell 内部、Identity auth/API/page、后端或管理页面。
 
@@ -1764,15 +1831,15 @@ TASK-SD-004 + 010 + 011 + 012
 
 **状态：** 待派遣
 
-**目标：** 使用 PF-01 平台壳与通用管理组件交付数据库编排、组织岗位、任职、导航、功能、服务和主题七个 PC 管理页面，连接真实 API 并覆盖权限、门禁、并发和降级。
+**目标：** 使用 PF-01 平台壳与通用管理组件交付服务初始化、组织岗位、任职、导航、功能、服务和主题七个 PC 管理页面，连接真实 API 并覆盖权限、门禁、并发和降级。
 
-**输入文档：** 本文第 9～12 节；TASK-SD-002～003、006～009；PF-01 TASK-PF01-002/003/004；Identity TASK-ID-010/011。
+**输入文档：** 本文第 9～12 节；TASK-SD-002～003、006～009；`48c5374` 的 PF-01/Identity 公开契约。
 
-**依赖：** TASK-SD-002、003、006、007、008、009、PF-01 TASK-PF01-002/003/004、Identity TASK-ID-010/011。
+**依赖：** TASK-SD-002、003、006、007、008、009；PF-01/Identity 基线已满足。
 
 **允许修改范围：** `src/frontend/src/pages/pc/systemData/**`、SystemData 管理 API/types/stores/components、`router/systemDataRoutes.ts`、授权导航注册和对应 unit/component/E2E。禁止修改 PDA/Mobile 管理页、Identity 页面、PF-01 shell 内部或后端。
 
-**预期输出：** 第 10 节七页面、稳定路由/PermissionNId/workspace meta、编排注册/计划/审批/备份/Operation 视图、树表/抽屉、移动预览、任职时间线、发布/回滚、功能/目录/主题表单、Loading/Empty/Error/Permission/Degraded/Concurrency 状态和关键视口截图。
+**预期输出：** 第 10 节七页面、稳定路由/PermissionNId/workspace meta、ServiceKey/ModuleKey/SeedSets/计划/审批/备份/Operation 视图、树表/抽屉、移动预览、任职时间线、发布/回滚、功能/目录/主题表单、完整状态和关键视口截图。
 
 **验证与证据：** 组件测试覆盖字段、权限、键盘、焦点、busy、防重、409/503；Playwright 覆盖第 12.4 节管理路径、1280×720/1440×900、200% 缩放、无横向滚动和控制台。不得使用 Mock 证明真实联合完成。
 
@@ -1786,7 +1853,7 @@ TASK-SD-004 + 010 + 011 + 012
 
 **状态：** 待派遣
 
-**目标：** 从 PostgreSQL 18 新环境验证 SystemData 自举、数据库编排、真实 Identity/PF-01 集成、三端运行策略、PC 管理路径、迁移、缓存、事件和故障降级，并形成 PF-03/PF-04 稳定输入契约。
+**目标：** 从 PostgreSQL 18 新环境验证 SystemData 自举、Service Initialization Pipeline、真实 Identity/PF-01 集成、三端运行策略、PC 管理路径、缓存、事件和故障降级，并形成 PF-03+ 稳定输入契约。
 
 **输入文档：** 本文全部章节；TASK-SD-001～012 输出；Identity/PF-01 稳定提交；总 TodoList PF-02 与蓝图 33 门禁。
 
@@ -1794,7 +1861,7 @@ TASK-SD-004 + 010 + 011 + 012
 
 **允许修改范围：** SystemData/前端联合测试、验收脚本、README、本文执行记录、实施索引和总 TodoList PF-02 行；只修复 PF-02 验收阻塞缺陷。禁止扩张到 PF-03/04/07、修改实施 15 或重构 Identity/PF-01 所有代码。
 
-**预期输出：** 后端全量报告、PostgreSQL 18 自举与数据库编排十项拓扑门禁、PostgreSQL/Redis/RabbitMQ 真实联调、OpenAPI/事件/清单契约报告、七项管理 E2E、三端运行导航/开关/主题验证、故障矩阵、权限/审计/敏感扫描、下一阶段契约和完整执行记录。
+**预期输出：** 后端全量报告、PostgreSQL 18 自举与服务初始化十三项门禁、PostgreSQL/Redis/RabbitMQ 真实联调、OpenAPI/事件/manifest 契约报告、七项管理 E2E、三端运行策略、故障矩阵、权限/审计/敏感扫描、下一阶段契约和完整执行记录。
 
 **验证与证据：** 执行第 12.5 节全部门禁及关键 E2E；记录命令、退出码、测试数、覆盖率、耗时、报告/截图、依赖提交和外部限制。缺少真实依赖、Identity 或 PF-01 时相关项保持待验收，阶段不得标记完成。
 
@@ -1809,8 +1876,9 @@ TASK-SD-004 + 010 + 011 + 012
 ## 15.1 领域与数据
 
 - PostgreSQL 18 最小引导仅创建 SystemData 数据库/角色/grant；SystemData 自有显式迁移建立控制面，无循环自编排和 `EnsureCreated`。
-- 注册、不可变 plan、审批、备份、异步 Operation、可靠 Runner、advisory lock、幂等和迁移观察通过 PostgreSQL 真库验证。
-- 业务服务保有自身 Schema/迁移产物，生产 `plan→approval→backup→apply→verify` 门禁不可绕过。
+- Registration/InitializationManifest/SeedSets、不可变 plan、审批/备份、异步 Operation、Runner、advisory lock、幂等和 migration/seed observation 通过真库验证。
+- 四类种子、ModuleKey 隔离、双账本、DataPatch、部分失败恢复和 checksum drift 规则通过验证。
+- 业务服务/模块保有自身 Schema、迁移/种子/initializer 产物和双账本，生产 `plan→approval→backup→apply→verify` 门禁不可绕过。
 - 行政组织四类型、父子矩阵、多根公司、跨根公司移动和无隐式级联符合已确认规则。
 - 岗位组织专属；多任职、主任职、有效期和历史不可篡改规则通过并发测试。
 - 所有实体 NId、TenantNId、双版本、复合外键、软删除过滤和 `timestamptz` 落地。
@@ -1819,14 +1887,14 @@ TASK-SD-004 + 010 + 011 + 012
 ## 15.2 API、资源与协作
 
 - 第 9 节 API、DTO、权限和错误码与实现/OpenAPI 一致。
-- 数据库注册/query、异步 plan/apply、Operation/readiness 契约稳定；API 不返回 Secret、连接地址、SQL 或迁移原始输出。
+- 服务/模块 registration/query、异步 plan/apply、Operation/readiness 契约稳定；API 不返回种子内容、Secret、连接地址、SQL、命令或 initializer 原始输出。
 - ResourceNId/PermissionNId 分离，权限清单由 Identity 注册，SystemData 不直写 Identity。
 - 菜单草稿、验证、不可变发布、回滚、三终端候选和前端权限求交集闭环通过。
 - 功能、服务目录、主题策略边界明确，未伪造健康或用户偏好同步。
 
 ## 15.3 安全、审计与可靠性
 
-- provision admin、每服务 migrator/runtime 最小权限隔离；Secret 只经受控 Provider/Sink 流转并通过全链路扫描。
+- provision admin、每服务 migrator/runtime 最小权限隔离；initializer 只解析本服务 Secret Provider，SystemData 不接收/透传 Secret 并通过全链路扫描。
 - 多副本同目标只执行一次；幂等、lease/heartbeat、超时、安全取消、drift 和失败恢复证据完整。
 - TenantNId 只来自可信上下文，UserNId 字符串契约不再受 Guid 偏差影响。
 - 管理 API 后端授权、跨租户 404、双版本并发和 SSRF 防护通过。
@@ -1835,7 +1903,7 @@ TASK-SD-004 + 010 + 011 + 012
 
 ## 15.4 前端与用户路径
 
-- 管理员可完成数据库 plan/审批/备份/apply/状态查询，以及组织、岗位、任职、导航发布、功能、服务和主题管理。
+- 管理员可完成服务/模块初始化 plan/审批/备份/apply/状态查询，以及组织、岗位、任职、导航发布、功能、服务和主题管理。
 - PC 页面消费 PF-01 稳定组件；PDA/Mobile 不出现后台管理页面。
 - 三端运行导航、功能和主题策略连接真实 SystemData；无假菜单、假健康或假 KPI。
 - 401、403、404、409、503、Loading、Empty、Permission、Degraded 状态可诊断。
@@ -1853,10 +1921,10 @@ TASK-SD-004 + 010 + 011 + 012
 
 | 任务 | 状态 | 执行者/任务 | 提交 | 验证证据 | 结果回写 |
 | --- | --- | --- | --- | --- | --- |
-| TASK-SD-001 | 待派遣 | - | - | - | - |
-| TASK-SD-002 | 待派遣 | - | - | - | - |
-| TASK-SD-003 | 待派遣 | - | - | - | - |
-| TASK-SD-004 | 待派遣 | - | - | - | - |
+| TASK-SD-001 | 待验收 | 历史实现 | `961cad4` | 已提交五层骨架、Gateway、拓扑解析、自迁移与测试资产；本轮未重跑，PostgreSQL 18 自举/角色证据待验收 | 真实项目与基线已写入 §1.2；不得写成阶段完成 |
+| TASK-SD-002 | 待验收 | 历史实现 | `961cad4` | 已提交 registration/plan/approval/backup/Operation 控制面及测试资产；本轮未重跑 | migration-only v1 作为兼容基线；SeedSets 扩展归 003 |
+| TASK-SD-003 | 待派遣（通用扩展） | 历史并行实现 | `61753dc` | migration-only Runner/PG/SQLite adapter/tests 已提交但本轮未重跑；仍无 RequiredSeed/SecretBootstrap | 保留提交，增量扩展蓝图 33 V2.0；不得回退历史实现 |
+| TASK-SD-004 | 待验收 | 本会话实现 | 未提交（待确认） | 2026-08-14 新鲜验证：SystemData 5 项目 242/242 全绿、build 0/0、13 项门禁测试落地；PostgreSQL 种子账本语义云端 Docker 真实验证 3/3（`SeedLedgerPostgreSqlE2ETests`，含跨运行幂等与自清理）；全 slnx 构建被协作方 Identity WIP 阻断 | 契约 v2/manifest、fixture 路径与待验收项已回写卡片；PostgreSQL 真账本已验证；余下全 Runner 生产门禁与 Redis/RabbitMQ 真实环境待验收 |
 | TASK-SD-005 | 待派遣 | - | - | - | - |
 | TASK-SD-006 | 待派遣 | - | - | - | - |
 | TASK-SD-007 | 待派遣 | - | - | - | - |
@@ -1894,14 +1962,18 @@ UI 与权限
   ServiceCatalogEntryV1 / ServiceCatalogRevision
   TenantThemePolicyV1 / PolicyRevision
 
-数据库编排与环境引导
-  DatabaseRegistrationManifestV1 / EnvironmentPolicyV1
-  DatabaseProvisionPlanV1 / PlanChecksum / TargetStateFingerprint
+服务初始化与环境引导
+  ServiceInitializationManifestV1 / ServiceKey / ModuleKey / SeedSets
+  MigrationArtifactId/Version/Checksum + SeedKey/Version/Class/Scope/Artifact/Checksum/Signature
+  RequiredForReadiness / AllowedEnvironments / DependsOnMigrationVersion / DependsOnSeedKeys / BootstrapPolicy
+  EnvironmentPolicyV1 / DatabaseProvisionPlanV1 / PlanChecksum / TargetStateFingerprint
   DatabaseApprovalV1 / DatabaseBackupEvidenceV1
-  DatabaseProvisionOperationV1 / OperationId / Status / Phase / TraceId
-  DatabaseReadinessV1 / ServiceKey / LogicalDatabaseName / PhysicalDatabaseTargetOrFingerprint / ArtifactChecksum / DesiredVersion / ObservedVersion / TopologyRevision / NotReady（无连接串或凭据）
-  业务服务自有 Schema、迁移产物与 migration ledger
-  SystemData PostgreSQL 18 最小引导和自有显式迁移边界
+  ServiceInitializationOperationV1 / OperationId / Status / SchemaMigration / RequiredSeed / SecretBootstrap / Verify / TraceId
+  ServiceInitializationReadinessV1 / desired+observed migration/seed/bootstrap / NotReady
+  业务服务/模块自有 Schema、migration/seed/initializer 产物、<module>_schema_migrations 与 <module>_seed_ledger
+  SystemData 只保存 MigrationObservation/SeedObservation，不含内容或 Secret
+  migration-only DatabaseRegistration/Operation v1 兼容边界
+  SystemData PostgreSQL 18 最小引导、本地 migration+SystemBaseline 和无循环 API 边界
 
 事件
   SystemData.OrganizationChanged.v1
@@ -1914,6 +1986,9 @@ UI 与权限
   SystemData.DatabaseRegistrationChanged.v1
   SystemData.DatabasePlanCompleted.v1
   SystemData.DatabaseOperationStatusChanged.v1
+  SystemData.ServiceInitializationRegistrationChanged.v1
+  SystemData.ServiceInitializationPlanCompleted.v1
+  SystemData.ServiceInitializationOperationStatusChanged.v1
   SystemData.OperationAudited.v1
 ```
 
@@ -1925,7 +2000,7 @@ UI 与权限
 - Scheduler 任务领域和 PlatformHealth 真实探测。
 - 制造组织与行政组织映射对象、MES 数据权限。
 - Tenant 生命周期、套餐、配额或计费。
-- 独立 Migrator Service、任意 SQL 执行平台或由 SystemData 接管业务服务 Schema/迁移源码。
+- 独立 Migrator/Seeder Service、任意 SQL/命令执行平台，或由 SystemData 接管业务服务 Schema、种子内容、initializer、Repository/本地账本。
 
 同宿主后续模块只能消费公开契约/API/事件，不得引用 SystemData Repository、表或迁移账本。
 
@@ -1938,13 +2013,13 @@ UI 与权限
 - [x] PF-02 只设计 SystemData，未越界到 PF-04/PF-07 或其他并行模块。
 - [x] 已确认的组织、岗位、任职和菜单权限决策均已写入不变量。
 - [x] 表字段未逐表重复 Entity 生命周期；NId、复合外键和跨服务引用一致。
-- [x] 蓝图 33、母版 `81adb57`、数据库初始化/环境引导已作为 PF-02 高优先级范围核对并写入。
-- [x] SystemData 自举、服务注册/plan/apply/Operation、Secret/锁/幂等/NotReady 与生产门禁均有稳定边界。
+- [x] 蓝图 33 V2.0 已将数据库编排兼容升级为 Service Initialization Pipeline，并同步总 Todo、模板、实施索引和微服务母版。
+- [x] ModuleKey、InitializationManifest/SeedSets、四类种子、双账本、受控 initializer、DataPatch、Secret/锁/幂等/NotReady 与生产门禁均有稳定边界。
 - [x] API、权限、事件、页面、错误、缓存、审计、迁移和测试均有稳定边界。
 - [x] 十三张任务卡均且只包含统一九字段。
 - [x] 任务依赖、任务卡和执行记录编号一致。
 - [x] 文档明确“设计完成不等于开发完成”，未派遣实际开发。
 - [x] 实施 15、Identity、PF-01 和其他并行改动未触碰。
-- [x] 用户已完成最终轮审阅并批准蓝图与详细设计；十三张任务卡已转为“待派遣”。
+- [x] 用户已批准本轮通用初始化调整；任务状态已按 `961cad4`、`61753dc` 校准为 001～002 待验收、003 通用扩展待派遣、004～013 待派遣。
 - [x] 已明确未经用户主动要求不得修改业务代码或创建执行任务。
 - [ ] 提交前运行引用、占位、契约一致性、九字段和 `git diff --check` 自审。

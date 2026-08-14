@@ -26,6 +26,9 @@ public sealed class DatabaseProvisionPlan : AggregateRoot
     /// <summary>服务稳定键。</summary>
     public string ServiceKey { get; private set; }
 
+    /// <summary>模块标识;按 (ServiceKey, ModuleKey) 粒度。</summary>
+    public string ModuleKey { get; private set; }
+
     /// <summary>请求的目标迁移版本。</summary>
     public string RequestedMigrationVersion { get; private set; }
 
@@ -64,6 +67,7 @@ public sealed class DatabaseProvisionPlan : AggregateRoot
         PlanNId = string.Empty;
         EnvironmentNId = string.Empty;
         ServiceKey = string.Empty;
+        ModuleKey = string.Empty;
         RequestedMigrationVersion = string.Empty;
         CurrentMigrationVersion = string.Empty;
         TargetStateFingerprint = string.Empty;
@@ -76,6 +80,7 @@ public sealed class DatabaseProvisionPlan : AggregateRoot
         string planNId,
         string environmentNId,
         string serviceKey,
+        string? moduleKey,
         string requestedMigrationVersion,
         string currentMigrationVersion,
         string targetStateFingerprint,
@@ -91,6 +96,10 @@ public sealed class DatabaseProvisionPlan : AggregateRoot
         EnvironmentNId = DatabaseOrchestrationGuard.RequireNId(environmentNId, "计划的环境标识不能为空。");
         ServiceKey = DatabaseOrchestrationGuard.RequireTrimmedNonEmpty(
             serviceKey, "服务键不能为空。", DatabaseRegistration.ServiceKeyMaxLength, $"服务键长度不能超过 {DatabaseRegistration.ServiceKeyMaxLength} 个字符。");
+        ModuleKey = moduleKey is null
+            ? serviceKey
+            : DatabaseOrchestrationGuard.RequireTrimmedNonEmpty(
+                moduleKey, "模块标识不能为空。", DatabaseRegistration.ModuleKeyMaxLength, $"模块标识长度不能超过 {DatabaseRegistration.ModuleKeyMaxLength} 个字符。");
         RequestedMigrationVersion = DatabaseOrchestrationGuard.RequireTrimmedNonEmpty(
             requestedMigrationVersion, "请求版本不能为空。", VersionMaxLength, $"请求版本长度不能超过 {VersionMaxLength} 个字符。");
         CurrentMigrationVersion = DatabaseOrchestrationGuard.RequireTrimmedNonEmpty(
@@ -128,7 +137,8 @@ public sealed class DatabaseProvisionPlan : AggregateRoot
             riskLevel.ToString(),
             destructiveChangeDetected,
             requiredPolicies.ToString(),
-            _steps.Select(step => step.ToChecksumCanonical()).ToList());
+            _steps.Select(step => step.ToChecksumCanonical()).ToList(),
+            moduleKey);
         IsFrozen = true;
     }
 
@@ -139,6 +149,7 @@ public sealed class DatabaseProvisionPlan : AggregateRoot
         string planNId,
         string environmentNId,
         string serviceKey,
+        string moduleKey,
         string requestedMigrationVersion,
         string currentMigrationVersion,
         string targetStateFingerprint,
@@ -164,6 +175,7 @@ public sealed class DatabaseProvisionPlan : AggregateRoot
         PlanNId = planNId;
         EnvironmentNId = environmentNId;
         ServiceKey = serviceKey;
+        ModuleKey = moduleKey;
         RequestedMigrationVersion = requestedMigrationVersion;
         CurrentMigrationVersion = currentMigrationVersion;
         TargetStateFingerprint = targetStateFingerprint;
@@ -184,7 +196,7 @@ public sealed class DatabaseProvisionPlan : AggregateRoot
         ConcurrencyVersion = concurrencyVersion;
     }
 
-    /// <summary>创建不可变计划(固化)。</summary>
+    /// <summary>创建不可变计划(固化)。v1 兼容:moduleKey 缺省 = serviceKey。</summary>
     public static DatabaseProvisionPlan Create(
         string tenantNId,
         string planNId,
@@ -198,12 +210,14 @@ public sealed class DatabaseProvisionPlan : AggregateRoot
         DatabasePlanRequiredPolicies requiredPolicies,
         DateTimeOffset expiresOn,
         string createdByUserNId,
-        IReadOnlyCollection<DatabasePlanStep> steps)
+        IReadOnlyCollection<DatabasePlanStep> steps,
+        string? moduleKey = null)
         => new(
             tenantNId,
             planNId,
             environmentNId,
             serviceKey,
+            moduleKey,
             requestedMigrationVersion,
             currentMigrationVersion,
             targetStateFingerprint,

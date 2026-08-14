@@ -41,6 +41,9 @@ public sealed class SqliteTargetDatabaseAdapterTests : IDisposable
 
     private static CancellationToken Ct => CancellationToken.None;
 
+    /// <summary>被测模块标识(账本表名按 {moduleKey}_schema_migrations 派生)。</summary>
+    private const string ModuleKey = "systemdata";
+
     private ResolvedDatabaseTarget Target => new(
         "Development",
         DatabaseTopologyMode.Shared,
@@ -69,7 +72,7 @@ public sealed class SqliteTargetDatabaseAdapterTests : IDisposable
     [Fact]
     public async Task Inspect_MissingFile_ReportsNotExists()
     {
-        var inspection = await _adapter.InspectAsync(Target, Credentials(_file), Ct);
+        var inspection = await _adapter.InspectAsync(Target, Credentials(_file), ModuleKey, Ct);
 
         Assert.False(inspection.DatabaseExists);
         Assert.Null(inspection.CurrentVersion);
@@ -81,7 +84,7 @@ public sealed class SqliteTargetDatabaseAdapterTests : IDisposable
     {
         await _adapter.EnsureDatabaseAsync(Target, FileConnection(_file), Ct);
 
-        var inspection = await _adapter.InspectAsync(Target, Credentials(_file), Ct);
+        var inspection = await _adapter.InspectAsync(Target, Credentials(_file), ModuleKey, Ct);
 
         Assert.True(inspection.DatabaseExists);
         Assert.Null(inspection.CurrentVersion);
@@ -129,12 +132,12 @@ public sealed class SqliteTargetDatabaseAdapterTests : IDisposable
             new DatabaseMigrationArtifactStep(1, "step-1", "CREATE TABLE t1 (id INTEGER NOT NULL PRIMARY KEY);", null, false),
             new DatabaseMigrationArtifactStep(2, "step-2", "CREATE TABLE t2 (id INTEGER NOT NULL PRIMARY KEY);", null, false));
 
-        var result = await _adapter.ApplyAsync(Target, artifact, FileConnection(_file), Ct);
+        var result = await _adapter.ApplyAsync(Target, artifact, FileConnection(_file), ModuleKey, Ct);
 
         Assert.Equal(2, result.AppliedStepCount);
         Assert.Equal("9.9.9", result.ResultingVersion);
 
-        var inspection = await _adapter.InspectAsync(Target, Credentials(_file), Ct);
+        var inspection = await _adapter.InspectAsync(Target, Credentials(_file), ModuleKey, Ct);
         Assert.True(inspection.DatabaseExists);
         Assert.Equal("9.9.9", inspection.CurrentVersion);
         Assert.Equal(["step-1", "step-2"], inspection.AppliedStepIds);
@@ -146,17 +149,17 @@ public sealed class SqliteTargetDatabaseAdapterTests : IDisposable
         var first = Artifact(
             new DatabaseMigrationArtifactStep(1, "step-1", "CREATE TABLE t1 (id INTEGER NOT NULL PRIMARY KEY);", null, false),
             new DatabaseMigrationArtifactStep(2, "step-2", "CREATE TABLE t2 (id INTEGER NOT NULL PRIMARY KEY);", null, false));
-        await _adapter.ApplyAsync(Target, first, FileConnection(_file), Ct);
+        await _adapter.ApplyAsync(Target, first, FileConnection(_file), ModuleKey, Ct);
 
         var second = Artifact(
             new DatabaseMigrationArtifactStep(1, "step-1", "CREATE TABLE t1 (id INTEGER NOT NULL PRIMARY KEY);", null, false),
             new DatabaseMigrationArtifactStep(2, "step-2", "CREATE TABLE t2 (id INTEGER NOT NULL PRIMARY KEY);", null, false),
             new DatabaseMigrationArtifactStep(3, "step-3", "CREATE TABLE t3 (id INTEGER NOT NULL PRIMARY KEY);", null, false));
 
-        var result = await _adapter.ApplyAsync(Target, second, FileConnection(_file), Ct);
+        var result = await _adapter.ApplyAsync(Target, second, FileConnection(_file), ModuleKey, Ct);
 
         Assert.Equal(1, result.AppliedStepCount);
-        var inspection = await _adapter.InspectAsync(Target, Credentials(_file), Ct);
+        var inspection = await _adapter.InspectAsync(Target, Credentials(_file), ModuleKey, Ct);
         Assert.Equal(["step-1", "step-2", "step-3"], inspection.AppliedStepIds);
     }
 
@@ -165,7 +168,7 @@ public sealed class SqliteTargetDatabaseAdapterTests : IDisposable
     [Fact]
     public async Task Acquire_FileLock_AcquiresThenReleases()
     {
-        var key = DatabaseTargetLockKey.FromTarget("Development", Target);
+        var key = DatabaseTargetLockKey.FromTarget("Development", ModuleKey, Target);
 
         var first = await _adapter.AcquireAsync(key, FileConnection(_file), TimeSpan.FromSeconds(1), Ct);
         Assert.NotNull(first);
@@ -179,7 +182,7 @@ public sealed class SqliteTargetDatabaseAdapterTests : IDisposable
     [Fact]
     public async Task Acquire_FileLockHeld_ReturnsNullOnTimeout()
     {
-        var key = DatabaseTargetLockKey.FromTarget("Development", Target);
+        var key = DatabaseTargetLockKey.FromTarget("Development", ModuleKey, Target);
 
         var held = await _adapter.AcquireAsync(key, FileConnection(_file), TimeSpan.FromSeconds(1), Ct);
         Assert.NotNull(held);

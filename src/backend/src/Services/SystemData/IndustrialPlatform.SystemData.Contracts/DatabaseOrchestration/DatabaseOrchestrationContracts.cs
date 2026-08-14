@@ -107,6 +107,9 @@ public sealed record DatabaseRegistrationV1
     /// <summary>服务稳定键。</summary>
     public string ServiceKey { get; init; } = string.Empty;
 
+    /// <summary>模块标识(v2;migration-only v1 为 ServiceKey 兼容值)。</summary>
+    public string ModuleKey { get; init; } = string.Empty;
+
     /// <summary>数据库提供程序标识。</summary>
     public string Provider { get; init; } = string.Empty;
 
@@ -158,6 +161,9 @@ public sealed record DatabaseRegistrationV1
     /// <summary>注册状态枚举名。</summary>
     public string Status { get; init; } = string.Empty;
 
+    /// <summary>模块版本化种子声明(migration-only v1 为空)。</summary>
+    public IReadOnlyCollection<SeedSetV1>? SeedSets { get; init; }
+
     /// <summary>注册时间。</summary>
     public DateTimeOffset RegisteredOn { get; init; }
 
@@ -170,6 +176,9 @@ public sealed record DatabaseRegistrationSummaryV1
 {
     /// <summary>服务稳定键。</summary>
     public string ServiceKey { get; init; } = string.Empty;
+
+    /// <summary>模块标识(v2;migration-only v1 为 ServiceKey 兼容值)。</summary>
+    public string ModuleKey { get; init; } = string.Empty;
 
     /// <summary>稳定逻辑库名。</summary>
     public string LogicalDatabaseName { get; init; } = string.Empty;
@@ -244,6 +253,9 @@ public sealed record DatabasePlanV1
 
     /// <summary>服务稳定键。</summary>
     public string ServiceKey { get; init; } = string.Empty;
+
+    /// <summary>模块标识(v2;migration-only v1 为 ServiceKey 兼容值)。</summary>
+    public string ModuleKey { get; init; } = string.Empty;
 
     /// <summary>请求的目标迁移版本。</summary>
     public string RequestedMigrationVersion { get; init; } = string.Empty;
@@ -396,6 +408,9 @@ public sealed record DatabaseOperationV1
     /// <summary>服务稳定键。</summary>
     public string ServiceKey { get; init; } = string.Empty;
 
+    /// <summary>模块标识(v2;migration-only v1 为 ServiceKey 兼容值)。</summary>
+    public string ModuleKey { get; init; } = string.Empty;
+
     /// <summary>关联计划业务标识(Apply 操作非空)。</summary>
     public string? PlanNId { get; init; }
 
@@ -443,6 +458,9 @@ public sealed record DatabaseOperationV1
 
     /// <summary>按顺序排列的操作步骤。</summary>
     public IReadOnlyCollection<DatabaseOperationStepV1> Steps { get; init; } = [];
+
+    /// <summary>脱敏种子观察(v2;migration-only v1 为空)。</summary>
+    public IReadOnlyCollection<SeedObservationV1>? SeedObservations { get; init; }
 }
 
 /// <summary>Operation 步骤响应。</summary>

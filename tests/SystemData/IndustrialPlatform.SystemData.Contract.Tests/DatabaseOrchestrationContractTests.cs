@@ -32,6 +32,9 @@ public sealed class DatabaseOrchestrationContractTests
         typeof(DatabaseApplyRequestV1),
         typeof(DatabaseApprovalRequestV1),
         typeof(DatabaseBackupEvidenceRequestV1),
+        typeof(ServiceInitializationManifestV2),
+        typeof(ServiceInitializationPlanRequestV2),
+        typeof(ServiceInitializationApplyRequestV2),
     ];
 
     [Fact]

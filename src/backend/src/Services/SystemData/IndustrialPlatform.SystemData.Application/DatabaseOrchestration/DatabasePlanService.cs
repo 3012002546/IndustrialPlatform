@@ -18,6 +18,15 @@ public interface IPlanService
         string traceId,
         CancellationToken cancellationToken);
 
+    /// <summary>v2:入队模块级异步计划(POST service-initialization/plans,按 (ServiceKey, ModuleKey) 粒度)。</summary>
+    Task<EnqueueOperationV1> EnqueuePlanModuleAsync(
+        string tenantNId,
+        string actorUserNId,
+        string idempotencyKey,
+        ServiceInitializationPlanRequestV2 request,
+        string traceId,
+        CancellationToken cancellationToken);
+
     /// <summary>按计划标识查询不可变计划(含 IsExpired 计算);不存在抛 404。</summary>
     Task<DatabasePlanV1> GetAsync(string tenantNId, string planNId, CancellationToken cancellationToken);
 
@@ -99,6 +108,69 @@ public sealed class DatabasePlanService : IPlanService
     }
 
     /// <inheritdoc />
+    public async Task<EnqueueOperationV1> EnqueuePlanModuleAsync(
+        string tenantNId,
+        string actorUserNId,
+        string idempotencyKey,
+        ServiceInitializationPlanRequestV2 request,
+        string traceId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var topology = _topologyProvider.GetTopology();
+        var environmentNId = topology.EnvironmentName;
+        var serviceKey = DatabaseOrchestrationInput.Require(request.ServiceKey, "服务键不能为空。");
+        var moduleKey = DatabaseOrchestrationInput.Require(request.ModuleKey, "模块标识不能为空。");
+        var requestedVersion = DatabaseOrchestrationInput.Require(request.RequestedVersion, "请求版本不能为空。");
+        var idempotencyKeyTrimmed = DatabaseOrchestrationInput.Require(idempotencyKey, "幂等键不能为空。");
+
+        var registration = await _store.GetRegistrationAsync(tenantNId, environmentNId, serviceKey, moduleKey, cancellationToken)
+            ?? throw new RegistrationNotFoundException();
+
+        // 计划层 EnvironmentSample 门禁(蓝图 §12.3 第二层)。
+        var environmentKind = EnvironmentPolicyResolver.ParseEnvironmentKind(environmentNId);
+        if (environmentKind is DatabaseEnvironmentKind.Staging or DatabaseEnvironmentKind.Production
+            && registration.SeedSets.Any(seed => seed.SeedClass == SeedClass.EnvironmentSample))
+        {
+            throw new SampleEnvironmentForbiddenException();
+        }
+
+        var requestHash = RequestHasher.HashPlanRequestV2(serviceKey, moduleKey, requestedVersion, request.DesiredState);
+        var existing = await _store.FindOperationByIdempotencyKeyAsync(tenantNId, idempotencyKeyTrimmed, cancellationToken);
+        if (existing is not null)
+        {
+            if (existing.MatchesRequestHash(requestHash))
+            {
+                return ToEnqueueV1(existing);
+            }
+
+            throw new OperationConflictException("同一幂等键已用于不同请求。");
+        }
+
+        var policy = await EnvironmentPolicyResolver.ResolveAsync(
+            _store, _options.Value, tenantNId, environmentNId, topology, cancellationToken);
+        var timeoutOn = DateTimeOffset.UtcNow.AddSeconds(policy.PlanTimeoutSeconds);
+        var operation = DatabaseProvisionOperation.Enqueue(
+            tenantNId,
+            DatabaseOrchestrationInput.NewNId("OP"),
+            OperationKind.Plan,
+            environmentNId,
+            serviceKey,
+            planNId: null,
+            requestedVersion,
+            idempotencyKeyTrimmed,
+            requestHash,
+            timeoutOn,
+            traceId,
+            actorUserNId,
+            moduleKey: moduleKey);
+        operation.ClearDomainEvents();
+        await WriteGuard.ExecuteAsync(() => _store.AddOperationAsync(operation, cancellationToken));
+        return ToEnqueueV1(operation);
+    }
+
+    /// <inheritdoc />
     public async Task<DatabasePlanV1> GetAsync(string tenantNId, string planNId, CancellationToken cancellationToken)
     {
         var planNIdTrimmed = DatabaseOrchestrationInput.Require(planNId, "计划标识不能为空。");
@@ -130,6 +202,7 @@ public sealed class DatabasePlanService : IPlanService
         PlanNId = plan.PlanNId,
         EnvironmentNId = plan.EnvironmentNId,
         ServiceKey = plan.ServiceKey,
+        ModuleKey = plan.ModuleKey,
         RequestedMigrationVersion = plan.RequestedMigrationVersion,
         CurrentMigrationVersion = plan.CurrentMigrationVersion,
         TargetStateFingerprint = plan.TargetStateFingerprint,

@@ -28,11 +28,12 @@ public sealed class DatabaseTargetAdapterRouter : ITargetDatabaseInspector, ITar
     public Task<DatabaseTargetInspection> InspectAsync(
         ResolvedDatabaseTarget target,
         DatabaseTargetCredentials credentials,
+        string moduleKey,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(target);
         return AdapterFor<ITargetDatabaseInspector>(target.Provider.ToString())
-            .InspectAsync(target, credentials, cancellationToken);
+            .InspectAsync(target, credentials, moduleKey, cancellationToken);
     }
 
     /// <inheritdoc />
@@ -62,11 +63,12 @@ public sealed class DatabaseTargetAdapterRouter : ITargetDatabaseInspector, ITar
         ResolvedDatabaseTarget target,
         DatabaseMigrationArtifact artifact,
         TargetDatabaseConnection migrator,
+        string moduleKey,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(target);
         return AdapterFor<IMigrationExecutor>(target.Provider.ToString())
-            .ApplyAsync(target, artifact, migrator, cancellationToken);
+            .ApplyAsync(target, artifact, migrator, moduleKey, cancellationToken);
     }
 
     /// <inheritdoc />

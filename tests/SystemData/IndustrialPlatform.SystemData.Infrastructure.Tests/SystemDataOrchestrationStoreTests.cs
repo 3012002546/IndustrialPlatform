@@ -90,18 +90,18 @@ public sealed class SystemDataOrchestrationStoreTests : IDisposable
     }
 
     // =====================================================================
-    // SDM-001~003 迁移:九张控制面表 + 部分唯一索引
+    // SDM-001~003+004 迁移:10 张控制面表(SDM-004-02 种子观察) + 部分唯一索引
     // =====================================================================
 
     [Fact]
-    public async Task ApplyAllMigrations_CreatesAllNineTables()
+    public async Task ApplyAllMigrations_CreatesAllTenTables()
     {
         foreach (var tableName in AllTableNames)
         {
             await AssertTableExistsAsync(_dbContext.SqlSugar, tableName);
         }
 
-        Assert.Equal(9, await _dbContext.SqlSugar.Queryable<SchemaMigrationRecord>().CountAsync());
+        Assert.Equal(11, await _dbContext.SqlSugar.Queryable<SchemaMigrationRecord>().CountAsync());
     }
 
     [Fact]
@@ -148,11 +148,67 @@ public sealed class SystemDataOrchestrationStoreTests : IDisposable
         await _store.AddRegistrationAsync(CreateRegistration(serviceKey: "referencedata"), Ct);
 
         var page = await _store.QueryRegistrationsAsync(
-            new RegistrationListFilter(Tenant, "system", 1, 20), Ct);
+            new RegistrationListFilter(Tenant, "system", ModuleKey: null, 1, 20), Ct);
 
         Assert.Equal(1, page.Total);
         Assert.Single(page.Items);
         Assert.Equal("systemdata", page.Items[0].ServiceKey);
+    }
+
+    [Fact]
+    public async Task SeedObservation_RoundTrips_ByModuleScope()
+    {
+        var observation = DatabaseSeedObservation.Record(
+            Tenant,
+            "Development",
+            "systemdata",
+            "module-a",
+            "seed-catalog",
+            "1.0.0",
+            Sha("seed-catalog"),
+            SeedScope.System,
+            SeedStatus.Applied,
+            DateTimeOffset.UtcNow,
+            "OP-001",
+            VerificationStatus.Verified);
+
+        await _store.AddSeedObservationAsync(observation, Ct);
+        var loaded = await _store.GetLatestSeedObservationAsync(
+            Tenant, "Development", "systemdata", "module-a", "seed-catalog", Ct);
+
+        Assert.NotNull(loaded);
+        Assert.Equal(observation.ModuleKey, loaded.ModuleKey);
+        Assert.Equal(observation.SeedKey, loaded.SeedKey);
+        Assert.Equal(observation.SeedVersion, loaded.SeedVersion);
+        Assert.Equal(observation.Checksum, loaded.Checksum);
+        Assert.Equal(observation.Scope, loaded.Scope);
+        Assert.Equal(observation.Status, loaded.Status);
+        Assert.Equal(observation.OperationNId, loaded.OperationNId);
+        Assert.Equal(observation.VerificationStatus, loaded.VerificationStatus);
+
+        // 同 (tenant, env, service, module, seed) 的后续观察按 CreatedOn 取最新;
+        // CreatedOn 由 Entity 构造取墙钟,间隔 >0 保证排序确定(避免同一时钟节拍并列)。
+        await Task.Delay(10, Ct);
+        var newer = DatabaseSeedObservation.Record(
+            Tenant,
+            "Development",
+            "systemdata",
+            "module-a",
+            "seed-catalog",
+            "1.1.0",
+            Sha("seed-catalog-v2"),
+            SeedScope.System,
+            SeedStatus.Applied,
+            DateTimeOffset.UtcNow,
+            "OP-002",
+            VerificationStatus.Verified);
+        await _store.AddSeedObservationAsync(newer, Ct);
+        var latest = await _store.GetLatestSeedObservationAsync(
+            Tenant, "Development", "systemdata", "module-a", "seed-catalog", Ct);
+
+        Assert.NotNull(latest);
+        Assert.Equal("1.1.0", latest.SeedVersion);
+        Assert.Equal("OP-002", latest.OperationNId);
     }
 
     [Fact]
@@ -205,7 +261,7 @@ public sealed class SystemDataOrchestrationStoreTests : IDisposable
         Assert.Equal(operation.Phase, loaded.Phase);
         Assert.Equal(operation.IdempotencyKey, loaded.IdempotencyKey);
         Assert.Equal(operation.RequestHash, loaded.RequestHash);
-        Assert.Equal(7, loaded.Steps.Count);
+        Assert.Equal(DatabaseProvisionOperation.AllPhases.Length, loaded.Steps.Count);
         Assert.Equal(OperationPhase.Validate, loaded.Steps.First().Phase);
     }
 
@@ -219,7 +275,7 @@ public sealed class SystemDataOrchestrationStoreTests : IDisposable
 
         Assert.NotNull(loaded);
         Assert.Equal(operation.OperationNId, loaded.OperationNId);
-        Assert.Equal(7, loaded.Steps.Count);
+        Assert.Equal(DatabaseProvisionOperation.AllPhases.Length, loaded.Steps.Count);
     }
 
     [Fact]
@@ -354,7 +410,7 @@ public sealed class SystemDataOrchestrationStoreTests : IDisposable
             new SugarParameter("@id", storedId));
 
         Assert.Null(await _store.GetRegistrationAsync(Tenant, "Development", "systemdata", Ct));
-        var page = await _store.QueryRegistrationsAsync(new RegistrationListFilter(Tenant, null, 1, 20), Ct);
+        var page = await _store.QueryRegistrationsAsync(new RegistrationListFilter(Tenant, null, ModuleKey: null, 1, 20), Ct);
         Assert.Equal(0, page.Total);
     }
 
@@ -414,6 +470,7 @@ public sealed class SystemDataOrchestrationStoreTests : IDisposable
         "system_data_database_operation",
         "system_data_database_operation_step",
         "system_data_database_migration_observation",
+        "system_data_seed_observation",
     ];
 
     private static DatabaseRegistration CreateRegistration(string serviceKey = "systemdata", string version = "1.0.0") =>

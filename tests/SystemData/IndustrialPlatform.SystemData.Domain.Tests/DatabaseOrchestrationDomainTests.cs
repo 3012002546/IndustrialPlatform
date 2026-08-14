@@ -343,7 +343,7 @@ public sealed class DatabaseOrchestrationDomainTests
     // ===== Operation 状态机 =====
 
     [Fact]
-    public void Enqueue_CreatesQueuedOperationWithSevenSteps()
+    public void Enqueue_CreatesQueuedOperationWithStepsForAllPhases()
     {
         var operation = CreateOperation();
 
@@ -351,8 +351,10 @@ public sealed class DatabaseOrchestrationDomainTests
         Assert.Equal(OperationPhase.Validate, operation.Phase);
         Assert.Equal(0, operation.Attempt);
         Assert.Equal(OperationKind.Apply, operation.Kind);
-        Assert.Equal(7, operation.Steps.Count);
-        Assert.Equal([1, 2, 3, 4, 5, 6, 7], operation.Steps.Select(step => step.Sequence).ToArray());
+        Assert.Equal(DatabaseProvisionOperation.AllPhases.Length, operation.Steps.Count);
+        Assert.Equal(
+            DatabaseProvisionOperation.AllPhases.Select((_, index) => index + 1).ToArray(),
+            operation.Steps.Select(step => step.Sequence).ToArray());
         Assert.Single(operation.DomainEvents.OfType<DatabaseOperationStatusChangedEvent>());
     }
 

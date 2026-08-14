@@ -49,6 +49,9 @@ public sealed class DatabaseProvisionPlanTable
     [SugarColumn(ColumnName = "service_key")]
     public string ServiceKey { get; set; } = string.Empty;
 
+    [SugarColumn(ColumnName = "module_key")]
+    public string ModuleKey { get; set; } = string.Empty;
+
     [SugarColumn(ColumnName = "requested_migration_version")]
     public string RequestedMigrationVersion { get; set; } = string.Empty;
 

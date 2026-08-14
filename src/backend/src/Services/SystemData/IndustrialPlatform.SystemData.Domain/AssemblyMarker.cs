@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("IndustrialPlatform.SystemData.Application.Tests")]
 [assembly: InternalsVisibleTo("IndustrialPlatform.SystemData.Infrastructure.Tests")]
 [assembly: InternalsVisibleTo("IndustrialPlatform.SystemData.Api.Tests")]
+[assembly: InternalsVisibleTo("IndustrialPlatform.SystemData.Testing")]
 
 namespace IndustrialPlatform.SystemData.Domain;
 

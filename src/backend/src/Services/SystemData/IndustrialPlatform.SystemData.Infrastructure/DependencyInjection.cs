@@ -60,12 +60,20 @@ public static class DependencyInjection
 
         services.AddSingleton<MigrationArtifactChecksumVerifier>();
         services.AddSingleton<IMigrationArtifactVerifier>(sp => sp.GetRequiredService<MigrationArtifactChecksumVerifier>());
+        services.AddSingleton<ISeedArtifactVerifier>(sp => sp.GetRequiredService<MigrationArtifactChecksumVerifier>());
         services.AddSingleton<FileSystemArtifactStore>();
         services.AddSingleton<IMigrationArtifactStore>(sp => sp.GetRequiredService<FileSystemArtifactStore>());
+        services.AddSingleton<ISeedArtifactStore>(sp => sp.GetRequiredService<FileSystemArtifactStore>());
         services.AddSingleton<EnvironmentCredentialResolver>();
         services.AddSingleton<IDatabaseCredentialResolver>(sp => sp.GetRequiredService<EnvironmentCredentialResolver>());
+        services.AddSingleton<EnvironmentSeedSecretResolver>();
+        services.AddSingleton<ISeedSecretResolver>(sp => sp.GetRequiredService<EnvironmentSeedSecretResolver>());
         services.AddSingleton<FileCredentialSink>();
         services.AddSingleton<IDatabaseCredentialSink>(sp => sp.GetRequiredService<FileCredentialSink>());
+
+        // 种子执行器(TASK-SD-004,蓝图 §5.2):按产物 ExecutorKind 选择;多实现以 IEnumerable 注入 Runner。
+        services.AddSingleton<ISeedExecutor, SqlSeedBundleExecutor>();
+        services.AddSingleton<ISeedExecutor, ServiceInitializerExecutor>();
 
         services.AddSingleton<DatabaseOperationRunner>();
         services.AddSingleton<IOperationRunnerCoordinator>(sp => sp.GetRequiredService<DatabaseOperationRunner>());
