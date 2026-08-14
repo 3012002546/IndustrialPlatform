@@ -28,6 +28,12 @@ public static class PermissionPolicies
     /// <summary>分配角色。</summary>
     public const string UserAssignRole = Prefix + PermissionCatalog.UserAssignRole;
 
+    /// <summary>安全删除用户。</summary>
+    public const string UserDelete = Prefix + PermissionCatalog.UserDelete;
+
+    /// <summary>恢复用户墓碑。</summary>
+    public const string UserRestore = Prefix + PermissionCatalog.UserRestore;
+
     /// <summary>查看角色。</summary>
     public const string RoleView = Prefix + PermissionCatalog.RoleView;
 
@@ -39,6 +45,12 @@ public static class PermissionPolicies
 
     /// <summary>分配权限。</summary>
     public const string RoleAssignPermission = Prefix + PermissionCatalog.RoleAssignPermission;
+
+    /// <summary>安全删除用户组。</summary>
+    public const string UserGroupDelete = Prefix + PermissionCatalog.UserGroupDelete;
+
+    /// <summary>恢复用户组墓碑。</summary>
+    public const string UserGroupRestore = Prefix + PermissionCatalog.UserGroupRestore;
 
     /// <summary>查看权限。</summary>
     public const string PermissionView = Prefix + PermissionCatalog.PermissionView;

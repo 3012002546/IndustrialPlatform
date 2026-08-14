@@ -22,6 +22,8 @@ public sealed class IntegrationEventsContractTests
     private static readonly UserGroupChangedEvent UserGroupChanged = new(Tenant, "group.ops", "运维组", "Disabled");
     private static readonly UserGroupMembershipChangedEvent UserGroupMembershipChanged = new(Tenant, "group.ops", "alice.user");
     private static readonly UserGroupRolesChangedEvent UserGroupRolesChanged = new(Tenant, "group.ops");
+    private static readonly UserDeletedEvent UserDeleted = new(Tenant, "alice.user", 6);
+    private static readonly UserRestoredEvent UserRestored = new(Tenant, "alice.user");
 
     public static TheoryData<IdentityIntegrationEvent, string> VersionedEventTypeSamples => new()
     {
@@ -34,6 +36,8 @@ public sealed class IntegrationEventsContractTests
         { UserGroupChanged, "Identity.UserGroupChanged.v1" },
         { UserGroupMembershipChanged, "Identity.UserGroupMembershipChanged.v1" },
         { UserGroupRolesChanged, "Identity.UserGroupRolesChanged.v1" },
+        { UserDeleted, "Identity.UserDeleted.v1" },
+        { UserRestored, "Identity.UserRestored.v1" },
     };
 
     public static TheoryData<IdentityIntegrationEvent> AllSampleEvents => new()
@@ -47,6 +51,8 @@ public sealed class IntegrationEventsContractTests
         { UserGroupChanged },
         { UserGroupMembershipChanged },
         { UserGroupRolesChanged },
+        { UserDeleted },
+        { UserRestored },
     };
 
     [Theory]
@@ -222,5 +228,34 @@ public sealed class IntegrationEventsContractTests
 
         Assert.Equal(UserGroupRolesChanged.TenantNId, restored.TenantNId);
         Assert.Equal(UserGroupRolesChanged.SubjectNId, restored.SubjectNId);
+    }
+
+    [Fact]
+    public void UserTombstoneEventTypeNamesMatchContract()
+    {
+        string[] actual = [UserDeleted.EventTypeName, UserRestored.EventTypeName];
+        string[] expected = ["Identity.UserDeleted.v1", "Identity.UserRestored.v1"];
+
+        Assert.Equal(expected.Order(StringComparer.Ordinal), actual.Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void UserDeletedEvent_RoundTripsThroughJsonConstructor()
+    {
+        var restored = JsonSerializer.Deserialize<UserDeletedEvent>(IntegrationEventJson.Serialize(UserDeleted), IntegrationEventJson.Options)!;
+
+        Assert.Equal(UserDeleted.EventId, restored.EventId);
+        Assert.Equal(UserDeleted.TenantNId, restored.TenantNId);
+        Assert.Equal(UserDeleted.SubjectNId, restored.SubjectNId);
+        Assert.Equal(UserDeleted.AuthVersion, restored.AuthVersion);
+    }
+
+    [Fact]
+    public void UserRestoredEvent_RoundTripsThroughJsonConstructor()
+    {
+        var restored = JsonSerializer.Deserialize<UserRestoredEvent>(IntegrationEventJson.Serialize(UserRestored), IntegrationEventJson.Options)!;
+
+        Assert.Equal(UserRestored.TenantNId, restored.TenantNId);
+        Assert.Equal(UserRestored.SubjectNId, restored.SubjectNId);
     }
 }

@@ -306,4 +306,58 @@ public sealed class UserGroupTests
         Assert.NotEqual(group.Id, relation.UserId);
         Assert.Equal(user.Id, relation.UserId);
     }
+
+    [Fact]
+    public void DeleteForTombstone_SoftDeletesRelationsAndMarksDeleted()
+    {
+        var group = CreateGroup();
+        var user = CreateUser();
+        var role = CreateRole();
+        group.AssignMember(user);
+        group.AssignRole(role);
+
+        group.DeleteForTombstone();
+
+        Assert.True(group.IsDeleted);
+        Assert.All(group.Memberships, m => Assert.True(m.IsDeleted));
+        Assert.All(group.Roles, r => Assert.True(r.IsDeleted));
+    }
+
+    [Fact]
+    public void DeleteForTombstone_OnFrozenGroup_Throws()
+    {
+        var group = CreateGroup();
+        group.Freeze();
+
+        Assert.Throws<BusinessException>(() => group.DeleteForTombstone());
+        Assert.False(group.IsDeleted);
+    }
+
+    [Fact]
+    public void RestoreTombstone_ClearsDeletedAndStaysDisabled_RelationsNotRestored()
+    {
+        var group = CreateGroup();
+        var user = CreateUser();
+        var role = CreateRole();
+        group.AssignMember(user);
+        group.AssignRole(role);
+        group.DeleteForTombstone();
+
+        group.RestoreTombstone();
+
+        Assert.False(group.IsDeleted);
+        Assert.Equal(UserGroupStatus.Disabled, group.Status);
+        // 成员/角色关系保持软删,不自动恢复(§29A.3)
+        Assert.All(group.Memberships, m => Assert.True(m.IsDeleted));
+        Assert.All(group.Roles, r => Assert.True(r.IsDeleted));
+    }
+
+    [Fact]
+    public void RestoreTombstone_OnActiveGroup_Throws()
+    {
+        var group = CreateGroup();
+
+        Assert.Throws<BusinessException>(() => group.RestoreTombstone());
+        Assert.False(group.IsDeleted);
+    }
 }

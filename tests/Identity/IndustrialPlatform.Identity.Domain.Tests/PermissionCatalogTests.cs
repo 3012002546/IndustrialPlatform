@@ -15,10 +15,14 @@ public sealed class PermissionCatalogTests
         "identity.user.update",
         "identity.user.status",
         "identity.user.assign-role",
+        "identity.user.delete",
+        "identity.user.restore",
         "identity.role.view",
         "identity.role.create",
         "identity.role.update",
         "identity.role.assign-permission",
+        "identity.user-group.delete",
+        "identity.user-group.restore",
         "identity.permission.view",
         "identity.audit.login.view",
         "identity.sso.view",
@@ -30,9 +34,9 @@ public sealed class PermissionCatalogTests
     ];
 
     [Fact]
-    public void FirstBatch_HasSeventeenPermissions()
+    public void FirstBatch_HasTwentyOnePermissions()
     {
-        Assert.Equal(17, PermissionCatalog.FirstBatchNIds.Count);
+        Assert.Equal(21, PermissionCatalog.FirstBatchNIds.Count);
     }
 
     [Fact]

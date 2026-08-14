@@ -450,6 +450,83 @@ public sealed class UserGroupRepositoryTests : IDisposable
         Assert.Empty(roleIds);
     }
 
+    // ---- 墓碑删除/恢复(§29A.3)----
+
+    [Fact]
+    public async Task TombstoneDelete_SoftDeletesMembershipAndRoleRelations()
+    {
+        var alice = await SeedUserAsync("user.alice", "alice");
+        var editor = await SeedRoleAsync("role.editor");
+        var group = await SeedGroupAsync("group.ops", [alice], [editor]);
+
+        var loaded = await _groups.GetByNIdAsync("group.ops", CancellationToken.None);
+        Assert.NotNull(loaded);
+        var version = loaded!.OptimisticVersion;
+        var concurrency = loaded.ConcurrencyVersion;
+        loaded.DeleteForTombstone();
+        await _groups.UpdateAsync(loaded, version, concurrency, [], CancellationToken.None);
+
+        Assert.Null(await _groups.GetByNIdAsync("group.ops", CancellationToken.None));
+        // 成员与组角色关系自身被软删(恢复后不复活)
+        Assert.Equal(0, await CountAsync(
+            "SELECT COUNT(*) FROM identity_user_group_membership WHERE user_group_id = @id AND is_deleted = 0",
+            new SugarParameter("@id", group.Id.ToString())));
+        Assert.Equal(0, await CountAsync(
+            "SELECT COUNT(*) FROM identity_user_group_role WHERE user_group_id = @id AND is_deleted = 0",
+            new SugarParameter("@id", group.Id.ToString())));
+    }
+
+    [Fact]
+    public async Task TombstoneRestore_KeepsDisabled_RelationsStaySoftDeleted()
+    {
+        var alice = await SeedUserAsync("user.alice", "alice");
+        var editor = await SeedRoleAsync("role.editor");
+        var group = await SeedGroupAsync("group.ops", [alice], [editor]);
+
+        var loaded = await _groups.GetByNIdAsync("group.ops", CancellationToken.None);
+        Assert.NotNull(loaded);
+        var deleteVersion = loaded!.OptimisticVersion;
+        var deleteConcurrency = loaded.ConcurrencyVersion;
+        loaded.DeleteForTombstone();
+        await _groups.UpdateAsync(loaded, deleteVersion, deleteConcurrency, [], CancellationToken.None);
+
+        var tombstone = await _groups.GetByNIdIncludingDeletedAsync("group.ops", CancellationToken.None);
+        Assert.NotNull(tombstone);
+        var restoreVersion = tombstone!.OptimisticVersion;
+        var restoreConcurrency = tombstone.ConcurrencyVersion;
+        tombstone.RestoreTombstone();
+        await _groups.RestoreAsync(tombstone, restoreVersion, restoreConcurrency, CancellationToken.None);
+
+        var restored = await _groups.GetByNIdAsync("group.ops", CancellationToken.None);
+        Assert.NotNull(restored);
+        Assert.False(restored!.IsDeleted);
+        Assert.Equal(UserGroupStatus.Disabled, restored.Status);
+        Assert.Empty(restored.Memberships);
+        Assert.Empty(restored.Roles);
+        // 关系行保持软删
+        Assert.Equal(1, await CountAsync(
+            "SELECT is_deleted FROM identity_user_group_membership WHERE user_group_id = @id",
+            new SugarParameter("@id", group.Id.ToString())));
+    }
+
+    [Fact]
+    public async Task DefaultQuery_ExcludesTombstone_IncludeDeletedFindsIt()
+    {
+        var group = await SeedGroupAsync("group.ops", [], []);
+
+        var loaded = await _groups.GetByNIdAsync("group.ops", CancellationToken.None);
+        Assert.NotNull(loaded);
+        var version = loaded!.OptimisticVersion;
+        var concurrency = loaded.ConcurrencyVersion;
+        loaded.DeleteForTombstone();
+        await _groups.UpdateAsync(loaded, version, concurrency, [], CancellationToken.None);
+
+        Assert.Null(await _groups.GetByNIdAsync("group.ops", CancellationToken.None));
+        var tombstone = await _groups.GetByNIdIncludingDeletedAsync("group.ops", CancellationToken.None);
+        Assert.NotNull(tombstone);
+        Assert.True(tombstone!.IsDeleted);
+    }
+
     private static SugarParameter[] MembershipParams(Guid groupId, Guid userId, int userIsDeleted)
     {
         var now = DateTimeOffset.UtcNow.ToString("O");

@@ -402,6 +402,92 @@ public sealed partial class UserGroupService : IUserGroupService
     }
 
     /// <inheritdoc/>
+    public async Task DeleteAsync(
+        string tenantNId,
+        string actorUserNId,
+        string groupNId,
+        long expectedOptimisticVersion,
+        Guid expectedConcurrencyVersion,
+        CancellationToken cancellationToken)
+    {
+        var group = await RequireGroupAsync(tenantNId, groupNId, cancellationToken);
+        var before = BuildGroupSummaryText(group);
+
+        // 受影响成员(删除前捕获;删除后成员关系已软删,查询不到)。
+        var memberNIds = await _groupStore.GetMemberUserNIdsAsync(group.Id, tenantNId, cancellationToken);
+
+        // 删除守卫:组内每个系统角色都不得使任何成员成为租户最后一名系统管理员(§29A.3)。
+        var systemRoles = await LoadSystemRolesAsync(group, tenantNId, cancellationToken);
+        await ExecuteWriteAsync(async () =>
+        {
+            foreach (var role in systemRoles)
+            {
+                await EnsureRoleRemovalKeepsSystemAdminAsync(group, role, tenantNId, cancellationToken);
+            }
+
+            // 软删全部活动成员/组角色关系并标记删除(§29A.6 未定义组删除集成事件,仅写操作审计)。
+            group.DeleteForTombstone();
+            await _groupStore.UpdateAsync(group, expectedOptimisticVersion, expectedConcurrencyVersion, [], cancellationToken);
+        });
+
+        await TryWriteOperationAuditAsync(
+            new OperationAuditEntry(
+                tenantNId,
+                actorUserNId,
+                OperationAction.UserGroupDelete,
+                OperationObjectType.UserGroup,
+                group.NId,
+                before,
+                BuildGroupSummaryText(group),
+                TraceId,
+                DateTimeOffset.UtcNow),
+            cancellationToken);
+
+        // 组成员因删除失去组继承角色,全部推进授权版本并失效会话/缓存(§29A.2)。
+        await InvalidateAffectedUsersAsync(memberNIds, tenantNId, "user_group_deleted", cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<UserGroupSummary> RestoreAsync(
+        string tenantNId,
+        string actorUserNId,
+        string groupNId,
+        long expectedOptimisticVersion,
+        Guid expectedConcurrencyVersion,
+        CancellationToken cancellationToken)
+    {
+        var group = await _groupStore.GetUserGroupAggregateIncludingDeletedAsync(groupNId, cancellationToken);
+        if (group is null || !string.Equals(group.TenantNId, tenantNId, StringComparison.Ordinal))
+        {
+            throw new ResourceNotFoundException();
+        }
+
+        var before = BuildGroupSummaryText(group);
+
+        // 仅恢复墓碑为 Disabled,不自动恢复成员/角色关系;恢复后不贡献任何角色(§29A.3)。
+        await ExecuteWriteAsync(async () =>
+        {
+            group.RestoreTombstone();
+            await _groupStore.RestoreAsync(group, expectedOptimisticVersion, expectedConcurrencyVersion, cancellationToken);
+        });
+
+        await TryWriteOperationAuditAsync(
+            new OperationAuditEntry(
+                tenantNId,
+                actorUserNId,
+                OperationAction.UserGroupRestore,
+                OperationObjectType.UserGroup,
+                group.NId,
+                before,
+                BuildGroupSummaryText(group),
+                TraceId,
+                DateTimeOffset.UtcNow),
+            cancellationToken);
+
+        return await GetAsync(tenantNId, groupNId, cancellationToken);
+    }
+
+    /// <inheritdoc/>
     public async Task<UserGroupSummary> GetAsync(string tenantNId, string groupNId, CancellationToken cancellationToken)
     {
         var group = await RequireGroupAsync(tenantNId, groupNId, cancellationToken);

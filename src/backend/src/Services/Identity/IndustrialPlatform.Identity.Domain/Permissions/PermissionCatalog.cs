@@ -20,6 +20,12 @@ public static class PermissionCatalog
     /// <summary>分配角色。</summary>
     public const string UserAssignRole = "identity.user.assign-role";
 
+    /// <summary>安全删除用户(§29A.5)。</summary>
+    public const string UserDelete = "identity.user.delete";
+
+    /// <summary>恢复用户墓碑(§29A.5)。</summary>
+    public const string UserRestore = "identity.user.restore";
+
     /// <summary>查看角色。</summary>
     public const string RoleView = "identity.role.view";
 
@@ -31,6 +37,12 @@ public static class PermissionCatalog
 
     /// <summary>分配权限。</summary>
     public const string RoleAssignPermission = "identity.role.assign-permission";
+
+    /// <summary>安全删除用户组(§29A.5)。</summary>
+    public const string UserGroupDelete = "identity.user-group.delete";
+
+    /// <summary>恢复用户组墓碑(§29A.5)。</summary>
+    public const string UserGroupRestore = "identity.user-group.restore";
 
     /// <summary>查看权限。</summary>
     public const string PermissionView = "identity.permission.view";
@@ -64,10 +76,14 @@ public static class PermissionCatalog
         UserUpdate,
         UserStatus,
         UserAssignRole,
+        UserDelete,
+        UserRestore,
         RoleView,
         RoleCreate,
         RoleUpdate,
         RoleAssignPermission,
+        UserGroupDelete,
+        UserGroupRestore,
         PermissionView,
         AuditLoginView,
         SsoView,

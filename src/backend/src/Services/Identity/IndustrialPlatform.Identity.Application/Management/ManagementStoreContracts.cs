@@ -49,7 +49,7 @@ public sealed record StoredRole(
 /// <summary>角色查询分页结果。</summary>
 public sealed record StoredRolePage(IReadOnlyList<StoredRole> Items, long Total);
 
-/// <summary>用户列表过滤(§16.1)。租户隔离在 SQL 层实施;NId/LoginName/Name 为包含匹配,Status 可选。</summary>
+/// <summary>用户列表过滤(§16.1)。租户隔离在 SQL 层实施;NId/LoginName/Name 为包含匹配,Status 可选;IncludeDeleted 为 true 时同时返回墓碑(§29A.3)。</summary>
 public sealed record UserListFilter(
     string TenantNId,
     string? NId,
@@ -57,7 +57,8 @@ public sealed record UserListFilter(
     string? Name,
     UserStatus? Status,
     int PageIndex,
-    int PageSize);
+    int PageSize,
+    bool IncludeDeleted = false);
 
 /// <summary>角色列表过滤(§16.2)。租户隔离在 SQL 层实施;NId/Name 为包含匹配。</summary>
 public sealed record RoleListFilter(string TenantNId, string? NId, string? Name, int PageIndex, int PageSize);
@@ -95,6 +96,9 @@ public interface IManagementStore
 
     /// <summary>按业务标识装载完整用户聚合(含活动角色关系),供写操作;不存在返回 <c>null</c>。</summary>
     Task<User?> GetUserAggregateAsync(string userNId, CancellationToken cancellationToken);
+
+    /// <summary>按业务标识装载用户墓碑聚合(含已软删除记录,§29A.3),供恢复操作;不存在返回 <c>null</c>。</summary>
+    Task<User?> GetUserAggregateIncludingDeletedAsync(string userNId, CancellationToken cancellationToken);
 
     /// <summary>业务标识是否已存在(含软删除,§8 NId 全历史唯一且删除后不复用)。</summary>
     Task<bool> UserExistsByNIdAsync(string userNId, CancellationToken cancellationToken);
@@ -143,6 +147,9 @@ public interface IManagementStore
 
     /// <summary>按双版本原子更新用户与角色关系 diff(并与 Outbox 事件同事务提交);冲突抛并发异常。</summary>
     Task UpdateUserAsync(User user, long expectedOptimisticVersion, Guid expectedConcurrencyVersion, IReadOnlyCollection<OutboxEnvelope> outboxEvents, CancellationToken cancellationToken);
+
+    /// <summary>按双版本原子恢复用户墓碑(并与 Outbox 事件同事务提交,§29A.3);冲突抛并发异常。</summary>
+    Task RestoreUserAsync(User user, long expectedOptimisticVersion, Guid expectedConcurrencyVersion, IReadOnlyCollection<OutboxEnvelope> outboxEvents, CancellationToken cancellationToken);
 
     /// <summary>新增角色(事务内级联活动权限关系,并与 Outbox 事件同事务提交)。</summary>
     Task AddRoleAsync(Role role, IReadOnlyCollection<OutboxEnvelope> outboxEvents, CancellationToken cancellationToken);

@@ -43,6 +43,16 @@ public sealed class UserGroupRepository : IUserGroupRepository
         return row is null ? null : await LoadWithRelationsAsync(row, cancellationToken);
     }
 
+    /// <inheritdoc/>
+    public async Task<UserGroup?> GetByNIdIncludingDeletedAsync(string groupNId, CancellationToken cancellationToken = default)
+    {
+        var normalized = NId.Create(groupNId).Normalized;
+        var row = await _dbContext.SqlSugar.Queryable<UserGroupTable>()
+            .Where(t => t.NormalizedNId == normalized)
+            .FirstAsync(cancellationToken);
+        return row is null ? null : await LoadWithRelationsAsync(row, cancellationToken);
+    }
+
     /// <summary>载入活动成员与组角色关系(子表自身未删除 且 父级影子列未删除)。</summary>
     private async Task<UserGroup?> LoadWithRelationsAsync(UserGroupTable row, CancellationToken cancellationToken)
     {
@@ -212,11 +222,11 @@ public sealed class UserGroupRepository : IUserGroupRepository
                 && t.ConcurrencyVersion == expectedConcurrencyVersion)
             .ExecuteCommandAsync(cancellationToken);
 
-    /// <summary>按聚合内成员关系集与库内活动关系做 diff:新增插入,已移除软删。父级已删除的关系不重复插入。</summary>
+    /// <summary>按聚合内成员关系集与库内关系做 diff:新增插入,已移除软删。软删集不按父级影子过滤,保证父级墓碑删除时级联行也被软删(§29A.3)。</summary>
     private static async Task SyncMembershipsAsync(ISqlSugarClient sugar, UserGroup group, CancellationToken cancellationToken)
     {
         var activeRows = await sugar.Queryable<UserGroupMembershipTable>()
-            .Where(t => t.UserGroupId == group.Id && !t.IsDeleted && !t.UserGroupIsDeleted)
+            .Where(t => t.UserGroupId == group.Id && !t.IsDeleted)
             .ToListAsync(cancellationToken);
         var existingActiveIds = activeRows.Select(r => r.Id).ToHashSet();
 
@@ -237,11 +247,11 @@ public sealed class UserGroupRepository : IUserGroupRepository
         }
     }
 
-    /// <summary>按聚合内组角色关系集与库内活动关系做 diff:新增插入,已解除软删。父级已删除的关系不重复插入。</summary>
+    /// <summary>按聚合内组角色关系集与库内关系做 diff:新增插入,已解除软删。软删集不按父级影子过滤,保证父级墓碑删除时级联行也被软删(§29A.3)。</summary>
     private static async Task SyncRolesAsync(ISqlSugarClient sugar, UserGroup group, CancellationToken cancellationToken)
     {
         var activeRows = await sugar.Queryable<UserGroupRoleTable>()
-            .Where(t => t.UserGroupId == group.Id && !t.IsDeleted && !t.UserGroupIsDeleted)
+            .Where(t => t.UserGroupId == group.Id && !t.IsDeleted)
             .ToListAsync(cancellationToken);
         var existingActiveIds = activeRows.Select(r => r.Id).ToHashSet();
 

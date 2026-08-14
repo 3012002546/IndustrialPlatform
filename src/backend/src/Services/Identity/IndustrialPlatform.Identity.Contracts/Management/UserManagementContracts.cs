@@ -51,6 +51,25 @@ public sealed record AssignUserRolesRequest(
 public sealed record ResetPasswordRequest(string? NewPassword);
 
 /// <summary>
+/// 安全删除用户请求(§29A.3,DELETE /users/{userNId})。删除为不可物理删除的墓碑:
+/// 推进安全版本、撤销全部会话、软删直接角色与组成员关系;UserNId/NormalizedNId/
+/// NormalizedLoginName 永久保留不复用。原因与双版本必填,禁止删除自己、内置 ADMIN 与最后一名系统管理员。
+/// </summary>
+public sealed record DeleteUserRequest(
+    string? Reason,
+    long ExpectedOptimisticVersion,
+    Guid ExpectedConcurrencyVersion);
+
+/// <summary>
+/// 恢复用户墓碑请求(§29A.3,POST /users/{userNId}/restore)。仅恢复账号墓碑为 Disabled,
+/// 不自动恢复角色/用户组/凭据有效性/会话;恢复后必须显式分配授权、重置密码并启用。
+/// </summary>
+public sealed record RestoreUserRequest(
+    string? Reason,
+    long ExpectedOptimisticVersion,
+    Guid ExpectedConcurrencyVersion);
+
+/// <summary>
 /// 用户摘要(§16.3)。标识一律使用 NId,不暴露数据库 Guid;
 /// 双版本供写接口乐观并发回传。状态为 UserStatus 枚举名(Active/Disabled)。
 /// </summary>

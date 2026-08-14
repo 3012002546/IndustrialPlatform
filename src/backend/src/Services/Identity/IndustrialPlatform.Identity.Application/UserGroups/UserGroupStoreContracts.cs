@@ -42,6 +42,9 @@ public interface IUserGroupStore
     /// <summary>按业务标识装载完整用户组聚合(含活动成员与组角色关系);不存在返回 <c>null</c>。</summary>
     Task<UserGroup?> GetUserGroupAggregateAsync(string groupNId, CancellationToken cancellationToken);
 
+    /// <summary>按业务标识装载用户组墓碑聚合(含已软删除记录,§29A.3),供恢复操作;不存在返回 <c>null</c>。</summary>
+    Task<UserGroup?> GetUserGroupAggregateIncludingDeletedAsync(string groupNId, CancellationToken cancellationToken);
+
     /// <summary>用户组业务标识是否已存在(含软删除,§29A.2 NId 全历史唯一且不复用)。</summary>
     Task<bool> UserGroupExistsByNIdAsync(string groupNId, CancellationToken cancellationToken);
 
@@ -57,6 +60,13 @@ public interface IUserGroupStore
         long expectedOptimisticVersion,
         Guid expectedConcurrencyVersion,
         IReadOnlyCollection<OutboxEnvelope> outboxEvents,
+        CancellationToken cancellationToken);
+
+    /// <summary>按双版本原子恢复用户组墓碑(§29A.3);冲突抛并发异常。</summary>
+    Task RestoreAsync(
+        UserGroup group,
+        long expectedOptimisticVersion,
+        Guid expectedConcurrencyVersion,
         CancellationToken cancellationToken);
 
     /// <summary>装载用户组活动成员用户聚合(成员关系与两端父级均未删除,租户已校验)。</summary>

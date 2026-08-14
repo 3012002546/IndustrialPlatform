@@ -411,6 +411,42 @@ public sealed class User : AggregateRoot
     }
 
     /// <summary>
+    /// 安全删除(墓碑,§29A.3):推进安全版本、软删除全部活动角色关系并标记删除,
+    /// 发布删除事件。UserNId/NormalizedNId/NormalizedLoginName 永久保留不复用;
+    /// 禁止删除自己、内置 ADMIN 与最后一名系统管理员由应用层按权威计数守卫执行。
+    /// </summary>
+    public void DeleteForTombstone()
+    {
+        EnsureCanModify();
+
+        AuthVersion++;
+        foreach (var relation in _userRoles.Where(r => !r.IsDeleted))
+        {
+            relation.MarkDeleted();
+        }
+
+        AddDomainEvent(new UserDeletedEvent(TenantNId, NId, AuthVersion));
+        MarkDeleted();
+    }
+
+    /// <summary>
+    /// 恢复墓碑(§29A.3):仅清除删除标记并保持禁用,不自动恢复已移除的角色、用户组、
+    /// 凭据有效性或会话;发布恢复事件。恢复后管理员必须显式分配授权、重置密码并启用。
+    /// </summary>
+    public void RestoreTombstone()
+    {
+        if (!IsDeleted)
+        {
+            throw new BusinessException("用户未删除，无需恢复。");
+        }
+
+        Restore();
+        Status = UserStatus.Disabled;
+        AddDomainEvent(new UserRestoredEvent(TenantNId, NId));
+        Touch();
+    }
+
+    /// <summary>
     /// 分配角色:跨租户、已删除角色或重复分配时抛出业务异常,
     /// 否则新增关系并发布 <see cref="UserRolesChangedEvent"/> 作为权限缓存失效信号。
     /// </summary>

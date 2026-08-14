@@ -39,6 +39,10 @@ public sealed class UserGroupStore : IUserGroupStore
         => _groupRepository.GetByNIdAsync(groupNId, cancellationToken);
 
     /// <inheritdoc/>
+    public Task<UserGroup?> GetUserGroupAggregateIncludingDeletedAsync(string groupNId, CancellationToken cancellationToken)
+        => _groupRepository.GetByNIdIncludingDeletedAsync(groupNId, cancellationToken);
+
+    /// <inheritdoc/>
     public async Task<bool> UserGroupExistsByNIdAsync(string groupNId, CancellationToken cancellationToken)
     {
         var normalized = NId.Create(groupNId).Normalized;
@@ -85,6 +89,14 @@ public sealed class UserGroupStore : IUserGroupStore
         IReadOnlyCollection<OutboxEnvelope> outboxEvents,
         CancellationToken cancellationToken)
         => _groupRepository.UpdateAsync(group, expectedOptimisticVersion, expectedConcurrencyVersion, outboxEvents, cancellationToken);
+
+    /// <inheritdoc/>
+    public Task RestoreAsync(
+        UserGroup group,
+        long expectedOptimisticVersion,
+        Guid expectedConcurrencyVersion,
+        CancellationToken cancellationToken)
+        => _groupRepository.RestoreAsync(group, expectedOptimisticVersion, expectedConcurrencyVersion, cancellationToken);
 
     /// <inheritdoc/>
     public async Task<IReadOnlyList<User>> GetMembersAsync(Guid groupId, string tenantNId, CancellationToken cancellationToken)

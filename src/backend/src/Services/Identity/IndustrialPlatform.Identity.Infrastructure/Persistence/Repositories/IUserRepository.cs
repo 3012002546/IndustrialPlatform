@@ -16,9 +16,15 @@ public interface IUserRepository : IRepository<User>
     /// <summary>按用户业务标识查询用户(含活动角色关系);不存在返回 <c>null</c>。</summary>
     Task<User?> GetByNIdAsync(string userNId, CancellationToken cancellationToken = default);
 
+    /// <summary>按用户业务标识查询用户墓碑(含已软删除记录与活动角色关系,§29A.3);不存在返回 <c>null</c>。</summary>
+    Task<User?> GetByNIdIncludingDeletedAsync(string userNId, CancellationToken cancellationToken = default);
+
     /// <summary>新增用户,事务内与 Outbox 事件原子提交(§20);outboxEvents 为空时行为同基础接口。</summary>
     Task AddAsync(User user, IReadOnlyCollection<OutboxEnvelope>? outboxEvents, CancellationToken cancellationToken = default);
 
     /// <summary>按双版本原子更新用户与角色关系 diff,事务内与 Outbox 事件原子提交(§20);outboxEvents 为空时行为同基础接口。</summary>
     Task UpdateAsync(User user, long expectedOptimisticVersion, Guid expectedConcurrencyVersion, IReadOnlyCollection<OutboxEnvelope>? outboxEvents, CancellationToken cancellationToken = default);
+
+    /// <summary>按双版本原子恢复用户墓碑,事务内与 Outbox 事件原子提交(§29A.3);outboxEvents 为空时行为同基础接口。</summary>
+    Task RestoreAsync(User user, long expectedOptimisticVersion, Guid expectedConcurrencyVersion, IReadOnlyCollection<OutboxEnvelope>? outboxEvents, CancellationToken cancellationToken = default);
 }

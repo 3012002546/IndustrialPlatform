@@ -215,10 +215,10 @@ public sealed class IdentityMigrationTests : IDisposable
         await ApplyAsync();
         var second = await ReadSeedCountsAsync();
 
-        // 权限目录 17 项、SYSTEM_ADMIN 系统角色、角色权限 17 条、无默认用户
-        Assert.Equal(17, first.PermissionCount);
+        // 权限目录 21 项、SYSTEM_ADMIN 系统角色、角色权限 21 条、无默认用户
+        Assert.Equal(21, first.PermissionCount);
         Assert.Equal(1, first.RoleCount);
-        Assert.Equal(17, first.RolePermissionCount);
+        Assert.Equal(21, first.RolePermissionCount);
         Assert.Equal(0, first.UserCount);
         Assert.Equal(first, second);
     }

@@ -29,6 +29,7 @@ public sealed class UserManagementServiceTests
     private const string StrongPassword = "Ab1!defghijk";
 
     private readonly FakeManagementStore _store = new();
+    private readonly FakeUserGroupStore _groupStore = new();
     private readonly FakePasswordHasher _hasher = new();
     private readonly FakeRefreshSessionStore _refreshStore = new();
     private readonly FakePermissionCache _cache = new();
@@ -36,6 +37,7 @@ public sealed class UserManagementServiceTests
 
     private UserManagementService CreateService() => new(
         _store,
+        _groupStore,
         _hasher,
         _refreshStore,
         _cache,
@@ -431,6 +433,142 @@ public sealed class UserManagementServiceTests
         Assert.Equal(user.Id, revoked.UserId);
     }
 
+    // ---- 安全删除/恢复(§29A.3)----
+
+    [Fact]
+    public async Task DeleteAsync_DeletesTombstone_RevokesSessionsAndInvalidatesCache()
+    {
+        var user = SeedUser();
+        var role = SeedRole();
+        user.AssignRole(role);
+        _store.Seed(user); // 变更后重新登记持久化版本(AssignRole 已推进)
+        var service = CreateService();
+
+        await service.DeleteAsync(
+            Tenant,
+            Actor,
+            "alice.user",
+            new DeleteUserRequest("违规账号", user.OptimisticVersion, user.ConcurrencyVersion),
+            CancellationToken.None);
+
+        Assert.True(user.IsDeleted);
+        Assert.Equal(1, user.AuthVersion);
+        Assert.All(user.UserRoles, r => Assert.True(r.IsDeleted));
+        // 全部刷新会话撤销 + 版本化权限缓存失效
+        Assert.Contains(_refreshStore.RevokedAll, r => r.UserId == user.Id && r.Reason == "user_deleted");
+        Assert.Contains(_cache.Invalidated, i => i.UserNId == "alice.user");
+        // 删除事件进入 Outbox(同事务)
+        Assert.Contains(_store.Outbox, e => e.EventType == "Identity.UserDeleted.v1");
+        // 操作审计
+        Assert.Contains(_auditSink.Entries, e => e.Action == OperationAction.UserDelete && e.ObjectNId == "alice.user");
+    }
+
+    [Fact]
+    public async Task DeleteAsync_SelfDeletion_Throws()
+    {
+        var user = SeedUser();
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<BusinessRuleViolationException>(() =>
+            service.DeleteAsync(Tenant, "alice.user", "alice.user", new DeleteUserRequest("x", user.OptimisticVersion, user.ConcurrencyVersion), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ReservedAdmin_Throws()
+    {
+        var admin = User.Create(Tenant, "ADMIN", "admin", "管理员", null, null, _hasher.Hash(StrongPassword));
+        _store.Seed(admin);
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<BusinessRuleViolationException>(() =>
+            service.DeleteAsync(Tenant, Actor, "ADMIN", new DeleteUserRequest("x", admin.OptimisticVersion, admin.ConcurrencyVersion), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task DeleteAsync_LastSystemAdminDirect_Throws()
+    {
+        var sysAdmin = SeedRole("SYSTEM_ADMIN", isSystem: true);
+        var user = SeedUser();
+        user.AssignRole(sysAdmin);
+        _store.Seed(user);
+        var service = CreateService();
+
+        var ex = await Assert.ThrowsAsync<LastAdminRequiredException>(() =>
+            service.DeleteAsync(Tenant, Actor, "alice.user", new DeleteUserRequest("x", user.OptimisticVersion, user.ConcurrencyVersion), CancellationToken.None));
+        Assert.Equal("ID_LAST_ADMIN_REQUIRED", ex.Code);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_LastSystemAdminViaGroupInherited_Throws()
+    {
+        var sysAdmin = SeedRole("SYSTEM_ADMIN", isSystem: true);
+        var user = SeedUser();
+        // 用户唯一管理员路径来自组继承(§29A.3 组继承路径守卫)
+        _groupStore.SeedGroupInheritedRole(user.Id, sysAdmin.Id);
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<LastAdminRequiredException>(() =>
+            service.DeleteAsync(Tenant, Actor, "alice.user", new DeleteUserRequest("x", user.OptimisticVersion, user.ConcurrencyVersion), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task DeleteAsync_SecondSystemAdminExists_Allowed()
+    {
+        var sysAdmin = SeedRole("SYSTEM_ADMIN", isSystem: true);
+        var alice = SeedUser();
+        alice.AssignRole(sysAdmin);
+        _store.Seed(alice);
+        var bob = User.Create(Tenant, "bob.user", "bob", "Bob", null, null, _hasher.Hash(StrongPassword));
+        bob.AssignRole(sysAdmin);
+        _store.Seed(bob);
+        var service = CreateService();
+
+        await service.DeleteAsync(
+            Tenant,
+            Actor,
+            "alice.user",
+            new DeleteUserRequest("离职", alice.OptimisticVersion, alice.ConcurrencyVersion),
+            CancellationToken.None);
+
+        Assert.True(alice.IsDeleted);
+    }
+
+    [Fact]
+    public async Task RestoreAsync_RestoresTombstoneAsDisabled_NoAuthorizationRestored()
+    {
+        var user = SeedUser();
+        var service = CreateService();
+        await service.DeleteAsync(Tenant, Actor, "alice.user", new DeleteUserRequest("x", user.OptimisticVersion, user.ConcurrencyVersion), CancellationToken.None);
+        _store.Outbox.Clear();
+
+        var tombstone = _store.GetSeededUser("alice.user")!;
+        var summary = await service.RestoreAsync(
+            Tenant,
+            Actor,
+            "alice.user",
+            new RestoreUserRequest("误删恢复", tombstone.OptimisticVersion, tombstone.ConcurrencyVersion),
+            CancellationToken.None);
+
+        // 恢复后保持 Disabled,且不恢复授权关系(§29A.3)
+        Assert.Equal("Disabled", summary.Status);
+        Assert.False(tombstone.IsDeleted);
+        Assert.All(tombstone.UserRoles, r => Assert.True(r.IsDeleted));
+        // 恢复事件进入 Outbox + 操作审计
+        Assert.Contains(_store.Outbox, e => e.EventType == "Identity.UserRestored.v1");
+        Assert.Contains(_auditSink.Entries, e => e.Action == OperationAction.UserRestore && e.ObjectNId == "alice.user");
+    }
+
+    [Fact]
+    public async Task RestoreAsync_ActiveUser_Throws()
+    {
+        SeedUser();
+        var service = CreateService();
+        var user = _store.GetSeededUser("alice.user")!;
+
+        await Assert.ThrowsAsync<UserDeletedException>(() =>
+            service.RestoreAsync(Tenant, Actor, "alice.user", new RestoreUserRequest("x", user.OptimisticVersion, user.ConcurrencyVersion), CancellationToken.None));
+    }
+
     private sealed class FakeManagementStore : IManagementStore
     {
         private readonly Dictionary<string, User> _usersByNormalized = new(StringComparer.Ordinal);
@@ -443,6 +581,9 @@ public sealed class UserManagementServiceTests
         // 已持久化版本快照:与真实仓储一致,期望版本与最近一次成功写入的版本比较,
         // 而不是与聚合当前(可能已被业务修改 Touch 递增)的版本比较。
         private readonly Dictionary<Guid, (long OptimisticVersion, Guid ConcurrencyVersion)> _persistedVersions = new();
+
+        /// <summary>写入接口收到的 Outbox 信封(用于删除/恢复事件原子性断言)。</summary>
+        public List<OutboxEnvelope> Outbox { get; } = [];
 
         public void Seed(User user)
         {
@@ -512,6 +653,12 @@ public sealed class UserManagementServiceTests
         {
             var user = GetSeededUser(userNId);
             return Task.FromResult(user is { IsDeleted: false } ? user : null);
+        }
+
+        public Task<User?> GetUserAggregateIncludingDeletedAsync(string userNId, CancellationToken cancellationToken)
+        {
+            var user = GetSeededUser(userNId);
+            return Task.FromResult(user);
         }
 
         public Task<bool> UserExistsByNIdAsync(string userNId, CancellationToken cancellationToken)
@@ -648,6 +795,31 @@ public sealed class UserManagementServiceTests
             _usersByNormalized[user.NormalizedNId] = user;
             _usersById[user.Id] = user;
             _persistedVersions[user.Id] = (user.OptimisticVersion, user.ConcurrencyVersion);
+            Outbox.AddRange(outboxEvents);
+            return Task.CompletedTask;
+        }
+
+        public Task RestoreUserAsync(
+            User user,
+            long expectedOptimisticVersion,
+            Guid expectedConcurrencyVersion,
+            IReadOnlyCollection<OutboxEnvelope> outboxEvents,
+            CancellationToken cancellationToken)
+        {
+            if (!_persistedVersions.TryGetValue(user.Id, out var persisted))
+            {
+                throw new ConcurrencyException("用户不存在");
+            }
+
+            if (persisted.OptimisticVersion != expectedOptimisticVersion || persisted.ConcurrencyVersion != expectedConcurrencyVersion)
+            {
+                throw new ConcurrencyException("乐观并发冲突");
+            }
+
+            _usersByNormalized[user.NormalizedNId] = user;
+            _usersById[user.Id] = user;
+            _persistedVersions[user.Id] = (user.OptimisticVersion, user.ConcurrencyVersion);
+            Outbox.AddRange(outboxEvents);
             return Task.CompletedTask;
         }
 

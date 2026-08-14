@@ -287,6 +287,43 @@ public sealed class UserGroup : AggregateRoot
         Touch();
     }
 
+    /// <summary>
+    /// 安全删除(§29A.3):软删除全部活动成员与组角色关系并标记删除。
+    /// 最后系统管理员守卫由应用层按权威计数执行;§29A.6 未定义组删除集成事件,仅写操作审计。
+    /// </summary>
+    public void DeleteForTombstone()
+    {
+        EnsureCanModify();
+
+        foreach (var membership in _memberships.Where(m => !m.IsDeleted))
+        {
+            membership.MarkDeleted();
+        }
+
+        foreach (var role in _roles.Where(r => !r.IsDeleted))
+        {
+            role.MarkDeleted();
+        }
+
+        MarkDeleted();
+    }
+
+    /// <summary>
+    /// 恢复墓碑(§29A.3):仅清除删除标记并保持禁用,不自动恢复成员/角色关系。
+    /// 恢复后为 Disabled,不贡献任何角色。
+    /// </summary>
+    public void RestoreTombstone()
+    {
+        if (!IsDeleted)
+        {
+            throw new BusinessException("用户组未删除，无需恢复。");
+        }
+
+        Restore();
+        Status = UserGroupStatus.Disabled;
+        Touch();
+    }
+
     private static string RequireTrimmedNonEmpty(string? value, string emptyMessage)
     {
         if (string.IsNullOrWhiteSpace(value))

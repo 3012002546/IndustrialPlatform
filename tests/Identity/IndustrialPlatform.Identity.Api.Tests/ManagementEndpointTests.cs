@@ -362,6 +362,9 @@ public sealed class ManagementEndpointTests
         public Task<User?> GetUserAggregateAsync(string userNId, CancellationToken cancellationToken)
             => Task.FromResult(UserAggregate);
 
+        public Task<User?> GetUserAggregateIncludingDeletedAsync(string userNId, CancellationToken cancellationToken)
+            => Task.FromResult(UserAggregate);
+
         public Task<bool> UserExistsByNIdAsync(string userNId, CancellationToken cancellationToken)
             => Task.FromResult(false);
 
@@ -425,6 +428,14 @@ public sealed class ManagementEndpointTests
         }
 
         public Task UpdateUserAsync(
+            User user,
+            long expectedOptimisticVersion,
+            Guid expectedConcurrencyVersion,
+            IReadOnlyCollection<OutboxEnvelope> outboxEvents,
+            CancellationToken cancellationToken)
+            => Task.CompletedTask;
+
+        public Task RestoreUserAsync(
             User user,
             long expectedOptimisticVersion,
             Guid expectedConcurrencyVersion,

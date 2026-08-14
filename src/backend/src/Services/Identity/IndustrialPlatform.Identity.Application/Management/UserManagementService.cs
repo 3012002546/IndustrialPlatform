@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using IndustrialPlatform.Identity.Application.Authentication;
 using IndustrialPlatform.Identity.Application.Authorization;
+using IndustrialPlatform.Identity.Application.UserGroups;
 using ContractsEvents = IndustrialPlatform.Identity.Contracts.Events;
 using IndustrialPlatform.Identity.Contracts.Management;
 using Identities = IndustrialPlatform.Identity.Domain.Identities;
@@ -19,7 +20,11 @@ namespace IndustrialPlatform.Identity.Application.Management;
 /// </summary>
 public sealed partial class UserManagementService : IUserManagementService
 {
+    /// <summary>内置 ADMIN 保留业务标识(§29A.3 禁删;正式引导由 TASK-ID-019 定义)。</summary>
+    private const string ReservedAdminUserNId = "ADMIN";
+
     private readonly IManagementStore _store;
+    private readonly IUserGroupStore _groupStore;
     private readonly IPasswordHasher _hasher;
     private readonly IRefreshSessionStore _refreshStore;
     private readonly IPermissionCache _permissionCache;
@@ -28,13 +33,17 @@ public sealed partial class UserManagementService : IUserManagementService
 
     public UserManagementService(
         IManagementStore store,
+        IUserGroupStore groupStore,
         IPasswordHasher hasher,
         IRefreshSessionStore refreshStore,
         IPermissionCache permissionCache,
         IOperationAuditSink auditSink,
         ILogger<UserManagementService> logger)
     {
+        ArgumentNullException.ThrowIfNull(store);
+        ArgumentNullException.ThrowIfNull(groupStore);
         _store = store;
+        _groupStore = groupStore;
         _hasher = hasher;
         _refreshStore = refreshStore;
         _permissionCache = permissionCache;
@@ -360,6 +369,140 @@ public sealed partial class UserManagementService : IUserManagementService
     }
 
     /// <inheritdoc/>
+    public async Task DeleteAsync(
+        string tenantNId,
+        string actorUserNId,
+        string userNId,
+        DeleteUserRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var user = await RequireUserAsync(tenantNId, userNId, cancellationToken);
+        if (string.Equals(user.NId, actorUserNId, StringComparison.Ordinal))
+        {
+            throw new BusinessRuleViolationException("不能删除当前登录用户。");
+        }
+
+        if (string.Equals(user.NId, ReservedAdminUserNId, StringComparison.Ordinal))
+        {
+            throw new BusinessRuleViolationException("内置 ADMIN 用户禁止删除。");
+        }
+
+        await EnsureNotLastSystemAdminOnDeleteAsync(user, tenantNId, cancellationToken);
+
+        var expectedOptimistic = user.OptimisticVersion;
+        var expectedConcurrency = user.ConcurrencyVersion;
+        var before = BuildUserSummaryText(user);
+
+        // 领域变更(推进 AuthVersion + 软删直接角色 + 墓碑标记 + 删除事件)与持久化
+        // (含组成员关系清理 + Outbox)处于同一映射边界(§29A.3)。
+        await ExecuteWriteAsync(async () =>
+        {
+            user.DeleteForTombstone();
+            var deleteEnvelopes = BuildOutboxEnvelopes(user);
+            await _store.UpdateUserAsync(user, expectedOptimistic, expectedConcurrency, deleteEnvelopes, cancellationToken);
+            user.ClearDomainEvents();
+        });
+
+        // 撤销全部刷新会话;推进 AuthVersion 后旧 Access Token 与 SSO 浏览器会话
+        // (按 AuthVersion 校验)亦失效,并删除版本化权限缓存。
+        await _refreshStore.RevokeAllForUserAsync(user.Id, "user_deleted", cancellationToken);
+        await TryInvalidatePermissionCacheAsync(user, cancellationToken);
+
+        await TryWriteOperationAuditAsync(
+            new OperationAuditEntry(
+                tenantNId,
+                actorUserNId,
+                OperationAction.UserDelete,
+                OperationObjectType.User,
+                user.NId,
+                before,
+                BuildUserSummaryText(user),
+                TraceId,
+                DateTimeOffset.UtcNow),
+            cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<UserSummary> RestoreAsync(
+        string tenantNId,
+        string actorUserNId,
+        string userNId,
+        RestoreUserRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var user = await _store.GetUserAggregateIncludingDeletedAsync(userNId, cancellationToken);
+        if (user is null || !string.Equals(user.TenantNId, tenantNId, StringComparison.Ordinal))
+        {
+            throw new ResourceNotFoundException();
+        }
+
+        if (!user.IsDeleted)
+        {
+            throw new UserDeletedException();
+        }
+
+        var expectedOptimistic = user.OptimisticVersion;
+        var expectedConcurrency = user.ConcurrencyVersion;
+        var before = BuildUserSummaryText(user);
+
+        // 仅恢复墓碑为 Disabled,不自动恢复授权/凭据/会话;恢复事件与写入同事务提交(§29A.3)。
+        await ExecuteWriteAsync(async () =>
+        {
+            user.RestoreTombstone();
+            var restoreEnvelopes = BuildOutboxEnvelopes(user);
+            await _store.RestoreUserAsync(user, expectedOptimistic, expectedConcurrency, restoreEnvelopes, cancellationToken);
+            user.ClearDomainEvents();
+        });
+
+        await TryWriteOperationAuditAsync(
+            new OperationAuditEntry(
+                tenantNId,
+                actorUserNId,
+                OperationAction.UserRestore,
+                OperationObjectType.User,
+                user.NId,
+                before,
+                BuildUserSummaryText(user),
+                TraceId,
+                DateTimeOffset.UtcNow),
+            cancellationToken);
+
+        return await GetAsync(tenantNId, userNId, cancellationToken);
+    }
+
+    /// <summary>删除前守卫(§29A.3):目标用户的全部有效系统角色(直接 ∪ 组继承)在租户内仅剩其一名持有者时拒绝。</summary>
+    private async Task EnsureNotLastSystemAdminOnDeleteAsync(User user, string tenantNId, CancellationToken cancellationToken)
+    {
+        var directRoleIds = user.UserRoles
+            .Where(ur => !ur.IsDeleted && !ur.RoleIsDeleted)
+            .Select(ur => ur.RoleId)
+            .ToArray();
+        var groupRoleIds = await _groupStore.GetRoleIdsForUserAsync(user.Id, tenantNId, cancellationToken);
+        var effectiveRoleIds = directRoleIds.Concat(groupRoleIds).Distinct().ToArray();
+        if (effectiveRoleIds.Length == 0)
+        {
+            return;
+        }
+
+        var systemRoleIds = (await _store.GetRolesByIdsAsync(effectiveRoleIds, cancellationToken))
+            .Where(r => r.IsSystem)
+            .Select(r => r.Id)
+            .ToArray();
+        foreach (var systemRoleId in systemRoleIds)
+        {
+            var holders = await _store.CountActiveRoleHoldersAsync(systemRoleId, tenantNId, cancellationToken);
+            if (holders <= 1)
+            {
+                throw new LastAdminRequiredException();
+            }
+        }
+    }
+
+    /// <inheritdoc/>
     public async Task<ManagementPage<UserSummary>> ListAsync(string tenantNId, UserListFilter filter, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(filter);
@@ -496,6 +639,8 @@ public sealed partial class UserManagementService : IUserManagementService
         UserStatusChangedEvent e => CreateEnvelope(new ContractsEvents.UserStatusChangedEvent(e.TenantNId, e.UserNId, e.OldStatus.ToString(), e.NewStatus.ToString(), e.AuthVersion)),
         UserSecurityChangedEvent e => CreateEnvelope(new ContractsEvents.UserSecurityChangedEvent(e.TenantNId, e.UserNId, e.Reason.ToString(), e.AuthVersion)),
         UserRolesChangedEvent e => CreateEnvelope(new ContractsEvents.UserRolesChangedEvent(e.TenantNId, e.UserNId, e.RoleNId)),
+        UserDeletedEvent e => CreateEnvelope(new ContractsEvents.UserDeletedEvent(e.TenantNId, e.UserNId, e.AuthVersion)),
+        UserRestoredEvent e => CreateEnvelope(new ContractsEvents.UserRestoredEvent(e.TenantNId, e.UserNId)),
         _ => null,
     };
 

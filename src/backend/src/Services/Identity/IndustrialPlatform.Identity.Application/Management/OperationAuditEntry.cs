@@ -24,6 +24,12 @@ public static class OperationAction
     /// <summary>分配用户角色。</summary>
     public const string UserAssignRoles = "user.assign_roles";
 
+    /// <summary>安全删除用户(墓碑)。</summary>
+    public const string UserDelete = "user.delete";
+
+    /// <summary>恢复用户墓碑。</summary>
+    public const string UserRestore = "user.restore";
+
     /// <summary>创建角色。</summary>
     public const string RoleCreate = "role.create";
 
@@ -50,6 +56,12 @@ public static class OperationAction
 
     /// <summary>设置用户组角色集。</summary>
     public const string UserGroupSetRoles = "user_group.set_roles";
+
+    /// <summary>安全删除用户组(墓碑)。</summary>
+    public const string UserGroupDelete = "user_group.delete";
+
+    /// <summary>恢复用户组墓碑。</summary>
+    public const string UserGroupRestore = "user_group.restore";
 
     /// <summary>创建企业登录源。</summary>
     public const string SsoProviderCreate = "sso.provider.create";

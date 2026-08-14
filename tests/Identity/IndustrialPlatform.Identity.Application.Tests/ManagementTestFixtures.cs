@@ -6,11 +6,13 @@ using System.Threading.Tasks;
 using IndustrialPlatform.Identity.Application.Authentication;
 using IndustrialPlatform.Identity.Application.Authorization;
 using IndustrialPlatform.Identity.Application.Management;
+using IndustrialPlatform.Identity.Application.UserGroups;
 using Identities = IndustrialPlatform.Identity.Domain.Identities;
 using IndustrialPlatform.Identity.Domain.Passwords;
 using IndustrialPlatform.Identity.Domain.Permissions;
 using IndustrialPlatform.Identity.Domain.Roles;
 using IndustrialPlatform.Identity.Domain.Users;
+using IndustrialPlatform.Identity.Domain.UserGroups;
 using IndustrialPlatform.SharedKernel.Exceptions;
 
 namespace IndustrialPlatform.Identity.Application.Tests;
@@ -130,6 +132,12 @@ internal sealed class FakeManagementStore : IManagementStore
         return Task.FromResult(user is { IsDeleted: false } ? user : null);
     }
 
+    public Task<User?> GetUserAggregateIncludingDeletedAsync(string userNId, CancellationToken cancellationToken)
+    {
+        var user = GetSeededUser(userNId);
+        return Task.FromResult(user);
+    }
+
     public Task<bool> UserExistsByNIdAsync(string userNId, CancellationToken cancellationToken)
         => Task.FromResult(GetSeededUser(userNId) is not null);
 
@@ -245,6 +253,29 @@ internal sealed class FakeManagementStore : IManagementStore
     }
 
     public Task UpdateUserAsync(
+        User user,
+        long expectedOptimisticVersion,
+        Guid expectedConcurrencyVersion,
+        IReadOnlyCollection<OutboxEnvelope> outboxEvents,
+        CancellationToken cancellationToken)
+    {
+        if (!_persistedVersions.TryGetValue(user.Id, out var persisted))
+        {
+            throw new ConcurrencyException("用户不存在");
+        }
+
+        if (persisted.OptimisticVersion != expectedOptimisticVersion || persisted.ConcurrencyVersion != expectedConcurrencyVersion)
+        {
+            throw new ConcurrencyException("乐观并发冲突");
+        }
+
+        _usersByNormalized[user.NormalizedNId] = user;
+        _usersById[user.Id] = user;
+        _persistedVersions[user.Id] = (user.OptimisticVersion, user.ConcurrencyVersion);
+        return Task.CompletedTask;
+    }
+
+    public Task RestoreUserAsync(
         User user,
         long expectedOptimisticVersion,
         Guid expectedConcurrencyVersion,
@@ -431,4 +462,71 @@ internal sealed class FakePermissionCache : IPermissionCache
 
         Invalidated.Add((tenantNId, userNId));
     }
+}
+
+/// <summary>
+/// 用户组存储替身(供用户管理用例测试使用):默认无组数据;可种子用户经活动组继承的角色,
+/// 用于删除/禁用等最后系统管理员守卫的组继承路径断言。
+/// </summary>
+internal sealed class FakeUserGroupStore : IUserGroupStore
+{
+    private readonly Dictionary<Guid, List<Guid>> _groupRoleIdsByUser = new();
+
+    /// <summary>种子:用户经活动用户组继承指定角色 Id(§29A.2 组继承路径)。</summary>
+    public void SeedGroupInheritedRole(Guid userId, Guid roleId)
+    {
+        if (!_groupRoleIdsByUser.TryGetValue(userId, out var roleIds))
+        {
+            roleIds = [];
+            _groupRoleIdsByUser[userId] = roleIds;
+        }
+
+        roleIds.Add(roleId);
+    }
+
+    public Task<UserGroup?> GetUserGroupAggregateAsync(string groupNId, CancellationToken cancellationToken)
+        => Task.FromResult<UserGroup?>(null);
+
+    public Task<UserGroup?> GetUserGroupAggregateIncludingDeletedAsync(string groupNId, CancellationToken cancellationToken)
+        => Task.FromResult<UserGroup?>(null);
+
+    public Task<bool> UserGroupExistsByNIdAsync(string groupNId, CancellationToken cancellationToken)
+        => Task.FromResult(false);
+
+    public Task<IReadOnlyList<User>> GetUsersByNIdsAsync(IReadOnlyCollection<string> userNIds, CancellationToken cancellationToken)
+        => Task.FromResult<IReadOnlyList<User>>([]);
+
+    public Task AddAsync(UserGroup group, IReadOnlyCollection<OutboxEnvelope> outboxEvents, CancellationToken cancellationToken)
+        => Task.CompletedTask;
+
+    public Task UpdateAsync(
+        UserGroup group,
+        long expectedOptimisticVersion,
+        Guid expectedConcurrencyVersion,
+        IReadOnlyCollection<OutboxEnvelope> outboxEvents,
+        CancellationToken cancellationToken)
+        => Task.CompletedTask;
+
+    public Task RestoreAsync(
+        UserGroup group,
+        long expectedOptimisticVersion,
+        Guid expectedConcurrencyVersion,
+        CancellationToken cancellationToken)
+        => Task.CompletedTask;
+
+    public Task<IReadOnlyList<User>> GetMembersAsync(Guid groupId, string tenantNId, CancellationToken cancellationToken)
+        => Task.FromResult<IReadOnlyList<User>>([]);
+
+    public Task<IReadOnlyList<string>> GetMemberUserNIdsAsync(Guid groupId, string tenantNId, CancellationToken cancellationToken)
+        => Task.FromResult<IReadOnlyList<string>>([]);
+
+    public Task<IReadOnlyList<Guid>> GetRoleIdsForUserAsync(Guid userId, string tenantNId, CancellationToken cancellationToken)
+        => Task.FromResult<IReadOnlyList<Guid>>(
+            _groupRoleIdsByUser.TryGetValue(userId, out var roleIds) ? roleIds.ToList() : []);
+
+    public Task<bool> UserHoldsRoleOutsideGroupAsync(Guid userId, Guid groupId, Guid roleId, string tenantNId, CancellationToken cancellationToken)
+        => Task.FromResult(false);
+
+    public Task<bool> AnyMemberHoldsRoleOnlyViaGroupAsync(Guid groupId, Guid roleId, string tenantNId, CancellationToken cancellationToken)
+        => Task.FromResult(false);
 }

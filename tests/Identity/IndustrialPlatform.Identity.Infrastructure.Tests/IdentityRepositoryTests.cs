@@ -307,12 +307,14 @@ public sealed class IdentityRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task Permission_GetAll_ReturnsSeventeenSeedPermissions()
+    public async Task Permission_GetAll_ReturnsTwentyOneSeedPermissions()
     {
         var all = await _permissions.GetAllAsync();
 
-        Assert.Equal(17, all.Count);
+        Assert.Equal(21, all.Count);
         Assert.Contains(all, p => p.NId == PermissionCatalog.UserView);
+        Assert.Contains(all, p => p.NId == PermissionCatalog.UserDelete);
+        Assert.Contains(all, p => p.NId == PermissionCatalog.UserGroupRestore);
         Assert.Contains(all, p => p.NId == PermissionCatalog.PlatformMobileView);
     }
 }

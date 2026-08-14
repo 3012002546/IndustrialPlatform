@@ -354,6 +354,104 @@ public sealed class UserGroupServiceTests
             service.GetAsync("other-tenant", "group.ops", CancellationToken.None));
     }
 
+    // ---- 安全删除/恢复(§29A.3)----
+
+    [Fact]
+    public async Task DeleteAsync_DeletesGroupSoftDeletesRelations_InvalidatesMembers()
+    {
+        var store = new FakeGroupAndManagementStore();
+        var alice = CreateUser("alice.user", "alice");
+        var editor = CreateRole("role.editor");
+        var group = UserGroup.Create(Tenant, "group.ops", "运维组", null);
+        group.AssignMember(alice);
+        group.AssignRole(editor);
+        store.Seed(alice);
+        store.Seed(editor);
+        store.Seed(group);
+        var service = CreateService(store);
+
+        await service.DeleteAsync(
+            Tenant,
+            Actor,
+            "group.ops",
+            group.OptimisticVersion,
+            group.ConcurrencyVersion,
+            CancellationToken.None);
+
+        Assert.True(group.IsDeleted);
+        Assert.All(group.Memberships, m => Assert.True(m.IsDeleted));
+        Assert.All(group.Roles, r => Assert.True(r.IsDeleted));
+        // 成员失去组继承角色 → 授权版本推进 + 会话撤销 + 缓存失效(§29A.2)
+        Assert.Equal(1, store.GetUser("alice.user")!.AuthVersion);
+        Assert.Contains(store.Refresh.RevokedAll, r => r.UserId == alice.Id);
+        Assert.Contains(store.Cache.Invalidated, i => i.UserNId == "alice.user");
+        Assert.Contains(store.Audit.Entries, e => e.Action == OperationAction.UserGroupDelete && e.ObjectNId == "group.ops");
+    }
+
+    [Fact]
+    public async Task DeleteAsync_LastSystemAdminViaGroup_Throws()
+    {
+        var store = new FakeGroupAndManagementStore();
+        var sysAdmin = CreateRole("SYSTEM_ADMIN", isSystem: true);
+        var alice = CreateUser("alice.user", "alice");
+        var group = UserGroup.Create(Tenant, "group.ops", "运维组", null);
+        group.AssignMember(alice);
+        group.AssignRole(sysAdmin);
+        store.Seed(sysAdmin);
+        store.Seed(alice);
+        store.Seed(group);
+        var service = CreateService(store);
+
+        // 删除组会剥夺 alice 唯一的管理员路径 → 拒绝(§29A.3)
+        await Assert.ThrowsAsync<BusinessRuleViolationException>(() =>
+            service.DeleteAsync(Tenant, Actor, "group.ops", group.OptimisticVersion, group.ConcurrencyVersion, CancellationToken.None));
+        Assert.False(group.IsDeleted);
+    }
+
+    [Fact]
+    public async Task RestoreAsync_RestoresTombstoneAsDisabled_RelationsNotRestored()
+    {
+        var store = new FakeGroupAndManagementStore();
+        var alice = CreateUser("alice.user", "alice");
+        var editor = CreateRole("role.editor");
+        var group = UserGroup.Create(Tenant, "group.ops", "运维组", null);
+        group.AssignMember(alice);
+        group.AssignRole(editor);
+        store.Seed(alice);
+        store.Seed(editor);
+        store.Seed(group);
+        var service = CreateService(store);
+
+        await service.DeleteAsync(Tenant, Actor, "group.ops", group.OptimisticVersion, group.ConcurrencyVersion, CancellationToken.None);
+
+        var tombstone = store.GetGroup("group.ops")!;
+        var summary = await service.RestoreAsync(
+            Tenant,
+            Actor,
+            "group.ops",
+            tombstone.OptimisticVersion,
+            tombstone.ConcurrencyVersion,
+            CancellationToken.None);
+
+        Assert.Equal("Disabled", summary.Status);
+        Assert.False(tombstone.IsDeleted);
+        Assert.All(tombstone.Memberships, m => Assert.True(m.IsDeleted));
+        Assert.All(tombstone.Roles, r => Assert.True(r.IsDeleted));
+        Assert.Contains(store.Audit.Entries, e => e.Action == OperationAction.UserGroupRestore && e.ObjectNId == "group.ops");
+    }
+
+    [Fact]
+    public async Task RestoreAsync_ActiveGroup_Throws()
+    {
+        var store = new FakeGroupAndManagementStore();
+        var group = UserGroup.Create(Tenant, "group.ops", "运维组", null);
+        store.Seed(group);
+        var service = CreateService(store);
+
+        await Assert.ThrowsAsync<BusinessRuleViolationException>(() =>
+            service.RestoreAsync(Tenant, Actor, "group.ops", group.OptimisticVersion, group.ConcurrencyVersion, CancellationToken.None));
+    }
+
     private static UserGroupService CreateService(FakeGroupAndManagementStore store)
         => new(store, store, store.Refresh, store.Cache, store.Audit, NullLogger<UserGroupService>.Instance);
 
@@ -414,6 +512,9 @@ public sealed class UserGroupServiceTests
         public Task<UserGroup?> GetUserGroupAggregateAsync(string groupNId, CancellationToken cancellationToken)
             => Task.FromResult(GetGroup(groupNId) is { IsDeleted: false } group ? group : null);
 
+        public Task<UserGroup?> GetUserGroupAggregateIncludingDeletedAsync(string groupNId, CancellationToken cancellationToken)
+            => Task.FromResult(GetGroup(groupNId));
+
         public Task<bool> UserGroupExistsByNIdAsync(string groupNId, CancellationToken cancellationToken)
             => Task.FromResult(GetGroup(groupNId) is not null);
 
@@ -446,6 +547,19 @@ public sealed class UserGroupServiceTests
             _groupsById[group.Id] = group;
             _persistedVersions[group.Id] = (group.OptimisticVersion, group.ConcurrencyVersion);
             Outbox.AddRange(outboxEvents);
+            return Task.CompletedTask;
+        }
+
+        public Task RestoreAsync(
+            UserGroup group,
+            long expectedOptimisticVersion,
+            Guid expectedConcurrencyVersion,
+            CancellationToken cancellationToken)
+        {
+            EnsureVersions(group.Id, expectedOptimisticVersion, expectedConcurrencyVersion, "用户组不存在");
+            _groupsByNormalized[Identities.NId.Create(group.NId).Normalized] = group;
+            _groupsById[group.Id] = group;
+            _persistedVersions[group.Id] = (group.OptimisticVersion, group.ConcurrencyVersion);
             return Task.CompletedTask;
         }
 
@@ -543,6 +657,9 @@ public sealed class UserGroupServiceTests
             return Task.FromResult(user is { IsDeleted: false } ? user : null);
         }
 
+        public Task<User?> GetUserAggregateIncludingDeletedAsync(string userNId, CancellationToken cancellationToken)
+            => Task.FromResult(GetUser(userNId));
+
         public Task<bool> UserExistsByNIdAsync(string userNId, CancellationToken cancellationToken)
             => Task.FromResult(GetUser(userNId) is not null);
 
@@ -635,6 +752,20 @@ public sealed class UserGroupServiceTests
         }
 
         public Task UpdateUserAsync(
+            User user,
+            long expectedOptimisticVersion,
+            Guid expectedConcurrencyVersion,
+            IReadOnlyCollection<OutboxEnvelope> outboxEvents,
+            CancellationToken cancellationToken)
+        {
+            EnsureVersions(user.Id, expectedOptimisticVersion, expectedConcurrencyVersion, "用户不存在");
+            _usersByNormalized[user.NormalizedNId] = user;
+            _usersById[user.Id] = user;
+            _persistedVersions[user.Id] = (user.OptimisticVersion, user.ConcurrencyVersion);
+            return Task.CompletedTask;
+        }
+
+        public Task RestoreUserAsync(
             User user,
             long expectedOptimisticVersion,
             Guid expectedConcurrencyVersion,

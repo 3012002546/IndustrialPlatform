@@ -47,6 +47,22 @@ public interface IUserManagementService
         ResetPasswordRequest request,
         CancellationToken cancellationToken);
 
+    /// <summary>安全删除用户(墓碑,§29A.3):禁删自己/内置 ADMIN/最后一名系统管理员;推进安全版本、撤销全部会话并软删授权关系。</summary>
+    Task DeleteAsync(
+        string tenantNId,
+        string actorUserNId,
+        string userNId,
+        DeleteUserRequest request,
+        CancellationToken cancellationToken);
+
+    /// <summary>恢复用户墓碑(§29A.3):仅恢复为 Disabled,不自动恢复授权/凭据/会话。</summary>
+    Task<UserSummary> RestoreAsync(
+        string tenantNId,
+        string actorUserNId,
+        string userNId,
+        RestoreUserRequest request,
+        CancellationToken cancellationToken);
+
     /// <summary>按租户分页查询用户(NId/LoginName/Name 包含匹配,Status 枚举名)。</summary>
     Task<ManagementPage<UserSummary>> ListAsync(string tenantNId, UserListFilter filter, CancellationToken cancellationToken);
 

@@ -55,6 +55,16 @@ public sealed class UserRepository : IUserRepository
         return row is null ? null : await LoadWithRolesAsync(row, cancellationToken);
     }
 
+    /// <inheritdoc/>
+    public async Task<User?> GetByNIdIncludingDeletedAsync(string userNId, CancellationToken cancellationToken = default)
+    {
+        var normalized = NId.Create(userNId).Normalized;
+        var row = await _dbContext.SqlSugar.Queryable<UserTable>()
+            .Where(t => t.NormalizedNId == normalized)
+            .FirstAsync(cancellationToken);
+        return row is null ? null : await LoadWithRolesAsync(row, cancellationToken);
+    }
+
     /// <summary>载入活动角色关系(子表自身未删除 且 父级影子列未删除)。</summary>
     private async Task<User?> LoadWithRolesAsync(UserTable row, CancellationToken cancellationToken)
     {
@@ -126,6 +136,12 @@ public sealed class UserRepository : IUserRepository
 
             await SyncUserRolesAsync(sugar, user, cancellationToken);
 
+            // 墓碑删除(§29A.3):软删该用户的组成员关系,保证恢复后不自动复活授权关系。
+            if (user.IsDeleted)
+            {
+                await SoftDeleteMembershipsForUserAsync(sugar, user.Id, cancellationToken);
+            }
+
             await OutboxRows.InsertAsync(sugar, outboxEvents, cancellationToken);
 
             sugar.Ado.CommitTran();
@@ -157,22 +173,45 @@ public sealed class UserRepository : IUserRepository
     }
 
     /// <inheritdoc/>
-    public async Task RestoreAsync(
+    public Task RestoreAsync(
         User user,
         long expectedOptimisticVersion,
         Guid expectedConcurrencyVersion,
         CancellationToken cancellationToken = default)
+        => RestoreAsync(user, expectedOptimisticVersion, expectedConcurrencyVersion, outboxEvents: null, cancellationToken);
+
+    /// <summary>按双版本原子恢复用户墓碑,事务内与 Outbox 事件原子提交(§29A.3);outboxEvents 为空时跳过 Outbox 写入。</summary>
+    public async Task RestoreAsync(
+        User user,
+        long expectedOptimisticVersion,
+        Guid expectedConcurrencyVersion,
+        IReadOnlyCollection<OutboxEnvelope>? outboxEvents,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(user);
 
-        user.Restore();
-        var affected = await _dbContext.SqlSugar.Updateable(TableMapper.ToTable(user))
-            .Where(t => t.Id == user.Id
-                && t.IsDeleted
-                && t.OptimisticVersion == expectedOptimisticVersion
-                && t.ConcurrencyVersion == expectedConcurrencyVersion)
-            .ExecuteCommandAsync(cancellationToken);
-        EnsureSingleRowAffected(affected, user, "恢复");
+        var sugar = _dbContext.SqlSugar;
+        sugar.Ado.BeginTran();
+        try
+        {
+            user.Restore();
+            var affected = await sugar.Updateable(TableMapper.ToTable(user))
+                .Where(t => t.Id == user.Id
+                    && t.IsDeleted
+                    && t.OptimisticVersion == expectedOptimisticVersion
+                    && t.ConcurrencyVersion == expectedConcurrencyVersion)
+                .ExecuteCommandAsync(cancellationToken);
+            EnsureSingleRowAffected(affected, user, "恢复");
+
+            await OutboxRows.InsertAsync(sugar, outboxEvents, cancellationToken);
+
+            sugar.Ado.CommitTran();
+        }
+        catch
+        {
+            sugar.Ado.RollbackTran();
+            throw;
+        }
     }
 
     private async Task<int> UpdateParentAsync(
@@ -187,11 +226,11 @@ public sealed class UserRepository : IUserRepository
                 && t.ConcurrencyVersion == expectedConcurrencyVersion)
             .ExecuteCommandAsync(cancellationToken);
 
-    /// <summary>按聚合内关系集与库内活动关系做 diff:新增插入,已解除软删。</summary>
+    /// <summary>按聚合内关系集与库内关系做 diff:新增插入,已解除软删。软删集不按父级影子过滤,保证父级墓碑删除时级联行也被软删(§29A.3)。</summary>
     private static async Task SyncUserRolesAsync(ISqlSugarClient sugar, User user, CancellationToken cancellationToken)
     {
         var activeRows = await sugar.Queryable<UserRoleTable>()
-            .Where(t => t.UserId == user.Id && !t.IsDeleted && !t.UserIsDeleted)
+            .Where(t => t.UserId == user.Id && !t.IsDeleted)
             .ToListAsync(cancellationToken);
         var existingActiveIds = activeRows.Select(r => r.Id).ToHashSet();
 
@@ -210,6 +249,23 @@ public sealed class UserRepository : IUserRepository
                 .Where(t => t.Id == row.Id && !t.IsDeleted)
                 .ExecuteCommandAsync(cancellationToken);
         }
+    }
+
+    /// <summary>墓碑删除(§29A.3):软删该用户的全部组成员关系,保证恢复后不自动复活授权关系。
+    /// 不按 user_is_deleted 过滤:父级删除的 ON UPDATE CASCADE 已把影子置 1,过滤会漏删。</summary>
+    private static async Task SoftDeleteMembershipsForUserAsync(ISqlSugarClient sugar, Guid userId, CancellationToken cancellationToken)
+    {
+        var now = DateTimeOffset.UtcNow;
+        await sugar.Updateable<UserGroupMembershipTable>()
+            .SetColumns(t => new UserGroupMembershipTable
+            {
+                IsDeleted = true,
+                LastUpdatedOn = now,
+                OptimisticVersion = t.OptimisticVersion + 1,
+                ConcurrencyVersion = Guid.NewGuid(),
+            })
+            .Where(t => t.UserId == userId && !t.IsDeleted)
+            .ExecuteCommandAsync(cancellationToken);
     }
 
     private static void EnsureSingleRowAffected(int affected, User user, string operation)

@@ -52,6 +52,24 @@ public interface IUserGroupService
         Guid expectedConcurrencyVersion,
         CancellationToken cancellationToken);
 
+    /// <summary>安全删除用户组(§29A.3):软删并解除有效成员/组角色关系;最后系统管理员守卫并失效全部成员授权。</summary>
+    Task DeleteAsync(
+        string tenantNId,
+        string actorUserNId,
+        string groupNId,
+        long expectedOptimisticVersion,
+        Guid expectedConcurrencyVersion,
+        CancellationToken cancellationToken);
+
+    /// <summary>恢复用户组墓碑(§29A.3):仅恢复为 Disabled,不自动恢复成员/角色关系。</summary>
+    Task<UserGroupSummary> RestoreAsync(
+        string tenantNId,
+        string actorUserNId,
+        string groupNId,
+        long expectedOptimisticVersion,
+        Guid expectedConcurrencyVersion,
+        CancellationToken cancellationToken);
+
     /// <summary>按业务标识查询用户组(含成员/角色 NId 与双版本);不存在或跨租户抛 404。</summary>
     Task<UserGroupSummary> GetAsync(string tenantNId, string groupNId, CancellationToken cancellationToken);
 }

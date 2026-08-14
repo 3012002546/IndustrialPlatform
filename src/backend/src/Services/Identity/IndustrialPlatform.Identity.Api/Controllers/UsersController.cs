@@ -29,7 +29,7 @@ public sealed class UsersController : ManagementControllerBase
         _service = service;
     }
 
-    /// <summary>分页查询用户(§16.1 GET /api/v1/users),NId/LoginName/Name 包含匹配,Status 可选过滤。</summary>
+    /// <summary>分页查询用户(§16.1 GET /api/v1/users),NId/LoginName/Name 包含匹配,Status 可选过滤;includeDeleted 返回墓碑(§29A.3)。</summary>
     [Authorize(Policy = PermissionPolicies.UserView)]
     [HttpGet]
     public async Task<ActionResult<PageResult<UserSummary>>> List(
@@ -37,6 +37,7 @@ public sealed class UsersController : ManagementControllerBase
         [FromQuery] string? loginName,
         [FromQuery] string? name,
         [FromQuery] string? status,
+        [FromQuery] bool includeDeleted = false,
         [FromQuery] int pageIndex = 1,
         [FromQuery] int pageSize = 20,
         CancellationToken cancellationToken = default)
@@ -66,7 +67,7 @@ public sealed class UsersController : ManagementControllerBase
         {
             var page = await _service.ListAsync(
                 tenantNId,
-                new UserListFilter(tenantNId, nId, loginName, name, parsedStatus, pageIndex, pageSize),
+                new UserListFilter(tenantNId, nId, loginName, name, parsedStatus, pageIndex, pageSize, includeDeleted),
                 cancellationToken);
             return PageResult.Create(page.Items, page.Total, page.PageIndex, page.PageSize);
         }
@@ -226,6 +227,61 @@ public sealed class UsersController : ManagementControllerBase
         {
             await _service.ResetPasswordAsync(tenantNId, actorUserNId, id, request, cancellationToken);
             return OkEnvelope();
+        }
+        catch (ValidationException ex)
+        {
+            return BadRequestEnvelope("ID_VALIDATION_FAILED", ex.Message);
+        }
+        catch (ManagementException ex)
+        {
+            return StatusCodeEnvelope(ex.StatusCode, ex.Code, ex.Message);
+        }
+    }
+
+    /// <summary>安全删除用户(墓碑,§29A.3 DELETE /api/v1/users/{id});禁删自己/内置 ADMIN/最后一名系统管理员,撤销全部会话。</summary>
+    [Authorize(Policy = PermissionPolicies.UserDelete)]
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(
+        string id,
+        DeleteUserRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetActorContext(out var tenantNId, out var actorUserNId))
+        {
+            return UnauthorizedEnvelope();
+        }
+
+        try
+        {
+            await _service.DeleteAsync(tenantNId, actorUserNId, id, request, cancellationToken);
+            return OkEnvelope();
+        }
+        catch (ValidationException ex)
+        {
+            return BadRequestEnvelope("ID_VALIDATION_FAILED", ex.Message);
+        }
+        catch (ManagementException ex)
+        {
+            return StatusCodeEnvelope(ex.StatusCode, ex.Code, ex.Message);
+        }
+    }
+
+    /// <summary>恢复用户墓碑(§29A.3 POST /api/v1/users/{id}/restore);仅恢复为 Disabled,不自动恢复授权。</summary>
+    [Authorize(Policy = PermissionPolicies.UserRestore)]
+    [HttpPost("{id}/restore")]
+    public async Task<ActionResult<UserSummary>> Restore(
+        string id,
+        RestoreUserRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetActorContext(out var tenantNId, out var actorUserNId))
+        {
+            return UnauthorizedEnvelope();
+        }
+
+        try
+        {
+            return await _service.RestoreAsync(tenantNId, actorUserNId, id, request, cancellationToken);
         }
         catch (ValidationException ex)
         {

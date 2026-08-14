@@ -284,6 +284,52 @@ public sealed class UserGroupRolesChangedEvent : IdentityIntegrationEvent
 }
 
 /// <summary>
+/// 用户安全删除(墓碑)集成事件(<c>Identity.UserDeleted.v1</c>)。subjectNId 为 UserNId,
+/// authVersion 为删除后的安全版本(已递增,旧会话失效)。不含数据库主键。
+/// </summary>
+public sealed class UserDeletedEvent : IdentityIntegrationEvent
+{
+    /// <inheritdoc/>
+    [JsonIgnore]
+    public override string EventTypeName => "Identity.UserDeleted.v1";
+
+    /// <summary>线上事件类型名。</summary>
+    public override string EventType => EventTypeName;
+
+    /// <summary>删除后的安全版本。</summary>
+    public int AuthVersion { get; }
+
+    /// <summary>初始化用户删除事件。</summary>
+    [JsonConstructor]
+    public UserDeletedEvent(string tenantNId, string subjectNId, int authVersion)
+        : base(tenantNId, subjectNId)
+    {
+        AuthVersion = authVersion;
+    }
+}
+
+/// <summary>
+/// 用户墓碑恢复集成事件(<c>Identity.UserRestored.v1</c>)。subjectNId 为 UserNId。
+/// 恢复后账号保持 Disabled 且不恢复授权。不含数据库主键。
+/// </summary>
+public sealed class UserRestoredEvent : IdentityIntegrationEvent
+{
+    /// <inheritdoc/>
+    [JsonIgnore]
+    public override string EventTypeName => "Identity.UserRestored.v1";
+
+    /// <summary>线上事件类型名。</summary>
+    public override string EventType => EventTypeName;
+
+    /// <summary>初始化用户恢复事件。</summary>
+    [JsonConstructor]
+    public UserRestoredEvent(string tenantNId, string subjectNId)
+        : base(tenantNId, subjectNId)
+    {
+    }
+}
+
+/// <summary>
 /// 集成事件 JSON 序列化助手:与 BuildingBlocks <c>RabbitMqEventBus</c> 一致的小驼峰、忽略 null 配置。
 /// 保证 Outbox 载荷与直发载荷字节语义一致(序列化兼容)。
 /// </summary>

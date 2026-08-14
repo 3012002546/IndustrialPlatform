@@ -46,7 +46,7 @@ public sealed class ManagementStore : IManagementStore
         ArgumentNullException.ThrowIfNull(filter);
 
         var query = _dbContext.SqlSugar.Queryable<UserTable>()
-            .Where(t => t.TenantNId == filter.TenantNId && !t.IsDeleted);
+            .Where(t => t.TenantNId == filter.TenantNId && (filter.IncludeDeleted || !t.IsDeleted));
 
         if (!string.IsNullOrWhiteSpace(filter.NId))
         {
@@ -100,6 +100,13 @@ public sealed class ManagementStore : IManagementStore
     {
         var row = await QueryUserRowByNIdAsync(userNId, includeDeleted: false, cancellationToken);
         return row is null ? null : await _userRepository.GetByIdAsync(row.Id, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<User?> GetUserAggregateIncludingDeletedAsync(string userNId, CancellationToken cancellationToken)
+    {
+        var row = await QueryUserRowByNIdAsync(userNId, includeDeleted: true, cancellationToken);
+        return row is null ? null : await _userRepository.GetByNIdIncludingDeletedAsync(userNId, cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -302,6 +309,15 @@ public sealed class ManagementStore : IManagementStore
         IReadOnlyCollection<OutboxEnvelope> outboxEvents,
         CancellationToken cancellationToken)
         => _userRepository.UpdateAsync(user, expectedOptimisticVersion, expectedConcurrencyVersion, outboxEvents, cancellationToken);
+
+    /// <inheritdoc/>
+    public Task RestoreUserAsync(
+        User user,
+        long expectedOptimisticVersion,
+        Guid expectedConcurrencyVersion,
+        IReadOnlyCollection<OutboxEnvelope> outboxEvents,
+        CancellationToken cancellationToken)
+        => _userRepository.RestoreAsync(user, expectedOptimisticVersion, expectedConcurrencyVersion, outboxEvents, cancellationToken);
 
     /// <inheritdoc/>
     public Task AddRoleAsync(Role role, IReadOnlyCollection<OutboxEnvelope> outboxEvents, CancellationToken cancellationToken)

@@ -98,3 +98,21 @@ public sealed class BusinessRuleViolationException : ManagementException
     {
     }
 }
+
+/// <summary>最后一名系统管理员保护(§29A.3 ID_LAST_ADMIN_REQUIRED):禁用/删除/恢复等路径的权威计数守卫。</summary>
+public sealed class LastAdminRequiredException : ManagementException
+{
+    public LastAdminRequiredException()
+        : base(400, "ID_LAST_ADMIN_REQUIRED", "不能移除最后一名系统管理员，除非经过独立恢复流程。")
+    {
+    }
+}
+
+/// <summary>用户已删除或用户墓碑状态与操作不匹配(§29A.5 ID_USER_DELETED)。</summary>
+public sealed class UserDeletedException : ManagementException
+{
+    public UserDeletedException()
+        : base(400, "ID_USER_DELETED", "用户已删除或未处于可操作状态。")
+    {
+    }
+}

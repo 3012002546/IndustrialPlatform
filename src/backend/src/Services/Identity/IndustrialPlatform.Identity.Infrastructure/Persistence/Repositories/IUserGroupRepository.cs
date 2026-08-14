@@ -13,6 +13,9 @@ public interface IUserGroupRepository : IRepository<UserGroup>
     /// <summary>按用户组业务标识查询聚合(含活动成员与组角色关系);不存在返回 <c>null</c>。</summary>
     Task<UserGroup?> GetByNIdAsync(string groupNId, CancellationToken cancellationToken = default);
 
+    /// <summary>按用户组业务标识查询墓碑聚合(含已软删除记录,§29A.3);不存在返回 <c>null</c>。</summary>
+    Task<UserGroup?> GetByNIdIncludingDeletedAsync(string groupNId, CancellationToken cancellationToken = default);
+
     /// <summary>查询用户在租户内经活动用户组继承的角色 Id 集(组未删除且 Active、关系双重过滤)。</summary>
     Task<IReadOnlyList<Guid>> GetRoleIdsForUserAsync(
         Guid userId,
