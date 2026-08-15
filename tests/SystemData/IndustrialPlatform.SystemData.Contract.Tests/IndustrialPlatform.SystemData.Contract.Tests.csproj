@@ -17,6 +17,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\backend\src\Services\SystemData\IndustrialPlatform.SystemData.Contracts\IndustrialPlatform.SystemData.Contracts.csproj" />
+    <!-- 仅测试期联合验证(TASK-SD-006):以基线 48c5374 的真实 Identity 契约
+         UserSummary 核对 IdentityUserDirectoryEntryV1 字段映射,不产生生产耦合。 -->
+    <ProjectReference Include="..\..\..\src\backend\src\Services\Identity\IndustrialPlatform.Identity.Contracts\IndustrialPlatform.Identity.Contracts.csproj" />
   </ItemGroup>
 
 </Project>

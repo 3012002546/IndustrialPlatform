@@ -1,5 +1,10 @@
+using IndustrialPlatform.SystemData.Application.Assignments;
+using IndustrialPlatform.SystemData.Application.Auditing;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Options;
+using IndustrialPlatform.SystemData.Application.IdentityDirectory;
+using IndustrialPlatform.SystemData.Application.Organizations;
+using IndustrialPlatform.SystemData.Application.Positions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -30,6 +35,14 @@ public static class DependencyInjection
         services.AddSingleton<IOperationService, DatabaseOperationService>();
         services.AddSingleton<IApprovalService, DatabaseApprovalService>();
         services.AddSingleton<IBackupService, DatabaseBackupService>();
+
+        // TASK-SD-006:组织/岗位/任职管理用例与审计/目录端口。
+        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<ILocalAuditCommand, NoopLocalAuditCommand>();
+        services.AddSingleton<IIdentityUserDirectory, UnavailableIdentityUserDirectory>();
+        services.AddSingleton<IAdministrativeOrganizationService, AdministrativeOrganizationService>();
+        services.AddSingleton<IPositionService, PositionService>();
+        services.AddSingleton<IUserAssignmentService, UserAssignmentService>();
 
         return services;
     }

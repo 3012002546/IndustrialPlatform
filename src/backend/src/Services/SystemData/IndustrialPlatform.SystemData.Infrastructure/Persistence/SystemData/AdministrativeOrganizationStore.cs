@@ -37,6 +37,18 @@ public sealed class AdministrativeOrganizationStore : IAdministrativeOrganizatio
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<AdministrativeOrganization>> GetAllAsync(
+        string tenantNId,
+        CancellationToken cancellationToken)
+    {
+        var rows = await _dbContext.SqlSugar.Queryable<AdministrativeOrganizationTable>()
+            .Where(t => t.TenantNId == tenantNId && !t.IsDeleted)
+            .OrderBy(t => t.DisplayOrder)
+            .ToListAsync(cancellationToken);
+        return rows.Select(TableMapper.ToAdministrativeOrganization).ToList();
+    }
+
+    /// <inheritdoc />
     public async Task<bool> NameAvailableAsync(
         string tenantNId,
         string? parentOrganizationNId,
