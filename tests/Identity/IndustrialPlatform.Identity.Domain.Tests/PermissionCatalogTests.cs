@@ -31,12 +31,15 @@ public sealed class PermissionCatalogTests
         "platform.home.view",
         "platform.pda.view",
         "platform.mobile.view",
+        "identity.bootstrap.view",
+        "identity.bootstrap.recover",
     ];
 
     [Fact]
-    public void FirstBatch_HasTwentyOnePermissions()
+    public void FirstBatch_HasTwentyThreePermissions()
     {
-        Assert.Equal(21, PermissionCatalog.FirstBatchNIds.Count);
+        // §9.2 第一批 21 项 + §29A.5 bootstrap 2 项(TASK-ID-019)
+        Assert.Equal(23, PermissionCatalog.FirstBatchNIds.Count);
     }
 
     [Fact]

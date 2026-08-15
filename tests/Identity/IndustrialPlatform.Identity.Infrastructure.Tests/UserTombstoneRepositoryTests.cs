@@ -47,10 +47,7 @@ public sealed class UserTombstoneRepositoryTests : IDisposable
             DbType = DbType.Sqlite,
         }));
 
-        new SchemaMigrationRunner(_dbContext, IdentitySchemaMigrations.All, NullLogger<SchemaMigrationRunner>.Instance)
-            .ApplyPendingAsync()
-            .GetAwaiter()
-            .GetResult();
+        IdentityTestDatabase.ApplyCatalogAsync(_dbContext).GetAwaiter().GetResult();
 
         _users = new UserRepository(_dbContext);
         _roles = new RoleRepository(_dbContext);

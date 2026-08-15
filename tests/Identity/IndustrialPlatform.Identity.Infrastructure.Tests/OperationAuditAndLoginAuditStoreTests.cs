@@ -53,10 +53,7 @@ public sealed class OperationAuditAndLoginAuditStoreTests : IDisposable
             Environment.SetEnvironmentVariable(name, null);
         }
 
-        new SchemaMigrationRunner(_dbContext, IdentitySchemaMigrations.All, NullLogger<SchemaMigrationRunner>.Instance)
-            .ApplyPendingAsync()
-            .GetAwaiter()
-            .GetResult();
+        IdentityTestDatabase.ApplyCatalogAsync(_dbContext).GetAwaiter().GetResult();
     }
 
     public void Dispose()

@@ -56,10 +56,7 @@ public sealed class IdentityRepositoryTests : IDisposable
             Environment.SetEnvironmentVariable(name, null);
         }
 
-        new SchemaMigrationRunner(_dbContext, IdentitySchemaMigrations.All, NullLogger<SchemaMigrationRunner>.Instance)
-            .ApplyPendingAsync()
-            .GetAwaiter()
-            .GetResult();
+        IdentityTestDatabase.ApplyCatalogAsync(_dbContext).GetAwaiter().GetResult();
 
         _users = new UserRepository(_dbContext);
         _roles = new RoleRepository(_dbContext);
@@ -307,14 +304,17 @@ public sealed class IdentityRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task Permission_GetAll_ReturnsTwentyOneSeedPermissions()
+    public async Task Permission_GetAll_ReturnsCatalogSeedPermissions()
     {
         var all = await _permissions.GetAllAsync();
 
-        Assert.Equal(21, all.Count);
+        // §9.2 第一批 21 项 + §29A.5 bootstrap 2 项(TASK-ID-019)
+        Assert.Equal(23, all.Count);
         Assert.Contains(all, p => p.NId == PermissionCatalog.UserView);
         Assert.Contains(all, p => p.NId == PermissionCatalog.UserDelete);
         Assert.Contains(all, p => p.NId == PermissionCatalog.UserGroupRestore);
         Assert.Contains(all, p => p.NId == PermissionCatalog.PlatformMobileView);
+        Assert.Contains(all, p => p.NId == PermissionCatalog.BootstrapView);
+        Assert.Contains(all, p => p.NId == PermissionCatalog.BootstrapRecover);
     }
 }

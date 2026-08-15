@@ -39,6 +39,7 @@ internal static class TableMapper
         LockedUntil = user.LockedUntil,
         AuthVersion = user.AuthVersion,
         LastLoginOn = user.LastLoginOn,
+        MustChangePassword = user.MustChangePassword,
     };
 
     public static User ToUser(UserTable row, IReadOnlyCollection<UserRole> userRoles) => new(
@@ -57,6 +58,7 @@ internal static class TableMapper
         row.LockedUntil,
         row.AuthVersion,
         row.LastLoginOn,
+        row.MustChangePassword,
         userRoles,
         row.IsFrozen,
         row.IsLocked,

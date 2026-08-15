@@ -51,10 +51,7 @@ public sealed class RefreshSessionRotationTests : IDisposable
             Environment.SetEnvironmentVariable(name, null);
         }
 
-        new SchemaMigrationRunner(_dbContext, IdentitySchemaMigrations.All, NullLogger<SchemaMigrationRunner>.Instance)
-            .ApplyPendingAsync()
-            .GetAwaiter()
-            .GetResult();
+        IdentityTestDatabase.ApplyCatalogAsync(_dbContext).GetAwaiter().GetResult();
 
         _users = new UserRepository(_dbContext);
         _sessions = new RefreshSessionStore(_dbContext);

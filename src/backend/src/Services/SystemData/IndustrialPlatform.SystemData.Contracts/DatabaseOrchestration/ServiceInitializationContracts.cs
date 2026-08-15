@@ -248,6 +248,13 @@ public sealed record ServiceInitializationReadinessV2
     /// <summary>SecretBootstrap(按需)是否完成。</summary>
     public bool BootstrapReady { get; init; }
 
+    /// <summary>
+    /// 消费方 bootstrap 状态枚举名(TASK-ID-019 最小兼容扩展):<c>Pending</c>/<c>Ready</c>/<c>RecoveryRequired</c>,
+    /// 让编排面可区分“未完成”“已就绪”与“admin 异常需紧急恢复”;缺省为空表示 v1 兼容(migration-only)。
+    /// 仅为非敏感状态标识,绝不携带 Secret 或凭据引用。
+    /// </summary>
+    public string? BootstrapStatus { get; init; }
+
     /// <summary>各种子就绪状态(模块级明细)。</summary>
     public IReadOnlyCollection<SeedReadinessV2>? Seeds { get; init; }
 

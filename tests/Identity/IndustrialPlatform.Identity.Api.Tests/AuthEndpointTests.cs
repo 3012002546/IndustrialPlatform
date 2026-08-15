@@ -123,19 +123,12 @@ public sealed class AuthEndpointTests : IClassFixture<WebApplicationFactory<Prog
 
 /// <summary>
 /// 登录全链路 E2E(待验收):需真实 PostgreSQL+Redis。
-/// 设置 <c>IDENTITY_E2E_DB=1</c> 并预置 bootstrap 管理员后运行;
-/// 未设置时跳过,不影响本地无依赖测试基线。
+/// 需先通过显式初始化(IdentityInitializationService,SystemData 编排或受控部署)创建内置 admin;
+/// 设置 <c>IDENTITY_E2E_DB=1</c> 后运行,未设置时跳过,不影响本地无依赖测试基线。
+/// 本用例只使用测试夹具登录名/密码,绝不依赖环境变量密码引导(§29A.4 已移除)。
 /// </summary>
 public sealed class LoginE2ETests
 {
-    private static readonly string[] BootstrapEnvNames =
-    [
-        "IDENTITY_BOOTSTRAP_TENANT_NID",
-        "IDENTITY_BOOTSTRAP_USER_NID",
-        "IDENTITY_BOOTSTRAP_LOGIN_NAME",
-        "IDENTITY_BOOTSTRAP_PASSWORD",
-    ];
-
     [Fact]
     [Trait("Category", "E2E")]
     public async Task Login_HappyPath_ReturnsSessionWithCurrentUser()
@@ -146,62 +139,38 @@ public sealed class LoginE2ETests
             return;
         }
 
-        const string loginName = "e2e.admin";
+        const string loginName = "admin";
         const string password = "E2e-Admin-123456";
-        SetBootstrapEnvironment(loginName, password);
-        try
-        {
-            using var factory = new WebApplicationFactory<Program>();
-            using var client = factory.CreateClient();
+        using var factory = new WebApplicationFactory<Program>();
+        using var client = factory.CreateClient();
 
-            using var loginResponse = await client.PostAsync(
-                "/api/v1/auth/login",
-                new StringContent(
-                    $$"""{"loginName":"{{loginName}}","password":"{{password}}"}""",
-                    Encoding.UTF8,
-                    "application/json"));
-            using var payload = JsonDocument.Parse(await loginResponse.Content.ReadAsStreamAsync());
+        using var loginResponse = await client.PostAsync(
+            "/api/v1/auth/login",
+            new StringContent(
+                $$"""{"loginName":"{{loginName}}","password":"{{password}}"}""",
+                Encoding.UTF8,
+                "application/json"));
+        using var payload = JsonDocument.Parse(await loginResponse.Content.ReadAsStreamAsync());
 
-            Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
-            Assert.True(payload.RootElement.GetProperty("success").GetBoolean());
-            Assert.Equal("200", payload.RootElement.GetProperty("code").GetString());
+        Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
+        Assert.True(payload.RootElement.GetProperty("success").GetBoolean());
+        Assert.Equal("200", payload.RootElement.GetProperty("code").GetString());
 
-            var data = payload.RootElement.GetProperty("data");
-            var accessToken = data.GetProperty("accessToken").GetString();
-            var refreshToken = data.GetProperty("refreshToken").GetString();
-            Assert.False(string.IsNullOrWhiteSpace(accessToken));
-            Assert.False(string.IsNullOrWhiteSpace(refreshToken));
-            Assert.True(DateTimeOffset.TryParse(data.GetProperty("expiresAt").GetString(), out _));
-            Assert.Equal("e2e.admin", data.GetProperty("user").GetProperty("userNId").GetString());
+        var data = payload.RootElement.GetProperty("data");
+        var accessToken = data.GetProperty("accessToken").GetString();
+        var refreshToken = data.GetProperty("refreshToken").GetString();
+        Assert.False(string.IsNullOrWhiteSpace(accessToken));
+        Assert.False(string.IsNullOrWhiteSpace(refreshToken));
+        Assert.True(DateTimeOffset.TryParse(data.GetProperty("expiresAt").GetString(), out _));
+        Assert.Equal("ADMIN", data.GetProperty("user").GetProperty("userNId").GetString());
 
-            // 用返回的 Access Token 访问当前用户端点
-            using var meRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/auth/me");
-            meRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-            using var meResponse = await client.SendAsync(meRequest);
-            using var mePayload = JsonDocument.Parse(await meResponse.Content.ReadAsStreamAsync());
+        // 用返回的 Access Token 访问当前用户端点
+        using var meRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/auth/me");
+        meRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        using var meResponse = await client.SendAsync(meRequest);
+        using var mePayload = JsonDocument.Parse(await meResponse.Content.ReadAsStreamAsync());
 
-            Assert.Equal(HttpStatusCode.OK, meResponse.StatusCode);
-            Assert.Equal("e2e.admin", mePayload.RootElement.GetProperty("data").GetProperty("userNId").GetString());
-        }
-        finally
-        {
-            ClearBootstrapEnvironment();
-        }
-    }
-
-    private static void SetBootstrapEnvironment(string loginName, string password)
-    {
-        Environment.SetEnvironmentVariable("IDENTITY_BOOTSTRAP_TENANT_NID", "development");
-        Environment.SetEnvironmentVariable("IDENTITY_BOOTSTRAP_USER_NID", "e2e.admin");
-        Environment.SetEnvironmentVariable("IDENTITY_BOOTSTRAP_LOGIN_NAME", loginName);
-        Environment.SetEnvironmentVariable("IDENTITY_BOOTSTRAP_PASSWORD", password);
-    }
-
-    private static void ClearBootstrapEnvironment()
-    {
-        foreach (var name in BootstrapEnvNames)
-        {
-            Environment.SetEnvironmentVariable(name, null);
-        }
+        Assert.Equal(HttpStatusCode.OK, meResponse.StatusCode);
+        Assert.Equal("ADMIN", mePayload.RootElement.GetProperty("data").GetProperty("userNId").GetString());
     }
 }
