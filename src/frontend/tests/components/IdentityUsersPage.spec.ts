@@ -1,0 +1,193 @@
+/**
+ * 用户管理页组件测试(TASK-ID-021,§29A.4/§29A.5):
+ * - 新建用户表单不再包含初始密码输入;
+ * - 提交载荷不含 initialPassword,由服务端返回一次性临时密码弹窗展示。
+ * 管理 API 经 vi.mock 替换 registry,页面运行时从 mock 获取 IdentityManagementApi。
+ */
+
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import ElementPlus from 'element-plus'
+import { createPinia, setActivePinia } from 'pinia'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { defineComponent } from 'vue'
+
+import { persistAuthSession } from '../fixtures/session'
+import IdentityUsersPage from '@/pages/pc/identity/IdentityUsersPage.vue'
+import { useAuthStore } from '@/stores/authStore'
+
+const { fakeApi } = vi.hoisted(() => ({
+  fakeApi: {
+    listUsers: vi.fn(),
+    getUser: vi.fn(),
+    createUser: vi.fn(),
+    updateUser: vi.fn(),
+    setUserStatus: vi.fn(),
+    assignUserRoles: vi.fn(),
+    resetPassword: vi.fn(),
+    deleteUser: vi.fn(),
+    restoreUser: vi.fn(),
+    listUserGroups: vi.fn(),
+    getUserGroup: vi.fn(),
+    createUserGroup: vi.fn(),
+    updateUserGroup: vi.fn(),
+    setUserGroupStatus: vi.fn(),
+    setUserGroupMembers: vi.fn(),
+    setUserGroupRoles: vi.fn(),
+    deleteUserGroup: vi.fn(),
+    restoreUserGroup: vi.fn(),
+    listRoles: vi.fn(),
+    getRole: vi.fn(),
+    createRole: vi.fn(),
+    updateRole: vi.fn(),
+    assignRolePermissions: vi.fn(),
+    getPermissionTree: vi.fn(),
+    listLoginAudits: vi.fn(),
+  },
+}))
+
+vi.mock('@/api/identity/managementRegistry', () => ({
+  getManagementApi: () => fakeApi,
+  registerManagementApi: vi.fn(),
+}))
+
+// el-dialog 内部使用 ElFocusTrap(子路径导入),jsdom 下渲染异常,替换为渲染槽的 stub。
+vi.mock('element-plus/es/components/focus-trap/index', async () => {
+  const { defineComponent } = await import('vue')
+  return {
+    ElFocusTrap: defineComponent({
+      name: 'ElFocusTrapStub',
+      template: '<div><slot /></div>',
+    }),
+    default: defineComponent({
+      name: 'ElFocusTrapStub',
+      template: '<div><slot /></div>',
+    }),
+  }
+})
+
+const TeleportStub = defineComponent({
+  name: 'TeleportStub',
+  props: { to: { type: String, required: true }, disabled: Boolean },
+  template: '<div><slot /></div>',
+})
+
+const wrappers: VueWrapper[] = []
+
+function emptyPage<T>(): { items: T[]; total: number; pageIndex: number; pageSize: number } {
+  return { items: [], total: 0, pageIndex: 1, pageSize: 20 }
+}
+
+async function mountUsersPage(permissions: string[]): Promise<VueWrapper> {
+  const pinia = createPinia()
+  setActivePinia(pinia)
+  persistAuthSession(permissions)
+  await useAuthStore().restore()
+  const wrapper = mount(IdentityUsersPage, {
+    global: {
+      plugins: [pinia, ElementPlus],
+      stubs: {
+        teleport: TeleportStub,
+        // jsdom 下 Element Plus 表格/下拉的布局副作用(递归更新告警)与断言无关,统一打桩。
+        'el-table': true,
+        'el-table-column': true,
+        'el-select': true,
+        'el-option': true,
+        'el-tooltip': true,
+        'el-checkbox': true,
+        'el-pagination': true,
+        'el-descriptions': true,
+        'el-descriptions-item': true,
+      },
+    },
+  })
+  wrappers.push(wrapper)
+  await flushPromises()
+  return wrapper
+}
+
+async function openCreateDialog(wrapper: VueWrapper): Promise<void> {
+  const createButton = wrapper.findAll('button').find((b) => b.text() === '新建用户')
+  expect(createButton).toBeDefined()
+  await createButton!.trigger('click')
+  await flushPromises()
+}
+
+async function clickSave(wrapper: VueWrapper): Promise<void> {
+  const saveButton = wrapper.findAll('button').find((b) => b.text() === '保存')
+  expect(saveButton).toBeDefined()
+  await saveButton!.trigger('click')
+  await flushPromises()
+}
+
+describe('IdentityUsersPage — 创建用户(服务端随机临时密码)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    fakeApi.listUsers.mockResolvedValue(emptyPage())
+    fakeApi.listRoles.mockResolvedValue(emptyPage())
+    fakeApi.listUserGroups.mockResolvedValue(emptyPage())
+  })
+
+  afterEach(() => {
+    wrappers.splice(0).forEach((w) => w.unmount())
+    document.body.innerHTML = ''
+    sessionStorage.clear()
+    localStorage.clear()
+  })
+
+  it('新建用户表单不再包含初始密码输入', async () => {
+    const wrapper = await mountUsersPage(['identity.user.view', 'identity.user.create'])
+    await openCreateDialog(wrapper)
+
+    // 表单字段:业务标识/登录名/姓名/邮箱/手机号;绝无初始密码。
+    expect(wrapper.text()).not.toContain('初始密码')
+    expect(wrapper.find('input[type="password"]').exists()).toBe(false)
+    expect(wrapper.find('input[placeholder="登录用户名"]').exists()).toBe(true)
+    expect(wrapper.find('input[placeholder="显示姓名"]').exists()).toBe(true)
+  })
+
+  it('创建提交正确载荷(不含 initialPassword),并在成功后弹出一次性临时密码', async () => {
+    fakeApi.createUser.mockResolvedValue({
+      user: {
+        userNId: 'u9',
+        loginName: 'alice',
+        name: 'Alice',
+        email: null,
+        phone: null,
+        status: 'Active',
+        tenantNId: 't1',
+        createdOn: '2026-01-01T00:00:00Z',
+        lastLoginOn: null,
+        mustChangePassword: true,
+        directRoleNIds: [],
+        groupRoleNIds: [],
+        effectiveRoleNIds: [],
+        optimisticVersion: 1,
+        concurrencyVersion: 'c1',
+      },
+      temporaryPassword: 'Tmp!Pass123',
+    })
+
+    const wrapper = await mountUsersPage(['identity.user.view', 'identity.user.create'])
+    await openCreateDialog(wrapper)
+
+    await wrapper.get('input[placeholder="登录用户名"]').setValue('alice')
+    await wrapper.get('input[placeholder="显示姓名"]').setValue('Alice')
+    await clickSave(wrapper)
+
+    expect(fakeApi.createUser).toHaveBeenCalledTimes(1)
+    expect(fakeApi.createUser).toHaveBeenCalledWith({
+      nId: undefined,
+      loginName: 'alice',
+      name: 'Alice',
+      email: null,
+      phone: null,
+    })
+    const [body] = fakeApi.createUser.mock.calls[0] as [unknown]
+    expect(JSON.stringify(body)).not.toContain('initialPassword')
+
+    // 创建成功后展示一次性临时密码弹窗。
+    await flushPromises()
+    expect(wrapper.text()).toContain('临时密码')
+    expect(wrapper.text()).toContain('Tmp!Pass123')
+  })
+})

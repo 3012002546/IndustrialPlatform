@@ -1,7 +1,8 @@
 /**
  * Identity 线上 DTO → 前端认证类型映射(§15 → §10.1 字段投影)。
  * 投影规则:userNId→userId、loginName→username、name→displayName、
- * tenantNId→tenantId、roleNIds→roles、permissionNIds→permissions。
+ * tenantNId→tenantId、roleNIds→roles、permissionNIds→permissions、
+ * mustChangePassword→mustChangePassword(§29A.4 首次登录改密门禁)。
  * 结构不符(字段缺失/类型错)一律抛 invalidResponse,与「解析失败视为无效」
  * 的会话策略一致,避免把脏数据带入 Store。
  */
@@ -33,7 +34,8 @@ function isAuthUserDto(value: unknown): value is IdentityAuthUserDto {
     typeof record['name'] === 'string' &&
     typeof record['tenantNId'] === 'string' &&
     isStringArray(record['roleNIds']) &&
-    isStringArray(record['permissionNIds'])
+    isStringArray(record['permissionNIds']) &&
+    typeof record['mustChangePassword'] === 'boolean'
   )
 }
 
@@ -58,6 +60,7 @@ export function mapAuthUser(dto: unknown): AuthUser {
     tenantId: dto.tenantNId,
     roles: [...dto.roleNIds],
     permissions: [...dto.permissionNIds],
+    mustChangePassword: dto.mustChangePassword,
   }
 }
 

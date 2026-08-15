@@ -75,11 +75,15 @@ public sealed class ManagementEndpointTests
             HttpMethod.Post,
             "/api/v1/users",
             await CreateTokenAsync(factory),
-            Json(new { nId = "alice.user", loginName = "alice", name = "Alice", initialPassword = StrongPassword }));
+            Json(new { nId = "alice.user", loginName = "alice", name = "Alice" }));
 
         using var payload = JsonDocument.Parse(await response.Content.ReadAsStreamAsync());
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal("alice.user", payload.RootElement.GetProperty("data").GetProperty("userNId").GetString());
+        var data = payload.RootElement.GetProperty("data");
+        // §29A.4:CreateUserResult 返回用户摘要 + 一次性临时密码
+        Assert.Equal("alice.user", data.GetProperty("user").GetProperty("userNId").GetString());
+        Assert.True(data.GetProperty("user").GetProperty("mustChangePassword").GetBoolean());
+        Assert.False(string.IsNullOrWhiteSpace(data.GetProperty("temporaryPassword").GetString()));
         Assert.Equal("user.create", Assert.Single(store.Audits).Action);
     }
 
@@ -160,7 +164,8 @@ public sealed class ManagementEndpointTests
     public async Task Users_ResetPassword_Success_Returns200()
     {
         var store = new InMemoryManagementStore { UserAggregate = CreateAggregateUser("alice.user") };
-        using var factory = CreateFactory(store, [PermissionCatalog.UserUpdate]);
+        // §29A.5:重置密码使用独立权限 identity.user.reset-password
+        using var factory = CreateFactory(store, [PermissionCatalog.UserResetPassword]);
         using var client = factory.CreateClient();
 
         using var response = await SendAsync(
@@ -168,11 +173,13 @@ public sealed class ManagementEndpointTests
             HttpMethod.Post,
             "/api/v1/users/alice.user/reset-password",
             await CreateTokenAsync(factory),
-            Json(new { newPassword = "Xy2!newpassword" }));
+            "{}");
         using var payload = JsonDocument.Parse(await response.Content.ReadAsStreamAsync());
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.True(payload.RootElement.GetProperty("success").GetBoolean());
+        // §29A.4:重置结果包含一次性临时密码
+        Assert.False(string.IsNullOrWhiteSpace(payload.RootElement.GetProperty("data").GetProperty("temporaryPassword").GetString()));
     }
 
     [Fact]
@@ -337,9 +344,13 @@ public sealed class ManagementEndpointTests
         new DateTimeOffset(2026, 8, 1, 0, 0, 0, TimeSpan.Zero),
         new DateTimeOffset(2026, 8, 1, 0, 0, 0, TimeSpan.Zero),
         null,
+        MustChangePassword: false,
+        [],
+        [],
+        [],
         1,
         Guid.NewGuid(),
-        []);
+        IsDeleted: false);
 
     private static User CreateAggregateUser(string nId)
         => User.Create(Tenant, nId, "alice", "Alice", "alice@example.com", null, "HASH:" + StrongPassword);
@@ -421,9 +432,13 @@ public sealed class ManagementEndpointTests
                 user.CreatedOn,
                 user.LastUpdatedOn,
                 user.LastLoginOn,
+                user.MustChangePassword,
+                [],
+                [],
+                [],
                 user.OptimisticVersion,
                 user.ConcurrencyVersion,
-                []);
+                user.IsDeleted);
             return Task.CompletedTask;
         }
 

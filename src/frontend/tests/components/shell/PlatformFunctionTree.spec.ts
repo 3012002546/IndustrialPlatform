@@ -50,6 +50,7 @@ function makeSession(permissions: string[]): AuthSession {
       tenantId: 't1',
       roles: ['admin'],
       permissions,
+      mustChangePassword: false,
     },
   }
 }

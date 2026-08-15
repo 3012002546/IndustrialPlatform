@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import { getAuthGateway } from '@/auth/gateway'
+import type { BootstrapStatus } from '@/auth/types'
 import MockModeBanner from '@/components/base/MockModeBanner.vue'
 import { ApiError, DEFAULT_ERROR_MESSAGES } from '@/api/errors'
 import { loadRuntimeConfig } from '@/config/runtimeConfig'
@@ -24,8 +26,26 @@ const usernameTouched = ref(false)
 const passwordTouched = ref(false)
 const loginError = ref<string | null>(null)
 
+/** §29A.7:HTTP 模式加载时读取 bootstrap 状态,未完成时展示诊断并禁止登录。 */
+const bootstrapStatus = ref<BootstrapStatus | null>(null)
+
 const usernameError = computed(() => usernameTouched.value && username.value.trim() === '')
 const passwordError = computed(() => passwordTouched.value && password.value === '')
+
+/** bootstrap 未完成(初始化未完成或 admin 异常)时禁止登录。 */
+const bootstrapBlocked = computed(
+  () => bootstrapStatus.value !== null && bootstrapStatus.value.state !== 'Ready',
+)
+
+onMounted(async () => {
+  if (loadRuntimeConfig().authMode !== 'http') return
+  try {
+    bootstrapStatus.value = await getAuthGateway().getBootstrapStatus()
+  } catch {
+    // 状态端点不可达时按 Ready 降级,不阻塞登录(由登录失败错误兜底)。
+    bootstrapStatus.value = null
+  }
+})
 
 /** 安全 redirect(§15.1):仅接受站内相对路径,拒绝开放重定向与协议相对地址。 */
 const redirectTarget = computed<string | { name: string }>(() => {
@@ -59,7 +79,7 @@ function toLoginErrorMessage(error: unknown): string {
 }
 
 async function onSubmit(): Promise<void> {
-  if (submitting.value) return
+  if (submitting.value || bootstrapBlocked.value) return
   usernameTouched.value = true
   passwordTouched.value = true
   if (usernameError.value || passwordError.value) {
@@ -88,6 +108,19 @@ async function onSubmit(): Promise<void> {
       </header>
 
       <MockModeBanner class="login-card__banner" />
+
+      <div
+        v-if="bootstrapBlocked"
+        class="login-card__bootstrap-pending"
+        role="alert"
+        data-testid="login-bootstrap-pending"
+      >
+        {{
+          bootstrapStatus?.state === 'RecoveryRequired'
+            ? '内置管理员账号异常,需要紧急恢复后才能登录。'
+            : '系统初始化尚未完成,暂不能登录。'
+        }}
+      </div>
 
       <form class="login-card__form" novalidate @submit.prevent="onSubmit">
         <div class="login-card__field">
@@ -166,7 +199,7 @@ async function onSubmit(): Promise<void> {
           type="submit"
           class="login-card__submit"
           data-testid="login-submit"
-          :disabled="submitting"
+          :disabled="submitting || bootstrapBlocked"
         >
           {{ submitting ? '登录中…' : '登录' }}
         </button>
@@ -181,7 +214,7 @@ async function onSubmit(): Promise<void> {
         企业登录(SSO)
       </router-link>
 
-      <p class="login-card__hint">演示账号:mock.admin / Mock@123456</p>
+      <p v-if="!isHttpAuth" class="login-card__hint">演示账号:mock.admin / Mock@123456</p>
     </section>
   </main>
 </template>
@@ -212,6 +245,16 @@ async function onSubmit(): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: var(--ip-space-1);
+}
+
+.login-card__bootstrap-pending {
+  padding: var(--ip-space-2) var(--ip-space-3);
+  background: var(--ip-color-warning-bg, #fdf6ec);
+  border: 1px solid var(--ip-color-warning, #e6a23c);
+  border-radius: var(--ip-radius-sm);
+  color: var(--ip-color-warning, #e6a23c);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .login-card__title {

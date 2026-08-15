@@ -21,8 +21,8 @@ public sealed class AuditsController : ManagementControllerBase
     private readonly IAuditQueryService _service;
 
     /// <summary>初始化审计查询控制器。</summary>
-    public AuditsController(IAuditQueryService service, ICurrentUser currentUser)
-        : base(currentUser)
+    public AuditsController(IAuditQueryService service, ICurrentUser currentUser, IIdempotencyStore idempotencyStore)
+        : base(currentUser, idempotencyStore)
     {
         ArgumentNullException.ThrowIfNull(service);
         _service = service;

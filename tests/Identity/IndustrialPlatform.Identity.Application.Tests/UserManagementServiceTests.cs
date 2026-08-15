@@ -39,6 +39,7 @@ public sealed class UserManagementServiceTests
         _store,
         _groupStore,
         _hasher,
+        new FakeTemporaryPasswordGenerator(),
         _refreshStore,
         _cache,
         _auditSink,
@@ -70,15 +71,17 @@ public sealed class UserManagementServiceTests
         var result = await service.CreateAsync(
             Tenant,
             Actor,
-            new CreateUserRequest("alice.user", "alice", "Alice", StrongPassword, "alice@example.com", "13800000000", ["role.operator"]),
+            new CreateUserRequest("alice.user", "alice", "Alice", "alice@example.com", "13800000000", ["role.operator"]),
             CancellationToken.None);
 
-        Assert.Equal("alice.user", result.UserNId);
-        Assert.Equal("alice", result.LoginName);
-        Assert.Equal("Alice", result.Name);
-        Assert.Equal("Active", result.Status);
-        Assert.Equal(Tenant, result.TenantNId);
-        Assert.Equal(["role.operator"], result.RoleNIds);
+        Assert.Equal("alice.user", result.User.UserNId);
+        Assert.Equal("alice", result.User.LoginName);
+        Assert.Equal("Alice", result.User.Name);
+        Assert.Equal("Active", result.User.Status);
+        Assert.Equal(Tenant, result.User.TenantNId);
+        Assert.Equal(["role.operator"], result.User.DirectRoleNIds);
+        Assert.True(result.User.MustChangePassword);
+        Assert.False(string.IsNullOrWhiteSpace(result.TemporaryPassword));
 
         var audit = Assert.Single(_auditSink.Entries);
         Assert.Equal(OperationAction.UserCreate, audit.Action);
@@ -99,10 +102,11 @@ public sealed class UserManagementServiceTests
         var result = await service.CreateAsync(
             Tenant,
             Actor,
-            new CreateUserRequest(null, "alice", "Alice", StrongPassword, null, null, null),
+            new CreateUserRequest(null, "alice", "Alice", null, null, null),
             CancellationToken.None);
 
-        Assert.StartsWith("USR-", result.UserNId, StringComparison.Ordinal);
+        Assert.StartsWith("USR-", result.User.UserNId, StringComparison.Ordinal);
+        Assert.False(string.IsNullOrWhiteSpace(result.TemporaryPassword));
     }
 
     [Fact]
@@ -111,16 +115,16 @@ public sealed class UserManagementServiceTests
         var service = CreateService();
 
         await Assert.ThrowsAsync<ValidationException>(() =>
-            service.CreateAsync(Tenant, Actor, new CreateUserRequest(null, null, "Alice", StrongPassword, null, null, null), CancellationToken.None));
+            service.CreateAsync(Tenant, Actor, new CreateUserRequest(null, null, "Alice", null, null, null), CancellationToken.None));
     }
 
     [Fact]
-    public async Task CreateAsync_WeakPassword_ThrowsValidation()
+    public async Task CreateAsync_ReservedLoginName_ThrowsUserLoginNameReserved()
     {
         var service = CreateService();
 
-        await Assert.ThrowsAsync<ValidationException>(() =>
-            service.CreateAsync(Tenant, Actor, new CreateUserRequest("alice.user", "alice", "Alice", "short", null, null, null), CancellationToken.None));
+        await Assert.ThrowsAsync<UserLoginNameReservedException>(() =>
+            service.CreateAsync(Tenant, Actor, new CreateUserRequest("bob.user", "admin", "Bob", null, null, null), CancellationToken.None));
     }
 
     [Fact]
@@ -130,7 +134,7 @@ public sealed class UserManagementServiceTests
         var service = CreateService();
 
         await Assert.ThrowsAsync<UserNIdConflictException>(() =>
-            service.CreateAsync(Tenant, Actor, new CreateUserRequest("alice.user", "bob", "Bob", StrongPassword, null, null, null), CancellationToken.None));
+            service.CreateAsync(Tenant, Actor, new CreateUserRequest("alice.user", "bob", "Bob", null, null, null), CancellationToken.None));
     }
 
     [Fact]
@@ -140,7 +144,7 @@ public sealed class UserManagementServiceTests
         var service = CreateService();
 
         await Assert.ThrowsAsync<UserLoginNameConflictException>(() =>
-            service.CreateAsync(Tenant, Actor, new CreateUserRequest("bob.user", "alice", "Bob", StrongPassword, null, null, null), CancellationToken.None));
+            service.CreateAsync(Tenant, Actor, new CreateUserRequest("bob.user", "alice", "Bob", null, null, null), CancellationToken.None));
     }
 
     [Fact]
@@ -149,7 +153,7 @@ public sealed class UserManagementServiceTests
         var service = CreateService();
 
         await Assert.ThrowsAsync<BusinessRuleViolationException>(() =>
-            service.CreateAsync(Tenant, Actor, new CreateUserRequest("alice.user", "alice", "Alice", StrongPassword, null, null, ["role.missing"]), CancellationToken.None));
+            service.CreateAsync(Tenant, Actor, new CreateUserRequest("alice.user", "alice", "Alice", null, null, ["role.missing"]), CancellationToken.None));
     }
 
     [Fact]
@@ -160,7 +164,7 @@ public sealed class UserManagementServiceTests
         var service = CreateService();
 
         await Assert.ThrowsAsync<BusinessRuleViolationException>(() =>
-            service.CreateAsync(Tenant, Actor, new CreateUserRequest("alice.user", "alice", "Alice", StrongPassword, null, null, ["role.foreign"]), CancellationToken.None));
+            service.CreateAsync(Tenant, Actor, new CreateUserRequest("alice.user", "alice", "Alice", null, null, ["role.foreign"]), CancellationToken.None));
     }
 
     [Fact]
@@ -172,10 +176,11 @@ public sealed class UserManagementServiceTests
         var result = await service.CreateAsync(
             Tenant,
             Actor,
-            new CreateUserRequest("alice.user", "alice", "Alice", StrongPassword, null, null, null),
+            new CreateUserRequest("alice.user", "alice", "Alice", null, null, null),
             CancellationToken.None);
 
-        Assert.Equal("alice.user", result.UserNId);
+        Assert.Equal("alice.user", result.User.UserNId);
+        Assert.False(string.IsNullOrWhiteSpace(result.TemporaryPassword));
     }
 
     [Fact]
@@ -319,7 +324,7 @@ public sealed class UserManagementServiceTests
             new AssignUserRolesRequest(["role.b"], optimistic, concurrency),
             CancellationToken.None);
 
-        Assert.Equal(["role.b"], result.RoleNIds);
+        Assert.Equal(["role.b"], result.DirectRoleNIds);
         Assert.Equal(OperationAction.UserAssignRoles, Assert.Single(_auditSink.Entries).Action);
         Assert.Single(_cache.Invalidated);
     }
@@ -349,28 +354,19 @@ public sealed class UserManagementServiceTests
     }
 
     [Fact]
-    public async Task ResetPasswordAsync_WeakPassword_ThrowsValidation()
-    {
-        var user = SeedUser();
-        var service = CreateService();
-
-        await Assert.ThrowsAsync<ValidationException>(() =>
-            service.ResetPasswordAsync(Tenant, Actor, "alice.user", new ResetPasswordRequest("short"), CancellationToken.None));
-    }
-
-    [Fact]
     public async Task ResetPasswordAsync_RevokesAllSessionsAndAudits()
     {
         var user = SeedUser();
         var service = CreateService();
 
-        await service.ResetPasswordAsync(
+        var result = await service.ResetPasswordAsync(
             Tenant,
             Actor,
             "alice.user",
-            new ResetPasswordRequest("Xy2!newpassword"),
+            new ResetPasswordRequest(),
             CancellationToken.None);
 
+        Assert.False(string.IsNullOrWhiteSpace(result.TemporaryPassword));
         var revoked = Assert.Single(_refreshStore.RevokedAll);
         Assert.Equal(user.Id, revoked.UserId);
         Assert.Equal("admin_reset", revoked.Reason);
@@ -422,13 +418,14 @@ public sealed class UserManagementServiceTests
         _auditSink.ThrowOnWrite = true;
         var service = CreateService();
 
-        await service.ResetPasswordAsync(
+        var result = await service.ResetPasswordAsync(
             Tenant,
             Actor,
             "alice.user",
-            new ResetPasswordRequest("Xy2!newpassword"),
+            new ResetPasswordRequest(),
             CancellationToken.None);
 
+        Assert.False(string.IsNullOrWhiteSpace(result.TemporaryPassword));
         var revoked = Assert.Single(_refreshStore.RevokedAll);
         Assert.Equal(user.Id, revoked.UserId);
     }
@@ -886,9 +883,13 @@ public sealed class UserManagementServiceTests
                 u.CreatedOn,
                 u.LastUpdatedOn,
                 u.LastLoginOn,
+                u.MustChangePassword,
+                roleNIds,
+                [],
+                [],
                 u.OptimisticVersion,
                 u.ConcurrencyVersion,
-                roleNIds);
+                u.IsDeleted);
         }
 
         private StoredRole ToStoredRole(Role r)

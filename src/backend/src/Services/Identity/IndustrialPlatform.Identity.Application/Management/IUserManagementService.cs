@@ -8,8 +8,12 @@ namespace IndustrialPlatform.Identity.Application.Management;
 /// </summary>
 public interface IUserManagementService
 {
-    /// <summary>创建用户并分配初始角色;业务标识冲突 409,登录名冲突 409,初始密码按策略校验。</summary>
-    Task<UserSummary> CreateAsync(
+    /// <summary>
+    /// 创建用户并分配初始角色(§29A.4):业务标识冲突 409,登录名冲突/保留 409/400;
+    /// 服务端生成独立随机临时密码,只在本次 201 响应(<see cref="CreateUserResult.TemporaryPassword"/>)出现一次,
+    /// 新用户强制首次登录改密(<c>MustChangePassword=true</c>)。
+    /// </summary>
+    Task<CreateUserResult> CreateAsync(
         string tenantNId,
         string actorUserNId,
         CreateUserRequest request,
@@ -39,8 +43,11 @@ public interface IUserManagementService
         AssignUserRolesRequest request,
         CancellationToken cancellationToken);
 
-    /// <summary>管理员重置密码:按策略校验新密码、推进安全版本并撤销该用户全部会话。</summary>
-    Task ResetPasswordAsync(
+    /// <summary>
+    /// 管理员重置密码(§29A.4/§29A.5):服务端生成独立随机临时密码,只在本次响应出现一次;
+    /// 重置后强制首次改密、推进安全版本并撤销该用户全部会话。
+    /// </summary>
+    Task<ResetPasswordResult> ResetPasswordAsync(
         string tenantNId,
         string actorUserNId,
         string userNId,

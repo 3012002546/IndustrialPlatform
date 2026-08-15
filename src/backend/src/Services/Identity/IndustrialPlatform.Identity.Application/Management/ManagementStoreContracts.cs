@@ -11,7 +11,9 @@ namespace IndustrialPlatform.Identity.Application.Management;
 public sealed record ManagementPage<T>(IReadOnlyList<T> Items, long Total, int PageIndex, int PageSize);
 
 /// <summary>
-/// 用户管理查询投影(不含密码哈希等敏感字段,含角色 NId 与双版本供乐观并发回传)。
+/// 用户管理查询投影(不含密码哈希等敏感字段,含角色来源摘要与双版本供乐观并发回传,§29A.5)。
+/// DirectRoleNIds 为直接分配;GroupRoleNIds 为经活动用户组继承;EffectiveRoleNIds 为两者并集。
+/// IsDeleted 标识墓碑(includeDeleted 列表用于恢复操作)。
 /// </summary>
 public sealed record StoredUser(
     Guid Id,
@@ -25,9 +27,13 @@ public sealed record StoredUser(
     DateTimeOffset CreatedOn,
     DateTimeOffset LastUpdatedOn,
     DateTimeOffset? LastLoginOn,
+    bool MustChangePassword,
+    IReadOnlyList<string> DirectRoleNIds,
+    IReadOnlyList<string> GroupRoleNIds,
+    IReadOnlyList<string> EffectiveRoleNIds,
     long OptimisticVersion,
     Guid ConcurrencyVersion,
-    IReadOnlyList<string> RoleNIds);
+    bool IsDeleted);
 
 /// <summary>用户查询分页结果。</summary>
 public sealed record StoredUserPage(IReadOnlyList<StoredUser> Items, long Total);
@@ -49,7 +55,7 @@ public sealed record StoredRole(
 /// <summary>角色查询分页结果。</summary>
 public sealed record StoredRolePage(IReadOnlyList<StoredRole> Items, long Total);
 
-/// <summary>用户列表过滤(§16.1)。租户隔离在 SQL 层实施;NId/LoginName/Name 为包含匹配,Status 可选;IncludeDeleted 为 true 时同时返回墓碑(§29A.3)。</summary>
+/// <summary>用户列表过滤(§16.1/§29A.5)。租户隔离在 SQL 层实施;NId/LoginName/Name 为包含匹配,Status 可选;GroupNId/RoleNId 过滤有效成员/直接角色;IncludeDeleted 为 true 时同时返回墓碑(§29A.3)。</summary>
 public sealed record UserListFilter(
     string TenantNId,
     string? NId,
@@ -58,7 +64,27 @@ public sealed record UserListFilter(
     UserStatus? Status,
     int PageIndex,
     int PageSize,
-    bool IncludeDeleted = false);
+    bool IncludeDeleted = false,
+    string? GroupNId = null,
+    string? RoleNId = null);
+
+/// <summary>用户组管理查询投影(§29A.5):含成员数与角色数,双版本供乐观并发回传;IsDeleted 标识墓碑。</summary>
+public sealed record StoredUserGroup(
+    string NId,
+    string Name,
+    string? Description,
+    string Status,
+    string TenantNId,
+    int MemberCount,
+    int RoleCount,
+    DateTimeOffset CreatedOn,
+    DateTimeOffset LastUpdatedOn,
+    long OptimisticVersion,
+    Guid ConcurrencyVersion,
+    bool IsDeleted);
+
+/// <summary>用户组查询分页结果。</summary>
+public sealed record StoredUserGroupPage(IReadOnlyList<StoredUserGroup> Items, long Total);
 
 /// <summary>角色列表过滤(§16.2)。租户隔离在 SQL 层实施;NId/Name 为包含匹配。</summary>
 public sealed record RoleListFilter(string TenantNId, string? NId, string? Name, int PageIndex, int PageSize);

@@ -1,7 +1,8 @@
 /**
  * Identity 管理页面在 PC 壳下的三主题代表状态验收(PF-01 §14 TASK-PF01-007 预期输出 2)。
- * 真实数据(用户/角色/权限/审计)→ 新 PC 壳(顶栏/工具轨/功能树/标签)→ 三套配色截图。
- * 前置:后端已运行、e2e.admin(SYSTEM_ADMIN)已种子。
+ * 真实数据(用户/角色/权限/审计/用户组)→ 新 PC 壳(顶栏/工具轨/功能树/标签)→ 三套配色截图。
+ * 前置:后端已运行;内置 admin 由 TASK-ID-019 初始化(一次性随机临时密码,经环境注入),
+ * e2e.admin(SYSTEM_ADMIN)经真实用户创建流程预置(密码为创建响应的一次性值,外部编排)。
  * 运行:`pnpm exec playwright test -c playwright.real.config.ts`
  *
  * 覆盖:页面位于新 PC 壳(非裸路由)、真实数据无错误态、三套配色像素回归。
@@ -31,6 +32,12 @@ const IDENTITY_PAGES = [
     path: '/pc/identity/audits',
     title: '登录审计',
     data: (p: Page) => p.getByRole('heading', { name: '加载失败' }),
+  },
+  {
+    // §29A.7:用户组管理页(TASK-ID-021);真实组数据由外部编排预置,至少验证页面无错误态。
+    path: '/pc/identity/user-groups',
+    title: '用户组管理',
+    data: (p: Page) => p.getByTestId('user-groups-search'),
   },
 ] as const
 

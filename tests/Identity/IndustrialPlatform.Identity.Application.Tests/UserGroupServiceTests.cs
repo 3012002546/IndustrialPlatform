@@ -512,6 +512,9 @@ public sealed class UserGroupServiceTests
         public Task<UserGroup?> GetUserGroupAggregateAsync(string groupNId, CancellationToken cancellationToken)
             => Task.FromResult(GetGroup(groupNId) is { IsDeleted: false } group ? group : null);
 
+        public Task<StoredUserGroupPage> QueryUserGroupsAsync(UserGroupListQuery query, CancellationToken cancellationToken)
+            => Task.FromResult(new StoredUserGroupPage([], 0));
+
         public Task<UserGroup?> GetUserGroupAggregateIncludingDeletedAsync(string groupNId, CancellationToken cancellationToken)
             => Task.FromResult(GetGroup(groupNId));
 

@@ -21,8 +21,8 @@ public sealed class RolesController : ManagementControllerBase
     private readonly IRoleManagementService _service;
 
     /// <summary>初始化角色管理控制器。</summary>
-    public RolesController(IRoleManagementService service, ICurrentUser currentUser)
-        : base(currentUser)
+    public RolesController(IRoleManagementService service, ICurrentUser currentUser, IIdempotencyStore idempotencyStore)
+        : base(currentUser, idempotencyStore)
     {
         ArgumentNullException.ThrowIfNull(service);
         _service = service;

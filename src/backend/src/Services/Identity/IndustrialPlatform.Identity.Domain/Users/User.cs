@@ -435,6 +435,38 @@ public sealed class User : AggregateRoot
     }
 
     /// <summary>
+    /// 要求下次登录强制改密(§29A.4):管理员重置密码后调用;首次登录只允许改密与注销。
+    /// </summary>
+    public void RequirePasswordChangeOnNextLogin()
+    {
+        EnsureCanModify();
+
+        if (MustChangePassword)
+        {
+            return;
+        }
+
+        MustChangePassword = true;
+        Touch();
+    }
+
+    /// <summary>
+    /// 清除首次改密标记(§29A.4):首次登录改密成功后调用,同时推进凭据版本并撤销其他会话由调用方执行。
+    /// </summary>
+    public void ClearMustChangePassword()
+    {
+        EnsureCanModify();
+
+        if (!MustChangePassword)
+        {
+            return;
+        }
+
+        MustChangePassword = false;
+        Touch();
+    }
+
+    /// <summary>
     /// 安全删除(墓碑,§29A.3):推进安全版本、软删除全部活动角色关系并标记删除,
     /// 发布删除事件。UserNId/NormalizedNId/NormalizedLoginName 永久保留不复用;
     /// 禁止删除自己、内置 ADMIN 与最后一名系统管理员由应用层按权威计数守卫执行。

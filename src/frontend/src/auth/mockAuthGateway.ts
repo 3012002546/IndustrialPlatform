@@ -26,6 +26,7 @@ export const MOCK_USER: AuthUser = {
   tenantId: 'dev-tenant',
   roles: ['admin'],
   permissions: [...MOCK_PERMISSIONS],
+  mustChangePassword: false,
 }
 
 export interface MockAuthGatewayOptions {
@@ -82,6 +83,18 @@ export function createMockAuthGateway(options: MockAuthGatewayOptions = {}): Aut
     },
     async getCurrentUser(): Promise<AuthUser> {
       return settle({ ...MOCK_USER, permissions: [...MOCK_PERMISSIONS] })
+    },
+    async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+      if (currentPassword !== MOCK_PASSWORD) {
+        businessError('AUTH_1003', '当前密码错误')
+      }
+      if (newPassword === currentPassword) {
+        businessError('AUTH_1004', '新密码不能与当前密码相同')
+      }
+      await settle(undefined)
+    },
+    async getBootstrapStatus() {
+      return settle({ state: 'Ready', adminExists: true } as const)
     },
   }
 }

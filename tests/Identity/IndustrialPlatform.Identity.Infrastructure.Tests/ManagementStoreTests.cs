@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using IndustrialPlatform.Identity.Application.Management;
+using IndustrialPlatform.Identity.Application.UserGroups;
 using IndustrialPlatform.Identity.Domain.Permissions;
 using IndustrialPlatform.Identity.Domain.Roles;
 using IndustrialPlatform.Identity.Domain.Users;
@@ -166,7 +167,11 @@ public sealed class ManagementStoreTests : IDisposable
 
         Assert.NotNull(stored);
         Assert.Equal(TenantNId, stored!.TenantNId);
-        Assert.Equal(["role.operator"], stored.RoleNIds);
+        Assert.Equal(["role.operator"], stored.DirectRoleNIds);
+        Assert.Empty(stored.GroupRoleNIds);
+        Assert.Equal(["role.operator"], stored.EffectiveRoleNIds);
+        // 测试种子用户经 User.Create 默认创建,§29A.4 新用户 MustChangePassword=true
+        Assert.True(stored.MustChangePassword);
         Assert.True(stored.OptimisticVersion > 0);
     }
 
@@ -373,5 +378,81 @@ public sealed class ManagementStoreTests : IDisposable
         var nIds = await _store.GetUserNIdsForRoleAsync(role.Id, TenantNId, CancellationToken.None);
 
         Assert.Equal(["alice.user", "bob.user"], nIds);
+    }
+
+    [Fact]
+    public async Task GetUserAsync_ReturnsRoleSourceProjection()
+    {
+        // §29A.5:直接角色 + 组继承角色 + 有效并集
+        var direct = await SeedRoleAsync("role.direct");
+        var inherited = await SeedRoleAsync("role.inherited");
+        var user = await SeedUserAsync("alice.user", "alice", direct);
+        var group = UserGroup.Create(TenantNId, "group.ops", "运维组", null);
+        group.AssignMember(user);
+        group.AssignRole(inherited);
+        await _userGroups.AddAsync(group, [], CancellationToken.None);
+
+        var stored = await _store.GetUserAsync("alice.user", CancellationToken.None);
+
+        Assert.NotNull(stored);
+        Assert.Equal(["role.direct"], stored!.DirectRoleNIds);
+        Assert.Equal(["role.inherited"], stored.GroupRoleNIds);
+        Assert.Equal(["role.direct", "role.inherited"], stored.EffectiveRoleNIds);
+        // 测试种子用户经 User.Create 默认创建,§29A.4 新用户 MustChangePassword=true
+        Assert.True(stored.MustChangePassword);
+    }
+
+    [Fact]
+    public async Task QueryUsersAsync_FiltersByGroupNId()
+    {
+        var user = await SeedUserAsync("alice.user", "alice");
+        await SeedUserAsync("bob.user", "bob");
+        var group = UserGroup.Create(TenantNId, "group.ops", "运维组", null);
+        group.AssignMember(user);
+        await _userGroups.AddAsync(group, [], CancellationToken.None);
+
+        var page = await _store.QueryUsersAsync(
+            new UserListFilter(TenantNId, null, null, null, null, 1, 20, GroupNId: "group.ops"),
+            CancellationToken.None);
+
+        Assert.Equal(1, page.Total);
+        Assert.Equal("alice.user", Assert.Single(page.Items).NId);
+    }
+
+    [Fact]
+    public async Task QueryUsersAsync_FiltersByRoleNId()
+    {
+        var role = await SeedRoleAsync("role.operator");
+        await SeedUserAsync("alice.user", "alice", role);
+        await SeedUserAsync("bob.user", "bob");
+
+        var page = await _store.QueryUsersAsync(
+            new UserListFilter(TenantNId, null, null, null, null, 1, 20, RoleNId: "role.operator"),
+            CancellationToken.None);
+
+        Assert.Equal(1, page.Total);
+        Assert.Equal("alice.user", Assert.Single(page.Items).NId);
+    }
+
+    [Fact]
+    public async Task QueryUserGroupsAsync_ReturnsCountsAndFilters()
+    {
+        var alice = await SeedUserAsync("alice.user", "alice");
+        var role = await SeedRoleAsync("role.operator");
+        var group = UserGroup.Create(TenantNId, "group.ops", "运维组", null);
+        group.AssignMember(alice);
+        group.AssignRole(role);
+        await _userGroups.AddAsync(group, [], CancellationToken.None);
+
+        var groupStore = new UserGroupStore(_dbContext, _userGroups, _users);
+        var page = await groupStore.QueryUserGroupsAsync(
+            new UserGroupListQuery(TenantNId, "运维", null, 1, 20),
+            CancellationToken.None);
+
+        var row = Assert.Single(page.Items);
+        Assert.Equal("group.ops", row.NId);
+        Assert.Equal(1, row.MemberCount);
+        Assert.Equal(1, row.RoleCount);
+        Assert.Equal("Active", row.Status);
     }
 }

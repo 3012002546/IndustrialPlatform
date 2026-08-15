@@ -32,6 +32,7 @@ function makeSession(token = 'at-1', expiresInMs = 3_600_000): AuthSession {
       tenantId: 't1',
       roles: ['admin'],
       permissions: ['platform.home.view', 'platform.pda.view'],
+      mustChangePassword: false,
     },
   }
 }
@@ -59,6 +60,12 @@ function createFakeGateway(
     },
     async getCurrentUser() {
       return makeSession().user
+    },
+    async changePassword() {
+      // 本套件不覆盖改密;提供空实现满足 AuthGateway 契约(§29A.4)。
+    },
+    async getBootstrapStatus() {
+      return { state: 'Ready', adminExists: true }
     },
   }
   return { gateway, getRefreshCalls: () => refreshCalls }

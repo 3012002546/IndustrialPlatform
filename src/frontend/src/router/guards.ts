@@ -46,6 +46,17 @@ export function installRouterGuards(router: Router): void {
       return { name: ROUTE_NAMES.login, query: { redirect: to.fullPath } }
     }
 
+    // 2.5 §29A.4 首次登录改密门禁:用户必须改密时,除改密页外一律跳转改密页
+    // (普通新用户首次登录只允许改密与注销;内置 admin MustChangePassword=false 不受影响)。
+    if (
+      to.meta.requiresAuth &&
+      authStore.isAuthenticated &&
+      authStore.user?.mustChangePassword === true &&
+      to.name !== ROUTE_NAMES.changePassword
+    ) {
+      return { name: ROUTE_NAMES.changePassword }
+    }
+
     // 设备终端(惰性初始化一次)
     const deviceStore = useDeviceStore()
     if (!deviceStore.ready) {

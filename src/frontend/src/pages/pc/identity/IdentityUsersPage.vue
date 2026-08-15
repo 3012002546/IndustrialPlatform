@@ -1,27 +1,25 @@
 <script setup lang="ts">
 /**
- * 用户管理页(TASK-ID-012,§16.3):列表分页过滤、新建/编辑表单校验、
- * 启用/禁用确认、分配角色、重置密码;409 并发冲突提示重载。
- * 操作按钮按 PermissionGate 控制(identity.user.*)。
+ * 用户管理页(TASK-ID-012/§16.3,§29A.5):列表分页过滤(含用户组/角色/已删除)、
+ * 新建(服务端随机临时密码)/编辑、启用/禁用确认、分配角色、安全删除/恢复、
+ * 独立重置密码权限;409 并发冲突提示重载。
+ * 临时密码只经一次性弹窗展示,禁止持久化。操作按钮按 PermissionGate 控制(identity.user.*)。
  */
 import { ElMessage, ElMessageBox } from 'element-plus'
-import type { FormInstance, FormItemRule, FormRules } from 'element-plus'
-import { onMounted, reactive, ref } from 'vue'
+import type { FormInstance, FormRules } from 'element-plus'
+import { onMounted, reactive, ref, watch } from 'vue'
 
 import { getManagementApi } from '@/api/identity/managementRegistry'
-import type { RoleSummaryDto, UserSummaryDto } from '@/api/identity/management'
+import type { RoleSummaryDto, UserGroupSummaryDto, UserSummaryDto } from '@/api/identity/management'
 import { PERMISSIONS, PermissionGate } from '@/permissions'
 
+import TemporaryPasswordDialog from './components/TemporaryPasswordDialog.vue'
 import { formatTime, reportManagementError } from './shared'
-
-/** 与后端 PasswordPolicy 对齐(§6.4):≥12 且含大小写/数字/特殊字符。 */
-const SPECIAL_CHARS = '!@#$%^&*()-_=+[]{}|;:,.<>?/'
 
 interface UserForm {
   nId: string
   loginName: string
   name: string
-  initialPassword: string
   email: string
   phone: string
 }
@@ -40,9 +38,58 @@ const query = reactive({
   loginName: '',
   name: '',
   status: '',
+  groupNId: '',
+  roleNId: '',
+  includeDeleted: false,
 })
 const pageIndex = ref(1)
 const pageSize = ref(20)
+
+/** 全部可用角色/用户组选项(供角色/用户组过滤与角色来源展示)。 */
+const allRoles = ref<RoleSummaryDto[]>([])
+const allGroups = ref<UserGroupSummaryDto[]>([])
+
+async function loadAllRoles(): Promise<void> {
+  try {
+    const collected: RoleSummaryDto[] = []
+    let page = 1
+    let fetched: Awaited<ReturnType<typeof management.listRoles>>
+    do {
+      fetched = await management.listRoles({ pageIndex: page, pageSize: 100 })
+      collected.push(...fetched.items)
+      page += 1
+    } while (collected.length < fetched.total)
+    allRoles.value = collected
+  } catch {
+    // 角色选项加载失败不阻塞列表;分配时再次尝试并提示。
+    allRoles.value = []
+  }
+}
+
+async function loadAllGroups(): Promise<void> {
+  try {
+    const collected: UserGroupSummaryDto[] = []
+    let page = 1
+    let fetched: Awaited<ReturnType<typeof management.listUserGroups>>
+    do {
+      fetched = await management.listUserGroups({ pageIndex: page, pageSize: 100 })
+      collected.push(...fetched.items)
+      page += 1
+    } while (collected.length < fetched.total)
+    allGroups.value = collected
+  } catch {
+    // 用户组选项加载失败(可能无 user-group.view 权限)不阻塞列表。
+    allGroups.value = []
+  }
+}
+
+function roleName(roleNId: string): string {
+  return allRoles.value.find((role) => role.roleNId === roleNId)?.name ?? roleNId
+}
+
+function roleNames(roleNIds: readonly string[]): string {
+  return roleNIds.map(roleName).join('、') || '—'
+}
 
 async function loadUsers(): Promise<void> {
   loading.value = true
@@ -52,6 +99,9 @@ async function loadUsers(): Promise<void> {
       loginName: query.loginName.trim() || undefined,
       name: query.name.trim() || undefined,
       status: query.status || undefined,
+      groupNId: query.groupNId || undefined,
+      roleNId: query.roleNId || undefined,
+      includeDeleted: query.includeDeleted || undefined,
       pageIndex: pageIndex.value,
       pageSize: pageSize.value,
     })
@@ -74,8 +124,23 @@ function resetQuery(): void {
   query.loginName = ''
   query.name = ''
   query.status = ''
+  query.groupNId = ''
+  query.roleNId = ''
+  query.includeDeleted = false
   pageIndex.value = 1
   void loadUsers()
+}
+
+// ---------------------------------------------------------------------------
+// 详情查看(含角色来源)
+// ---------------------------------------------------------------------------
+
+const detailOpen = ref(false)
+const detailTarget = ref<UserSummaryDto | null>(null)
+
+function openDetail(row: UserSummaryDto): void {
+  detailTarget.value = row
+  detailOpen.value = true
 }
 
 // ---------------------------------------------------------------------------
@@ -91,7 +156,6 @@ const form = reactive<UserForm>({
   nId: '',
   loginName: '',
   name: '',
-  initialPassword: '',
   email: '',
   phone: '',
 })
@@ -100,7 +164,6 @@ function resetForm(): void {
   form.nId = ''
   form.loginName = ''
   form.name = ''
-  form.initialPassword = ''
   form.email = ''
   form.phone = ''
 }
@@ -134,15 +197,18 @@ async function submitDialog(): Promise<void> {
   dialogSaving.value = true
   try {
     if (editing.value === null) {
-      await management.createUser({
+      const result = await management.createUser({
         nId: form.nId.trim() || undefined,
         loginName: form.loginName.trim(),
         name: form.name.trim(),
-        initialPassword: form.initialPassword,
         email: emptyToNull(form.email),
         phone: emptyToNull(form.phone),
       })
       ElMessage.success('用户创建成功')
+      dialogOpen.value = false
+      await loadUsers()
+      // 服务端随机临时密码只出现一次,立即经一次性弹窗展示。
+      showTemporaryPassword(result.temporaryPassword, `用户「${result.user.loginName}」创建成功`)
     } else {
       await management.updateUser(editing.value.userNId, {
         loginName: form.loginName.trim(),
@@ -153,9 +219,9 @@ async function submitDialog(): Promise<void> {
         expectedConcurrencyVersion: editing.value.concurrencyVersion,
       })
       ElMessage.success('用户已更新')
+      dialogOpen.value = false
+      await loadUsers()
     }
-    dialogOpen.value = false
-    await loadUsers()
   } catch (error) {
     reportManagementError(error, '保存用户失败')
   } finally {
@@ -201,29 +267,11 @@ async function toggleStatus(row: UserSummaryDto): Promise<void> {
 const rolesDialogOpen = ref(false)
 const rolesTarget = ref<UserSummaryDto | null>(null)
 const selectedRoleNIds = ref<string[]>([])
-const allRoles = ref<RoleSummaryDto[]>([])
 const rolesSaving = ref(false)
-
-async function loadAllRoles(): Promise<void> {
-  try {
-    const collected: RoleSummaryDto[] = []
-    let page = 1
-    let fetched: Awaited<ReturnType<typeof management.listRoles>>
-    do {
-      fetched = await management.listRoles({ pageIndex: page, pageSize: 100 })
-      collected.push(...fetched.items)
-      page += 1
-    } while (collected.length < fetched.total)
-    allRoles.value = collected
-  } catch {
-    // 角色选项加载失败不阻塞列表;分配时再次尝试并提示。
-    allRoles.value = []
-  }
-}
 
 function openAssignRoles(row: UserSummaryDto): void {
   rolesTarget.value = row
-  selectedRoleNIds.value = [...row.roleNIds]
+  selectedRoleNIds.value = [...row.directRoleNIds]
   rolesDialogOpen.value = true
 }
 
@@ -248,32 +296,28 @@ async function submitRoles(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// 重置密码
+// 重置密码(服务端随机临时密码,独立权限)
 // ---------------------------------------------------------------------------
 
 const passwordDialogOpen = ref(false)
 const passwordTarget = ref<UserSummaryDto | null>(null)
-const passwordFormRef = ref<FormInstance>()
 const passwordSaving = ref(false)
-const passwordForm = reactive({ newPassword: '', confirmPassword: '' })
 
 function openResetPassword(row: UserSummaryDto): void {
   passwordTarget.value = row
-  passwordForm.newPassword = ''
-  passwordForm.confirmPassword = ''
   passwordDialogOpen.value = true
 }
 
 async function submitPassword(): Promise<void> {
   const target = passwordTarget.value
-  if (target === null || passwordFormRef.value === undefined) return
-  const valid = await passwordFormRef.value.validate().catch(() => false)
-  if (!valid) return
+  if (target === null) return
   passwordSaving.value = true
   try {
-    await management.resetPassword(target.userNId, { newPassword: passwordForm.newPassword })
+    const result = await management.resetPassword(target.userNId)
     ElMessage.success('密码已重置')
     passwordDialogOpen.value = false
+    // 重置强制首次改密并撤销全部会话;临时密码只出现一次。
+    showTemporaryPassword(result.temporaryPassword, `用户「${target.loginName}」的密码已重置`)
   } catch (error) {
     reportManagementError(error, '重置密码失败')
   } finally {
@@ -282,44 +326,86 @@ async function submitPassword(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// 表单校验规则
+// 安全删除 / 恢复(§29A.3)
 // ---------------------------------------------------------------------------
 
-function passwordValidator(
-  _rule: FormItemRule,
-  value: string,
-  callback: (error?: Error) => void,
-): void {
-  if (value.length === 0) {
-    callback(new Error('请输入密码'))
-    return
+async function deleteUser(row: UserSummaryDto): Promise<void> {
+  try {
+    const { value: reason } = await ElMessageBox.prompt(
+      `确定删除用户「${row.loginName}」?删除为不可恢复的墓碑删除:登录标识永久保留不复用,该用户全部会话将失效。`,
+      '删除用户',
+      {
+        type: 'warning',
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        inputPlaceholder: '删除原因(可选)',
+        inputValidator: () => true,
+      },
+    )
+    await management.deleteUser(row.userNId, {
+      reason: reason.trim().length > 0 ? reason.trim() : undefined,
+      expectedOptimisticVersion: row.optimisticVersion,
+      expectedConcurrencyVersion: row.concurrencyVersion,
+    })
+    ElMessage.success('用户已删除')
+    await loadUsers()
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return // 用户取消
+    reportManagementError(error, '删除用户失败')
   }
-  if (value.length < 12) {
-    callback(new Error('密码长度不能少于 12 个字符'))
-    return
-  }
-  if (value.length > 128) {
-    callback(new Error('密码长度不能超过 128 个字符'))
-    return
-  }
-  if (!/[A-Z]/.test(value)) {
-    callback(new Error('密码必须包含大写字母'))
-    return
-  }
-  if (!/[a-z]/.test(value)) {
-    callback(new Error('密码必须包含小写字母'))
-    return
-  }
-  if (!/[0-9]/.test(value)) {
-    callback(new Error('密码必须包含数字'))
-    return
-  }
-  if (!SPECIAL_CHARS.split('').some((ch) => value.includes(ch))) {
-    callback(new Error('密码必须包含特殊字符'))
-    return
-  }
-  callback()
 }
+
+async function restoreUser(row: UserSummaryDto): Promise<void> {
+  try {
+    const { value: reason } = await ElMessageBox.prompt(
+      `确定恢复用户「${row.loginName}」?仅已删除(墓碑)用户可恢复;恢复后状态为禁用,需重新分配授权、重置密码并启用。`,
+      '恢复用户',
+      {
+        type: 'warning',
+        confirmButtonText: '恢复',
+        cancelButtonText: '取消',
+        inputPlaceholder: '恢复原因(可选)',
+        inputValidator: () => true,
+      },
+    )
+    await management.restoreUser(row.userNId, {
+      reason: reason.trim().length > 0 ? reason.trim() : undefined,
+      expectedOptimisticVersion: row.optimisticVersion,
+      expectedConcurrencyVersion: row.concurrencyVersion,
+    })
+    ElMessage.success('用户已恢复')
+    await loadUsers()
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return // 用户取消
+    reportManagementError(error, '恢复用户失败')
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 一次性临时密码弹窗
+// ---------------------------------------------------------------------------
+
+const tempDialogOpen = ref(false)
+const tempPassword = ref('')
+const tempDescription = ref('')
+
+function showTemporaryPassword(password: string, description: string): void {
+  tempPassword.value = password
+  tempDescription.value = description
+  tempDialogOpen.value = true
+}
+
+// 弹窗关闭后立即清空页面内存中的临时密码,禁止滞留。
+watch(tempDialogOpen, (open) => {
+  if (!open) {
+    tempPassword.value = ''
+    tempDescription.value = ''
+  }
+})
+
+// ---------------------------------------------------------------------------
+// 表单校验规则
+// ---------------------------------------------------------------------------
 
 const userRules: FormRules = {
   nId: [
@@ -334,29 +420,13 @@ const userRules: FormRules = {
     { min: 3, max: 64, message: '登录名长度 3-64 个字符', trigger: 'blur' },
   ],
   name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
-  initialPassword: [{ validator: passwordValidator, trigger: 'blur' }],
   email: [{ type: 'email', message: '邮箱格式不正确', trigger: 'blur' }],
-}
-
-const passwordRules: FormRules = {
-  newPassword: [{ validator: passwordValidator, trigger: 'blur' }],
-  confirmPassword: [
-    {
-      validator: (_rule: FormItemRule, value: string, callback: (error?: Error) => void) => {
-        if (value !== passwordForm.newPassword) {
-          callback(new Error('两次输入的密码不一致'))
-          return
-        }
-        callback()
-      },
-      trigger: 'blur',
-    },
-  ],
 }
 
 onMounted(() => {
   void loadUsers()
   void loadAllRoles()
+  void loadAllGroups()
 })
 </script>
 
@@ -393,6 +463,35 @@ onMounted(() => {
         <el-option label="启用" value="Active" />
         <el-option label="禁用" value="Disabled" />
       </el-select>
+      <el-select
+        v-model="query.groupNId"
+        placeholder="用户组"
+        clearable
+        filterable
+        class="users-page__filter"
+      >
+        <el-option
+          v-for="group in allGroups"
+          :key="group.groupNId"
+          :value="group.groupNId"
+          :label="group.name"
+        />
+      </el-select>
+      <el-select
+        v-model="query.roleNId"
+        placeholder="角色"
+        clearable
+        filterable
+        class="users-page__filter"
+      >
+        <el-option
+          v-for="role in allRoles"
+          :key="role.roleNId"
+          :value="role.roleNId"
+          :label="role.name"
+        />
+      </el-select>
+      <el-checkbox v-model="query.includeDeleted" @change="search">包含已删除</el-checkbox>
       <el-button type="primary" @click="search">查询</el-button>
       <el-button @click="resetQuery">重置</el-button>
       <div class="users-page__spacer" />
@@ -402,8 +501,8 @@ onMounted(() => {
     </div>
 
     <el-table :data="rows" v-loading="loading" row-key="userNId" border stripe>
-      <el-table-column prop="loginName" label="登录名" min-width="140" />
-      <el-table-column prop="name" label="姓名" min-width="120" />
+      <el-table-column prop="loginName" label="登录名" min-width="130" />
+      <el-table-column prop="name" label="姓名" min-width="110" />
       <el-table-column label="状态" width="90" align="center">
         <template #default="{ row }">
           <el-tag :type="row.status === 'Active' ? 'success' : 'danger'" effect="light">
@@ -411,19 +510,34 @@ onMounted(() => {
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="email" label="邮箱" min-width="180" show-overflow-tooltip />
-      <el-table-column prop="phone" label="手机号" min-width="130" />
-      <el-table-column label="角色" width="80" align="center">
-        <template #default="{ row }">{{ row.roleNIds.length }}</template>
+      <el-table-column label="改密" width="80" align="center">
+        <template #default="{ row }">
+          <el-tag v-if="row.mustChangePassword" type="warning" effect="plain">需改密</el-tag>
+          <span v-else>—</span>
+        </template>
       </el-table-column>
-      <el-table-column label="最近登录" width="170">
+      <el-table-column prop="email" label="邮箱" min-width="170" show-overflow-tooltip />
+      <el-table-column prop="phone" label="手机号" min-width="120" />
+      <el-table-column label="有效角色" width="100" align="center">
+        <template #default="{ row }">
+          <el-tooltip
+            :content="`直接:${roleNames(row.directRoleNIds)} / 组继承:${roleNames(row.groupRoleNIds)}`"
+            placement="top"
+            :show-after="300"
+          >
+            <span>{{ row.effectiveRoleNIds.length }}</span>
+          </el-tooltip>
+        </template>
+      </el-table-column>
+      <el-table-column label="最近登录" width="160">
         <template #default="{ row }">{{ formatTime(row.lastLoginOn) }}</template>
       </el-table-column>
-      <el-table-column label="创建时间" width="170">
+      <el-table-column label="创建时间" width="160">
         <template #default="{ row }">{{ formatTime(row.createdOn) }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="230" fixed="right">
+      <el-table-column label="操作" width="330" fixed="right">
         <template #default="{ row }">
+          <el-button link type="primary" @click="openDetail(row)">详情</el-button>
           <PermissionGate :permission-n-id="PERMISSIONS.userUpdate">
             <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
           </PermissionGate>
@@ -439,9 +553,19 @@ onMounted(() => {
           <PermissionGate :permission-n-id="PERMISSIONS.userAssignRole">
             <el-button link type="primary" @click="openAssignRoles(row)">分配角色</el-button>
           </PermissionGate>
-          <PermissionGate :permission-n-id="PERMISSIONS.userUpdate">
+          <PermissionGate :permission-n-id="PERMISSIONS.userResetPassword">
             <el-button link type="warning" @click="openResetPassword(row)">重置密码</el-button>
           </PermissionGate>
+          <template v-if="row.isDeleted">
+            <PermissionGate :permission-n-id="PERMISSIONS.userRestore">
+              <el-button link type="success" @click="restoreUser(row)">恢复</el-button>
+            </PermissionGate>
+          </template>
+          <template v-else>
+            <PermissionGate :permission-n-id="PERMISSIONS.userDelete">
+              <el-button link type="danger" @click="deleteUser(row)">删除</el-button>
+            </PermissionGate>
+          </template>
         </template>
       </el-table-column>
     </el-table>
@@ -468,7 +592,42 @@ onMounted(() => {
       "
     />
 
-    <!-- 新建 / 编辑 -->
+    <!-- 详情(含角色来源) -->
+    <el-dialog v-model="detailOpen" title="用户详情" width="560px">
+      <el-descriptions v-if="detailTarget" :column="1" border>
+        <el-descriptions-item label="登录名">{{ detailTarget.loginName }}</el-descriptions-item>
+        <el-descriptions-item label="姓名">{{ detailTarget.name }}</el-descriptions-item>
+        <el-descriptions-item label="业务标识">{{ detailTarget.userNId }}</el-descriptions-item>
+        <el-descriptions-item label="状态">
+          {{ detailTarget.status === 'Active' ? '启用' : '禁用' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="首次登录改密">
+          {{ detailTarget.mustChangePassword ? '需要' : '不需要' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="邮箱">{{ detailTarget.email ?? '—' }}</el-descriptions-item>
+        <el-descriptions-item label="手机号">{{ detailTarget.phone ?? '—' }}</el-descriptions-item>
+        <el-descriptions-item label="最近登录">{{
+          formatTime(detailTarget.lastLoginOn)
+        }}</el-descriptions-item>
+        <el-descriptions-item label="创建时间">{{
+          formatTime(detailTarget.createdOn)
+        }}</el-descriptions-item>
+        <el-descriptions-item label="直接角色">{{
+          roleNames(detailTarget.directRoleNIds)
+        }}</el-descriptions-item>
+        <el-descriptions-item label="组继承角色">{{
+          roleNames(detailTarget.groupRoleNIds)
+        }}</el-descriptions-item>
+        <el-descriptions-item label="有效角色">{{
+          roleNames(detailTarget.effectiveRoleNIds)
+        }}</el-descriptions-item>
+      </el-descriptions>
+      <template #footer>
+        <el-button type="primary" @click="detailOpen = false">关闭</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 新建 / 编辑(创建不再录入初始密码:服务端生成随机临时密码) -->
     <el-dialog v-model="dialogOpen" :title="dialogTitle" width="520px" @closed="resetForm">
       <el-form ref="formRef" :model="form" :rules="userRules" label-width="100px">
         <el-form-item v-if="editing === null" label="业务标识" prop="nId">
@@ -479,14 +638,6 @@ onMounted(() => {
         </el-form-item>
         <el-form-item label="姓名" prop="name">
           <el-input v-model="form.name" placeholder="显示姓名" />
-        </el-form-item>
-        <el-form-item v-if="editing === null" label="初始密码" prop="initialPassword">
-          <el-input
-            v-model="form.initialPassword"
-            type="password"
-            show-password
-            placeholder="≥12 位,含大小写/数字/特殊字符"
-          />
         </el-form-item>
         <el-form-item label="邮箱" prop="email">
           <el-input v-model="form.email" placeholder="可选" />
@@ -501,10 +652,11 @@ onMounted(() => {
       </template>
     </el-dialog>
 
-    <!-- 分配角色 -->
+    <!-- 分配角色(直接角色,最终集) -->
     <el-dialog v-model="rolesDialogOpen" title="分配角色" width="520px">
       <p class="users-page__dialog-tip">
-        为 {{ rolesTarget?.loginName ?? '' }} 分配角色:共 {{ allRoles.length }} 个可用角色。
+        为 {{ rolesTarget?.loginName ?? '' }} 分配直接角色:共 {{ allRoles.length }} 个可用角色。
+        用户组继承的角色在用户组页维护。
       </p>
       <el-select
         v-model="selectedRoleNIds"
@@ -526,24 +678,12 @@ onMounted(() => {
       </template>
     </el-dialog>
 
-    <!-- 重置密码 -->
+    <!-- 重置密码(独立权限,服务端随机临时密码) -->
     <el-dialog v-model="passwordDialogOpen" title="重置密码" width="480px">
       <p class="users-page__dialog-tip">
-        重置「{{ passwordTarget?.loginName ?? '' }}」的登录密码,重置后旧密码立即失效。
+        重置「{{ passwordTarget?.loginName ?? '' }}」的登录密码。服务端将生成一次性临时密码,
+        重置后旧密码立即失效、全部会话被撤销,该用户下次登录须修改密码。
       </p>
-      <el-form
-        ref="passwordFormRef"
-        :model="passwordForm"
-        :rules="passwordRules"
-        label-width="90px"
-      >
-        <el-form-item label="新密码" prop="newPassword">
-          <el-input v-model="passwordForm.newPassword" type="password" show-password />
-        </el-form-item>
-        <el-form-item label="确认密码" prop="confirmPassword">
-          <el-input v-model="passwordForm.confirmPassword" type="password" show-password />
-        </el-form-item>
-      </el-form>
       <template #footer>
         <el-button @click="passwordDialogOpen = false">取消</el-button>
         <el-button type="primary" :loading="passwordSaving" @click="submitPassword"
@@ -551,6 +691,13 @@ onMounted(() => {
         >
       </template>
     </el-dialog>
+
+    <!-- 一次性临时密码(只展示一次,关闭即清空,禁止持久化) -->
+    <TemporaryPasswordDialog
+      v-model="tempDialogOpen"
+      :password="tempPassword"
+      :description="tempDescription"
+    />
   </section>
 </template>
 
@@ -569,11 +716,11 @@ onMounted(() => {
 }
 
 .users-page__filter {
-  width: 180px;
+  width: 160px;
 }
 
 .users-page__filter--status {
-  width: 120px;
+  width: 110px;
 }
 
 .users-page__spacer {

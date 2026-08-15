@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using IndustrialPlatform.Identity.Application.Authentication;
 using IndustrialPlatform.Identity.Application.Authorization;
+using IndustrialPlatform.Identity.Application.Bootstrap;
 using IndustrialPlatform.Identity.Application.Management;
 using IndustrialPlatform.Identity.Application.UserGroups;
 using Identities = IndustrialPlatform.Identity.Domain.Identities;
@@ -355,9 +356,13 @@ internal sealed class FakeManagementStore : IManagementStore
             u.CreatedOn,
             u.LastUpdatedOn,
             u.LastLoginOn,
+            u.MustChangePassword,
+            roleNIds,
+            [],
+            [],
             u.OptimisticVersion,
             u.ConcurrencyVersion,
-            roleNIds);
+            u.IsDeleted);
     }
 
     private StoredRole ToStoredRole(Role r)
@@ -411,6 +416,15 @@ internal sealed class FakePasswordHasher : IPasswordHasher
     public bool Verify(string passwordHash, string password) => passwordHash == "HASH:" + password;
 
     public bool NeedsRehash(string passwordHash) => false;
+}
+
+/// <summary>临时密码生成端口替身(固定返回满足密码策略的字符串,便于断言)。</summary>
+internal sealed class FakeTemporaryPasswordGenerator : ITemporaryPasswordGenerator
+{
+    public const string TemporaryPassword = "Tmp!Passw0rd-2026XyZ";
+
+    public string Generate(int minLength, string? loginName = null, string? nId = null)
+        => TemporaryPassword;
 }
 
 /// <summary>刷新会话存储替身(记录按用户全量撤销调用)。</summary>
@@ -486,6 +500,9 @@ internal sealed class FakeUserGroupStore : IUserGroupStore
 
     public Task<UserGroup?> GetUserGroupAggregateAsync(string groupNId, CancellationToken cancellationToken)
         => Task.FromResult<UserGroup?>(null);
+
+    public Task<StoredUserGroupPage> QueryUserGroupsAsync(UserGroupListQuery query, CancellationToken cancellationToken)
+        => Task.FromResult(new StoredUserGroupPage([], 0));
 
     public Task<UserGroup?> GetUserGroupAggregateIncludingDeletedAsync(string groupNId, CancellationToken cancellationToken)
         => Task.FromResult<UserGroup?>(null);

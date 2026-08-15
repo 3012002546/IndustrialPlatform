@@ -23,8 +23,8 @@ public sealed class SsoManagementController : ManagementControllerBase
     private readonly ISsoManagementService _service;
 
     /// <summary>初始化 SSO 管理控制器。</summary>
-    public SsoManagementController(ISsoManagementService service, ICurrentUser currentUser)
-        : base(currentUser)
+    public SsoManagementController(ISsoManagementService service, ICurrentUser currentUser, IIdempotencyStore idempotencyStore)
+        : base(currentUser, idempotencyStore)
     {
         ArgumentNullException.ThrowIfNull(service);
         _service = service;

@@ -44,6 +44,27 @@ public static class PermissionCatalog
     /// <summary>恢复用户组墓碑(§29A.5)。</summary>
     public const string UserGroupRestore = "identity.user-group.restore";
 
+    /// <summary>查看用户组(§29A.5)。</summary>
+    public const string UserGroupView = "identity.user-group.view";
+
+    /// <summary>创建用户组(§29A.5)。</summary>
+    public const string UserGroupCreate = "identity.user-group.create";
+
+    /// <summary>更新用户组资料(§29A.5)。</summary>
+    public const string UserGroupUpdate = "identity.user-group.update";
+
+    /// <summary>启用/禁用用户组(§29A.5)。</summary>
+    public const string UserGroupStatus = "identity.user-group.status";
+
+    /// <summary>设置用户组成员(§29A.5)。</summary>
+    public const string UserGroupAssignMember = "identity.user-group.assign-member";
+
+    /// <summary>设置用户组角色(§29A.5)。</summary>
+    public const string UserGroupAssignRole = "identity.user-group.assign-role";
+
+    /// <summary>管理员重置密码(§29A.5)。</summary>
+    public const string UserResetPassword = "identity.user.reset-password";
+
     /// <summary>查看权限。</summary>
     public const string PermissionView = "identity.permission.view";
 
@@ -90,6 +111,13 @@ public static class PermissionCatalog
         RoleAssignPermission,
         UserGroupDelete,
         UserGroupRestore,
+        UserGroupView,
+        UserGroupCreate,
+        UserGroupUpdate,
+        UserGroupStatus,
+        UserGroupAssignMember,
+        UserGroupAssignRole,
+        UserResetPassword,
         PermissionView,
         AuditLoginView,
         SsoView,

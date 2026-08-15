@@ -68,6 +68,38 @@ public sealed class ManagementStore : IManagementStore
             query = query.Where(t => t.Status == status);
         }
 
+        // §29A.5:按有效成员过滤(用户组)
+        if (!string.IsNullOrWhiteSpace(filter.GroupNId))
+        {
+            var group = await FindGroupByNIdAsync(filter.GroupNId, cancellationToken);
+            if (group is null)
+            {
+                return new StoredUserPage([], 0);
+            }
+
+            var memberUserIds = await _dbContext.SqlSugar.Queryable<UserGroupMembershipTable>()
+                .Where(m => m.UserGroupId == group.Id && !m.IsDeleted && !m.UserGroupIsDeleted)
+                .Select(m => m.UserId)
+                .ToListAsync(cancellationToken);
+            query = query.Where(t => memberUserIds.Contains(t.Id));
+        }
+
+        // §29A.5:按直接角色过滤
+        if (!string.IsNullOrWhiteSpace(filter.RoleNId))
+        {
+            var role = await FindRoleByNIdAsync(filter.RoleNId, cancellationToken);
+            if (role is null)
+            {
+                return new StoredUserPage([], 0);
+            }
+
+            var directUserIds = await _dbContext.SqlSugar.Queryable<UserRoleTable>()
+                .Where(ur => ur.RoleId == role.Id && !ur.IsDeleted && !ur.UserIsDeleted && !ur.RoleIsDeleted)
+                .Select(ur => ur.UserId)
+                .ToListAsync(cancellationToken);
+            query = query.Where(t => directUserIds.Contains(t.Id));
+        }
+
         var total = await query.CountAsync(cancellationToken);
         var rows = await query
             .OrderBy(t => t.CreatedOn, OrderByType.Desc)
@@ -75,9 +107,9 @@ public sealed class ManagementStore : IManagementStore
             .Take(filter.PageSize)
             .ToListAsync(cancellationToken);
 
-        var roleNIdsByUser = await BuildUserRoleNIdsMapAsync(rows.Select(r => r.Id).ToArray(), cancellationToken);
+        var roleSource = await BuildUserRoleSourceMapAsync(rows.Select(r => r.Id).ToArray(), filter.TenantNId, cancellationToken);
         var items = rows
-            .Select(r => ToStoredUser(r, roleNIdsByUser.TryGetValue(r.Id, out var nIds) ? nIds : []))
+            .Select(r => ToStoredUser(r, roleSource.TryGetValue(r.Id, out var source) ? source : RoleSource.Empty))
             .ToList();
         return new StoredUserPage(items, total);
     }
@@ -91,8 +123,8 @@ public sealed class ManagementStore : IManagementStore
             return null;
         }
 
-        var roleNIds = await GetUserRoleNIdsAsync(row.Id, cancellationToken);
-        return ToStoredUser(row, roleNIds);
+        var roleSource = await BuildUserRoleSourceMapAsync([row.Id], row.TenantNId, cancellationToken);
+        return ToStoredUser(row, roleSource.TryGetValue(row.Id, out var source) ? source : RoleSource.Empty);
     }
 
     /// <inheritdoc/>
@@ -495,7 +527,7 @@ public sealed class ManagementStore : IManagementStore
         return nIds.OrderBy(n => n, StringComparer.Ordinal).ToList();
     }
 
-    private static StoredUser ToStoredUser(UserTable row, IReadOnlyList<string> roleNIds) => new(
+    private static StoredUser ToStoredUser(UserTable row, RoleSource roleSource) => new(
         row.Id,
         row.TenantNId,
         row.NId,
@@ -507,9 +539,132 @@ public sealed class ManagementStore : IManagementStore
         row.CreatedOn,
         row.LastUpdatedOn,
         row.LastLoginOn,
+        row.MustChangePassword,
+        roleSource.DirectRoleNIds,
+        roleSource.GroupRoleNIds,
+        roleSource.EffectiveRoleNIds,
         row.OptimisticVersion,
         row.ConcurrencyVersion,
-        roleNIds);
+        row.IsDeleted);
+
+    /// <summary>用户角色来源摘要(§29A.5):直接 / 组继承 / 有效并集。</summary>
+    private sealed record RoleSource(
+        IReadOnlyList<string> DirectRoleNIds,
+        IReadOnlyList<string> GroupRoleNIds,
+        IReadOnlyList<string> EffectiveRoleNIds)
+    {
+        public static RoleSource Empty { get; } = new([], [], []);
+    }
+
+    /// <summary>批量查询用户的角色来源摘要(直接分配 ∪ 活动用户组继承,§29A.5)。</summary>
+    private async Task<Dictionary<Guid, RoleSource>> BuildUserRoleSourceMapAsync(
+        Guid[] userIds,
+        string tenantNId,
+        CancellationToken cancellationToken)
+    {
+        var map = new Dictionary<Guid, RoleSource>();
+        if (userIds.Length == 0)
+        {
+            return map;
+        }
+
+        // 直接分配角色
+        var directByUser = await BuildUserRoleNIdsMapAsync(userIds, cancellationToken);
+
+        // 组继承角色:membership → group-role → role NId
+        var groupRoleNIdsByUser = await BuildInheritedRoleNIdsMapAsync(userIds, tenantNId, cancellationToken);
+
+        foreach (var userId in userIds)
+        {
+            var direct = directByUser.TryGetValue(userId, out var d) ? d : [];
+            var inherited = groupRoleNIdsByUser.TryGetValue(userId, out var g) ? g : [];
+            var effective = direct.Concat(inherited).Distinct(StringComparer.Ordinal).OrderBy(n => n, StringComparer.Ordinal).ToList();
+            map[userId] = new RoleSource(
+                direct.OrderBy(n => n, StringComparer.Ordinal).ToList(),
+                inherited,
+                effective);
+        }
+
+        return map;
+    }
+
+    /// <summary>批量查询用户经活动用户组继承的角色 NId 映射(组/成员/组角色均未删除)。</summary>
+    private async Task<Dictionary<Guid, List<string>>> BuildInheritedRoleNIdsMapAsync(
+        Guid[] userIds,
+        string tenantNId,
+        CancellationToken cancellationToken)
+    {
+        var map = new Dictionary<Guid, List<string>>();
+        if (userIds.Length == 0)
+        {
+            return map;
+        }
+
+        var memberships = await _dbContext.SqlSugar.Queryable<UserGroupMembershipTable>()
+            .Where(m => userIds.Contains(m.UserId) && !m.IsDeleted && !m.UserGroupIsDeleted)
+            .ToListAsync(cancellationToken);
+        if (memberships.Count == 0)
+        {
+            return map;
+        }
+
+        var groupIds = memberships.Select(m => m.UserGroupId).Distinct().ToArray();
+        var activeGroups = await _dbContext.SqlSugar.Queryable<UserGroupTable>()
+            .Where(g => groupIds.Contains(g.Id) && !g.IsDeleted && g.TenantNId == tenantNId)
+            .Select(g => g.Id)
+            .ToListAsync(cancellationToken);
+        if (activeGroups.Count == 0)
+        {
+            return map;
+        }
+
+        var groupRoles = await _dbContext.SqlSugar.Queryable<UserGroupRoleTable>()
+            .Where(gr => activeGroups.Contains(gr.UserGroupId) && !gr.IsDeleted && !gr.UserGroupIsDeleted && !gr.RoleIsDeleted)
+            .ToListAsync(cancellationToken);
+        if (groupRoles.Count == 0)
+        {
+            return map;
+        }
+
+        var roleIds = groupRoles.Select(r => r.RoleId).Distinct().ToArray();
+        var roleNIdByRoleId = roleIds.Length == 0
+            ? new Dictionary<Guid, string>()
+            : await _roleRepository.GetNIdsAsync(roleIds, cancellationToken);
+
+        // 按成员行的组逐条收集继承角色
+        var activeGroupIdSet = activeGroups.ToHashSet();
+        foreach (var group in memberships.Where(m => activeGroupIdSet.Contains(m.UserGroupId)).GroupBy(m => m.UserId))
+        {
+            var memberGroupIds = group.Select(m => m.UserGroupId).ToHashSet();
+            var nIds = groupRoles
+                .Where(gr => memberGroupIds.Contains(gr.UserGroupId))
+                .Select(gr => roleNIdByRoleId.TryGetValue(gr.RoleId, out var n) ? n : null)
+                .Where(n => n is not null)
+                .Select(n => n!)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(n => n, StringComparer.Ordinal)
+                .ToList();
+            map[group.Key] = nIds;
+        }
+
+        return map;
+    }
+
+    private async Task<UserGroupTable?> FindGroupByNIdAsync(string groupNId, CancellationToken cancellationToken)
+    {
+        var normalized = NId.Create(groupNId).Normalized;
+        return await _dbContext.SqlSugar.Queryable<UserGroupTable>()
+            .Where(g => g.NormalizedNId == normalized && !g.IsDeleted)
+            .FirstAsync(cancellationToken);
+    }
+
+    private async Task<RoleTable?> FindRoleByNIdAsync(string roleNId, CancellationToken cancellationToken)
+    {
+        var normalized = NId.Create(roleNId).Normalized;
+        return await _dbContext.SqlSugar.Queryable<RoleTable>()
+            .Where(r => r.NormalizedNId == normalized && !r.IsDeleted)
+            .FirstAsync(cancellationToken);
+    }
 
     private static StoredRole ToStoredRole(RoleTable row, IReadOnlyList<string> permissionNIds) => new(
         row.Id,
