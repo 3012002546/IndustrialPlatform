@@ -85,9 +85,9 @@ public sealed class IdentitySeedRunnerTests : IDisposable
         Assert.Equal(1, await CountAsync("SELECT COUNT(*) FROM identity_seed_ledger WHERE status = 'Applied' AND seed_n_id = 'identity.bootstrap-admin'"));
 
         // 目录:权限 23、SYSTEM_ADMIN 角色 1、角色权限 23、用户 1
-        Assert.Equal(23, await CountAsync("SELECT COUNT(*) FROM identity_permission"));
+        Assert.Equal(30, await CountAsync("SELECT COUNT(*) FROM identity_permission"));
         Assert.Equal(1, await CountAsync("SELECT COUNT(*) FROM identity_role WHERE n_id = 'SYSTEM_ADMIN'"));
-        Assert.Equal(23, await CountAsync("SELECT COUNT(*) FROM identity_role_permission"));
+        Assert.Equal(30, await CountAsync("SELECT COUNT(*) FROM identity_role_permission"));
         Assert.Equal(1, await CountAsync("SELECT COUNT(*) FROM identity_user"));
 
         // 一次性凭据:密码满足策略且长度 >= 20

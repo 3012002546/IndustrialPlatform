@@ -22,14 +22,14 @@ public sealed class UsersController : ManagementControllerBase
     private readonly IUserManagementService _service;
 
     /// <summary>初始化用户管理控制器。</summary>
-    public UsersController(IUserManagementService service, ICurrentUser currentUser)
-        : base(currentUser)
+    public UsersController(IUserManagementService service, ICurrentUser currentUser, IIdempotencyStore idempotencyStore)
+        : base(currentUser, idempotencyStore)
     {
         ArgumentNullException.ThrowIfNull(service);
         _service = service;
     }
 
-    /// <summary>分页查询用户(§16.1 GET /api/v1/users),NId/LoginName/Name 包含匹配,Status 可选过滤;includeDeleted 返回墓碑(§29A.3)。</summary>
+    /// <summary>分页查询用户(§16.1/§29A.5 GET /api/v1/users),NId/LoginName/Name 包含匹配,Status/GroupNId/RoleNId 可选过滤;includeDeleted 返回墓碑(§29A.3)。</summary>
     [Authorize(Policy = PermissionPolicies.UserView)]
     [HttpGet]
     public async Task<ActionResult<PageResult<UserSummary>>> List(
@@ -37,6 +37,8 @@ public sealed class UsersController : ManagementControllerBase
         [FromQuery] string? loginName,
         [FromQuery] string? name,
         [FromQuery] string? status,
+        [FromQuery] string? groupNId,
+        [FromQuery] string? roleNId,
         [FromQuery] bool includeDeleted = false,
         [FromQuery] int pageIndex = 1,
         [FromQuery] int pageSize = 20,
@@ -67,7 +69,7 @@ public sealed class UsersController : ManagementControllerBase
         {
             var page = await _service.ListAsync(
                 tenantNId,
-                new UserListFilter(tenantNId, nId, loginName, name, parsedStatus, pageIndex, pageSize, includeDeleted),
+                new UserListFilter(tenantNId, nId, loginName, name, parsedStatus, pageIndex, pageSize, includeDeleted, groupNId, roleNId),
                 cancellationToken);
             return PageResult.Create(page.Items, page.Total, page.PageIndex, page.PageSize);
         }
@@ -105,10 +107,10 @@ public sealed class UsersController : ManagementControllerBase
         }
     }
 
-    /// <summary>创建用户(§16.1 POST /api/v1/users);NId/登录名冲突 409,初始密码按策略校验。</summary>
+    /// <summary>创建用户(§16.1/§29A.4 POST /api/v1/users);NId/登录名冲突 409;服务端生成随机临时密码只在本次 201 响应出现一次。</summary>
     [Authorize(Policy = PermissionPolicies.UserCreate)]
     [HttpPost]
-    public async Task<ActionResult<UserSummary>> Create(CreateUserRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<CreateUserResult>> Create(CreateUserRequest request, CancellationToken cancellationToken)
     {
         if (!TryGetActorContext(out var tenantNId, out var actorUserNId))
         {
@@ -117,7 +119,19 @@ public sealed class UsersController : ManagementControllerBase
 
         try
         {
-            return await _service.CreateAsync(tenantNId, actorUserNId, request, cancellationToken);
+            var result = await ExecuteIdempotentAsync(
+                tenantNId,
+                actorUserNId,
+                request,
+                () => _service.CreateAsync(tenantNId, actorUserNId, request, cancellationToken),
+                cancellationToken);
+            if (result is null)
+            {
+                // 同 Idempotency-Key 同内容重放:已成功,返回幂等确认。
+                return OkEnvelope();
+            }
+
+            return result;
         }
         catch (ValidationException ex)
         {
@@ -210,10 +224,10 @@ public sealed class UsersController : ManagementControllerBase
         }
     }
 
-    /// <summary>管理员重置密码(§16.1 POST /api/v1/users/{id}/reset-password);撤销目标用户全部会话。</summary>
-    [Authorize(Policy = PermissionPolicies.UserUpdate)]
+    /// <summary>管理员重置密码(§29A.4/§29A.5 POST /api/v1/users/{id}/reset-password);服务端生成随机临时密码只返回一次,强制改密并撤销全部会话。</summary>
+    [Authorize(Policy = PermissionPolicies.UserResetPassword)]
     [HttpPost("{id}/reset-password")]
-    public async Task<IActionResult> ResetPassword(
+    public async Task<ActionResult<ResetPasswordResult>> ResetPassword(
         string id,
         ResetPasswordRequest request,
         CancellationToken cancellationToken)
@@ -225,8 +239,19 @@ public sealed class UsersController : ManagementControllerBase
 
         try
         {
-            await _service.ResetPasswordAsync(tenantNId, actorUserNId, id, request, cancellationToken);
-            return OkEnvelope();
+            var result = await ExecuteIdempotentAsync(
+                tenantNId,
+                actorUserNId,
+                request,
+                () => _service.ResetPasswordAsync(tenantNId, actorUserNId, id, request, cancellationToken),
+                cancellationToken);
+            if (result is null)
+            {
+                // 同 Idempotency-Key 同内容重放:已成功,返回幂等确认。
+                return OkEnvelope();
+            }
+
+            return result;
         }
         catch (ValidationException ex)
         {

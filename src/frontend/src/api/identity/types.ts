@@ -12,6 +12,8 @@ export interface IdentityAuthUserDto {
   tenantNId: string
   roleNIds: string[]
   permissionNIds: string[]
+  /** §29A.4:普通新用户首次登录必须改密。 */
+  mustChangePassword: boolean
 }
 
 /** 登录/刷新会话线上 DTO(§15.2 AuthSession)。 */
@@ -37,4 +39,19 @@ export interface IdentityRefreshRequest {
 /** 单会话注销请求(§15.4)。 */
 export interface IdentityLogoutRequest {
   refreshToken: string
+}
+
+/** 修改密码请求(§29A.4 首次登录改密;成功后撤销全部会话,前端需重新登录)。 */
+export interface IdentityChangePasswordRequest {
+  currentPassword: string
+  newPassword: string
+}
+
+/** bootstrap 状态线上 DTO(§29A.5,仅状态/版本,不含 Secret)。 */
+export interface IdentityBootstrapStatusDto {
+  state: 'Pending' | 'Ready' | 'RecoveryRequired'
+  schemaVersion: string
+  adminExists: boolean
+  mustChangePassword: boolean
+  credentialDelivered: boolean
 }

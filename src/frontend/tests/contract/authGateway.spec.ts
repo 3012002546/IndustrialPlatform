@@ -156,6 +156,7 @@ const userDto = (): {
   tenantNId: string
   roleNIds: string[]
   permissionNIds: string[]
+  mustChangePassword: boolean
 } => ({
   userNId: 'usr-alice-001',
   loginName: HTTP_USERNAME,
@@ -163,6 +164,7 @@ const userDto = (): {
   tenantNId: 'tnt-dev-001',
   roleNIds: ['role-ops-001'],
   permissionNIds: [...HTTP_PERMISSIONS],
+  mustChangePassword: false,
 })
 
 let issued = 0

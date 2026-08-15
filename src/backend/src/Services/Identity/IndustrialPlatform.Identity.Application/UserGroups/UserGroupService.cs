@@ -516,6 +516,18 @@ public sealed partial class UserGroupService : IUserGroupService
             group.ConcurrencyVersion);
     }
 
+    /// <inheritdoc/>
+    public async Task<ManagementPage<StoredUserGroup>> ListAsync(
+        string tenantNId,
+        UserGroupListQuery query,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        var page = await _groupStore.QueryUserGroupsAsync(query with { TenantNId = tenantNId }, cancellationToken);
+        return new ManagementPage<StoredUserGroup>(page.Items, page.Total, query.PageIndex, query.PageSize);
+    }
+
     private async Task<UserGroup> RequireGroupAsync(string tenantNId, string groupNId, CancellationToken cancellationToken)
     {
         var group = await _groupStore.GetUserGroupAggregateAsync(groupNId, cancellationToken);

@@ -28,6 +28,7 @@ public sealed class IdentityMigrationTests : IDisposable
         "identity_outbox",
         "identity_seed_ledger",
         "identity_bootstrap_credential",
+        "identity_write_idempotency",
     ];
 
     private const string InsertUserSql = """
@@ -192,11 +193,11 @@ public sealed class IdentityMigrationTests : IDisposable
         await ApplyAsync();
         var second = await ReadSeedCountsAsync();
 
-        // 权限目录 23 项、SYSTEM_ADMIN 系统角色、角色权限 23 条、无默认用户;
+        // 权限目录 30 项、SYSTEM_ADMIN 系统角色、角色权限 30 条、无默认用户;
         // 两个不可变目录种子账本记录,重复执行不新增。
-        Assert.Equal(23, first.PermissionCount);
+        Assert.Equal(30, first.PermissionCount);
         Assert.Equal(1, first.RoleCount);
-        Assert.Equal(23, first.RolePermissionCount);
+        Assert.Equal(30, first.RolePermissionCount);
         Assert.Equal(0, first.UserCount);
         Assert.Equal(2, first.LedgerCount);
         Assert.Equal(first, second);

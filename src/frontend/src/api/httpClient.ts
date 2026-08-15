@@ -20,7 +20,8 @@ export interface HttpClient {
   get<T>(path: string, options?: RequestOptions): Promise<T>
   post<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T>
   put<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T>
-  delete<T>(path: string, options?: RequestOptions): Promise<T>
+  /** DELETE 支持可选请求体(§29A.5 安全删除要求原因+双版本);不传 body 保持纯路径删除。 */
+  delete<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T>
 }
 
 export interface HttpClientLogger {
@@ -182,8 +183,8 @@ export function createHttpClient(deps: HttpClientDeps): HttpClient {
       request<T>('POST', path, body, options),
     put: <T>(path: string, body?: unknown, options: RequestOptions = {}) =>
       request<T>('PUT', path, body, options),
-    delete: <T>(path: string, options: RequestOptions = {}) =>
-      request<T>('DELETE', path, undefined, options),
+    delete: <T>(path: string, body?: unknown, options: RequestOptions = {}) =>
+      request<T>('DELETE', path, body, options),
   }
 }
 

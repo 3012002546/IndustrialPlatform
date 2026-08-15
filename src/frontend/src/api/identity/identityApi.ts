@@ -9,6 +9,8 @@ import type { HttpClient } from '@/api/httpClient'
 import type {
   IdentityAuthSessionDto,
   IdentityAuthUserDto,
+  IdentityBootstrapStatusDto,
+  IdentityChangePasswordRequest,
   IdentityLoginRequest,
   IdentityLogoutRequest,
   IdentityRefreshRequest,
@@ -22,6 +24,9 @@ export interface IdentityAuthApi {
   refresh(request: IdentityRefreshRequest): Promise<IdentityAuthSessionDto>
   logout(request: IdentityLogoutRequest): Promise<void>
   getCurrentUser(): Promise<IdentityAuthUserDto>
+  changePassword(request: IdentityChangePasswordRequest): Promise<void>
+  /** bootstrap 状态(§29A.5):登录页在 HTTP 模式据此展示初始化未完成诊断。 */
+  getBootstrapStatus(): Promise<IdentityBootstrapStatusDto>
 }
 
 export function createIdentityAuthApi(client: HttpClient): IdentityAuthApi {
@@ -32,5 +37,8 @@ export function createIdentityAuthApi(client: HttpClient): IdentityAuthApi {
       client.post<IdentityAuthSessionDto>(`${IDENTITY_AUTH_PREFIX}/refresh`, request),
     logout: (request) => client.post<void>(`${IDENTITY_AUTH_PREFIX}/logout`, request),
     getCurrentUser: () => client.get<IdentityAuthUserDto>(`${IDENTITY_AUTH_PREFIX}/me`),
+    changePassword: (request) =>
+      client.post<void>(`${IDENTITY_AUTH_PREFIX}/change-password`, request),
+    getBootstrapStatus: () => client.get<IdentityBootstrapStatusDto>('/identity/api/v1/bootstrap/status'),
   }
 }

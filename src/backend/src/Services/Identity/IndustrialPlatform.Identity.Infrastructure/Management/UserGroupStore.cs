@@ -43,6 +43,93 @@ public sealed class UserGroupStore : IUserGroupStore
         => _groupRepository.GetByNIdIncludingDeletedAsync(groupNId, cancellationToken);
 
     /// <inheritdoc/>
+    public async Task<StoredUserGroupPage> QueryUserGroupsAsync(UserGroupListQuery query, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        var dbQuery = _dbContext.SqlSugar.Queryable<UserGroupTable>()
+            .Where(t => t.TenantNId == query.TenantNId && (query.IncludeDeleted || !t.IsDeleted));
+
+        if (!string.IsNullOrWhiteSpace(query.Name))
+        {
+            dbQuery = dbQuery.Where(t => t.Name.Contains(query.Name.Trim()));
+        }
+
+        if (query.Status is { } status)
+        {
+            dbQuery = dbQuery.Where(t => t.Status == status);
+        }
+
+        var total = await dbQuery.CountAsync(cancellationToken);
+        var rows = await dbQuery
+            .OrderBy(t => t.CreatedOn, OrderByType.Desc)
+            .Skip((query.PageIndex - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .ToListAsync(cancellationToken);
+
+        var memberCounts = await BuildMemberCountMapAsync(rows.Select(r => r.Id).ToArray(), cancellationToken);
+        var roleCounts = await BuildGroupRoleCountMapAsync(rows.Select(r => r.Id).ToArray(), cancellationToken);
+
+        var items = rows.Select(r => new StoredUserGroup(
+            r.NId,
+            r.Name,
+            r.Description,
+            r.Status.ToString(),
+            r.TenantNId,
+            memberCounts.TryGetValue(r.Id, out var m) ? m : 0,
+            roleCounts.TryGetValue(r.Id, out var rc) ? rc : 0,
+            r.CreatedOn,
+            r.LastUpdatedOn,
+            r.OptimisticVersion,
+            r.ConcurrencyVersion,
+            r.IsDeleted)).ToList();
+
+        return new StoredUserGroupPage(items, total);
+    }
+
+    private async Task<Dictionary<Guid, int>> BuildMemberCountMapAsync(Guid[] groupIds, CancellationToken cancellationToken)
+    {
+        var map = new Dictionary<Guid, int>();
+        if (groupIds.Length == 0)
+        {
+            return map;
+        }
+
+        var rows = await _dbContext.SqlSugar.Queryable<UserGroupMembershipTable>()
+            .Where(m => groupIds.Contains(m.UserGroupId) && !m.IsDeleted && !m.UserGroupIsDeleted)
+            .GroupBy(m => m.UserGroupId)
+            .Select(m => new { UserGroupId = m.UserGroupId, Count = SqlFunc.AggregateCount(m.Id) })
+            .ToListAsync(cancellationToken);
+        foreach (var row in rows)
+        {
+            map[row.UserGroupId] = row.Count;
+        }
+
+        return map;
+    }
+
+    private async Task<Dictionary<Guid, int>> BuildGroupRoleCountMapAsync(Guid[] groupIds, CancellationToken cancellationToken)
+    {
+        var map = new Dictionary<Guid, int>();
+        if (groupIds.Length == 0)
+        {
+            return map;
+        }
+
+        var rows = await _dbContext.SqlSugar.Queryable<UserGroupRoleTable>()
+            .Where(r => groupIds.Contains(r.UserGroupId) && !r.IsDeleted && !r.UserGroupIsDeleted && !r.RoleIsDeleted)
+            .GroupBy(r => r.UserGroupId)
+            .Select(r => new { UserGroupId = r.UserGroupId, Count = SqlFunc.AggregateCount(r.Id) })
+            .ToListAsync(cancellationToken);
+        foreach (var row in rows)
+        {
+            map[row.UserGroupId] = row.Count;
+        }
+
+        return map;
+    }
+
+    /// <inheritdoc/>
     public async Task<bool> UserGroupExistsByNIdAsync(string groupNId, CancellationToken cancellationToken)
     {
         var normalized = NId.Create(groupNId).Normalized;

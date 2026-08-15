@@ -5,7 +5,16 @@
  * 图标使用正式 Element Plus 图标(@element-plus/icons-vue),禁止 Emoji/文本占位。
  */
 
-import { Avatar, House, Lock, Monitor, Setting, Tickets, User } from '@element-plus/icons-vue'
+import {
+  Avatar,
+  House,
+  Lock,
+  Monitor,
+  Setting,
+  Tickets,
+  User,
+  UserFilled,
+} from '@element-plus/icons-vue'
 
 import { PERMISSIONS } from '@/permissions'
 
@@ -41,6 +50,13 @@ export const pcNavigationGroups: readonly NavigationGroup[] = [
         routeName: 'identity-users',
         icon: User,
         permission: PERMISSIONS.userView,
+      },
+      {
+        id: 'identity-user-groups',
+        label: '用户组管理',
+        routeName: 'identity-user-groups',
+        icon: UserFilled,
+        permission: PERMISSIONS.userGroupView,
       },
       {
         id: 'identity-roles',

@@ -116,3 +116,48 @@ public sealed class UserDeletedException : ManagementException
     {
     }
 }
+
+/// <summary>登录名被系统保留(§29A.5 ID_USER_LOGIN_NAME_RESERVED):内置 admin 登录名等系统标识不可被普通用户占用。</summary>
+public sealed class UserLoginNameReservedException : ManagementException
+{
+    public UserLoginNameReservedException()
+        : base(400, "ID_USER_LOGIN_NAME_RESERVED", "该登录名为系统保留登录名,不可使用。")
+    {
+    }
+}
+
+/// <summary>用户组不存在或跨租户(§29A.5 ID_GROUP_NOT_FOUND)。</summary>
+public sealed class GroupNotFoundException : ManagementException
+{
+    public GroupNotFoundException()
+        : base(404, "ID_GROUP_NOT_FOUND", "用户组不存在。")
+    {
+    }
+}
+
+/// <summary>目标用户组已禁用,不允许该操作(§29A.5 ID_GROUP_DISABLED)。</summary>
+public sealed class GroupDisabledException : ManagementException
+{
+    public GroupDisabledException()
+        : base(400, "ID_GROUP_DISABLED", "用户组已禁用,不能执行该操作。")
+    {
+    }
+}
+
+/// <summary>分配给用户组的角色无效(不存在/跨租户/已删除)(§29A.5 ID_GROUP_ROLE_INVALID)。</summary>
+public sealed class GroupRoleInvalidException : ManagementException
+{
+    public GroupRoleInvalidException()
+        : base(400, "ID_GROUP_ROLE_INVALID", "存在无效或不可用的角色。")
+    {
+    }
+}
+
+/// <summary>幂等键冲突(§29A.5 ID_IDEMPOTENCY_CONFLICT):同一 Idempotency-Key 携带不同请求内容。</summary>
+public sealed class IdempotencyConflictException : ManagementException
+{
+    public IdempotencyConflictException()
+        : base(409, "ID_IDEMPOTENCY_CONFLICT", "幂等键已被不同请求使用,请更换或复用原请求。")
+    {
+    }
+}

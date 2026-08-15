@@ -122,6 +122,13 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  /** 修改当前用户密码(§29A.4):成功后服务端撤销全部会话,前端清理本地会话并回登录页。 */
+  async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    await getAuthGateway().changePassword(currentPassword, newPassword)
+    commitSession(null)
+    clearAuthSession(defaultStorage(), sessionStorageKey())
+  }
+
   return {
     session,
     user,
@@ -130,6 +137,7 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     refresh,
     logout,
+    changePassword,
     adoptSession,
     hasPermission,
   }

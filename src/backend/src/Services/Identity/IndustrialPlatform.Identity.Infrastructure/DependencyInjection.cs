@@ -76,6 +76,9 @@ public static class DependencyInjection
         services.AddSingleton<IOperationAuditSink, OperationAuditSink>();
         services.AddSingleton<ILoginAuditQueryStore, LoginAuditQueryStore>();
 
+        // 写请求幂等存储(TASK-ID-020,§29A.5):Idempotency-Key 冲突检测。
+        services.AddSingleton<IIdempotencyStore, IdempotencyStore>();
+
         // 用户组持久化端口(TASK-ID-017):用户组存储(聚合装载/原子写/授权求值辅助查询)。
         services.AddSingleton<IUserGroupStore, UserGroupStore>();
 

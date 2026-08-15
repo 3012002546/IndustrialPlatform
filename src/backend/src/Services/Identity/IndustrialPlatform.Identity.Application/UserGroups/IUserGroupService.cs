@@ -1,3 +1,5 @@
+using IndustrialPlatform.Identity.Application.Management;
+
 namespace IndustrialPlatform.Identity.Application.UserGroups;
 
 /// <summary>
@@ -72,4 +74,10 @@ public interface IUserGroupService
 
     /// <summary>按业务标识查询用户组(含成员/角色 NId 与双版本);不存在或跨租户抛 404。</summary>
     Task<UserGroupSummary> GetAsync(string tenantNId, string groupNId, CancellationToken cancellationToken);
+
+    /// <summary>按租户分页查询用户组(Name 包含匹配,Status 可选,§29A.5)。</summary>
+    Task<ManagementPage<StoredUserGroup>> ListAsync(
+        string tenantNId,
+        UserGroupListQuery query,
+        CancellationToken cancellationToken);
 }

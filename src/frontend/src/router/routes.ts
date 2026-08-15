@@ -12,6 +12,7 @@ import PcLayout from '@/layouts/PcLayout.vue'
 import PdaLayout from '@/layouts/PdaLayout.vue'
 import MobileLayout from '@/layouts/MobileLayout.vue'
 import StandaloneLayout from '@/layouts/StandaloneLayout.vue'
+import ChangePasswordPage from '@/pages/public/ChangePasswordPage.vue'
 import ForbiddenPage from '@/pages/public/ForbiddenPage.vue'
 import LoginPage from '@/pages/public/LoginPage.vue'
 import NotFoundPage from '@/pages/public/NotFoundPage.vue'
@@ -21,6 +22,7 @@ import PcHomePage from '@/pages/pc/PcHomePage.vue'
 import IdentityAuditsPage from '@/pages/pc/identity/IdentityAuditsPage.vue'
 import IdentityPermissionsPage from '@/pages/pc/identity/IdentityPermissionsPage.vue'
 import IdentityRolesPage from '@/pages/pc/identity/IdentityRolesPage.vue'
+import IdentityUserGroupsPage from '@/pages/pc/identity/IdentityUserGroupsPage.vue'
 import IdentityUsersPage from '@/pages/pc/identity/IdentityUsersPage.vue'
 import SsoClientsPage from '@/pages/pc/identity/sso/SsoClientsPage.vue'
 import SsoProvidersPage from '@/pages/pc/identity/sso/SsoProvidersPage.vue'
@@ -33,11 +35,13 @@ import { PERMISSIONS } from '@/permissions'
 export const ROUTE_NAMES = {
   root: 'root',
   login: 'login',
+  changePassword: 'change-password',
   ssoLogin: 'sso-login',
   ssoCallback: 'sso-callback',
   forbidden: 'forbidden',
   pcHome: 'pc-home',
   identityUsers: 'identity-users',
+  identityUserGroups: 'identity-user-groups',
   identityRoles: 'identity-roles',
   identityPermissions: 'identity-permissions',
   identityAudits: 'identity-audits',
@@ -74,6 +78,12 @@ export const routes: RouteRecordRaw[] = [
     name: ROUTE_NAMES.login,
     component: LoginPage,
     meta: { title: '登录' },
+  },
+  {
+    path: '/change-password',
+    name: ROUTE_NAMES.changePassword,
+    component: ChangePasswordPage,
+    meta: { title: '修改密码', requiresAuth: true },
   },
   {
     path: '/sso',
@@ -123,6 +133,18 @@ export const routes: RouteRecordRaw[] = [
           title: '用户管理',
           requiresAuth: true,
           permission: PERMISSIONS.userView,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
+      {
+        path: 'identity/user-groups',
+        name: ROUTE_NAMES.identityUserGroups,
+        component: IdentityUserGroupsPage,
+        meta: {
+          title: '用户组管理',
+          requiresAuth: true,
+          permission: PERMISSIONS.userGroupView,
           terminal: 'pc',
           workspace: 'business',
         },

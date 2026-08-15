@@ -12,7 +12,7 @@
 import { ApiError, createApiError } from '@/api/errors'
 import type { IdentityAuthApi } from '@/api/identity/identityApi'
 import { mapAuthSession, mapAuthUser } from '@/api/identity/mapper'
-import type { AuthGateway, AuthSession, AuthUser, LoginCommand } from './types'
+import type { AuthGateway, AuthSession, AuthUser, BootstrapStatus, LoginCommand } from './types'
 
 export interface HttpAuthGatewayDeps {
   api: IdentityAuthApi
@@ -60,5 +60,14 @@ export function createHttpAuthGateway(deps: HttpAuthGatewayDeps): AuthGateway {
     return mapAuthUser(await deps.api.getCurrentUser())
   }
 
-  return { login, refresh, logout, getCurrentUser }
+  async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    await deps.api.changePassword({ currentPassword, newPassword })
+  }
+
+  async function getBootstrapStatus(): Promise<BootstrapStatus> {
+    const dto = await deps.api.getBootstrapStatus()
+    return { state: dto.state, adminExists: dto.adminExists }
+  }
+
+  return { login, refresh, logout, getCurrentUser, changePassword, getBootstrapStatus }
 }

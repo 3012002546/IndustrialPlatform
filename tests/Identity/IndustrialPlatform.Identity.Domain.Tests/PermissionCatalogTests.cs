@@ -23,6 +23,13 @@ public sealed class PermissionCatalogTests
         "identity.role.assign-permission",
         "identity.user-group.delete",
         "identity.user-group.restore",
+        "identity.user-group.view",
+        "identity.user-group.create",
+        "identity.user-group.update",
+        "identity.user-group.status",
+        "identity.user-group.assign-member",
+        "identity.user-group.assign-role",
+        "identity.user.reset-password",
         "identity.permission.view",
         "identity.audit.login.view",
         "identity.sso.view",
@@ -36,10 +43,10 @@ public sealed class PermissionCatalogTests
     ];
 
     [Fact]
-    public void FirstBatch_HasTwentyThreePermissions()
+    public void FirstBatch_HasThirtyPermissions()
     {
-        // §9.2 第一批 21 项 + §29A.5 bootstrap 2 项(TASK-ID-019)
-        Assert.Equal(23, PermissionCatalog.FirstBatchNIds.Count);
+        // §9.2 第一批 21 项 + §29A.5 用户组/重置密码 7 项 + bootstrap 2 项(TASK-ID-019/020)
+        Assert.Equal(30, PermissionCatalog.FirstBatchNIds.Count);
     }
 
     [Fact]

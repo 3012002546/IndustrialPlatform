@@ -33,6 +33,15 @@ public sealed record UserGroupSummary(
     long OptimisticVersion,
     Guid ConcurrencyVersion);
 
+/// <summary>用户组列表过滤(§29A.5):租户隔离在 SQL 层实施;Name 包含匹配,Status 可选(Active/Disabled)。</summary>
+public sealed record UserGroupListQuery(
+    string TenantNId,
+    string? Name,
+    UserGroupStatus? Status,
+    int PageIndex,
+    int PageSize,
+    bool IncludeDeleted = false);
+
 /// <summary>
 /// 用户组持久化端口(§29A.2/§29A.6):聚合装载、唯一性检查、原子写与授权求值辅助查询。
 /// 按 NId 查询不区分租户,租户隔离由应用层显式校验,跨租户返回 <c>null</c> 后映射 404。
@@ -41,6 +50,9 @@ public interface IUserGroupStore
 {
     /// <summary>按业务标识装载完整用户组聚合(含活动成员与组角色关系);不存在返回 <c>null</c>。</summary>
     Task<UserGroup?> GetUserGroupAggregateAsync(string groupNId, CancellationToken cancellationToken);
+
+    /// <summary>按租户分页查询用户组(含成员数/角色数,§29A.5),按创建时间倒序。</summary>
+    Task<StoredUserGroupPage> QueryUserGroupsAsync(UserGroupListQuery query, CancellationToken cancellationToken);
 
     /// <summary>按业务标识装载用户组墓碑聚合(含已软删除记录,§29A.3),供恢复操作;不存在返回 <c>null</c>。</summary>
     Task<UserGroup?> GetUserGroupAggregateIncludingDeletedAsync(string groupNId, CancellationToken cancellationToken);

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using IndustrialPlatform.Identity.Application.Authentication;
 using IndustrialPlatform.Identity.Application.Authorization;
+using IndustrialPlatform.Identity.Application.Bootstrap;
 using IndustrialPlatform.Identity.Application.UserGroups;
 using ContractsEvents = IndustrialPlatform.Identity.Contracts.Events;
 using IndustrialPlatform.Identity.Contracts.Management;
@@ -23,9 +24,13 @@ public sealed partial class UserManagementService : IUserManagementService
     /// <summary>内置 ADMIN 保留业务标识(§29A.3 禁删;正式引导由 TASK-ID-019 定义)。</summary>
     private const string ReservedAdminUserNId = "ADMIN";
 
+    /// <summary>内置 bootstrap admin 保留登录名(§29A.4),普通用户不可占用。</summary>
+    private const string ReservedAdminLoginName = "admin";
+
     private readonly IManagementStore _store;
     private readonly IUserGroupStore _groupStore;
     private readonly IPasswordHasher _hasher;
+    private readonly ITemporaryPasswordGenerator _temporaryPasswordGenerator;
     private readonly IRefreshSessionStore _refreshStore;
     private readonly IPermissionCache _permissionCache;
     private readonly IOperationAuditSink _auditSink;
@@ -35,6 +40,7 @@ public sealed partial class UserManagementService : IUserManagementService
         IManagementStore store,
         IUserGroupStore groupStore,
         IPasswordHasher hasher,
+        ITemporaryPasswordGenerator temporaryPasswordGenerator,
         IRefreshSessionStore refreshStore,
         IPermissionCache permissionCache,
         IOperationAuditSink auditSink,
@@ -42,9 +48,12 @@ public sealed partial class UserManagementService : IUserManagementService
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(groupStore);
+        ArgumentNullException.ThrowIfNull(hasher);
+        ArgumentNullException.ThrowIfNull(temporaryPasswordGenerator);
         _store = store;
         _groupStore = groupStore;
         _hasher = hasher;
+        _temporaryPasswordGenerator = temporaryPasswordGenerator;
         _refreshStore = refreshStore;
         _permissionCache = permissionCache;
         _auditSink = auditSink;
@@ -52,7 +61,7 @@ public sealed partial class UserManagementService : IUserManagementService
     }
 
     /// <inheritdoc/>
-    public async Task<UserSummary> CreateAsync(
+    public async Task<CreateUserResult> CreateAsync(
         string tenantNId,
         string actorUserNId,
         CreateUserRequest request,
@@ -73,9 +82,10 @@ public sealed partial class UserManagementService : IUserManagementService
             throw new ValidationException("姓名不能为空。");
         }
 
-        if (string.IsNullOrWhiteSpace(request.InitialPassword))
+        // §29A.4:内置 admin 登录名为系统保留,普通用户不可占用。
+        if (string.Equals(loginName, ReservedAdminLoginName, StringComparison.OrdinalIgnoreCase))
         {
-            throw new ValidationException("初始密码不能为空。");
+            throw new UserLoginNameReservedException();
         }
 
         if (await _store.UserExistsByNIdAsync(nId.Value, cancellationToken))
@@ -88,8 +98,20 @@ public sealed partial class UserManagementService : IUserManagementService
             throw new UserLoginNameConflictException();
         }
 
-        PasswordPolicy.Validate(request.InitialPassword, loginName, nId.Value);
-        var user = User.Create(tenantNId, nId.Value, loginName, name, request.Email, request.Phone, _hasher.Hash(request.InitialPassword));
+        // §29A.4:服务端生成独立随机临时密码(≥20 满足策略),只返回一次;新用户强制首次改密。
+        var temporaryPassword = _temporaryPasswordGenerator.Generate(
+            BootstrapSeedCatalog.BootstrapPasswordMinLength,
+            loginName,
+            nId.Value);
+        var user = User.Create(
+            tenantNId,
+            nId.Value,
+            loginName,
+            name,
+            request.Email,
+            request.Phone,
+            _hasher.Hash(temporaryPassword),
+            mustChangePassword: true);
 
         var roleNIds = (request.RoleNIds ?? []).Where(r => !string.IsNullOrWhiteSpace(r)).Distinct(StringComparer.Ordinal).ToArray();
         if (roleNIds.Length > 0)
@@ -123,7 +145,8 @@ public sealed partial class UserManagementService : IUserManagementService
                 DateTimeOffset.UtcNow),
             cancellationToken);
 
-        return await GetAsync(tenantNId, user.NId, cancellationToken);
+        var summary = await GetAsync(tenantNId, user.NId, cancellationToken);
+        return new CreateUserResult(summary, temporaryPassword);
     }
 
     /// <inheritdoc/>
@@ -319,7 +342,7 @@ public sealed partial class UserManagementService : IUserManagementService
     }
 
     /// <inheritdoc/>
-    public async Task ResetPasswordAsync(
+    public async Task<ResetPasswordResult> ResetPasswordAsync(
         string tenantNId,
         string actorUserNId,
         string userNId,
@@ -329,16 +352,17 @@ public sealed partial class UserManagementService : IUserManagementService
         ArgumentNullException.ThrowIfNull(request);
 
         var user = await RequireUserAsync(tenantNId, userNId, cancellationToken);
-        if (string.IsNullOrWhiteSpace(request.NewPassword))
-        {
-            throw new ValidationException("新密码不能为空。");
-        }
 
-        PasswordPolicy.Validate(request.NewPassword, user.LoginName, user.NId);
+        // §29A.4:重置生成独立随机临时密码,不接受管理员指定;重置后强制首次改密。
+        var temporaryPassword = _temporaryPasswordGenerator.Generate(
+            BootstrapSeedCatalog.BootstrapPasswordMinLength,
+            user.LoginName,
+            user.NId);
 
         var expectedOptimistic = user.OptimisticVersion;
         var expectedConcurrency = user.ConcurrencyVersion;
-        user.ChangePasswordHash(_hasher.Hash(request.NewPassword));
+        user.ChangePasswordHash(_hasher.Hash(temporaryPassword));
+        user.RequirePasswordChangeOnNextLogin();
 
         // 密码变更安全事件与用户写入同事务提交(§20)。
         var resetEnvelopes = BuildOutboxEnvelopes(user);
@@ -366,6 +390,8 @@ public sealed partial class UserManagementService : IUserManagementService
                 TraceId,
                 DateTimeOffset.UtcNow),
             cancellationToken);
+
+        return new ResetPasswordResult(temporaryPassword);
     }
 
     /// <inheritdoc/>
@@ -568,9 +594,13 @@ public sealed partial class UserManagementService : IUserManagementService
         u.TenantNId,
         u.CreatedOn,
         u.LastLoginOn,
-        u.RoleNIds,
+        u.MustChangePassword,
+        u.DirectRoleNIds,
+        u.GroupRoleNIds,
+        u.EffectiveRoleNIds,
         u.OptimisticVersion,
-        u.ConcurrencyVersion);
+        u.ConcurrencyVersion,
+        u.IsDeleted);
 
     /// <summary>审计摘要:仅非敏感资料字段;绝不包含密码、Token 或内部哈希。</summary>
     private static string BuildUserSummaryText(User user) =>

@@ -52,6 +52,27 @@ public static class PermissionPolicies
     /// <summary>恢复用户组墓碑。</summary>
     public const string UserGroupRestore = Prefix + PermissionCatalog.UserGroupRestore;
 
+    /// <summary>查看用户组(§29A.5)。</summary>
+    public const string UserGroupView = Prefix + PermissionCatalog.UserGroupView;
+
+    /// <summary>创建用户组(§29A.5)。</summary>
+    public const string UserGroupCreate = Prefix + PermissionCatalog.UserGroupCreate;
+
+    /// <summary>更新用户组资料(§29A.5)。</summary>
+    public const string UserGroupUpdate = Prefix + PermissionCatalog.UserGroupUpdate;
+
+    /// <summary>启用/禁用用户组(§29A.5)。</summary>
+    public const string UserGroupStatus = Prefix + PermissionCatalog.UserGroupStatus;
+
+    /// <summary>设置用户组成员(§29A.5)。</summary>
+    public const string UserGroupAssignMember = Prefix + PermissionCatalog.UserGroupAssignMember;
+
+    /// <summary>设置用户组角色(§29A.5)。</summary>
+    public const string UserGroupAssignRole = Prefix + PermissionCatalog.UserGroupAssignRole;
+
+    /// <summary>管理员重置密码(§29A.5)。</summary>
+    public const string UserResetPassword = Prefix + PermissionCatalog.UserResetPassword;
+
     /// <summary>查看权限。</summary>
     public const string PermissionView = Prefix + PermissionCatalog.PermissionView;
 

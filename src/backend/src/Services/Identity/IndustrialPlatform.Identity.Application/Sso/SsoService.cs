@@ -645,7 +645,8 @@ public sealed partial class SsoService : ISsoService
             account.User.Name,
             account.User.TenantNId,
             account.RoleNIds,
-            permissionNIds);
+            permissionNIds,
+            account.User.MustChangePassword);
     }
 
     /// <summary>JIT 创建本地用户:随机不可用密码哈希(用户仅能经 SSO 登录),Email 即登录名。</summary>

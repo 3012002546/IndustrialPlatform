@@ -8,6 +8,7 @@ public sealed record LoginRequest(string? LoginName, string? Password);
 
 /// <summary>
 /// 当前用户契约(§15.2)。标识一律使用 NId,不得暴露数据库 Guid。
+/// MustChangePassword(§29A.4):普通新用户首次登录必须改密,内置 admin 为 false。
 /// </summary>
 public sealed record AuthUser(
     string UserNId,
@@ -15,7 +16,8 @@ public sealed record AuthUser(
     string Name,
     string TenantNId,
     IReadOnlyList<string> RoleNIds,
-    IReadOnlyList<string> PermissionNIds);
+    IReadOnlyList<string> PermissionNIds,
+    bool MustChangePassword);
 
 /// <summary>
 /// 登录响应(§15.2):Access Token、刷新令牌与当前用户。刷新令牌为一次性返回,服务端只存哈希。

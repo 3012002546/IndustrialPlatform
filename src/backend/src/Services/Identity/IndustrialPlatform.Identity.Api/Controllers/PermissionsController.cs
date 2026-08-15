@@ -20,8 +20,8 @@ public sealed class PermissionsController : ManagementControllerBase
     private readonly IPermissionQueryService _service;
 
     /// <summary>初始化权限目录查询控制器。</summary>
-    public PermissionsController(IPermissionQueryService service, ICurrentUser currentUser)
-        : base(currentUser)
+    public PermissionsController(IPermissionQueryService service, ICurrentUser currentUser, IIdempotencyStore idempotencyStore)
+        : base(currentUser, idempotencyStore)
     {
         ArgumentNullException.ThrowIfNull(service);
         _service = service;

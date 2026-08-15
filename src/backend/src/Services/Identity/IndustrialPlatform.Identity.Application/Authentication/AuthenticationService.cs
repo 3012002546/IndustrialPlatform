@@ -348,6 +348,12 @@ public sealed partial class AuthenticationService : IAuthenticationService
         var expectedOptimistic = user.OptimisticVersion;
         var expectedConcurrency = user.ConcurrencyVersion;
         user.ChangePasswordHash(_hasher.Hash(newPassword));
+        // §29A.4:首次改密成功后清除标记(改密本身推进 AuthVersion 使其他会话失效)。
+        if (user.MustChangePassword)
+        {
+            user.ClearMustChangePassword();
+        }
+
         await _store.UpdateUserAsync(user, expectedOptimistic, expectedConcurrency, cancellationToken);
 
         await _refreshStore.RevokeAllForUserAsync(user.Id, "password_changed", cancellationToken);
@@ -385,7 +391,8 @@ public sealed partial class AuthenticationService : IAuthenticationService
             account.User.Name,
             account.User.TenantNId,
             account.RoleNIds,
-            permissionNIds);
+            permissionNIds,
+            account.User.MustChangePassword);
     }
 
     private async Task TryWriteAuditAsync(LoginAuditEntry entry, CancellationToken cancellationToken)

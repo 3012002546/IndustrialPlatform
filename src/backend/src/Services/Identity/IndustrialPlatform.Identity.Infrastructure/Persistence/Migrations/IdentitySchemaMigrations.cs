@@ -41,6 +41,7 @@ public static class IdentitySchemaMigrations
                 "ID-019-03",
                 "add identity_user.must_change_password column",
                 AddMustChangePasswordColumnAsync),
+            CreateTableStep("ID-020-01", "identity_write_idempotency", WriteIdempotencyDdl),
         ];
     }
 
@@ -555,6 +556,27 @@ public static class IdentitySchemaMigrations
             {columns}
             );
             CREATE INDEX IF NOT EXISTS ix_bootstrap_credential_tenant ON identity_bootstrap_credential (tenant_n_id, user_n_id, created_on);
+            """;
+    }
+
+    private static string WriteIdempotencyDdl(DbType dbType)
+    {
+        var (g, t, b, big, f) = TypeWords(dbType);
+        var columns = string.Join(",\n",
+        [
+            CommonColumns(g, t, b, big),
+            "tenant_n_id TEXT NOT NULL",
+            "actor_user_n_id TEXT NOT NULL",
+            "idempotency_key TEXT NOT NULL",
+            "request_hash TEXT NOT NULL",
+            $"completed {b} NOT NULL",
+            $"completed_on {t} NULL",
+        ]);
+        return $"""
+            CREATE TABLE IF NOT EXISTS identity_write_idempotency (
+            {columns}
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_write_idempotency_active ON identity_write_idempotency (tenant_n_id, actor_user_n_id, idempotency_key) WHERE is_deleted = {f};
             """;
     }
 
