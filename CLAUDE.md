@@ -15,7 +15,8 @@
 
 ## 工作边界
 
-- 只能在任务指定的独立 worktree 和分支编码，不得在主工作树工作。
+- 长期使用 Codex 分配的 PF-02 worktree 和分支；连续任务复用该工作线，不为每张任务新建分支。
+- 不得在主工作树工作，也不自行同步 `develop`；新任务开始前由 Codex 完成同步。
 - 只修改任务卡允许范围，不自行选择下一任务或扩大范围。
 - 不修改 `AGENTS.md`、`CLAUDE.md`、`DSH.md`、`docs/status/CURRENT.md`、总体蓝图或其他任务。
 - 不合并、rebase、cherry-pick 或处理其他分支。

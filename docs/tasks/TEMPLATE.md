@@ -28,13 +28,13 @@
 
 - 前置任务或明确写“无”。
 
-## Worktree
+## PF 工作线与 Worktree
 
-`<absolute-or-agreed-worktree-path>`
+`PF-XX / <固定 worktree 路径；连续任务复用>`
 
 ## 分支
 
-`task/<task-id>`
+`<固定工作线分支，例如 work/pf-02；不为本任务新建分支>`
 
 ## 允许修改范围
 

@@ -21,6 +21,12 @@
 
 - TASK-ID-019：Harness，`task/pf-00-id-019`，worktree `IndustrialPlatform-worktrees/pf-00`，任务卡 `docs/tasks/active/TASK-ID-019.md`。
 
+## 固定工作线
+
+- PF-00：Harness，长期复用 `IndustrialPlatform-worktrees/pf-00`；当前分支 `task/pf-00-id-019`。
+- PF-02：Claude Code，长期复用 `IndustrialPlatform-worktrees/pf-02`；当前分支 `task/pf-02-sd-005`，开始 TASK-SD-006 前由 Codex 同步最新 `develop`。
+- 现有分支名称暂时保留；后续任务不因此创建新分支。
+
 ## 待派遣
 
 - TASK-ID-020～023：等待 TASK-ID-019 验收后按 Identity 实施方案 §29A 派遣。
@@ -43,7 +49,8 @@
 
 ## 更新规则
 
-- 派遣时加入“进行中”，记录负责人、任务卡、worktree 和分支。
+- 派遣时加入“进行中”，记录负责人、任务卡和所用固定 PF 工作线。
 - 完成后从“进行中”删除，任务卡移入 archive，结果写入 evidence。
 - 不累计会话快照、完整变更清单或历史测试日志。
 - 执行智能体负责任务内测试；Codex 只做最终 Release 编译，成功后提交和集成。
+- 下一任务派遣前由 Codex 将原 PF 工作线同步到最新 `develop`，不新建任务分支。
