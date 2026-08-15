@@ -31,6 +31,9 @@ public static class SystemDataSchemaMigrations
             SystemDataMigrationHelpers.CreateTableStep("SDM-003-03", "system_data_database_migration_observation", MigrationObservationDdl),
             SystemDataMigrationHelpers.CreateRawStep("SDM-004-01", "alter registration module scope", RegistrationModuleScopeAlterDdl),
             SystemDataMigrationHelpers.CreateTableStep("SDM-004-02", "system_data_seed_observation", SeedObservationDdl),
+            SystemDataMigrationHelpers.CreateTableStep("SDM-004-03", "system_data_organization", OrganizationDdl),
+            SystemDataMigrationHelpers.CreateTableStep("SDM-005-01", "system_data_position", PositionDdl),
+            SystemDataMigrationHelpers.CreateTableStep("SDM-006-01", "system_data_user_assignment", UserAssignmentDdl),
         ];
     }
 
@@ -347,6 +350,121 @@ public static class SystemDataSchemaMigrations
             {columns}
             );
             CREATE INDEX IF NOT EXISTS ix_seed_observation_target ON system_data_seed_observation (tenant_n_id, environment_n_id, service_key, module_key, seed_key, created_on);
+            """;
+    }
+
+    /// <summary>
+    /// SDM-004-03:行政组织表(05 方案 §8.1 <c>system_data_organization</c>,统一有类型树)。
+    /// 公司仅根、同租户多根、父子同租户;normalized_name 承载同父名称大小写不敏感唯一;
+    /// 自引用复合外键 (parent_organization_id, parent_organization_is_deleted) ON UPDATE CASCADE;
+    /// Tenant+Parent+Status+Order 索引;organization_revision 供移动预览过期校验。
+    /// </summary>
+    private static string OrganizationDdl(DbType dbType)
+    {
+        var (g, t, b, big, f) = SystemDataMigrationHelpers.TypeWords(dbType);
+        var columns = string.Join(",\n",
+        [
+            SystemDataMigrationHelpers.CommonColumns(g, t, b, big),
+            "tenant_n_id TEXT NOT NULL",
+            "n_id TEXT NOT NULL",
+            "normalized_n_id TEXT NOT NULL",
+            "name TEXT NOT NULL",
+            "normalized_name TEXT NOT NULL",
+            "type INTEGER NOT NULL",
+            "parent_organization_n_id TEXT NULL",
+            $"parent_organization_id {g} NULL",
+            $"parent_organization_is_deleted {b} NOT NULL",
+            "display_order INTEGER NOT NULL",
+            "status INTEGER NOT NULL",
+            $"organization_revision {big} NOT NULL",
+            "CONSTRAINT uq_organization_id_isdel UNIQUE (id, is_deleted)",
+        ]);
+        return $"""
+            CREATE TABLE IF NOT EXISTS system_data_organization (
+            {columns},
+            FOREIGN KEY (parent_organization_id, parent_organization_is_deleted)
+                REFERENCES system_data_organization (id, is_deleted) ON UPDATE CASCADE
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_organization_active_nid ON system_data_organization (tenant_n_id, normalized_n_id) WHERE is_deleted = {f};
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_organization_active_sibling_name ON system_data_organization (tenant_n_id, parent_organization_n_id, normalized_name) WHERE is_deleted = {f};
+            CREATE INDEX IF NOT EXISTS ix_organization_parent ON system_data_organization (tenant_n_id, parent_organization_n_id, status, display_order);
+            """;
+    }
+
+    /// <summary>
+    /// SDM-005-01:岗位表(05 方案 §8.1 <c>system_data_position</c>)。
+    /// 岗位专属于一个组织:organization_id/organization_is_deleted 复合外键引用组织表 ON UPDATE CASCADE;
+    /// normalized_name 承载同组织名称大小写不敏感唯一;Tenant+NormalizedNId 全历史唯一。
+    /// </summary>
+    private static string PositionDdl(DbType dbType)
+    {
+        var (g, t, b, big, f) = SystemDataMigrationHelpers.TypeWords(dbType);
+        var columns = string.Join(",\n",
+        [
+            SystemDataMigrationHelpers.CommonColumns(g, t, b, big),
+            "tenant_n_id TEXT NOT NULL",
+            "n_id TEXT NOT NULL",
+            "normalized_n_id TEXT NOT NULL",
+            "organization_n_id TEXT NOT NULL",
+            $"organization_id {g} NOT NULL",
+            $"organization_is_deleted {b} NOT NULL",
+            "name TEXT NOT NULL",
+            "normalized_name TEXT NOT NULL",
+            "description TEXT NULL",
+            "display_order INTEGER NOT NULL",
+            "status INTEGER NOT NULL",
+            "CONSTRAINT uq_position_id_isdel UNIQUE (id, is_deleted)",
+        ]);
+        return $"""
+            CREATE TABLE IF NOT EXISTS system_data_position (
+            {columns},
+            FOREIGN KEY (organization_id, organization_is_deleted)
+                REFERENCES system_data_organization (id, is_deleted) ON UPDATE CASCADE
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_position_active_nid ON system_data_position (tenant_n_id, normalized_n_id) WHERE is_deleted = {f};
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_position_active_org_name ON system_data_position (tenant_n_id, organization_n_id, normalized_name) WHERE is_deleted = {f};
+            CREATE INDEX IF NOT EXISTS ix_position_organization ON system_data_position (tenant_n_id, organization_n_id);
+            """;
+    }
+
+    /// <summary>
+    /// SDM-006-01:用户任职表(05 方案 §8.1 <c>system_data_user_assignment</c>)。
+    /// 时间化多任职:左闭右开区间 [effective_from, effective_to),effective_to 可空表示开放;
+    /// position_id/position_is_deleted 复合外键引用岗位表 ON UPDATE CASCADE;
+    /// User+time、Position+time 索引;Tenant+NormalizedNId 唯一。
+    /// </summary>
+    private static string UserAssignmentDdl(DbType dbType)
+    {
+        var (g, t, b, big, f) = SystemDataMigrationHelpers.TypeWords(dbType);
+        var columns = string.Join(",\n",
+        [
+            SystemDataMigrationHelpers.CommonColumns(g, t, b, big),
+            "tenant_n_id TEXT NOT NULL",
+            "n_id TEXT NOT NULL",
+            "normalized_n_id TEXT NOT NULL",
+            "user_n_id TEXT NOT NULL",
+            "user_display_name_snapshot TEXT NOT NULL",
+            "organization_n_id TEXT NOT NULL",
+            "position_n_id TEXT NOT NULL",
+            $"position_id {g} NOT NULL",
+            $"position_is_deleted {b} NOT NULL",
+            $"is_primary {b} NOT NULL",
+            $"effective_from {t} NOT NULL",
+            $"effective_to {t} NULL",
+            "state INTEGER NOT NULL",
+            $"cancelled_on {t} NULL",
+            "cancel_reason TEXT NULL",
+            "CONSTRAINT uq_user_assignment_id_isdel UNIQUE (id, is_deleted)",
+        ]);
+        return $"""
+            CREATE TABLE IF NOT EXISTS system_data_user_assignment (
+            {columns},
+            FOREIGN KEY (position_id, position_is_deleted)
+                REFERENCES system_data_position (id, is_deleted) ON UPDATE CASCADE
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_user_assignment_active_nid ON system_data_user_assignment (tenant_n_id, normalized_n_id) WHERE is_deleted = {f};
+            CREATE INDEX IF NOT EXISTS ix_user_assignment_user_time ON system_data_user_assignment (tenant_n_id, user_n_id, effective_from);
+            CREATE INDEX IF NOT EXISTS ix_user_assignment_position_time ON system_data_user_assignment (position_n_id, effective_from);
             """;
     }
 }
