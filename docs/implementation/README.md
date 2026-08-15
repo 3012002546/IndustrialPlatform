@@ -30,9 +30,9 @@ PF-02 及其后的新服务必须以 `docs/blueprint/07-PostgreSQL数据库规�
 | 02 | [BuildingBlocks基础组件实施方案](02-Industrial%20Platform%20BuildingBlocks基础组件开发实施方案.md) | 原基础搭建已完成；`TASK-BB-010` Entity 生命周期/并发/软删除调整已完成 |
 | 02A | [可运行基线开发 TODO](02A-Industrial%20Platform可运行基线开发实施方案.md) | `TASK-BASE-001～006` 已完成（`BASE-002/003` 真实依赖与容器验收留待 Docker 环境，`BASE-005/006` 无 Docker 实测通过）；Phase 2 前端输入契约已登记 |
 | 02B | [统一前端第一批开发 TODO](02B-Industrial%20Platform统一前端第一批开发实施方案.md) | `TASK-FE-001～010` 已完成 |
-| 03 | [Identity Service实施方案](03-Industrial%20Platform%20Identity%20Service开发实施方案.md) | 历史 `TASK-ID-001～016` 已完成；用户组、安全删除、SystemData 协同 admin 引导及真实管理闭环补强设计已确认，`TASK-ID-017～023` 可派遣但尚未开发 |
+| 03 | [Identity Service实施方案](03-Industrial%20Platform%20Identity%20Service开发实施方案.md) | `TASK-ID-001～023` 当前范围已完成并合入；真实 PostgreSQL/Redis 联合登录链路保留为外部验收项 |
 | 04 | [PF-01 视觉主题与平台外壳实施方案](04-Industrial%20Platform视觉主题与平台外壳开发实施方案.md) | `TASK-PF01-001～007` 已完成；真实 Identity 联合验收 real E2E 19/19；外部真机 safe-area 待验收 |
-| 05 | [PF-02 SystemData实施方案](05-Industrial%20Platform%20SystemData开发实施方案.md) | 待派遣（设计已批准、存量部分实现）；`961cad4` 已实现 TASK-SD-001～002 并待验收，`61753dc` 已提交 TASK-SD-003 migration-only Runner，Seed/Bootstrap 通用扩展及 TASK-SD-004+ 未实现 |
+| 05 | [PF-02 SystemData实施方案](05-Industrial%20Platform%20SystemData开发实施方案.md) | 开发中；`TASK-SD-001～006` 已完成并合入，`TASK-SD-007+` 由 PF-02 固定工作线继续执行 |
 | 06 | [PF-03 ReferenceData实施方案](06-Industrial%20Platform%20ReferenceData%20Service开发实施方案.md) | 代码仅骨架；现有详细设计和任务卡由 PF-03 会话复核 |
 | 07 | PF-04 File / Notification / Audit实施方案（待 PF-04 会话创建） | 三个模块分开建模，在同一阶段管理会话协调和派遣 |
 | 08 | PF-05 Collaboration实施方案（待 PF-05 会话创建） | 待阶段管理会话设计和派遣 |
@@ -50,7 +50,7 @@ PF-02 及其后的新服务必须以 `docs/blueprint/07-PostgreSQL数据库规�
 
 ```text
 BuildingBlocks / 可运行基线 / 统一前端第一批（已完成，Docker 实机项除外）
-→ PF-00 Identity（历史 TASK-ID-001～016 已完成；补强 TASK-ID-017～023 尚未开发）
+→ PF-00 Identity（TASK-ID-001～023 当前范围已完成）
 → PF-01 视觉、主题与平台外壳（TASK-PF01-001～007 已完成）
 → PF-02 SystemData + PF-03 ReferenceData
 → PF-04 File / Notification / Audit

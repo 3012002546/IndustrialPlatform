@@ -14,22 +14,22 @@
 - BuildingBlocks：基线与公共组件已完成。
 - 统一前端与 PF-01：已完成；外部真机 safe-area 项仍待验收。
 - Identity/PF-00：TASK-ID-001～023 当前范围已完成并合入；真实 PostgreSQL/Redis 联合链路保留为外部整体测试项。
-- SystemData：TASK-SD-001～006 已完成并合入；下一步由 Claude Code 在合并基线上执行整体测试。
+- SystemData：TASK-SD-001～006 已完成并合入；Claude Code 已在合并基线上完成整体测试，PF-02 下一步从 TASK-SD-007 继续。
 - ReferenceData：保持服务骨架，业务功能未实施。
 
 ## 进行中
 
-- PF-02：Claude Code，工作包 `docs/tasks/active/PF-02.md`；内部从 TASK-SD-006 起连续执行。
+- PF-02：Claude Code，工作包 `docs/tasks/active/PF-02.md`；内部从 TASK-SD-007 起连续执行。
 
 ## 固定工作线
 
 - PF-00：Harness，长期复用 `IndustrialPlatform-worktrees/pf-00` 和当前分支 `task/pf-00-id-019`；当前范围已合入，待工作线同步。
-- PF-02：Claude Code，长期复用 `IndustrialPlatform-worktrees/pf-02` 和当前分支 `task/pf-02-sd-006`；SD-006 已合入，工作线同步后执行整体测试，后续内部任务不再新建分支。
+- PF-02：Claude Code，长期复用 `IndustrialPlatform-worktrees/pf-02` 和当前分支 `task/pf-02-sd-006`；SD-006 已合入且整体测试已完成，后续从 SD-007 连续执行，不新建内部任务分支。
 - 现有分支名称暂时保留；后续任务不因此创建新分支。
 
 ## 内部执行序列
 
-- PF-02 的 TASK-SD-006+ 由 Claude Code 按依赖连续执行，不再逐项派遣。
+- PF-02 的 TASK-SD-007+ 由 Claude Code 按依赖连续执行，不再逐项派遣。
 
 ## 阻塞与待决策
 

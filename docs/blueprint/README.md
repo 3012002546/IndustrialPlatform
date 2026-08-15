@@ -11,7 +11,7 @@
 - API 使用包含 `Z` 或明确偏移量的 ISO 8601 / RFC 3339 时间字符串。
 - PostgreSQL 持久化瞬时时间统一使用 `timestamp with time zone`（`timestamptz`），以 UTC 保存；展示时按用户、工厂或设备时区转换。
 
-当前执行优先级由 [`09-Industrial Platform开发总TodoList.md`](09-Industrial%20Platform开发总TodoList.md) 的 PF/MES 阶段编号维护，不再由文档文件编号推断。当前状态为：`BuildingBlocks/可运行基线/统一前端（已完成） → PF-00 Identity（历史 001～016 已完成，补强 017～023 尚未开发） → PF-01（001～007 已完成） → PF-02（001～002 待验收、003 migration-only 已提交且通用扩展待派遣） → PF-03～PF-10 → PF-10A → PF-11 → MES 阶段`。
+当前执行优先级由 [`09-Industrial Platform开发总TodoList.md`](09-Industrial%20Platform开发总TodoList.md) 的 PF/MES 阶段编号维护，不再由文档文件编号推断。当前状态为：`BuildingBlocks/可运行基线/统一前端（已完成） → PF-00 Identity（001～023 当前范围已完成） → PF-01（001～007 已完成） → PF-02（001～006 已完成，007+ 继续） → PF-03～PF-10 → PF-10A → PF-11 → MES 阶段`。
 
 平台基础层当前七个 Service Host、内部模块边界和阶段映射统一读取 [`32-Industrial Platform Service Host与内部模块边界.md`](32-Industrial%20Platform%20Service%20Host与内部模块边界.md)。阶段不等于微服务；旧文档中的独立 Service 名称在冲突时只表示未来拆分目标。PF-03+ 服务/模块的数据库、迁移、种子、一次性引导和 readiness 统一读取 [`33-Industrial Platform SystemData数据库编排与环境引导.md`](33-Industrial%20Platform%20SystemData数据库编排与环境引导.md)。
 

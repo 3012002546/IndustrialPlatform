@@ -6,9 +6,9 @@
 
 版本：V1.1
 
-阶段：PF-02 SystemData；前置 Identity 历史 `TASK-ID-001～016` 与 PF-01 `TASK-PF01-001～007` 已完成，Identity 补强 `TASK-ID-017～023` 尚未开发。本方案区分当前可依赖提交、后续稳定契约和待联合验收项，不把补强设计写成现有实现。
+阶段：PF-02 SystemData；前置 Identity `TASK-ID-001～023` 与 PF-01 `TASK-PF01-001～007` 已完成。PF-02 的 `TASK-SD-001～006` 已完成并合入，下一内部任务从 `TASK-SD-007` 继续。
 
-阶段管理状态：存量实现已提交、SD-004 已完成待验收。`961cad4` 已实现 TASK-SD-001～002，状态为待验收；并行提交 `61753dc` 已交付 TASK-SD-003 的 migration-only Runner/PG/SQLite adapter/tests；TASK-SD-004 已派遣并完成（ServiceInitialization 握手/NotReady 契约、Runner RequiredSeed/SecretBootstrap、双账本与 13 项门禁测试落地，SystemData 5 项目 242/242 全绿，PostgreSQL 种子账本语义云端 Docker 真实验证 3/3），提交待确认；TASK-SD-005～013 尚未实现。除非用户主动明确要求修改代码或执行派遣，本会话只维护蓝图和详细设计。
+阶段管理状态：开发中。`TASK-SD-001～006` 已完成并合入 `develop`；SD-006 全解决方案 Debug/Release 构建 0 警告、0 错误，SystemData 五层测试 492/492。`TASK-SD-007～013` 尚未实现，由 PF-02 固定工作线按依赖连续执行。完整 SD-006 证据见 `docs/evidence/TASK-SD-006.md`。
 
 模块或服务：
 
@@ -1587,7 +1587,7 @@ TASK-SD-004 + 010 + 011 + 012
 
 ## TASK-SD-001 创建服务骨架与 SystemData 自身最小引导边界
 
-**状态：** 待验收（`961cad4` 已实现代码与测试资产，本轮未重新 build/test，真实 PostgreSQL 18 自举证据仍待验收）
+**状态：** 已完成
 
 **目标：** 创建 `SystemData.Service` 五层项目和测试基线，实现受信任 topology options/resolver，冻结 PostgreSQL 18 基础设施最小引导、三类分权连接、SystemData 自有显式迁移、无循环自编排和 readiness 边界。
 
@@ -1609,7 +1609,7 @@ TASK-SD-004 + 010 + 011 + 012
 
 ## TASK-SD-002 实现数据库注册、Plan 与 Operation 控制面基线
 
-**状态：** 待验收（`961cad4` 已实现 migration-only v1 控制面与测试资产，本轮未重跑；InitializationManifest/SeedSets 扩展归 TASK-SD-003）
+**状态：** 已完成
 
 **目标：** 交付保留 logical/physical identity 与 topology revision 的 migration-only v1 注册/查询、异步 dry-run/plan/validation、审批、备份证据、apply 入队和 Operation 状态机，作为通用初始化协议的兼容基线。
 
@@ -1631,7 +1631,7 @@ TASK-SD-004 + 010 + 011 + 012
 
 ## TASK-SD-003 将内部 Runner 扩展为通用服务初始化 Pipeline
 
-**状态：** 待派遣（`61753dc` 已提交 migration-only Runner/PG/SQLite adapter/tests；本卡剩余通用 seed/bootstrap/双账本扩展尚未开发）
+**状态：** 已完成
 
 **目标：** 保留当前 provision/migrate/verify WIP，在 `SystemData.Service` 内扩展 InitializationManifest/SeedSets、双账本 observation、SchemaMigration、RequiredSeed、按需 SecretBootstrap、Verify 与 readiness，形成通用 Service Initialization Pipeline。
 
@@ -1653,7 +1653,7 @@ TASK-SD-004 + 010 + 011 + 012
 
 ## TASK-SD-004 交付初始化握手、NotReady 契约与验收夹具
 
-**状态：** 待验收
+**状态：** 已完成
 
 **目标：** 提供 PF-03+ 可复用的 ServiceKey/ModuleKey 注册、Operation 观察、迁移/RequiredSeed/bootstrap 校验和 NotReady 契约，并用多模块 fixture 完成 Development/Test 与 Production 初始化门禁验收。
 
@@ -1675,7 +1675,7 @@ TASK-SD-004 + 010 + 011 + 012
 
 ## TASK-SD-005 实现行政组织、岗位与任职领域及持久化
 
-**状态：** 待派遣
+**状态：** 已完成
 
 **目标：** 按已确认规则实现 AdministrativeOrganization、Position、UserAssignment 聚合、时间区间、主任职、仓储和 SDM-004～006 迁移。
 
@@ -1697,7 +1697,7 @@ TASK-SD-004 + 010 + 011 + 012
 
 ## TASK-SD-006 实现组织、岗位与任职应用用例和 API
 
-**状态：** 待派遣
+**状态：** 已完成
 
 **目标：** 纵向交付组织森林、岗位、用户任职、移动预览、主任职切换、权限、审计端口和第 9.2 节 API，不接入未稳定的真实 Identity endpoint。
 
@@ -1921,12 +1921,12 @@ TASK-SD-004 + 010 + 011 + 012
 
 | 任务 | 状态 | 执行者/任务 | 提交 | 验证证据 | 结果回写 |
 | --- | --- | --- | --- | --- | --- |
-| TASK-SD-001 | 待验收 | 历史实现 | `961cad4` | 已提交五层骨架、Gateway、拓扑解析、自迁移与测试资产；本轮未重跑，PostgreSQL 18 自举/角色证据待验收 | 真实项目与基线已写入 §1.2；不得写成阶段完成 |
-| TASK-SD-002 | 待验收 | 历史实现 | `961cad4` | 已提交 registration/plan/approval/backup/Operation 控制面及测试资产；本轮未重跑 | migration-only v1 作为兼容基线；SeedSets 扩展归 003 |
-| TASK-SD-003 | 待派遣（通用扩展） | 历史并行实现 | `61753dc` | migration-only Runner/PG/SQLite adapter/tests 已提交但本轮未重跑；仍无 RequiredSeed/SecretBootstrap | 保留提交，增量扩展蓝图 33 V2.0；不得回退历史实现 |
-| TASK-SD-004 | 待验收 | 本会话实现 | 未提交（待确认） | 2026-08-14 新鲜验证：SystemData 5 项目 242/242 全绿、build 0/0、13 项门禁测试落地；PostgreSQL 种子账本语义云端 Docker 真实验证 3/3（`SeedLedgerPostgreSqlE2ETests`，含跨运行幂等与自清理）；全 slnx 构建被协作方 Identity WIP 阻断 | 契约 v2/manifest、fixture 路径与待验收项已回写卡片；PostgreSQL 真账本已验证；余下全 Runner 生产门禁与 Redis/RabbitMQ 真实环境待验收 |
-| TASK-SD-005 | 待派遣 | - | - | - | - |
-| TASK-SD-006 | 待派遣 | - | - | - | - |
+| TASK-SD-001 | 已完成 | Claude Code / PF-02 | `961cad4` | 五层骨架、Gateway、拓扑、自迁移与测试资产已纳入整体构建测试 | 已合入 `develop` |
+| TASK-SD-002 | 已完成 | Claude Code / PF-02 | `961cad4` | registration/plan/approval/backup/Operation 控制面已纳入整体构建测试 | 已合入 `develop` |
+| TASK-SD-003 | 已完成 | Claude Code / PF-02 | `61753dc` | Runner、PG/SQLite adapter、RequiredSeed/SecretBootstrap 与双账本扩展已完成 | 已合入 `develop` |
+| TASK-SD-004 | 已完成 | Claude Code / PF-02 | `05fe591` | 13 项门禁测试；PostgreSQL 种子账本云端 Docker 3/3 | 已合入 `develop` |
+| TASK-SD-005 | 已完成 | Claude Code / PF-02 | `69c49b7` | 组织、岗位、时间化任职领域、持久化及测试已完成 | 已合入 `develop` |
+| TASK-SD-006 | 已完成 | Claude Code / PF-02 | `1b72c6b` | Debug/Release build 0/0；SystemData 五层 492/492；OpenAPI 17 端点 | 见 `docs/evidence/TASK-SD-006.md` |
 | TASK-SD-007 | 待派遣 | - | - | - | - |
 | TASK-SD-008 | 待派遣 | - | - | - | - |
 | TASK-SD-009 | 待派遣 | - | - | - | - |

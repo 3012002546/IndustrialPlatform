@@ -65,16 +65,16 @@
 
 # 3. 当前真实基线
 
-截至 2026-08-11：
+截至 2026-08-15：
 
 | 范围 | 状态 | 证据与说明 |
 | --- | --- | --- |
 | BuildingBlocks | 已完成 | 原基础能力和 `TASK-BB-010` 已完成 |
 | 可运行基线 | 基本完成，Docker 实机待验收 | `TASK-BASE-001/003/004/005/006` 完成，`TASK-BASE-002` 待 Docker 环境验收 |
 | 统一前端第一批 | 已完成 | `TASK-FE-001～010` 执行记录均已完成 |
-| Identity | 补强设计已确认 | 历史 `TASK-ID-001～016` 已完成；用户组、安全删除、正式 admin 引导和管理闭环为新增 `TASK-ID-017～023`，尚未开发 |
+| Identity | 当前范围已完成 | `TASK-ID-001～023` 已完成并合入 `develop`；本地可验证门禁全绿，真实 PostgreSQL/Redis 联合登录链路保留为外部验收项 |
 | PF-01 视觉主题与平台外壳 | 已完成（外部真机项待验收） | 实施 04 `TASK-PF01-001～007` 已完成；真实 Identity 联合验收 real E2E 19/19 |
-| PF-02 SystemData | 部分实现，通用初始化设计已确认 | `961cad4` 已提交骨架/控制面，`61753dc` 已提交 migration-only Runner/PG/SQLite adapter/tests；通用 Seed/Bootstrap 扩展尚未开发 |
+| PF-02 SystemData | 开发中 | `TASK-SD-001～006` 已完成并合入 `develop`；SD-006 SystemData 五层测试 492/492，通过全解决方案 Debug/Release 构建；`TASK-SD-007+` 继续执行 |
 | ReferenceData | 仅骨架 | 已有健康检查、测试入口和详细实施方案，业务能力尚未开发 |
 | MasterData | 暂缓 | 实施方案存在，本轮不进入开发 |
 | OperationalData | 暂缓 | 实施方案存在，本轮不进入开发 |
@@ -87,7 +87,7 @@
 已完成基础
   BuildingBlocks / Runnable Baseline / Frontend First Batch
         ↓
-PF-00 Identity（历史 TASK-ID-001～016 已完成；补强 TASK-ID-017～023 尚未开发）
+PF-00 Identity（TASK-ID-001～023 当前范围已完成）
         ↓
 PF-01 视觉、主题与平台外壳（TASK-PF01-001～007 已完成）
   ├──────────────┐
@@ -171,10 +171,10 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 
 # 7. PF-00 Identity
 
-**状态：** 补强设计已确认，尚未派遣
+**状态：** 当前范围已完成
 **现有实施文档：** `docs/implementation/03-Industrial Platform Identity Service开发实施方案.md`
 **目标：** 完成用户、角色、权限、本地登录、令牌、会话、企业 SSO 边界和三端真实登录闭环。
-**当前进度：** 历史 `TASK-ID-001～016` 已由提交 `48c5374` 完成；新增 `TASK-ID-017～023` 覆盖用户组、安全删除、SystemData 协同 admin 引导、前端管理闭环和真实登录验收，设计已确认但尚未开发。
+**当前进度：** `TASK-ID-001～023` 已完成并合入 `develop`。PF-00 本地门禁包括后端 Release 构建、Identity 五工程测试、SystemData Contract 测试以及前端 typecheck/lint/unit/build；真实 PostgreSQL/Redis 联合登录 E2E 仍作为外部验收项保留。
 **前置：** BuildingBlocks、可运行基线、统一前端第一批。
 **禁止范围：** SystemData 行政组织、菜单所有权、聊天、业务数据权限模型扩张。
 
@@ -186,9 +186,9 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 - 输出 PF-01/02/03 可消费的用户、权限、会话和身份上下文契约；
 - Docker 缺失造成的外部验收项明确保留为待验收，不伪报完成。
 
-**补强起点：** 历史 `TASK-ID-001～016` 不重复派遣；下一项为 `TASK-ID-017` 用户组领域、持久化与授权求值。
+**后续：** 当前补强范围不再派遣；后续契约变更另立范围。
 
-**下一会话：** 用户恢复 PF-00 后继续现有 Identity 开发任务，不在其他阶段代做 Identity 剩余范围。
+**证据：** `docs/evidence/PF-00.md`；集成提交 `9f48d89`，状态回写提交 `8dc8b91`。
 
 # 8. PF-01 视觉、主题与平台外壳
 
@@ -214,7 +214,7 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 
 # 9. PF-02 SystemData
 
-**状态：** 待派遣（设计已批准、存量部分实现）；migration-only Runner 已提交，通用扩展待派遣
+**状态：** 开发中；`TASK-SD-001～006` 已完成，`TASK-SD-007+` 待继续
 **Service Host：** 创建 `SystemData.Service`；本阶段只交付 SystemData 模块。
 **建议会话标题：** `PF-02 SystemData阶段管理`
 **输入：** 蓝图 05、07、13、20、23、27、30、31、32、33；PF-00 身份契约；PF-01 页面规范；PostgreSQL 18 与当前 `deploy/cloud-dev` 最小引导现状。
@@ -224,7 +224,7 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 
 **设计会话必须解决：**
 
-- **最高优先级：** `TASK-SD-001～004` 是阻塞链。`961cad4` 已实现 001～002 并待验收；`61753dc` 已提交 003 的 migration-only Runner，但 migration/seed/bootstrap 通用扩展仍待派遣；004 完成 consumer handshake/readiness 与验收。在该链满足初始化门禁前，不得开始 `TASK-SD-005+`。
+- **最高优先级初始化链：** `TASK-SD-001～004` 已完成；`TASK-SD-005～006` 的组织、岗位、任职领域、持久化、应用用例与 API 已完成并合入。下一内部任务从 `TASK-SD-007` 继续。
 
 - 行政组织树、岗位和任职关系的不变量；
 - 菜单、路由、按钮资源与 Identity 权限的所有权和同步；
@@ -466,9 +466,9 @@ WorkOrder、Weighting、Trace、BatchRecord 和生产闭环分别开会话设计
 
 | 阶段 | 状态 | 阶段管理会话 | 设计依据 | 实施方案 | 派遣/提交 | 验收证据 |
 | --- | --- | --- | --- | --- | --- | --- |
-| PF-00 Identity | 补强设计已确认，尚未派遣 | 现有 Identity 会话 | 蓝图 13、31、33 | 实施 03 | 历史提交 `48c5374` 完成 TASK-ID-001～016；TASK-ID-017～023 尚无实现提交 | 见实施 03；本轮仅完成设计，补强联合验收尚未执行 |
+| PF-00 Identity | 当前范围已完成 | PF-00 固定工作线 | 蓝图 13、31、33 | 实施 03 | TASK-ID-001～023 已完成；PF-00 集成提交 `9f48d89` | `docs/evidence/PF-00.md`；本地门禁全绿，真实 PostgreSQL/Redis 联合链路为外部验收项 |
 | PF-01 视觉主题 | 已完成（外部真机项待验收） | 现有 PF-01 会话继续 | 已批准 PF-01 规格 | `docs/implementation/04-Industrial Platform视觉主题与平台外壳开发实施方案.md` | 设计提交 `e2d24a4`、`d7ef889`、`efb3b35`；开发未提交(按协作约定) | TASK-PF01-001～007 完成；静态门禁全绿、mock E2E 102/102、真实 Identity E2E 19/19 |
-| PF-02 SystemData | 部分实现；通用初始化设计已确认 | 现有 PF-02 会话 | 蓝图 05、07、33 V2.0 | `docs/implementation/05-Industrial Platform SystemData开发实施方案.md` | `961cad4` 已实现 001～002；`61753dc` 已提交 003 migration-only 基线 | 001～002 待验收；003 通用扩展待派遣；004+ 未实现，本轮未重跑测试 |
+| PF-02 SystemData | 开发中；TASK-SD-001～006 已完成 | PF-02 固定工作线 | 蓝图 05、07、33 V2.0 | `docs/implementation/05-Industrial Platform SystemData开发实施方案.md` | 001～004 已集成；005 提交 `69c49b7`；006 集成提交 `1b72c6b` | SD-006 五层测试 492/492、Debug/Release 构建 0/0；见 `docs/evidence/TASK-SD-006.md`；007+ 待继续 |
 | PF-03 ReferenceData | 仅骨架 | 待创建 | 蓝图及现有设计待复核 | 实施 06 待修订 | - | - |
 | PF-04 File / Notification / Audit | 待启动 | 待创建 | 蓝图 05、30、31 | 实施 07 待创建 | - | - |
 | PF-05 Collaboration | 待启动 | 待创建 | 蓝图 05 | 实施 08 待创建 | - | - |
