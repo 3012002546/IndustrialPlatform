@@ -1,8 +1,12 @@
+using IndustrialPlatform.SystemData.Application.Assignments;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Runner;
+using IndustrialPlatform.SystemData.Application.Organizations;
+using IndustrialPlatform.SystemData.Application.Positions;
 using IndustrialPlatform.SystemData.Infrastructure.DatabaseOrchestration;
 using IndustrialPlatform.SystemData.Infrastructure.DatabaseOrchestration.Runner;
 using IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations;
+using IndustrialPlatform.SystemData.Infrastructure.Persistence.SystemData;
 using IndustrialPlatform.SystemData.Infrastructure.Topology;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -78,6 +82,12 @@ public static class DependencyInjection
         services.AddSingleton<DatabaseOperationRunner>();
         services.AddSingleton<IOperationRunnerCoordinator>(sp => sp.GetRequiredService<DatabaseOperationRunner>());
         services.AddHostedService<DatabaseOrchestrationRunnerHostedService>();
+
+        // 组织/岗位/任职持久化端口(TASK-SD-005):仓储与按用户 advisory lock。
+        services.AddSingleton<IAdministrativeOrganizationStore, AdministrativeOrganizationStore>();
+        services.AddSingleton<IPositionStore, PositionStore>();
+        services.AddSingleton<IUserAssignmentStore, UserAssignmentStore>();
+        services.AddSingleton<IUserAssignmentAdvisoryLock, UserAssignmentAdvisoryLock>();
 
         return services;
     }

@@ -1,5 +1,8 @@
 using System.Text.Json;
+using IndustrialPlatform.SystemData.Domain.Assignments;
 using IndustrialPlatform.SystemData.Domain.DatabaseOrchestration;
+using IndustrialPlatform.SystemData.Domain.Organizations;
+using IndustrialPlatform.SystemData.Domain.Positions;
 using IndustrialPlatform.SystemData.Infrastructure.Persistence.Entities;
 
 namespace IndustrialPlatform.SystemData.Infrastructure.Persistence;
@@ -610,6 +613,158 @@ internal static class TableMapper
         row.AppliedOn,
         row.OperationNId,
         row.VerificationStatus,
+        row.IsFrozen,
+        row.IsLocked,
+        row.IsDeleted,
+        row.EntityType,
+        row.CreatedOn,
+        row.LastUpdatedOn,
+        row.OptimisticVersion,
+        row.ConcurrencyVersion);
+
+    // ===== 行政组织 =====
+
+    public static AdministrativeOrganizationTable ToTable(AdministrativeOrganization organization) => new()
+    {
+        Id = organization.Id,
+        IsFrozen = organization.IsFrozen,
+        IsLocked = organization.IsLocked,
+        IsDeleted = organization.IsDeleted,
+        EntityType = organization.EntityType,
+        CreatedOn = organization.CreatedOn,
+        LastUpdatedOn = organization.LastUpdatedOn,
+        OptimisticVersion = organization.OptimisticVersion,
+        ConcurrencyVersion = organization.ConcurrencyVersion,
+        TenantNId = organization.TenantNId,
+        NId = organization.NId,
+        NormalizedNId = organization.NormalizedNId,
+        Name = organization.Name,
+        NormalizedName = organization.Name.Trim().ToUpperInvariant(),
+        Type = (int)organization.Type,
+        ParentOrganizationNId = organization.ParentOrganizationNId,
+        ParentOrganizationId = organization.ParentOrganizationId,
+        ParentOrganizationIsDeleted = organization.ParentOrganizationIsDeleted,
+        DisplayOrder = organization.DisplayOrder,
+        Status = (int)organization.Status,
+        OrganizationRevision = organization.OrganizationRevision,
+    };
+
+    public static AdministrativeOrganization ToAdministrativeOrganization(AdministrativeOrganizationTable row) => new(
+        row.Id,
+        row.TenantNId,
+        row.NId,
+        row.NormalizedNId,
+        row.Name,
+        (AdministrativeOrganizationType)row.Type,
+        row.ParentOrganizationNId,
+        row.ParentOrganizationId,
+        row.ParentOrganizationIsDeleted,
+        row.DisplayOrder,
+        (OrganizationStatus)row.Status,
+        row.OrganizationRevision,
+        row.IsFrozen,
+        row.IsLocked,
+        row.IsDeleted,
+        row.EntityType,
+        row.CreatedOn,
+        row.LastUpdatedOn,
+        row.OptimisticVersion,
+        row.ConcurrencyVersion);
+
+    // ===== 岗位 =====
+
+    public static PositionTable ToTable(Position position) => new()
+    {
+        Id = position.Id,
+        IsFrozen = position.IsFrozen,
+        IsLocked = position.IsLocked,
+        IsDeleted = position.IsDeleted,
+        EntityType = position.EntityType,
+        CreatedOn = position.CreatedOn,
+        LastUpdatedOn = position.LastUpdatedOn,
+        OptimisticVersion = position.OptimisticVersion,
+        ConcurrencyVersion = position.ConcurrencyVersion,
+        TenantNId = position.TenantNId,
+        NId = position.NId,
+        NormalizedNId = position.NormalizedNId,
+        OrganizationNId = position.OrganizationNId,
+        OrganizationId = position.OrganizationId,
+        OrganizationIsDeleted = position.OrganizationIsDeleted,
+        Name = position.Name,
+        NormalizedName = position.Name.Trim().ToUpperInvariant(),
+        Description = position.Description,
+        DisplayOrder = position.DisplayOrder,
+        Status = (int)position.Status,
+    };
+
+    public static Position ToPosition(PositionTable row) => new(
+        row.Id,
+        row.TenantNId,
+        row.NId,
+        row.NormalizedNId,
+        row.OrganizationNId,
+        row.OrganizationId,
+        row.OrganizationIsDeleted,
+        row.Name,
+        row.Description,
+        row.DisplayOrder,
+        (PositionStatus)row.Status,
+        row.IsFrozen,
+        row.IsLocked,
+        row.IsDeleted,
+        row.EntityType,
+        row.CreatedOn,
+        row.LastUpdatedOn,
+        row.OptimisticVersion,
+        row.ConcurrencyVersion);
+
+    // ===== 用户任职 =====
+
+    public static UserAssignmentTable ToTable(UserAssignment assignment) => new()
+    {
+        Id = assignment.Id,
+        IsFrozen = assignment.IsFrozen,
+        IsLocked = assignment.IsLocked,
+        IsDeleted = assignment.IsDeleted,
+        EntityType = assignment.EntityType,
+        CreatedOn = assignment.CreatedOn,
+        LastUpdatedOn = assignment.LastUpdatedOn,
+        OptimisticVersion = assignment.OptimisticVersion,
+        ConcurrencyVersion = assignment.ConcurrencyVersion,
+        TenantNId = assignment.TenantNId,
+        NId = assignment.NId,
+        NormalizedNId = assignment.NormalizedNId,
+        UserNId = assignment.UserNId,
+        UserDisplayNameSnapshot = assignment.UserDisplayNameSnapshot,
+        OrganizationNId = assignment.OrganizationNId,
+        PositionNId = assignment.PositionNId,
+        PositionId = assignment.PositionId,
+        PositionIsDeleted = assignment.PositionIsDeleted,
+        IsPrimary = assignment.IsPrimary,
+        EffectiveFrom = assignment.EffectiveFrom,
+        EffectiveTo = assignment.EffectiveTo,
+        State = (int)assignment.State,
+        CancelledOn = assignment.CancelledOn,
+        CancelReason = assignment.CancelReason,
+    };
+
+    public static UserAssignment ToUserAssignment(UserAssignmentTable row) => new(
+        row.Id,
+        row.TenantNId,
+        row.NId,
+        row.NormalizedNId,
+        row.UserNId,
+        row.UserDisplayNameSnapshot,
+        row.OrganizationNId,
+        row.PositionNId,
+        row.PositionId,
+        row.PositionIsDeleted,
+        row.IsPrimary,
+        row.EffectiveFrom,
+        row.EffectiveTo,
+        (AssignmentState)row.State,
+        row.CancelledOn,
+        row.CancelReason,
         row.IsFrozen,
         row.IsLocked,
         row.IsDeleted,

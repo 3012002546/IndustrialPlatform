@@ -94,14 +94,15 @@ public sealed class SystemDataOrchestrationStoreTests : IDisposable
     // =====================================================================
 
     [Fact]
-    public async Task ApplyAllMigrations_CreatesAllTenTables()
+    public async Task ApplyAllMigrations_CreatesAllFourteenTables()
     {
         foreach (var tableName in AllTableNames)
         {
             await AssertTableExistsAsync(_dbContext.SqlSugar, tableName);
         }
 
-        Assert.Equal(11, await _dbContext.SqlSugar.Queryable<SchemaMigrationRecord>().CountAsync());
+        // SDM-001~003(9 步)+ SDM-004-01/02(2 步)+ SDM-004-03/005-01/006-01(TASK-SD-005 三张表)
+        Assert.Equal(14, await _dbContext.SqlSugar.Queryable<SchemaMigrationRecord>().CountAsync());
     }
 
     [Fact]
@@ -471,6 +472,9 @@ public sealed class SystemDataOrchestrationStoreTests : IDisposable
         "system_data_database_operation_step",
         "system_data_database_migration_observation",
         "system_data_seed_observation",
+        "system_data_organization",
+        "system_data_position",
+        "system_data_user_assignment",
     ];
 
     private static DatabaseRegistration CreateRegistration(string serviceKey = "systemdata", string version = "1.0.0") =>
