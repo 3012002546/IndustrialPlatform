@@ -7,25 +7,24 @@
 - 分支：`develop`
 - 本次整理开始基线：`226c345`
 - 远端关系：本次整理开始时领先 `origin/develop` 2 个本地文档提交。
-- 当前没有运行中的 Claude Code 或 Harness 任务。
+- Claude Code 的 TASK-SD-005 已完成并由 Codex 编译验收、合入 `develop`。
 
 ## 服务状态
 
 - BuildingBlocks：基线与公共组件已完成。
 - 统一前端与 PF-01：已完成；外部真机 safe-area 项仍待验收。
 - Identity：TASK-ID-001～018 已完成；ID-017 为用户组授权，ID-018 为用户与用户组安全删除恢复。
-- SystemData：TASK-SD-001～004 已完成；云端 PostgreSQL 种子账本语义已验证。
+- SystemData：TASK-SD-001～005 已完成；云端 PostgreSQL 种子账本语义已验证。
 - ReferenceData：保持服务骨架，业务功能未实施。
 
 ## 进行中
 
 - TASK-ID-019：Harness，`task/pf-00-id-019`，worktree `IndustrialPlatform-worktrees/pf-00`，任务卡 `docs/tasks/active/TASK-ID-019.md`。
-- TASK-SD-005：Claude Code，`task/pf-02-sd-005`，worktree `IndustrialPlatform-worktrees/pf-02`，任务卡 `docs/tasks/active/TASK-SD-005.md`。
 
 ## 待派遣
 
 - TASK-ID-020～023：等待 TASK-ID-019 验收后按 Identity 实施方案 §29A 派遣。
-- TASK-SD-006+：等待对应前置任务验收后派遣。
+- TASK-SD-006+：TASK-SD-005 已完成，可按依赖顺序派遣。
 - PF-00、PF-02 等前端工作以 Codex 最新蓝图和新任务卡为准，不沿用已停止智能体的会话状态。
 
 ## 阻塞与待决策
@@ -36,6 +35,7 @@
 
 ## 最近验收
 
+- `69c49b7`：TASK-SD-005 组织、岗位与时间化任职领域和持久化。
 - `83a00d1`：TASK-ID-018 用户与用户组安全删除恢复。
 - `07d6863`：TASK-ID-017 用户组授权模型。
 - `05fe591`：TASK-SD-004 初始化握手、NotReady 契约与验收夹具。
@@ -46,3 +46,4 @@
 - 派遣时加入“进行中”，记录负责人、任务卡、worktree 和分支。
 - 完成后从“进行中”删除，任务卡移入 archive，结果写入 evidence。
 - 不累计会话快照、完整变更清单或历史测试日志。
+- 执行智能体负责任务内测试；Codex 只做最终 Release 编译，成功后提交和集成。

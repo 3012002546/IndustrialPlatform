@@ -2,7 +2,7 @@
 
 ## 总负责人
 
-Codex 是本项目唯一总负责人，负责蓝图设计、开发 TODO、依赖分析、任务派遣、冲突裁决、代码审查、集成和最终验收。
+Codex 是本项目唯一总负责人，负责蓝图设计、开发 TODO、依赖分析、整张任务卡派遣、冲突裁决、最终 Release 编译门禁、提交和集成。
 
 Claude Code 与 Harness 是职责等价的编码执行智能体。它们只能执行 Codex 派发的任务卡，不得自行调整总体蓝图、优先级、跨模块边界或其他智能体的任务。
 
@@ -27,28 +27,27 @@ Claude Code 与 Harness 是职责等价的编码执行智能体。它们只能�
 - Claude Code 与 Harness 不得在主工作树或同一工作树内并行编码。
 - 派遣前检查允许修改范围是否重叠；公共文件存在冲突时，由 Codex 排定先后顺序。
 - 编码智能体不得合并、rebase、cherry-pick 或处理其他任务分支。
-- Codex 验收执行者提交后，按依赖顺序集成并执行最终门禁。
+- 编码执行者完成实现和内部验证后保留未提交工作树；Codex 通过最终 Release 编译门禁后统一提交和集成。
 
 ## 派遣与交付
 
-Codex 使用 `docs/tasks/TEMPLATE.md` 创建任务卡，至少明确目标、输入章节、无需读取、依赖、worktree、分支、允许/禁止修改范围、验证命令和 evidence 位置。
+Codex 使用 `docs/tasks/TEMPLATE.md` 创建完整任务卡，至少明确目标、输入章节、依赖、worktree、分支、允许/禁止修改范围和执行者内部验证命令。一个 PF 当前任务原则上整张交给一个执行智能体，不再由 Codex 拆出大量内部子任务或反复审核。
 
-编码智能体交付固定包含：状态、提交哈希、修改文件、关键决策、验证命令与结果、剩余风险。详细结果写入对应 evidence，不在消息中复述完整设计。
+编码智能体全权负责本任务的编码、测试、修复和内部验证。交付只需包含：状态、主要修改范围、验证命令与结果、剩余风险；evidence 保持短小，不复述完整设计。
 
-## 构建与测试门禁
+## 验证与提交门禁
 
-- 源码可能变化或曾发生 `bin/obj` 锁定时，先执行新鲜 Release 构建，再运行测试。
-- 后端正常门禁：
+- 编码智能体负责运行任务卡要求的测试并解决失败；Codex 信任其验证结果，不重复运行测试，也不再逐条重审已交付规格。
+- Codex 只运行与任务对应的新鲜 Release 编译。后端默认命令：
 
 ```powershell
 dotnet build src/backend/IndustrialPlatform.slnx --configuration Release
-dotnet test src/backend/IndustrialPlatform.slnx --configuration Release --no-build
 ```
 
-- `dotnet test --no-build` 只验证已有编译产物，不得用于证明未重新构建的源码。
 - 若出现 CS2012 或 `obj` 访问拒绝，先检查 `dotnet`、`testhost`、`VBCSCompiler` 进程；锁释放后必须重建。
-- 执行者运行任务定向测试；Codex 集成后集中运行全量 Release 门禁。
-- 测试后释放测试自产进程和临时库，不影响活动的 Visual Studio 调试会话。
+- Release 编译成功后，Codex 只做提交卫生检查（范围、私有配置、构建产物），随后直接提交并按依赖顺序合入 `develop`。
+- Release 编译失败时退回原执行智能体修复，不另开复核子任务。
+- 只有安全风险、明显越界、数据破坏风险或用户明确要求时，Codex 才增加专项检查。
 
 ## 提交边界
 
@@ -68,6 +67,6 @@ dotnet test src/backend/IndustrialPlatform.slnx --configuration Release --no-bui
 
 ## 所有权
 
-- Codex：`AGENTS.md`、`CURRENT.md`、蓝图、TODO、任务卡、优先级和最终验收。
+- Codex：`AGENTS.md`、`CURRENT.md`、蓝图、TODO、任务卡、优先级、最终编译门禁、提交和集成。
 - Claude Code/Harness：被指派的任务代码与对应 evidence。
 - `CLAUDE.md`、`DSH.md`、`EXECUTOR.md` 由 Codex 制定，编码智能体只读。
