@@ -1,8 +1,10 @@
 using IndustrialPlatform.Security;
 using IndustrialPlatform.SharedKernel.Exceptions;
+using IndustrialPlatform.SystemData.Api.Authorization;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration;
 using IndustrialPlatform.SystemData.Contracts.DatabaseOrchestration;
 using IndustrialPlatform.Web.Results;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace IndustrialPlatform.SystemData.Api.Controllers;
@@ -13,10 +15,12 @@ namespace IndustrialPlatform.SystemData.Api.Controllers;
 /// v1 <see cref="DatabaseOrchestrationController"/> 保持兼容(moduleKey 缺省=serviceKey),本控制器
 /// 不加重复执行路径,仅暴露模块级 v2 契约;同一写请求的幂等语义(Idempotency-Key + 语义 request hash)
 /// 与 v1 完全一致,错误统一 SD_ 信封(§9.9)。
-/// 环境(NId)由服务端可信拓扑解析,请求体不含环境标识;鉴权由 SD-006 接入,当前保留 401 防御。
+/// 环境(NId)由服务端可信拓扑解析,请求体不含环境标识;本任务(SD-006)接入
+/// [Authorize] 权限策略(§9.6 systemdata.service-initialization.*),保留 401 防御。
 /// </summary>
 [ApiController]
 [Route("service-initialization")]
+[Authorize]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public sealed class ServiceInitializationController : SystemDataControllerBase
 {
@@ -52,6 +56,7 @@ public sealed class ServiceInitializationController : SystemDataControllerBase
 
     /// <summary>注册/重注册模块级版本化清单(PUT /api/v1/service-initialization/registrations/{serviceKey}/{moduleKey});幂等返回现有注册。</summary>
     [HttpPut("registrations/{serviceKey}/{moduleKey}")]
+    [Authorize(Policy = SystemDataPermissionPolicies.ServiceInitializationRegister)]
     public async Task<ActionResult<DatabaseRegistrationV1>> RegisterModule(
         string serviceKey,
         string moduleKey,
@@ -81,6 +86,7 @@ public sealed class ServiceInitializationController : SystemDataControllerBase
 
     /// <summary>分页查询注册清单(GET /api/v1/service-initialization/registrations),ServiceKey/ModuleKey 可选包含过滤。</summary>
     [HttpGet("registrations")]
+    [Authorize(Policy = SystemDataPermissionPolicies.ServiceInitializationView)]
     public async Task<ActionResult<PageResult<DatabaseRegistrationSummaryV1>>> ListRegistrations(
         [FromQuery] string? serviceKey,
         [FromQuery] string? moduleKey,
@@ -115,6 +121,7 @@ public sealed class ServiceInitializationController : SystemDataControllerBase
 
     /// <summary>按 (ServiceKey, ModuleKey) 查询注册清单(GET /api/v1/service-initialization/registrations/{serviceKey}/{moduleKey});不存在 404。</summary>
     [HttpGet("registrations/{serviceKey}/{moduleKey}")]
+    [Authorize(Policy = SystemDataPermissionPolicies.ServiceInitializationView)]
     public async Task<ActionResult<DatabaseRegistrationV1>> GetRegistration(
         string serviceKey,
         string moduleKey,
@@ -143,6 +150,7 @@ public sealed class ServiceInitializationController : SystemDataControllerBase
 
     /// <summary>入队异步模块级计划(POST /api/v1/service-initialization/plans);Idempotency-Key 幂等重放返回原 Operation。</summary>
     [HttpPost("plans")]
+    [Authorize(Policy = SystemDataPermissionPolicies.ServiceInitializationPlan)]
     public async Task<ActionResult<EnqueueOperationV1>> EnqueuePlan(
         ServiceInitializationPlanRequestV2 request,
         CancellationToken cancellationToken)
@@ -181,6 +189,7 @@ public sealed class ServiceInitializationController : SystemDataControllerBase
 
     /// <summary>分页查询不可变计划(GET /api/v1/service-initialization/plans)。</summary>
     [HttpGet("plans")]
+    [Authorize(Policy = SystemDataPermissionPolicies.ServiceInitializationView)]
     public async Task<ActionResult<PageResult<DatabasePlanV1>>> ListPlans(
         [FromQuery] int pageIndex = 1,
         [FromQuery] int pageSize = 20,
@@ -213,6 +222,7 @@ public sealed class ServiceInitializationController : SystemDataControllerBase
 
     /// <summary>按计划标识查询(GET /api/v1/service-initialization/plans/{planNId});不存在 404。</summary>
     [HttpGet("plans/{planNId}")]
+    [Authorize(Policy = SystemDataPermissionPolicies.ServiceInitializationView)]
     public async Task<ActionResult<DatabasePlanV1>> GetPlan(
         string planNId,
         CancellationToken cancellationToken)
@@ -240,6 +250,7 @@ public sealed class ServiceInitializationController : SystemDataControllerBase
 
     /// <summary>为计划登记审批(POST /api/v1/service-initialization/plans/{planNId}/approvals);计划过期 409。</summary>
     [HttpPost("plans/{planNId}/approvals")]
+    [Authorize(Policy = SystemDataPermissionPolicies.ServiceInitializationApprove)]
     public async Task<ActionResult<DatabaseApprovalV1>> CreateApproval(
         string planNId,
         DatabaseApprovalRequestV1 request,
@@ -268,6 +279,7 @@ public sealed class ServiceInitializationController : SystemDataControllerBase
 
     /// <summary>为计划登记备份证据(POST /api/v1/service-initialization/plans/{planNId}/backup-evidence);创建为 Captured。</summary>
     [HttpPost("plans/{planNId}/backup-evidence")]
+    [Authorize(Policy = SystemDataPermissionPolicies.ServiceInitializationBackup)]
     public async Task<ActionResult<DatabaseBackupEvidenceV1>> CreateBackupEvidence(
         string planNId,
         DatabaseBackupEvidenceRequestV1 request,
@@ -296,6 +308,7 @@ public sealed class ServiceInitializationController : SystemDataControllerBase
 
     /// <summary>入队异步模块级 apply(POST /api/v1/service-initialization/operations/apply);门禁:计划有效/未漂移/目标匹配/审批与备份。Idempotency-Key 幂等重放返回原 Operation。</summary>
     [HttpPost("operations/apply")]
+    [Authorize(Policy = SystemDataPermissionPolicies.ServiceInitializationApply)]
     public async Task<ActionResult<EnqueueOperationV1>> EnqueueApply(
         ServiceInitializationApplyRequestV2 request,
         CancellationToken cancellationToken)
@@ -334,6 +347,7 @@ public sealed class ServiceInitializationController : SystemDataControllerBase
 
     /// <summary>分页查询操作(GET /api/v1/service-initialization/operations),Kind/Status 枚举名可选过滤。</summary>
     [HttpGet("operations")]
+    [Authorize(Policy = SystemDataPermissionPolicies.ServiceInitializationView)]
     public async Task<ActionResult<PageResult<DatabaseOperationV1>>> ListOperations(
         [FromQuery] string? kind,
         [FromQuery] string? status,
@@ -368,6 +382,7 @@ public sealed class ServiceInitializationController : SystemDataControllerBase
 
     /// <summary>按操作标识查询(GET /api/v1/service-initialization/operations/{operationNId});不存在 404。</summary>
     [HttpGet("operations/{operationNId}")]
+    [Authorize(Policy = SystemDataPermissionPolicies.ServiceInitializationView)]
     public async Task<ActionResult<DatabaseOperationV1>> GetOperation(
         string operationNId,
         CancellationToken cancellationToken)
@@ -393,6 +408,7 @@ public sealed class ServiceInitializationController : SystemDataControllerBase
 
     /// <summary>取消操作(POST /api/v1/service-initialization/operations/{operationNId}/cancel);仅 Queued 或 Running 且未越过 Inspect 的安全边界。</summary>
     [HttpPost("operations/{operationNId}/cancel")]
+    [Authorize(Policy = SystemDataPermissionPolicies.ServiceInitializationCancel)]
     public async Task<ActionResult<DatabaseOperationV1>> CancelOperation(
         string operationNId,
         CancellationToken cancellationToken)
@@ -420,6 +436,7 @@ public sealed class ServiceInitializationController : SystemDataControllerBase
 
     /// <summary>查询模块级服务初始化就绪状态(GET /api/v1/service-initialization/readiness/{serviceKey}/{moduleKey});未就绪返回 503 SD_DB_NOT_READY 并携带 NotReady 形状。</summary>
     [HttpGet("readiness/{serviceKey}/{moduleKey}")]
+    [Authorize]
     public async Task<ActionResult<ServiceInitializationReadinessV2>> GetReadiness(
         string serviceKey,
         string moduleKey,

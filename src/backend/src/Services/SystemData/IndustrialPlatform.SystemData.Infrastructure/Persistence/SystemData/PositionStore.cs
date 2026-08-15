@@ -52,6 +52,36 @@ public sealed class PositionStore : IPositionStore
     }
 
     /// <inheritdoc />
+    public async Task<PositionListPage> QueryPositionsAsync(PositionListFilter filter, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+        var query = _dbContext.SqlSugar.Queryable<PositionTable>()
+            .Where(t => t.TenantNId == filter.TenantNId && !t.IsDeleted);
+
+        if (!string.IsNullOrWhiteSpace(filter.OrganizationNId))
+        {
+            var organizationNId = filter.OrganizationNId.Trim();
+            query = query.Where(t => t.OrganizationNId == organizationNId);
+        }
+
+        if (filter.Status is { } status)
+        {
+            query = query.Where(t => t.Status == (int)status);
+        }
+
+        var total = await query.CountAsync(cancellationToken);
+        var rows = await query
+            .OrderBy(t => t.OrganizationNId)
+            .OrderBy(t => t.DisplayOrder)
+            .OrderBy(t => t.NormalizedName)
+            .Skip((filter.PageIndex - 1) * filter.PageSize)
+            .Take(filter.PageSize)
+            .ToListAsync(cancellationToken);
+
+        return new PositionListPage(rows.Select(TableMapper.ToPosition).ToList(), total);
+    }
+
+    /// <inheritdoc />
     public async Task AddAsync(Position position, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(position);

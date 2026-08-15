@@ -12,6 +12,8 @@ builder.AddOptionalLocalDevelopmentInfrastructure(DevelopmentService.SystemData)
 builder.UseIndustrialSerilog();
 builder.Services.AddSystemDataInfrastructure(builder.Configuration);
 builder.Services.AddSystemDataApplication(builder.Configuration);
+builder.Services.AddSystemDataAuthentication(builder.Configuration);
+builder.Services.AddSystemDataAuthorization();
 builder.Services.AddCurrentUser();
 builder.Services.AddOpenApi();
 builder.Services.AddIndustrialApi(mvc => mvc.Conventions.Add(new RoutePrefixConvention()));
@@ -24,6 +26,8 @@ builder.Services.AddHealthChecks()
 var app = builder.Build();
 app.UseIndustrialWeb();
 app.UseRouting();
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapOpenApi();
 app.MapGet("/health", () => Results.Ok(new { status = "Healthy", service = "SystemData" }));
 app.MapHealthChecks("/health/live", new HealthCheckOptions

@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
+    <!-- 鉴权(TASK-SD-006):JwtBearer 从配置读取,自校验签名,未配置时 fail-closed 拒绝所有令牌 -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <!-- 钉定传递依赖 Microsoft.OpenApi 到已修复版本(2.7.5+),规避 GHSA-v5pm-xwqc-g5wc -->
     <PackageReference Include="Microsoft.OpenApi" />

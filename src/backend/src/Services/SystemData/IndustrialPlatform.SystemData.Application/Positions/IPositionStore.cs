@@ -24,6 +24,9 @@ public interface IPositionStore
         string? excludePositionNId,
         CancellationToken cancellationToken);
 
+    /// <summary>按组织/状态分页查询岗位(05 方案 §9.3 GET /positions;含软删过滤)。</summary>
+    Task<PositionListPage> QueryPositionsAsync(PositionListFilter filter, CancellationToken cancellationToken);
+
     /// <summary>新增岗位(组织内名称唯一冲突抛并发异常)。</summary>
     Task AddAsync(Position position, CancellationToken cancellationToken);
 
@@ -34,3 +37,19 @@ public interface IPositionStore
         Guid expectedConcurrencyVersion,
         CancellationToken cancellationToken);
 }
+
+/// <summary>岗位分页查询过滤(05 方案 §9.3 GET /positions)。</summary>
+/// <param name="TenantNId">租户业务标识。</param>
+/// <param name="OrganizationNId">可选组织过滤(空表示不限)。</param>
+/// <param name="Status">可选状态过滤(空表示不限)。</param>
+/// <param name="PageIndex">页码(从 1 开始)。</param>
+/// <param name="PageSize">每页条数。</param>
+public sealed record PositionListFilter(
+    string TenantNId,
+    string? OrganizationNId,
+    PositionStatus? Status,
+    int PageIndex,
+    int PageSize);
+
+/// <summary>岗位分页查询结果。</summary>
+public sealed record PositionListPage(IReadOnlyList<Position> Items, long Total);

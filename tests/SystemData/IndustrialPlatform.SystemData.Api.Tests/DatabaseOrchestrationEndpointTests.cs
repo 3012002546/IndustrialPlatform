@@ -16,7 +16,7 @@ namespace IndustrialPlatform.SystemData.Api.Tests;
 /// 数据库编排控制面端点全栈测试(05 方案 §9.2):真实 Program/控制器/服务,
 /// 以假存储与可信拓扑替换端口,验证统一 ApiResult 信封(202/200/400/404/409/503)、
 /// 401(无 actor)、幂等键冲突与 readiness 形状。
-/// (鉴权未接入,保留 TryGetActorContext→401 防御;SD-006 接入后补授权断言。)
+/// SD-006 接入 [Authorize] 权限策略后,以测试方案注入编排/初始化权限通过授权管线。
 /// </summary>
 public sealed class DatabaseOrchestrationEndpointTests
 {
@@ -379,7 +379,38 @@ public sealed class DatabaseOrchestrationEndpointTests
                 services.AddSingleton<IDatabaseTopologyProvider>(new FakeTopologyProvider(topology));
                 services.RemoveAll<ICurrentUser>();
                 services.AddScoped<ICurrentUser>(_ => new FakeCurrentUser(Tenant, Actor));
+
+                // SD-006 已为控制面端点接入 [Authorize] 权限策略(§9.6):
+                // 以测试方案替换 JwtBearer,注入全部编排/初始化权限,actor 仍由 FakeCurrentUser 提供。
+                services.AddAuthentication(TestAuthDefaults.Scheme)
+                    .AddScheme<TestAuthHandlerOptions, TestAuthHandler>(
+                        TestAuthDefaults.Scheme,
+                        options => options.PrincipalFactory = _ => TestAuthHandler.BuildPrincipal(OrchestrationAdmin()));
             }));
+
+    private static TestUser OrchestrationAdmin() => new()
+    {
+        UserNId = Actor,
+        UserName = "api-tester",
+        TenantNId = Tenant,
+        PermissionNIds =
+        [
+            "systemdata.database-orchestration.view",
+            "systemdata.database-orchestration.register",
+            "systemdata.database-orchestration.plan",
+            "systemdata.database-orchestration.apply",
+            "systemdata.database-orchestration.approve",
+            "systemdata.database-orchestration.backup",
+            "systemdata.database-orchestration.cancel",
+            "systemdata.service-initialization.view",
+            "systemdata.service-initialization.register",
+            "systemdata.service-initialization.plan",
+            "systemdata.service-initialization.apply",
+            "systemdata.service-initialization.approve",
+            "systemdata.service-initialization.backup",
+            "systemdata.service-initialization.cancel",
+        ],
+    };
 
     private static async Task<HttpResponseMessage> SendAsync(
         HttpClient client,

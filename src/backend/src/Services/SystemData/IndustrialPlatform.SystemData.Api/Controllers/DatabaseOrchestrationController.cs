@@ -1,8 +1,10 @@
 using IndustrialPlatform.Security;
 using IndustrialPlatform.SharedKernel.Exceptions;
+using IndustrialPlatform.SystemData.Api.Authorization;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration;
 using IndustrialPlatform.SystemData.Contracts.DatabaseOrchestration;
 using IndustrialPlatform.Web.Results;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace IndustrialPlatform.SystemData.Api.Controllers;
@@ -10,12 +12,14 @@ namespace IndustrialPlatform.SystemData.Api.Controllers;
 /// <summary>
 /// 数据库编排控制面端点(05 方案 §9.2):注册清单、计划/apply 异步入队(202)、
 /// 审批与备份证据、操作状态/取消与服务就绪查询。
-/// 本任务(SD-002)不接入 [Authorize](无鉴权中间件),保留 TryGetActorContext→401 防御,鉴权由 SD-006 接入。
+/// 本任务(SD-006)接入 [Authorize] 权限策略(§9.6 systemdata.database-orchestration.*);
+/// 保留 TryGetActorContext→401 防御,正常路径由授权管线保证声明有效。
 /// 写路径幂等(Idempotency-Key + 请求哈希),错误统一 SD_DB_ 信封(§9.9)。
 /// 环境(NId)由服务端可信拓扑解析,请求体不含环境标识(防客户端伪造)。
 /// </summary>
 [ApiController]
 [Route("database-orchestration")]
+[Authorize]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public sealed class DatabaseOrchestrationController : SystemDataControllerBase
 {
@@ -51,6 +55,7 @@ public sealed class DatabaseOrchestrationController : SystemDataControllerBase
 
     /// <summary>注册/重注册版本化清单(PUT /api/v1/database-orchestration/registrations/{serviceKey});幂等返回现有注册。</summary>
     [HttpPut("registrations/{serviceKey}")]
+    [Authorize(Policy = SystemDataPermissionPolicies.DatabaseOrchestrationRegister)]
     public async Task<ActionResult<DatabaseRegistrationV1>> Register(
         string serviceKey,
         DatabaseRegistrationManifestV1 manifest,
@@ -78,6 +83,7 @@ public sealed class DatabaseOrchestrationController : SystemDataControllerBase
 
     /// <summary>分页查询注册清单(GET /api/v1/database-orchestration/registrations),ServiceKey 可选包含过滤。</summary>
     [HttpGet("registrations")]
+    [Authorize(Policy = SystemDataPermissionPolicies.DatabaseOrchestrationView)]
     public async Task<ActionResult<PageResult<DatabaseRegistrationSummaryV1>>> ListRegistrations(
         [FromQuery] string? serviceKey,
         [FromQuery] int pageIndex = 1,
@@ -111,6 +117,7 @@ public sealed class DatabaseOrchestrationController : SystemDataControllerBase
 
     /// <summary>按服务键查询注册清单(GET /api/v1/database-orchestration/registrations/{serviceKey});不存在 404。</summary>
     [HttpGet("registrations/{serviceKey}")]
+    [Authorize(Policy = SystemDataPermissionPolicies.DatabaseOrchestrationView)]
     public async Task<ActionResult<DatabaseRegistrationV1>> GetRegistration(
         string serviceKey,
         CancellationToken cancellationToken)
@@ -138,6 +145,7 @@ public sealed class DatabaseOrchestrationController : SystemDataControllerBase
 
     /// <summary>入队异步计划(POST /api/v1/database-orchestration/plans);Idempotency-Key 幂等重放返回原 Operation。</summary>
     [HttpPost("plans")]
+    [Authorize(Policy = SystemDataPermissionPolicies.DatabaseOrchestrationPlan)]
     public async Task<ActionResult<EnqueueOperationV1>> EnqueuePlan(
         DatabasePlanRequestV1 request,
         CancellationToken cancellationToken)
@@ -176,6 +184,7 @@ public sealed class DatabaseOrchestrationController : SystemDataControllerBase
 
     /// <summary>分页查询不可变计划(GET /api/v1/database-orchestration/plans)。</summary>
     [HttpGet("plans")]
+    [Authorize(Policy = SystemDataPermissionPolicies.DatabaseOrchestrationView)]
     public async Task<ActionResult<PageResult<DatabasePlanV1>>> ListPlans(
         [FromQuery] int pageIndex = 1,
         [FromQuery] int pageSize = 20,
@@ -208,6 +217,7 @@ public sealed class DatabaseOrchestrationController : SystemDataControllerBase
 
     /// <summary>按计划标识查询(GET /api/v1/database-orchestration/plans/{planNId});不存在 404。</summary>
     [HttpGet("plans/{planNId}")]
+    [Authorize(Policy = SystemDataPermissionPolicies.DatabaseOrchestrationView)]
     public async Task<ActionResult<DatabasePlanV1>> GetPlan(
         string planNId,
         CancellationToken cancellationToken)
@@ -235,6 +245,7 @@ public sealed class DatabaseOrchestrationController : SystemDataControllerBase
 
     /// <summary>为计划登记审批(POST /api/v1/database-orchestration/plans/{planNId}/approvals);计划过期 409。</summary>
     [HttpPost("plans/{planNId}/approvals")]
+    [Authorize(Policy = SystemDataPermissionPolicies.DatabaseOrchestrationApprove)]
     public async Task<ActionResult<DatabaseApprovalV1>> CreateApproval(
         string planNId,
         DatabaseApprovalRequestV1 request,
@@ -263,6 +274,7 @@ public sealed class DatabaseOrchestrationController : SystemDataControllerBase
 
     /// <summary>为计划登记备份证据(POST /api/v1/database-orchestration/plans/{planNId}/backup-evidence);创建为 Captured。</summary>
     [HttpPost("plans/{planNId}/backup-evidence")]
+    [Authorize(Policy = SystemDataPermissionPolicies.DatabaseOrchestrationBackup)]
     public async Task<ActionResult<DatabaseBackupEvidenceV1>> CreateBackupEvidence(
         string planNId,
         DatabaseBackupEvidenceRequestV1 request,
@@ -289,6 +301,7 @@ public sealed class DatabaseOrchestrationController : SystemDataControllerBase
 
     /// <summary>验证备份证据(POST /api/v1/database-orchestration/backup-evidence/{evidenceNId}/verify);Captured → Verified。</summary>
     [HttpPost("backup-evidence/{evidenceNId}/verify")]
+    [Authorize(Policy = SystemDataPermissionPolicies.DatabaseOrchestrationBackup)]
     public async Task<ActionResult<DatabaseBackupEvidenceV1>> VerifyBackupEvidence(
         string evidenceNId,
         CancellationToken cancellationToken)
@@ -316,6 +329,7 @@ public sealed class DatabaseOrchestrationController : SystemDataControllerBase
 
     /// <summary>入队异步 apply(POST /api/v1/database-orchestration/operations/apply);门禁:计划有效/未漂移/目标匹配/审批与备份。Idempotency-Key 幂等重放返回原 Operation。</summary>
     [HttpPost("operations/apply")]
+    [Authorize(Policy = SystemDataPermissionPolicies.DatabaseOrchestrationApply)]
     public async Task<ActionResult<EnqueueOperationV1>> EnqueueApply(
         DatabaseApplyRequestV1 request,
         CancellationToken cancellationToken)
@@ -354,6 +368,7 @@ public sealed class DatabaseOrchestrationController : SystemDataControllerBase
 
     /// <summary>分页查询操作(GET /api/v1/database-orchestration/operations),Kind/Status 枚举名可选过滤。</summary>
     [HttpGet("operations")]
+    [Authorize(Policy = SystemDataPermissionPolicies.DatabaseOrchestrationView)]
     public async Task<ActionResult<PageResult<DatabaseOperationV1>>> ListOperations(
         [FromQuery] string? kind,
         [FromQuery] string? status,
@@ -388,6 +403,7 @@ public sealed class DatabaseOrchestrationController : SystemDataControllerBase
 
     /// <summary>按操作标识查询(GET /api/v1/database-orchestration/operations/{operationNId});不存在 404。</summary>
     [HttpGet("operations/{operationNId}")]
+    [Authorize(Policy = SystemDataPermissionPolicies.DatabaseOrchestrationView)]
     public async Task<ActionResult<DatabaseOperationV1>> GetOperation(
         string operationNId,
         CancellationToken cancellationToken)
@@ -413,6 +429,7 @@ public sealed class DatabaseOrchestrationController : SystemDataControllerBase
 
     /// <summary>取消操作(POST /api/v1/database-orchestration/operations/{operationNId}/cancel);仅 Queued 或 Running 且未越过 Inspect 的安全边界。</summary>
     [HttpPost("operations/{operationNId}/cancel")]
+    [Authorize(Policy = SystemDataPermissionPolicies.DatabaseOrchestrationCancel)]
     public async Task<ActionResult<DatabaseOperationV1>> CancelOperation(
         string operationNId,
         CancellationToken cancellationToken)
@@ -440,6 +457,7 @@ public sealed class DatabaseOrchestrationController : SystemDataControllerBase
 
     /// <summary>查询服务数据库就绪状态(GET /api/v1/database-orchestration/readiness/{serviceKey});未就绪返回 503 SD_DB_NOT_READY 并携带形状。</summary>
     [HttpGet("readiness/{serviceKey}")]
+    [Authorize]
     public async Task<ActionResult<DatabaseReadinessV1>> GetReadiness(
         string serviceKey,
         CancellationToken cancellationToken)

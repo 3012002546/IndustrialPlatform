@@ -1,0 +1,4238 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "IndustrialPlatform.SystemData.Api | v1",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost/"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "IndustrialPlatform.SystemData.Api"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/users/{userNId}/assignments": {
+      "get": {
+        "tags": [
+          "Assignments"
+        ],
+        "parameters": [
+          {
+            "name": "userNId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AssignmentV1"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AssignmentV1"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AssignmentV1"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Assignments"
+        ],
+        "parameters": [
+          {
+            "name": "userNId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAssignmentRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAssignmentRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAssignmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/assignments/{assignmentNId}": {
+      "put": {
+        "tags": [
+          "Assignments"
+        ],
+        "parameters": [
+          {
+            "name": "assignmentNId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateScheduledAssignmentRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateScheduledAssignmentRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateScheduledAssignmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/assignments/{assignmentNId}/end": {
+      "post": {
+        "tags": [
+          "Assignments"
+        ],
+        "parameters": [
+          {
+            "name": "assignmentNId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/assignments/{assignmentNId}/cancel": {
+      "post": {
+        "tags": [
+          "Assignments"
+        ],
+        "parameters": [
+          {
+            "name": "assignmentNId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelAssignmentRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelAssignmentRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelAssignmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{userNId}/primary-assignment": {
+      "post": {
+        "tags": [
+          "Assignments"
+        ],
+        "parameters": [
+          {
+            "name": "userNId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetPrimaryAssignmentRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetPrimaryAssignmentRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetPrimaryAssignmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AssignmentV1"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AssignmentV1"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AssignmentV1"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/database-orchestration/registrations/{serviceKey}": {
+      "put": {
+        "tags": [
+          "DatabaseOrchestration"
+        ],
+        "parameters": [
+          {
+            "name": "serviceKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabaseRegistrationManifestV1"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabaseRegistrationManifestV1"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabaseRegistrationManifestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseRegistrationV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseRegistrationV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseRegistrationV1"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "DatabaseOrchestration"
+        ],
+        "parameters": [
+          {
+            "name": "serviceKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseRegistrationV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseRegistrationV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseRegistrationV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/database-orchestration/registrations": {
+      "get": {
+        "tags": [
+          "DatabaseOrchestration"
+        ],
+        "parameters": [
+          {
+            "name": "serviceKey",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageIndex",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultOfDatabaseRegistrationSummaryV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultOfDatabaseRegistrationSummaryV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultOfDatabaseRegistrationSummaryV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/database-orchestration/plans": {
+      "post": {
+        "tags": [
+          "DatabaseOrchestration"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabasePlanRequestV1"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabasePlanRequestV1"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabasePlanRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnqueueOperationV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnqueueOperationV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnqueueOperationV1"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "DatabaseOrchestration"
+        ],
+        "parameters": [
+          {
+            "name": "pageIndex",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultOfDatabasePlanV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultOfDatabasePlanV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultOfDatabasePlanV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/database-orchestration/plans/{planNId}": {
+      "get": {
+        "tags": [
+          "DatabaseOrchestration"
+        ],
+        "parameters": [
+          {
+            "name": "planNId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabasePlanV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabasePlanV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabasePlanV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/database-orchestration/plans/{planNId}/approvals": {
+      "post": {
+        "tags": [
+          "DatabaseOrchestration"
+        ],
+        "parameters": [
+          {
+            "name": "planNId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabaseApprovalRequestV1"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabaseApprovalRequestV1"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabaseApprovalRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseApprovalV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseApprovalV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseApprovalV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/database-orchestration/plans/{planNId}/backup-evidence": {
+      "post": {
+        "tags": [
+          "DatabaseOrchestration"
+        ],
+        "parameters": [
+          {
+            "name": "planNId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabaseBackupEvidenceRequestV1"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabaseBackupEvidenceRequestV1"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabaseBackupEvidenceRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseBackupEvidenceV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseBackupEvidenceV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseBackupEvidenceV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/database-orchestration/backup-evidence/{evidenceNId}/verify": {
+      "post": {
+        "tags": [
+          "DatabaseOrchestration"
+        ],
+        "parameters": [
+          {
+            "name": "evidenceNId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseBackupEvidenceV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseBackupEvidenceV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseBackupEvidenceV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/database-orchestration/operations/apply": {
+      "post": {
+        "tags": [
+          "DatabaseOrchestration"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabaseApplyRequestV1"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabaseApplyRequestV1"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabaseApplyRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnqueueOperationV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnqueueOperationV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnqueueOperationV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/database-orchestration/operations": {
+      "get": {
+        "tags": [
+          "DatabaseOrchestration"
+        ],
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageIndex",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultOfDatabaseOperationV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultOfDatabaseOperationV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultOfDatabaseOperationV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/database-orchestration/operations/{operationNId}": {
+      "get": {
+        "tags": [
+          "DatabaseOrchestration"
+        ],
+        "parameters": [
+          {
+            "name": "operationNId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseOperationV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseOperationV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseOperationV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/database-orchestration/operations/{operationNId}/cancel": {
+      "post": {
+        "tags": [
+          "DatabaseOrchestration"
+        ],
+        "parameters": [
+          {
+            "name": "operationNId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseOperationV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseOperationV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseOperationV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/database-orchestration/readiness/{serviceKey}": {
+      "get": {
+        "tags": [
+          "DatabaseOrchestration"
+        ],
+        "parameters": [
+          {
+            "name": "serviceKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseReadinessV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseReadinessV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseReadinessV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/tree": {
+      "get": {
+        "tags": [
+          "Organizations"
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrganizationNodeV1"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrganizationNodeV1"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrganizationNodeV1"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{organizationNId}": {
+      "get": {
+        "tags": [
+          "Organizations"
+        ],
+        "parameters": [
+          {
+            "name": "organizationNId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationDetailV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationDetailV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationDetailV1"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Organizations"
+        ],
+        "parameters": [
+          {
+            "name": "organizationNId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOrganizationRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOrganizationRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOrganizationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationDetailV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationDetailV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationDetailV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations": {
+      "post": {
+        "tags": [
+          "Organizations"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrganizationRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrganizationRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrganizationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationDetailV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationDetailV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationDetailV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{organizationNId}/move-preview": {
+      "post": {
+        "tags": [
+          "Organizations"
+        ],
+        "parameters": [
+          {
+            "name": "organizationNId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveOrganizationPreviewRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveOrganizationPreviewRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveOrganizationPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationMovePreviewV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationMovePreviewV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationMovePreviewV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{organizationNId}/move": {
+      "post": {
+        "tags": [
+          "Organizations"
+        ],
+        "parameters": [
+          {
+            "name": "organizationNId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveOrganizationRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveOrganizationRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveOrganizationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationDetailV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationDetailV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationDetailV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{organizationNId}/status": {
+      "put": {
+        "tags": [
+          "Organizations"
+        ],
+        "parameters": [
+          {
+            "name": "organizationNId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetOrganizationStatusRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetOrganizationStatusRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetOrganizationStatusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationDetailV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationDetailV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationDetailV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/positions": {
+      "get": {
+        "tags": [
+          "Positions"
+        ],
+        "parameters": [
+          {
+            "name": "organizationNId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageIndex",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultOfPositionV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultOfPositionV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultOfPositionV1"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Positions"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePositionRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePositionRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePositionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PositionV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PositionV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PositionV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/positions/{positionNId}": {
+      "put": {
+        "tags": [
+          "Positions"
+        ],
+        "parameters": [
+          {
+            "name": "positionNId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePositionRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePositionRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePositionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PositionV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PositionV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PositionV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/positions/{positionNId}/status": {
+      "put": {
+        "tags": [
+          "Positions"
+        ],
+        "parameters": [
+          {
+            "name": "positionNId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetPositionStatusRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetPositionStatusRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetPositionStatusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PositionV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PositionV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PositionV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/service-initialization/registrations/{serviceKey}/{moduleKey}": {
+      "put": {
+        "tags": [
+          "ServiceInitialization"
+        ],
+        "parameters": [
+          {
+            "name": "serviceKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "moduleKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceInitializationManifestV2"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceInitializationManifestV2"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceInitializationManifestV2"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseRegistrationV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseRegistrationV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseRegistrationV1"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "ServiceInitialization"
+        ],
+        "parameters": [
+          {
+            "name": "serviceKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "moduleKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseRegistrationV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseRegistrationV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseRegistrationV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/service-initialization/registrations": {
+      "get": {
+        "tags": [
+          "ServiceInitialization"
+        ],
+        "parameters": [
+          {
+            "name": "serviceKey",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "moduleKey",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageIndex",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultOfDatabaseRegistrationSummaryV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultOfDatabaseRegistrationSummaryV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultOfDatabaseRegistrationSummaryV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/service-initialization/plans": {
+      "post": {
+        "tags": [
+          "ServiceInitialization"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceInitializationPlanRequestV2"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceInitializationPlanRequestV2"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceInitializationPlanRequestV2"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnqueueOperationV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnqueueOperationV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnqueueOperationV1"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "ServiceInitialization"
+        ],
+        "parameters": [
+          {
+            "name": "pageIndex",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultOfDatabasePlanV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultOfDatabasePlanV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultOfDatabasePlanV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/service-initialization/plans/{planNId}": {
+      "get": {
+        "tags": [
+          "ServiceInitialization"
+        ],
+        "parameters": [
+          {
+            "name": "planNId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabasePlanV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabasePlanV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabasePlanV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/service-initialization/plans/{planNId}/approvals": {
+      "post": {
+        "tags": [
+          "ServiceInitialization"
+        ],
+        "parameters": [
+          {
+            "name": "planNId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabaseApprovalRequestV1"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabaseApprovalRequestV1"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabaseApprovalRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseApprovalV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseApprovalV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseApprovalV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/service-initialization/plans/{planNId}/backup-evidence": {
+      "post": {
+        "tags": [
+          "ServiceInitialization"
+        ],
+        "parameters": [
+          {
+            "name": "planNId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabaseBackupEvidenceRequestV1"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabaseBackupEvidenceRequestV1"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabaseBackupEvidenceRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseBackupEvidenceV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseBackupEvidenceV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseBackupEvidenceV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/service-initialization/operations/apply": {
+      "post": {
+        "tags": [
+          "ServiceInitialization"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceInitializationApplyRequestV2"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceInitializationApplyRequestV2"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceInitializationApplyRequestV2"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnqueueOperationV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnqueueOperationV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnqueueOperationV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/service-initialization/operations": {
+      "get": {
+        "tags": [
+          "ServiceInitialization"
+        ],
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageIndex",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultOfDatabaseOperationV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultOfDatabaseOperationV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultOfDatabaseOperationV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/service-initialization/operations/{operationNId}": {
+      "get": {
+        "tags": [
+          "ServiceInitialization"
+        ],
+        "parameters": [
+          {
+            "name": "operationNId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseOperationV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseOperationV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseOperationV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/service-initialization/operations/{operationNId}/cancel": {
+      "post": {
+        "tags": [
+          "ServiceInitialization"
+        ],
+        "parameters": [
+          {
+            "name": "operationNId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseOperationV1"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseOperationV1"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseOperationV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/service-initialization/readiness/{serviceKey}/{moduleKey}": {
+      "get": {
+        "tags": [
+          "ServiceInitialization"
+        ],
+        "parameters": [
+          {
+            "name": "serviceKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "moduleKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceInitializationReadinessV2"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceInitializationReadinessV2"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceInitializationReadinessV2"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AssignmentV1": {
+        "type": "object",
+        "properties": {
+          "tenantNId": {
+            "type": "string"
+          },
+          "nId": {
+            "type": "string"
+          },
+          "userNId": {
+            "type": "string"
+          },
+          "userDisplayNameSnapshot": {
+            "type": "string"
+          },
+          "organizationNId": {
+            "type": "string"
+          },
+          "positionNId": {
+            "type": "string"
+          },
+          "positionName": {
+            "type": "string"
+          },
+          "isPrimary": {
+            "type": "boolean"
+          },
+          "effectiveFrom": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "effectiveTo": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "state": {
+            "type": "string"
+          },
+          "cancelledOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "cancelReason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "optimisticVersion": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "concurrencyVersion": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "CancelAssignmentRequest": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "CreateAssignmentRequest": {
+        "type": "object",
+        "properties": {
+          "nId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "positionNId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "isPrimary": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "effectiveFrom": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "effectiveTo": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "CreateOrganizationRequest": {
+        "type": "object",
+        "properties": {
+          "nId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "parentOrganizationNId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "displayOrder": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "CreatePositionRequest": {
+        "type": "object",
+        "properties": {
+          "nId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "organizationNId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "displayOrder": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "DatabaseApplyRequestV1": {
+        "type": "object",
+        "properties": {
+          "planNId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "requestedVersion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "DatabaseApprovalRequestV1": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "DatabaseApprovalV1": {
+        "type": "object",
+        "properties": {
+          "tenantNId": {
+            "type": "string"
+          },
+          "approvalNId": {
+            "type": "string"
+          },
+          "planNId": {
+            "type": "string"
+          },
+          "planChecksum": {
+            "type": "string"
+          },
+          "targetStateFingerprint": {
+            "type": "string"
+          },
+          "approvedByUserNId": {
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "approvedOn": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresOn": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "DatabaseBackupEvidenceRequestV1": {
+        "type": "object",
+        "properties": {
+          "backupProvider": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "backupReference": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "retentionUntil": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "DatabaseBackupEvidenceV1": {
+        "type": "object",
+        "properties": {
+          "tenantNId": {
+            "type": "string"
+          },
+          "evidenceNId": {
+            "type": "string"
+          },
+          "planNId": {
+            "type": "string"
+          },
+          "planChecksum": {
+            "type": "string"
+          },
+          "targetStateFingerprint": {
+            "type": "string"
+          },
+          "backupProvider": {
+            "type": "string"
+          },
+          "backupReference": {
+            "type": "string"
+          },
+          "capturedOn": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "verifiedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "retentionUntil": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "verifiedByUserNId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "DatabaseOperationStepV1": {
+        "type": "object",
+        "properties": {
+          "sequence": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "phase": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "attempt": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "startedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "completedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "sanitizedErrorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sanitizedErrorSummary": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "DatabaseOperationV1": {
+        "type": "object",
+        "properties": {
+          "tenantNId": {
+            "type": "string"
+          },
+          "operationNId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "environmentNId": {
+            "type": "string"
+          },
+          "serviceKey": {
+            "type": "string"
+          },
+          "moduleKey": {
+            "type": "string"
+          },
+          "planNId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "requestedVersion": {
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "phase": {
+            "type": "string"
+          },
+          "attempt": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "leaseOwner": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "queuedOn": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "startedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "completedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "timeoutOn": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "sanitizedErrorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sanitizedErrorSummary": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "traceId": {
+            "type": "string"
+          },
+          "createdByUserNId": {
+            "type": "string"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DatabaseOperationStepV1"
+            }
+          },
+          "seedObservations": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/SeedObservationV1"
+            }
+          }
+        }
+      },
+      "DatabasePlanRequestV1": {
+        "type": "object",
+        "properties": {
+          "serviceKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "requestedVersion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "desiredState": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "DatabasePlanStepV1": {
+        "type": "object",
+        "properties": {
+          "sequence": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "stepKind": {
+            "type": "string"
+          },
+          "riskLevel": {
+            "type": "string"
+          },
+          "inputSummary": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "preconditionSummary": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "postconditionSummary": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "DatabasePlanV1": {
+        "type": "object",
+        "properties": {
+          "tenantNId": {
+            "type": "string"
+          },
+          "planNId": {
+            "type": "string"
+          },
+          "environmentNId": {
+            "type": "string"
+          },
+          "serviceKey": {
+            "type": "string"
+          },
+          "moduleKey": {
+            "type": "string"
+          },
+          "requestedMigrationVersion": {
+            "type": "string"
+          },
+          "currentMigrationVersion": {
+            "type": "string"
+          },
+          "targetStateFingerprint": {
+            "type": "string"
+          },
+          "planChecksum": {
+            "type": "string"
+          },
+          "riskLevel": {
+            "type": "string"
+          },
+          "destructiveChangeDetected": {
+            "type": "boolean"
+          },
+          "requiredPolicies": {
+            "type": "string"
+          },
+          "expiresOn": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "isExpired": {
+            "type": "boolean"
+          },
+          "createdByUserNId": {
+            "type": "string"
+          },
+          "createdOn": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DatabasePlanStepV1"
+            }
+          }
+        }
+      },
+      "DatabaseReadinessV1": {
+        "type": "object",
+        "properties": {
+          "serviceKey": {
+            "type": "string"
+          },
+          "logicalDatabaseName": {
+            "type": "string"
+          },
+          "physicalDatabaseTarget": {
+            "type": "string"
+          },
+          "databaseIdentityFingerprint": {
+            "type": "string"
+          },
+          "desiredVersion": {
+            "type": "string"
+          },
+          "observedVersion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "observedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "topologyRevision": {
+            "type": "string"
+          },
+          "artifactChecksum": {
+            "type": "string"
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "operationNId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "traceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "DatabaseRegistrationManifestV1": {
+        "type": "object",
+        "properties": {
+          "serviceKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "logicalDatabaseName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "provider": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "topologyMode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "migrationArtifactId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "requestedVersion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "artifactChecksum": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "artifactSignature": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "desiredState": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "autoProvision": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "autoMigrate": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "ownerNId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "manifestVersion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "DatabaseRegistrationSummaryV1": {
+        "type": "object",
+        "properties": {
+          "serviceKey": {
+            "type": "string"
+          },
+          "moduleKey": {
+            "type": "string"
+          },
+          "logicalDatabaseName": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "migrationVersion": {
+            "type": "string"
+          },
+          "desiredState": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "topologyRevision": {
+            "type": "string"
+          },
+          "registeredOn": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastUpdatedOn": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "DatabaseRegistrationV1": {
+        "type": "object",
+        "properties": {
+          "tenantNId": {
+            "type": "string"
+          },
+          "environmentNId": {
+            "type": "string"
+          },
+          "serviceKey": {
+            "type": "string"
+          },
+          "moduleKey": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "logicalDatabaseName": {
+            "type": "string"
+          },
+          "physicalDatabaseName": {
+            "type": "string"
+          },
+          "isSharedPhysicalDatabase": {
+            "type": "boolean"
+          },
+          "topologyMode": {
+            "type": "string"
+          },
+          "topologyRevision": {
+            "type": "string"
+          },
+          "migrationArtifactId": {
+            "type": "string"
+          },
+          "migrationVersion": {
+            "type": "string"
+          },
+          "artifactChecksum": {
+            "type": "string"
+          },
+          "artifactSignature": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "ownerNId": {
+            "type": "string"
+          },
+          "desiredState": {
+            "type": "string"
+          },
+          "autoProvision": {
+            "type": "boolean"
+          },
+          "autoMigrate": {
+            "type": "boolean"
+          },
+          "manifestVersion": {
+            "type": "string"
+          },
+          "manifestChecksum": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "seedSets": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/SeedSetV1"
+            }
+          },
+          "registeredOn": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastUpdatedOn": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "EnqueueOperationV1": {
+        "type": "object",
+        "properties": {
+          "operationNId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "phase": {
+            "type": "string"
+          },
+          "acceptedOn": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "MoveOrganizationPreviewRequest": {
+        "type": "object",
+        "properties": {
+          "targetParentOrganizationNId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "MoveOrganizationRequest": {
+        "type": "object",
+        "properties": {
+          "targetParentOrganizationNId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "previewOrganizationRevision": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "expectedOptimisticVersion": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "expectedConcurrencyVersion": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "OrganizationDetailV1": {
+        "type": "object",
+        "properties": {
+          "tenantNId": {
+            "type": "string"
+          },
+          "nId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "parentOrganizationNId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "displayOrder": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "organizationRevision": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "optimisticVersion": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "concurrencyVersion": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "OrganizationMovePreviewV1": {
+        "type": "object",
+        "properties": {
+          "nId": {
+            "type": "string"
+          },
+          "organizationRevision": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "subtreeOrganizationCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "subtreePositionCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "subtreeAssignmentCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "affectedCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "previewedOn": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expectedOptimisticVersion": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "expectedConcurrencyVersion": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "OrganizationNodeV1": {
+        "type": "object",
+        "properties": {
+          "tenantNId": {
+            "type": "string"
+          },
+          "nId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "parentOrganizationNId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "displayOrder": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrganizationNodeV1"
+            }
+          }
+        }
+      },
+      "PageResultOfDatabaseOperationV1": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DatabaseOperationV1"
+            }
+          },
+          "total": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "pageIndex": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "pageSize": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "PageResultOfDatabasePlanV1": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DatabasePlanV1"
+            }
+          },
+          "total": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "pageIndex": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "pageSize": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "PageResultOfDatabaseRegistrationSummaryV1": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DatabaseRegistrationSummaryV1"
+            }
+          },
+          "total": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "pageIndex": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "pageSize": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "PageResultOfPositionV1": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PositionV1"
+            }
+          },
+          "total": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "pageIndex": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "pageSize": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "PositionV1": {
+        "type": "object",
+        "properties": {
+          "tenantNId": {
+            "type": "string"
+          },
+          "nId": {
+            "type": "string"
+          },
+          "organizationNId": {
+            "type": "string"
+          },
+          "organizationName": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "displayOrder": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "optimisticVersion": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "concurrencyVersion": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "SeedObservationV1": {
+        "type": "object",
+        "properties": {
+          "tenantNId": {
+            "type": "string"
+          },
+          "environmentNId": {
+            "type": "string"
+          },
+          "serviceKey": {
+            "type": "string"
+          },
+          "moduleKey": {
+            "type": "string"
+          },
+          "seedKey": {
+            "type": "string"
+          },
+          "seedVersion": {
+            "type": "string"
+          },
+          "checksum": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "appliedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "operationNId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "verificationStatus": {
+            "type": "string"
+          }
+        }
+      },
+      "SeedReadinessV2": {
+        "type": "object",
+        "properties": {
+          "seedKey": {
+            "type": "string"
+          },
+          "seedVersion": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "appliedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "SeedSetV1": {
+        "type": "object",
+        "properties": {
+          "seedKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "seedVersion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "seedClass": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "scope": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "seedArtifactId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "seedChecksum": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "seedSignature": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "requiredForReadiness": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "allowedEnvironments": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dependsOnMigrationVersion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dependsOnSeedKeys": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "bootstrapPolicy": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ServiceInitializationApplyRequestV2": {
+        "type": "object",
+        "properties": {
+          "planNId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "moduleKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "requestedVersion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ServiceInitializationManifestV2": {
+        "type": "object",
+        "properties": {
+          "serviceKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "moduleKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "logicalDatabaseName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "provider": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "topologyMode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "migrationArtifactId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "requestedVersion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "artifactChecksum": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "artifactSignature": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "desiredState": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "autoProvision": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "autoMigrate": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "ownerNId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "manifestVersion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "seedSets": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/SeedSetV1"
+            }
+          }
+        }
+      },
+      "ServiceInitializationPlanRequestV2": {
+        "type": "object",
+        "properties": {
+          "serviceKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "moduleKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "requestedVersion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "desiredState": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ServiceInitializationReadinessV2": {
+        "type": "object",
+        "properties": {
+          "serviceKey": {
+            "type": "string"
+          },
+          "moduleKey": {
+            "type": "string"
+          },
+          "logicalDatabaseName": {
+            "type": "string"
+          },
+          "physicalDatabaseTarget": {
+            "type": "string"
+          },
+          "databaseIdentityFingerprint": {
+            "type": "string"
+          },
+          "artifactChecksum": {
+            "type": "string"
+          },
+          "desiredMigrationVersion": {
+            "type": "string"
+          },
+          "observedMigrationVersion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "observedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "topologyRevision": {
+            "type": "string"
+          },
+          "migrationReady": {
+            "type": "boolean"
+          },
+          "requiredSeedReady": {
+            "type": "boolean"
+          },
+          "bootstrapReady": {
+            "type": "boolean"
+          },
+          "seeds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/SeedReadinessV2"
+            }
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "operationNId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "traceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "SetOrganizationStatusRequest": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "SetPositionStatusRequest": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "SetPrimaryAssignmentRequest": {
+        "type": "object",
+        "properties": {
+          "targetAssignmentNId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "effectiveOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "expectedUserAssignmentRevision": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          }
+        }
+      },
+      "UpdateOrganizationRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "displayOrder": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "expectedOptimisticVersion": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "expectedConcurrencyVersion": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "UpdatePositionRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "displayOrder": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "expectedOptimisticVersion": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "expectedConcurrencyVersion": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "UpdateScheduledAssignmentRequest": {
+        "type": "object",
+        "properties": {
+          "effectiveFrom": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "effectiveTo": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "expectedOptimisticVersion": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "expectedConcurrencyVersion": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "IndustrialPlatform.SystemData.Api"
+    },
+    {
+      "name": "Assignments"
+    },
+    {
+      "name": "DatabaseOrchestration"
+    },
+    {
+      "name": "Organizations"
+    },
+    {
+      "name": "Positions"
+    },
+    {
+      "name": "ServiceInitialization"
+    }
+  ]
+}

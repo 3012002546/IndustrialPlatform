@@ -34,6 +34,9 @@ public interface IAdministrativeOrganizationStore
     /// <summary>子树全部组织业务标识(含根),用于祖先循环校验。</summary>
     Task<IReadOnlyList<string>> GetDescendantNIdsAsync(string tenantNId, string rootOrganizationNId, CancellationToken cancellationToken);
 
+    /// <summary>查询租户内全部活动组织(含软删过滤),用于组织森林与名称丰富化(05 方案 §9.3 tree)。</summary>
+    Task<IReadOnlyList<AdministrativeOrganization>> GetAllAsync(string tenantNId, CancellationToken cancellationToken);
+
     /// <summary>新增组织(同级名称唯一冲突抛并发异常)。</summary>
     Task AddAsync(AdministrativeOrganization organization, CancellationToken cancellationToken);
 
