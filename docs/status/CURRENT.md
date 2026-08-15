@@ -25,7 +25,7 @@
 ## 固定工作线
 
 - PF-00：Harness，长期复用 `IndustrialPlatform-worktrees/pf-00` 和当前分支 `task/pf-00-id-019`。
-- PF-02：Claude Code，长期复用 `IndustrialPlatform-worktrees/pf-02` 和当前分支 `task/pf-02-sd-005`；恢复工作前由 Codex 同步最新 `develop`。
+- PF-02：Claude Code，长期复用 `IndustrialPlatform-worktrees/pf-02` 和当前分支 `task/pf-02-sd-006`；当前存在进行中的未提交修改，不强制同步，后续内部任务不再新建分支。
 - 现有分支名称暂时保留；后续任务不因此创建新分支。
 
 ## 内部执行序列
