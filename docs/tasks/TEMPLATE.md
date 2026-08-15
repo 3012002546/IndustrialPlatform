@@ -1,8 +1,8 @@
-# TASK-XXX 任务卡
+# PF-XX 工作包
 
-## 任务编号
+## PF 编号
 
-`TASK-XXX`
+`PF-XX`
 
 ## 状态
 
@@ -16,17 +16,13 @@
 
 用可验证的一句话描述交付结果。
 
-## 输入文档与精确章节
+## 实施方案入口
 
-- `docs/implementation/<file>.md` §X.Y
+- `docs/implementation/<file>.md`
 
-## 无需读取
+## 内部任务序列
 
-- 与本任务无关的实施方案、历史 evidence 和其他任务卡。
-
-## 依赖
-
-- 前置任务或明确写“无”。
+- `TASK-XXX` 起按实施方案依赖顺序连续执行；这些编号不是 Codex 派遣、验收或提交门。
 
 ## PF 工作线与 Worktree
 
@@ -44,25 +40,20 @@
 
 - 主工作树、其他任务范围、`AGENTS.md`、`CLAUDE.md`、`DSH.md`、`docs/status/CURRENT.md`。
 
-## 预期输出
+## 完成条件
 
-- 代码、测试、迁移、契约或文档的具体清单。
+- 实施方案中本 PF 当前剩余内部任务全部完成并通过执行者内部验证。
 
-## 执行者内部验证命令
+## 交付规则
 
-```powershell
-<exact command>
-```
-
-## 验收标准
-
-- 执行者内部测试通过并回报结果。
-- Codex 最终 Release 编译成功。
+- 内部任务连续推进，不逐项交回 Codex。
+- 整个 PF 完成后保留未提交工作树并返回简短结果。
+- Codex 只执行一次最终 Release 编译，成功后提交和集成。
 
 ## 结果回写位置
 
-`docs/evidence/TASK-XXX.md`
+`docs/evidence/PF-XX.md`
 
 ## Codex 提交信息
 
-`feat(scope): concise description`
+`feat(scope): complete PF-XX scope`

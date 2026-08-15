@@ -13,25 +13,25 @@
 
 - BuildingBlocks：基线与公共组件已完成。
 - 统一前端与 PF-01：已完成；外部真机 safe-area 项仍待验收。
-- Identity：TASK-ID-001～019 已完成；TASK-ID-020 已派遣给 Harness。
+- Identity：TASK-ID-001～019 已完成；PF-00 剩余任务由 Harness 连续执行。
 - SystemData：TASK-SD-001～005 已完成；云端 PostgreSQL 种子账本语义已验证。
 - ReferenceData：保持服务骨架，业务功能未实施。
 
 ## 进行中
 
-- TASK-ID-020：Harness，复用 PF-00 工作线，任务卡 `docs/tasks/active/TASK-ID-020.md`。
+- PF-00：Harness，工作包 `docs/tasks/active/PF-00.md`；内部从 TASK-ID-020 起连续执行。
+- PF-02：Claude Code，工作包 `docs/tasks/active/PF-02.md`；内部从 TASK-SD-006 起连续执行。
 
 ## 固定工作线
 
-- PF-00：Harness，长期复用 `IndustrialPlatform-worktrees/pf-00` 和当前分支 `task/pf-00-id-019`；当前任务 TASK-ID-020。
-- PF-02：Claude Code，长期复用 `IndustrialPlatform-worktrees/pf-02`；当前分支 `task/pf-02-sd-005`，开始 TASK-SD-006 前由 Codex 同步最新 `develop`。
+- PF-00：Harness，长期复用 `IndustrialPlatform-worktrees/pf-00` 和当前分支 `task/pf-00-id-019`。
+- PF-02：Claude Code，长期复用 `IndustrialPlatform-worktrees/pf-02` 和当前分支 `task/pf-02-sd-005`；恢复工作前由 Codex 同步最新 `develop`。
 - 现有分支名称暂时保留；后续任务不因此创建新分支。
 
-## 待派遣
+## 内部执行序列
 
-- TASK-ID-021～023：按 Identity 实施方案 §29A 和前置依赖顺序派遣。
-- TASK-SD-006+：TASK-SD-005 已完成，可按依赖顺序派遣。
-- PF-00、PF-02 等前端工作以 Codex 最新蓝图和新任务卡为准，不沿用已停止智能体的会话状态。
+- PF-00 的 TASK-ID-020～023 由 Harness 按依赖连续执行，不再逐项派遣。
+- PF-02 的 TASK-SD-006+ 由 Claude Code 按依赖连续执行，不再逐项派遣。
 
 ## 阻塞与待决策
 
@@ -50,8 +50,9 @@
 
 ## 更新规则
 
-- 派遣时加入“进行中”，记录负责人、任务卡和所用固定 PF 工作线。
-- 完成后从“进行中”删除，任务卡移入 archive，结果写入 evidence。
+- 派遣单位固定为整个 PF，记录负责人、PF 工作包和固定工作线。
+- 内部 `TASK-*` 不是派遣、验收或提交门；执行智能体连续完成整个 PF 后才交回 Codex。
+- PF 完成后从“进行中”删除，工作包移入 archive，结果写入一份 PF evidence。
 - 不累计会话快照、完整变更清单或历史测试日志。
 - 执行智能体负责任务内测试；Codex 只做最终 Release 编译，成功后提交和集成。
-- 下一任务派遣前由 Codex 将原 PF 工作线同步到最新 `develop`，不新建任务分支。
+- PF 开始或恢复前由 Codex 将原工作线同步到最新 `develop`，不新建内部任务分支。

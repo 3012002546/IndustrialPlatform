@@ -2,17 +2,17 @@
 
 ## 总负责人
 
-Codex 是本项目唯一总负责人，负责蓝图设计、开发 TODO、依赖分析、整张任务卡派遣、冲突裁决、最终 Release 编译门禁、提交和集成。
+Codex 是本项目唯一总负责人，负责蓝图设计、开发 TODO、依赖分析、整项 PF 工作包派遣、冲突裁决、最终 Release 编译门禁、提交和集成。
 
-Claude Code 与 Harness 是职责等价的编码执行智能体。它们只能执行 Codex 派发的任务卡，不得自行调整总体蓝图、优先级、跨模块边界或其他智能体的任务。
+Claude Code 与 Harness 是职责等价的编码执行智能体。它们只能执行 Codex 派发的 PF 工作包，不得自行调整总体蓝图、PF 边界或其他智能体的工作线。
 
 ## 上下文路由
 
 - 当前项目状态：`docs/status/CURRENT.md`
 - 编码智能体公共协议：`docs/agents/EXECUTOR.md`
-- 任务卡模板：`docs/tasks/TEMPLATE.md`
-- 活跃任务：`docs/tasks/active/`
-- 已完成任务：`docs/tasks/archive/`
+- PF 工作包模板：`docs/tasks/TEMPLATE.md`
+- 活跃 PF 工作包：`docs/tasks/active/`
+- 已完成 PF 工作包：`docs/tasks/archive/`
 - 验证证据：`docs/evidence/`
 - 完整设计：`docs/implementation/`
 - 工程陷阱：`docs/agents/ENGINEERING-NOTES.md`
@@ -25,21 +25,21 @@ Claude Code 与 Harness 是职责等价的编码执行智能体。它们只能�
 - 主工作树只供 Codex 总控和最终集成。
 - 每个 PF 工作线/执行智能体长期使用一个独立 Git worktree 和分支；不是每张任务新建一次。
 - 当前固定工作线：Harness 使用 PF-00，Claude Code 使用 PF-02；两者不得在主工作树或同一工作树内并行编码。
-- 同一工作线的任务串行执行。上一张任务由 Codex 提交并合入 `develop` 后，Codex 在下一张任务派遣前把原工作线同步到最新 `develop`。
+- PF 工作包内的 `TASK-*` 仅是执行顺序清单，执行智能体按依赖连续推进，不逐项等待 Codex 派遣、验收、提交或同步。
 - 派遣前检查允许修改范围是否重叠；公共文件存在冲突时，由 Codex 排定先后顺序。
 - 编码智能体不得合并、rebase、cherry-pick 或处理其他任务分支。
 - 编码执行者完成实现和内部验证后保留未提交工作树；Codex 通过最终 Release 编译门禁后统一提交和集成。
 
 ## 派遣与交付
 
-Codex 使用 `docs/tasks/TEMPLATE.md` 创建完整任务卡，至少明确目标、输入章节、依赖、所属 PF 工作线、允许/禁止修改范围和执行者内部验证命令。一个 PF 当前任务原则上整张交给一个执行智能体，不再由 Codex 拆出大量内部子任务或反复审核；连续任务复用原 worktree 和分支。
+Codex 使用 `docs/tasks/TEMPLATE.md` 为整个 PF 创建一次精简工作包，明确总体目标、实施方案入口、内部任务序列、所属工作线和边界。禁止把内部 `TASK-*` 再拆成 Codex 派遣卡或验收门。
 
-编码智能体全权负责本任务的编码、测试、修复和内部验证。交付只需包含：状态、主要修改范围、验证命令与结果、剩余风险；evidence 保持短小，不复述完整设计。
+编码智能体全权负责整个 PF 工作包的连续编码、测试、修复和内部验证。内部任务完成后直接进入下一项；整个 PF 当前范围完成后才交回 Codex。最终交付只需包含：状态、主要修改范围、验证结果、剩余风险。
 
 ## 验证与提交门禁
 
-- 编码智能体负责运行任务卡要求的测试并解决失败；Codex 信任其验证结果，不重复运行测试，也不再逐条重审已交付规格。
-- Codex 只运行与任务对应的新鲜 Release 编译。后端默认命令：
+- 编码智能体负责整个 PF 内部测试并解决失败；Codex 信任其验证结果，不重复运行测试，也不按内部任务逐项重审。
+- 整个 PF 当前范围完成后，Codex 只运行一次对应的新鲜 Release 编译。后端默认命令：
 
 ```powershell
 dotnet build src/backend/IndustrialPlatform.slnx --configuration Release
@@ -47,7 +47,7 @@ dotnet build src/backend/IndustrialPlatform.slnx --configuration Release
 
 - 若出现 CS2012 或 `obj` 访问拒绝，先检查 `dotnet`、`testhost`、`VBCSCompiler` 进程；锁释放后必须重建。
 - Release 编译成功后，Codex 只做提交卫生检查（范围、私有配置、构建产物），随后直接提交并按依赖顺序合入 `develop`。
-- Release 编译失败时退回原执行智能体修复，不另开复核子任务。
+- Release 编译失败时退回原 PF 执行智能体修复，不另开复核子任务。
 - 只有安全风险、明显越界、数据破坏风险或用户明确要求时，Codex 才增加专项检查。
 
 ## 提交边界
@@ -68,6 +68,6 @@ dotnet build src/backend/IndustrialPlatform.slnx --configuration Release
 
 ## 所有权
 
-- Codex：`AGENTS.md`、`CURRENT.md`、蓝图、TODO、任务卡、优先级、最终编译门禁、提交和集成。
+- Codex：`AGENTS.md`、`CURRENT.md`、蓝图、TODO、PF 工作包、优先级、最终编译门禁、提交和集成。
 - Claude Code/Harness：被指派的任务代码与对应 evidence。
 - `CLAUDE.md`、`DSH.md`、`EXECUTOR.md` 由 Codex 制定，编码智能体只读。
