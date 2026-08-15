@@ -13,24 +13,22 @@
 
 - BuildingBlocks：基线与公共组件已完成。
 - 统一前端与 PF-01：已完成；外部真机 safe-area 项仍待验收。
-- Identity：TASK-ID-001～019 已完成；PF-00 剩余任务由 Harness 连续执行。
+- Identity/PF-00：TASK-ID-001～023 当前范围已完成并合入；真实 PostgreSQL/Redis 联合链路保留为外部整体测试项。
 - SystemData：TASK-SD-001～006 已完成并合入；下一步由 Claude Code 在合并基线上执行整体测试。
 - ReferenceData：保持服务骨架，业务功能未实施。
 
 ## 进行中
 
-- PF-00：Harness，工作包 `docs/tasks/active/PF-00.md`；内部从 TASK-ID-020 起连续执行。
 - PF-02：Claude Code，工作包 `docs/tasks/active/PF-02.md`；内部从 TASK-SD-006 起连续执行。
 
 ## 固定工作线
 
-- PF-00：Harness，长期复用 `IndustrialPlatform-worktrees/pf-00` 和当前分支 `task/pf-00-id-019`。
+- PF-00：Harness，长期复用 `IndustrialPlatform-worktrees/pf-00` 和当前分支 `task/pf-00-id-019`；当前范围已合入，待工作线同步。
 - PF-02：Claude Code，长期复用 `IndustrialPlatform-worktrees/pf-02` 和当前分支 `task/pf-02-sd-006`；SD-006 已合入，工作线同步后执行整体测试，后续内部任务不再新建分支。
 - 现有分支名称暂时保留；后续任务不因此创建新分支。
 
 ## 内部执行序列
 
-- PF-00 的 TASK-ID-020～023 由 Harness 按依赖连续执行，不再逐项派遣。
 - PF-02 的 TASK-SD-006+ 由 Claude Code 按依赖连续执行，不再逐项派遣。
 
 ## 阻塞与待决策
@@ -41,6 +39,7 @@
 
 ## 最近验收
 
+- `9f48d89`：PF-00 用户与用户组管理 API、前端闭环、首次改密与幂等写入。
 - `1b72c6b`：TASK-SD-006 SystemData 组织、岗位与任职管理 API。
 - `1b32ae6`：TASK-ID-019 Identity 三层种子与正式 admin 引导。
 - `69c49b7`：TASK-SD-005 组织、岗位与时间化任职领域和持久化。
