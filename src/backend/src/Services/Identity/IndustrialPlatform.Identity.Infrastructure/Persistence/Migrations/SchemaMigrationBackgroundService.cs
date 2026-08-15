@@ -1,13 +1,18 @@
+using IndustrialPlatform.Identity.Application.Bootstrap;
+using IndustrialPlatform.Identity.Infrastructure.Persistence.Seeds;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations;
 
 /// <summary>
-/// 启动时执行身份库迁移的后台服务。
+/// 启动时执行身份库迁移与不可变系统目录种子(SystemCatalog/TenantSecurity)的后台服务。
 /// 数据库不可达时不抛异常(记录告警跳过),保持无 Docker 环境下服务可运行基线;
-/// 迁移在数据库就绪后通过服务重启或后续 TASK-ID-004 的显式触发补齐。
+/// 迁移/种子在数据库就绪后通过服务重启或显式初始化补齐。
+/// SecretBootstrap(内置 admin)不在此自动执行:admin 引导必须由显式初始化编排调用,
+/// 以保证临时密码只向受保护调用方交付一次(§29A.4)。
 /// </summary>
 public sealed class SchemaMigrationBackgroundService : BackgroundService
 {
@@ -15,7 +20,7 @@ public sealed class SchemaMigrationBackgroundService : BackgroundService
         LoggerMessage.Define(
             LogLevel.Warning,
             new EventId(1, nameof(MigrationDeferred)),
-            "身份库当前不可达,迁移暂缓执行;待数据库就绪后重试。");
+            "身份库当前不可达,迁移与系统目录种子暂缓执行;待数据库就绪后重试。");
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<SchemaMigrationBackgroundService> _logger;
@@ -39,6 +44,15 @@ public sealed class SchemaMigrationBackgroundService : BackgroundService
             using var scope = _scopeFactory.CreateScope();
             var runner = scope.ServiceProvider.GetRequiredService<ISchemaMigrationRunner>();
             await runner.ApplyPendingAsync(stoppingToken);
+
+            // 不可变系统目录种子(权限目录 + SYSTEM_ADMIN)幂等补齐,保持开发基线可用;
+            // 不含 SecretBootstrap,内置 admin 只在显式初始化时创建。
+            var options = scope.ServiceProvider.GetRequiredService<IOptions<BootstrapOptions>>().Value;
+            var seedRunner = scope.ServiceProvider.GetRequiredService<IdentitySeedRunner>();
+            await seedRunner.RunAsync(
+                new IdentitySeedContext(options.TenantNId, SystemDataOperationNId: null, TraceId: null),
+                includeBootstrapAdmin: false,
+                stoppingToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException && !stoppingToken.IsCancellationRequested)
         {

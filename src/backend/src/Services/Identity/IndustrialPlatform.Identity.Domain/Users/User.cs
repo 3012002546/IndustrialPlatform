@@ -69,6 +69,12 @@ public sealed class User : AggregateRoot
     /// <summary>最近一次成功登录时间。</summary>
     public DateTimeOffset? LastLoginOn { get; private set; }
 
+    /// <summary>
+    /// 是否强制首次登录改密(§29A.4)。内置 admin 创建后为 <c>false</c>;
+    /// 普通新建用户为 <c>true</c>,首次登录只允许改密与注销,改密成功后清除该标记。
+    /// </summary>
+    public bool MustChangePassword { get; private set; }
+
     private readonly List<UserRole> _userRoles = [];
 
     /// <summary>已分配的用户角色关系(含已解除的软删除关系)。</summary>
@@ -93,7 +99,8 @@ public sealed class User : AggregateRoot
         string name,
         string? email,
         string? phone,
-        string passwordHash)
+        string passwordHash,
+        bool mustChangePassword)
         : this()
     {
         var trimmedTenantNId = RequireTrimmedNonEmpty(tenantNId, "租户编码不能为空。");
@@ -129,6 +136,7 @@ public sealed class User : AggregateRoot
         LockedUntil = null;
         AuthVersion = 0;
         LastLoginOn = null;
+        MustChangePassword = mustChangePassword;
     }
 
     /// <summary>
@@ -151,6 +159,7 @@ public sealed class User : AggregateRoot
         DateTimeOffset? lockedUntil,
         int authVersion,
         DateTimeOffset? lastLoginOn,
+        bool mustChangePassword,
         IReadOnlyCollection<UserRole> userRoles,
         bool isFrozen,
         bool isLocked,
@@ -177,6 +186,7 @@ public sealed class User : AggregateRoot
         LockedUntil = lockedUntil;
         AuthVersion = authVersion;
         LastLoginOn = lastLoginOn;
+        MustChangePassword = mustChangePassword;
         _userRoles.AddRange(userRoles);
         IsFrozen = isFrozen;
         IsLocked = isLocked;
@@ -200,6 +210,13 @@ public sealed class User : AggregateRoot
     /// <param name="email">邮箱,可为空。</param>
     /// <param name="phone">电话,可为空。</param>
     /// <param name="passwordHash">密码哈希。</param>
+    /// <param name="mustChangePassword">
+    /// 是否强制首次登录改密;普通新建用户为 <c>true</c>(§29A.4),
+    /// 内置 bootstrap admin 传 <c>false</c>。
+    /// </param>
+    /// <param name="id">
+    /// 可选稳定内部 Id(bootstrap admin 使用代码内稳定常量,§29A.4);为空时随机生成。
+    /// </param>
     /// <returns>创建完成、已注册创建事件的用户聚合根。</returns>
     public static User Create(
         string tenantNId,
@@ -208,9 +225,16 @@ public sealed class User : AggregateRoot
         string name,
         string? email,
         string? phone,
-        string passwordHash)
+        string passwordHash,
+        bool mustChangePassword = true,
+        Guid? id = null)
     {
-        var user = new User(tenantNId, nId, loginName, name, email, phone, passwordHash);
+        var user = new User(tenantNId, nId, loginName, name, email, phone, passwordHash, mustChangePassword);
+        if (id.HasValue && id.Value != Guid.Empty)
+        {
+            user.Id = id.Value;
+        }
+
         user.AddDomainEvent(new UserCreatedEvent(user.TenantNId, user.NId, user.LoginName, user.AuthVersion));
         return user;
     }

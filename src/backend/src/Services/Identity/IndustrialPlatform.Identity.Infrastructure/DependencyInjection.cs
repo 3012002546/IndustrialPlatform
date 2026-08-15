@@ -1,15 +1,18 @@
 using IndustrialPlatform.Identity.Application.Authentication;
 using IndustrialPlatform.Identity.Application.Authorization;
+using IndustrialPlatform.Identity.Application.Bootstrap;
 using IndustrialPlatform.Identity.Application.Management;
 using IndustrialPlatform.Identity.Application.Sso;
 using IndustrialPlatform.Identity.Application.UserGroups;
 using IndustrialPlatform.Identity.Domain.Passwords;
 using IndustrialPlatform.Identity.Infrastructure.Authentication;
+using IndustrialPlatform.Identity.Infrastructure.Bootstrap;
 using IndustrialPlatform.Identity.Infrastructure.Management;
 using IndustrialPlatform.Identity.Infrastructure.Passwords;
 using IndustrialPlatform.Identity.Infrastructure.Outbox;
 using IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations;
 using IndustrialPlatform.Identity.Infrastructure.Persistence.Repositories;
+using IndustrialPlatform.Identity.Infrastructure.Persistence.Seeds;
 using IndustrialPlatform.Identity.Infrastructure.Security;
 using IndustrialPlatform.Identity.Infrastructure.Sso;
 using Microsoft.Extensions.Configuration;
@@ -88,6 +91,14 @@ public static class DependencyInjection
         services.AddSingleton<IExternalIdentityProvider, OidcExternalIdentityProvider>();
         services.AddSingleton<IExternalIdentityProvider, Saml2ExternalIdentityProvider>();
         services.AddSingleton<IExternalIdentityProviderFactory, ExternalIdentityProviderFactory>();
+
+        // bootstrap 编排(TASK-ID-019,§29A.4):凭据交付存储、admin/状态存储、随机密码生成、
+        // 三层种子执行器与显式初始化编排。明文临时密码只在受保护结果中出现一次。
+        services.AddSingleton<IBootstrapCredentialStore, BootstrapCredentialStore>();
+        services.AddSingleton<IBootstrapStore, BootstrapStore>();
+        services.AddSingleton<ITemporaryPasswordGenerator, TemporaryPasswordGenerator>();
+        services.AddSingleton<IdentitySeedRunner>();
+        services.AddSingleton<IdentityInitializationService>();
 
         return services;
     }

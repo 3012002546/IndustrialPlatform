@@ -68,6 +68,12 @@ public static class PermissionCatalog
     /// <summary>平台移动端查看。</summary>
     public const string PlatformMobileView = "platform.mobile.view";
 
+    /// <summary>查看 bootstrap 状态(§29A.5):仅状态/版本,不含 Secret。</summary>
+    public const string BootstrapView = "identity.bootstrap.view";
+
+    /// <summary>紧急恢复内置 admin(§29A.5):接受一次性恢复引用与审批关联,不接受明文密码。</summary>
+    public const string BootstrapRecover = "identity.bootstrap.recover";
+
     /// <summary>第一批权限 NId,按 §9.2 目录顺序。</summary>
     public static IReadOnlyList<string> FirstBatchNIds { get; } =
     [
@@ -92,5 +98,7 @@ public static class PermissionCatalog
         PlatformHomeView,
         PlatformPdaView,
         PlatformMobileView,
+        BootstrapView,
+        BootstrapRecover,
     ];
 }

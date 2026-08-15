@@ -1,5 +1,6 @@
 using IndustrialPlatform.Identity.Application.Authentication;
 using IndustrialPlatform.Identity.Application.Authorization;
+using IndustrialPlatform.Identity.Application.Bootstrap;
 using IndustrialPlatform.Identity.Application.Management;
 using IndustrialPlatform.Identity.Application.Sso;
 using IndustrialPlatform.Identity.Application.UserGroups;
@@ -48,6 +49,11 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(SsoOptions.SectionName));
         services.AddSingleton<ISsoService, SsoService>();
         services.AddSingleton<ISsoManagementService, SsoManagementService>();
+
+        // bootstrap 用例(TASK-ID-019,§29A.4):状态/readiness/紧急恢复;持久化与生成端口由基础设施注册。
+        services.AddOptions<BootstrapOptions>()
+            .Bind(configuration.GetSection(BootstrapOptions.SectionName));
+        services.AddSingleton<IBootstrapService, BootstrapService>();
 
         return services;
     }

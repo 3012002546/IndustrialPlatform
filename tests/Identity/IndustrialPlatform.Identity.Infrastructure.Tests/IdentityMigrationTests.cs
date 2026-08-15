@@ -1,6 +1,5 @@
 using IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations;
 using IndustrialPlatform.Infrastructure.Database;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SqlSugar;
 using SQLitePCL;
@@ -8,18 +7,14 @@ using SQLitePCL;
 namespace IndustrialPlatform.Identity.Infrastructure.Tests;
 
 /// <summary>
-/// 身份库迁移与种子集成测试(§11/§21.2),基于文件型 SQLite 验证九张表创建、
-/// 约束索引、复合外键级联、拒绝不匹配写入与初始化幂等。
+/// 身份库迁移与不可变系统目录种子集成测试(§11/§21.2 + §29A.4):
+/// 基于文件型 SQLite 验证建表、约束索引、复合外键级联、拒绝不匹配写入与初始化幂等。
+/// 三层种子与内置 admin 引导由 IdentitySeedRunnerTests 单独覆盖。
 /// (PostgreSQL 真实验证标记「待验收」。)
 /// </summary>
 [Collection(BootstrapEnvironmentTestGroup.Name)]
 public sealed class IdentityMigrationTests : IDisposable
 {
-    private const string BootstrapTenantNId = "development";
-    private const string BootstrapUserNId = "admin";
-    private const string BootstrapLoginName = "admin";
-    private const string BootstrapPassword = "Admin!2026xyz";
-
     private static readonly string[] AllTableNames =
     [
         "identity_user",
@@ -31,14 +26,8 @@ public sealed class IdentityMigrationTests : IDisposable
         "identity_login_audit",
         "identity_operation_audit",
         "identity_outbox",
-    ];
-
-    private static readonly string[] BootstrapEnvNames =
-    [
-        "IDENTITY_BOOTSTRAP_TENANT_NID",
-        "IDENTITY_BOOTSTRAP_USER_NID",
-        "IDENTITY_BOOTSTRAP_LOGIN_NAME",
-        "IDENTITY_BOOTSTRAP_PASSWORD",
+        "identity_seed_ledger",
+        "identity_bootstrap_credential",
     ];
 
     private const string InsertUserSql = """
@@ -111,14 +100,6 @@ public sealed class IdentityMigrationTests : IDisposable
 
     private static string NowIso() => DateTimeOffset.UtcNow.ToString("O");
 
-    private static void ClearBootstrapEnv()
-    {
-        foreach (var name in BootstrapEnvNames)
-        {
-            Environment.SetEnvironmentVariable(name, null);
-        }
-    }
-
     private static SugarParameter[] UserParams(string id, string nId, string normalizedLoginName)
     {
         return
@@ -178,9 +159,7 @@ public sealed class IdentityMigrationTests : IDisposable
         ];
     }
 
-    private Task ApplyAsync() =>
-        new SchemaMigrationRunner(_dbContext, IdentitySchemaMigrations.All, NullLogger<SchemaMigrationRunner>.Instance)
-            .ApplyPendingAsync();
+    private Task ApplyAsync() => IdentityTestDatabase.ApplyCatalogAsync(_dbContext);
 
     private Task<int> CountAsync(string sql) =>
         _dbContext.SqlSugar.Ado.GetIntAsync(sql);
@@ -189,7 +168,7 @@ public sealed class IdentityMigrationTests : IDisposable
         await _dbContext.SqlSugar.Ado.GetStringAsync("SELECT id FROM identity_role WHERE n_id = 'SYSTEM_ADMIN'");
 
     [Fact]
-    public async Task ApplyPending_CreatesAllNineTables()
+    public async Task ApplyPending_CreatesAllTables()
     {
         await ApplyAsync();
 
@@ -207,95 +186,54 @@ public sealed class IdentityMigrationTests : IDisposable
     [Fact]
     public async Task ApplyPending_RunTwice_IsIdempotent_SeedCountsStable()
     {
-        ClearBootstrapEnv();
-
         await ApplyAsync();
         var first = await ReadSeedCountsAsync();
 
         await ApplyAsync();
         var second = await ReadSeedCountsAsync();
 
-        // 权限目录 21 项、SYSTEM_ADMIN 系统角色、角色权限 21 条、无默认用户
-        Assert.Equal(21, first.PermissionCount);
+        // 权限目录 23 项、SYSTEM_ADMIN 系统角色、角色权限 23 条、无默认用户;
+        // 两个不可变目录种子账本记录,重复执行不新增。
+        Assert.Equal(23, first.PermissionCount);
         Assert.Equal(1, first.RoleCount);
-        Assert.Equal(21, first.RolePermissionCount);
+        Assert.Equal(23, first.RolePermissionCount);
         Assert.Equal(0, first.UserCount);
+        Assert.Equal(2, first.LedgerCount);
         Assert.Equal(first, second);
     }
 
-    private async Task<(int PermissionCount, int RoleCount, int RolePermissionCount, int UserCount)> ReadSeedCountsAsync()
+    private async Task<(int PermissionCount, int RoleCount, int RolePermissionCount, int UserCount, int LedgerCount)> ReadSeedCountsAsync()
     {
         return (
             await CountAsync("SELECT COUNT(*) FROM identity_permission"),
             await CountAsync("SELECT COUNT(*) FROM identity_role"),
             await CountAsync("SELECT COUNT(*) FROM identity_role_permission"),
-            await CountAsync("SELECT COUNT(*) FROM identity_user"));
+            await CountAsync("SELECT COUNT(*) FROM identity_user"),
+            await CountAsync("SELECT COUNT(*) FROM identity_seed_ledger"));
     }
 
     [Fact]
-    public async Task ApplyPending_NoBootstrapEnv_CreatesNoDefaultUser()
+    public async Task ApplyPending_CatalogSeeds_DoNotCreateUsers()
     {
-        ClearBootstrapEnv();
-
         await ApplyAsync();
 
-        // 生产缺少显式初始化配置时不得创建固定默认账号
+        // 不可变目录种子绝不创建任何用户;内置 admin 只在显式初始化(SecretBootstrap)时创建。
         Assert.Equal(0, await CountAsync("SELECT COUNT(*) FROM identity_user"));
     }
 
     [Fact]
-    public async Task ApplyPending_WithBootstrapEnv_CreatesAdminWithSystemAdminRole()
+    public async Task MustChangePassword_ColumnExists_WithDefaultFalse()
     {
-        ClearBootstrapEnv();
-        try
-        {
-            Environment.SetEnvironmentVariable("IDENTITY_BOOTSTRAP_TENANT_NID", BootstrapTenantNId);
-            Environment.SetEnvironmentVariable("IDENTITY_BOOTSTRAP_USER_NID", BootstrapUserNId);
-            Environment.SetEnvironmentVariable("IDENTITY_BOOTSTRAP_LOGIN_NAME", BootstrapLoginName);
-            Environment.SetEnvironmentVariable("IDENTITY_BOOTSTRAP_PASSWORD", BootstrapPassword);
+        await ApplyAsync();
 
-            await ApplyAsync();
+        // 既有行(未显式赋值)默认 must_change_password=false(§29A.4 内置 admin 语义)。
+        await _dbContext.SqlSugar.Ado.ExecuteCommandAsync(InsertUserSql, UserParams("u-1", "alice.user", "ALICE"));
+        var value = await _dbContext.SqlSugar.Ado.GetIntAsync(
+            "SELECT must_change_password FROM identity_user WHERE id = 'u-1'");
+        Assert.Equal(0, value);
 
-            Assert.Equal(1, await CountAsync("SELECT COUNT(*) FROM identity_user"));
-
-            // 存储值必须是哈希,不能是明文
-            var storedHash = await _dbContext.SqlSugar.Ado.GetStringAsync("SELECT password_hash FROM identity_user");
-            Assert.NotEqual(BootstrapPassword, storedHash);
-            Assert.StartsWith("$2", storedHash, StringComparison.Ordinal);
-
-            // 管理员被分配 SYSTEM_ADMIN 系统角色(活动关系)
-            var adminRoleCount = await CountAsync(
-                "SELECT COUNT(*) FROM identity_user_role ur " +
-                "JOIN identity_role r ON r.id = ur.role_id " +
-                "WHERE r.n_id = 'SYSTEM_ADMIN' AND ur.is_deleted = 0 AND ur.user_is_deleted = 0");
-            Assert.Equal(1, adminRoleCount);
-        }
-        finally
-        {
-            ClearBootstrapEnv();
-        }
-    }
-
-    [Fact]
-    public async Task ApplyPending_WithBootstrapEnv_RunTwice_CreatesExactlyOneUser()
-    {
-        ClearBootstrapEnv();
-        try
-        {
-            Environment.SetEnvironmentVariable("IDENTITY_BOOTSTRAP_TENANT_NID", BootstrapTenantNId);
-            Environment.SetEnvironmentVariable("IDENTITY_BOOTSTRAP_USER_NID", BootstrapUserNId);
-            Environment.SetEnvironmentVariable("IDENTITY_BOOTSTRAP_LOGIN_NAME", BootstrapLoginName);
-            Environment.SetEnvironmentVariable("IDENTITY_BOOTSTRAP_PASSWORD", BootstrapPassword);
-
-            await ApplyAsync();
-            await ApplyAsync();
-
-            Assert.Equal(1, await CountAsync("SELECT COUNT(*) FROM identity_user"));
-        }
-        finally
-        {
-            ClearBootstrapEnv();
-        }
+        // 重复迁移:ALTER 守卫幂等,不因列已存在而失败。
+        await ApplyAsync();
     }
 
     [Fact]
@@ -313,7 +251,6 @@ public sealed class IdentityMigrationTests : IDisposable
     [Fact]
     public async Task SoftDeletedLoginName_CanBeReused_ByPartialUniqueIndex()
     {
-        ClearBootstrapEnv();
         await ApplyAsync();
 
         // 活动记录 (development, ALICE) 已存在 → 同登录名的另一活动用户被拒绝
@@ -333,7 +270,6 @@ public sealed class IdentityMigrationTests : IDisposable
     [Fact]
     public async Task ParentSoftDelete_CascadesChildShadowColumns()
     {
-        ClearBootstrapEnv();
         await ApplyAsync();
 
         await _dbContext.SqlSugar.Ado.ExecuteCommandAsync(InsertUserSql, UserParams("u-1", "alice.user", "ALICE"));
@@ -356,7 +292,6 @@ public sealed class IdentityMigrationTests : IDisposable
     [Fact]
     public async Task MismatchedParentShadowWrite_IsRejected_ByCompositeForeignKey()
     {
-        ClearBootstrapEnv();
         await ApplyAsync();
 
         await _dbContext.SqlSugar.Ado.ExecuteCommandAsync(InsertUserSql, UserParams("u-1", "alice.user", "ALICE"));

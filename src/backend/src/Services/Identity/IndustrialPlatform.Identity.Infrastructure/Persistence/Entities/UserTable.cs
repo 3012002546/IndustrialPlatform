@@ -79,4 +79,7 @@ public sealed class UserTable
 
     [SugarColumn(ColumnName = "last_login_on")]
     public DateTimeOffset? LastLoginOn { get; set; }
+
+    [SugarColumn(ColumnName = "must_change_password")]
+    public bool MustChangePassword { get; set; }
 }

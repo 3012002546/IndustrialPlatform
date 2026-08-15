@@ -61,10 +61,7 @@ public sealed class UserGroupRepositoryTests : IDisposable
             DbType = DbType.Sqlite,
         }));
 
-        new SchemaMigrationRunner(_dbContext, IdentitySchemaMigrations.All, NullLogger<SchemaMigrationRunner>.Instance)
-            .ApplyPendingAsync()
-            .GetAwaiter()
-            .GetResult();
+        IdentityTestDatabase.ApplyCatalogAsync(_dbContext).GetAwaiter().GetResult();
 
         _groups = new UserGroupRepository(_dbContext);
         _users = new UserRepository(_dbContext);
@@ -157,10 +154,8 @@ public sealed class UserGroupRepositoryTests : IDisposable
     [Fact]
     public async Task ApplyPending_RunTwice_IsIdempotent()
     {
-        await new SchemaMigrationRunner(_dbContext, IdentitySchemaMigrations.All, NullLogger<SchemaMigrationRunner>.Instance)
-            .ApplyPendingAsync();
-        await new SchemaMigrationRunner(_dbContext, IdentitySchemaMigrations.All, NullLogger<SchemaMigrationRunner>.Instance)
-            .ApplyPendingAsync();
+        await IdentityTestDatabase.ApplyCatalogAsync(_dbContext);
+        await IdentityTestDatabase.ApplyCatalogAsync(_dbContext);
 
         // 第二次执行不产生重复账本记录
         Assert.Equal(1, await CountAsync(

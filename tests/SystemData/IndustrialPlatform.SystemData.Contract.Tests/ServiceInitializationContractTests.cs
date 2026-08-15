@@ -91,6 +91,7 @@ public sealed class ServiceInitializationContractTests
             MigrationReady = true,
             RequiredSeedReady = true,
             BootstrapReady = true,
+            BootstrapStatus = "Ready",
             Ready = true,
             Status = "Ready",
             Seeds =
@@ -112,8 +113,55 @@ public sealed class ServiceInitializationContractTests
         Assert.Equal(JsonValueKind.True, root.GetProperty("migrationReady").ValueKind);
         Assert.Equal(JsonValueKind.True, root.GetProperty("requiredSeedReady").ValueKind);
         Assert.Equal(JsonValueKind.True, root.GetProperty("bootstrapReady").ValueKind);
+        Assert.Equal("Ready", root.GetProperty("bootstrapStatus").GetString());
         Assert.Equal("Ready", root.GetProperty("status").GetString());
         Assert.Equal("Applied", root.GetProperty("seeds")[0].GetProperty("status").GetString());
+    }
+
+    [Fact]
+    public void ReadinessV2_BootstrapStatus_IsAdditiveAndNonSensitive()
+    {
+        // TASK-ID-019 最小兼容扩展:bootstrapStatus 只描述状态,不携带 Secret/引用。
+        var pending = new ServiceInitializationReadinessV2
+        {
+            ServiceKey = "identity",
+            ModuleKey = "identity",
+            BootstrapReady = false,
+            BootstrapStatus = "Pending",
+            Ready = false,
+        };
+
+        using var document = JsonDocument.Parse(JsonSerializer.Serialize(pending, WebJson));
+        var root = document.RootElement;
+
+        Assert.Equal("Pending", root.GetProperty("bootstrapStatus").GetString());
+        Assert.False(root.GetProperty("bootstrapReady").GetBoolean());
+
+        // 属性名不含敏感词(契约扫描:Secret/Password/Token/ConnectionString)。
+        Assert.False(
+            root.TryGetProperty("recoveryReference", out _)
+            || root.TryGetProperty("temporaryPassword", out _));
+    }
+
+    [Fact]
+    public void ReadinessV2_BootstrapStatusAbsent_RemainsV1Compatible()
+    {
+        // 缺省(migration-only 场景)时 bootstrapStatus 为 null,字段是纯增量扩展,不改变 v1 消费语义。
+        var readiness = new ServiceInitializationReadinessV2
+        {
+            ServiceKey = "systemdata",
+            ModuleKey = "systemdata",
+            Ready = true,
+            Status = "Ready",
+        };
+
+        using var document = JsonDocument.Parse(JsonSerializer.Serialize(readiness, WebJson));
+        var root = document.RootElement;
+
+        if (root.TryGetProperty("bootstrapStatus", out var value))
+        {
+            Assert.Equal(JsonValueKind.Null, value.ValueKind);
+        }
     }
 
     [Fact]

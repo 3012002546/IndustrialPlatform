@@ -1,5 +1,10 @@
 using System.Reflection;
+using IndustrialPlatform.Identity.Application.Bootstrap;
+using IndustrialPlatform.Identity.Domain.Passwords;
+using IndustrialPlatform.Identity.Infrastructure.Bootstrap;
+using IndustrialPlatform.Identity.Infrastructure.Passwords;
 using IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations;
+using IndustrialPlatform.Identity.Infrastructure.Persistence.Seeds;
 using IndustrialPlatform.Infrastructure.Database;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -74,10 +79,21 @@ public sealed class SchemaMigrationRunnerTests : IDisposable
             throw new InvalidOperationException("step failed");
         });
 
-    private static IServiceScopeFactory CreateScopeFactory(ISchemaMigrationRunner runner)
+    /// <summary>
+    /// 构造后台服务作用域:注册迁移运行器与后台服务依赖的目录种子运行器/配置,
+    /// 使 ExecuteAsync 真实执行「迁移 + 目录种子」路径(TASK-ID-019)。
+    /// </summary>
+    private IServiceScopeFactory CreateScopeFactory(ISchemaMigrationRunner runner)
     {
         var services = new ServiceCollection();
         services.AddSingleton(runner);
+        services.AddOptions<BootstrapOptions>().Configure(o => o.TenantNId = IdentityTestDatabase.TestTenantNId);
+        services.AddSingleton<IPasswordHasher>(new BcryptPasswordHasher());
+        services.AddSingleton<IBootstrapCredentialStore>(new BootstrapCredentialStore(_dbContext));
+        services.AddSingleton(new IdentitySeedRunner(
+            _dbContext,
+            new BcryptPasswordHasher(),
+            new BootstrapCredentialStore(_dbContext)));
         return services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
     }
 

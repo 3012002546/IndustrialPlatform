@@ -76,6 +76,12 @@ public static class PermissionPolicies
     /// <summary>平台移动端查看。</summary>
     public const string PlatformMobileView = Prefix + PermissionCatalog.PlatformMobileView;
 
+    /// <summary>查看 bootstrap 状态(§29A.5)。</summary>
+    public const string BootstrapView = Prefix + PermissionCatalog.BootstrapView;
+
+    /// <summary>紧急恢复内置 admin(§29A.5)。</summary>
+    public const string BootstrapRecover = Prefix + PermissionCatalog.BootstrapRecover;
+
     /// <summary>由权限 NId 生成策略名。</summary>
     public static string PolicyName(string permissionNId) => Prefix + permissionNId;
 
