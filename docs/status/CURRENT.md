@@ -19,13 +19,13 @@
 
 ## 进行中
 
-无。新任务必须由 Codex 创建任务卡并分配独立 worktree/分支后开始。
+- TASK-ID-019：Harness，`task/pf-00-id-019`，worktree `IndustrialPlatform-worktrees/pf-00`，任务卡 `docs/tasks/active/TASK-ID-019.md`。
+- TASK-SD-005：Claude Code，`task/pf-02-sd-005`，worktree `IndustrialPlatform-worktrees/pf-02`，任务卡 `docs/tasks/active/TASK-SD-005.md`。
 
 ## 待派遣
 
-- TASK-ID-019：接入 SystemData 编排与正式 admin 引导；依赖 ID-017、ID-018 和 SD-004，当前依赖已具备。
-- TASK-ID-020～023：按 Identity 实施方案 §29A 后续任务派遣。
-- TASK-SD-005+：组织、岗位、任职及后续 SystemData 能力。
+- TASK-ID-020～023：等待 TASK-ID-019 验收后按 Identity 实施方案 §29A 派遣。
+- TASK-SD-006+：等待对应前置任务验收后派遣。
 - PF-00、PF-02 等前端工作以 Codex 最新蓝图和新任务卡为准，不沿用已停止智能体的会话状态。
 
 ## 阻塞与待决策
