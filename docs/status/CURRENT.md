@@ -14,7 +14,7 @@
 - BuildingBlocks：基线与公共组件已完成。
 - 统一前端与 PF-01：已完成；外部真机 safe-area 项仍待验收。
 - Identity：TASK-ID-001～019 已完成；PF-00 剩余任务由 Harness 连续执行。
-- SystemData：TASK-SD-001～005 已完成；云端 PostgreSQL 种子账本语义已验证。
+- SystemData：TASK-SD-001～006 已完成并合入；下一步由 Claude Code 在合并基线上执行整体测试。
 - ReferenceData：保持服务骨架，业务功能未实施。
 
 ## 进行中
@@ -25,7 +25,7 @@
 ## 固定工作线
 
 - PF-00：Harness，长期复用 `IndustrialPlatform-worktrees/pf-00` 和当前分支 `task/pf-00-id-019`。
-- PF-02：Claude Code，长期复用 `IndustrialPlatform-worktrees/pf-02` 和当前分支 `task/pf-02-sd-006`；当前存在进行中的未提交修改，不强制同步，后续内部任务不再新建分支。
+- PF-02：Claude Code，长期复用 `IndustrialPlatform-worktrees/pf-02` 和当前分支 `task/pf-02-sd-006`；SD-006 已合入，工作线同步后执行整体测试，后续内部任务不再新建分支。
 - 现有分支名称暂时保留；后续任务不因此创建新分支。
 
 ## 内部执行序列
@@ -41,6 +41,7 @@
 
 ## 最近验收
 
+- `1b72c6b`：TASK-SD-006 SystemData 组织、岗位与任职管理 API。
 - `1b32ae6`：TASK-ID-019 Identity 三层种子与正式 admin 引导。
 - `69c49b7`：TASK-SD-005 组织、岗位与时间化任职领域和持久化。
 - `83a00d1`：TASK-ID-018 用户与用户组安全删除恢复。
