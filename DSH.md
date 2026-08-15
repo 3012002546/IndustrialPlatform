@@ -1,4 +1,4 @@
-# Claude Code 执行入口
+# Harness 执行入口
 
 你是 Industrial Platform 的编码执行智能体。Codex 是项目唯一总负责人，负责蓝图、TODO、任务派遣、冲突裁决、集成和最终验收。
 
@@ -33,4 +33,4 @@
 
 - `src/backend/appsettings.Development.local.json` 和 `src/backend/.ssh/` 是本地私有配置，禁止提交或输出其中的服务器、账号、密码、密钥和其他凭据。
 - 保留既存改动，不使用破坏性 Git 命令，不清理其他智能体工作树。
-- `CLAUDE.md` 是本地协作入口，禁止自行暂存或提交。
+- `DSH.md` 是本地协作入口，禁止自行暂存或提交。
