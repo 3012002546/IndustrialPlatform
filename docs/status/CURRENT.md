@@ -13,23 +13,23 @@
 
 - BuildingBlocks：基线与公共组件已完成。
 - 统一前端与 PF-01：已完成；外部真机 safe-area 项仍待验收。
-- Identity：TASK-ID-001～018 已完成；ID-017 为用户组授权，ID-018 为用户与用户组安全删除恢复。
+- Identity：TASK-ID-001～019 已完成；TASK-ID-020 已派遣给 Harness。
 - SystemData：TASK-SD-001～005 已完成；云端 PostgreSQL 种子账本语义已验证。
 - ReferenceData：保持服务骨架，业务功能未实施。
 
 ## 进行中
 
-- TASK-ID-019：Harness，`task/pf-00-id-019`，worktree `IndustrialPlatform-worktrees/pf-00`，任务卡 `docs/tasks/active/TASK-ID-019.md`。
+- TASK-ID-020：Harness，复用 PF-00 工作线，任务卡 `docs/tasks/active/TASK-ID-020.md`。
 
 ## 固定工作线
 
-- PF-00：Harness，长期复用 `IndustrialPlatform-worktrees/pf-00`；当前分支 `task/pf-00-id-019`。
+- PF-00：Harness，长期复用 `IndustrialPlatform-worktrees/pf-00` 和当前分支 `task/pf-00-id-019`；当前任务 TASK-ID-020。
 - PF-02：Claude Code，长期复用 `IndustrialPlatform-worktrees/pf-02`；当前分支 `task/pf-02-sd-005`，开始 TASK-SD-006 前由 Codex 同步最新 `develop`。
 - 现有分支名称暂时保留；后续任务不因此创建新分支。
 
 ## 待派遣
 
-- TASK-ID-020～023：等待 TASK-ID-019 验收后按 Identity 实施方案 §29A 派遣。
+- TASK-ID-021～023：按 Identity 实施方案 §29A 和前置依赖顺序派遣。
 - TASK-SD-006+：TASK-SD-005 已完成，可按依赖顺序派遣。
 - PF-00、PF-02 等前端工作以 Codex 最新蓝图和新任务卡为准，不沿用已停止智能体的会话状态。
 
@@ -41,6 +41,7 @@
 
 ## 最近验收
 
+- `1b32ae6`：TASK-ID-019 Identity 三层种子与正式 admin 引导。
 - `69c49b7`：TASK-SD-005 组织、岗位与时间化任职领域和持久化。
 - `83a00d1`：TASK-ID-018 用户与用户组安全删除恢复。
 - `07d6863`：TASK-ID-017 用户组授权模型。
