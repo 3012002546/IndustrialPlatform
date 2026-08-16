@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <!-- 钉定传递依赖 Microsoft.OpenApi 到已修复版本(2.7.5+),规避 GHSA-v5pm-xwqc-g5wc -->
+    <PackageReference Include="Microsoft.OpenApi" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 只组合模块,不复制 Controller/业务服务/Repository/迁移/种子实现。
+         Api 项目的 Program 部分类与模块入口、控制器经程序集引用自动发现。 -->
+    <ProjectReference Include="..\..\Services\Identity\IndustrialPlatform.Identity.Api\IndustrialPlatform.Identity.Api.csproj" />
+    <ProjectReference Include="..\..\Services\SystemData\IndustrialPlatform.SystemData.Api\IndustrialPlatform.SystemData.Api.csproj" />
+    <ProjectReference Include="..\..\Services\ReferenceData\IndustrialPlatform.ReferenceData.Api\IndustrialPlatform.ReferenceData.Api.csproj" />
+  </ItemGroup>
+
+</Project>

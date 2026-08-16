@@ -1,0 +1,40 @@
+# 云端短期部署:常驻应用只运行一个 UnifiedHost 容器(前端静态文件由该容器提供)。
+# 连接调用者明确传入的基础设施网络(APPLICATION_NETWORK,与 bootstrap-admin.sh/deploy.sh 同一变量);
+# 发布端口只绑定 Tailnet,宿主端口为 APP_HTTP_PORT(默认 8080),容器内部端口固定 8080。
+# 使用 CI 发布的不可变镜像(deploy/application/Dockerfile 构建);服务器不 clone/build 源码。
+#
+# 环境变量:
+#   APPLICATION_IMAGE     不可变镜像(显式 tag 或 @sha256 digest,禁止 latest)
+#   APPLICATION_ENV_FILE  环境文件绝对路径(含 ASPNETCORE_ENVIRONMENT、SqlSugar/Redis 等配置)
+#   APPLICATION_NETWORK   基础设施网络名(必填;由 deploy.sh 强制传入,不依赖默认)
+#   TAILSCALE_IP          Tailnet 地址,端口只绑定该地址
+#   APP_HTTP_PORT         宿主发布端口(默认 8080;容器内保持 8080)
+name: industrial-platform-app
+
+x-app-defaults: &app-defaults
+  image: ${APPLICATION_IMAGE:?APPLICATION_IMAGE is required}
+  env_file: ${APPLICATION_ENV_FILE:?APPLICATION_ENV_FILE is required}
+  networks:
+    - platform-backend
+  restart: unless-stopped
+
+services:
+  app:
+    <<: *app-defaults
+    container_name: industrial-platform-unifiedhost
+    # 只绑定 Tailnet;数据库与内部 API 不对外发布;宿主端口 APP_HTTP_PORT → 容器 8080
+    ports:
+      - "${TAILSCALE_IP:?TAILSCALE_IP is required}:${APP_HTTP_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/health/live >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    mem_limit: ${APP_MEM_LIMIT:-1g}
+    cpus: ${APP_CPUS:-1.0}
+
+networks:
+  platform-backend:
+    name: ${APPLICATION_NETWORK:?APPLICATION_NETWORK is required}
+    external: true

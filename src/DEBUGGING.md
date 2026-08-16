@@ -1,6 +1,6 @@
 # 本地调试指南
 
-> 适用环境:Windows 11 / 本地无 Docker。数据库/缓存等依赖有两种形态:**无依赖 SQLite 基线**(2026-08-10 验证)与**经 RemoteDevelopment 连云端基础设施**(Tailnet,2026-08-12 验证)。本文记录于 2026-08-10,2026-08-12 更新启动方式勘误与云端联调结论,2026-08-13 补充 VS2026 与 VS Code 的详细调试步骤。
+> 适用环境:Windows 11 / 本地无 Docker。数据库/缓存等依赖有两种形态:**无依赖 SQLite 基线**(2026-08-10 验证)与**经 RemoteDevelopment 连云端基础设施**(Tailnet,2026-08-12 验证)。本文记录于 2026-08-10,2026-08-12 更新启动方式勘误与云端联调结论,2026-08-13 补充 VS2026 与 VS Code 的详细调试步骤,2026-08-16 更新为默认 UnifiedHost 单进程调试 + admin 初始化脚本。
 
 ## 目录
 
@@ -50,7 +50,7 @@
 
 ## 二、后端调试(VS2026)
 
-> 后端三个服务:**Identity**(认证,`:5041`)、**ReferenceData**(基础数据,`:62311`)、**Gateway**(统一入口,`:5080`)。调试前先在 VS2026 打开解决方案。
+> **默认整体调试:只启动一个 `IndustrialPlatform.UnifiedHost` 进程(`:5041`,组合 Identity/SystemData/ReferenceData),前端 Vite(`:5173`)直连它,不再需要 Gateway + 三服务。** 独立服务调试(Gateway `:5080` + Identity `:5041` + ReferenceData `:62311`)仍保留,供边界验证与未来拆分。
 
 ### 2.1 打开解决方案
 
@@ -61,11 +61,14 @@ src/backend/IndustrialPlatform.slnx
 - VS2026 原生支持 `.slnx`(XML 解决方案格式),双击或用「打开解决方案」打开即可。仓库**没有** `.sln` 文件。
 - 首次打开会触发 NuGet 还原;若还原报错(Windows 常见),先设置本地 CLI home(见 2.4)。
 
-### 2.2 配置多个启动项目
+### 2.2 配置启动项目
 
-网关 + 服务要一起跑才能走通完整链路。两种方式:
+**默认(推荐):UnifiedHost 单进程**
+1. 解决方案资源管理器 → 右键 `IndustrialPlatform.UnifiedHost` → **设为启动项目** → F5。
+2. 前端另开终端:`cd src/frontend && pnpm dev`(`VITE_API_BASE_URL` 指向 `http://localhost:5041`,见 4.4)。
+3. 首次使用先执行 admin 初始化(见 2.4A),再登录 `admin`。
 
-**方式 A:多启动项目(推荐)**
+**方式 A:多启动项目(独立服务,边界验证/未来拆分)**
 1. 解决方案资源管理器 → 右键 `IndustrialPlatform.slnx` → **配置启动项目**。
 2. 选「多个启动项目」,把以下三个设为 **启动**,其余设为「无」:
 
@@ -87,26 +90,34 @@ src/backend/IndustrialPlatform.slnx
 > ⚠️ **必须用 F5 或 `dotnet run --no-build --project <csproj>` 启动,让 ContentRoot = 项目目录。**
 > **不要**从仓库根裸跑 `dotnet bin/Debug/net10.0/*.dll` —— 那样 ContentRoot 变成仓库根,`appsettings.json`/`appsettings.Development.json` 全部不加载(私有配置虽经绝对路径加载,但基础配置缺失),Gateway 会因 `Services` 为空导致 YARP 路由全 404、健康检查为空。
 
-F5 / `dotnet run` 会读项目的 `Properties/launchSettings.json`,里面钉好端口并注入关键环境变量。三个服务的 profile 不一致,注意区分:
+F5 / `dotnet run` 会读项目的 `Properties/launchSettings.json`,里面钉好端口并注入关键环境变量。profile 列表:
 
 | 项目 | profile 名 | URL | 注入的额外环境变量 |
 | --- | --- | --- | --- |
+| UnifiedHost(默认) | `http` | `http://localhost:5041` | `IndustrialPlatform__LocalConfigurationPath=../../../../appsettings.Development.local.json` |
 | Identity | `http` | `http://localhost:5041` | `IndustrialPlatform__LocalConfigurationPath=../../../../appsettings.Development.local.json` |
 | Gateway | `http` | `http://localhost:5080` | 无(网关不需要私有 DB 配置) |
 | ReferenceData | `IndustrialPlatform.ReferenceData.Api` | `https://localhost:62310;http://localhost:62311` | `IndustrialPlatform__LocalConfigurationPath=../../../../appsettings.Development.local.json` |
 
 - ReferenceData 的 profile **不是** `http`,且默认 `launchBrowser: true`(F5 会弹浏览器,可忽略或改成 `false`)。
 - ReferenceData 走 https `62310` 首次会触发开发证书信任;只想 http 可把 `applicationUrl` 里的 https 段去掉,或直接在启动项目下拉选 http 段。
+- UnifiedHost 与 Identity 端口同为 `5041`:**同一时刻只启动其中一套后端**(默认 UnifiedHost;独立服务调试时才启动 Identity)。
 
 **CLI 启动**(仓库根 `D:\Code\Industrial Platform\IndustrialPlatform`,先设 CLI home):
 
 ```bash
 export DOTNET_CLI_HOME="$(git rev-parse --show-toplevel)/.dotnet_cli_home"
 
+# 默认:UnifiedHost 单进程
+dotnet run --no-build --project "src/backend/src/Hosts/IndustrialPlatform.UnifiedHost/IndustrialPlatform.UnifiedHost.csproj"
+
+# 独立服务调试
 dotnet run --no-build --project "src/backend/src/Services/Identity/IndustrialPlatform.Identity.Api/IndustrialPlatform.Identity.Api.csproj"
 dotnet run --no-build --project "src/backend/src/Services/ReferenceData/IndustrialPlatform.ReferenceData.Api/IndustrialPlatform.ReferenceData.Api.csproj"
 dotnet run --no-build --project "src/backend/src/Gateway/IndustrialPlatform.Gateway/IndustrialPlatform.Gateway.csproj"
 ```
+
+仓库统一启动脚本:`.\deploy\scripts\dev.ps1 start`(默认仅 UnifiedHost);`.\deploy\scripts\dev.ps1 start -IndependentServices` 启动 Gateway + Identity + ReferenceData 独立服务。`status`/`stop` 与 `start` 目标模式一致。
 
 `--no-build` 前提是先 `dotnet build` 过;`http` Profile 会注入 `IndustrialPlatform__LocalConfigurationPath` 并钉好端口。
 
@@ -115,7 +126,35 @@ dotnet run --no-build --project "src/backend/src/Gateway/IndustrialPlatform.Gate
 - **NuGet 还原**:Windows 下 NuGet 还原异常时,设 `DOTNET_CLI_HOME=<仓库根>\.dotnet_cli_home`。可在「工具 → 选项 → 环境 → 环境变量」或项目属性里配,或只在命令行用 `export`。
 - **环境 = Development**:三个服务的 profile 都注入 `ASPNETCORE_ENVIRONMENT=Development`,所以启动即加载 `appsettings.Development.json`。
 - **私有配置**:`IndustrialPlatform__LocalConfigurationPath` 指向 `src/backend/appsettings.Development.local.json`(相对 ContentRoot 上跳 4 级)。该文件存在且 `RemoteDevelopment.Enabled=true` 时,后端自动连云端 PG/Redis(Tailnet),无需本地 Docker。文件在 `.gitignore` 中,**禁止提交其中的服务器地址/账号/密码/SSH**。
-- **bootstrap 管理员**:Identity 首次启动可选地按 `IDENTITY_BOOTSTRAP_*` 环境变量创建管理员 `admin.verify`(密码来自该环境变量,不在任何配置文件里)。需要在 VS 里设环境变量时,走「项目 → 属性 → 调试 → 环境变量」。
+- **bootstrap 管理员**:通过 `--initialize-admin` 显式初始化创建(见 2.4A),不再使用环境变量密码引导。
+
+### 2.4A admin 初始化(Development 一次性凭据)
+
+> 首次登录前需先创建内置 admin。初始化只允许 `ASPNETCORE_ENVIRONMENT=Development`,
+> 复用 `IdentityInitializationService`,**重复执行幂等:不覆盖既有 admin、不重发凭据**。
+
+**Windows 一键脚本**(推荐,自动校验前置条件并调用准确 csproj):
+
+```bash
+powershell -ExecutionPolicy Bypass -File scripts/Initialize-DevelopmentAdmin.ps1
+# 可选指定输出路径(默认 %LOCALAPPDATA%\IndustrialPlatform\bootstrap-admin-<UTC>.json)
+powershell -ExecutionPolicy Bypass -File scripts/Initialize-DevelopmentAdmin.ps1 -CredentialOutput D:\secrets\bootstrap-admin.json
+```
+
+**手动命令**(先 `dotnet build` 过,`--no-build` 前提同 2.3):
+
+```bash
+dotnet run --no-build --project "src/backend/src/Services/Identity/IndustrialPlatform.Identity.Api/IndustrialPlatform.Identity.Api.csproj" -- --initialize-admin --credential-output D:\secrets\bootstrap-admin.json
+```
+
+要点:
+
+- 首次实际创建 admin 时才生成凭据 JSON(8 字段:`tenantNId`/`userNId`/`loginName`/`temporaryPassword`/`deliveryReference`/`recoveryReference`/`deliveryId`/`createdOnUtc`),写入方式为临时文件 + 原子重命名,**失败不留半文件**;Windows 仅当前用户可访问,Linux `0600`。
+- **重复执行不生成、不覆盖、不重发**:admin 已存在时 stdout 显示「已初始化,无新凭据」。
+- 输出路径必须为绝对路径且目标文件不存在;已存在立即拒绝(脚本在调用 dotnet 前检查,命令内再次兜底)。
+- 提供 `--credential-output` 时 stdout 只显示脱敏状态、种子账本、是否新建 admin 与输出路径,**不显示密码或一次性引用**;不提供时保留控制台一次性交付兼容行为(凭据直接打印,慎用)。
+- 凭据文件请立即安全保存;`temporaryPassword` 首次登录后应尽快修改。**禁止提交或输出该文件内容**。
+- Linux/Docker 侧脚本见 `deploy/application/README.md`(`bootstrap-admin.sh`,使用不可变应用镜像在容器内完成同语义初始化)。
 
 ### 2.5 断点与调试窗口
 
@@ -344,13 +383,14 @@ pnpm dev                          # → http://localhost:5173
 
 | 变量 | 默认 | 说明 |
 | --- | --- | --- |
-| `VITE_API_BASE_URL` | `http://localhost:5080` | Gateway 统一入口 |
-| `VITE_AUTH_MODE` | `mock` | `mock` = 无后端即可跑;`http` = 真实 Identity 登录 |
+| `VITE_API_BASE_URL` | `http://localhost:5080` | 统一入口。**默认整体调试(UnifiedHost)时改为 `http://localhost:5041`**;独立服务调试(网关)保持 `http://localhost:5080` |
+| `VITE_AUTH_MODE` | `http` | `http` = 真实登录;`mock` = 无后端即可跑(生产构建禁止 mock) |
 | `VITE_REQUEST_TIMEOUT_MS` | `10000` | HTTP 超时毫秒数 |
 
 - **mock 模式**:演示账号 `mock.admin` / `Mock@123456`,无需后端。
-- **http 模式**:要先把后端(Gateway + Identity)跑起来;登录走真实令牌,可配合后端断点联调。
-- 改环境变量可在项目根 `.env.local`(gitignore)里写 `VITE_AUTH_MODE=http` 后重启 `pnpm dev`。
+- **http 模式**:要先把后端(默认 UnifiedHost,或 Gateway + Identity)跑起来;登录走真实令牌,可配合后端断点联调。
+- 改环境变量可在项目根 `.env.local`(gitignore)里写 `VITE_AUTH_MODE=http`、`VITE_API_BASE_URL=http://localhost:5041` 后重启 `pnpm dev`。
+- 默认整体调试顺序:① admin 初始化(见 2.4A)→ ② 启动 UnifiedHost(`:5041`)→ ③ `pnpm dev`(`:5173`,API 指向 `:5041`)→ ④ 登录 `admin`。
 
 ### 4.5 三端访问与终端模拟
 
@@ -415,6 +455,10 @@ pnpm test:e2e
 # 后端(src/backend)
 dotnet build IndustrialPlatform.slnx
 dotnet test IndustrialPlatform.slnx
+
+# 脚本测试(tests/scripts)
+powershell -NoProfile -ExecutionPolicy Bypass -File tests\scripts\Initialize-DevelopmentAdmin.Tests.ps1
+bash tests/scripts/bootstrap-admin.Tests.sh   # 需要 Git Bash;先 bash -n 校验语法
 ```
 
 > 2026-08-12 全量基线:后端 build 0 警告 0 错误、test **520/520**;前端 lint/typecheck 0、unit 223/223、build 通过、E2E 35/35。`test:unit:coverage` 当前 **38%(<70%)**,因 TASK-ID-010~015 新增 Identity/SSO 管理页无单测,属已知回归。

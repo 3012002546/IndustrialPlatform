@@ -1,8 +1,6 @@
-using IndustrialPlatform.Security;
 using IndustrialPlatform.SystemData.Api.Conventions;
 using IndustrialPlatform.SystemData.Api.Health;
-using IndustrialPlatform.SystemData.Application;
-using IndustrialPlatform.SystemData.Infrastructure;
+using IndustrialPlatform.SystemData.Api.Modules;
 using IndustrialPlatform.Web.Configuration;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
@@ -10,18 +8,13 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddOptionalLocalDevelopmentInfrastructure(DevelopmentService.SystemData);
 builder.UseIndustrialSerilog();
-builder.Services.AddSystemDataInfrastructure(builder.Configuration);
-builder.Services.AddSystemDataApplication(builder.Configuration);
+builder.Services.AddSystemDataModule(builder.Configuration);
+// JwtBearer 令牌校验是宿主级关注点:独立宿主显式注册(配置驱动、fail-closed)。
+// UnifiedHost 复用 Identity 模块注册的统一 Bearer 方案,不再调用本扩展。
 builder.Services.AddSystemDataAuthentication(builder.Configuration);
-builder.Services.AddSystemDataAuthorization();
-builder.Services.AddCurrentUser();
 builder.Services.AddOpenApi();
 builder.Services.AddIndustrialApi(mvc => mvc.Conventions.Add(new RoutePrefixConvention()));
-builder.Services.AddHttpClient();
-builder.Services.AddHealthChecks()
-    .AddCheck<PostgresHealthCheck>("postgres", timeout: TimeSpan.FromSeconds(3))
-    .AddCheck<RedisHealthCheck>("redis", timeout: TimeSpan.FromSeconds(3))
-    .AddCheck<SeqHealthCheck>("seq", timeout: TimeSpan.FromSeconds(3));
+builder.Services.AddHealthChecks().AddSystemDataHealthChecks();
 
 var app = builder.Build();
 app.UseIndustrialWeb();
@@ -40,7 +33,9 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
     ResponseWriter = HealthCheckResponseWriter.Write,
 });
 app.MapControllers();
+app.MapSystemDataModule();
 
 app.Run();
+return 0;
 
 public partial class Program;

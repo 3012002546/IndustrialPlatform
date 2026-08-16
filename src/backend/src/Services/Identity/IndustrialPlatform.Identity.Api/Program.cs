@@ -1,10 +1,7 @@
 using IndustrialPlatform.Identity.Api.Commands;
 using IndustrialPlatform.Identity.Api.Conventions;
 using IndustrialPlatform.Identity.Api.Health;
-using IndustrialPlatform.Identity.Application;
-using IndustrialPlatform.Identity.Application.Authentication;
-using IndustrialPlatform.Identity.Infrastructure;
-using IndustrialPlatform.Security;
+using IndustrialPlatform.Identity.Api.Modules;
 using IndustrialPlatform.Web.Configuration;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
@@ -12,18 +9,10 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddOptionalLocalDevelopmentInfrastructure(DevelopmentService.Identity);
 builder.UseIndustrialSerilog();
-builder.Services.AddIdentityInfrastructure(builder.Configuration);
-builder.Services.AddIdentityApplication(builder.Configuration);
-builder.Services.AddIdentityAuthentication();
-builder.Services.AddIdentityAuthorization();
-builder.Services.AddCurrentUser();
+builder.Services.AddIdentityModule(builder.Configuration);
 builder.Services.AddOpenApi();
 builder.Services.AddIndustrialApi(mvc => mvc.Conventions.Add(new RoutePrefixConvention()));
-builder.Services.AddHttpClient();
-builder.Services.AddHealthChecks()
-    .AddCheck<PostgresHealthCheck>("postgres", timeout: TimeSpan.FromSeconds(3))
-    .AddCheck<RedisHealthCheck>("redis", timeout: TimeSpan.FromSeconds(3))
-    .AddCheck<SeqHealthCheck>("seq", timeout: TimeSpan.FromSeconds(3));
+builder.Services.AddHealthChecks().AddIdentityHealthChecks();
 
 var app = builder.Build();
 app.UseIndustrialWeb();
@@ -42,24 +31,24 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
     ResponseWriter = HealthCheckResponseWriter.Write,
 });
 app.MapControllers();
-
-// §12 JWKS 公钥文档:仅供凭据校验,禁止缓存。minimal API,不经 ResultFilter/路由前缀。
-app.MapGet("/.well-known/jwks.json", async (HttpContext http, IJwksProvider jwks, CancellationToken ct) =>
-{
-    http.Response.Headers.CacheControl = "no-store";
-    var doc = await jwks.GetAsync(ct);
-    return Results.Json(doc);
-});
+app.MapIdentityModule();
 
 // --initialize-admin:仅 Development 的显式 admin 初始化命令。
-// 复用 IdentityInitializationService,输出可盘点账本;完成即退出,不启动 Web Server。
+// 复用 IdentityInitializationService,输出可盘点账本;可选 --credential-output <绝对路径>
+// 将首次创建的一次性凭据写入仅当前用户可访问的 JSON 文件(stdout 脱敏)。完成即退出,不启动 Web Server。
 if (InitializeAdminCommand.IsRequested(args))
 {
     InitializeAdminCommand.EnsureDevelopmentEnvironment(app.Environment);
-    await InitializeAdminCommand.RunAsync(app.Services, Console.Out);
-    return;
+    if (!InitializeAdminCommand.TryGetCredentialOutputPath(args, out var credentialOutput, out var argumentError))
+    {
+        Console.Error.WriteLine($"[{InitializeAdminCommand.ArgumentName}] {argumentError}");
+        return 1;
+    }
+
+    return await InitializeAdminCommand.RunAsync(app.Services, Console.Out, credentialOutput);
 }
 
 app.Run();
+return 0;
 
 public partial class Program;

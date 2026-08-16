@@ -12,6 +12,8 @@ public enum DevelopmentService
     Identity,
     ReferenceData,
     SystemData,
+    /// <summary>UnifiedHost:单一进程组合 Identity/SystemData/ReferenceData 模块。</summary>
+    UnifiedHost,
 }
 
 /// <summary>
@@ -35,6 +37,9 @@ public static class DevelopmentInfrastructureConfiguration
             [DevelopmentService.Identity] = ("identity", "identity_db"),
             [DevelopmentService.ReferenceData] = ("referencedata", "referencedata_db"),
             [DevelopmentService.SystemData] = ("systemdata", "systemdata_db"),
+            // UnifiedHost 单连接承载全部模块:Shared 模式解析共享物理库;PerService 模式
+            // 需要 ServiceDatabases["unifiedhost"] 显式映射(否则启动明确失败,见 ResolveTarget)。
+            [DevelopmentService.UnifiedHost] = ("unifiedhost", "identity_db"),
         };
 
     public static bool AddOptionalLocalDevelopmentInfrastructure(

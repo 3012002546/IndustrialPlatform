@@ -52,10 +52,16 @@
   <Folder Name="/src/Gateway/">
     <Project Path="src\Gateway\IndustrialPlatform.Gateway\IndustrialPlatform.Gateway.csproj" />
   </Folder>
+  <Folder Name="/src/Hosts/">
+    <Project Path="src\Hosts\IndustrialPlatform.UnifiedHost\IndustrialPlatform.UnifiedHost.csproj" />
+  </Folder>
   <Folder Name="/tests/Gateway/">
     <Project Path="..\..\tests\Gateway\IndustrialPlatform.Gateway.Tests\IndustrialPlatform.Gateway.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/ReferenceData/">
     <Project Path="..\..\tests\ReferenceData\IndustrialPlatform.ReferenceData.Tests\IndustrialPlatform.ReferenceData.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/UnifiedHost/">
+    <Project Path="..\..\tests\UnifiedHost\IndustrialPlatform.UnifiedHost.Tests\IndustrialPlatform.UnifiedHost.Tests.csproj" />
   </Folder>
 </Solution>

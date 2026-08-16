@@ -30,8 +30,16 @@ public static class DependencyInjection
     /// </summary>
     /// <param name="services">服务集合。</param>
     /// <param name="configuration">配置源。</param>
+    /// <param name="includeStartupMigrationService">
+    /// 是否注册启动迁移后台服务(默认 true)。UnifiedHost 组合多模块时为避免两套迁移后台服务
+    /// 并行迁移同一物理库,传入 false 并由宿主级模块迁移协调器确定顺序执行
+    /// (<see cref="IdentityStartupMigrations"/>);独立 Identity.Api 保持默认行为。
+    /// </param>
     /// <returns>服务集合。</returns>
-    public static IServiceCollection AddIdentityInfrastructure(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddIdentityInfrastructure(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        bool includeStartupMigrationService = true)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
@@ -47,7 +55,10 @@ public static class DependencyInjection
             services.AddTransient<SchemaMigrationStep>(_ => step);
         }
 
-        services.AddHostedService<SchemaMigrationBackgroundService>();
+        if (includeStartupMigrationService)
+        {
+            services.AddHostedService<SchemaMigrationBackgroundService>();
+        }
 
         // 密码哈希端口 BCrypt 实现与三个持久化仓储(SqlSugarDbContext 为单例,仓储可作单例)。
         services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();

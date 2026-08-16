@@ -8,6 +8,7 @@ namespace IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations;
 /// 启动时执行 SystemData 库迁移的后台服务。
 /// 数据库不可达时不抛异常(记录告警跳过),保持无 Docker 环境下服务可运行基线;
 /// 迁移在数据库就绪后通过服务重启或后续任务的显式触发补齐。
+/// 执行逻辑复用 <see cref="SystemDataStartupMigrations.RunAsync"/>,供 UnifiedHost 协调器按序调用。
 /// </summary>
 public sealed class SchemaMigrationBackgroundService : BackgroundService
 {
@@ -36,9 +37,7 @@ public sealed class SchemaMigrationBackgroundService : BackgroundService
     {
         try
         {
-            using var scope = _scopeFactory.CreateScope();
-            var runner = scope.ServiceProvider.GetRequiredService<ISchemaMigrationRunner>();
-            await runner.ApplyPendingAsync(stoppingToken);
+            await SystemDataStartupMigrations.RunAsync(_scopeFactory, stoppingToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException && !stoppingToken.IsCancellationRequested)
         {

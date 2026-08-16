@@ -1,0 +1,17 @@
+.git
+.gitignore
+.superpowers
+.claude
+.codex
+.run
+logs
+**/bin
+**/obj
+**/TestResults
+**/node_modules
+**/dist
+**/coverage
+src/backend/.ssh
+**/appsettings.*.local.json
+**/*.db
+deploy/application/.env

@@ -5,8 +5,11 @@
 
 .DESCRIPTION
     Starts (in dependency order), stops, or reports the status of the local
-    development stack: infrastructure (Docker Compose), backend services
-    (Identity / ReferenceData) and the Gateway entry point.
+    development stack. Default mode starts the single UnifiedHost process
+    (Identity + SystemData + ReferenceData composed); use -IndependentServices
+    to start the independent backend services (Gateway + Identity + ReferenceData)
+    for boundary validation and future split. The frontend (Vite) is NOT started
+    automatically — run it separately.
 
     Process identity is tracked via PID files under <repo-root>/.run/ and each
     service logs to .run/<service>.*.log. Stopping the stack never deletes
@@ -24,9 +27,16 @@
 .PARAMETER SkipBuild
     Skip the solution build before starting services.
 
+.PARAMETER IndependentServices
+    Start the independent backend services (Gateway + Identity + ReferenceData)
+    instead of the default single UnifiedHost process. Default (no switch) is
+    UnifiedHost only — the daily debugging entry (UnifiedHost + Vite).
+    `status` and `stop` target the same mode as `start`.
+
 .EXAMPLE
     ./deploy/scripts/dev.ps1 start
     ./deploy/scripts/dev.ps1 start -SkipInfrastructure
+    ./deploy/scripts/dev.ps1 start -IndependentServices
     ./deploy/scripts/dev.ps1 status
     ./deploy/scripts/dev.ps1 stop
     ./deploy/scripts/dev.ps1 stop -StopInfrastructure
@@ -39,7 +49,8 @@ param(
 
     [switch]$SkipInfrastructure,
     [switch]$StopInfrastructure,
-    [switch]$SkipBuild
+    [switch]$SkipBuild,
+    [switch]$IndependentServices
 )
 
 Set-StrictMode -Version 2.0
@@ -58,13 +69,24 @@ $TargetFw   = 'Debug'
 $TargetTfm  = 'net10.0'
 
 # ---------------------------------------------------------------------------
-# Service registry (dependency order: Gateway last as it fronts the rest)
+# Service registry
+# Default (no switch): only the single UnifiedHost process
+# (composed Identity + SystemData + ReferenceData) - the daily entry (UnifiedHost + Vite).
+# status/stop use the same registry as start, so their targets match the start mode.
+# -IndependentServices: start Gateway + Identity + ReferenceData for boundary
+# validation and future split.
 # ---------------------------------------------------------------------------
-$Services = @(
-    [pscustomobject]@{ Name = 'Gateway';       Port = 5080;  Project = 'src\backend\src\Gateway\IndustrialPlatform.Gateway\IndustrialPlatform.Gateway.csproj';  HealthPath = '/health' }
-    [pscustomobject]@{ Name = 'Identity';      Port = 5041;  Project = 'src\backend\src\Services\Identity\IndustrialPlatform.Identity.Api\IndustrialPlatform.Identity.Api.csproj';      HealthPath = '/health' }
-    [pscustomobject]@{ Name = 'ReferenceData'; Port = 62311; Project = 'src\backend\src\Services\ReferenceData\IndustrialPlatform.ReferenceData.Api\IndustrialPlatform.ReferenceData.Api.csproj'; HealthPath = '/health' }
-)
+if ($IndependentServices) {
+    $Services = @(
+        [pscustomobject]@{ Name = 'Gateway';       Port = 5080;  Project = 'src\backend\src\Gateway\IndustrialPlatform.Gateway\IndustrialPlatform.Gateway.csproj';  HealthPath = '/health' }
+        [pscustomobject]@{ Name = 'Identity';      Port = 5041;  Project = 'src\backend\src\Services\Identity\IndustrialPlatform.Identity.Api\IndustrialPlatform.Identity.Api.csproj';      HealthPath = '/health' }
+        [pscustomobject]@{ Name = 'ReferenceData'; Port = 62311; Project = 'src\backend\src\Services\ReferenceData\IndustrialPlatform.ReferenceData.Api\IndustrialPlatform.ReferenceData.Api.csproj'; HealthPath = '/health' }
+    )
+} else {
+    $Services = @(
+        [pscustomobject]@{ Name = 'UnifiedHost'; Port = 5041; Project = 'src\backend\src\Hosts\IndustrialPlatform.UnifiedHost\IndustrialPlatform.UnifiedHost.csproj'; HealthPath = '/health' }
+    )
+}
 
 function Get-PidFile([pscustomobject]$Service) {
     return Join-Path $RunDir ($Service.Name.ToLowerInvariant() + '.pid')
@@ -266,12 +288,18 @@ function Start-Stack {
 
     Write-Host ''
     Write-Host 'Dev endpoints:'
-    Write-Host '  Gateway       http://localhost:5080'
-    Write-Host '  Identity      http://localhost:5041'
-    Write-Host '  ReferenceData http://localhost:62311'
-    Write-Host '  Seq           http://localhost:5341'
-    Write-Host '  RabbitMQ      http://localhost:15672'
-    Write-Host '  Health        http://localhost:5080/health/ready'
+    if (-not $IndependentServices) {
+        Write-Host '  UnifiedHost   http://localhost:5041  (Identity + SystemData + ReferenceData)'
+        Write-Host '  Health        http://localhost:5041/health/ready'
+        Write-Host '  Vite          前端: cd src/frontend && pnpm dev (VITE_API_BASE_URL=http://localhost:5041)'
+    } else {
+        Write-Host '  Gateway       http://localhost:5080'
+        Write-Host '  Identity      http://localhost:5041'
+        Write-Host '  ReferenceData http://localhost:62311'
+        Write-Host '  Seq           http://localhost:5341'
+        Write-Host '  RabbitMQ      http://localhost:15672'
+        Write-Host '  Health        http://localhost:5080/health/ready'
+    }
     Write-Host ''
     Write-Host 'Run ./deploy/scripts/dev.ps1 status to verify, ./deploy/scripts/dev.ps1 stop to stop.'
 }

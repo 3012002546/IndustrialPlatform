@@ -22,6 +22,8 @@ public sealed class ProjectReferenceArchitectureTests
                 ["IndustrialPlatform.Application.Abstractions", "IndustrialPlatform.SharedKernel"],
             ["src/backend/src/Gateway/IndustrialPlatform.Gateway/IndustrialPlatform.Gateway.csproj"] =
                 ["IndustrialPlatform.Logging", "IndustrialPlatform.Web"],
+            ["src/backend/src/Hosts/IndustrialPlatform.UnifiedHost/IndustrialPlatform.UnifiedHost.csproj"] =
+                ["IndustrialPlatform.Identity.Api", "IndustrialPlatform.ReferenceData.Api", "IndustrialPlatform.SystemData.Api"],
             ["src/backend/src/Services/Identity/IndustrialPlatform.Identity.Api/IndustrialPlatform.Identity.Api.csproj"] =
                 ["IndustrialPlatform.Identity.Application", "IndustrialPlatform.Identity.Contracts", "IndustrialPlatform.Identity.Infrastructure", "IndustrialPlatform.Web"],
             ["src/backend/src/Services/Identity/IndustrialPlatform.Identity.Application/IndustrialPlatform.Identity.Application.csproj"] =

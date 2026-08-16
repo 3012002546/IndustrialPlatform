@@ -6,6 +6,8 @@ using IndustrialPlatform.EventBus.Options;
 using IndustrialPlatform.EventBus.Producer;
 using IndustrialPlatform.EventBus.Subscriptions;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
@@ -66,10 +68,12 @@ public static class EventBusServiceCollectionExtensions
 
     private static IServiceCollection AddEventBusCore(IServiceCollection services)
     {
-        services.AddSingleton<IEventBusSubscriptionsManager>(SubscriptionsManager);
-        services.AddSingleton<IRabbitMqConnection, RabbitMqConnection>();
-        services.AddSingleton<IEventBus, RabbitMqEventBus>();
-        services.AddHostedService<EventBusConsumerBackgroundService>();
+        // TryAdd/TryAddEnumerable:多模块宿主(UnifiedHost)中 Identity 与 ReferenceData 各自调用
+        // AddEventBus 时保持单注册,避免重复连接复用器、重复 IEventBus 与重复消费后台服务。
+        services.TryAddSingleton<IEventBusSubscriptionsManager>(SubscriptionsManager);
+        services.TryAddSingleton<IRabbitMqConnection, RabbitMqConnection>();
+        services.TryAddSingleton<IEventBus, RabbitMqEventBus>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, EventBusConsumerBackgroundService>());
         return services;
     }
 }
