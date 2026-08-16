@@ -16,7 +16,8 @@ function parse(raw: Record<string, string | undefined> = {}, isProduction = fals
 describe('parseRuntimeConfig', () => {
   it('uses defaults when env is empty (authMode defaults to http)', () => {
     const cfg = parse({})
-    expect(cfg.apiBaseUrl).toBe(DEFAULT_API_BASE_URL)
+    expect(DEFAULT_API_BASE_URL).toBe('http://localhost:5041')
+    expect(cfg.apiBaseUrl).toBe('http://localhost:5041')
     expect(cfg.authMode).toBe(DEFAULT_AUTH_MODE)
     expect(cfg.authMode).toBe('http')
     expect(cfg.requestTimeoutMs).toBe(DEFAULT_REQUEST_TIMEOUT_MS)

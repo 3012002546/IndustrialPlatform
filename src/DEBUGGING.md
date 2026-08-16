@@ -4,12 +4,95 @@
 
 ## 目录
 
+0. [Windows 日常调试快速开始](#windows-日常调试快速开始)
 1. [已验证的运行状态](#一已验证的运行状态)
 2. [后端调试(VS2026)](#二后端调试vs2026)
 3. [后端调试(VS Code)](#三后端调试vs-code)
 4. [前端调试(VS Code)](#四前端调试vs-code)
 5. [质量门禁命令](#五质量门禁命令)
 6. [已知预期与注意事项](#六已知预期与注意事项)
+
+---
+
+## Windows 日常调试快速开始
+
+当前默认调试拓扑为一个 `IndustrialPlatform.UnifiedHost` 后端进程(`:5041`)加一个 Vite 前端进程(`:5173`)。UnifiedHost 同时装载 Identity、SystemData 和 ReferenceData；日常整体调试不需要再启动 Gateway 和各独立 API Host。
+
+### 0.1 检查本地私有配置
+
+确认以下文件存在：
+
+```text
+src/backend/appsettings.Development.local.json
+```
+
+使用云端开发基础设施时，确保其中 `RemoteDevelopment.Enabled=true` 且数据库拓扑配置完整。该文件已被 Git 忽略，禁止提交或输出其中的服务器地址、账号、密码和 SSH 信息。
+
+### 0.2 首次初始化 admin
+
+在仓库根目录执行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\Initialize-DevelopmentAdmin.ps1
+```
+
+首次创建成功后，一次性凭据默认写入：
+
+```text
+%LOCALAPPDATA%\IndustrialPlatform\bootstrap-admin-<UTC>.json
+```
+
+登录名为 `admin`，初始密码读取 JSON 中的 `temporaryPassword`。重复执行会显示“已初始化，无新凭据”，不会覆盖 admin 或重新签发密码；此时应使用此前安全保存的凭据。完整初始化说明见 [2.4A](#24a-admin-初始化development-一次性凭据)。
+
+若 Development 环境的 admin 已存在但一次性凭据遗失，可显式重置：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\Reset-DevelopmentAdmin.ps1
+```
+
+新凭据默认写入 `%LOCALAPPDATA%\IndustrialPlatform\reset-admin-<UTC>.json`。该命令只允许 Development，重置会推进安全版本并撤销既有登录态；不得用于生产环境。
+
+### 0.3 用 Visual Studio 调试后端
+
+1. 打开 `src/backend/IndustrialPlatform.slnx`。
+2. 将 `IndustrialPlatform.UnifiedHost` 设为启动项目。
+3. 设置断点后按 `F5`。
+4. 检查 `http://localhost:5041/health` 和 `http://localhost:5041/health/ready`。
+
+UnifiedHost 与独立 `Identity.Api` 都使用 `5041`，不能同时启动。若不需要后端断点，也可以在仓库根目录执行：
+
+```powershell
+.\deploy\scripts\dev.ps1 start -SkipInfrastructure
+```
+
+查看和停止默认 UnifiedHost：
+
+```powershell
+.\deploy\scripts\dev.ps1 status
+.\deploy\scripts\dev.ps1 stop
+```
+
+### 0.4 启动真实登录前端
+
+前端 Development 默认已指向 UnifiedHost `http://localhost:5041`，通常无需创建 `.env.local`。如需显式覆盖，可创建或修改 `src/frontend/.env.local`：
+
+```env
+VITE_AUTH_MODE=http
+VITE_API_BASE_URL=http://localhost:5041
+```
+
+仅在调试独立 Gateway + Api Host 拓扑时，将 `VITE_API_BASE_URL` 显式覆盖为 `http://localhost:5080`。
+
+另开终端启动前端：
+
+```powershell
+cd src\frontend
+pnpm dev
+```
+
+打开 `http://localhost:5173`，使用 `admin` 和一次性凭据文件中的 `temporaryPassword` 登录。页面仍显示 `mock.admin` 时，先确认 `.env.local` 中为 `VITE_AUTH_MODE=http`，然后完全停止并重新启动 `pnpm dev`。
+
+推荐的日常顺序是：检查私有配置 → 首次初始化 admin → Visual Studio F5 启动 UnifiedHost → `pnpm dev` → 登录调试。
 
 ---
 

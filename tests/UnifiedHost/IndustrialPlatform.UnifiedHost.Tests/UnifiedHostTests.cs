@@ -131,6 +131,54 @@ public sealed class UnifiedHostTests : IDisposable
     }
 
     [Fact]
+    public async Task DevelopmentCors_AllowsVitePreflight()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Options, "/identity/api/v1/auth/login");
+        request.Headers.Add("Origin", "http://localhost:5173");
+        request.Headers.Add("Access-Control-Request-Method", "POST");
+        request.Headers.Add("Access-Control-Request-Headers", "content-type");
+
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Equal("http://localhost:5173", response.Headers.GetValues("Access-Control-Allow-Origin").Single());
+        Assert.Contains("POST", response.Headers.GetValues("Access-Control-Allow-Methods"));
+    }
+
+    [Fact]
+    public async Task GatewayIdentityPrefix_IsRemoved_ForBootstrapAndLogin()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        using var bootstrapResponse = await client.GetAsync("/identity/api/v1/bootstrap/status");
+        Assert.Equal(HttpStatusCode.OK, bootstrapResponse.StatusCode);
+
+        using var loginResponse = await client.PostAsync(
+            "/identity/api/v1/auth/login",
+            new StringContent("""{}""", Encoding.UTF8, "application/json"));
+        Assert.Equal(HttpStatusCode.BadRequest, loginResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task GatewaySystemDataPrefix_IsRemoved_AndReferenceDataPrefixRemainsApi404()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        using var systemDataResponse = await client.GetAsync("/systemdata/api/v1/organizations/tree");
+        Assert.Equal(HttpStatusCode.Unauthorized, systemDataResponse.StatusCode);
+
+        // ReferenceData 当前没有模块专属业务端点；前缀剥离后未知 API 仍须保持 API 404，
+        // 不能被 SPA fallback 当作前端路由返回 index.html。
+        using var referenceDataResponse = await client.GetAsync("/referencedata/api/v1/not-yet-implemented");
+        Assert.Equal(HttpStatusCode.NotFound, referenceDataResponse.StatusCode);
+        Assert.NotEqual("text/html", referenceDataResponse.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
     public async Task SystemDataRoutes_AreMapped_AndProtectedBySharedAuth()
     {
         using var factory = CreateFactory();

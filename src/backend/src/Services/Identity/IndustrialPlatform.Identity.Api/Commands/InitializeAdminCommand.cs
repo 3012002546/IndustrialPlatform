@@ -224,7 +224,7 @@ public static class InitializeAdminCommand
     /// 成功后重命名;任何失败删除临时文件,不留半文件。目标文件在调用前已由
     /// <see cref="TryGetCredentialOutputPath"/> 校验不存在,此处使用 CreateNew 兜底。
     /// </summary>
-    private static void WriteCredentialFile(string path, BootstrapSeedResult admin)
+    internal static void WriteCredentialFile(string path, BootstrapSeedResult admin)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         ArgumentNullException.ThrowIfNull(admin);

@@ -36,7 +36,15 @@ app.MapIdentityModule();
 // --initialize-admin:仅 Development 的显式 admin 初始化命令。
 // 复用 IdentityInitializationService,输出可盘点账本;可选 --credential-output <绝对路径>
 // 将首次创建的一次性凭据写入仅当前用户可访问的 JSON 文件(stdout 脱敏)。完成即退出,不启动 Web Server。
-if (InitializeAdminCommand.IsRequested(args))
+var initializeAdminRequested = InitializeAdminCommand.IsRequested(args);
+var resetAdminRequested = ResetDevelopmentAdminCommand.IsRequested(args);
+if (initializeAdminRequested && resetAdminRequested)
+{
+    Console.Error.WriteLine("admin 初始化与重置命令不能同时执行。");
+    return 1;
+}
+
+if (initializeAdminRequested)
 {
     InitializeAdminCommand.EnsureDevelopmentEnvironment(app.Environment);
     if (!InitializeAdminCommand.TryGetCredentialOutputPath(args, out var credentialOutput, out var argumentError))
@@ -46,6 +54,19 @@ if (InitializeAdminCommand.IsRequested(args))
     }
 
     return await InitializeAdminCommand.RunAsync(app.Services, Console.Out, credentialOutput);
+}
+
+if (resetAdminRequested)
+{
+    InitializeAdminCommand.EnsureDevelopmentEnvironment(app.Environment);
+    if (!InitializeAdminCommand.TryGetCredentialOutputPath(args, out var credentialOutput, out var argumentError)
+        || credentialOutput is null)
+    {
+        Console.Error.WriteLine($"[{ResetDevelopmentAdminCommand.ArgumentName}] {argumentError ?? "必须提供 --credential-output <绝对路径>。"}");
+        return 1;
+    }
+
+    return await ResetDevelopmentAdminCommand.RunAsync(app.Services, Console.Out, credentialOutput);
 }
 
 app.Run();

@@ -113,6 +113,7 @@ public static class DependencyInjection
         services.AddSingleton<ITemporaryPasswordGenerator, TemporaryPasswordGenerator>();
         services.AddSingleton<IdentitySeedRunner>();
         services.AddSingleton<IdentityInitializationService>();
+        services.AddSingleton<DevelopmentAdminResetService>();
 
         return services;
     }

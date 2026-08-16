@@ -2,14 +2,14 @@
  * 类型安全运行配置:唯一解析入口,业务代码不得直接读取 import.meta.env。
  *
  * 允许的环境变量(见 .env.example):
- *   VITE_API_BASE_URL         Gateway 统一入口,必须是合法 http/https URL
+ *   VITE_API_BASE_URL         API 统一入口,Development 默认 UnifiedHost,必须是合法 http/https URL
  *   VITE_AUTH_MODE            http(默认,本地真实 Identity)| mock(仅测试/显式配置)
  *   VITE_REQUEST_TIMEOUT_MS   正整数,HTTP 超时毫秒数
  *
  * 生产构建启用 mock 必须失败,不得静默切换。
  */
 
-export const DEFAULT_API_BASE_URL = 'http://localhost:5080'
+export const DEFAULT_API_BASE_URL = 'http://localhost:5041'
 export const DEFAULT_AUTH_MODE = 'http'
 export const DEFAULT_REQUEST_TIMEOUT_MS = 10000
 
