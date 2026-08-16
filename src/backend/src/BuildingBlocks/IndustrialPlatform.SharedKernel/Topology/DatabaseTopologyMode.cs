@@ -1,4 +1,4 @@
-namespace IndustrialPlatform.SystemData.Domain.Topology;
+namespace IndustrialPlatform.SharedKernel.Topology;
 
 /// <summary>数据库物理拓扑模式。</summary>
 public enum DatabaseTopologyMode

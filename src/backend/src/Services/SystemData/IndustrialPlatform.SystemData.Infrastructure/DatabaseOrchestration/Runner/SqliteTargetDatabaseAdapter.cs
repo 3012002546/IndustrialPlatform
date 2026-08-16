@@ -1,5 +1,6 @@
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Runner;
+using IndustrialPlatform.SharedKernel.Topology;
 using IndustrialPlatform.SystemData.Domain.Topology;
 using Microsoft.Data.Sqlite;
 

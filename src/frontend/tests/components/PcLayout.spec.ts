@@ -97,10 +97,13 @@ describe('PcLayout', () => {
   beforeEach(() => {
     sessionStorage.clear()
     localStorage.clear()
+    // 组件测试验证 Mock 行为(横幅/演示账号/网关),显式声明 mock,不依赖产品默认(现为 http)。
+    vi.stubEnv('VITE_AUTH_MODE', 'mock')
   })
 
   afterEach(() => {
     vi.unstubAllGlobals()
+    vi.unstubAllEnvs()
   })
 
   it('四区结构:顶栏、工具轨、功能树与主内容区', async () => {

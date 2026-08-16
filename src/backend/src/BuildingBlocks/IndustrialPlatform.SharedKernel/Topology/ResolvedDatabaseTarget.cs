@@ -1,4 +1,4 @@
-namespace IndustrialPlatform.SystemData.Domain.Topology;
+namespace IndustrialPlatform.SharedKernel.Topology;
 
 /// <summary>
 /// 解析后的数据库物理目标。逻辑身份稳定,物理身份随拓扑变化。

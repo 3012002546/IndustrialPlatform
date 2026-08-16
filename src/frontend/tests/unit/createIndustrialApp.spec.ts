@@ -1,5 +1,5 @@
 import { defineComponent, h, type App as VueApp } from 'vue'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createIndustrialApp } from '@/app/createIndustrialApp'
 
@@ -20,6 +20,15 @@ function unmountApp(app: VueApp, el: HTMLElement): void {
 }
 
 describe('createIndustrialApp', () => {
+  // 装配测试验证 Mock 登录语义(无会话 → 登录页),显式声明 mock,不依赖产品默认(现为 http)。
+  beforeEach(() => {
+    vi.stubEnv('VITE_AUTH_MODE', 'mock')
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
   it('boots to the login page via the wired router (default root component)', async () => {
     const app = createIndustrialApp()
     const el = mountApp(app)

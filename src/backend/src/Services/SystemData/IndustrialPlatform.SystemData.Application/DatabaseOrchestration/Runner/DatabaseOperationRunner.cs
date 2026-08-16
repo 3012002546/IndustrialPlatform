@@ -2,6 +2,7 @@ using IndustrialPlatform.SharedKernel.Exceptions;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Internal;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Options;
 using IndustrialPlatform.SystemData.Domain.DatabaseOrchestration;
+using IndustrialPlatform.SharedKernel.Topology;
 using IndustrialPlatform.SystemData.Domain.Topology;
 using Microsoft.Extensions.Options;
 

@@ -126,10 +126,15 @@ Copy-Item `
     "PostgreSql": {
       "Port": 5432,
       "UserName": "<数据库用户>",
-      "Password": "<数据库密码>",
-      "IdentityDatabase": "identity_db",
-      "ReferenceDataDatabase": "industrial_platform"
+      "Password": "<数据库密码>"
     }
+  },
+  "DatabaseTopology": {
+    "EnvironmentName": "Development",
+    "Mode": "Shared",
+    "SharedDatabaseName": "industrial_platform_dev",
+    "SharedSqliteFile": "industrial-platform.db",
+    "ServiceDatabases": {}
   }
 }
 ```
@@ -152,7 +157,7 @@ DBeaver、DataGrip、pgAdmin 或 `psql` 使用以下参数：
 | --- | --- |
 | Host | 私有配置中的 `RemoteDevelopment.Host` |
 | Port | 私有配置中的 `PostgreSql.Port` |
-| Database | Identity 使用 `IdentityDatabase`；ReferenceData 使用 `ReferenceDataDatabase` |
+| Database | `DatabaseTopology.SharedDatabaseName`(Shared 模式);Identity/ReferenceData/SystemData 连接同一物理库 |
 | Username | 私有配置中的 `PostgreSql.UserName` |
 | Password | 私有配置中的 `PostgreSql.Password` |
 | SSL mode | `Prefer`；传输链路已由 Tailscale 加密 |

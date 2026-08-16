@@ -1,4 +1,4 @@
-namespace IndustrialPlatform.SystemData.Domain.Topology;
+namespace IndustrialPlatform.SharedKernel.Topology;
 
 /// <summary>目标数据库提供程序。</summary>
 public enum DatabaseProvider

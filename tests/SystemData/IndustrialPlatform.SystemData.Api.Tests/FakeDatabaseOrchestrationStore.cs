@@ -1,7 +1,7 @@
 using IndustrialPlatform.SharedKernel.Exceptions;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration;
 using IndustrialPlatform.SystemData.Domain.DatabaseOrchestration;
-using IndustrialPlatform.SystemData.Domain.Topology;
+using IndustrialPlatform.SharedKernel.Topology;
 
 namespace IndustrialPlatform.SystemData.Api.Tests;
 

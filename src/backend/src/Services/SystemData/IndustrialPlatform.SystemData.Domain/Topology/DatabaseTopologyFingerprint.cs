@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using IndustrialPlatform.SharedKernel.Topology;
 
 namespace IndustrialPlatform.SystemData.Domain.Topology;
 

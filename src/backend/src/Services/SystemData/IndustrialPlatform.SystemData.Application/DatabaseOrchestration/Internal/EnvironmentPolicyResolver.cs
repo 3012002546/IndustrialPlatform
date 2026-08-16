@@ -1,6 +1,6 @@
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Options;
 using IndustrialPlatform.SystemData.Domain.DatabaseOrchestration;
-using IndustrialPlatform.SystemData.Domain.Topology;
+using IndustrialPlatform.SharedKernel.Topology;
 
 namespace IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Internal;
 

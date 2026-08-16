@@ -1,5 +1,6 @@
 using IndustrialPlatform.SharedKernel.Entities;
 using IndustrialPlatform.SharedKernel.Exceptions;
+using IndustrialPlatform.SharedKernel.Topology;
 using IndustrialPlatform.SystemData.Domain.Topology;
 
 namespace IndustrialPlatform.SystemData.Domain.DatabaseOrchestration;

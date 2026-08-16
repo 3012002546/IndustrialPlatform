@@ -5,5 +5,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\IndustrialPlatform.Application.Abstractions\IndustrialPlatform.Application.Abstractions.csproj" />
+    <ProjectReference Include="..\IndustrialPlatform.SharedKernel\IndustrialPlatform.SharedKernel.csproj" />
   </ItemGroup>
 </Project>

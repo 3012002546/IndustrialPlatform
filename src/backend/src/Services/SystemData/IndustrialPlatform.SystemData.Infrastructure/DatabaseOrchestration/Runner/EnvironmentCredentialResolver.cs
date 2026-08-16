@@ -1,5 +1,5 @@
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Runner;
-using IndustrialPlatform.SystemData.Domain.Topology;
+using IndustrialPlatform.SharedKernel.Topology;
 
 namespace IndustrialPlatform.SystemData.Infrastructure.DatabaseOrchestration.Runner;
 

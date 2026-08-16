@@ -19,6 +19,15 @@ import { createFixedWorkbench, MAX_BUSINESS_TABS } from '@/workspace/identity'
 import { writeTabsSnapshot } from '@/workspace/persistence'
 import type { WorkspaceRouteCandidate, WorkspaceTab } from '@/workspace'
 
+// 守卫测试写入/恢复 Mock 会话键(WriteAuthSession),显式声明 mock,不依赖产品默认(现为 http)。
+beforeEach(() => {
+  vi.stubEnv('VITE_AUTH_MODE', 'mock')
+})
+
+afterEach(() => {
+  vi.unstubAllEnvs()
+})
+
 const VALID_LOGIN = { username: 'mock.admin', password: 'Mock@123456' }
 const ALL_PERMISSIONS = ['platform.home.view', 'platform.pda.view', 'platform.mobile.view']
 
@@ -161,6 +170,22 @@ describe('路由守卫 — 权限', () => {
     const router = buildRouter()
     await router.push('/pc/home')
     expect(router.currentRoute.value.name).toBe('pc-home')
+  })
+
+  it('无 identity.user.view 直达用户管理路由 → 403(菜单隐藏不替代守卫)', async () => {
+    stubViewport(1280)
+    await login([PERMISSIONS.platformHomeView])
+    const router = buildRouter()
+    await router.push('/pc/identity/users')
+    expect(router.currentRoute.value.name).toBe('forbidden')
+  })
+
+  it('持有 identity.user.view 可直达用户管理路由', async () => {
+    stubViewport(1280)
+    await login([PERMISSIONS.platformHomeView, PERMISSIONS.userView])
+    const router = buildRouter()
+    await router.push('/pc/identity/users')
+    expect(router.currentRoute.value.name).toBe('identity-users')
   })
 })
 

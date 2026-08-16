@@ -1,7 +1,7 @@
 using IndustrialPlatform.Infrastructure.Caching;
 using IndustrialPlatform.Infrastructure.Database;
 using IndustrialPlatform.Logging.Options;
-using IndustrialPlatform.SystemData.Domain.Topology;
+using IndustrialPlatform.SharedKernel.Topology;
 using IndustrialPlatform.SystemData.Infrastructure.Topology;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;

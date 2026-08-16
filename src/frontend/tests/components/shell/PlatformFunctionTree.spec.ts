@@ -6,7 +6,7 @@
 
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { defineComponent, nextTick } from 'vue'
 
@@ -96,6 +96,12 @@ describe('PlatformFunctionTree', () => {
   beforeEach(() => {
     sessionStorage.clear()
     localStorage.clear()
+    // 经 writeAuthSession 写入 Mock 会话键后 restore,显式声明 mock,不依赖产品默认(现为 http)。
+    vi.stubEnv('VITE_AUTH_MODE', 'mock')
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
   })
 
   it('渲染标签与公开/持权限项,过滤未持权限项', async () => {

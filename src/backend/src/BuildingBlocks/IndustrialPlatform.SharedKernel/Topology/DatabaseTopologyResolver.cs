@@ -1,16 +1,18 @@
 using IndustrialPlatform.SharedKernel.Exceptions;
 
-namespace IndustrialPlatform.SystemData.Domain.Topology;
+namespace IndustrialPlatform.SharedKernel.Topology;
 
 /// <summary>
 /// 将受信任的数据库拓扑与稳定逻辑身份解析为具体物理目标。
 /// 规则(见 05 方案 §2.3/§7.1):Shared 仅允许 Development;Shared 必须提供目标名;
 /// PerService 优先取显式物理映射,缺失时回退逻辑名(供 SystemData 自身引导)。
+/// 解析规则唯一,服务启动(DevelopmentInfrastructureConfiguration)与
+/// SystemData 编排共用本解析器,不重复实现。
 /// </summary>
 public static class DatabaseTopologyResolver
 {
     /// <summary>允许使用 Shared 拓扑的环境。</summary>
-    private const string SharedAllowedEnvironment = "Development";
+    public const string SharedAllowedEnvironment = "Development";
 
     /// <summary>SystemData 自身的稳定服务键。</summary>
     public const string SystemDataServiceKey = "systemdata";

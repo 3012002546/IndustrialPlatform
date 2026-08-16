@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Runner;
-using IndustrialPlatform.SystemData.Domain.Topology;
+using IndustrialPlatform.SharedKernel.Topology;
 using Npgsql;
 
 namespace IndustrialPlatform.SystemData.Infrastructure.DatabaseOrchestration.Runner;

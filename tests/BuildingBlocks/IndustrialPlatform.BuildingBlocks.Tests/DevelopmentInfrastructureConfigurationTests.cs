@@ -6,6 +6,8 @@ namespace IndustrialPlatform.BuildingBlocks.Tests;
 
 public sealed class DevelopmentInfrastructureConfigurationTests
 {
+    private const string SharedDatabase = "industrial_platform_dev";
+
     [Fact]
     public void MissingLocalFilePreservesSqliteDefaults()
     {
@@ -44,7 +46,7 @@ public sealed class DevelopmentInfrastructureConfigurationTests
     }
 
     [Fact]
-    public void EnabledLocalFileMapsIdentityInfrastructure()
+    public void EnabledLocalFileMapsIdentityInfrastructureToSharedDatabase()
     {
         var configuration = CreateDefaults();
         var path = WriteLocalConfiguration(enabled: true);
@@ -59,7 +61,7 @@ public sealed class DevelopmentInfrastructureConfigurationTests
             Assert.True(loaded);
             Assert.Equal("PostgreSQL", configuration["SqlSugar:DbType"]);
             Assert.Contains("Host=100.64.0.10", configuration["SqlSugar:ConnectionString"]);
-            Assert.Contains("Database=identity_db", configuration["SqlSugar:ConnectionString"]);
+            Assert.Contains($"Database={SharedDatabase}", configuration["SqlSugar:ConnectionString"]);
             Assert.Equal("100.64.0.10:6379,password=redis-secret,defaultDatabase=2", configuration["Redis:ConnectionString"]);
             Assert.Equal("http://100.64.0.10:5341", configuration["Serilog:Seq:ServerUrl"]);
             Assert.Equal("true", configuration["Serilog:Seq:Enabled"]);
@@ -71,7 +73,7 @@ public sealed class DevelopmentInfrastructureConfigurationTests
     }
 
     [Fact]
-    public void EnabledLocalFileMapsReferenceDataInfrastructure()
+    public void EnabledLocalFileMapsReferenceDataInfrastructureToSharedDatabase()
     {
         var configuration = CreateDefaults();
         var path = WriteLocalConfiguration(enabled: true);
@@ -84,7 +86,7 @@ public sealed class DevelopmentInfrastructureConfigurationTests
                 DevelopmentService.ReferenceData);
 
             Assert.True(loaded);
-            Assert.Contains("Database=reference_db", configuration["SqlSugar:ConnectionString"]);
+            Assert.Contains($"Database={SharedDatabase}", configuration["SqlSugar:ConnectionString"]);
             Assert.Equal("100.64.0.10", configuration["RabbitMQ:Host"]);
             Assert.Equal("5672", configuration["RabbitMQ:Port"]);
             Assert.Equal("rabbit-user", configuration["RabbitMQ:UserName"]);
@@ -96,6 +98,155 @@ public sealed class DevelopmentInfrastructureConfigurationTests
             File.Delete(path);
         }
     }
+
+    [Theory]
+    [InlineData(DevelopmentService.Identity)]
+    [InlineData(DevelopmentService.ReferenceData)]
+    [InlineData(DevelopmentService.SystemData)]
+    public void SharedModeResolvesSamePhysicalDatabaseForAllServices(DevelopmentService service)
+    {
+        var configuration = CreateDefaults();
+        var path = WriteLocalConfiguration(enabled: true);
+
+        try
+        {
+            var loaded = DevelopmentInfrastructureConfiguration.Apply(configuration, path, service);
+
+            Assert.True(loaded);
+            Assert.Contains($"Database={SharedDatabase}", configuration["SqlSugar:ConnectionString"]);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void PerServiceModeResolvesMappedPhysicalDatabasePerService()
+    {
+        var configuration = CreateDefaults();
+        var path = WriteLocalConfiguration(
+            enabled: true,
+            topology: PerServiceTopology());
+
+        try
+        {
+            var loaded = DevelopmentInfrastructureConfiguration.Apply(
+                configuration,
+                path,
+                DevelopmentService.Identity);
+
+            Assert.True(loaded);
+            Assert.Contains("Database=identity_prod", configuration["SqlSugar:ConnectionString"]);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void SharedModeMissingDatabaseName_Fails()
+    {
+        var configuration = CreateDefaults();
+        var path = WriteLocalConfiguration(enabled: true, topology: MissingSharedNameTopology());
+
+        try
+        {
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                DevelopmentInfrastructureConfiguration.Apply(configuration, path, DevelopmentService.Identity));
+
+            Assert.Contains("SharedDatabaseName", exception.Message);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void PerServiceModeMissingServiceMapping_Fails()
+    {
+        var configuration = CreateDefaults();
+        var path = WriteLocalConfiguration(enabled: true, topology: MissingMappingTopology());
+
+        try
+        {
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                DevelopmentInfrastructureConfiguration.Apply(configuration, path, DevelopmentService.Identity));
+
+            Assert.Contains("ServiceDatabases", exception.Message);
+            Assert.Contains("identity", exception.Message);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void InvalidMode_Fails()
+    {
+        var configuration = CreateDefaults();
+        var path = WriteLocalConfiguration(enabled: true, topology: InvalidModeTopology());
+
+        try
+        {
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                DevelopmentInfrastructureConfiguration.Apply(configuration, path, DevelopmentService.Identity));
+
+            Assert.Contains("Mode", exception.Message);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    private static string SharedTopology() => $$"""
+        {
+          "Mode": "Shared",
+          "SharedDatabaseName": "{{SharedDatabase}}",
+          "SharedSqliteFile": "industrial-platform.db",
+          "ServiceDatabases": {}
+        }
+        """;
+
+    private static string PerServiceTopology() => """
+        {
+          "Mode": "PerService",
+          "ServiceDatabases": {
+            "identity": "identity_prod",
+            "referencedata": "reference_prod",
+            "systemdata": "systemdata_prod"
+          }
+        }
+        """;
+
+    private static string MissingSharedNameTopology() => """
+        {
+          "Mode": "Shared",
+          "SharedDatabaseName": "",
+          "ServiceDatabases": {}
+        }
+        """;
+
+    private static string MissingMappingTopology() => """
+        {
+          "Mode": "PerService",
+          "ServiceDatabases": {
+            "referencedata": "reference_prod"
+          }
+        }
+        """;
+
+    private static string InvalidModeTopology() => """
+        {
+          "Mode": 99,
+          "SharedDatabaseName": "x",
+          "ServiceDatabases": {}
+        }
+        """;
 
     private static ConfigurationManager CreateDefaults()
     {
@@ -109,8 +260,9 @@ public sealed class DevelopmentInfrastructureConfigurationTests
         return configuration;
     }
 
-    private static string WriteLocalConfiguration(bool enabled)
+    private static string WriteLocalConfiguration(bool enabled, string? topology = null)
     {
+        topology ??= SharedTopology();
         var path = Path.Combine(Path.GetTempPath(), $"industrial-platform-{Guid.NewGuid():N}.json");
         File.WriteAllText(path, $$"""
             {
@@ -120,9 +272,7 @@ public sealed class DevelopmentInfrastructureConfigurationTests
                 "PostgreSql": {
                   "Port": 5432,
                   "UserName": "db-user",
-                  "Password": "db-secret",
-                  "IdentityDatabase": "identity_db",
-                  "ReferenceDataDatabase": "reference_db"
+                  "Password": "db-secret"
                 },
                 "Redis": {
                   "Port": 6379,
@@ -142,7 +292,8 @@ public sealed class DevelopmentInfrastructureConfigurationTests
                   "Port": 5341,
                   "ApiKey": "seq-key"
                 }
-              }
+              },
+              "DatabaseTopology": {{topology}}
             }
             """);
         return path;

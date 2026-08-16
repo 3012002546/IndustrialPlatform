@@ -1,9 +1,8 @@
-using IndustrialPlatform.SystemData.Domain.Topology;
-
-namespace IndustrialPlatform.SystemData.Infrastructure.Topology;
+namespace IndustrialPlatform.SharedKernel.Topology;
 
 /// <summary>
 /// 受信任环境配置中的数据库拓扑选项,绑定 <c>DatabaseTopology</c> 配置节。
+/// 属共享语义,服务启动连接串与 SystemData 编排统一从该可信源绑定。
 /// </summary>
 public sealed class DatabaseTopologyOptions
 {

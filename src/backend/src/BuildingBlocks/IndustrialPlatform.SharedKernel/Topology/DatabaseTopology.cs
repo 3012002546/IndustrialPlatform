@@ -1,7 +1,9 @@
-namespace IndustrialPlatform.SystemData.Domain.Topology;
+namespace IndustrialPlatform.SharedKernel.Topology;
 
 /// <summary>
 /// 受信任环境的数据库拓扑描述,由 <see cref="DatabaseTopologyResolver"/> 解析为具体物理目标。
+/// 属于跨服务共享语义:Identity/ReferenceData/SystemData 与部署控制面统一使用,
+/// 避免每服务重复定义第二套拓扑规则。
 /// </summary>
 /// <param name="EnvironmentName">环境名(Development/Test/Staging/Production)。</param>
 /// <param name="Mode">物理拓扑模式。</param>

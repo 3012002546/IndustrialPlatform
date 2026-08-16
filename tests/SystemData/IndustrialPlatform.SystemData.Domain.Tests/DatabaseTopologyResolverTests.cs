@@ -1,5 +1,5 @@
 using IndustrialPlatform.SharedKernel.Exceptions;
-using IndustrialPlatform.SystemData.Domain.Topology;
+using IndustrialPlatform.SharedKernel.Topology;
 
 namespace IndustrialPlatform.SystemData.Domain.Tests;
 

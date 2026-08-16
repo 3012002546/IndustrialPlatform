@@ -5,6 +5,7 @@ using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Options;
 using NotFoundException = IndustrialPlatform.SystemData.Application.DatabaseOrchestration.NotFoundException;
 using IndustrialPlatform.SystemData.Contracts.DatabaseOrchestration;
 using IndustrialPlatform.SystemData.Domain.DatabaseOrchestration;
+using IndustrialPlatform.SharedKernel.Topology;
 using IndustrialPlatform.SystemData.Domain.Topology;
 using Microsoft.Extensions.Options;
 

@@ -1,5 +1,5 @@
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Runner;
-using IndustrialPlatform.SystemData.Domain.Topology;
+using IndustrialPlatform.SharedKernel.Topology;
 using IndustrialPlatform.SystemData.Infrastructure.DatabaseOrchestration.Runner;
 
 namespace IndustrialPlatform.SystemData.Infrastructure.Tests;

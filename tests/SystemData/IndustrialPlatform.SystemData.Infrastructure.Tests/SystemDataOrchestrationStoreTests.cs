@@ -2,6 +2,7 @@ using IndustrialPlatform.Infrastructure.Database;
 using IndustrialPlatform.SharedKernel.Exceptions;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration;
 using IndustrialPlatform.SystemData.Domain.DatabaseOrchestration;
+using IndustrialPlatform.SharedKernel.Topology;
 using IndustrialPlatform.SystemData.Domain.Topology;
 using IndustrialPlatform.SystemData.Infrastructure.DatabaseOrchestration;
 using IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations;

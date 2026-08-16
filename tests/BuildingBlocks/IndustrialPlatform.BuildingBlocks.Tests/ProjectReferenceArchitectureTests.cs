@@ -19,7 +19,7 @@ public sealed class ProjectReferenceArchitectureTests
                 ["IndustrialPlatform.Application.Abstractions"],
             ["src/backend/src/BuildingBlocks/IndustrialPlatform.SharedKernel/IndustrialPlatform.SharedKernel.csproj"] = [],
             ["src/backend/src/BuildingBlocks/IndustrialPlatform.Web/IndustrialPlatform.Web.csproj"] =
-                ["IndustrialPlatform.Application.Abstractions"],
+                ["IndustrialPlatform.Application.Abstractions", "IndustrialPlatform.SharedKernel"],
             ["src/backend/src/Gateway/IndustrialPlatform.Gateway/IndustrialPlatform.Gateway.csproj"] =
                 ["IndustrialPlatform.Logging", "IndustrialPlatform.Web"],
             ["src/backend/src/Services/Identity/IndustrialPlatform.Identity.Api/IndustrialPlatform.Identity.Api.csproj"] =

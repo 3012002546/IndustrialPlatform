@@ -1,3 +1,4 @@
+using IndustrialPlatform.Identity.Api.Commands;
 using IndustrialPlatform.Identity.Api.Conventions;
 using IndustrialPlatform.Identity.Api.Health;
 using IndustrialPlatform.Identity.Application;
@@ -49,6 +50,15 @@ app.MapGet("/.well-known/jwks.json", async (HttpContext http, IJwksProvider jwks
     var doc = await jwks.GetAsync(ct);
     return Results.Json(doc);
 });
+
+// --initialize-admin:仅 Development 的显式 admin 初始化命令。
+// 复用 IdentityInitializationService,输出可盘点账本;完成即退出,不启动 Web Server。
+if (InitializeAdminCommand.IsRequested(args))
+{
+    InitializeAdminCommand.EnsureDevelopmentEnvironment(app.Environment);
+    await InitializeAdminCommand.RunAsync(app.Services, Console.Out);
+    return;
+}
 
 app.Run();
 

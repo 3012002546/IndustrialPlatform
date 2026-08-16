@@ -1,5 +1,5 @@
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration;
-using IndustrialPlatform.SystemData.Domain.Topology;
+using IndustrialPlatform.SharedKernel.Topology;
 using IndustrialPlatform.SystemData.Infrastructure.Topology;
 using Microsoft.Extensions.Options;
 

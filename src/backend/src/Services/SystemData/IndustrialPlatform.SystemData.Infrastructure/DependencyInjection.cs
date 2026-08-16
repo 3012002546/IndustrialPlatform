@@ -8,6 +8,7 @@ using IndustrialPlatform.SystemData.Infrastructure.DatabaseOrchestration.Runner;
 using IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations;
 using IndustrialPlatform.SystemData.Infrastructure.Persistence.SystemData;
 using IndustrialPlatform.SystemData.Infrastructure.Topology;
+using IndustrialPlatform.SharedKernel.Topology;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 

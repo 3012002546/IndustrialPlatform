@@ -317,10 +317,15 @@ Copy-Item `
     "PostgreSql": {
       "Port": 5432,
       "UserName": "<数据库用户>",
-      "Password": "<数据库密码>",
-      "IdentityDatabase": "identity_db",
-      "ReferenceDataDatabase": "industrial_platform"
+      "Password": "<数据库密码>"
     }
+  },
+  "DatabaseTopology": {
+    "EnvironmentName": "Development",
+    "Mode": "Shared",
+    "SharedDatabaseName": "industrial_platform_dev",
+    "SharedSqliteFile": "industrial-platform.db",
+    "ServiceDatabases": {}
   }
 }
 ```
@@ -354,7 +359,7 @@ Test-NetConnection `
 | --- | --- |
 | Host | `RemoteDevelopment.Host` |
 | Port | `RemoteDevelopment.PostgreSql.Port` |
-| Database | `IdentityDatabase` 或 `ReferenceDataDatabase` |
+| Database | `DatabaseTopology.SharedDatabaseName`(Shared 模式);三个服务连接同一物理库 |
 | Username | `RemoteDevelopment.PostgreSql.UserName` |
 | Password | `RemoteDevelopment.PostgreSql.Password` |
 | SSL mode | `Prefer` |

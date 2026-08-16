@@ -17,6 +17,15 @@ import {
 import type { AuthGateway, AuthSession } from '@/auth/types'
 import { useAuthStore } from '@/stores/authStore'
 
+// 本套件验证 Mock 网关会话语义(存储键/过期清理/单飞),显式声明 mock,不依赖产品默认(现为 http)。
+beforeEach(() => {
+  vi.stubEnv('VITE_AUTH_MODE', 'mock')
+})
+
+afterEach(() => {
+  vi.unstubAllEnvs()
+})
+
 const VALID_LOGIN = { username: 'mock.admin', password: 'Mock@123456' }
 
 function makeSession(token = 'at-1', expiresInMs = 3_600_000): AuthSession {

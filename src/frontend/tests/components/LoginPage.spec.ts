@@ -6,7 +6,7 @@
 
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 
 import { AUTH_SESSION_STORAGE_KEY, createMockAuthGateway, setAuthGateway } from '@/auth'
@@ -53,6 +53,12 @@ describe('LoginPage', () => {
   beforeEach(() => {
     sessionStorage.clear()
     localStorage.clear()
+    // 本套件验证 Mock 登录行为(横幅/演示账号提示),显式声明 mock,不依赖产品默认(现为 http)。
+    vi.stubEnv('VITE_AUTH_MODE', 'mock')
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
   })
 
   it('渲染用户名/密码输入、标签与提交按钮,并展示 Mock 横幅与演示账号提示', async () => {

@@ -2,6 +2,7 @@ using IndustrialPlatform.SharedKernel.Exceptions;
 using IndustrialPlatform.SystemData.Domain.DatabaseOrchestration;
 using IndustrialPlatform.SystemData.Domain.DatabaseOrchestration.Events;
 using IndustrialPlatform.SystemData.Domain.DatabaseOrchestration.Identities;
+using IndustrialPlatform.SharedKernel.Topology;
 using IndustrialPlatform.SystemData.Domain.Topology;
 
 namespace IndustrialPlatform.SystemData.Domain.Tests;

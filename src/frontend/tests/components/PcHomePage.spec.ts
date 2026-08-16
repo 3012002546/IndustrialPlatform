@@ -5,7 +5,7 @@
 
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { persistAuthSession } from '../fixtures/session'
 import PcHomePage from '@/pages/pc/PcHomePage.vue'
@@ -23,6 +23,12 @@ describe('PcHomePage', () => {
   beforeEach(() => {
     sessionStorage.clear()
     localStorage.clear()
+    // 首页展示 Mock 演示数据标识,显式声明 mock,不依赖产品默认(现为 http)。
+    vi.stubEnv('VITE_AUTH_MODE', 'mock')
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
   })
 
   it('展示当前用户欢迎信息', async () => {

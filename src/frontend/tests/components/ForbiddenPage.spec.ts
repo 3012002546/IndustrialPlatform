@@ -5,7 +5,7 @@
 
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 
 import { persistAuthSession } from '../fixtures/session'
@@ -38,6 +38,12 @@ describe('ForbiddenPage', () => {
   beforeEach(() => {
     sessionStorage.clear()
     localStorage.clear()
+    // 页面测试经 persistAuthSession 写入 Mock 会话键,显式声明 mock,不依赖产品默认(现为 http)。
+    vi.stubEnv('VITE_AUTH_MODE', 'mock')
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
   })
 
   it('渲染页面标题与统一错误文案', async () => {

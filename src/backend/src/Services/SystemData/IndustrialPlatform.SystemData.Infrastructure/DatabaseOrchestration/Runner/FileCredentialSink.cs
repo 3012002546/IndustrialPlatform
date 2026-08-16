@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Options;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Runner;
+using IndustrialPlatform.SharedKernel.Topology;
 using IndustrialPlatform.SystemData.Domain.Topology;
 using Microsoft.Extensions.Options;
 

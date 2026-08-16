@@ -14,11 +14,17 @@ function parse(raw: Record<string, string | undefined> = {}, isProduction = fals
 }
 
 describe('parseRuntimeConfig', () => {
-  it('uses defaults when env is empty', () => {
+  it('uses defaults when env is empty (authMode defaults to http)', () => {
     const cfg = parse({})
     expect(cfg.apiBaseUrl).toBe(DEFAULT_API_BASE_URL)
     expect(cfg.authMode).toBe(DEFAULT_AUTH_MODE)
+    expect(cfg.authMode).toBe('http')
     expect(cfg.requestTimeoutMs).toBe(DEFAULT_REQUEST_TIMEOUT_MS)
+  })
+
+  it('explicit mock mode works in non-production', () => {
+    const cfg = parse({ VITE_AUTH_MODE: 'mock' })
+    expect(cfg.authMode).toBe('mock')
   })
 
   it('parses custom valid values', () => {
@@ -49,9 +55,14 @@ describe('parseRuntimeConfig', () => {
     expect(() => parse({ VITE_AUTH_MODE: 'sso' })).toThrow(RuntimeConfigError)
   })
 
-  it('fails when production enables mock auth', () => {
+  it('fails when production explicitly enables mock auth', () => {
     expect(() => parse({ VITE_AUTH_MODE: 'mock' }, true)).toThrow(RuntimeConfigError)
-    expect(() => parse({}, true)).toThrow(RuntimeConfigError)
+  })
+
+  it('allows production default (authMode=http) and explicit http', () => {
+    // 产品默认即 http,空配置与显式 http 在生产的构建均合法;只有显式 mock 被禁止。
+    expect(parse({}, true).authMode).toBe('http')
+    expect(parse({ VITE_AUTH_MODE: 'http' }, true).authMode).toBe('http')
   })
 
   it('allows http auth mode in production', () => {

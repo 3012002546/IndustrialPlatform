@@ -3,14 +3,14 @@
  *
  * 允许的环境变量(见 .env.example):
  *   VITE_API_BASE_URL         Gateway 统一入口,必须是合法 http/https URL
- *   VITE_AUTH_MODE            mock(默认,仅开发/测试)| http(Phase 3 真实 Identity)
+ *   VITE_AUTH_MODE            http(默认,本地真实 Identity)| mock(仅测试/显式配置)
  *   VITE_REQUEST_TIMEOUT_MS   正整数,HTTP 超时毫秒数
  *
  * 生产构建启用 mock 必须失败,不得静默切换。
  */
 
 export const DEFAULT_API_BASE_URL = 'http://localhost:5080'
-export const DEFAULT_AUTH_MODE = 'mock'
+export const DEFAULT_AUTH_MODE = 'http'
 export const DEFAULT_REQUEST_TIMEOUT_MS = 10000
 
 export type AuthMode = 'mock' | 'http'

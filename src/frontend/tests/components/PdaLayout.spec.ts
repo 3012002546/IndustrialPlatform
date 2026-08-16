@@ -7,7 +7,7 @@
 
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter, createWebHistory, type Router } from 'vue-router'
 
 import { writeAuthSession } from '@/auth'
@@ -58,6 +58,12 @@ describe('PdaLayout', () => {
     localStorage.clear()
     // 终端文案单事实源为路由 meta.terminal(/pda/home = 'pda',PF-01 §7.11),
     // 不再写入 override 键;即使设备建议缺省为 pc,显式路由仍解析为 PDA。
+    // Mock 标识只在 VITE_AUTH_MODE=mock 下渲染,显式声明,不依赖产品默认(现为 http)。
+    vi.stubEnv('VITE_AUTH_MODE', 'mock')
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
   })
 
   it('渲染 header / main 骨架,主内容可聚焦', async () => {

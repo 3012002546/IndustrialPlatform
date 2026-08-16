@@ -49,11 +49,11 @@ pnpm install --frozen-lockfile   # 严格按锁文件安装
 
 ## 运行配置
 
-| 环境变量                  | 默认值                  | 说明                                      |
-| ------------------------- | ----------------------- | ----------------------------------------- |
-| `VITE_API_BASE_URL`       | `http://localhost:5080` | Gateway 统一入口(前端只走这里)            |
-| `VITE_AUTH_MODE`          | `mock`                  | 认证适配器(仅开发/测试;生产构建禁止 mock) |
-| `VITE_REQUEST_TIMEOUT_MS` | `10000`                 | HTTP 超时毫秒数                           |
+| 环境变量                  | 默认值                  | 说明                                                                       |
+| ------------------------- | ----------------------- | -------------------------------------------------------------------------- |
+| `VITE_API_BASE_URL`       | `http://localhost:5080` | Gateway 统一入口(前端只走这里)                                             |
+| `VITE_AUTH_MODE`          | `http`                  | 认证适配器(http=真实 Identity,默认;mock 仅测试/显式配置;生产构建禁止 mock) |
+| `VITE_REQUEST_TIMEOUT_MS` | `10000`                 | HTTP 超时毫秒数                                                            |
 
 安全示例值见 `.env.example`;真实凭据不得提交。
 
@@ -113,7 +113,7 @@ tests
 
 第一批为 Mock 认证边界;接入真实 Identity 时按以下清单,不重写现有页面与布局:
 
-1. **HttpAuthGateway**:实现 `AuthGateway` 契约(`src/auth/types.ts`)——`login/refresh/logout/getCurrentUser`,须通过可复用契约测试套件 `runAuthGatewayContractSuite`(`tests/contract/authGateway.spec.ts`)。装配点在 `src/app/createIndustrialApp.ts` `installAuthGateway()`(当前 `authMode=http` 抛 `RuntimeConfigError`,Phase 3 替换为真实实现)。
+1. **HttpAuthGateway**:实现 `AuthGateway` 契约(`src/auth/types.ts`)——`login/refresh/logout/getCurrentUser`,须通过可复用契约测试套件 `runAuthGatewayContractSuite`(`tests/contract/authGateway.spec.ts`)。装配点在 `src/app/createIndustrialApp.ts` `installAuthGateway()`(现 `authMode=http` 为本地默认,装配真实实现;`authMode=mock` 仅测试与显式配置使用)。
 2. **HTTP 鉴权注入**:`createHttpClient`(`src/api/httpClient.ts`)的 `getToken` 注入点从 `getCurrentSession()`(`src/auth/gateway.ts` 令牌镜像)读取 Bearer;`X-Correlation-Id` 已就绪。
 3. **真实令牌策略**:按后端 Identity API 确定 access/refresh token 的存储(新版本化会话键,现有 `industrial-platform.auth.mock.v1` 仅供 Mock)、过期刷新、刷新失败清理与退出撤销(§19:Phase 3 须单独确认真实令牌的存储/刷新/撤销策略)。
 4. **API 契约对齐**:登录/刷新/登出端点与 ApiResult 信封以 Identity Service 实施方案(`docs/implementation/03`)定稿的契约为准;错误码映射到现有 `ApiError` 分类。

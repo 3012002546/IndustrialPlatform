@@ -122,9 +122,15 @@ async function clickSave(wrapper: VueWrapper): Promise<void> {
 describe('IdentityUsersPage — 创建用户(服务端随机临时密码)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // 页面经 persistAuthSession 写入 Mock 会话键后 restore,显式声明 mock,不依赖产品默认(现为 http)。
+    vi.stubEnv('VITE_AUTH_MODE', 'mock')
     fakeApi.listUsers.mockResolvedValue(emptyPage())
     fakeApi.listRoles.mockResolvedValue(emptyPage())
     fakeApi.listUserGroups.mockResolvedValue(emptyPage())
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
   })
 
   afterEach(() => {
