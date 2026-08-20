@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <NoWarn>$(NoWarn);CA1707</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Microsoft.OpenApi" />
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="SqlSugarCore" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Identity\IndustrialPlatform.Identity.Tests\IndustrialPlatform.Identity.Tests.csproj" />
+    <ProjectReference Include="..\..\SystemData\IndustrialPlatform.SystemData.Tests\IndustrialPlatform.SystemData.Tests.csproj" />
+    <ProjectReference Include="..\..\..\src\backend\src\Services\Identity\IndustrialPlatform.Identity.Api\IndustrialPlatform.Identity.Api.csproj" Aliases="IdentityApi" />
+    <ProjectReference Include="..\..\..\src\backend\src\Services\SystemData\IndustrialPlatform.SystemData.Api\IndustrialPlatform.SystemData.Api.csproj" />
+    <ProjectReference Include="..\..\..\src\backend\src\Services\ReferenceData\IndustrialPlatform.ReferenceData.Api\IndustrialPlatform.ReferenceData.Api.csproj" />
+    <ProjectReference Include="..\..\..\src\backend\src\Gateway\IndustrialPlatform.Gateway\IndustrialPlatform.Gateway.csproj" />
+    <ProjectReference Include="..\..\..\src\backend\src\Hosts\IndustrialPlatform.UnifiedHost\IndustrialPlatform.UnifiedHost.csproj" />
+  </ItemGroup>
+
+</Project>

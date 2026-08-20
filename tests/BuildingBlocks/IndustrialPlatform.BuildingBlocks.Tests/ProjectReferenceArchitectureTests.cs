@@ -56,10 +56,16 @@ public sealed class ProjectReferenceArchitectureTests
 
     private static readonly string[] ApprovedSystemDataTestingReferences =
     [
+        "IndustrialPlatform.Application.Abstractions",
+        "IndustrialPlatform.Identity.Contracts",
+        "IndustrialPlatform.Infrastructure",
         "IndustrialPlatform.SystemData.Application",
         "IndustrialPlatform.SystemData.Contracts",
         "IndustrialPlatform.SystemData.Domain",
         "IndustrialPlatform.SystemData.Infrastructure",
+        "IndustrialPlatform.SystemData.Api",
+        "IndustrialPlatform.SharedKernel",
+        "IndustrialPlatform.Web",
     ];
 
     [Fact]
@@ -85,10 +91,10 @@ public sealed class ProjectReferenceArchitectureTests
     [Fact]
     public void SystemDataTestingFixtureReferencesOnlyApprovedProjects()
     {
-        // 共享测试 fixture 只允许引用 SystemData 四层应用项目,禁止引用测试项目或其他服务/组件。
+        // 合并后的 SystemData 测试 fixture 只允许引用四层应用项目,禁止引用其他测试项目或服务组件。
         var repositoryRoot = FindRepositoryRoot();
         const string fixtureProjectPath =
-            "tests/SystemData/IndustrialPlatform.SystemData.Testing/IndustrialPlatform.SystemData.Testing.csproj";
+            "tests/SystemData/IndustrialPlatform.SystemData.Tests/IndustrialPlatform.SystemData.Tests.csproj";
 
         var actualReferences = ReadProjectReferences(Path.Combine(repositoryRoot, fixtureProjectPath));
 

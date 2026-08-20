@@ -22,11 +22,7 @@
     <Project Path="src\Services\Identity\IndustrialPlatform.Identity.Api\IndustrialPlatform.Identity.Api.csproj" />
   </Folder>
   <Folder Name="/tests/Identity/">
-    <Project Path="..\..\tests\Identity\IndustrialPlatform.Identity.Domain.Tests\IndustrialPlatform.Identity.Domain.Tests.csproj" />
-    <Project Path="..\..\tests\Identity\IndustrialPlatform.Identity.Application.Tests\IndustrialPlatform.Identity.Application.Tests.csproj" />
-    <Project Path="..\..\tests\Identity\IndustrialPlatform.Identity.Infrastructure.Tests\IndustrialPlatform.Identity.Infrastructure.Tests.csproj" />
-    <Project Path="..\..\tests\Identity\IndustrialPlatform.Identity.Api.Tests\IndustrialPlatform.Identity.Api.Tests.csproj" />
-    <Project Path="..\..\tests\Identity\IndustrialPlatform.Identity.Contract.Tests\IndustrialPlatform.Identity.Contract.Tests.csproj" />
+    <Project Path="..\..\tests\Identity\IndustrialPlatform.Identity.Tests\IndustrialPlatform.Identity.Tests.csproj" />
   </Folder>
   <Folder Name="/src/Services/SystemData/">
     <Project Path="src\Services\SystemData\IndustrialPlatform.SystemData.Contracts\IndustrialPlatform.SystemData.Contracts.csproj" />
@@ -36,12 +32,7 @@
     <Project Path="src\Services\SystemData\IndustrialPlatform.SystemData.Api\IndustrialPlatform.SystemData.Api.csproj" />
   </Folder>
   <Folder Name="/tests/SystemData/">
-    <Project Path="..\..\tests\SystemData\IndustrialPlatform.SystemData.Domain.Tests\IndustrialPlatform.SystemData.Domain.Tests.csproj" />
-    <Project Path="..\..\tests\SystemData\IndustrialPlatform.SystemData.Application.Tests\IndustrialPlatform.SystemData.Application.Tests.csproj" />
-    <Project Path="..\..\tests\SystemData\IndustrialPlatform.SystemData.Infrastructure.Tests\IndustrialPlatform.SystemData.Infrastructure.Tests.csproj" />
-    <Project Path="..\..\tests\SystemData\IndustrialPlatform.SystemData.Api.Tests\IndustrialPlatform.SystemData.Api.Tests.csproj" />
-    <Project Path="..\..\tests\SystemData\IndustrialPlatform.SystemData.Contract.Tests\IndustrialPlatform.SystemData.Contract.Tests.csproj" />
-    <Project Path="..\..\tests\SystemData\IndustrialPlatform.SystemData.Testing\IndustrialPlatform.SystemData.Testing.csproj" />
+    <Project Path="..\..\tests\SystemData\IndustrialPlatform.SystemData.Tests\IndustrialPlatform.SystemData.Tests.csproj" />
   </Folder>
   <Folder Name="/src/Services/ReferenceData/">
     <Project Path="src\Services\ReferenceData\IndustrialPlatform.ReferenceData.Domain\IndustrialPlatform.ReferenceData.Domain.csproj" />
@@ -63,5 +54,8 @@
   </Folder>
   <Folder Name="/tests/UnifiedHost/">
     <Project Path="..\..\tests\UnifiedHost\IndustrialPlatform.UnifiedHost.Tests\IndustrialPlatform.UnifiedHost.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/IntegrationTests/">
+    <Project Path="..\..\tests\IntegrationTests\IndustrialPlatform.IntegrationTests\IndustrialPlatform.IntegrationTests.csproj" />
   </Folder>
 </Solution>

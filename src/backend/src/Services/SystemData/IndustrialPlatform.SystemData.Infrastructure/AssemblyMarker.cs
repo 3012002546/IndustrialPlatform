@@ -1,7 +1,7 @@
 using System.Runtime.CompilerServices;
 
-[assembly: InternalsVisibleTo("IndustrialPlatform.SystemData.Testing")]
-[assembly: InternalsVisibleTo("IndustrialPlatform.SystemData.Infrastructure.Tests")]
+[assembly: InternalsVisibleTo("IndustrialPlatform.SystemData.Tests")]
+[assembly: InternalsVisibleTo("IndustrialPlatform.IntegrationTests")]
 
 namespace IndustrialPlatform.SystemData.Infrastructure;
 

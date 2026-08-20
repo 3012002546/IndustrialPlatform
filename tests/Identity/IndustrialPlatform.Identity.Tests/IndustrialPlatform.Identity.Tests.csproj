@@ -2,13 +2,18 @@
 
   <PropertyGroup>
     <IsPackable>false</IsPackable>
+    <NoWarn>$(NoWarn);CA1707</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Microsoft.OpenApi" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
     <PackageReference Include="SqlSugarCore" />
     <PackageReference Include="xunit" />
@@ -20,10 +25,15 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\src\backend\src\Services\Identity\IndustrialPlatform.Identity.Infrastructure\IndustrialPlatform.Identity.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\src\backend\src\Services\Identity\IndustrialPlatform.Identity.Api\IndustrialPlatform.Identity.Api.csproj" />
     <ProjectReference Include="..\..\..\src\backend\src\Services\Identity\IndustrialPlatform.Identity.Application\IndustrialPlatform.Identity.Application.csproj" />
+    <ProjectReference Include="..\..\..\src\backend\src\Services\Identity\IndustrialPlatform.Identity.Contracts\IndustrialPlatform.Identity.Contracts.csproj" />
     <ProjectReference Include="..\..\..\src\backend\src\Services\Identity\IndustrialPlatform.Identity.Domain\IndustrialPlatform.Identity.Domain.csproj" />
+    <ProjectReference Include="..\..\..\src\backend\src\Services\Identity\IndustrialPlatform.Identity.Infrastructure\IndustrialPlatform.Identity.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\src\backend\src\BuildingBlocks\IndustrialPlatform.Application.Abstractions\IndustrialPlatform.Application.Abstractions.csproj" />
     <ProjectReference Include="..\..\..\src\backend\src\BuildingBlocks\IndustrialPlatform.Infrastructure\IndustrialPlatform.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\src\backend\src\BuildingBlocks\IndustrialPlatform.SharedKernel\IndustrialPlatform.SharedKernel.csproj" />
+    <ProjectReference Include="..\..\..\src\backend\src\BuildingBlocks\IndustrialPlatform.Web\IndustrialPlatform.Web.csproj" />
   </ItemGroup>
 
 </Project>

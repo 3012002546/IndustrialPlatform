@@ -6,15 +6,15 @@ using IndustrialPlatform.SystemData.Infrastructure.DatabaseOrchestration.Runner;
 using IndustrialPlatform.SystemData.Testing;
 using Npgsql;
 
-namespace IndustrialPlatform.SystemData.Infrastructure.Tests;
+namespace IndustrialPlatform.IntegrationTests.SystemData;
 
 /// <summary>
 /// PostgreSQL 种子账本执行语义测试(TASK-SD-004,蓝图 §12「SQLite/PG 等价」;真库分支「待验收」)。
 /// 需真实 PostgreSQL,经环境变量 <c>SYSTEMDATA_PG_E2E=1</c> 启用(早退语义,配合
-/// <c>[Trait("Category","E2E")]</c> 标记);未启用时方法直接返回。连接信息经 <c>SYSTEMDATA_PG_*</c>
+/// <c>[Trait("Category","Integration")]</c> 标记);未启用时方法直接返回。连接信息经 <c>SYSTEMDATA_PG_*</c>
 /// 环境变量传入,不落任何配置文件。SQLite 等价本地替身见 <see cref="SeedLedgerExecutorTests"/>。
 /// </summary>
-[Trait("Category", "E2E")]
+[Trait("Category", "Integration")]
 public sealed class SeedLedgerPostgreSqlE2ETests
 {
     private const string EnvGate = "SYSTEMDATA_PG_E2E";

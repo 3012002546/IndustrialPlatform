@@ -62,6 +62,11 @@ public sealed class SchemaMigrationRunnerTests : IDisposable
     private SchemaMigrationRunner CreateRunner(params SchemaMigrationStep[] steps) =>
         new(_dbContext, steps, NullLogger<SchemaMigrationRunner>.Instance);
 
+    private async Task<bool> TableExistsAsync(string tableName) =>
+        await _dbContext.SqlSugar.Ado.GetIntAsync(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = @name",
+            new SugarParameter("@name", tableName)) == 1;
+
     private static SchemaMigrationStep CreateTableStep(string id, string tableName)
     {
         var ddl = $"CREATE TABLE IF NOT EXISTS {tableName} (id TEXT PRIMARY KEY, name TEXT NOT NULL)";
@@ -118,7 +123,7 @@ public sealed class SchemaMigrationRunnerTests : IDisposable
 
         await runner.ApplyPendingAsync();
 
-        Assert.True(_dbContext.SqlSugar.DbMaintenance.IsAnyTable("identity_schema_migrations"));
+        Assert.True(await TableExistsAsync("identity_schema_migrations"));
         Assert.Equal(0, await _dbContext.SqlSugar.Queryable<SchemaMigrationRecord>().CountAsync());
     }
 
@@ -143,8 +148,8 @@ public sealed class SchemaMigrationRunnerTests : IDisposable
 
         // 两步各只应用一次;重复调用不再执行已记账步骤
         Assert.Equal(2, appliedCount);
-        Assert.True(_dbContext.SqlSugar.DbMaintenance.IsAnyTable("migration_a"));
-        Assert.True(_dbContext.SqlSugar.DbMaintenance.IsAnyTable("migration_b"));
+        Assert.True(await TableExistsAsync("migration_a"));
+        Assert.True(await TableExistsAsync("migration_b"));
 
         var ledger = await _dbContext.SqlSugar.Queryable<SchemaMigrationRecord>()
             .OrderBy(record => record.MigrationId)
@@ -162,8 +167,8 @@ public sealed class SchemaMigrationRunnerTests : IDisposable
         await Assert.ThrowsAsync<InvalidOperationException>(() => runner.ApplyPendingAsync());
 
         // 已提交的 mig-001 保留;失败步骤 mig-002 的部分工作被回滚且未记账
-        Assert.True(_dbContext.SqlSugar.DbMaintenance.IsAnyTable("migration_a"));
-        Assert.False(_dbContext.SqlSugar.DbMaintenance.IsAnyTable("migration_partial"));
+        Assert.True(await TableExistsAsync("migration_a"));
+        Assert.False(await TableExistsAsync("migration_partial"));
         var recordedAfterFailure = await _dbContext.SqlSugar.Queryable<SchemaMigrationRecord>()
             .Select(record => record.MigrationId)
             .ToListAsync();
@@ -177,7 +182,7 @@ public sealed class SchemaMigrationRunnerTests : IDisposable
 
         await fixedRunner.ApplyPendingAsync();
 
-        Assert.True(_dbContext.SqlSugar.DbMaintenance.IsAnyTable("migration_b"));
+        Assert.True(await TableExistsAsync("migration_b"));
         var recordedAfterRetry = await _dbContext.SqlSugar.Queryable<SchemaMigrationRecord>()
             .OrderBy(record => record.MigrationId)
             .Select(record => record.MigrationId)
@@ -196,7 +201,7 @@ public sealed class SchemaMigrationRunnerTests : IDisposable
         // 到达此处即证明异常已被捕获、未向调用方抛出(保持无 Docker 服务可运行基线)
         await InvokeExecuteAsync(service, CancellationToken.None);
 
-        Assert.True(_dbContext.SqlSugar.DbMaintenance.IsAnyTable("identity_schema_migrations"));
+        Assert.True(await TableExistsAsync("identity_schema_migrations"));
     }
 
     [Fact]

@@ -2,16 +2,16 @@ using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Runner;
 using IndustrialPlatform.SharedKernel.Topology;
 using IndustrialPlatform.SystemData.Infrastructure.DatabaseOrchestration.Runner;
 
-namespace IndustrialPlatform.SystemData.Infrastructure.Tests;
+namespace IndustrialPlatform.IntegrationTests.SystemData;
 
 /// <summary>
 /// PostgreSQL 目标数据库适配器测试(TASK-SD-003,真库分支「待验收」)。
 /// 需真实 PostgreSQL,经环境变量 <c>SYSTEMDATA_PG_E2E=1</c> 启用(早退语义,配合
-/// <c>[Trait("Category","E2E")]</c> 标记);未启用时方法直接返回,由类注释说明依赖。
+/// <c>[Trait("Category","Integration")]</c> 标记);未启用时方法直接返回,由类注释说明依赖。
 /// 连接信息经环境变量传入(HOST/PORT/DATABASE/SCHEMA/USER/PASSWORD,取 <c>SYSTEMDATA_PG_*</c>),
 /// 不落任何配置文件。SQLite 本地替身测试见 <see cref="SqliteTargetDatabaseAdapterTests"/>。
 /// </summary>
-[Trait("Category", "E2E")]
+[Trait("Category", "Integration")]
 public sealed class PostgreSqlTargetDatabaseAdapterTests
 {
     private static readonly PostgreSqlTargetDatabaseAdapter Adapter = new();
