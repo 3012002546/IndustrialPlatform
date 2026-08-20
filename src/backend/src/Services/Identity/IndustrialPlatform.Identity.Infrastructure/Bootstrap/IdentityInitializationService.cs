@@ -37,11 +37,20 @@ public sealed class IdentityInitializationService
     public async Task<IdentityInitializationResult> InitializeAsync(
         IdentitySeedContext context,
         CancellationToken cancellationToken = default)
+        => await InitializeAsync(context, includeBootstrapAdmin: true, cancellationToken);
+
+    /// <summary>
+    /// 执行服务初始化。Standard 只完成服务级 Migration/Required Seed；Advanced 才执行一次性 admin Bootstrap。
+    /// </summary>
+    public async Task<IdentityInitializationResult> InitializeAsync(
+        IdentitySeedContext context,
+        bool includeBootstrapAdmin,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(context);
 
         await _migrationRunner.ApplyPendingAsync(cancellationToken);
-        var run = await _seedRunner.RunAsync(context, includeBootstrapAdmin: true, cancellationToken);
+        var run = await _seedRunner.RunAsync(context, includeBootstrapAdmin, cancellationToken);
 
         var schemaVersion = await _store.GetSchemaVersionAsync(cancellationToken);
         var admin = await _store.GetAdminIncludingDeletedAsync(context.TenantNId, BootstrapSeedCatalog.BootstrapUserNId, cancellationToken);

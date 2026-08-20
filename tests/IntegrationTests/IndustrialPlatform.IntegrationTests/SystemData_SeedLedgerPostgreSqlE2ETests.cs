@@ -163,6 +163,7 @@ public sealed class SeedLedgerPostgreSqlE2ETests
             Target(connection.Database),
             connection,
             module.ModuleKey,
+            TenantNId: "tenant-pg-e2e",
             EnvironmentNId: "Development",
             secretValue,
             operationNId,

@@ -1,61 +1,131 @@
-using IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations;
-using IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
+using System.Diagnostics;
+using IndustrialPlatform.Application.Abstractions.Initialization;
+using IndustrialPlatform.Identity.Application.Bootstrap;
+using IndustrialPlatform.Infrastructure.Database;
+using IndustrialPlatform.SharedKernel.Topology;
+using IndustrialPlatform.SystemData.Application.DatabaseOrchestration;
+using Microsoft.Extensions.Options;
+using SqlSugar;
 
 namespace IndustrialPlatform.UnifiedHost;
 
 /// <summary>
-/// UnifiedHost 模块迁移协调器:在宿主启动阶段**确定顺序**执行
-/// Identity 启动迁移与系统目录种子 → SystemData 启动迁移,替代两套并行
-/// <c>SchemaMigrationBackgroundService</c>(避免并行迁移同一 Shared 物理库,SQLite 锁竞争)。
-///
-/// 作为普通 <see cref="IHostedService"/> 注册在宿主托管服务最前,StartAsync 阻塞等待
-/// 两个模块迁移完成;宿主随后按注册顺序启动其余托管服务(Outbox 派发、数据库编排 Runner 等),
-/// 因此依赖迁移完成的后台服务必然在迁移完成后才启动。失败即上抛,宿主启动失败(确定顺序语义,
-/// 不依赖重启、偶然时序或 PostgreSQL 最终收敛)。执行逻辑复用各模块提取的启动迁移实现,不复制实现。
+/// UnifiedHost 启动协调器。宿主只按固定顺序调用服务初始化器，不引用任何具体 Migration 实现。
 /// </summary>
 public sealed partial class ModuleMigrationCoordinatorHostedService : IHostedService
 {
-    private readonly IServiceScopeFactory _scopeFactory;
+    private static readonly string[] InitializationOrder = ["identity", "systemdata", "referencedata"];
+    private readonly IReadOnlyList<IServiceInitializer> _initializers;
+    private readonly IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Initialization.IServiceInitializationInvoker _invoker;
+    private readonly IDatabaseTopologyProvider _topologyProvider;
+    private readonly IOptions<SqlSugarOptions> _sqlSugarOptions;
+    private readonly IOptions<BootstrapOptions> _bootstrapOptions;
     private readonly ILogger<ModuleMigrationCoordinatorHostedService> _logger;
 
-    /// <summary>初始化模块迁移协调器。</summary>
     public ModuleMigrationCoordinatorHostedService(
-        IServiceScopeFactory scopeFactory,
+        IEnumerable<IServiceInitializer> initializers,
+        IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Initialization.IServiceInitializationInvoker invoker,
+        IDatabaseTopologyProvider topologyProvider,
+        IOptions<SqlSugarOptions> sqlSugarOptions,
+        IOptions<BootstrapOptions> bootstrapOptions,
         ILogger<ModuleMigrationCoordinatorHostedService> logger)
     {
-        ArgumentNullException.ThrowIfNull(scopeFactory);
+        ArgumentNullException.ThrowIfNull(initializers);
+        ArgumentNullException.ThrowIfNull(invoker);
+        ArgumentNullException.ThrowIfNull(topologyProvider);
+        ArgumentNullException.ThrowIfNull(sqlSugarOptions);
+        ArgumentNullException.ThrowIfNull(bootstrapOptions);
         ArgumentNullException.ThrowIfNull(logger);
-        _scopeFactory = scopeFactory;
+        _initializers = initializers.ToArray();
+        _invoker = invoker;
+        _topologyProvider = topologyProvider;
+        _sqlSugarOptions = sqlSugarOptions;
+        _bootstrapOptions = bootstrapOptions;
         _logger = logger;
     }
 
-    /// <inheritdoc />
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        LogIdentityMigrationsStarted();
-        await IdentityStartupMigrations.RunAsync(_scopeFactory, cancellationToken);
-        LogIdentityMigrationsCompleted();
+        var topology = _topologyProvider.GetTopology();
+        var provider = _sqlSugarOptions.Value.DbType == DbType.Sqlite
+            ? DatabaseProvider.Sqlite
+            : DatabaseProvider.PostgreSQL;
+        var target = DatabaseTopologyResolver.Resolve(topology, "unifiedhost", provider, "unifiedhost_db");
+        var context = new ServiceInitializationContext(
+            topology.EnvironmentName,
+            _bootstrapOptions.Value.TenantNId,
+            $"unifiedhost-startup-{topology.EnvironmentName}",
+            "unifiedhost",
+            "unifiedhost",
+            target,
+            string.Empty,
+            ServiceInitializationPolicy.Standard,
+            Activity.Current?.Id ?? "unifiedhost-startup");
 
-        LogSystemDataMigrationsStarted();
-        await SystemDataStartupMigrations.RunAsync(_scopeFactory, cancellationToken);
-        LogSystemDataMigrationsCompleted();
+        LogInitializationStarted();
+        await RunInitializersAsync(_invoker, _initializers, context, cancellationToken);
+        LogInitializationCompleted();
     }
 
-    /// <inheritdoc />
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
-    [LoggerMessage(EventId = 1, Level = LogLevel.Information, Message = "UnifiedHost 模块迁移:开始执行 Identity 迁移与系统目录种子。")]
-    private partial void LogIdentityMigrationsStarted();
+    /// <summary>按 identity → systemdata → referencedata 顺序运行服务初始化器。</summary>
+    public static async Task RunInitializersAsync(
+        IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Initialization.IServiceInitializationInvoker invoker,
+        IEnumerable<IServiceInitializer> initializers,
+        ServiceInitializationContext context,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(invoker);
+        ArgumentNullException.ThrowIfNull(initializers);
+        ArgumentNullException.ThrowIfNull(context);
 
-    [LoggerMessage(EventId = 2, Level = LogLevel.Information, Message = "UnifiedHost 模块迁移:Identity 完成,开始 SystemData。")]
-    private partial void LogIdentityMigrationsCompleted();
+        var byService = initializers.ToDictionary(initializer => initializer.ServiceKey, StringComparer.OrdinalIgnoreCase);
+        foreach (var serviceKey in InitializationOrder)
+        {
+            if (!byService.TryGetValue(serviceKey, out var initializer))
+            {
+                throw new InvalidOperationException($"UnifiedHost 未注册 {serviceKey} 初始化器。");
+            }
 
-    [LoggerMessage(EventId = 3, Level = LogLevel.Information, Message = "UnifiedHost 模块迁移:执行 SystemData 迁移。")]
-    private partial void LogSystemDataMigrationsStarted();
+            var serviceContext = context with
+            {
+                ServiceKey = serviceKey,
+                ModuleKey = initializer.ModuleKey,
+                DesiredVersion = context.DesiredVersion,
+                DatabaseTarget = context.DatabaseTarget with
+                {
+                    ServiceKey = serviceKey,
+                    LogicalDatabaseName = $"{serviceKey}_db",
+                },
+            };
+            var inspection = await invoker.InspectAsync(serviceContext, cancellationToken);
+            var plan = await invoker.PlanAsync(serviceContext, inspection, cancellationToken);
+            var executionContext = serviceContext with { DesiredVersion = plan.DesiredVersion };
+            if (plan.RequiresApply)
+            {
+                await invoker.ApplyAsync(executionContext, plan, cancellationToken);
+            }
 
-    [LoggerMessage(EventId = 4, Level = LogLevel.Information, Message = "UnifiedHost 模块迁移:全部完成。")]
-    private partial void LogSystemDataMigrationsCompleted();
+            var verified = await invoker.VerifyAsync(executionContext, cancellationToken);
+            if (!verified.Ready
+                || !string.Equals(verified.ObservedVersion, plan.DesiredVersion, StringComparison.Ordinal))
+            {
+                var reason = !verified.Ready
+                    ? (string.IsNullOrWhiteSpace(verified.Reason) ? "服务初始化验证未提供原因。" : verified.Reason)
+                    : $"ObservedVersion {verified.ObservedVersion ?? "<null>"} 与目标版本 {plan.DesiredVersion} 不一致。";
+                var failure = new InvalidOperationException(
+                    $"UnifiedHost {serviceKey} 初始化验证未就绪: {reason}");
+                failure.Data["ServiceKey"] = serviceKey;
+                failure.Data["Reason"] = reason;
+                throw failure;
+            }
+        }
+    }
+
+    [LoggerMessage(EventId = 1, Level = LogLevel.Information, Message = "UnifiedHost 服务初始化:开始按 Identity → SystemData → ReferenceData 顺序执行。")]
+    private partial void LogInitializationStarted();
+
+    [LoggerMessage(EventId = 2, Level = LogLevel.Information, Message = "UnifiedHost 服务初始化:全部完成。")]
+    private partial void LogInitializationCompleted();
 }

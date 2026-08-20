@@ -1,3 +1,5 @@
+using IndustrialPlatform.Application.Abstractions.Initialization;
+using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Initialization;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Runner;
 using IndustrialPlatform.SystemData.Domain.DatabaseOrchestration;
 using IndustrialPlatform.SystemData.Infrastructure.DatabaseOrchestration.Runner;
@@ -151,5 +153,87 @@ public sealed class SeedLedgerExecutorTests
         Assert.False(result.Succeeded);
         Assert.Equal(DatabaseOrchestrationRunnerErrors.SeedFailed, result.ErrorCode);
         Assert.Equal(0, await scope.Database.SeedLedgerRowCountAsync(module.ModuleKey, Ct));
+    }
+
+    [Fact]
+    public async Task Initializer_forwards_real_tenant_to_service_invoker()
+    {
+        using var scope = new TestFixtureScope();
+        var module = TestInitializableService.ModuleBSpec;
+        var seed = module.Seeds[0];
+        var artifact = TestArtifactWriter.BuildSeedArtifact(module, seed);
+        var request = scope.Database.BuildSeedRequest(
+            module,
+            seed,
+            artifact,
+            secretValue: "in-memory-secret",
+            operationNId: "OP-tenant",
+            traceId: "trace-tenant",
+            tenantNId: "tenant-real");
+        var invoker = new CapturingInitializationInvoker();
+
+        var result = await new ServiceInitializerExecutor(invoker).ExecuteAsync(request, Ct);
+
+        Assert.True(result.Succeeded);
+        Assert.NotNull(invoker.Context);
+        Assert.Equal("tenant-real", invoker.Context!.TenantNId);
+        Assert.Equal("Development", invoker.Context.EnvironmentName);
+        Assert.NotEqual(invoker.Context.EnvironmentName, invoker.Context.TenantNId);
+    }
+
+    private sealed class CapturingInitializationInvoker : IServiceInitializationInvoker
+    {
+        public ServiceInitializationContext? Context { get; private set; }
+
+        public Task<ServiceInitializationState> InspectAsync(ServiceInitializationContext context, CancellationToken cancellationToken)
+        {
+            Context = context;
+            return Task.FromResult(new ServiceInitializationState(
+                context.ServiceKey,
+                context.ModuleKey,
+                null,
+                false,
+                false,
+                false,
+                false,
+                "not initialized"));
+        }
+
+        public Task<ServiceInitializationPlan> PlanAsync(
+            ServiceInitializationContext context,
+            ServiceInitializationState inspection,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new ServiceInitializationPlan(
+                context.ServiceKey,
+                context.ModuleKey,
+                inspection.ObservedVersion,
+                context.DesiredVersion,
+                true,
+                ["initialize"]));
+
+        public Task<ServiceInitializationState> ApplyAsync(
+            ServiceInitializationContext context,
+            ServiceInitializationPlan plan,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new ServiceInitializationState(
+                context.ServiceKey,
+                context.ModuleKey,
+                context.DesiredVersion,
+                true,
+                true,
+                true,
+                true,
+                null));
+
+        public Task<ServiceInitializationState> VerifyAsync(ServiceInitializationContext context, CancellationToken cancellationToken) =>
+            Task.FromResult(new ServiceInitializationState(
+                context.ServiceKey,
+                context.ModuleKey,
+                context.DesiredVersion,
+                true,
+                true,
+                true,
+                true,
+                null));
     }
 }

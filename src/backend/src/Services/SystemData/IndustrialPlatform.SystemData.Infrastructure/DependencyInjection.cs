@@ -1,9 +1,12 @@
+using IndustrialPlatform.Application.Abstractions.Initialization;
 using IndustrialPlatform.SystemData.Application.Assignments;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration;
+using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Initialization;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Runner;
 using IndustrialPlatform.SystemData.Application.Organizations;
 using IndustrialPlatform.SystemData.Application.Positions;
 using IndustrialPlatform.SystemData.Infrastructure.DatabaseOrchestration;
+using IndustrialPlatform.SystemData.Infrastructure.DatabaseOrchestration.Initialization;
 using IndustrialPlatform.SystemData.Infrastructure.DatabaseOrchestration.Runner;
 using IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations;
 using IndustrialPlatform.SystemData.Infrastructure.Persistence.SystemData;
@@ -47,6 +50,11 @@ public static class DependencyInjection
 
         // 迁移执行框架与 SystemData 库迁移步骤(TASK-SD-001):运行器按 Id 排序幂等执行。
         services.AddTransient<ISchemaMigrationRunner, SchemaMigrationRunner>();
+        services.AddSingleton<SystemDataServiceInitializer>();
+        services.AddSingleton<IServiceInitializer>(sp => sp.GetRequiredService<SystemDataServiceInitializer>());
+        services.AddHttpClient<HttpServiceInitializationInvoker>();
+        services.AddSingleton<IServiceInitializationInvoker>(sp =>
+            sp.GetRequiredService<HttpServiceInitializationInvoker>());
         foreach (var step in SystemDataSchemaMigrations.All)
         {
             services.AddTransient<SchemaMigrationStep>(_ => step);

@@ -1,3 +1,4 @@
+using IndustrialPlatform.Application.Abstractions.Initialization;
 using IndustrialPlatform.Identity.Api.Commands;
 using IndustrialPlatform.Identity.Api.Conventions;
 using IndustrialPlatform.Identity.Api.Health;
@@ -5,6 +6,8 @@ using IndustrialPlatform.Identity.Api.Modules;
 using IndustrialPlatform.ReferenceData.Api.Modules;
 using IndustrialPlatform.SystemData.Api.Modules;
 using IndustrialPlatform.UnifiedHost;
+using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Initialization;
+using IndustrialPlatform.SystemData.Infrastructure.DatabaseOrchestration.Initialization;
 using IndustrialPlatform.Web.Configuration;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
@@ -26,6 +29,9 @@ builder.Services.AddHostedService<ModuleMigrationCoordinatorHostedService>();
 builder.Services.AddIdentityModule(builder.Configuration, includeStartupMigrationService: false);
 builder.Services.AddSystemDataModule(builder.Configuration, includeStartupMigrationService: false);
 builder.Services.AddReferenceDataModule(builder.Configuration);
+// 统一部署使用进程内适配器；独立 SystemData.Api 的默认实现仍为受信 HTTP 适配器。
+builder.Services.AddSingleton<IServiceInitializationInvoker>(sp =>
+    new InProcessServiceInitializationInvoker(sp.GetServices<IServiceInitializer>()));
 builder.Services.AddOpenApi();
 if (builder.Environment.IsDevelopment())
 {

@@ -82,7 +82,8 @@ public sealed class TestTargetDatabase : IDisposable
         SeedArtifact artifact,
         string? secretValue,
         string operationNId,
-        string traceId)
+        string traceId,
+        string tenantNId = "tenant-fixture")
     {
         var domainSeed = new SeedSet(
             seed.SeedKey,
@@ -103,6 +104,7 @@ public sealed class TestTargetDatabase : IDisposable
             ResolvedTarget(module.ModuleKey),
             Connection,
             module.ModuleKey,
+            TenantNId: tenantNId,
             EnvironmentNId: "Development",
             secretValue,
             operationNId,

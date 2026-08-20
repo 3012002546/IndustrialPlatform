@@ -39,6 +39,7 @@ public sealed record SeedExecutionRequest(
     ResolvedDatabaseTarget Target,
     TargetDatabaseConnection Connection,
     string ModuleKey,
+    string TenantNId,
     string EnvironmentNId,
     string? SecretValue,
     string OperationNId,

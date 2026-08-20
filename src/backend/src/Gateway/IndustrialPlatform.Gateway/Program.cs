@@ -69,3 +69,24 @@ app.MapFallback(() => Results.Json(ApiResult.Fail<object?>("404", "路由不存�
 app.Run();
 
 public partial class Program;
+
+namespace IndustrialPlatform.Gateway
+{
+    /// <summary>Gateway 部署边界的可执行保护：只允许代理相关程序集依赖。</summary>
+    public static class GatewayBoundary
+    {
+        private static readonly string[] ForbiddenServiceAssemblies =
+            ["IndustrialPlatform.Identity", "IndustrialPlatform.SystemData", "IndustrialPlatform.ReferenceData"];
+
+        public static bool IsPureProxyAssembly(System.Reflection.Assembly assembly)
+        {
+            ArgumentNullException.ThrowIfNull(assembly);
+
+            return assembly.GetReferencedAssemblies()
+                .Select(reference => reference.Name)
+                .Where(name => name is not null)
+                .All(name => ForbiddenServiceAssemblies.All(forbidden =>
+                    !name!.StartsWith(forbidden, StringComparison.Ordinal)));
+        }
+    }
+}

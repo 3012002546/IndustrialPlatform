@@ -1,3 +1,5 @@
+using IndustrialPlatform.Application.Abstractions.Initialization;
+using IndustrialPlatform.ReferenceData.Infrastructure.Initialization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -22,6 +24,9 @@ public static class DependencyInjection
         services.AddSqlSugar(configuration);
         services.AddRedis(configuration);
         services.AddEventBus(configuration);
+        services.AddSingleton<ReferenceDataInitializationLedger>();
+        services.AddSingleton<ReferenceDataServiceInitializer>();
+        services.AddSingleton<IServiceInitializer>(sp => sp.GetRequiredService<ReferenceDataServiceInitializer>());
         return services;
     }
 }

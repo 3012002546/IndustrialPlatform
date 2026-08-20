@@ -20,7 +20,7 @@
 
 ## 进行中
 
-- 架构收敛整改：Work Package 1“对齐蓝图与开发 Todo”由本次提交完成；Work Package 2～4 待后续分别执行。完成后继续 PF-03，不新增 PF 或子计划。
+- 架构收敛整改：Work Package 1～4 均已完成；Work Package 4 本次提交完成服务初始化所有权、初始化端口/适配器与本地 readiness 对齐。完成后继续 PF-03，不新增 PF 或子计划。
 
 ## 固定工作线
 
@@ -30,7 +30,7 @@
 
 ## 内部执行序列
 
-- 架构收敛整改固定按已批准计划的 Work Package 1 → 2 → 3 → 4 执行；当前只完成 Work Package 1。
+- 架构收敛整改已按已批准计划完成 Work Package 1 → 2 → 3 → 4；后续继续 PF-03，不新增 PF 或子计划。
 
 ## 阻塞与待决策
 
@@ -41,6 +41,7 @@
 
 ## 最近验收
 
+- WP4（本次提交）：fresh Release Build 0 警告/0 错误；静态审查修正后的常规后端 1227/1227；前端 Vitest 受限沙箱 EPERM；IntegrationTests 8/8 为未启用外部环境门控后的早退，不代表真实外部链路通过；real-login E2E 因 Playwright runner 不可用未执行。
 - `9f48d89`：PF-00 用户与用户组管理 API、前端闭环、首次改密与幂等写入。
 - `1b72c6b`：TASK-SD-006 SystemData 组织、岗位与任职管理 API。
 - `1b32ae6`：TASK-ID-019 Identity 三层种子与正式 admin 引导。

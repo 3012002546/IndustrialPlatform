@@ -180,3 +180,12 @@ git status --ignored --short
 禁止清理、覆盖、暂存或顺带提交既存改动。尤其不得暂存 `CLAUDE.md`、`DSH.md`、私有配置、`bin/`、`obj/`、`TestResults/`、前端构建输出、缓存、运行日志和 QA 产物。若既存改动与工作包 3/4 的允许路径重叠，先保留并向 Codex 报告，不自行覆盖或归因。
 
 每个工作包只精确 `git add` 计划列出的路径，提交前读取 `git diff --cached --name-status` 和 `git diff --cached --check`。不得推送、force-push、rebase、merge 或 cherry-pick。
+
+## 6. Work Package 4 结果
+
+- 状态：已完成。服务初始化契约、上下文/状态均保持中立且不携带连接密码、种子秘密或文件路径；Identity、SystemData、ReferenceData 分别拥有本服务的 Migration、Seed、Bootstrap、Verify 与 Ledger。
+- SystemData：通过 `IServiceInitializationInvoker` 端口提供进程内与 HTTP 适配器；Runner 仅经端口调用并写入脱敏目标种子台账。内部初始化端点统一使用 `X-Industrial-Initialization-Key`，缺失或错误返回 401，并使用常量时间比较。
+- 入口边界：UnifiedHost 按 Identity → SystemData → ReferenceData 顺序协调初始化，不直接依赖具体迁移实现；Gateway 保持 YARP/CORS/路由/下游健康的纯代理边界，不加载业务模块、SPA 或初始化器。
+- Readiness：各服务基于本地数据库事实判断，不依赖 SystemData 在线；初始化按 `OperationNId` 重放幂等。
+- 验收：fresh Release Build 0 警告/0 错误；静态审查修正后的常规后端 1227/1227；五项最低测试及既有登录、权限、管理员保护、SystemData 编排、Gateway 路由、UnifiedHost 登录入口覆盖通过。UnifiedHost 已统一 Inspect → Plan → Apply（按需）→ Verify 核心路径并拒绝 Verify 未就绪；ReferenceData Inspect 不写库；Identity/SystemData 仅识别明确的 missing-table，single-flight 重放失败/取消/NotReady 不永久缓存。IntegrationTests 8/8 为外部环境门控未启用时的早退；前端 Vitest 因受限沙箱写入 `.vite-temp` 返回 EPERM；real-login E2E 因 Playwright runner 不可用未执行。
+- 本工作包未实现未来业务服务、不推送；既有工作区改动继续保留，提交前后均须确认暂存区仅含 WP4 文件且最终为空。

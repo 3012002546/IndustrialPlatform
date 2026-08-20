@@ -1,7 +1,9 @@
+using IndustrialPlatform.Application.Abstractions.Initialization;
 using IndustrialPlatform.Identity.Api.Health;
 using IndustrialPlatform.Identity.Application;
 using IndustrialPlatform.Identity.Application.Authentication;
 using IndustrialPlatform.Identity.Infrastructure;
+using IndustrialPlatform.Identity.Infrastructure.Bootstrap;
 using IndustrialPlatform.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
@@ -39,6 +41,8 @@ public static class IdentityModule
 
         services.AddIdentityInfrastructure(configuration, includeStartupMigrationService);
         services.AddIdentityApplication(configuration);
+        services.AddSingleton<IdentityServiceInitializer>();
+        services.AddSingleton<IServiceInitializer>(sp => sp.GetRequiredService<IdentityServiceInitializer>());
         services.AddIdentityAuthentication();
         services.AddIdentityAuthorization();
         services.AddCurrentUser();
