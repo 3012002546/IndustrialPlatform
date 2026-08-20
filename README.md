@@ -101,6 +101,13 @@ Invoke-RestMethod http://localhost:5041/health/ready  # 默认 UnifiedHost
 
 ## 文档
 
+- [开发与接手指南](docs/DEVELOPMENT.md)
+- [BuildingBlocks 组件说明](src/backend/src/BuildingBlocks/README.md)
+- [Identity 服务说明](src/backend/src/Services/Identity/README.md)
+- [SystemData 服务说明](src/backend/src/Services/SystemData/README.md)
+- [ReferenceData 服务说明](src/backend/src/Services/ReferenceData/README.md)
+- [Gateway 分布式入口说明](src/backend/src/Gateway/README.md)
+- [UnifiedHost 统一进程入口说明](src/backend/src/Hosts/IndustrialPlatform.UnifiedHost/README.md)
 - [架构蓝图](docs/blueprint/README.md)
 - [实施文档索引](docs/implementation/README.md)
 - [当前状态](docs/status/CURRENT.md)
