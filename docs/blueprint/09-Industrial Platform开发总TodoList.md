@@ -1,6 +1,6 @@
 # Industrial Platform 开发总 TodoList
 
-版本：V2.0
+版本：V2.1
 状态：持续维护
 用途：总体阶段编排、独立会话派遣、阶段门禁和结果回写
 蓝图依据：`01-Industrial Platform 总体架构设计 V1.0.md`、`05-Industrial Platform平台基础功能与独立模块设计.md`、`32-Industrial Platform Service Host与内部模块边界.md`
@@ -61,11 +61,11 @@
 
 ## 2.3 阶段与 Service Host
 
-阶段不等于微服务。PF-02～PF-11（含 PF-10A）的宿主创建/扩展映射固定读取蓝图 32：PF-02/04/07 共用 `SystemData.Service`，PF-05/06 共用 `Collaboration.Service`，PF-08/09 共用 `PlatformStudio.Service`；PF-03 使用 `ReferenceData.Service`；PF-10 创建 `OperationsCenter.Service` 并只处理 ServerMonitor，PF-10A 再加入知识、问题与助手模块；PF-11 创建 `IoTCollector.Service`。同宿主模块仍必须独立建模、独立 Schema 或表前缀、独立契约/权限/测试，禁止跨模块直读 Repository。
+阶段不等于微服务。PF-02～PF-11（含 PF-10A）的宿主创建/扩展映射固定读取蓝图 32：PF-02/04/07 共用 `SystemData.Service`，PF-05/06 共用 `Collaboration.Service`，PF-08/09 共用 `PlatformStudio.Service`；PF-03 使用 `ReferenceData.Service`；PF-10 创建 `OperationsCenter.Service` 并只处理 ServerMonitor，PF-10A 再加入知识、问题与助手模块；PF-11 创建 `IoTCollector.Service`。`Service Host != Domain Module != Initialization Unit != Deployment Unit`；同宿主模块必须独立建模、使用独立 Schema 或表前缀、契约/权限/测试边界，但只有独立持久化生命周期才拆分初始化单元。
 
 # 3. 当前真实基线
 
-截至 2026-08-15：
+截至 2026-08-20：
 
 | 范围 | 状态 | 证据与说明 |
 | --- | --- | --- |
@@ -74,8 +74,9 @@
 | 统一前端第一批 | 已完成 | `TASK-FE-001～010` 执行记录均已完成 |
 | Identity | 当前范围已完成 | `TASK-ID-001～023` 已完成并合入 `develop`；本地可验证门禁全绿，真实 PostgreSQL/Redis 联合登录链路保留为外部验收项 |
 | PF-01 视觉主题与平台外壳 | 已完成（外部真机项待验收） | 实施 04 `TASK-PF01-001～007` 已完成；真实 Identity 联合验收 real E2E 19/19 |
-| PF-02 SystemData | 开发中 | `TASK-SD-001～006` 已完成并合入 `develop`；SD-006 SystemData 五层测试 492/492，通过全解决方案 Debug/Release 构建；`TASK-SD-007+` 继续执行 |
+| PF-02 SystemData | 当前已完成范围与 Git 一致 | `TASK-SD-001～006` 已完成并合入 `develop`；`TASK-SD-007+` 在架构收敛整改完成前暂停继续 |
 | ReferenceData | 仅骨架 | 已有健康检查、测试入口和详细实施方案，业务能力尚未开发 |
+| 架构收敛整改 | 执行中 | 只执行已批准实施计划的四个工作包；完成后从 PF-03 继续，不新增 PF 编号 |
 | MasterData | 暂缓 | 实施方案存在，本轮不进入开发 |
 | OperationalData | 暂缓 | 实施方案存在，本轮不进入开发 |
 
@@ -90,11 +91,13 @@
 PF-00 Identity（TASK-ID-001～023 当前范围已完成）
         ↓
 PF-01 视觉、主题与平台外壳（TASK-PF01-001～007 已完成）
-  ├──────────────┐
-  ↓              ↓
-PF-02 SystemData  PF-03 ReferenceData
-  └──────┬───────┘
-         ↓
+        ↓
+PF-02 SystemData
+        ↓
+架构收敛整改（四个工作包，不新增 PF 编号）
+        ↓
+PF-03 ReferenceData
+        ↓
 PF-04 File / Notification / Audit
                     ↓
 PF-05 Collaboration
@@ -214,11 +217,11 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 
 # 9. PF-02 SystemData
 
-**状态：** 开发中；`TASK-SD-001～006` 已完成，`TASK-SD-007+` 待继续
+**状态：** 当前已完成范围为 `TASK-SD-001～006`；`TASK-SD-007+` 在架构收敛整改后复核
 **Service Host：** 创建 `SystemData.Service`；本阶段只交付 SystemData 模块。
 **建议会话标题：** `PF-02 SystemData阶段管理`
 **输入：** 蓝图 05、07、13、20、23、27、30、31、32、33；PF-00 身份契约；PF-01 页面规范；PostgreSQL 18 与当前 `deploy/cloud-dev` 最小引导现状。
-**目标：** 以 SystemData 通用服务初始化控制面为最高优先级，统一 registration、plan、审批/备份、provision、迁移、RequiredSeed、按需 SecretBootstrap、Operation 和 readiness，再交付行政组织、岗位、任职关系、菜单导航、功能开关、服务目录和主题默认值。
+**目标：** SystemData 只负责 Topology、Orchestration、Policy 与脱敏 Observation；各服务负责自己的 Migration、Seed、Bootstrap、Verify、Ledger 和本地 readiness。现有行政组织、岗位、任职范围保持不变，后续菜单导航、功能开关、服务目录和主题默认值在整改完成后复核。
 **依赖：** PF-00；页面依赖 PF-01。
 **禁止范围：** 制造组织、字典参数、物料设备、租户运营后台。
 
@@ -234,15 +237,30 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 - 数据迁移、缓存、事件、审计和前端页面。
 - `ServiceKey + ModuleKey`、InitializationManifest/SeedSets、dry-run/plan、异步 initialize/apply、Operation 状态和受信查询 API；
 - `SystemBaseline/TenantBaseline/EnvironmentSample/SecretBootstrap` 四类种子、RequiredForReadiness、环境允许列表与依赖图；
-- 每模块 `<module>_schema_migrations + <module>_seed_ledger` 双账本、SeedObservation、checksum drift、DataPatch 和管理员维护数据保护；
+- 每个服务或独立持久化初始化单元自有 migration/seed ledger、checksum drift、DataPatch 和管理员维护数据保护；逻辑模块不机械拆分账本；
 - SystemData 普通连接与 provisioning 管理凭据隔离，最小业务角色、审批、备份、审计、脱敏、限流和幂等；
 - PostgreSQL advisory lock、迁移/种子历史、失败恢复、expand/contract、禁止多副本重复初始化和 readiness 门禁；
 - Development/Test 必要迁移/种子自动策略、EnvironmentSample 显式启用、生产 `plan → 审批 → 备份 → apply` 且禁止启动时播种，以及 SQLite 显式迁移/双账本语义；
 - 服务自有签名 migration/seed/initializer 产物与 Secret Provider；SystemData 不理解业务表、不直写 Repository、不接收或透传 Secret 值；
 - SystemData 自身数据库由基础设施最小引导的 bootstrap 例外，不得形成调用自身 API 的循环依赖。
 
-**交付：** SystemData 蓝图/实施方案/任务卡、Service Initialization API/manifest/双账本/readiness 母版和 PF-03+ 可消费契约。当前 `961cad4` 已提交骨架与控制面，`61753dc` 已提交 migration-only Runner；通用 Seed/Bootstrap 扩展和验收尚未完成，其他 SystemData 业务未开发。
-**完成门禁：** 覆盖首次初始化、重复 apply、并发多副本、迁移/种子版本升级、同版本 checksum drift、部分失败重试、缺 Secret、生产未审批/未备份、EnvironmentSample 环境拒绝、共享物理库多个 ModuleKey 隔离、管理员维护数据不被覆盖、SystemData 不可用消费者 NotReady 和 SystemData 自身无循环自举。所有服务/模块拥有自己的 Schema、初始化产物和双账本，SystemData 只保存脱敏 observation；随后管理员可完成组织、岗位、导航、开关、服务和主题管理。不得使用 `EnsureCreated`，权限、审计、契约和关键 E2E 通过。
+**交付：** 当前 Git 已包含 SystemData 骨架、控制面、Runner 兼容实现及组织、岗位、任职 API；架构收敛工作包 4 将把控制面执行器改为调用各服务初始化器，并冻结本地 readiness。
+**完成门禁：** 服务初始化器重复 apply 幂等、失败可验证、Secret 隔离；SystemData 只保存脱敏 Observation；已初始化服务在 SystemData 离线时仍按本地数据库事实 Ready。Advanced 策略才强制审批、备份证据、签名与漂移恢复。不得使用 `EnsureCreated`。
+
+# 9A. 架构收敛整改（不新增 PF 编号）
+
+**状态：** 执行中；完成后直接继续 PF-03。
+
+**唯一实施计划：** `docs/superpowers/plans/2026-08-20-industrial-platform-architecture-consolidation.md`
+
+内部顺序固定为四个工作包，不增加子计划或额外 PF：
+
+1. 对齐蓝图与开发 Todo。
+2. 补齐可接手架构文档与代码交接。
+3. 收敛测试项目与门禁。
+4. 对齐当前服务初始化与 readiness。
+
+冻结规则为：SystemData = Topology + Orchestration + Policy + Observation；Service = Migration + Seed + Bootstrap + Verify + Ledger；runtime readiness 只取本地数据库事实。Gateway 与 UnifiedHost 分别承担分布式反向代理和统一进程组合宿主，不互相替代。ReferenceData 保持一个宿主、五个逻辑模块，并默认共享服务级 Migration、Outbox、Inbox 和基础设施。
 
 # 10. PF-03 ReferenceData
 
@@ -468,7 +486,8 @@ WorkOrder、Weighting、Trace、BatchRecord 和生产闭环分别开会话设计
 | --- | --- | --- | --- | --- | --- | --- |
 | PF-00 Identity | 当前范围已完成 | PF-00 固定工作线 | 蓝图 13、31、33 | 实施 03 | TASK-ID-001～023 已完成；PF-00 集成提交 `9f48d89` | `docs/evidence/PF-00.md`；本地门禁全绿，真实 PostgreSQL/Redis 联合链路为外部验收项 |
 | PF-01 视觉主题 | 已完成（外部真机项待验收） | 现有 PF-01 会话继续 | 已批准 PF-01 规格 | `docs/implementation/04-Industrial Platform视觉主题与平台外壳开发实施方案.md` | 设计提交 `e2d24a4`、`d7ef889`、`efb3b35`；开发未提交(按协作约定) | TASK-PF01-001～007 完成；静态门禁全绿、mock E2E 102/102、真实 Identity E2E 19/19 |
-| PF-02 SystemData | 开发中；TASK-SD-001～006 已完成 | PF-02 固定工作线 | 蓝图 05、07、33 V2.0 | `docs/implementation/05-Industrial Platform SystemData开发实施方案.md` | 001～004 已集成；005 提交 `69c49b7`；006 集成提交 `1b72c6b` | SD-006 五层测试 492/492、Debug/Release 构建 0/0；见 `docs/evidence/TASK-SD-006.md`；007+ 待继续 |
+| PF-02 SystemData | 当前范围 TASK-SD-001～006 已完成 | PF-02 固定工作线 | 蓝图 05、07、33 V3.0 | `docs/implementation/05-Industrial Platform SystemData开发实施方案.md` | 001～004 已集成；005 提交 `69c49b7`；006 集成提交 `1b72c6b` | 007+ 在架构收敛整改后复核 |
+| 架构收敛整改 | 执行中 | 当前计划 | 已批准整改设计 | 已批准四工作包计划 | WP1～WP4 各一次范围内提交 | 完成后继续 PF-03 |
 | PF-03 ReferenceData | 仅骨架 | 待创建 | 蓝图及现有设计待复核 | 实施 06 待修订 | - | - |
 | PF-04 File / Notification / Audit | 待启动 | 待创建 | 蓝图 05、30、31 | 实施 07 待创建 | - | - |
 | PF-05 Collaboration | 待启动 | 待创建 | 蓝图 05 | 实施 08 待创建 | - | - |
@@ -507,3 +526,4 @@ WorkOrder、Weighting、Trace、BatchRecord 和生产闭环分别开会话设计
 - MasterData、OperationalData 改为暂缓。
 - 删除旧的固定 MES Sprint 路线，改为阶段门禁和单阶段单管理会话。
 - 每个 PF 阶段（含 PF-10A）一个管理会话；PF-04、PF-07、PF-09 在同一阶段会话内保持模块分开建模和任务拆分。
+- 在 PF-03 前插入一个不新增 PF 编号的“架构收敛整改”阶段，仅按已批准计划执行四个工作包；不增加额外设计范围。

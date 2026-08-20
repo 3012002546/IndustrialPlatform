@@ -4,7 +4,7 @@
 
 > 当前里程碑范围：在现有四层服务骨架和健康检查基础上，完成字典、参数配置应用域（单值/多值）、EAV 动态配置集、元数据定义、编码规则、缓存与变更事件，并同步交付对应 PC 管理页面、契约测试和关键路径 E2E；物料、设备、工单等业务实体的 EAV 属性值、低代码页面运行时和规则引擎不在本阶段实现。
 
-版本：V2.4（PF-03 详细设计复核版）
+版本：V2.5（架构收敛复核版）
 
 所属项目开发路线阶段：PF-03「ReferenceData」。当前代码只有服务骨架；本文是在既有 V2.3 详细设计和 14 张任务卡上完成的复核调整，不是从零设计或平行方案。经本次逐项书面确认，`TASK-RD-001～014` 可进入“待派遣”，但复核完成不等于已经派遣或允许自动开始开发；任何实际派遣、开发和状态推进仍需另行明确指令。阶段定义见 `docs/blueprint/09-Industrial Platform开发总TodoList.md`。
 
@@ -103,7 +103,7 @@ MasterData 等下游按公开契约消费
 
 ReferenceData 是定义和规则的权威来源，不是所有“基础数据”的统称。
 
-正式宿主固定为现有 `ReferenceData.Service`，不新建核心 Service Host。宿主内固定划分五个内部模块：`Dictionary`、`Parameter`、`Metadata`、`DynamicProperty`、`CodingRule`。五模块必须独立建模、独立 Schema 或等价表前缀、独立公开契约、权限、迁移账本、Outbox/Inbox、缓存命名空间和测试；禁止跨模块直读 Repository/数据表或建立数据库外键，模块间只通过公开契约协作，为未来物理拆分保留边界。
+正式宿主固定为现有 `ReferenceData.Service`，不新建核心 Service Host。宿主内固定划分五个逻辑模块：`Dictionary`、`Parameter`、`Metadata`、`DynamicProperty`、`CodingRule`。五模块独立建模，使用独立 Schema 或等价表前缀、公开契约、权限、缓存命名空间和测试目录；默认共享服务级 Migration、Outbox、Inbox 和基础设施。只有模块形成独立持久化生命周期并完成边界评审后，才拆分为独立初始化单元。禁止跨模块直读 Repository/数据表或建立数据库外键。
 
 ## 2.2 ReferenceData不负责
 
@@ -226,11 +226,12 @@ src/backend/src/Services/ReferenceData
 └── IndustrialPlatform.ReferenceData.Infrastructure
 
 tests/ReferenceData
-├── IndustrialPlatform.ReferenceData.Domain.Tests
-├── IndustrialPlatform.ReferenceData.Application.Tests
-├── IndustrialPlatform.ReferenceData.Infrastructure.Tests
-├── IndustrialPlatform.ReferenceData.Api.Tests
-└── IndustrialPlatform.ReferenceData.Contract.Tests
+└── IndustrialPlatform.ReferenceData.Tests
+    ├── Domain
+    ├── Application
+    ├── Infrastructure
+    ├── Api
+    └── Contracts
 ```
 
 前端目标结构：
@@ -269,7 +270,8 @@ Domain 只引用 SharedKernel；Application 可引用 Application.Abstractions�
 - 所有业务时间使用 `DateTimeOffset`，PostgreSQL 使用 `timestamptz` 并以 UTC 保存。
 - 聚合继承 BuildingBlocks 当前 Entity 生命周期、软删除和 `OptimisticVersion + ConcurrencyVersion` 双版本并发模型。
 - `referencedata_db` 是稳定的 `LogicalDatabaseName`，物理目标由 SystemData 的可信 `DatabaseTopology` 配置解析，业务 API 和 manifest 不接受地址、路径或凭据。Development 默认 `Shared`、可显式 `PerService`；Test/Staging/Production 只允许 `PerService`。
-- Shared 只共享物理数据库，不合并服务或模块的数据所有权。PostgreSQL 中五模块分别使用 `reference_dictionary`、`reference_parameter`、`reference_metadata`、`reference_dynamic_property`、`reference_coding_rule` Schema；SQLite 等不支持 Schema 的 Provider 使用等价模块前缀。每模块拥有独立 migration ledger、Repository、Outbox/Inbox 和最小权限。
+- Shared 只共享物理数据库，不合并服务或模块的数据所有权。PostgreSQL 中五模块分别使用 `reference_dictionary`、`reference_parameter`、`reference_metadata`、`reference_dynamic_property`、`reference_coding_rule` Schema；SQLite 等不支持 Schema 的 Provider 使用等价模块前缀。五模块默认共享服务级 Migration、Outbox、Inbox、连接与基础设施组件，Repository 和领域事务仍按模块隔离。
+- DDD 按复杂度使用：发布版本、编码幂等和动态配置等复杂行为保留聚合与领域测试；简单 CRUD 与技术记录不强制完整聚合、领域事件或独立测试项目。
 - 领域实体自身的稳定业务标识统一命名为 `NId`，禁止以 `Code` 表示实体业务标识；其他实体引用该业务标识时使用 `{EntityName}NId`，例如 `Material.NId` 与业务表中的 `MaterialNId`。
 - `Code` 只保留给“已经生成的业务编码值”等确实表达编码结果、而非实体身份的字段；NId 保存规范化比较值，展示名称保留原始大小写，同一作用域内大小写不敏感唯一。
 - 写请求不能从 Body 指定当前租户；`TenantNId/UserNId` 必须来自已验证 JWT/可信服务身份。平台级写入使用独立高权限声明，不与普通租户管理权限复用。
@@ -906,8 +908,8 @@ referencedata_db
 | `reference_dynamic_property.dynamic_config_definition/field/record/value` | `DynamicConfigDefinition` 完整 EAV 聚合 | 四表同 Revision；强类型值 Check Constraint；整份原子发布 |
 | `reference_metadata.entity_schema/attribute_definition` | EntitySchema 完整快照与属性定义 | 属性只属于同一 Schema 修订；发布生成兼容性差异摘要 |
 | `reference_coding_rule.coding_rule/sequence/idempotency_record` | 规则、原子序列与幂等响应 | `TenantNId+RuleNId+IdempotencyKey` 幂等；Preview 不占号 |
-| 每模块 `outbox_message/inbox_message/consumer_checkpoint` | 模块独立事件发布、幂等消费与位点 | 不共表、不跨模块迁移；宿主仅复用组件 |
-| 每模块 `schema_migrations` | 模块独立迁移账本 | 独立记录 Desired/Observed Version；不得由共享账本掩盖失败 |
+| 服务级 `reference_data_outbox_message/inbox_message/consumer_checkpoint` | ReferenceData 事件发布、幂等消费与位点 | 共享基础设施，记录 ModuleKey 以保持领域归属与可观测性 |
+| 服务级 `reference_data_schema_migrations` / `reference_data_seed_ledger` | ReferenceData 初始化事实 | 由服务初始化器维护；五模块默认不是独立初始化单元 |
 
 上述“主要内容”有意不重复 Entity 生命周期字段。所有领域表均遵守第 6 节公共字段、父表 `(Id, IsDeleted)` 可引用唯一键及子表 `{ParentEntity}_Id + {ParentEntity}_IsDeleted` 复合外键规则。聚合根软删除通过父级影子列使全部子项不可见，子项自身的 `IsDeleted` 仍保持独立；不允许绕过聚合单独恢复子项。模块之间不得建立外键，跨模块引用只保存稳定 NId/Revision 并通过公开契约校验。
 
@@ -921,11 +923,13 @@ referencedata_db
 
 ## 13.1 SystemData 数据库编排消费与 readiness
 
-ReferenceData 只作为 PF-02 控制面的消费者，不重复实现数据库编排。宿主登记 `ServiceKey=referencedata`、`Provider`、稳定 `LogicalDatabaseName=referencedata_db`、Owner、DesiredState、AutoProvision/AutoMigrate，以及一个宿主级签名 Migration Bundle/Version；Bundle 内声明 Dictionary、Parameter、Metadata、DynamicProperty、CodingRule 五个独立迁移单元、账本和期望版本。物理目标完全由可信 `DatabaseTopology` 解析。
+ReferenceData 只消费 SystemData 的拓扑与编排契约，不重复实现控制面。宿主登记 `ServiceKey=referencedata`、`InitializationUnitKey=referencedata`、`Provider`、稳定 `LogicalDatabaseName=referencedata_db`、Owner、DesiredVersion 和 `Standard|Advanced` 策略；五个逻辑模块默认组成一个服务级初始化单元。物理目标由可信 `DatabaseTopology` 解析。
 
-启动握手固定为：`登记/查询 → plan/OperationId → provision/migrate/drift → 五模块版本复核 → readiness`。SystemData 不可用、目标错误、drift、任一模块迁移失败或版本不一致时，整个宿主保持 `NotReady`，但 liveness 仍可 Healthy；readiness 返回五模块脱敏状态、OperationId 和 TraceId，不泄露地址、路径或凭据，也不开放部分业务流量。
+初始化 Operation 固定为：`SystemData 解析拓扑/策略 → ReferenceData initializer Inspect → Plan → Apply → Verify → 脱敏 Observation`。ReferenceData initializer 自己执行服务级 Migration、Seed、Bootstrap 与 Verify，并维护服务级 Ledger。
 
-Shared 物理目标只 provision 一次；同一物理目标 DDL 使用 PostgreSQL advisory lock 或等效锁串行化，迁移和 readiness 仍按模块独立报告。ReferenceData 不持有管理员凭据、不自行建库、不使用 `EnsureCreated`，也不在远程失败时回退 SQLite、旧 Schema 或错误数据库。拓扑变化不隐式 copy、rename、merge 或 split；已有数据必须报告 drift 并走显式迁移/import。SystemData 自身由 PostgreSQL 18 基础设施最小 bootstrap 的例外不属于 PF-03。
+日常启动与 readiness 只读取 `referencedata_db` 身份、`reference_data_schema_migrations`、`reference_data_seed_ledger` 和必要 Bootstrap 本地事实。SystemData 不可用时，已经初始化且本地事实有效的 ReferenceData 仍可 Ready；目标错误、迁移失败或版本不一致时整个宿主保持 `NotReady`，但 liveness 仍可 Healthy。
+
+Shared 物理目标只解析一次；ReferenceData initializer 对服务级 DDL 使用 PostgreSQL advisory lock 或等效锁串行化。ReferenceData 不持有建库管理员凭据、不使用 `EnsureCreated`，也不在远程失败时回退 SQLite、旧 Schema 或错误数据库。拓扑变化不隐式 copy、rename、merge 或 split；Advanced 策略下的 drift 走显式迁移/import。
 
 ---
 
@@ -1342,7 +1346,7 @@ PC 菜单：
 
 ReferenceData 不建立 `ref_operation_audit`、统一审计查询 API、审计管理页面或合规保留策略。五模块只保留解释自身状态所需的领域历史和事务 Outbox；PF-04 Audit 是统一审计事实源。PF-04 契约未确认前，本阶段只定义标准审计事件适配门禁，不预设其 API。必要的宿主操作日志只作短期故障诊断，不承担合规审计，也不得保存敏感原值。
 
-结构化日志字段至少包括 `ServiceName`、`TraceId`、`TenantNId`、`UserNId`、`Module`、`Operation`、`ObjectNId`、`Revision`、`DurationMs` 和结果。指标至少包括 API 延迟/错误率、模块缓存命中率、数据库降级次数、各模块 Outbox/Inbox 积压与重试、发布次数、DynamicProperty 发布记录数/校验失败数、并发冲突和编码生成冲突。liveness 与 readiness 分离；readiness 汇总 SystemData 握手和五模块迁移版本，任一必需模块失败时整个宿主返回 503 `NotReady`。
+结构化日志字段至少包括 `ServiceName`、`TraceId`、`TenantNId`、`UserNId`、`Module`、`Operation`、`ObjectNId`、`Revision`、`DurationMs` 和结果。指标至少包括 API 延迟/错误率、模块缓存命中率、数据库降级次数、服务级 Outbox/Inbox 按 ModuleKey 的积压与重试、发布次数、DynamicProperty 发布记录数/校验失败数、并发冲突和编码生成冲突。liveness 与 readiness 分离；readiness 只汇总服务级本地初始化事实。
 
 ---
 
@@ -1360,7 +1364,7 @@ ReferenceData 不建立 `ref_operation_audit`、统一审计查询 API、审计�
 | Frontend Component | AppDomain/Key导航、Single/Multi编辑、ReadOnly禁用、显式空值提示、动态字段编辑、EAV记录分页、发布差异、权限按钮、冲突保留、错误映射 |
 | E2E | 登录→字典发布→运行时读取；应用域创建→单值/多值键→作用域解析；动态配置定义/记录/发布；Schema 发布；编码预览；幂等正式生成 |
 
-上述 Domain、Application、Infrastructure、API、Contract 五层测试必须按 Dictionary、Parameter、Metadata、DynamicProperty、CodingRule 分别建立边界，覆盖 `TenantNId` 隔离、权限拒绝、乐观并发、发布/覆盖或修订语义、独立 Schema/前缀、migration ledger、Outbox/Inbox 和缓存降级。SQLite 用于快速集成，真实 PostgreSQL 18 必须提供迁移、约束和并发证据；PC 关键路径必须经过真实 Gateway。
+上述适用层次收敛在 `IndustrialPlatform.ReferenceData.Tests` 服务级项目，并按五个逻辑模块组织目录；真实 PostgreSQL、Redis、RabbitMQ 和跨入口链路进入统一 `IndustrialPlatform.IntegrationTests`。测试覆盖 `TenantNId` 隔离、权限拒绝、乐观并发、发布/覆盖或修订语义、Schema/前缀、服务级 Ledger、Outbox/Inbox 和缓存降级；不为每个生产技术层创建独立测试项目。
 
 ## 22.2 关键验收场景
 
@@ -1380,8 +1384,8 @@ ReferenceData 不建立 `ref_operation_audit`、统一审计查询 API、审计�
 14. 无权限用户看不到管理按钮且直接调用 API 返回 403；跨租户 ID 返回 404 或统一拒绝，不泄露存在性。
 15. 发布写库成功但 RabbitMQ 暂时不可用时 Outbox 保留待重试，恢复后只发布兼容的 V1 事件。
 16. 子表写入不存在或 IsDeleted 不匹配的父表组合时数据库拒绝；主表软删除/恢复通过 ON UPDATE CASCADE 同步父级影子列，但不覆盖子表自身 IsDeleted，默认子表查询同时过滤两种删除状态。
-17. Development Shared/PerService 和 Test/Staging/Production PerService 均按可信配置解析；Shared 只 provision 一次，五模块迁移/账本/readiness 独立，同物理目标 DDL 串行。
-18. SystemData 不可用、目标错误、drift、任一模块迁移失败或版本不一致时宿主保持 NotReady，不使用管理员凭据、`EnsureCreated` 或错误数据库回退。
+17. Development Shared/PerService 和 Test/Staging/Production PerService 均按可信配置解析；ReferenceData 使用服务级 Migration/Ledger/readiness，同物理目标 DDL 串行。
+18. SystemData 不可用时已初始化宿主仍按本地事实 Ready；目标错误、服务级 Migration/Ledger 失败或版本不一致时宿主 NotReady，不使用管理员凭据、`EnsureCreated` 或错误数据库回退。
 
 ## 22.3 验证证据格式
 
@@ -1456,7 +1460,7 @@ TASK-RD-003～007 的领域与应用代码可分工并行，但都会影响迁�
 
 **状态：** 待派遣（PF-03 详细设计已确认；尚未实际派遣）
 
-**目标：** 首先接入 SystemData 数据库编排控制面，再建立 ReferenceScope、发布状态、规范化 NId、五模块独立 Schema/前缀、迁移单元/账本、Outbox/Inbox、并发与软删除约束，并形成宿主汇总 readiness。
+**目标：** 接入 SystemData 拓扑/编排控制面并实现 ReferenceData 服务初始化器，再建立 ReferenceScope、发布状态、规范化 NId、五模块独立 Schema/前缀、服务级 Migration/Ledger/Outbox/Inbox、并发与软删除约束和本地 readiness。
 
 **输入文档：** 本文第 6、7、13、14、21、22 节；蓝图 07/33、实施 05 和 BuildingBlocks 当前 Entity/Repository 契约。
 
@@ -1464,9 +1468,9 @@ TASK-RD-003～007 的领域与应用代码可分工并行，但都会影响迁�
 
 **允许修改范围：** ReferenceData Domain/Application/Infrastructure/Contracts 的公共模块、数据库映射、迁移和对应测试；不得实现具体字典、配置、元数据或编码用例。
 
-**预期输出：** `ServiceKey=referencedata` 登记和宿主 Migration Bundle、Shared/PerService 目标解析、五模块独立迁移单元/账本、SystemData Operation 握手、五模块版本汇总 readiness，以及作用域值对象、NId 规范化器、TenantNId 过滤、Entity 列/复合外键和并发映射。
+**预期输出：** `ServiceKey=referencedata`、`InitializationUnitKey=referencedata` 登记、服务初始化器、Shared/PerService 目标解析、服务级 Migration/Seed Ledger 与本地 readiness，以及作用域值对象、NId 规范化器、TenantNId 过滤、Entity 列/复合外键和并发映射。
 
-**验证与证据：** 覆盖 Development Shared/PerService、非 Development Shared 拒绝、错误目标/drift/迁移失败 NotReady、同物理目标 DDL 串行、五模块独立账本和无 `EnsureCreated`；同时覆盖 Platform/Tenant/Factory 门禁、跨 TenantNId 隔离、Entity 列、复合外键、双版本并发及迁移升级/恢复。
+**验证与证据：** 覆盖 Development Shared/PerService、非 Development Shared 拒绝、SystemData 离线时已初始化服务仍 Ready、错误目标/迁移失败 NotReady、同物理目标 DDL 串行、服务级 Ledger 幂等和无 `EnsureCreated`；同时覆盖 Platform/Tenant/Factory 门禁、跨 TenantNId 隔离、Entity 列、复合外键、双版本并发及迁移升级/恢复。
 
 **结果回写：** 回写实际表字段、索引名、迁移名、Factory 受限开关和任何与 BuildingBlocks 契约的偏差。
 
@@ -1528,9 +1532,9 @@ TASK-RD-003～007 的领域与应用代码可分工并行，但都会影响迁�
 
 **依赖：** TASK-RD-002、TASK-RD-003。
 
-**允许修改范围：** ReferenceData 的 DynamicProperty Domain/Application/Contracts/Infrastructure/Api、`reference_dynamic_property` Schema（SQLite 等价前缀）、独立迁移账本/Outbox/Inbox/缓存和对应测试；内部继续使用 DynamicConfigDefinition/Field/Record/Value，不得保存物料、设备、工单等业务实体值，不得加入脚本、公式、审批、低代码页面或通用分析引擎。
+**允许修改范围：** ReferenceData 的 DynamicProperty Domain/Application/Contracts/Infrastructure/Api、`reference_dynamic_property` Schema（SQLite 等价前缀）、服务级基础设施中的模块归属记录、缓存和对应测试；内部继续使用 DynamicConfigDefinition/Field/Record/Value，不得保存物料、设备、工单等业务实体值，不得加入脚本、公式、审批、低代码页面或通用分析引擎。
 
-**预期输出：** 全部实体使用 NId 的 DynamicConfigDefinition 聚合、Field/Record/Value 子项、父级 Id+IsDeleted 复合外键、四表同 Revision 约束、强类型值列、Draft 克隆、整份发布、作用域替换、`/dynamic-properties/configurations` API、ReferenceDynamicConfigurationPublishedV1 和模块独立 Outbox/Inbox。
+**预期输出：** 全部实体使用 NId 的 DynamicConfigDefinition 聚合、Field/Record/Value 子项、父级 Id+IsDeleted 复合外键、四表同 Revision 约束、强类型值列、Draft 克隆、整份发布、作用域替换、`/dynamic-properties/configurations` API、ReferenceDynamicConfigurationPublishedV1 和服务级 Outbox/Inbox 中明确的 DynamicProperty 归属。
 
 **验证与证据：** 覆盖 Definition/Field/Record NId 唯一、三组父级 Id+IsDeleted 组合、九种字段类型、Required/默认值/精度/字典/引用约束、跨 Revision 拒绝、类型列 Check Constraint、10,000 行分页、整份租户覆盖、发布事务、并发冲突、权限和事件快照；记录 Domain/Application/API/PostgreSQL 测试命令与报告。
 
@@ -1606,23 +1610,23 @@ TASK-RD-003～007 的领域与应用代码可分工并行，但都会影响迁�
 
 ---
 
-## TASK-RD-009 实现模块Outbox/Inbox、审计适配与可观测性闭环
+## TASK-RD-009 实现服务级 Outbox/Inbox、审计适配与可观测性闭环
 
 **状态：** 待派遣（PF-03 详细设计已确认；尚未实际派遣）
 
-**目标：** 完成五模块独立 Outbox/Inbox/消费位点、五个 V1 事件、发布重试、PF-04 Audit 适配门禁、日志脱敏、指标与健康诊断。
+**目标：** 完成服务级 Outbox/Inbox/消费位点及五模块归属、五个 V1 事件、发布重试、PF-04 Audit 适配门禁、日志脱敏、指标与健康诊断。
 
 **输入文档：** 本文第 13、16、21、22 节；RabbitMQ 事件总线规范和 BuildingBlocks EventBus。
 
 **依赖：** TASK-RD-003～TASK-RD-007。
 
-**允许修改范围：** ReferenceData 五模块的 Events、Outbox/Inbox、Logging、Metrics、Health 和测试，以及宿主共享技术组件；不得建立统一审计事实表、审计查询 API/页面或把完整配置值写入事件和日志。
+**允许修改范围：** ReferenceData 五模块的 Events、服务级 Outbox/Inbox、Logging、Metrics、Health 和测试，以及宿主共享技术组件；不得建立统一审计事实表、审计查询 API/页面或把完整配置值写入事件和日志。
 
-**预期输出：** V1 事件、模块独立 Outbox/Inbox/位点、共享 Worker、退避/告警、重复与乱序契约测试、PF-04 Audit 契约适配门禁、结构化日志和指标。
+**预期输出：** V1 事件、服务级 Outbox/Inbox/位点、ModuleKey 归属、共享 Worker、退避/告警、重复与乱序契约测试、PF-04 Audit 契约适配门禁、结构化日志和指标。
 
 **验证与证据：** 覆盖各模块业务事务与 Outbox 原子性、Inbox 幂等、RabbitMQ 中断后恢复、重复/乱序容忍、事件 JSON 快照、敏感值扫描、跨模块表隔离和积压健康状态；证明不存在竞争 PF-04 的统一审计表/API/页面。
 
-**结果回写：** 回写事件名/字段/路由键、模块 Outbox/Inbox 表与重试参数、指标、PF-04 适配状态和任务状态。
+**结果回写：** 回写事件名/字段/路由键、服务级 Outbox/Inbox 表、ModuleKey 与重试参数、指标、PF-04 适配状态和任务状态。
 
 **建议提交：** `feat(referencedata): publish reference changes through outbox`
 
@@ -1730,7 +1734,7 @@ TASK-RD-003～007 的领域与应用代码可分工并行，但都会影响迁�
 
 **预期输出：** 运行时 DTO/事件 V1 快照、全量测试报告、关键路径 E2E、故障降级证据、安全扫描结果、页面截图和 MasterData 输入契约。
 
-**验证与证据：** 执行后端 build/test、前端 lint/typecheck/unit/build/e2e；验证 Shared/PerService、SystemData 握手、五模块 migration ledger/readiness、错误目标/drift/迁移失败 NotReady、真实 PostgreSQL 18 约束、Redis/RabbitMQ 故障和敏感信息扫描；证明无 `EnsureCreated` 且业务 API 不创建数据库。
+**验证与证据：** 执行后端 build/test、前端 lint/typecheck/unit/build/e2e；验证 Shared/PerService、服务初始化器、服务级 Migration/Ledger/readiness、SystemData 离线、错误目标/迁移失败 NotReady、真实 PostgreSQL 18 约束、Redis/RabbitMQ 故障和敏感信息扫描；证明无 `EnsureCreated` 且业务 API 不创建数据库。
 
 **结果回写：** 更新本文完成标准、执行记录、最终 API/事件/权限/路由、已知限制和 MasterData 前置条件；任一外部环境未实测则保持“待验收”。
 
@@ -1745,7 +1749,7 @@ TASK-RD-003～007 的领域与应用代码可分工并行，但都会影响迁�
 - 字典、参数配置应用域（单值/多值）、动态配置 EAV、元数据定义和编码规则均有明确聚合、不变量、状态和租户边界。
 - 所有领域实体以 NId 作为稳定业务标识，引用字段使用 `{EntityName}NId`；除正式生成的编码结果外，实体定义、DTO、API 和页面不存在 Code 业务标识。
 - 表定义只列业务字段；所有表统一具备 Entity 生命周期。每个同库父子关系均使用子表 `{ParentEntity}_Id + {ParentEntity}_IsDeleted` 引用父表 `(Id, IsDeleted)`，并验证级联同步及双重软删除过滤。
-- `referencedata_db` 按 SystemData 配置解析 Shared/PerService；五模块独立迁移单元、账本和 readiness 均有真实 PostgreSQL 18 证据。
+- `referencedata_db` 按 SystemData 配置解析 Shared/PerService；服务级初始化器、Migration/Ledger 和本地 readiness 均有真实 PostgreSQL 18 证据。
 - 动态配置四表只允许同 Revision 关联，字段和值类型由领域与数据库约束双重保证，整份发布不产生半成品。
 - 发布/配置变更与各模块 Outbox 原子，Inbox 幂等；正式编码在并发和重试下不重复。
 - 动态配置值仅保存 ReferenceData 自有配置记录；未创建业务实体 EAV 值表、低代码页面运行时或跨服务外键。

@@ -2,7 +2,7 @@
 
 # Industrial Platform 自动化测试体系设计
 
-版本：V1.0
+版本：V1.1
 项目：Industrial Platform
 定位：工业数字化执行平台
 
@@ -52,6 +52,16 @@ AI能力测试
 ---
 
 # 2. 测试体系总体架构
+
+当前权威分层按风险与运行成本划分：
+
+```text
+日常：Release Build + 常规后端测试 + 前端单元测试
+集成：真实 PostgreSQL / Redis / RabbitMQ 与跨服务链路
+发布：关键登录、Gateway 分布式入口与 UnifiedHost 统一入口 E2E
+```
+
+测试项目不再按每个生产技术层机械拆分。DDD 按业务复杂度使用：复杂领域不变量保留 Domain 测试；简单 CRUD、技术记录和框架装配可以在服务级测试项目内用最小适用层次验证，不强制完整聚合、领域事件或逐层测试项目。测试数量和覆盖率只用于诊断，不是验收目标；验收关注关键行为、运行成本、失败定位和维护成本。
 
 ## 2.1 测试金字塔
 
@@ -127,7 +137,7 @@ Docker
 
 # 4. 测试解决方案结构
 
-最终工程：
+当前后端目标工程：
 
 ```
 IndustrialPlatform
@@ -138,21 +148,13 @@ IndustrialPlatform
 ├── tests
 │
 │
-├── IndustrialPlatform.UnitTests
-│
-├── IndustrialPlatform.ApplicationTests
-│
-├── IndustrialPlatform.IntegrationTests
-│
-├── IndustrialPlatform.ApiTests
-│
-├── IndustrialPlatform.EventTests
-│
-├── IndustrialPlatform.IoTTests
-│
-├── IndustrialPlatform.AiTests
-│
-└── IndustrialPlatform.PerformanceTests
+├── BuildingBlocks/IndustrialPlatform.BuildingBlocks.Tests
+├── Identity/IndustrialPlatform.Identity.Tests
+├── SystemData/IndustrialPlatform.SystemData.Tests
+├── ReferenceData/IndustrialPlatform.ReferenceData.Tests
+├── Gateway/IndustrialPlatform.Gateway.Tests
+├── UnifiedHost/IndustrialPlatform.UnifiedHost.Tests
+└── IntegrationTests/IndustrialPlatform.IntegrationTests
 
 ```
 
@@ -160,7 +162,7 @@ IndustrialPlatform
 
 # 5. 微服务测试目录设计
 
-每个Service独立测试。
+每个当前服务或部署角色使用一个常规测试项目，真实基础设施和跨服务链路进入统一 `IndustrialPlatform.IntegrationTests`。测试目录可以按 Domain、Application、Infrastructure、API、Contract 等能力组织，但目录不等于独立 `.csproj`。
 
 例如：
 
@@ -173,15 +175,11 @@ tests
 
     └── WorkOrder
 
-        ├── Domain.Tests
-
-        ├── Application.Tests
-
-        ├── Api.Tests
-
-        ├── Integration.Tests
-
-        └── Event.Tests
+        ├── Domain/
+        ├── Application/
+        ├── Infrastructure/
+        ├── Api/
+        └── Contracts/
 
 ```
 
@@ -1156,7 +1154,7 @@ jobs:
 
 # 21. 测试覆盖率要求
 
-商业项目标准：
+覆盖率用于发现盲区，不作为统一硬门禁。以下数值只保留为复杂模块的参考目标，实际门禁由风险、关键行为和维护成本决定：
 
 | 模块             | 覆盖率 |
 | -------------- | --: |
@@ -1232,9 +1230,7 @@ AI Agent Benchmark
 
 # 24. Codex自动生成测试规范
 
-Codex生成Service时：
-
-必须同时生成：
+Codex 生成或扩展 Service 时，先选择最小适用层次，再放入服务级常规项目；真实基础设施场景放入统一集成项目：
 
 ```
 Service
@@ -1245,11 +1241,10 @@ Service
 
 └── tests
 
-    ├── Domain.Tests
+    └── <Service>.Tests
 
-    ├── Application.Tests
-
-    ├── Api.Tests
+真实基础设施或跨服务场景
+    └── IndustrialPlatform.IntegrationTests
 
 ```
 
@@ -1263,21 +1258,21 @@ Prompt模板：
 
 要求：
 
-1. DDD Domain测试
+1. 复杂领域不变量使用 Domain 测试；简单 CRUD 不机械套用 DDD
 
 2. Application Handler测试
 
-3. PostgreSQL TestContainer测试
+3. PostgreSQL Testcontainer 场景标记为 Integration
 
 4. API Integration测试
 
-5. RabbitMQ事件测试
+5. 仅在存在事件契约时增加 RabbitMQ 测试
 
 6. xUnit
 
 7. FluentAssertions
 
-8. 覆盖核心业务流程
+8. 覆盖核心业务流程，不以测试数量或逐层项目为目标
 
 ```
 

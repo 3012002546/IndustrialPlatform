@@ -23,7 +23,7 @@ Service Host 与内部模块：
 服务初始化与环境引导：
 
 ```text
-【PF-02 及后续新服务读取蓝图 07、33；列出 ServiceKey、强制 ModuleKey、Provider、LogicalDatabaseName、表前缀、每模块自有 <module>_schema_migrations 与 <module>_seed_ledger、InitializationManifest/SeedSets、迁移/种子/initializer 产物与 version/checksum/signature、Owner、DesiredState、AutoProvision/AutoMigrate 和 DatabaseTopology。SeedSet 至少声明 SeedKey、SeedVersion、SeedClass、Scope、ArtifactId/Checksum/Signature、RequiredForReadiness、AllowedEnvironments、DependsOnMigrationVersion、DependsOnSeedKeys、BootstrapPolicy。必须记录 SystemData 解析后的目标校验、OperationId、readiness、锁、drift、最小角色、审批/备份和环境策略；Development/Test 可按策略自动执行必要迁移/种子，EnvironmentSample 仅显式启用，Staging/Production 禁止启动时自动播种。服务不得自行选择物理目标或向 SystemData 传 Secret；不适用时说明原因】
+【PF-02 及后续新服务读取蓝图 07、33；先区分 Service Host、Domain Module、Initialization Unit、Deployment Unit，再列出 ServiceKey、InitializationUnitKey、Provider、LogicalDatabaseName、表前缀、服务自有 Migration/Seed/Bootstrap/Verify/Ledger、DesiredVersion、Owner、DatabaseTopology 和 Standard|Advanced 策略。SystemData 只负责 Topology、Orchestration、Policy、Observation，通过进程内或受信 HTTP 端口调用服务初始化器；服务不得向 SystemData 传 SQL、路径、命令或 Secret。只有独立持久化生命周期才拆分初始化单元；普通功能默认 Standard，审批、备份证据、签名和漂移恢复仅在 Advanced 或环境强制时要求。runtime readiness 只读取本地数据库事实，不依赖 SystemData 在线；不适用时说明原因】
 ```
 
 技术：
@@ -114,9 +114,9 @@ API/事件契约
 - 事务边界。
 - 同步 API 与异步事件的分工。
 
-当多个模块共享 Service Host 时，还必须明确独立 Schema 或表前缀、公开应用契约、权限资源、迁移和测试边界；禁止跨模块直读 Repository 或数据表，并说明未来物理拆分路径。
+当多个模块共享 Service Host 时，还必须明确独立 Schema 或表前缀、公开应用契约、权限资源和测试边界；禁止跨模块直读 Repository 或数据表，并说明未来物理拆分路径。不得因为逻辑模块数量机械拆分 Migration、Outbox、Inbox、基础设施或初始化单元。
 
-PF-02 及后续新服务还必须明确 Service Initialization Pipeline：SystemData 是控制面，负责 registration、logical-to-physical resolution、plan、审批/备份、provision、SchemaMigration、RequiredSeed、按需 SecretBootstrap、Operation 和 readiness；当前服务/模块拥有领域 Schema、表前缀、迁移/种子/initializer 产物和双账本。必须写清 SystemData 不可用或必要初始化未完成时 NotReady、同物理目标与 ModuleKey 锁、checksum drift、Development/Test 自动策略、EnvironmentSample 禁入 Staging/Production、幂等、Secret 隔离，以及 SystemData 自身由基础设施最小引导后本地 migration+SystemBaseline 的唯一例外。禁止独立 Migrator/Seeder Service、业务 API 管理员建库、SystemData 直写业务 Repository、`EnsureCreated` 和向控制面传任意 SQL/路径/命令/Secret。
+PF-02 及后续新服务还必须明确 Service Initialization Pipeline：SystemData 是 Topology/Orchestration/Policy/Observation 控制面；当前服务的初始化器负责 Inspect/Plan/Apply/Verify，并拥有 Migration、Seed、Bootstrap、Ledger 与本地 readiness。必须写清 SystemData 不可用时已初始化服务仍按本地事实 Ready、同物理目标锁、checksum drift、Development/Test 自动策略、EnvironmentSample 禁入 Staging/Production、幂等和 Secret 隔离。禁止独立 Migrator/Seeder Service、业务 API 管理员建库、SystemData 直写业务 Repository、`EnsureCreated` 和向控制面传任意 SQL/路径/命令/Secret。
 
 ---
 
@@ -193,8 +193,8 @@ tests/...
 - 唯一约束和索引。
 - 时间、精度和状态字段。
 - 乐观并发、软删除和迁移。
-- registration/manifest、迁移 Assembly/Bundle 或等价产物、迁移历史、SystemData OperationId、readiness 和备份登记。
-- InitializationManifest/SeedSets、四类种子、每模块双账本、SeedObservation、DataPatch 与管理员维护数据保护边界。
+- 服务初始化器、Migration/Seed/Bootstrap/Verify、服务或独立初始化单元 Ledger、SystemData OperationId、本地 readiness。
+- Standard/Advanced 策略、四类种子、Observation、DataPatch 与管理员维护数据保护边界。
 - 事务、Outbox/Inbox 和数据修复边界。
 
 数据表字段清单只列当前表业务字段，完整建表和迁移仍须应用第 6.1 节统一生命周期字段。父子表必须区分子表自身 `is_deleted` 与父引用快照 `{parent_entity}_is_deleted`，并明确复合外键、同步方式和查询过滤；跨服务引用必须明确不建立数据库外键。
@@ -267,9 +267,9 @@ Frontend Component
 E2E
 ```
 
-根据模块选择适用层次，并给出具体场景矩阵。不得只写“测试通过”。
+根据风险和业务复杂度选择适用层次，并给出具体场景矩阵。简单 CRUD 和技术记录不强制完整 DDD 或每层独立测试项目；常规测试默认收敛在服务级项目，真实数据库/中间件和跨服务链路进入统一 IntegrationTests。不得只写“测试通过”。
 
-PF-02 及后续服务至少覆盖首次初始化、重复 apply、并发多副本、版本升级、同版本 checksum drift、部分失败重试、缺 Secret、生产未审批/未备份拒绝、EnvironmentSample 环境拒绝、共享物理库多个 ModuleKey 隔离、管理员维护数据不被覆盖、SystemData 不可用消费者 NotReady 和 SystemData 自身无循环自举。
+PF-02 及后续服务至少覆盖首次初始化、重复 apply、并发多副本、版本升级、同版本 checksum drift、部分失败重试、缺 Secret、EnvironmentSample 环境拒绝、管理员维护数据不被覆盖、SystemData 不可用时已初始化服务仍 Ready、本地事实失败时 NotReady 和 SystemData 自身无循环自举。生产未审批/未备份、签名和漂移恢复只在 Advanced 策略适用时强制测试。
 
 所有验证证据至少记录：
 
@@ -374,6 +374,8 @@ API路径与DTO
 - [ ] 当前代码/环境状态与文档一致。
 - [ ] 无 `TBD`、`TODO`、“适当处理”等模糊占位。
 - [ ] 职责边界和数据权威明确。
+- [ ] 已区分 Service Host、Domain Module、Initialization Unit、Deployment Unit。
+- [ ] runtime readiness 只依赖本地数据库事实；SystemData 仅保存脱敏 Observation。
 - [ ] 实体稳定业务标识使用 `NId`，`Code` 未被误用为实体身份。
 - [ ] 字段列表未逐表重复生命周期字段，完整持久化设计仍应用统一生命周期约束。
 - [ ] 同库父子表复合外键、删除状态同步和双重查询过滤完整；跨服务未建立数据库外键。

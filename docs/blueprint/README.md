@@ -11,9 +11,11 @@
 - API 使用包含 `Z` 或明确偏移量的 ISO 8601 / RFC 3339 时间字符串。
 - PostgreSQL 持久化瞬时时间统一使用 `timestamp with time zone`（`timestamptz`），以 UTC 保存；展示时按用户、工厂或设备时区转换。
 
-当前执行优先级由 [`09-Industrial Platform开发总TodoList.md`](09-Industrial%20Platform开发总TodoList.md) 的 PF/MES 阶段编号维护，不再由文档文件编号推断。当前状态为：`BuildingBlocks/可运行基线/统一前端（已完成） → PF-00 Identity（001～023 当前范围已完成） → PF-01（001～007 已完成） → PF-02（001～006 已完成，007+ 继续） → PF-03～PF-10 → PF-10A → PF-11 → MES 阶段`。
+当前执行优先级由 [`09-Industrial Platform开发总TodoList.md`](09-Industrial%20Platform开发总TodoList.md) 的 PF/MES 阶段编号维护，不再由文档文件编号推断。当前状态为：`BuildingBlocks/可运行基线/统一前端（已完成） → PF-00 Identity（当前范围已完成） → PF-01（已完成） → PF-02 SystemData（001～006 已完成） → 架构收敛整改四个工作包 → PF-03 ReferenceData → 后续 PF/MES`。架构收敛整改不新增 PF 编号或子计划。
 
-平台基础层当前七个 Service Host、内部模块边界和阶段映射统一读取 [`32-Industrial Platform Service Host与内部模块边界.md`](32-Industrial%20Platform%20Service%20Host与内部模块边界.md)。阶段不等于微服务；旧文档中的独立 Service 名称在冲突时只表示未来拆分目标。PF-03+ 服务/模块的数据库、迁移、种子、一次性引导和 readiness 统一读取 [`33-Industrial Platform SystemData数据库编排与环境引导.md`](33-Industrial%20Platform%20SystemData数据库编排与环境引导.md)。
+平台基础层当前七个 Service Host、内部模块边界和阶段映射统一读取 [`32-Industrial Platform Service Host与内部模块边界.md`](32-Industrial%20Platform%20Service%20Host与内部模块边界.md)。`Service Host != Domain Module != Initialization Unit != Deployment Unit`；旧文档中的独立 Service 名称在冲突时只表示未来拆分目标。服务初始化统一读取 [`33-Industrial Platform SystemData数据库编排与环境引导.md`](33-Industrial%20Platform%20SystemData数据库编排与环境引导.md)：SystemData 负责 Topology、Orchestration、Policy、Observation，各服务负责 Migration、Seed、Bootstrap、Verify、Ledger，runtime readiness 只取本地数据库事实。
+
+ReferenceData 当前是一个 Service Host 和五个逻辑模块，默认共享服务级 Migration、Outbox、Inbox 与基础设施；只有形成独立持久化生命周期时才拆分初始化单元。测试项目与门禁统一读取蓝图 29：常规测试按服务/部署角色收敛，真实基础设施进入统一 IntegrationTests，发布验证分别覆盖 Gateway 分布式入口和 UnifiedHost 统一入口。
 
 ReferenceData 管理字典、配置、元数据和编码规则；SystemData 管理行政组织、岗位、菜单导航、功能开关、服务目录和主题默认值；MasterData 管理物料、设备、制造组织、仓库、库位和 BOM 等稳定主数据；OperationalData 管理库存批次、余额、预留和仓储业务单据。
 
@@ -48,9 +50,9 @@ ReferenceData 管理字典、配置、元数据和编码规则；SystemData 管�
 | 26 | [数据库最终模型](26-Industrial%20Platform数据库最终模型.md) | 已整理 | 07, 14 | 规划 |
 | 27 | [API规范](27-Industrial%20Platform%20API规范.md) | 已整理 | 01, 12 | 规划 |
 | 28 | [前端工程规范](28-Industrial%20Platform前端工程规范.md) | 已整理 | 01, 04 | 规划 |
-| 29 | [自动化测试体系](29-Industrial%20Platform自动化测试体系.md) | 已整理 | 01, 12 | 规划 |
+| 29 | [自动化测试体系](29-Industrial%20Platform自动化测试体系.md) | 已确认 V1.1 | 01, 12 | 当前测试分层与门禁母版 |
 | 30 | [日志审计与可观测性平台设计](30-Industrial%20Platform日志审计与可观测性平台设计.md) | 已整理 | 01 | 规划 |
 | 31 | [权限体系与安全架构设计](31-Industrial%20Platform权限体系与安全架构设计.md) | 已整理 | 01, 13 | 规划 |
-| 32 | [Service Host 与内部模块边界](32-Industrial%20Platform%20Service%20Host与内部模块边界.md) | 已确认 | 01, 05, 09 | 平台基础层权威微服务母版 |
-| 33 | [SystemData 服务初始化编排与环境引导](33-Industrial%20Platform%20SystemData数据库编排与环境引导.md) | 已确认 V2.0 | 05, 06, 07, 20, 27, 30, 31, 32 | PF-03+ 服务/模块初始化权威母版 |
+| 32 | [Service Host 与内部模块边界](32-Industrial%20Platform%20Service%20Host与内部模块边界.md) | 已确认 V1.1 | 01, 05, 09 | Service Host、模块、初始化单元、部署角色权威母版 |
+| 33 | [SystemData 服务初始化编排与环境引导](33-Industrial%20Platform%20SystemData数据库编排与环境引导.md) | 已确认 V3.0 | 05, 06, 07, 20, 27, 30, 31, 32 | SystemData 控制面与服务初始化所有权母版 |
 | 后续设计 | [后续设计](后续设计.md) | 路线参考 | 01–33 | 后续章节生成提示词与路线参考 |

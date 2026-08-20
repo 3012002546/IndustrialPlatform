@@ -1,6 +1,6 @@
 # Industrial Platform Service Host 与内部模块边界
 
-版本：V1.0
+版本：V1.1
 状态：已确认，平台微服务母版
 生效日期：2026-08-11
 
@@ -14,13 +14,16 @@
 
 # 2. 核心原则
 
+- `Service Host`、`Domain Module`、`Initialization Unit`、`Deployment Unit` 是四个不同概念：宿主决定进程组合，领域模块决定业务所有权，初始化单元决定持久化生命周期，部署单元决定运行和扩缩容边界，四者不得互相推导。
 - 当前单租户必须完整可用；所有领域边界预留可信身份上下文提供的 `TenantNId`。
 - 阶段不等于微服务。合并只表示共用部署宿主，不表示合并领域模型或数据所有权。
-- 同一 Service Host 内的模块必须独立建模，使用独立 Schema 或表前缀、独立公开契约、权限资源、迁移和测试。
+- 同一 Service Host 内的模块必须独立建模，使用独立 Schema 或表前缀、公开契约、权限资源和测试边界；模块只有具备独立持久化生命周期时才升级为独立初始化单元，不因逻辑模块数量机械拆分迁移、Outbox、Inbox 或基础设施。
 - 禁止跨模块直读或写入其他模块的 Repository 或数据表；协作使用公开应用契约、API 或事件。
 - 模块间不建立数据库级跨模块外键。跨模块只保存稳定业务标识和必要快照，并按契约维护一致性。
 - 每个模块都必须能够在不改变外部语义的前提下迁移到独立进程和数据库，为未来物理拆分保留边界。
-- 后续服务数据库的创建、最小角色/授权和迁移执行统一由 `SystemData.Service` 的数据库编排 API 受控协调；业务服务仍拥有自己的 Schema 和迁移产物，不新增独立 Database Migrator 核心 Service Host。
+- SystemData 只负责数据库拓扑、初始化编排、执行策略和脱敏 Observation，即 `Where + When + Policy + Observation`；每个服务负责自己的 Migration、Seed、Bootstrap、Verify 和 Ledger，即 `What + How + Fact`。SystemData 调用服务初始化器，不拥有或执行其他服务的领域迁移实现。
+- 服务日常启动与 runtime readiness 只依赖本服务数据库事实和本地 ledger；SystemData 是否在线不改变已经初始化服务的本地 Ready 结论。
+- 初始化策略分为 `Standard` 与 `Advanced`。普通功能默认采用 Standard；审批、备份证据、签名和漂移恢复只在环境或风险要求时进入 Advanced。
 
 # 3. 当前核心 Service Host
 
@@ -37,6 +40,20 @@
 | `IoTCollector.Service` | Driver、DeviceConnection、Point、CollectionTask、EdgeManagement |
 
 Worker、Agent、Screego、TURN 和本地模型运行时是辅助部署单元，不计入七个核心 Service Host。它们不得反向拥有核心领域数据；其生命周期、密钥、网络和升级策略在对应阶段详细设计。
+
+`ReferenceData.Service` 是一个 Service Host，包含五个逻辑领域模块，但默认共享服务级 Migration、Outbox、Inbox 和基础设施。只有某个模块以后形成独立持久化生命周期并完成边界评审，才可成为独立初始化单元；这不改变五个领域模块的契约与数据所有权隔离。
+
+当前对外入口存在两种部署角色且不得混写：
+
+| 项目 | Gateway | UnifiedHost |
+| --- | --- | --- |
+| 使用模式 | 多进程、未来分布式部署 | 当前统一进程部署 |
+| 职责 | YARP、服务前缀、CORS、下游健康聚合、代理错误 | 组合当前模块、统一中间件、协调模块自己的初始化、托管生产 SPA |
+| 业务模块 | 不加载 | 加载 Identity、SystemData、ReferenceData |
+| 迁移 | 不执行 | 调用模块自己的初始化器 |
+| 下游代理 | 执行 | 不执行 YARP 代理 |
+
+正式路径固定为 `Browser → UnifiedHost → 内置模块` 或 `Browser → Gateway → 独立 API Host`。Gateway 不是服务间调用总线，UnifiedHost 不是业务编排器，SystemData 不是业务服务中介。
 
 # 4. 阶段到 Service Host 的正式映射
 
@@ -106,6 +123,6 @@ PF-10A 的第一个设计门禁是逐项完成并确认以上闭环；在此之�
 # 7. 数据库编排边界
 
 - `SystemData.Service` 内的数据库编排/环境引导是控制面能力，内部 Worker/Runner 只是辅助执行单元，不增加核心 Service Host 数量。
-- SystemData 管理其他服务的登记、plan、provision/apply、Operation 状态、数据库/角色/授权和迁移编排；各服务管理自己的领域 Schema、迁移产物与恢复说明。
+- SystemData 管理其他服务的登记、拓扑解析、plan、provision 策略、Operation 状态和脱敏 Observation；各服务通过自己的初始化器管理 Migration、Seed、Bootstrap、Verify、Ledger 和 readiness 事实。
 - SystemData 自身数据库是唯一 bootstrap 例外，由 PostgreSQL 18 基础设施最小引导创建；不得调用自身 API 创建自身数据库。
 - 新服务的 manifest、启动握手、readiness、环境策略、安全和验收统一读取蓝图 33。

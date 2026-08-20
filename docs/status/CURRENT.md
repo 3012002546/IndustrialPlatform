@@ -5,37 +5,39 @@
 ## 集成基线
 
 - 分支：`develop`
-- 本次整理开始基线：`226c345`
-- 远端关系：本次整理开始时领先 `origin/develop` 2 个本地文档提交。
-- Claude Code 的 TASK-SD-005 已完成并由 Codex 编译验收、合入 `develop`。
+- 架构收敛整改开始基线：`6000bb5`
+- 远端关系：整改开始时 `develop` 领先 `origin/develop` 3 个本地提交。
+- 2026-08-20 Work Package 1 基线：Release Build 0 警告/0 错误；后端解决方案测试 1219/1219 通过；前端 Vitest 因沙箱无法写入 `node_modules/.vite-temp`（EPERM）阻塞，作为既存环境基线记录，不在文档工作包修复。
 
 ## 服务状态
 
 - BuildingBlocks：基线与公共组件已完成。
 - 统一前端与 PF-01：已完成；外部真机 safe-area 项仍待验收。
 - Identity/PF-00：TASK-ID-001～023 当前范围已完成并合入；真实 PostgreSQL/Redis 联合链路保留为外部整体测试项。
-- SystemData：TASK-SD-001～006 已完成并合入；Claude Code 已在合并基线上完成整体测试，PF-02 下一步从 TASK-SD-007 继续。
+- SystemData：TASK-SD-001～006 已完成并合入；当前实现范围与 Git 一致。架构收敛后其控制面只保留 Topology、Orchestration、Policy、Observation，服务初始化实现归各服务。
 - ReferenceData：保持服务骨架，业务功能未实施。
+- 部署入口：默认统一部署使用 UnifiedHost（组合 Identity、SystemData、ReferenceData 并托管生产 SPA）；分布式部署使用 Gateway（YARP 反向代理）。两者不互相替代。
 
 ## 进行中
 
-- PF-02：Claude Code，工作包 `docs/tasks/active/PF-02.md`；内部从 TASK-SD-007 起连续执行。
+- 架构收敛整改：Work Package 1“对齐蓝图与开发 Todo”由本次提交完成；Work Package 2～4 待后续分别执行。完成后继续 PF-03，不新增 PF 或子计划。
 
 ## 固定工作线
 
 - PF-00：Harness，长期复用 `IndustrialPlatform-worktrees/pf-00` 和当前分支 `task/pf-00-id-019`；当前范围已合入，待工作线同步。
-- PF-02：Claude Code，长期复用 `IndustrialPlatform-worktrees/pf-02` 和当前分支 `task/pf-02-sd-006`；SD-006 已合入且整体测试已完成，后续从 SD-007 连续执行，不新建内部任务分支。
+- PF-02：历史工作线保留；`TASK-SD-007+` 在架构收敛整改完成前不继续。
 - 现有分支名称暂时保留；后续任务不因此创建新分支。
 
 ## 内部执行序列
 
-- PF-02 的 TASK-SD-007+ 由 Claude Code 按依赖连续执行，不再逐项派遣。
+- 架构收敛整改固定按已批准计划的 Work Package 1 → 2 → 3 → 4 执行；当前只完成 Work Package 1。
 
 ## 阻塞与待决策
 
 - Identity 事件命名以既有 `Identity.UserCreated.v1` 风格为当前实现；若要采用小写连字符风格，需要单独契约变更任务。
 - Identity 最后管理员守卫当前使用权威持有者计数，并对组外持有路径做精确放行。
 - 云端真实登录 E2E 需要稳定、可重复创建或重置的测试账号夹具；现有一次性 bootstrap 不适合作为持久数据库测试种子。
+- 当前前端 Vitest 在受限沙箱写入 `src/frontend/node_modules/.vite-temp` 时返回 EPERM；这是环境权限阻塞，不是本次文档变更导致的测试失败。
 
 ## 最近验收
 

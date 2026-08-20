@@ -2,13 +2,13 @@
 
 # Industrial Platform SystemData开发实施方案
 
-> 当前里程碑范围：创建 `SystemData.Service`，把已实现的数据库编排基线升级为通用 `Service Initialization Pipeline`，统一迁移、种子、一次性引导与 readiness，再交付 SystemData 内部模块的行政组织、岗位、用户任职、菜单导航、功能开关、服务目录和主题策略；File、Notification、Audit、Scheduler、PlatformHealth 本阶段只定义未来初始化协议，不设计或实现其业务能力。
+> 当前里程碑范围：保留 `SystemData.Service` 已实现的拓扑、控制面、组织、岗位与任职范围，并按架构收敛规则将 Service Initialization Pipeline 定位为 Topology、Orchestration、Policy 与脱敏 Observation；各服务自己的初始化器负责 Migration、Seed、Bootstrap、Verify、Ledger 和本地 readiness。File、Notification、Audit、Scheduler、PlatformHealth 本阶段不设计或实现。
 
-版本：V1.1
+版本：V1.2
 
 阶段：PF-02 SystemData；前置 Identity `TASK-ID-001～023` 与 PF-01 `TASK-PF01-001～007` 已完成。PF-02 的 `TASK-SD-001～006` 已完成并合入，下一内部任务从 `TASK-SD-007` 继续。
 
-阶段管理状态：开发中。`TASK-SD-001～006` 已完成并合入 `develop`；SD-006 全解决方案 Debug/Release 构建 0 警告、0 错误，SystemData 五层测试 492/492。`TASK-SD-007～013` 尚未实现，由 PF-02 固定工作线按依赖连续执行。完整 SD-006 证据见 `docs/evidence/TASK-SD-006.md`。
+阶段管理状态：`TASK-SD-001～006` 已完成并合入 `develop`；`TASK-SD-007～013` 在架构收敛整改完成前暂停继续。完整历史证据见第 16 节；架构收敛后的当前状态以 `docs/status/CURRENT.md` 为准。
 
 模块或服务：
 
@@ -40,10 +40,11 @@ Vitest + Playwright + xUnit
 服务初始化与环境引导：
 
 ```text
-SystemData 自身：基础设施最小引导 → 本地 SchemaMigration → 最小 SystemBaseline → API/Runner
-其他服务：Registration → Plan → ProvisionDatabase → ProvisionRoles → Backup → SchemaMigration → RequiredSeed → SecretBootstrap（按需）→ Verify → Healthy
-所有权：各服务/模块自有 Schema、迁移/种子/initializer 产物、schema migration ledger 与 seed ledger；SystemData 只拥有控制面和脱敏 observation
-禁止：独立 Migrator/Seeder Service、EnsureCreated、任意 SQL/路径/命令/凭据 API、SystemData 直写业务 Repository 或接收 Secret 值
+SystemData：Topology + Orchestration + Policy + Observation
+服务初始化器：Inspect → Plan → Apply(Migration + Seed + Bootstrap) → Verify
+所有权：各服务自有 Schema、Migration、Seed、Bootstrap、Verify、Ledger 和本地 readiness
+策略：Standard | Advanced；普通功能默认 Standard，高风险环境才启用审批/备份/签名/漂移恢复
+禁止：独立 Migrator/Seeder Service、EnsureCreated、任意 SQL/路径/命令/凭据 API、SystemData 直写业务 Repository 或承载其他服务迁移实现
 ```
 
 Identity 首个消费者案例（PF-00 已确认）：Identity 将既有 `SchemaMigration → SystemSeed → BootstrapAdmin → Verify` 改写为通用协议实例。权限目录和 `SYSTEM_ADMIN` 属于 `SystemBaseline`，租户安全关系属于 `TenantBaseline`，`ADMIN` 属于 `SecretBootstrap`。Identity 自有 `identity_schema_migrations`、`identity_seed_ledger`、初始化产物和 initializer；initializer 自行解析 Identity Secret Provider，只向 SystemData 回报脱敏 version/checksum/status/TraceId。SystemData 不接收、透传或保存 admin 密码、密码哈希、Token 或 Secret 值。具体临时密码交付、首次改密和恢复规则仍以 Identity 实施 03 的 29A.4 与 TASK-ID-019 为准，本方案不覆盖 PF-00 并行细则。
@@ -62,7 +63,7 @@ Identity 首个消费者案例（PF-00 已确认）：Identity 将既有 `Schema
 - `docs/implementation/04-Industrial Platform视觉主题与平台外壳开发实施方案.md`
 - `docs/implementation/TEMPLATE-开发实施方案.md`
 
-设计优先级：蓝图 33 V2.0 的 Service Initialization Pipeline 为 PF-02 最高优先级输入；现有数据库编排 API/Operation 保持兼容，迁移、种子、bootstrap 和 readiness 在其上扩展。蓝图 13、23、31 中把行政组织、制造组织、租户运营或菜单归入 Identity 的旧描述，已被蓝图 05、09、32 和本阶段已确认边界覆盖。
+设计优先级：蓝图 33 V3.0 与架构收敛设计为当前最高优先级；现有数据库编排 API/Operation 保持兼容，但只能调用服务初始化器并保存脱敏 Observation。服务的 Migration、Seed、Bootstrap、Verify、Ledger 和 runtime readiness 不上收 SystemData。
 
 ---
 
@@ -86,7 +87,7 @@ Identity 首个消费者案例（PF-00 已确认）：Identity 将既有 `Schema
 - Identity 历史 `TASK-ID-001～016` 与 PF-01 `TASK-PF01-001～007` 已由提交 `48c5374` 完成；Identity 补强 `TASK-ID-017～023` 仅设计确认、尚未开发。
 - BuildingBlocks `ICurrentUser.UserNId : string?`、真实 `HttpAuthGateway`、PermissionGate 和 PF-01 平台壳已存在；本文旧有 Guid/Mock/PF-01 未实现阻塞描述不再作为当前事实。
 - `ReferenceData.Service` 只有现有四层骨架；SystemData 不接管字典、系统参数、元数据、动态属性或编码规则。
-- 蓝图 33 V2.0 已把数据库编排提升为通用 Service Initialization Pipeline：SystemData 统一控制迁移、种子、bootstrap 与 readiness，业务服务/模块仍拥有内容和双账本。
+- 蓝图 33 V3.0 已冻结控制面与执行面边界：SystemData 负责编排和 Observation，业务服务初始化器拥有 Migration、Seed、Bootstrap、Verify、Ledger 与本地 readiness。
 - `docs/implementation/15-Industrial Platform MasterData Service开发实施方案.md` 当前已由 `a35ff32` 提交；无论其提交状态如何，PF-02 都不得修改、暂存、回退或重写该文件。
 
 本轮只编写设计文档，没有执行构建、测试或环境联调。03、04、CLAUDE.md 中的测试数字均为历史输入，不是本轮证据。
@@ -128,8 +129,8 @@ PF-03 / PF-04 消费 SystemData 稳定契约
 
 ## 2.1 负责
 
-- 通用服务初始化编排：registration/query、dry-run/plan、审批与备份、provision、SchemaMigration、RequiredSeed、按需 SecretBootstrap、Operation、幂等和 readiness。
-- InitializationManifest/SeedSets 元数据校验、环境门禁、受控 initializer 调度和脱敏 migration/seed/bootstrap observation。
+- 通用服务初始化控制面：registration/query、拓扑解析、dry-run/plan、Standard/Advanced 策略、Operation、幂等和脱敏 Observation。
+- 通过进程内或受信 HTTP 端口调用目标服务的 Inspect/Plan/Apply/Verify，不加载或解释目标服务的 Migration/Seed/Bootstrap 实现。
 - 行政组织树：公司、部门、科室、班组。
 - 岗位实例及其行政组织归属。
 - Identity 用户与岗位之间的时间化任职关系和主任职。
@@ -148,8 +149,7 @@ PF-03 / PF-04 消费 SystemData 稳定契约
 | 字典、系统参数、元数据、动态属性、编码规则 | ReferenceData |
 | 用户账号、密码、角色、权限分配、令牌、会话、SSO | Identity |
 | 租户开通、停用、套餐、订阅、配额、计费 | 未来 Tenant/运营能力 |
-| 业务服务 Schema 定义、迁移代码/Bundle、迁移兼容性和回退策略 | 各业务服务自身 |
-| 业务种子内容、initializer、schema/seed 双账本和管理员维护数据 | 各业务服务/模块自身 |
+| 业务服务 Schema、Migration、Seed、Bootstrap、Verify、Ledger、本地 readiness 和回退策略 | 各业务服务或独立持久化初始化单元自身 |
 | 独立 Migrator/Seeder Service、任意 SQL 执行平台、Secret 管理产品 | 不创建；分别使用 SystemData 内部 Runner、签名初始化产物和服务自有 Secret Provider |
 | 文件隔离扫描、通知收件箱、统一审计事实源 | PF-04 的 File/Notification/Audit 模块 |
 | 任务调度和平台健康聚合 | PF-07 的 Scheduler/PlatformHealth 模块 |
@@ -171,13 +171,13 @@ PF-03 / PF-04 消费 SystemData 稳定契约
 11. 模块声明版本化权限清单，Identity 幂等注册；SystemData 不直接写 Identity 数据库。
 12. 菜单使用草稿与不可变发布快照，显式发布、原子切换并保留上一版本回滚。
 13. SystemData 返回带 PermissionNId 的候选导航，前端与当前 AuthUser 权限求交集；目标 API 仍独立授权。
-14. Service Initialization Pipeline 采用注册/查询、异步 plan/apply 和 Operation 状态模型；业务服务/模块拥有自己的 Schema、迁移/种子/initializer 产物和双账本。
-15. 生产环境必须按 `plan → 审批 → 备份证据 → apply → verify` 执行；计划过期、目标漂移或证据不匹配时拒绝执行。
+14. Service Initialization Pipeline 采用注册、拓扑解析、异步 Operation 和 Inspect/Plan/Apply/Verify 调用模型；业务服务拥有自己的 Schema、Migration、Seed、Bootstrap、Verify、Ledger 和本地 readiness。
+15. 初始化策略固定为 Standard 与 Advanced；生产环境可强制 Advanced 的 `plan → 审批 → 备份证据 → apply → verify`，普通功能不无条件承担高级流程。
 16. `systemdata_db` 始终是稳定逻辑身份；Shared Development 的基础设施只物理创建 `industrial_platform_dev` 并在其中运行 `system_data_schema_migrations`，PerService 才物理创建 `systemdata_db` 作为唯一引导例外。SystemData 使用自有迁移产物建立控制面；不得循环调用自身编排 API。
 17. 不创建独立 Migrator/Seeder Service，不使用 `EnsureCreated`，不允许 API 提交任意 SQL、路径、命令、服务器地址或凭据。
-18. `ModuleKey` 强制存在；同宿主模块必须独立表前缀、SeedKey/checksum 范围、`<module>_schema_migrations` 与 `<module>_seed_ledger`。
+18. `InitializationUnitKey` 标识服务级或独立持久化初始化单元；同宿主逻辑模块保持表前缀和领域边界，但不机械拆分 Migration、Outbox、Inbox 或 Ledger。
 19. 四类种子固定为 SystemBaseline、TenantBaseline、EnvironmentSample、SecretBootstrap；普通业务创建用户的初始密码不属于种子。
-20. SystemData 只传非敏感 Operation/目标/租户/期望版本上下文；服务 initializer 自行解析 Secret Provider，SystemData 不接收或透传 Secret 值。
+20. SystemData 只传非敏感 Operation/目标/租户/期望版本上下文；服务 initializer 自行解析 Secret Provider，SystemData 不接收或透传 Secret 值。已初始化服务的 runtime readiness 只读取本地数据库事实，不依赖 SystemData 在线。
 18. 数据库拓扑由受信任环境 `DatabaseTopologyOptions` 决定：`Mode`、`SharedDatabaseName`、`SharedSqliteFile`、`ServiceDatabases`；清单只保留稳定逻辑 `DatabaseName`，SystemData 将其解析为 `ResolvedDatabaseTarget(EnvironmentName, Mode, ServiceKey, Provider, LogicalDatabaseName, PhysicalDatabaseName, IsSharedPhysicalDatabase)`。
 19. 拒绝调用方提供物理目标、未知 Mode、非法名称、缺少映射以及 Development 之外的 Shared；已有数据的拓扑变化是 drift，绝不隐式 copy、rename、merge 或 split。
 
@@ -296,11 +296,12 @@ src/backend/src/Services/SystemData
 └── IndustrialPlatform.SystemData.Infrastructure
 
 tests/SystemData
-├── IndustrialPlatform.SystemData.Domain.Tests
-├── IndustrialPlatform.SystemData.Application.Tests
-├── IndustrialPlatform.SystemData.Infrastructure.Tests
-├── IndustrialPlatform.SystemData.Api.Tests
-└── IndustrialPlatform.SystemData.Contract.Tests
+└── IndustrialPlatform.SystemData.Tests
+    ├── Domain
+    ├── Application
+    ├── Infrastructure
+    ├── Api
+    └── Contracts
 ```
 
 目标前端结构：
@@ -519,24 +520,24 @@ SanitizedErrorCode / SanitizedErrorSummary / TraceId
 
 - API 只入队并返回 `202`；Runner 使用数据库可靠队列与 `FOR UPDATE SKIP LOCKED` 领取操作，不引入独立消息消费者服务。
 - `961cad4`/当前 WIP 的 `OperationPhase.Migrate` 在 v1 兼容层映射为 `SchemaMigration`；持久化值不得原位破坏，新增阶段须用显式兼容映射和迁移测试。
-- Shared provision 按 PhysicalDatabaseName 去重；迁移和 readiness 始终按 ServiceKey 独立执行与报告，因此一个服务失败只令该服务 NotReady。
+- Shared 目标解析按 PhysicalDatabaseName 去重；每个服务的初始化器独立执行并报告，因此一个服务失败只令该服务本地 NotReady。
 - 推荐 Runner lease 60 秒、heartbeat 15 秒、poll 2 秒；plan 默认超时 2 分钟，apply 默认 30 分钟，均由环境策略限定范围。
 - 同一 `Idempotency-Key + RequestHash` 返回原 Operation；同 Key 不同请求返回 409。每个步骤单独记录 attempt、起止时间、结果和脱敏诊断。
-- SchemaMigration、RequiredSeed 与 SecretBootstrap 分别建立可验证恢复边界；失败只从本地账本证明安全的边界重试，已成功步骤不重做。迁移或 initializer 失败不得盲重试。
+- SystemData 的 Operation 只记录 Inspect/Plan/Apply/Verify 调用；Migration、RequiredSeed 与 Bootstrap 的恢复边界由目标服务初始化器及其本地 Ledger 证明，控制面不得替代该事实。
 - 取消只允许 Queued 或安全阶段边界；不得中断正在提交的迁移事务。超时后释放 lease 前先检查数据库会话与实际版本，避免双执行。
 
 ### 7.1.5 锁、权限、Secret 与目标角色
 
-- provision/migration/seed/bootstrap/verify 关键区对物理目标获取 advisory lock，并叠加 ModuleKey/Scope 与本地账本幂等；多副本并发时同一初始化身份只执行一次。
+- provision 关键区由控制面避免重复编排；migration/seed/bootstrap/verify 的锁与幂等由目标服务初始化器和本地 Ledger 负责。
 - `provision admin` 只负责创建数据库/角色/grant；每服务 `migrator` 仅可在自身数据库/Schema 执行所需 DDL；`runtime` 仅获必需 DML。SystemData 普通运行连接不得拥有创建数据库或角色权限。
 - provision admin Secret 只从环境变量、容器/Kubernetes Secret 或既有 Secret Provider 临时解析；控制面只保存 SecretRef、版本或 fingerprint，不保存值。
 - 新生成的目标 runtime/migrator Secret 直接写入配置的 Secret Sink；API 只返回 credential version/fingerprint。日志、Trace、审计、异常、事件、数据库快照和测试夹具均执行敏感信息扫描。
-- migration/seed/initializer 产物从可信 Artifact Registry 按不可变标识获取，执行前验证 allowlist、checksum/签名；可支持简单签名 SQL seed bundle 与服务自有 initializer bundle，但禁止 API 传任意 SQL/路径/命令。Runner 以受控一次性隔离任务/适配器执行，只传非敏感上下文。
+- Runner 通过进程内或受信 HTTP 端口调用服务初始化器，只传非敏感上下文；Migration、Seed 与 Bootstrap 实现随目标服务发布，不由 SystemData 下载、解释或执行。禁止 API 传任意 SQL、路径、命令或凭据。
 - 服务 initializer 自行解析本服务 Secret Provider，只回报脱敏 version/checksum/status/TraceId；SystemData 不接收或透传 Secret 值。
 
 ### 7.1.6 双账本、SeedObservation 与数据保护
 
-每个 ServiceKey/ModuleKey 分别拥有 `<module>_schema_migrations` 与 `<module>_seed_ledger`。共享宿主内 SystemData、File、Audit、Scheduler 等模块必须使用独立账本范围、表前缀、SeedKey/checksum 和锁键，禁止宿主级初始化大包。
+每个服务或具有独立持久化生命周期的初始化单元拥有 Migration/Seed Ledger。共享宿主内逻辑模块保持表前缀和领域边界，但不因模块数量机械拆分 Ledger、Migration、Outbox、Inbox 或基础设施。
 
 seed ledger 最少记录：
 
@@ -552,19 +553,15 @@ Status / AppliedOn / OperationNId / TraceId
 
 ### 7.1.7 服务启动握手与 NotReady
 
-其他业务服务启动时必须：
+其他业务服务首次初始化或升级时通过控制面：
 
 ```text
-注册/查询 desired state
-  → 请求或获取 Plan/Apply Operation
-  → 轮询/观察 Operation
-  → 使用自身 runtime Secret 验证 database identity + migration version + required seed ledger + bootstrap status
-  → exact desired state 才 Ready
+注册/查询 desired state → Inspect → Plan → Apply → Verify → 脱敏 Observation
 ```
 
-- liveness 只证明进程活着；数据库未就绪、SystemData 不可达、迁移失败或版本不匹配时 readiness 返回 503 `NotReady`，包含脱敏原因、OperationId 和 TraceId，不泄露地址/凭据。
+- 日常启动直接使用自身 runtime Secret 验证 database identity、Migration Ledger、Required Seed Ledger 和 Bootstrap 状态。SystemData 不可达时，已初始化服务仍可按本地事实 Ready；本地事实失败或版本不匹配时 readiness 返回 503 `NotReady`。
 - 远程环境不得在失败时启动在 SQLite、旧 Schema 或错误数据库上；写流量在 readiness 成功前不得进入。
-- PF-02 提供共享 InitializationManifest/Operation/readiness 契约和测试 fixture，供 PF-03+ 采用；具体业务服务仍负责在自身宿主接入，不由 SystemData 代写其业务代码。
+- PF-02 提供初始化调用端口、Operation/Observation 契约和测试 fixture；具体业务服务负责自己的初始化器与 readiness，不由 SystemData 代写或承载。
 - fixture 必须覆盖 Shared/PerService SQLite 与 PostgreSQL；不得通过业务 API 创建数据库或用 `EnsureCreated` 绕过显式迁移。
 - `DatabaseReadinessV1` 只绑定 `ServiceKey`、`LogicalDatabaseName`、脱敏 `PhysicalDatabaseTarget/Fingerprint`、`ArtifactChecksum`、`DesiredVersion`、`ObservedVersion` 和 `TopologyRevision`；不得包含连接串、SQLite 路径或任何凭据。
 
@@ -1442,6 +1439,8 @@ SDM-016 默认租户 PF-01 合法主题策略种子
 | Frontend Component | 七个管理页面、权限、抽屉、树、发布、编排门禁、冲突和降级状态 |
 | E2E | 管理员完成数据库 plan/apply、组织/岗位/任职、导航发布、开关、目录、主题以及运行端消费 |
 
+以上适用层次收敛在 `IndustrialPlatform.SystemData.Tests` 服务级项目；真实 PostgreSQL、Redis、RabbitMQ 和跨服务链路进入统一 `IndustrialPlatform.IntegrationTests`。目录用于定位能力，不再为每个生产技术层创建独立测试项目。
+
 ## 12.3 核心测试矩阵
 
 服务初始化编排：
@@ -1455,7 +1454,7 @@ SDM-016 默认租户 PF-01 合法主题策略种子
 - EnvironmentSample 仅 Development/Test 显式启用，Staging/Production registration/plan/apply 均拒绝。
 - 共享物理库多个 ModuleKey 的表前缀、schema/seed ledger、SeedKey/checksum 和锁范围隔离。
 - 重复 SystemBaseline/TenantBaseline 不覆盖管理员维护数据；删除/修正只接受显式 DataPatch、风险和恢复说明。
-- SystemData 不可用或 initialization 未达期望时消费者 NotReady；不得回退 SQLite、Mock、默认密码或旧 Schema。
+- SystemData 不可用时，已初始化服务按本地事实继续 Ready；本地 initialization 未达期望时消费者 NotReady，不得回退 SQLite、Mock、默认密码或旧 Schema。
 - SystemData 自身仅经 PostgreSQL 18 最小引导、本地迁移和最小 SystemBaseline 建立，无循环 API；全仓无 `EnsureCreated`。
 - 简单签名 SQL seed bundle 与服务 initializer bundle 均执行 allowlist/checksum/签名校验，任意 SQL/路径/命令/API 输入拒绝。
 - 拓扑验收（十项）：(1) Shared SQLite Development 默认；(2) Shared PostgreSQL 只 provision 一次、服务迁移独立；(3) Development PerService；(4) 非 Development Shared 拒绝；(5) 缺失/非法 target 或 mapping 拒绝；(6) 同物理目标 DDL 串行；(7) 单服务失败隔离并 NotReady；(8) 已有数据拓扑变更 drift 拒绝；(9) API/事件/日志无凭据泄露；(10) 无 `EnsureCreated` 且业务 API 不创建数据库。
@@ -1516,11 +1515,8 @@ SDM-016 默认租户 PF-01 合法主题策略种子
 ```powershell
 dotnet restore src/backend/IndustrialPlatform.slnx
 dotnet build src/backend/IndustrialPlatform.slnx --no-restore
-dotnet test tests/SystemData/IndustrialPlatform.SystemData.Domain.Tests/IndustrialPlatform.SystemData.Domain.Tests.csproj --no-build
-dotnet test tests/SystemData/IndustrialPlatform.SystemData.Application.Tests/IndustrialPlatform.SystemData.Application.Tests.csproj --no-build
-dotnet test tests/SystemData/IndustrialPlatform.SystemData.Infrastructure.Tests/IndustrialPlatform.SystemData.Infrastructure.Tests.csproj --no-build
-dotnet test tests/SystemData/IndustrialPlatform.SystemData.Api.Tests/IndustrialPlatform.SystemData.Api.Tests.csproj --no-build
-dotnet test tests/SystemData/IndustrialPlatform.SystemData.Contract.Tests/IndustrialPlatform.SystemData.Contract.Tests.csproj --no-build
+dotnet test tests/SystemData/IndustrialPlatform.SystemData.Tests/IndustrialPlatform.SystemData.Tests.csproj --configuration Release
+dotnet test tests/IntegrationTests/IndustrialPlatform.IntegrationTests/IndustrialPlatform.IntegrationTests.csproj --configuration Release --filter "Category=Integration"
 ```
 
 前端目标命令：
