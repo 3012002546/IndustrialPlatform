@@ -89,6 +89,34 @@ public sealed class SystemDataServiceInitializerTests : IDisposable
         Assert.True(mismatchPlan.RequiresApply);
     }
 
+    [Fact]
+    public async Task Inspect_uses_schema_order_when_an_older_numbered_patch_was_applied_later()
+    {
+        _dbContext.SqlSugar.CodeFirst.InitTables<SchemaMigrationRecord>();
+        await _dbContext.SqlSugar.Insertable(new[]
+        {
+            new SchemaMigrationRecord
+            {
+                MigrationId = "SDM-016-01",
+                Description = "current schema",
+                AppliedOn = new DateTimeOffset(2026, 8, 20, 0, 0, 0, TimeSpan.Zero),
+            },
+            new SchemaMigrationRecord
+            {
+                MigrationId = "SDM-007-05",
+                Description = "backfilled patch",
+                AppliedOn = new DateTimeOffset(2026, 8, 21, 0, 0, 0, TimeSpan.Zero),
+            },
+        }).ExecuteCommandAsync();
+
+        var state = await _initializer.InspectAsync(
+            CreateContext("SDM-016-01"),
+            CancellationToken.None);
+
+        Assert.True(state.Ready);
+        Assert.Equal("SDM-016-01", state.ObservedVersion);
+    }
+
     public void Dispose()
     {
         _dbContext.Dispose();

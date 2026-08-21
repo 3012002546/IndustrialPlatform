@@ -14,23 +14,23 @@
 - BuildingBlocks：基线与公共组件已完成。
 - 统一前端与 PF-01：已完成；外部真机 safe-area 项仍待验收。
 - Identity/PF-00：TASK-ID-001～023 当前范围已完成并合入；真实 PostgreSQL/Redis 联合链路保留为外部整体测试项。
-- SystemData：TASK-SD-001～006 已完成并合入；当前实现范围与 Git 一致。架构收敛后其控制面只保留 Topology、Orchestration、Policy、Observation，服务初始化实现归各服务。
+- SystemData：TASK-SD-001～010 已完成并合入；TASK-SD-007～010 为后端控制面/runtime 契约，不包含前端消费与管理页面。下一内部任务为 TASK-SD-011；服务初始化实现仍归各服务。
 - ReferenceData：保持服务骨架，业务功能未实施。
 - 部署入口：默认统一部署使用 UnifiedHost（组合 Identity、SystemData、ReferenceData 并托管生产 SPA）；分布式部署使用 Gateway（YARP 反向代理）。两者不互相替代。
 
 ## 进行中
 
-- 架构收敛整改：Work Package 1～4 均已完成；Work Package 4 本次提交完成服务初始化所有权、初始化端口/适配器与本地 readiness 对齐。完成后继续 PF-03，不新增 PF 或子计划。
+- PF-02 SystemData：后端 TASK-SD-001～010 已完成；下一内部任务为 TASK-SD-011 前端运行适配，TASK-SD-012 管理页面与 TASK-SD-013 阶段验收仍待派遣。
 
 ## 固定工作线
 
 - PF-00：Harness，长期复用 `IndustrialPlatform-worktrees/pf-00` 和当前分支 `task/pf-00-id-019`；当前范围已合入，待工作线同步。
-- PF-02：历史工作线保留；`TASK-SD-007+` 在架构收敛整改完成前不继续。
+- PF-02：历史工作线保留；`TASK-SD-001～010` 已完成，下一内部任务从 `TASK-SD-011` 继续，`TASK-SD-012～013` 保持待派遣。
 - 现有分支名称暂时保留；后续任务不因此创建新分支。
 
 ## 内部执行序列
 
-- 架构收敛整改已按已批准计划完成 Work Package 1 → 2 → 3 → 4；后续继续 PF-03，不新增 PF 或子计划。
+- PF-02 下一执行序列为 TASK-SD-011/012 → TASK-SD-013；不得重新派遣 TASK-SD-001～010。
 
 ## 阻塞与待决策
 
@@ -41,6 +41,7 @@
 
 ## 最近验收
 
+- `1427d18` / TASK-SD-007～010：资源导航、Feature、服务目录、主题策略、缓存/审计/Outbox/Identity 对账后端闭环已完成；云 PostgreSQL/Redis/RabbitMQ 3/3。2026-08-21 本地调试复验修正补录迁移版本识别后，fresh Release build 0/0、常规后端 1278/1278、UnifiedHost 云配置启动并完成 Identity → SystemData → ReferenceData 初始化。
 - WP4（本次提交）：fresh Release Build 0 警告/0 错误；静态审查修正后的常规后端 1227/1227；前端 Vitest 受限沙箱 EPERM；IntegrationTests 8/8 为未启用外部环境门控后的早退，不代表真实外部链路通过；real-login E2E 因 Playwright runner 不可用未执行。
 - `9f48d89`：PF-00 用户与用户组管理 API、前端闭环、首次改密与幂等写入。
 - `1b72c6b`：TASK-SD-006 SystemData 组织、岗位与任职管理 API。

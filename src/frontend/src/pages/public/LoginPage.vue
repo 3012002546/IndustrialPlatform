@@ -422,7 +422,7 @@ async function onSubmit(): Promise<void> {
 .login-card__form {
   display: flex;
   flex-direction: column;
-  gap: var(--ip-space-4);
+  gap: var(--ip-space-1);
 }
 
 .login-card__field {
@@ -453,6 +453,7 @@ async function onSubmit(): Promise<void> {
   justify-content: center;
   gap: var(--ip-space-1);
   min-height: 24px;
+  margin-top: 10px;
   padding: 0;
   color: var(--ip-color-primary);
   background: transparent;
@@ -695,8 +696,9 @@ async function onSubmit(): Promise<void> {
 }
 
 .login-card__field-error {
-  min-height: 20px;
-  line-height: 20px;
+  min-height: 16px;
+  font-size: var(--ip-font-size-xs);
+  line-height: 16px;
   visibility: hidden;
 }
 
@@ -713,6 +715,7 @@ async function onSubmit(): Promise<void> {
 .login-card__submit {
   box-sizing: border-box;
   height: 40px;
+  margin-top: var(--ip-space-1);
   border: 0;
   border-radius: var(--ip-radius-md);
   background: var(--ip-color-primary);

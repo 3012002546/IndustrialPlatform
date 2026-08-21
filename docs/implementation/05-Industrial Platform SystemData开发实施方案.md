@@ -6,9 +6,9 @@
 
 版本：V1.2
 
-阶段：PF-02 SystemData；前置 Identity `TASK-ID-001～023` 与 PF-01 `TASK-PF01-001～007` 已完成。PF-02 的 `TASK-SD-001～006` 已完成并合入，下一内部任务从 `TASK-SD-007` 继续。
+阶段：PF-02 SystemData；前置 Identity `TASK-ID-001～023` 与 PF-01 `TASK-PF01-001～007` 已完成。PF-02 的 `TASK-SD-001～010` 已完成并合入，下一内部任务从 `TASK-SD-011` 继续。
 
-阶段管理状态：`TASK-SD-001～006` 已完成并合入 `develop`；`TASK-SD-007～013` 在架构收敛整改完成前暂停继续。完整历史证据见第 16 节；架构收敛后的当前状态以 `docs/status/CURRENT.md` 为准。
+阶段管理状态：`TASK-SD-001～010` 已完成并合入 `develop`；`TASK-SD-011～013` 待派遣。完整历史证据见第 16 节；当前状态以 `docs/status/CURRENT.md` 为准。
 
 模块或服务：
 
@@ -1567,11 +1567,10 @@ TASK-SD-004 + 010 + 011 + 012
 
 并行与冲突规则：
 
-- 001→002→003→004 是最高优先级串行链；001～002 有 `961cad4` 实现待验收，003 有 `61753dc` migration-only 基线但通用扩展待派遣，004 未实现。初始化与 NotReady 门禁未通过前，不启动其他 SystemData 业务纵切。
-- 005、007、008、009 在 004 后可并行，但各自只修改所属目录；006 只消费 005 的领域和仓储。
+- 001→002→003→004 的最高优先级串行链已完成；005～010 的后端业务纵切与可靠性装配也已完成。
+- 011 与 012 是下一组前端任务：011 消费 007～009 的 runtime 契约，012 实现 PC 管理页面；两者不得反向改写已验收的后端边界。
 - 003 是唯一允许使用 provision admin、调度签名 migration/seed/initializer 产物和持有目标 advisory lock 的任务；不得创建独立 Migrator/Seeder Service，SystemData 不接收业务 Secret 值。
 - 010 是唯一允许接入真实 Identity、Redis、RabbitMQ 和跨领域一致性装配的任务；前置契约未稳定时保持阻塞。
-- 011 与 012 可并行；011 只修改 runtime adapters/stores，012 只修改管理 pages/components/routes。
 - 013 只修复验收阻塞缺陷，不扩张业务范围。
 - 任何任务不得触碰实施 15、Identity/PF-01 受保护文件或其他阶段模块；跨阶段契约只做双方批准的精确增量。
 
@@ -1579,7 +1578,7 @@ TASK-SD-004 + 010 + 011 + 012
 
 # 14. 开发任务拆分
 
-任务卡设计已经用户批准，并按最终 HEAD 校准：001～002 为待验收；003 的 migration-only 子范围已由 `61753dc` 提交，但通用初始化扩展为待派遣；004～013 为待派遣。状态不构成本会话派遣授权。
+任务卡设计已经用户批准，并按当前 `develop` 校准：001～010 已完成；011～013 待派遣。状态不构成自动派遣授权。
 
 ## TASK-SD-001 创建服务骨架与 SystemData 自身最小引导边界
 
@@ -1715,7 +1714,7 @@ TASK-SD-004 + 010 + 011 + 012
 
 ## TASK-SD-007 实现资源清单、权限协作与导航发布
 
-**状态：** 待派遣
+**状态：** 已完成（实现提交 `1427d18`；验收证据见第 16 节）
 
 **目标：** 实现 ModuleManifest、UiResource、NavigationSet 草稿/验证/不可变快照/回滚和候选导航契约，冻结与 Identity 权限注册的明确边界。
 
@@ -1737,7 +1736,7 @@ TASK-SD-004 + 010 + 011 + 012
 
 ## TASK-SD-008 实现功能开关定义与租户覆盖
 
-**状态：** 待派遣
+**状态：** 已完成（实现提交 `1427d18`；验收证据见第 16 节）
 
 **目标：** 实现模块声明功能、Inherit/Enabled/Disabled 租户覆盖、环境强制关闭、有效快照和版本化契约，不引入用户/角色定向。
 
@@ -1759,7 +1758,7 @@ TASK-SD-004 + 010 + 011 + 012
 
 ## TASK-SD-009 实现服务目录与租户主题策略
 
-**状态：** 待派遣
+**状态：** 已完成（实现提交 `1427d18`；验收证据见第 16 节）
 
 **目标：** 实现安全的 Platform/External 服务目录和 PF-01 可消费的租户主题默认/允许范围，明确目录声明与真实健康状态、租户策略与用户偏好的边界。
 
@@ -1781,7 +1780,7 @@ TASK-SD-004 + 010 + 011 + 012
 
 ## TASK-SD-010 集成缓存、审计、Outbox、对账与 Identity 稳定契约
 
-**状态：** 待派遣
+**状态：** 已完成（实现提交 `1427d18`；验收证据见第 16 节）
 
 **目标：** 将前述领域能力接入版本化 Redis 快照、本地追加审计、Outbox、重试/对账和真实 Identity 用户/权限契约，形成可降级但不越权的后端闭环。
 
@@ -1923,10 +1922,10 @@ TASK-SD-004 + 010 + 011 + 012
 | TASK-SD-004 | 已完成 | Claude Code / PF-02 | `05fe591` | 13 项门禁测试；PostgreSQL 种子账本云端 Docker 3/3 | 已合入 `develop` |
 | TASK-SD-005 | 已完成 | Claude Code / PF-02 | `69c49b7` | 组织、岗位、时间化任职领域、持久化及测试已完成 | 已合入 `develop` |
 | TASK-SD-006 | 已完成 | Claude Code / PF-02 | `1b72c6b` | Debug/Release build 0/0；SystemData 五层 492/492；OpenAPI 17 端点 | 见 `docs/evidence/TASK-SD-006.md` |
-| TASK-SD-007 | 待派遣 | - | - | - | - |
-| TASK-SD-008 | 待派遣 | - | - | - | - |
-| TASK-SD-009 | 待派遣 | - | - | - | - |
-| TASK-SD-010 | 待派遣 | - | - | - | - |
+| TASK-SD-007 | 已完成 | Codex / `SystemData TASK-SD-001 至 010 实施` | `1427d18` | 清单/资源、权限回执、导航草稿/发布/回滚、三终端 runtime 与持久化测试通过 | 前端消费明确归 TASK-SD-011，管理页面归 TASK-SD-012 |
+| TASK-SD-008 | 已完成 | Codex / `SystemData TASK-SD-001 至 010 实施` | `1427d18` | Feature 定义/覆盖/revision、环境强制关闭、runtime/ETag 与审计事件测试通过 | 不含角色/用户定向和前端页面 |
+| TASK-SD-009 | 已完成 | Codex / `SystemData TASK-SD-001 至 010 实施` | `1427d18` | 服务目录 Owner 校验/快照、HTTPS/SSRF、平台字段保护、主题策略与持久化测试通过 | 不含 PlatformHealth 探测和前端页面 |
+| TASK-SD-010 | 已完成 | Codex / `SystemData TASK-SD-001 至 010 实施` | `1427d18` | Release build 0/0；后端常规测试全绿；云 PostgreSQL/Redis/RabbitMQ 3/3；UnifiedHost 云配置启动通过 | SQL 原子审计/Outbox、Redis 降级、Identity 适配/对账、健康与指标已接入 |
 | TASK-SD-011 | 待派遣 | - | - | - | - |
 | TASK-SD-012 | 待派遣 | - | - | - | - |
 | TASK-SD-013 | 待派遣 | - | - | - | - |

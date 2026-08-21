@@ -25,7 +25,8 @@ public sealed class SystemDataServiceInitializer : IServiceInitializer
         try
         {
             var latest = await _dbContext.SqlSugar.Queryable<SchemaMigrationRecord>()
-                .OrderByDescending(record => record.AppliedOn)
+                // 补录旧编号迁移时 AppliedOn 会晚于当前版本，不能用写入时间判断架构版本。
+                .OrderByDescending(record => record.MigrationId)
                 .FirstAsync(cancellationToken);
             return latest is null
                 ? NotReady(context.DesiredVersion, "SystemData 本地迁移账本尚未完成验证。")
