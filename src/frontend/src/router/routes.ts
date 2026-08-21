@@ -19,6 +19,7 @@ import NotFoundPage from '@/pages/public/NotFoundPage.vue'
 import SsoCallbackPage from '@/pages/sso/SsoCallbackPage.vue'
 import SsoLoginPage from '@/pages/sso/SsoLoginPage.vue'
 import PcHomePage from '@/pages/pc/PcHomePage.vue'
+import TerminalPreviewPage from '@/pages/pc/TerminalPreviewPage.vue'
 import IdentityAuditsPage from '@/pages/pc/identity/IdentityAuditsPage.vue'
 import IdentityPermissionsPage from '@/pages/pc/identity/IdentityPermissionsPage.vue'
 import IdentityRolesPage from '@/pages/pc/identity/IdentityRolesPage.vue'
@@ -40,6 +41,7 @@ export const ROUTE_NAMES = {
   ssoCallback: 'sso-callback',
   forbidden: 'forbidden',
   pcHome: 'pc-home',
+  terminalPreview: 'terminal-preview',
   identityUsers: 'identity-users',
   identityUserGroups: 'identity-user-groups',
   identityRoles: 'identity-roles',
@@ -123,6 +125,18 @@ export const routes: RouteRecordRaw[] = [
           permission: PERMISSIONS.platformHomeView,
           terminal: 'pc',
           workspace: 'fixed',
+        },
+      },
+      {
+        path: 'terminal-preview',
+        name: ROUTE_NAMES.terminalPreview,
+        component: TerminalPreviewPage,
+        meta: {
+          title: '终端预览',
+          requiresAuth: true,
+          anyPermissions: [PERMISSIONS.platformPdaView, PERMISSIONS.platformMobileView],
+          terminal: 'pc',
+          workspace: 'none',
         },
       },
       {

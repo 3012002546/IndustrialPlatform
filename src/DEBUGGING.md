@@ -28,6 +28,8 @@ src/backend/appsettings.Development.local.json
 
 使用云端开发基础设施时，确保其中 `RemoteDevelopment.Enabled=true` 且数据库拓扑配置完整。该文件已被 Git 忽略，禁止提交或输出其中的服务器地址、账号、密码和 SSH 信息。
 
+所有 Development 后端 Host 会从各自项目目录向上自动定位这一份统一配置，不依赖 Visual Studio profile、`launchSettings.json` 或当前工作目录。找不到文件或 `RemoteDevelopment.Enabled=false` 时启动会明确失败，不再静默回退本地 SQLite。SQLite 仅供自动化测试显式使用。
+
 ### 0.2 首次初始化 admin
 
 在仓库根目录执行：

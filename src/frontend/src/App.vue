@@ -19,9 +19,18 @@ watch(
     // 登出场景由守卫跳转登录页处理,这里只处理「已登录但权限被收回」。
     if (!authStore.isAuthenticated) return
     const permission = route.meta.permission
+    const anyPermissions = route.meta.anyPermissions as readonly string[] | undefined
     if (
       permission !== undefined &&
       !authStore.hasPermission(permission) &&
+      route.name !== ROUTE_NAMES.forbidden
+    ) {
+      void router.push({ name: ROUTE_NAMES.forbidden })
+      return
+    }
+    if (
+      anyPermissions !== undefined &&
+      !anyPermissions.some((required) => authStore.hasPermission(required)) &&
       route.name !== ROUTE_NAMES.forbidden
     ) {
       void router.push({ name: ROUTE_NAMES.forbidden })

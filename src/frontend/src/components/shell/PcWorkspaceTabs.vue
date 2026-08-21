@@ -6,8 +6,12 @@
  * 组件为展示层:数据来自 WorkspaceTabsStore,动作 emit 给 PcLayout 处理导航。
  */
 
+import { computed, ref } from 'vue'
+import { Search } from '@element-plus/icons-vue'
 import { ElDropdown, ElDropdownItem, ElDropdownMenu } from 'element-plus'
 
+import { pcNavigationGroups } from '@/components/navigation/navigation'
+import { useAuthStore } from '@/stores/authStore'
 import { useWorkspaceTabsStore } from '@/stores/workspaceTabsStore'
 import type { WorkspaceTab } from '@/workspace'
 
@@ -17,9 +21,30 @@ const emit = defineEmits<{
   'close-others': [tabId: string]
   'close-right': [tabId: string]
   reload: [tabId: string]
+  'menu-select': [routeName: string]
 }>()
 
 const tabsStore = useWorkspaceTabsStore()
+const authStore = useAuthStore()
+const selectedMenu = ref('')
+
+const searchableMenus = computed(() =>
+  pcNavigationGroups.flatMap((group) =>
+    group.items
+      .filter((item) => item.permission === undefined || authStore.hasPermission(item.permission))
+      .map((item) => ({
+        label: item.label,
+        groupLabel: group.label,
+        routeName: String(item.routeName),
+      })),
+  ),
+)
+
+function selectMenu(routeName: string): void {
+  if (routeName === '') return
+  emit('menu-select', routeName)
+  selectedMenu.value = ''
+}
 
 function activate(tab: WorkspaceTab): void {
   emit('activate', tab.id)
@@ -38,53 +63,74 @@ function onMenuCommand(tab: WorkspaceTab, command: unknown): void {
 
 <template>
   <nav class="ip-pc-tabs" aria-label="工作台标签" role="tablist">
-    <div
-      v-for="tab in tabsStore.tabs"
-      :key="tab.id"
-      class="ip-pc-tabs__item"
-      :class="{ 'ip-pc-tabs__item--active': tab.id === tabsStore.activeTabId }"
-    >
-      <button
-        type="button"
-        class="ip-pc-tabs__tab"
-        role="tab"
-        :aria-selected="tab.id === tabsStore.activeTabId"
-        :aria-label="tab.title"
-        :title="tab.title"
-        @click="activate(tab)"
+    <template v-for="(tab, index) in tabsStore.tabs" :key="tab.id">
+      <el-select
+        v-if="index === 0"
+        v-model="selectedMenu"
+        class="ip-pc-tabs__menu-search"
+        filterable
+        clearable
+        placeholder="搜索菜单"
+        aria-label="搜索菜单"
+        @change="selectMenu"
       >
-        {{ tab.title }}
-      </button>
+        <template #prefix
+          ><el-icon><Search /></el-icon
+        ></template>
+        <el-option
+          v-for="menu in searchableMenus"
+          :key="menu.routeName"
+          :label="`${menu.groupLabel} / ${menu.label}`"
+          :value="menu.routeName"
+        />
+      </el-select>
 
-      <template v-if="tab.kind === 'business'">
+      <div
+        class="ip-pc-tabs__item"
+        :class="{ 'ip-pc-tabs__item--active': tab.id === tabsStore.activeTabId }"
+      >
         <button
           type="button"
-          class="ip-pc-tabs__close"
-          :aria-label="`关闭 ${tab.title}`"
-          title="关闭"
-          @click="close(tab.id)"
+          class="ip-pc-tabs__tab"
+          role="tab"
+          :aria-selected="tab.id === tabsStore.activeTabId"
+          :aria-label="tab.title"
+          :title="tab.title"
+          @click="activate(tab)"
         >
-          ×
+          {{ tab.title }}
         </button>
-        <ElDropdown trigger="click" @command="(cmd) => onMenuCommand(tab, cmd)">
+
+        <template v-if="tab.kind === 'business'">
           <button
             type="button"
-            class="ip-pc-tabs__more"
-            :aria-label="`${tab.title} 更多操作`"
-            title="更多操作"
+            class="ip-pc-tabs__close"
+            :aria-label="`关闭 ${tab.title}`"
+            title="关闭"
+            @click="close(tab.id)"
           >
-            ⋯
+            ×
           </button>
-          <template #dropdown>
-            <ElDropdownMenu>
-              <ElDropdownItem command="close-others">关闭其他</ElDropdownItem>
-              <ElDropdownItem command="close-right">关闭右侧</ElDropdownItem>
-              <ElDropdownItem command="reload">重新加载</ElDropdownItem>
-            </ElDropdownMenu>
-          </template>
-        </ElDropdown>
-      </template>
-    </div>
+          <ElDropdown trigger="click" @command="(cmd) => onMenuCommand(tab, cmd)">
+            <button
+              type="button"
+              class="ip-pc-tabs__more"
+              :aria-label="`${tab.title} 更多操作`"
+              title="更多操作"
+            >
+              ⋯
+            </button>
+            <template #dropdown>
+              <ElDropdownMenu>
+                <ElDropdownItem command="close-others">关闭其他</ElDropdownItem>
+                <ElDropdownItem command="close-right">关闭右侧</ElDropdownItem>
+                <ElDropdownItem command="reload">重新加载</ElDropdownItem>
+              </ElDropdownMenu>
+            </template>
+          </ElDropdown>
+        </template>
+      </div>
+    </template>
   </nav>
 </template>
 
@@ -118,6 +164,20 @@ function onMenuCommand(tab: WorkspaceTab, command: unknown): void {
   background: var(--ip-color-primary-bg);
   border-color: var(--ip-color-primary);
   color: var(--ip-color-primary);
+}
+
+.ip-pc-tabs__menu-search {
+  flex: 0 0
+    calc(var(--ip-shell-toolrail-width) + var(--ip-shell-functiontree-width) - var(--ip-space-2));
+  width: calc(
+    var(--ip-shell-toolrail-width) + var(--ip-shell-functiontree-width) - var(--ip-space-2)
+  );
+}
+
+.ip-pc-tabs__menu-search :deep(.el-select__wrapper) {
+  min-height: 28px;
+  border-radius: var(--ip-radius-md);
+  box-shadow: 0 0 0 1px var(--ip-color-border) inset;
 }
 
 .ip-pc-tabs__tab {

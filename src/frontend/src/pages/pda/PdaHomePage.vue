@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 
 import AppEmptyState from '@/components/base/AppEmptyState.vue'
 import AppPage from '@/components/base/AppPage.vue'
+import TimeGreetingHeader from '@/components/home/TimeGreetingHeader.vue'
 import { loadRuntimeConfig } from '@/config/runtimeConfig'
 import { resolveActiveTerminal, type TerminalType } from '@/device'
 import { useAuthStore } from '@/stores/authStore'
@@ -30,8 +31,12 @@ const authModeLabel = computed(() => (authMode === 'mock' ? 'Mock(演示数据)'
 </script>
 
 <template>
-  <AppPage title="首页" description="PDA 现场工作台">
-    <p class="pda-home__welcome" data-testid="welcome">欢迎,{{ displayName }}</p>
+  <AppPage>
+    <TimeGreetingHeader
+      terminal="pda"
+      :display-name="displayName"
+      description="现场工作台状态与可用功能"
+    />
 
     <dl class="pda-home__meta">
       <div class="pda-home__meta-item">
@@ -56,13 +61,6 @@ const authModeLabel = computed(() => (authMode === 'mock' ? 'Mock(演示数据)'
 </template>
 
 <style scoped>
-.pda-home__welcome {
-  margin: 0;
-  font-size: var(--ip-font-size-lg);
-  font-weight: 500;
-  color: var(--ip-color-text-primary);
-}
-
 .pda-home__meta {
   display: flex;
   flex-wrap: wrap;

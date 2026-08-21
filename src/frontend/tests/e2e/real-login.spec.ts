@@ -150,8 +150,8 @@ test('真实权限驱动 Router Guard:管理员直达管理页,受限用户菜�
   await login(page, E2E_ADMIN)
   // 管理员:系统管理分组功能树列出管理项
   await page.getByRole('button', { name: '系统管理' }).click()
-  await expect(page.getByRole('link', { name: '用户管理' })).toBeVisible()
-  await expect(page.getByRole('link', { name: '角色权限' })).toBeVisible()
+  await expect(page.getByRole('link', { name: '用户管理', exact: true })).toBeVisible()
+  await expect(page.getByRole('link', { name: '角色权限', exact: true })).toBeVisible()
 
   // 直达管理页:真实数据渲染
   await page.goto('/pc/identity/users')

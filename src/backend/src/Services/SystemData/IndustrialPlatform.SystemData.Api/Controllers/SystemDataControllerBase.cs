@@ -54,4 +54,12 @@ public abstract class SystemDataControllerBase : ControllerBase
     /// <summary>异步入队结果信封(202 Accepted):ResultFilter 对 200-399 自动包 ApiResult,显式包装保持统一形状。</summary>
     protected static ObjectResult AcceptedEnvelope<T>(T value) =>
         new(ApiResult.Ok(value)) { StatusCode = StatusCodes.Status202Accepted };
+
+    protected bool IsNotModified(long revision)
+    {
+        var etag = $"\"{revision.ToString(System.Globalization.CultureInfo.InvariantCulture)}\"";
+        Response.Headers.ETag = etag;
+        var ifNoneMatch = Request.Headers.IfNoneMatch.ToString();
+        return ifNoneMatch.Split(',', StringSplitOptions.RemoveEmptyEntries).Any(candidate => candidate.Trim() == etag || candidate.Trim() == "*");
+    }
 }

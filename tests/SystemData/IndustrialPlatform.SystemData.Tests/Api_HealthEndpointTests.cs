@@ -56,6 +56,8 @@ public sealed class HealthEndpointTests : IClassFixture<WebApplicationFactory<Pr
 
         Assert.Contains("postgres", checkNames);
         Assert.Contains("redis", checkNames);
+        Assert.Contains("rabbitmq", checkNames);
+        Assert.Contains("outbox", checkNames);
         Assert.Contains("seq", checkNames);
 
         var body = await response.Content.ReadAsStringAsync();

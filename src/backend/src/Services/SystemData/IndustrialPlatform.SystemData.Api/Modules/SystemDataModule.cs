@@ -38,6 +38,7 @@ public static class SystemDataModule
         ArgumentNullException.ThrowIfNull(configuration);
 
         services.AddSystemDataInfrastructure(configuration, includeStartupMigrationService);
+        services.AddEventBus(configuration);
         services.AddSystemDataApplication(configuration);
         services.AddSystemDataAuthorization();
         services.AddCurrentUser();
@@ -56,6 +57,8 @@ public static class SystemDataModule
         return builder
             .AddCheck<PostgresHealthCheck>(Name(namePrefix, "postgres"), timeout: TimeSpan.FromSeconds(3))
             .AddCheck<RedisHealthCheck>(Name(namePrefix, "redis"), timeout: TimeSpan.FromSeconds(3))
+            .AddCheck<RabbitMqHealthCheck>(Name(namePrefix, "rabbitmq"), timeout: TimeSpan.FromSeconds(3))
+            .AddCheck<OutboxHealthCheck>(Name(namePrefix, "outbox"), timeout: TimeSpan.FromSeconds(3))
             .AddCheck<SeqHealthCheck>(Name(namePrefix, "seq"), timeout: TimeSpan.FromSeconds(3));
     }
 

@@ -65,6 +65,7 @@ defineSlots<{
   flex: 0 0 auto;
   align-items: center;
   gap: var(--ip-space-2);
+  margin-left: auto;
 }
 
 .ip-topbar__user {

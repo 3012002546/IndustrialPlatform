@@ -34,8 +34,161 @@ public static class SystemDataSchemaMigrations
             SystemDataMigrationHelpers.CreateTableStep("SDM-004-03", "system_data_organization", OrganizationDdl),
             SystemDataMigrationHelpers.CreateTableStep("SDM-005-01", "system_data_position", PositionDdl),
             SystemDataMigrationHelpers.CreateTableStep("SDM-006-01", "system_data_user_assignment", UserAssignmentDdl),
+            SystemDataMigrationHelpers.CreateTableStep("SDM-007-01", "system_data_module_manifest", ModuleManifestDdl),
+            SystemDataMigrationHelpers.CreateTableStep("SDM-007-02", "system_data_ui_resource", UiResourceDdl),
+            SystemDataMigrationHelpers.CreateRawStep("SDM-007-03", "system_data_module_manifest permission declarations", ModuleManifestPermissionDeclarationsDdl),
+            SystemDataMigrationHelpers.CreateRawStep("SDM-007-04", "system_data_module_manifest resource declarations", ModuleManifestResourceDeclarationsDdl),
+            SystemDataMigrationHelpers.CreateRawStep("SDM-007-05", "system_data_module_manifest feature declarations", ModuleManifestFeatureDeclarationsDdl),
+            SystemDataMigrationHelpers.CreateTableStep("SDM-008-01", "system_data_navigation_set", NavigationSetDdl),
+            SystemDataMigrationHelpers.CreateTableStep("SDM-008-02", "system_data_navigation", NavigationDdl),
+            SystemDataMigrationHelpers.CreateTableStep("SDM-008-03", "system_data_navigation_snapshot", NavigationSnapshotDdl),
+            SystemDataMigrationHelpers.CreateTableStep("SDM-009-01", "system_data_feature", FeatureDdl),
+            SystemDataMigrationHelpers.CreateTableStep("SDM-009-02", "system_data_feature_override", FeatureOverrideDdl),
+            SystemDataMigrationHelpers.CreateTableStep("SDM-010-01", "system_data_service_catalog", ServiceCatalogDdl),
+            SystemDataMigrationHelpers.CreateRawStep("SDM-010-02", "system_data_service_catalog owner snapshots", ServiceCatalogOwnerSnapshotsDdl),
+            SystemDataMigrationHelpers.CreateTableStep("SDM-011-01", "system_data_theme_policy", ThemePolicyDdl),
+            SystemDataMigrationHelpers.CreateTableStep("SDM-012-01", "system_data_projection_revision", ProjectionRevisionDdl),
+            SystemDataMigrationHelpers.CreateRawStep("SDM-012-05", "system_data_projection_revision tenant area unique index", ProjectionRevisionUniqueIndexDdl),
+            SystemDataMigrationHelpers.CreateRawStep("SDM-012-06", "SystemData PostgreSQL control-plane native types", PostgreSqlControlPlaneNativeTypesDdl),
+            SystemDataMigrationHelpers.CreateTableStep("SDM-012-02", "system_data_operation_audit", AuditDdl),
+            SystemDataMigrationHelpers.CreateTableStep("SDM-012-03", "system_data_outbox", OutboxDdl),
+            SystemDataMigrationHelpers.CreateRawStep("SDM-012-04", "system_data_outbox retry backoff", OutboxBackoffDdl),
+            SystemDataMigrationHelpers.CreateTableStep("SDM-013-01", "system_data_seed_ledger", SeedLedgerDdl),
+            SystemDataMigrationHelpers.CreateRawStep("SDM-013-02", "SystemData permission/resource/navigation baseline seed", BaselineSeedDdl),
+            SystemDataMigrationHelpers.CreateRawStep("SDM-014-01", "SystemData feature baseline seed", BaselineSeedNoopDdl),
+            SystemDataMigrationHelpers.CreateRawStep("SDM-015-01", "SystemData service catalog baseline seed", BaselineSeedNoopDdl),
+            SystemDataMigrationHelpers.CreateRawStep("SDM-016-01", "SystemData theme policy baseline seed", BaselineSeedNoopDdl),
         ];
     }
+
+    private static string ControlPlaneTable(DbType dbType, string tableName, string fields)
+    {
+        var (g, t, b, big, _) = SystemDataMigrationHelpers.TypeWords(dbType);
+        return $"""
+            CREATE TABLE IF NOT EXISTS {tableName} (
+            {SystemDataMigrationHelpers.CommonColumns(g, t, b, big)},
+            tenant_n_id TEXT NOT NULL,
+            {fields}
+            );
+            """;
+    }
+
+    private static string ModuleManifestDdl(DbType dbType)
+    {
+        var (_, t, _, _, _) = SystemDataMigrationHelpers.TypeWords(dbType);
+        return ControlPlaneTable(dbType, "system_data_module_manifest", $"module_n_id TEXT NOT NULL, manifest_version TEXT NOT NULL, checksum TEXT NOT NULL, permission_n_ids_json TEXT NOT NULL, permission_receipt_version TEXT NULL, permission_receipt_checksum TEXT NULL, permission_verified_on {t} NULL");
+    }
+
+    private static string ModuleManifestPermissionDeclarationsDdl(DbType dbType) => dbType == DbType.PostgreSQL
+        ? "ALTER TABLE system_data_module_manifest ADD COLUMN IF NOT EXISTS permission_manifest_json TEXT NOT NULL DEFAULT '[]';"
+        : "ALTER TABLE system_data_module_manifest ADD COLUMN permission_manifest_json TEXT NOT NULL DEFAULT '[]';";
+    private static string ModuleManifestResourceDeclarationsDdl(DbType dbType) => dbType == DbType.PostgreSQL
+        ? "ALTER TABLE system_data_module_manifest ADD COLUMN IF NOT EXISTS resource_manifest_json TEXT NOT NULL DEFAULT '[]';"
+        : "ALTER TABLE system_data_module_manifest ADD COLUMN resource_manifest_json TEXT NOT NULL DEFAULT '[]';";
+    private static string ModuleManifestFeatureDeclarationsDdl(DbType dbType) => dbType == DbType.PostgreSQL
+        ? "ALTER TABLE system_data_module_manifest ADD COLUMN IF NOT EXISTS feature_manifest_json TEXT NOT NULL DEFAULT '[]';"
+        : "ALTER TABLE system_data_module_manifest ADD COLUMN feature_manifest_json TEXT NOT NULL DEFAULT '[]';";
+    private static string UiResourceDdl(DbType dbType) => ControlPlaneTable(dbType, "system_data_ui_resource", "resource_n_id TEXT NOT NULL, owner_module_n_id TEXT NOT NULL, manifest_version TEXT NOT NULL, resource_type TEXT NOT NULL, name TEXT NOT NULL, route_name TEXT NULL, required_permission_n_id TEXT NULL, supported_terminals_json TEXT NOT NULL, status TEXT NOT NULL");
+    private static string NavigationSetDdl(DbType dbType)
+    {
+        var (_, _, _, big, _) = SystemDataMigrationHelpers.TypeWords(dbType);
+        return ControlPlaneTable(dbType, "system_data_navigation_set", $"navigation_set_n_id TEXT NOT NULL, draft_revision {big} NOT NULL, active_snapshot_revision {big} NULL, previous_snapshot_revision {big} NULL");
+    }
+    private static string NavigationDdl(DbType dbType) => ControlPlaneTable(dbType, "system_data_navigation", "node_n_id TEXT NOT NULL, navigation_set_n_id TEXT NOT NULL, parent_node_n_id TEXT NULL, kind TEXT NOT NULL, label TEXT NOT NULL, icon_key TEXT NULL, resource_n_id TEXT NULL, feature_n_id TEXT NULL, display_order INTEGER NOT NULL, visible_terminals_json TEXT NOT NULL, status TEXT NOT NULL");
+    private static string NavigationSnapshotDdl(DbType dbType)
+    {
+        var (_, t, _, big, _) = SystemDataMigrationHelpers.TypeWords(dbType);
+        return ControlPlaneTable(dbType, "system_data_navigation_snapshot", $"snapshot_revision {big} NOT NULL, published_on {t} NOT NULL, checksum TEXT NOT NULL, nodes_json TEXT NOT NULL");
+    }
+    private static string FeatureDdl(DbType dbType)
+    {
+        var (_, _, b, big, _) = SystemDataMigrationHelpers.TypeWords(dbType);
+        return ControlPlaneTable(dbType, "system_data_feature", $"feature_n_id TEXT NOT NULL, owner_module_n_id TEXT NOT NULL, name TEXT NOT NULL, description TEXT NULL, default_enabled {b} NOT NULL, status TEXT NOT NULL, feature_revision {big} NOT NULL");
+    }
+    private static string FeatureOverrideDdl(DbType dbType) => ControlPlaneTable(dbType, "system_data_feature_override", "feature_n_id TEXT NOT NULL, mode TEXT NOT NULL, reason TEXT NULL");
+    private static string ServiceCatalogDdl(DbType dbType) => ControlPlaneTable(dbType, "system_data_service_catalog", "service_n_id TEXT NOT NULL, kind TEXT NOT NULL, name TEXT NOT NULL, description TEXT NULL, entry_point TEXT NOT NULL, gateway_path_prefix TEXT NULL, health_path TEXT NULL, supported_terminals_json TEXT NOT NULL, status TEXT NOT NULL, source TEXT NOT NULL");
+    private static string ServiceCatalogOwnerSnapshotsDdl(DbType dbType) => dbType == DbType.PostgreSQL
+        ? """
+          ALTER TABLE system_data_service_catalog ADD COLUMN IF NOT EXISTS owner_organization_n_id TEXT NULL;
+          ALTER TABLE system_data_service_catalog ADD COLUMN IF NOT EXISTS owner_organization_name_snapshot TEXT NULL;
+          ALTER TABLE system_data_service_catalog ADD COLUMN IF NOT EXISTS owner_display_snapshot TEXT NULL;
+          ALTER TABLE system_data_service_catalog ADD COLUMN IF NOT EXISTS technical_lead_user_n_id TEXT NULL;
+          ALTER TABLE system_data_service_catalog ADD COLUMN IF NOT EXISTS technical_owner_user_n_id TEXT NULL;
+          ALTER TABLE system_data_service_catalog ADD COLUMN IF NOT EXISTS technical_owner_auth_version TEXT NULL;
+          ALTER TABLE system_data_service_catalog ADD COLUMN IF NOT EXISTS technical_lead_display_name_snapshot TEXT NULL;
+          """
+        : """
+          ALTER TABLE system_data_service_catalog ADD COLUMN owner_organization_n_id TEXT NULL;
+          ALTER TABLE system_data_service_catalog ADD COLUMN owner_organization_name_snapshot TEXT NULL;
+          ALTER TABLE system_data_service_catalog ADD COLUMN owner_display_snapshot TEXT NULL;
+          ALTER TABLE system_data_service_catalog ADD COLUMN technical_lead_user_n_id TEXT NULL;
+          ALTER TABLE system_data_service_catalog ADD COLUMN technical_owner_user_n_id TEXT NULL;
+          ALTER TABLE system_data_service_catalog ADD COLUMN technical_owner_auth_version TEXT NULL;
+          ALTER TABLE system_data_service_catalog ADD COLUMN technical_lead_display_name_snapshot TEXT NULL;
+          """;
+    private static string ThemePolicyDdl(DbType dbType)
+    {
+        var (_, _, _, big, _) = SystemDataMigrationHelpers.TypeWords(dbType);
+        return ControlPlaneTable(dbType, "system_data_theme_policy", $"policy_n_id TEXT NOT NULL, allowed_palettes_json TEXT NOT NULL, allowed_modes_json TEXT NOT NULL, allowed_pc_densities_json TEXT NOT NULL, default_palette TEXT NOT NULL, default_mode TEXT NOT NULL, default_pc_density TEXT NOT NULL, policy_revision {big} NOT NULL");
+    }
+    private static string ProjectionRevisionDdl(DbType dbType)
+    {
+        var (_, t, _, big, _) = SystemDataMigrationHelpers.TypeWords(dbType);
+        return ControlPlaneTable(dbType, "system_data_projection_revision", $"area TEXT NOT NULL, revision {big} NOT NULL, generated_on {t} NOT NULL");
+    }
+    private static string ProjectionRevisionUniqueIndexDdl(DbType _) => "CREATE UNIQUE INDEX IF NOT EXISTS ux_system_data_projection_revision_tenant_area ON system_data_projection_revision (tenant_n_id, area);";
+    private static string AuditDdl(DbType dbType) => ControlPlaneTable(dbType, "system_data_operation_audit", "actor_user_n_id TEXT NOT NULL, action TEXT NOT NULL, object_type TEXT NOT NULL, object_n_id TEXT NOT NULL, reason TEXT NULL, before_summary TEXT NULL, after_summary TEXT NULL, trace_id TEXT NOT NULL");
+    private static string OutboxDdl(DbType dbType)
+    {
+        var (g, t, _, _, _) = SystemDataMigrationHelpers.TypeWords(dbType);
+        return $"""
+        CREATE TABLE IF NOT EXISTS system_data_outbox (
+        event_id {g} PRIMARY KEY NOT NULL,
+        event_type TEXT NOT NULL,
+        event_version TEXT NOT NULL,
+        tenant_n_id TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        event_created_time {t} NOT NULL,
+        published_on {t} NULL,
+        retry_count INTEGER NOT NULL,
+        last_error TEXT NULL,
+        dead_on {t} NULL
+        );
+        CREATE INDEX IF NOT EXISTS ix_system_data_outbox_pending ON system_data_outbox (published_on, event_created_time);
+        """;
+    }
+
+    private static string SeedLedgerDdl(DbType dbType)
+    {
+        var (_, t, _, _, _) = SystemDataMigrationHelpers.TypeWords(dbType);
+        return ControlPlaneTable(dbType, "system_data_seed_ledger", $"seed_key TEXT NOT NULL, seed_version TEXT NOT NULL, checksum TEXT NOT NULL, applied_on {t} NOT NULL");
+    }
+
+    private static string OutboxBackoffDdl(DbType dbType)
+    {
+        var (_, t, _, _, _) = SystemDataMigrationHelpers.TypeWords(dbType);
+        return dbType == DbType.PostgreSQL
+            ? "ALTER TABLE system_data_outbox ADD COLUMN IF NOT EXISTS next_attempt_on " + t + " NULL;"
+            : "ALTER TABLE system_data_outbox ADD COLUMN next_attempt_on " + t + " NULL;";
+    }
+
+    private static string PostgreSqlControlPlaneNativeTypesDdl(DbType dbType) => dbType == DbType.PostgreSQL
+        ? """
+          ALTER TABLE system_data_module_manifest ALTER COLUMN permission_verified_on TYPE TIMESTAMPTZ USING NULLIF(permission_verified_on::text, '')::TIMESTAMPTZ;
+          ALTER TABLE system_data_navigation_snapshot ALTER COLUMN published_on TYPE TIMESTAMPTZ USING published_on::text::TIMESTAMPTZ;
+          ALTER TABLE system_data_projection_revision ALTER COLUMN generated_on TYPE TIMESTAMPTZ USING generated_on::text::TIMESTAMPTZ;
+          ALTER TABLE system_data_outbox ALTER COLUMN event_id TYPE uuid USING event_id::text::uuid;
+          ALTER TABLE system_data_outbox ALTER COLUMN event_created_time TYPE TIMESTAMPTZ USING event_created_time::text::TIMESTAMPTZ;
+          ALTER TABLE system_data_outbox ALTER COLUMN published_on TYPE TIMESTAMPTZ USING NULLIF(published_on::text, '')::TIMESTAMPTZ;
+          ALTER TABLE system_data_outbox ALTER COLUMN next_attempt_on TYPE TIMESTAMPTZ USING NULLIF(next_attempt_on::text, '')::TIMESTAMPTZ;
+          ALTER TABLE system_data_outbox ALTER COLUMN dead_on TYPE TIMESTAMPTZ USING NULLIF(dead_on::text, '')::TIMESTAMPTZ;
+          ALTER TABLE IF EXISTS system_data_seed_ledger ALTER COLUMN applied_on TYPE TIMESTAMPTZ USING applied_on::text::TIMESTAMPTZ;
+          """
+        : "SELECT 1;";
+
+    private static string BaselineSeedDdl(DbType dbType) => "SELECT 1;";
+
+    private static string BaselineSeedNoopDdl(DbType dbType) => "SELECT 1;";
 
     private static string EnvironmentPolicyDdl(DbType dbType)
     {

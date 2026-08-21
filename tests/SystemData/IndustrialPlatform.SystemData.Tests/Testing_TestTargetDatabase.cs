@@ -30,6 +30,7 @@ public sealed class TestTargetDatabase : IDisposable
     {
         DataSource = _filePath,
         Mode = SqliteOpenMode.ReadWriteCreate,
+        Pooling = false,
     }.ToString();
 
     /// <summary>临时物理库文件路径(供 Runner 注册/拓扑映射与锁键断言)。</summary>
@@ -213,7 +214,6 @@ public sealed class TestTargetDatabase : IDisposable
     /// <inheritdoc />
     public void Dispose()
     {
-        SqliteConnection.ClearAllPools();
         try
         {
             if (File.Exists(_filePath))

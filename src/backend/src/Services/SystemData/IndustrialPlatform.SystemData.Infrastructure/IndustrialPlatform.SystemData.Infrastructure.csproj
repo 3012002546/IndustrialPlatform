@@ -12,6 +12,7 @@
     <ProjectReference Include="..\..\..\BuildingBlocks\IndustrialPlatform.Infrastructure\IndustrialPlatform.Infrastructure.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\IndustrialPlatform.Logging\IndustrialPlatform.Logging.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\IndustrialPlatform.Security\IndustrialPlatform.Security.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\IndustrialPlatform.EventBus\IndustrialPlatform.EventBus.csproj" />
   </ItemGroup>
 
 </Project>

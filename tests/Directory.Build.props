@@ -1,0 +1,8 @@
+<Project>
+  <Import Project="$(MSBuildThisFileDirectory)..\Directory.Build.props" />
+
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)TestDevelopmentInfrastructureMode.cs"
+             Link="TestDevelopmentInfrastructureMode.cs" />
+  </ItemGroup>
+</Project>

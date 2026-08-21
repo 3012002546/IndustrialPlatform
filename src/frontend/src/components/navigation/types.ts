@@ -17,8 +17,12 @@ export interface NavigationItem {
   icon?: Component
   /** 权限点:仅当当前会话持有该权限时渲染;未声明视为公开。 */
   permission?: string
+  /** 任一权限满足即可渲染,用于跨 PDA/Mobile 能力入口。 */
+  anyPermissions?: readonly string[]
   /** 子菜单(可选;第一批无子菜单)。 */
   children?: NavigationItem[]
+  /** 菜单需要携带的显式查询参数,用于正式终端预览等场景。 */
+  routeQuery?: Readonly<Record<string, string>>
 }
 
 /** 一级平台分组:工具轨渲染分组,功能树渲染当前组的授权 items。 */

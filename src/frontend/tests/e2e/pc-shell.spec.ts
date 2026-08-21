@@ -62,6 +62,8 @@ test('功能树收起/展开:列表隐藏且 aria-expanded 翻转', async ({ pag
   await expect(toggle).toHaveAttribute('aria-expanded', 'true')
   await toggle.click()
   await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  await expect(toggle).toBeVisible()
+  await expect(page.locator('nav.ip-function-tree')).toHaveCSS('width', '40px')
   await expect(page.locator('#ip-function-tree-list')).toBeHidden()
   await toggle.click()
   await expect(toggle).toHaveAttribute('aria-expanded', 'true')

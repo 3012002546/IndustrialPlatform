@@ -73,6 +73,13 @@ export function installRouterGuards(router: Router): void {
     if (permission !== undefined && !authStore.hasPermission(permission)) {
       return { name: ROUTE_NAMES.forbidden }
     }
+    const anyPermissions = to.meta.anyPermissions as readonly string[] | undefined
+    if (
+      anyPermissions !== undefined &&
+      !anyPermissions.some((required) => authStore.hasPermission(required))
+    ) {
+      return { name: ROUTE_NAMES.forbidden }
+    }
 
     // 3.5 工作区标签治理(§7.9):PC 工作区路由在确认前登记/激活;已达上限阻断导航。
     // 恢复时只保留 Router 存在、workspace business 且用户仍有权限的路由;非法/未授权项丢弃。

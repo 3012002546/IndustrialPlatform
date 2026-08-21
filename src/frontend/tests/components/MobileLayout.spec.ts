@@ -140,4 +140,10 @@ describe('MobileLayout', () => {
     expect(wrapper.get('[data-testid="terminal-info"]').text()).toContain('Mobile')
     expect(wrapper.text()).toContain('Mock')
   })
+
+  it('真实 Mobile 布局独立运行且不渲染 PC 预览横幅', async () => {
+    const { wrapper } = await mountLayout()
+    expect(wrapper.find('[data-testid="terminal-preview"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="terminal-info"]').text()).toContain('Mobile')
+  })
 })

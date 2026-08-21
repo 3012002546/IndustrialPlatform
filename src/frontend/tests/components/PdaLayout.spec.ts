@@ -100,6 +100,12 @@ describe('PdaLayout', () => {
     expect(wrapper.text()).toContain('Mock')
   })
 
+  it('真实 PDA 布局独立运行且不渲染 PC 预览横幅', async () => {
+    const { wrapper } = await mountLayout()
+    expect(wrapper.find('[data-testid="terminal-preview"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="terminal-info"]').text()).toContain('PDA')
+  })
+
   it('返回按钮:无历史记录时回落 PDA 首页(不误退出应用)', async () => {
     // memory history 的 state 恒无 back 字段 → canGoBack()=false,回落首页
     const { wrapper, router } = await mountLayout()

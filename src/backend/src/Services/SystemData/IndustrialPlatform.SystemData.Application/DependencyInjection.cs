@@ -5,8 +5,11 @@ using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Options;
 using IndustrialPlatform.SystemData.Application.IdentityDirectory;
 using IndustrialPlatform.SystemData.Application.Organizations;
 using IndustrialPlatform.SystemData.Application.Positions;
+using IndustrialPlatform.SystemData.Application.ControlPlane;
+using IndustrialPlatform.SystemData.Application.Reliability;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace IndustrialPlatform.SystemData.Application;
 
@@ -29,6 +32,8 @@ public static class DependencyInjection
 
         services.AddOptions<DatabaseOrchestrationOptions>()
             .Bind(configuration.GetSection(DatabaseOrchestrationOptions.SectionName));
+        services.AddOptions<ControlPlaneOptions>()
+            .Bind(configuration.GetSection(ControlPlaneOptions.SectionName));
 
         services.AddSingleton<IRegistrationService, DatabaseRegistrationService>();
         services.AddSingleton<IPlanService, DatabasePlanService>();
@@ -38,11 +43,18 @@ public static class DependencyInjection
 
         // TASK-SD-006:组织/岗位/任职管理用例与审计/目录端口。
         services.AddSingleton(TimeProvider.System);
-        services.AddSingleton<ILocalAuditCommand, NoopLocalAuditCommand>();
-        services.AddSingleton<IIdentityUserDirectory, UnavailableIdentityUserDirectory>();
+        services.TryAddSingleton<ILocalAuditCommand, NoopLocalAuditCommand>();
+        services.TryAddSingleton<IIdentityUserDirectory, UnavailableIdentityUserDirectory>();
         services.AddSingleton<IAdministrativeOrganizationService, AdministrativeOrganizationService>();
         services.AddSingleton<IPositionService, PositionService>();
         services.AddSingleton<IUserAssignmentService, UserAssignmentService>();
+        services.AddSingleton<IResourceNavigationService, ResourceNavigationService>();
+        services.AddSingleton<IFeatureControlService, FeatureControlService>();
+        services.AddSingleton<IServiceCatalogControlService, ServiceCatalogControlService>();
+        services.AddSingleton<IThemePolicyControlService, ThemePolicyControlService>();
+        services.AddSingleton<RuntimeSnapshotLoader>();
+        services.TryAddSingleton<IControlPlaneOutbox, InMemoryControlPlaneOutbox>();
+        // 生产适配器由 Infrastructure 注册；UnavailableIdentityPermissionRegistry 只保留给显式测试替身。
 
         return services;
     }

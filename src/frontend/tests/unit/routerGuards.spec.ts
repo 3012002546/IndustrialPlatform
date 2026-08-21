@@ -172,6 +172,23 @@ describe('路由守卫 — 权限', () => {
     expect(router.currentRoute.value.name).toBe('pc-home')
   })
 
+  it('持有 PDA 或 Mobile 权限之一可进入终端预览工作区', async () => {
+    stubViewport(1280)
+    await login(['platform.mobile.view'])
+    const router = buildRouter()
+    await router.push('/pc/terminal-preview')
+    expect(router.currentRoute.value.name).toBe('terminal-preview')
+    expect(localStorage.getItem('industrial-platform.terminal.override.v1')).toBeNull()
+  })
+
+  it('不持有 PDA/Mobile 权限不能进入终端预览工作区', async () => {
+    stubViewport(1280)
+    await login(['platform.home.view'])
+    const router = buildRouter()
+    await router.push('/pc/terminal-preview')
+    expect(router.currentRoute.value.name).toBe('forbidden')
+  })
+
   it('无 identity.user.view 直达用户管理路由 → 403(菜单隐藏不替代守卫)', async () => {
     stubViewport(1280)
     await login([PERMISSIONS.platformHomeView])

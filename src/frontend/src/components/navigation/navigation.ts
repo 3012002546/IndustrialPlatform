@@ -37,6 +37,13 @@ export const pcNavigationGroups: readonly NavigationGroup[] = [
         icon: House,
         permission: PERMISSIONS.platformHomeView,
       },
+      {
+        id: 'terminal-preview',
+        label: '终端预览',
+        routeName: 'terminal-preview',
+        icon: Monitor,
+        anyPermissions: [PERMISSIONS.platformPdaView, PERMISSIONS.platformMobileView],
+      },
     ],
   },
   {

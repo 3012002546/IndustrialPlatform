@@ -53,6 +53,18 @@ public static class SystemDataPermissionPolicies
     /// <summary>管理用户任职(创建/改区间/结束/取消/主任职切换)。</summary>
     public const string AssignmentManage = Prefix + "systemdata.assignment.manage";
 
+    public const string ResourceView = Prefix + "systemdata.resource.view";
+    public const string NavigationView = Prefix + "systemdata.navigation.view";
+    public const string NavigationManage = Prefix + "systemdata.navigation.manage";
+    public const string NavigationPublish = Prefix + "systemdata.navigation.publish";
+    public const string NavigationRollback = Prefix + "systemdata.navigation.rollback";
+    public const string FeatureView = Prefix + "systemdata.feature.view";
+    public const string FeatureManage = Prefix + "systemdata.feature.manage";
+    public const string ServiceCatalogView = Prefix + "systemdata.service-catalog.view";
+    public const string ServiceCatalogManage = Prefix + "systemdata.service-catalog.manage";
+    public const string ThemePolicyView = Prefix + "systemdata.theme-policy.view";
+    public const string ThemePolicyManage = Prefix + "systemdata.theme-policy.manage";
+
     // ===== 数据库编排 v1(migration-only 兼容期,§9.2/§9.6) =====
 
     /// <summary>查看注册/计划/操作。</summary>
@@ -113,6 +125,17 @@ public static class SystemDataPermissionPolicies
         "systemdata.position.status",
         "systemdata.assignment.view",
         "systemdata.assignment.manage",
+        "systemdata.resource.view",
+        "systemdata.navigation.view",
+        "systemdata.navigation.manage",
+        "systemdata.navigation.publish",
+        "systemdata.navigation.rollback",
+        "systemdata.feature.view",
+        "systemdata.feature.manage",
+        "systemdata.service-catalog.view",
+        "systemdata.service-catalog.manage",
+        "systemdata.theme-policy.view",
+        "systemdata.theme-policy.manage",
         "systemdata.database-orchestration.view",
         "systemdata.database-orchestration.register",
         "systemdata.database-orchestration.plan",

@@ -41,6 +41,15 @@ test('空提交显示必填错误', async ({ page }) => {
   await expect(page.getByText('请输入密码')).toBeVisible()
 })
 
+test('登录页在目标视口不产生纵向页面滚动', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 })
+  await page.goto('/login')
+
+  expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBe(
+    await page.evaluate(() => window.innerHeight),
+  )
+})
+
 test('错误账号显示统一错误', async ({ page }) => {
   await page.goto('/login')
   await page.getByLabel('用户名').fill('wrong.user')

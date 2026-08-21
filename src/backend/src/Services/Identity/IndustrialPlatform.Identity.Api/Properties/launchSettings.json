@@ -7,8 +7,7 @@
       "launchBrowser": false,
       "applicationUrl": "http://localhost:5041",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development",
-        "IndustrialPlatform__LocalConfigurationPath": "../../../../appsettings.Development.local.json"
+        "ASPNETCORE_ENVIRONMENT": "Development"
       }
     }
   }

@@ -1,16 +1,21 @@
 using IndustrialPlatform.Application.Abstractions.Initialization;
 using IndustrialPlatform.SystemData.Application.Assignments;
+using IndustrialPlatform.SystemData.Application.ControlPlane;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Initialization;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Runner;
 using IndustrialPlatform.SystemData.Application.Organizations;
 using IndustrialPlatform.SystemData.Application.Positions;
+using IndustrialPlatform.SystemData.Application.Reliability;
 using IndustrialPlatform.SystemData.Infrastructure.DatabaseOrchestration;
 using IndustrialPlatform.SystemData.Infrastructure.DatabaseOrchestration.Initialization;
 using IndustrialPlatform.SystemData.Infrastructure.DatabaseOrchestration.Runner;
 using IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations;
 using IndustrialPlatform.SystemData.Infrastructure.Persistence.SystemData;
 using IndustrialPlatform.SystemData.Infrastructure.Topology;
+using IndustrialPlatform.SystemData.Infrastructure.Reliability;
+using IndustrialPlatform.SystemData.Infrastructure.Identity;
+using IndustrialPlatform.SystemData.Application.Auditing;
 using IndustrialPlatform.SharedKernel.Topology;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -43,6 +48,20 @@ public static class DependencyInjection
 
         services.AddSqlSugar(configuration);
         services.AddRedis(configuration);
+        services.AddSingleton<IControlPlaneCacheBackend, RedisControlPlaneCacheBackend>();
+        services.AddSingleton<IControlPlaneDistributedLock, ControlPlaneDistributedLock>();
+        services.AddSingleton<IControlPlaneSnapshotCache, ControlPlaneSnapshotCache>();
+        services.AddSingleton<IControlPlaneStore, SqlControlPlaneStore>();
+        services.AddSingleton<IControlPlaneTenantSource>(sp => (SqlControlPlaneStore)sp.GetRequiredService<IControlPlaneStore>());
+        services.AddHttpClient("SystemData.Identity", client => client.Timeout = TimeSpan.FromSeconds(5));
+        services.AddSingleton<HttpIdentityDirectoryClient>();
+        services.AddSingleton<IIdentityPermissionRegistry>(sp => sp.GetRequiredService<HttpIdentityDirectoryClient>());
+        services.AddSingleton<IndustrialPlatform.SystemData.Application.IdentityDirectory.IIdentityUserDirectory>(sp => sp.GetRequiredService<HttpIdentityDirectoryClient>());
+        services.AddHostedService<ControlPlaneOutboxDispatcher>();
+        services.AddHostedService<ControlPlaneReconciliationHostedService>();
+        services.AddHostedService<SystemDataBaselineSeedRunner>();
+        services.AddSingleton<IControlPlaneOutbox, SqlControlPlaneOutbox>();
+        services.AddSingleton<ILocalAuditCommand, SqlLocalAuditCommand>();
 
         // 受信任环境的数据库拓扑选项(05 方案 §2.3/§7.1),供拓扑解析与编排使用。
         services.AddOptions<DatabaseTopologyOptions>()

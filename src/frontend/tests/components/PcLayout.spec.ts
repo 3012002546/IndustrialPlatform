@@ -28,6 +28,8 @@ const LEGACY_COLLAPSED_KEY = 'industrial-platform.pc.sidebar.collapsed.v1'
 
 const ALL_PC_PERMISSIONS = [
   PERMISSIONS.platformHomeView,
+  PERMISSIONS.platformPdaView,
+  PERMISSIONS.platformMobileView,
   PERMISSIONS.userView,
   PERMISSIONS.roleView,
   PERMISSIONS.permissionView,
@@ -147,6 +149,15 @@ describe('PcLayout', () => {
     expect(wrapper.get('nav.ip-function-tree').attributes('aria-label')).toBe('工作台')
     const activeLink = wrapper.get('nav.ip-function-tree [aria-current="page"]')
     expect(activeLink.text()).toContain('首页')
+  })
+
+  it('工作台分组提供受终端权限保护的统一终端预览入口', async () => {
+    const { wrapper } = await mountLayout()
+
+    const preview = wrapper
+      .findAll('a.ip-function-tree__link')
+      .find((link) => link.text().includes('终端预览'))!
+    expect(preview.attributes('href')).toBe('/pc/terminal-preview')
   })
 
   it('点击工具轨切换分组:功能树联动为系统管理并按权限过滤', async () => {

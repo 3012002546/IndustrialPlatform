@@ -17,9 +17,10 @@ public enum DevelopmentService
 }
 
 /// <summary>
-/// Maps an ignored local configuration file to the standard infrastructure
-/// sections. If the file is missing or remote development is disabled, the
-/// checked-in SQLite defaults remain active.
+/// Maps the backend-wide ignored Development configuration file to the standard
+/// infrastructure sections. Explicit paths are supported for isolated tests;
+/// normal hosts discover src/backend/appsettings.Development.local.json from
+/// their nested project content root, independent of launch profiles or IDEs.
 /// </summary>
 /// <remarks>
 /// 数据库物理名不再由本地文件按服务指定:统一由 <c>DatabaseTopology</c> 配置节
@@ -30,6 +31,7 @@ public enum DevelopmentService
 public static class DevelopmentInfrastructureConfiguration
 {
     private const string LocalConfigurationPathKey = "IndustrialPlatform:LocalConfigurationPath";
+    private const string DevelopmentInfrastructureModeKey = "IndustrialPlatform:DevelopmentInfrastructureMode";
 
     private static readonly Dictionary<DevelopmentService, (string Key, string LogicalDatabase)> Services =
         new()
@@ -48,18 +50,67 @@ public static class DevelopmentInfrastructureConfiguration
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        var configuredPath = builder.Configuration[LocalConfigurationPathKey];
-        if (string.IsNullOrWhiteSpace(configuredPath))
+        var mode = builder.Configuration[DevelopmentInfrastructureModeKey];
+        if (string.Equals(mode, "Sqlite", StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
 
-        var expandedPath = Environment.ExpandEnvironmentVariables(configuredPath);
-        var fullPath = Path.IsPathRooted(expandedPath)
-            ? expandedPath
-            : Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, expandedPath));
+        if (!string.IsNullOrWhiteSpace(mode)
+            && !string.Equals(mode, "Unified", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"{DevelopmentInfrastructureModeKey} 仅支持 Unified 或 Sqlite,当前值:{mode}。");
+        }
 
-        return Apply(builder.Configuration, fullPath, service);
+        var localConfigurationPath = ResolveLocalConfigurationPath(
+            builder.Environment.ContentRootPath,
+            builder.Configuration[LocalConfigurationPathKey]);
+        if (localConfigurationPath is null)
+        {
+            throw new InvalidOperationException(
+                "Development 必须加载统一配置 src/backend/appsettings.Development.local.json。"
+                + $"如测试需要 SQLite，必须显式设置 {DevelopmentInfrastructureModeKey}=Sqlite。");
+        }
+
+        if (!Apply(builder.Configuration, localConfigurationPath, service))
+        {
+            throw new InvalidOperationException(
+                $"统一 Development 配置未启用 RemoteDevelopment.Enabled。"
+                + $"如测试需要 SQLite，必须显式设置 {DevelopmentInfrastructureModeKey}=Sqlite。");
+        }
+
+        return true;
+    }
+
+    public static string? ResolveLocalConfigurationPath(string contentRootPath, string? configuredPath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(contentRootPath);
+
+        if (!string.IsNullOrWhiteSpace(configuredPath))
+        {
+            var expandedPath = Environment.ExpandEnvironmentVariables(configuredPath);
+            return Path.IsPathRooted(expandedPath)
+                ? Path.GetFullPath(expandedPath)
+                : Path.GetFullPath(Path.Combine(contentRootPath, expandedPath));
+        }
+
+        for (var directory = new DirectoryInfo(Path.GetFullPath(contentRootPath));
+             directory is not null;
+             directory = directory.Parent)
+        {
+            if (!directory.Name.Equals("backend", StringComparison.OrdinalIgnoreCase)
+                || directory.Parent is null
+                || !directory.Parent.Name.Equals("src", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var candidate = Path.Combine(directory.FullName, "appsettings.Development.local.json");
+            return File.Exists(candidate) ? candidate : null;
+        }
+
+        return null;
     }
 
     public static bool Apply(
@@ -115,7 +166,8 @@ public static class DevelopmentInfrastructureConfiguration
         }
 
         var rabbitMq = section.GetSection("RabbitMq");
-        if (service == DevelopmentService.ReferenceData && rabbitMq.GetValue<bool>("Enabled"))
+        if (service is DevelopmentService.Identity or DevelopmentService.ReferenceData or DevelopmentService.SystemData or DevelopmentService.UnifiedHost
+            && rabbitMq.GetValue<bool>("Enabled"))
         {
             overrides["RabbitMQ:Host"] = host;
             overrides["RabbitMQ:Port"] = PositivePort(rabbitMq, "Port").ToString(CultureInfo.InvariantCulture);

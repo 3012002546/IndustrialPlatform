@@ -36,7 +36,29 @@ describe('MobileHomePage', () => {
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     vi.unstubAllEnvs()
+  })
+
+  it('同步时间问候、日期时钟、低突兀环境光与刷新入口', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 7, 20, 20, 13, 3))
+
+    const wrapper = await mountHome()
+
+    expect(wrapper.get('[data-testid="time-header"]').classes()).toContain(
+      'time-greeting-header--evening',
+    )
+    expect(wrapper.get('[data-testid="time-greeting"]').text()).toContain('晚上好')
+    expect(wrapper.get('[data-testid="time-date"]').text()).toContain('2026年8月20日')
+    expect(wrapper.get('[data-testid="live-clock"]').text()).toBe('20:13:03')
+    expect(wrapper.get('[data-testid="time-header"]').attributes('style')).toContain(
+      '--time-greeting-accent:',
+    )
+    expect(wrapper.get('[data-testid="refresh-home"]').text()).toContain('刷新')
+
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(wrapper.get('[data-testid="live-clock"]').text()).toBe('20:13:04')
   })
 
   it('展示当前用户欢迎信息', async () => {
@@ -66,8 +88,10 @@ describe('MobileHomePage', () => {
     expect(wrapper.text()).not.toMatch(/\d+(\.\d+)?\s*%/)
   })
 
-  it('页面标题为「首页」', async () => {
+  it('仅使用时间问候作为页面主标题', async () => {
     const wrapper = await mountHome()
-    expect(wrapper.get('h1').text()).toBe('首页')
+    expect(wrapper.findAll('h1')).toHaveLength(1)
+    expect(wrapper.get('h1').text()).toMatch(/好，Mock 演示账号$/)
+    expect(wrapper.find('.app-page__header').exists()).toBe(false)
   })
 })

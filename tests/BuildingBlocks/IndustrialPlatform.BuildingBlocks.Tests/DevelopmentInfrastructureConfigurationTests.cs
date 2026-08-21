@@ -1,4 +1,5 @@
 using IndustrialPlatform.Web.Configuration;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Xunit;
 
@@ -7,6 +8,105 @@ namespace IndustrialPlatform.BuildingBlocks.Tests;
 public sealed class DevelopmentInfrastructureConfigurationTests
 {
     private const string SharedDatabase = "industrial_platform_dev";
+
+    [Fact]
+    public void ResolveLocalConfigurationPath_FindsUnifiedBackendConfigurationFromNestedProject()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"industrial-platform-root-{Guid.NewGuid():N}");
+        var backend = Path.Combine(root, "src", "backend");
+        var project = Path.Combine(backend, "src", "Hosts", "IndustrialPlatform.UnifiedHost");
+        var expected = Path.Combine(backend, "appsettings.Development.local.json");
+        Directory.CreateDirectory(project);
+        File.WriteAllText(expected, "{}");
+
+        try
+        {
+            var actual = DevelopmentInfrastructureConfiguration.ResolveLocalConfigurationPath(project, null);
+
+            Assert.Equal(expected, actual);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ResolveLocalConfigurationPath_ExplicitPathTakesPrecedence()
+    {
+        var contentRoot = Path.Combine(Path.GetTempPath(), $"industrial-platform-project-{Guid.NewGuid():N}");
+        var explicitPath = Path.Combine(contentRoot, "custom.local.json");
+        Directory.CreateDirectory(contentRoot);
+
+        try
+        {
+            var actual = DevelopmentInfrastructureConfiguration.ResolveLocalConfigurationPath(
+                contentRoot,
+                "custom.local.json");
+
+            Assert.Equal(explicitPath, actual);
+        }
+        finally
+        {
+            Directory.Delete(contentRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void AddDevelopmentInfrastructure_MissingUnifiedConfigurationFails()
+    {
+        var contentRoot = Path.Combine(Path.GetTempPath(), $"industrial-platform-project-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(contentRoot);
+
+        try
+        {
+            var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+            {
+                EnvironmentName = "Development",
+                ContentRootPath = contentRoot,
+            });
+            builder.Configuration["IndustrialPlatform:DevelopmentInfrastructureMode"] = "Unified";
+
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                builder.AddOptionalLocalDevelopmentInfrastructure(DevelopmentService.Identity));
+
+            Assert.Contains("appsettings.Development.local.json", exception.Message);
+        }
+        finally
+        {
+            Directory.Delete(contentRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void AddDevelopmentInfrastructure_ExplicitSqliteModeDoesNotRequireUnifiedConfiguration()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"industrial-platform-root-{Guid.NewGuid():N}");
+        var backend = Path.Combine(root, "src", "backend");
+        var contentRoot = Path.Combine(backend, "src", "Hosts", "IndustrialPlatform.UnifiedHost");
+        Directory.CreateDirectory(contentRoot);
+        var source = WriteLocalConfiguration(enabled: true);
+        File.Copy(source, Path.Combine(backend, "appsettings.Development.local.json"));
+
+        try
+        {
+            var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+            {
+                EnvironmentName = "Development",
+                ContentRootPath = contentRoot,
+            });
+            builder.Configuration["IndustrialPlatform:DevelopmentInfrastructureMode"] = "Sqlite";
+
+            var loaded = builder.AddOptionalLocalDevelopmentInfrastructure(DevelopmentService.Identity);
+
+            Assert.False(loaded);
+        }
+        finally
+        {
+            File.Delete(source);
+            Directory.Delete(root, recursive: true);
+        }
+    }
 
     [Fact]
     public void MissingLocalFilePreservesSqliteDefaults()
@@ -65,6 +165,7 @@ public sealed class DevelopmentInfrastructureConfigurationTests
             Assert.Equal("100.64.0.10:6379,password=redis-secret,defaultDatabase=2", configuration["Redis:ConnectionString"]);
             Assert.Equal("http://100.64.0.10:5341", configuration["Serilog:Seq:ServerUrl"]);
             Assert.Equal("true", configuration["Serilog:Seq:Enabled"]);
+            Assert.Equal("100.64.0.10", configuration["RabbitMQ:Host"]);
         }
         finally
         {
@@ -87,6 +188,58 @@ public sealed class DevelopmentInfrastructureConfigurationTests
 
             Assert.True(loaded);
             Assert.Contains($"Database={SharedDatabase}", configuration["SqlSugar:ConnectionString"]);
+            Assert.Equal("100.64.0.10", configuration["RabbitMQ:Host"]);
+            Assert.Equal("5672", configuration["RabbitMQ:Port"]);
+            Assert.Equal("rabbit-user", configuration["RabbitMQ:UserName"]);
+            Assert.Equal("rabbit-secret", configuration["RabbitMQ:Password"]);
+            Assert.Equal("/development", configuration["RabbitMQ:VirtualHost"]);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void EnabledLocalFileMapsUnifiedHostRabbitMqInfrastructure()
+    {
+        var configuration = CreateDefaults();
+        var path = WriteLocalConfiguration(enabled: true);
+
+        try
+        {
+            var loaded = DevelopmentInfrastructureConfiguration.Apply(
+                configuration,
+                path,
+                DevelopmentService.UnifiedHost);
+
+            Assert.True(loaded);
+            Assert.Equal("100.64.0.10", configuration["RabbitMQ:Host"]);
+            Assert.Equal("5672", configuration["RabbitMQ:Port"]);
+            Assert.Equal("rabbit-user", configuration["RabbitMQ:UserName"]);
+            Assert.Equal("rabbit-secret", configuration["RabbitMQ:Password"]);
+            Assert.Equal("/development", configuration["RabbitMQ:VirtualHost"]);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void EnabledLocalFileMapsSystemDataRabbitMqInfrastructure()
+    {
+        var configuration = CreateDefaults();
+        var path = WriteLocalConfiguration(enabled: true);
+
+        try
+        {
+            var loaded = DevelopmentInfrastructureConfiguration.Apply(
+                configuration,
+                path,
+                DevelopmentService.SystemData);
+
+            Assert.True(loaded);
             Assert.Equal("100.64.0.10", configuration["RabbitMQ:Host"]);
             Assert.Equal("5672", configuration["RabbitMQ:Port"]);
             Assert.Equal("rabbit-user", configuration["RabbitMQ:UserName"]);

@@ -51,7 +51,7 @@ public sealed class ProjectReferenceArchitectureTests
             ["src/backend/src/Services/SystemData/IndustrialPlatform.SystemData.Domain/IndustrialPlatform.SystemData.Domain.csproj"] =
                 ["IndustrialPlatform.SharedKernel"],
             ["src/backend/src/Services/SystemData/IndustrialPlatform.SystemData.Infrastructure/IndustrialPlatform.SystemData.Infrastructure.csproj"] =
-                ["IndustrialPlatform.Infrastructure", "IndustrialPlatform.Logging", "IndustrialPlatform.Security", "IndustrialPlatform.SystemData.Application", "IndustrialPlatform.SystemData.Domain"],
+                ["IndustrialPlatform.EventBus", "IndustrialPlatform.Infrastructure", "IndustrialPlatform.Logging", "IndustrialPlatform.Security", "IndustrialPlatform.SystemData.Application", "IndustrialPlatform.SystemData.Domain"],
         };
 
     private static readonly string[] ApprovedSystemDataTestingReferences =

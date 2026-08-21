@@ -91,19 +91,18 @@ public sealed class SystemDataOrchestrationStoreTests : IDisposable
     }
 
     // =====================================================================
-    // SDM-001~003+004 迁移:10 张控制面表(SDM-004-02 种子观察) + 部分唯一索引
+    // SDM-001~010 迁移:基础控制面、资源导航、功能、目录主题与可靠性支撑表
     // =====================================================================
 
     [Fact]
-    public async Task ApplyAllMigrations_CreatesAllFourteenTables()
+    public async Task ApplyAllMigrations_CreatesAllSystemDataTables()
     {
         foreach (var tableName in AllTableNames)
         {
             await AssertTableExistsAsync(_dbContext.SqlSugar, tableName);
         }
 
-        // SDM-001~003(9 步)+ SDM-004-01/02(2 步)+ SDM-004-03/005-01/006-01(TASK-SD-005 三张表)
-        Assert.Equal(14, await _dbContext.SqlSugar.Queryable<SchemaMigrationRecord>().CountAsync());
+        Assert.Equal(SystemDataSchemaMigrations.All.Count, await _dbContext.SqlSugar.Queryable<SchemaMigrationRecord>().CountAsync());
     }
 
     [Fact]
@@ -476,6 +475,15 @@ public sealed class SystemDataOrchestrationStoreTests : IDisposable
         "system_data_organization",
         "system_data_position",
         "system_data_user_assignment",
+        "system_data_module_manifest",
+        "system_data_ui_resource",
+        "system_data_navigation",
+        "system_data_feature",
+        "system_data_service_catalog",
+        "system_data_theme_policy",
+        "system_data_projection_revision",
+        "system_data_operation_audit",
+        "system_data_outbox",
     ];
 
     private static DatabaseRegistration CreateRegistration(string serviceKey = "systemdata", string version = "1.0.0") =>

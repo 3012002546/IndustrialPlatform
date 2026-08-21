@@ -38,6 +38,16 @@ const ITEMS: readonly NavigationItem[] = [
   },
 ]
 
+const NESTED_ITEMS: readonly NavigationItem[] = [
+  {
+    id: 'parent',
+    label: '父级菜单',
+    routeName: 'pc-home',
+    icon: ItemIcon,
+    children: [{ id: 'child', label: '子级菜单', routeName: 'pc-home', icon: ItemIcon }],
+  },
+]
+
 function makeSession(permissions: string[]): AuthSession {
   return {
     accessToken: 'at',
@@ -65,6 +75,7 @@ async function mountTree(
   permissions: string[],
   initialPath = '/pc/home',
   label = '系统管理',
+  items: readonly NavigationItem[] = ITEMS,
 ): Promise<Harness> {
   const pinia = createPinia()
   setActivePinia(pinia)
@@ -86,7 +97,7 @@ async function mountTree(
   const router = createRouter({ history: createMemoryHistory(), routes })
   await router.push(initialPath)
   const wrapper = mount(PlatformFunctionTree, {
-    props: { label, items: ITEMS },
+    props: { label, items },
     global: { plugins: [pinia, router] },
   })
   return { wrapper, router, themeStore }
@@ -142,8 +153,9 @@ describe('PlatformFunctionTree', () => {
     expect(themeStore.preferences.pcFunctionTreeCollapsed).toBe(true)
     // 本组件不直接读写旧侧栏键
     expect(localStorage.getItem('industrial-platform.pc.sidebar.collapsed.v1')).toBeNull()
-    // 收起后列表隐藏,aria-expanded=false
-    expect(wrapper.find('#ip-function-tree-list').exists()).toBe(false)
+    // 收起后列表仍保留图标入口,aria-expanded=false
+    expect(wrapper.find('#ip-function-tree-list').exists()).toBe(true)
+    expect(wrapper.find('.ip-function-tree__label').exists()).toBe(false)
     expect(wrapper.get('[data-testid="function-tree-toggle"]').attributes('aria-expanded')).toBe(
       'false',
     )
@@ -153,8 +165,12 @@ describe('PlatformFunctionTree', () => {
     const { themeStore, wrapper } = await mountTree([])
     themeStore.setPcFunctionTreeCollapsed(true)
     await nextTick()
-    expect(wrapper.find('#ip-function-tree-list').exists()).toBe(false)
+    expect(wrapper.find('#ip-function-tree-list').exists()).toBe(true)
+    expect(wrapper.find('.ip-function-tree__label').exists()).toBe(false)
     expect(wrapper.get('nav').classes()).toContain('ip-function-tree--collapsed')
+    expect(wrapper.get('[data-testid="function-tree-toggle"]').attributes('title')).toBe(
+      '展开功能树',
+    )
   })
 
   it('再点一次展开恢复列表与 aria-expanded=true', async () => {
@@ -166,5 +182,38 @@ describe('PlatformFunctionTree', () => {
     expect(wrapper.get('[data-testid="function-tree-toggle"]').attributes('aria-expanded')).toBe(
       'true',
     )
+  })
+
+  it('收起时仍保留授权菜单图标并可直接点击跳转', async () => {
+    const { wrapper, router, themeStore } = await mountTree(['platform.home.view'])
+    themeStore.setPcFunctionTreeCollapsed(true)
+    await nextTick()
+
+    const link = wrapper.get('a.ip-function-tree__link')
+    expect(link.attributes('aria-label')).toBe('公开项')
+    expect(link.attributes('title')).toBe('公开项')
+    expect(link.find('.ip-function-tree__label').exists()).toBe(false)
+    expect(link.find('.ip-function-tree__icon').exists()).toBe(true)
+    await link.trigger('click')
+    await router.isReady()
+    expect(router.currentRoute.value.name).toBe('pc-home')
+  })
+
+  it('收起时有子菜单的图标打开键盘可达浮层', async () => {
+    const { wrapper, themeStore } = await mountTree([], '/pc/home', '系统管理', NESTED_ITEMS)
+    themeStore.setPcFunctionTreeCollapsed(true)
+    await nextTick()
+
+    const trigger = wrapper.get('[data-testid="function-tree-parent-parent"]')
+    expect(trigger.attributes('aria-haspopup')).toBe('menu')
+    expect(trigger.attributes('aria-expanded')).toBe('false')
+    // 原生 button 的 Enter/Space 由浏览器转换为 click；VTU 不模拟该默认行为。
+    await trigger.trigger('click')
+
+    expect(trigger.attributes('aria-expanded')).toBe('true')
+    expect(wrapper.get('[data-testid="function-tree-popover-parent"]').text()).toContain('子级菜单')
+    expect(
+      wrapper.get('[data-testid="function-tree-popover-parent"] [role="menuitem"]'),
+    ).toBeTruthy()
   })
 })

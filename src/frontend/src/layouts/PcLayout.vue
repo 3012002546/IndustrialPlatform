@@ -98,6 +98,10 @@ function onActivate(tabId: string): void {
   void router.push({ name: tab.route.name, params: tab.route.params, query: tab.route.query })
 }
 
+function onMenuSelect(routeName: string): void {
+  void router.push({ name: routeName })
+}
+
 function onClose(tabId: string): void {
   tabsStore.closeTab(tabId)
   navigateToActive()
@@ -188,6 +192,7 @@ function onLimitResolve(resolution: TabLimitResolution): void {
       @close-others="onCloseOthers"
       @close-right="onCloseRight"
       @reload="onReload"
+      @menu-select="onMenuSelect"
     />
 
     <div class="ip-pc-body">
