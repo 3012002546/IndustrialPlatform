@@ -264,7 +264,7 @@ public sealed class ServiceCatalogEntry
 
     public static ServiceCatalogEntry CreatePlatform(string tenantNId, string nId, string name, string relativeEntryPoint, string healthPath, IReadOnlyCollection<UiTerminal> terminals)
     {
-        if (!relativeEntryPoint.StartsWith('/') || Uri.TryCreate(relativeEntryPoint, UriKind.Absolute, out _)) throw new ArgumentException("Platform entry point must be relative.", nameof(relativeEntryPoint));
+        if (!relativeEntryPoint.StartsWith('/') || relativeEntryPoint.StartsWith("//", StringComparison.Ordinal)) throw new ArgumentException("Platform entry point must be relative.", nameof(relativeEntryPoint));
         if (!healthPath.StartsWith("/health", StringComparison.Ordinal)) throw new ArgumentException("Health path must be under /health.", nameof(healthPath));
         var entry = new ServiceCatalogEntry(tenantNId, nId, name, ServiceCatalogKind.Platform, relativeEntryPoint, terminals) { HealthPath = healthPath };
         return entry;
