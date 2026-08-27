@@ -27,6 +27,15 @@ import { loadRuntimeConfig } from '@/config/runtimeConfig'
 import { createAppRouter } from '@/router'
 import { ROUTE_NAMES } from '@/router/routes'
 import { useAuthStore } from '@/stores/authStore'
+import {
+  createSystemDataManagementApi,
+  createSystemDataRuntimeApi,
+  registerSystemDataManagementApi,
+  registerSystemDataRuntimeApi,
+} from '@/api/systemData'
+import { createSystemDataRuntimePlugin } from '@/systemData/runtime/coordinator'
+import { createSystemDataTenantUiDefaultsSource } from '@/systemData/runtime/themeSource'
+import { setTenantUiDefaultsSource } from '@/stores/themeStore'
 
 /** 认证专用路径片段:401 不触发刷新重试(登录/刷新/登出),避免无谓循环。 */
 const AUTH_ENDPOINT_MARKERS = ['/auth/login', '/auth/refresh', '/auth/logout'] as const
@@ -71,6 +80,10 @@ function installAuthGateway(pinia: Pinia, router: Router): void {
     )
     // 管理端 API 与认证共用同一 client(令牌注入 + 401 单飞刷新)。
     registerManagementApi(createIdentityManagementApi(client))
+    registerSystemDataManagementApi(createSystemDataManagementApi(client))
+    const systemDataRuntimeApi = createSystemDataRuntimeApi(client)
+    registerSystemDataRuntimeApi(systemDataRuntimeApi)
+    setTenantUiDefaultsSource(createSystemDataTenantUiDefaultsSource(systemDataRuntimeApi))
     // SSO 端点与认证/管理共用同一 client(withCredentials 携带 SSO 会话 Cookie)。
     registerSsoApi(createIdentitySsoApi(client))
     // SSO 管理端点(identity.sso.* 权限,共享 client 令牌注入)。
@@ -97,6 +110,9 @@ export function createIndustrialApp(options: IndustrialAppOptions = {}): VueApp 
   app.use(router)
 
   installAuthGateway(pinia, router)
+  if (loadRuntimeConfig().authMode === 'http') {
+    app.use(createSystemDataRuntimePlugin(pinia))
+  }
 
   for (const plugin of options.plugins ?? []) {
     app.use(plugin)

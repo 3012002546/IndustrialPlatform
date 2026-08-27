@@ -102,6 +102,35 @@ public sealed class IdentityServiceInitializerReadinessTests
         Assert.Null(state.Reason);
     }
 
+    [Fact]
+    public async Task Inspect_requires_current_seed_version()
+    {
+        var fake = new FakeBootstrapService
+        {
+            Readiness = new IdentityReadinessResult(
+                "identity",
+                "identity",
+                "identity_db",
+                "identity-v1",
+                BootstrapState.Ready,
+                true,
+                true,
+                true,
+                true,
+                null,
+                [
+                    new SeedVersionStatus(BootstrapSeedCatalog.SystemCatalogSeedKey, "1.0.0", "Applied"),
+                    new SeedVersionStatus(BootstrapSeedCatalog.TenantSecuritySeedKey, "1.0.0", "Applied"),
+                ]),
+        };
+        var initializer = new IdentityServiceInitializer(null!, fake);
+
+        var state = await initializer.InspectAsync(CreateContext(), CancellationToken.None);
+
+        Assert.False(state.RequiredSeedReady);
+        Assert.False(state.Ready);
+    }
+
     private static ServiceInitializationContext CreateContext() => new(
         "Test",
         "tenant-1",

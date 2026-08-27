@@ -1,17 +1,22 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using IndustrialPlatform.Identity.Api.Commands;
 using IndustrialPlatform.Identity.Application.Authentication;
+using IndustrialPlatform.Identity.Application.Authorization;
+using IndustrialPlatform.SystemData.Api.Authorization;
 using IndustrialPlatform.Infrastructure.Database;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.JsonWebTokens;
 using SqlSugar;
 using SQLitePCL;
 
@@ -66,6 +71,8 @@ public sealed class UnifiedHostTests : IDisposable
                 {
                     services.RemoveAll<IRefreshSessionStore>();
                     services.AddSingleton<IRefreshSessionStore>(new InMemoryRefreshSessionStore());
+                    services.RemoveAll<ISessionRevocationStore>();
+                    services.AddSingleton<ISessionRevocationStore>(new InMemorySessionRevocationStore());
                 }));
 
     // ---------------------------------------------------------------------------
@@ -83,6 +90,10 @@ public sealed class UnifiedHostTests : IDisposable
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         using var payload = JsonDocument.Parse(await response.Content.ReadAsStreamAsync());
         Assert.Equal("UnifiedHost", payload.RootElement.GetProperty("service").GetString());
+
+        var policyProvider = factory.Services.GetRequiredService<IAuthorizationPolicyProvider>();
+        var systemDataPolicy = await policyProvider.GetPolicyAsync(SystemDataPermissionPolicies.OrganizationView);
+        Assert.Contains(systemDataPolicy!.Requirements, requirement => requirement is SystemDataPermissionRequirement);
     }
 
     [Fact]
@@ -305,12 +316,27 @@ public sealed class UnifiedHostTests : IDisposable
         using var meResponse = await client.SendAsync(request);
         Assert.Equal(HttpStatusCode.OK, meResponse.StatusCode);
 
-        // SystemData 控制器:同一 Bearer 方案接受令牌(授权层面按权限声明裁决,不 401)
+        Assert.Contains("systemdata.organization.view", permissionNIds);
+
+        var jwt = new JsonWebTokenHandler().ReadJsonWebToken(accessToken);
+        var directEvaluation = await factory.Services.GetRequiredService<IPermissionEvaluator>().EvaluateAsync(
+            jwt.GetClaim("tenant_id").Value,
+            jwt.GetClaim("sub").Value,
+            jwt.GetClaim("sid").Value,
+            int.Parse(jwt.GetClaim("ver").Value, CultureInfo.InvariantCulture),
+            "systemdata.organization.view",
+            CancellationToken.None);
+        Assert.True(directEvaluation.Allowed, $"Identity denied SystemData permission: {directEvaluation.Reason}");
+
+        // SystemData 控制器:同一 Bearer 方案认证，并通过进程内 Identity 权限评估器授权。
         var sdRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/organizations/tree");
         sdRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         using var sdResponse = await client.SendAsync(sdRequest);
-        Assert.NotEqual(HttpStatusCode.Unauthorized, sdResponse.StatusCode);
-        Assert.NotEqual(HttpStatusCode.InternalServerError, sdResponse.StatusCode);
+        Assert.IsType<InProcessSystemDataPermissionEvaluator>(
+            factory.Services.GetRequiredService<IndustrialPlatform.SystemData.Application.Authorization.ISystemDataPermissionEvaluator>());
+        Assert.True(
+            sdResponse.StatusCode == HttpStatusCode.OK,
+            $"SystemData expected 200 but returned {(int)sdResponse.StatusCode}: {await sdResponse.Content.ReadAsStringAsync()}");
     }
 
     /// <summary>内存版刷新会话存储:登录链路替代 Redis,AddAsync 成功即放行。</summary>
@@ -330,6 +356,15 @@ public sealed class UnifiedHostTests : IDisposable
 
         public Task RevokeAllForUserAsync(Guid userId, string reason, CancellationToken cancellationToken)
             => Task.CompletedTask;
+    }
+
+    private sealed class InMemorySessionRevocationStore : ISessionRevocationStore
+    {
+        public Task RevokeAsync(string sessionNId, TimeSpan ttl, CancellationToken cancellationToken)
+            => Task.CompletedTask;
+
+        public Task<bool> IsRevokedAsync(string sessionNId, CancellationToken cancellationToken)
+            => Task.FromResult(false);
     }
 
     // ---------------------------------------------------------------------------

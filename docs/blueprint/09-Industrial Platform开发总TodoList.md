@@ -74,7 +74,7 @@
 | 统一前端第一批 | 已完成 | `TASK-FE-001～010` 执行记录均已完成 |
 | Identity | 当前范围已完成 | `TASK-ID-001～023` 已完成并合入 `develop`；本地可验证门禁全绿，真实 PostgreSQL/Redis 联合登录链路保留为外部验收项 |
 | PF-01 视觉主题与平台外壳 | 已完成（外部真机项待验收） | 实施 04 `TASK-PF01-001～007` 已完成；真实 Identity 联合验收 real E2E 19/19 |
-| PF-02 SystemData | 开发中 | `TASK-SD-001～010` 已完成并合入 `develop`；下一内部任务为 `TASK-SD-011`，管理页面在 `TASK-SD-012` |
+| PF-02 SystemData | 已完成 | `TASK-SD-001～013` 全部完成；`TASK-SD-011` 的 runtime 降级前提如实保留；不自动进入 PF-03 |
 | ReferenceData | 仅骨架 | 已有健康检查、测试入口和详细实施方案，业务能力尚未开发 |
 | 架构收敛整改 | 执行中 | 只执行已批准实施计划的四个工作包；完成后从 PF-03 继续，不新增 PF 编号 |
 | MasterData | 暂缓 | 实施方案存在，本轮不进入开发 |
@@ -217,7 +217,7 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 
 # 9. PF-02 SystemData
 
-**状态：** `TASK-SD-001～010` 已完成；`TASK-SD-011～013` 待派遣
+**状态：** 已完成；`TASK-SD-001～013` 全部完成，`TASK-SD-011` 保留 runtime 降级前提；不自动进入 PF-03
 **Service Host：** 创建 `SystemData.Service`；本阶段只交付 SystemData 模块。
 **建议会话标题：** `PF-02 SystemData阶段管理`
 **输入：** 蓝图 05、07、13、20、23、27、30、31、32、33；PF-00 身份契约；PF-01 页面规范；PostgreSQL 18 与当前 `deploy/cloud-dev` 最小引导现状。
@@ -227,7 +227,7 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 
 **设计会话必须解决：**
 
-- **当前内部进度：** `TASK-SD-001～010` 已完成并合入；007～010 交付后端控制面与 runtime 契约，前端运行适配从 `TASK-SD-011` 继续，PC 管理页面归 `TASK-SD-012`。
+- **完成结果：** 001～013 全部完成，011 保留 runtime 降级前提；007～010 交付后端控制面与 runtime 契约，012～013 交付统一表单、真实管理矩阵、显式 UnifiedHost 目录与最终验收。
 
 - 行政组织树、岗位和任职关系的不变量；
 - 菜单、路由、按钮资源与 Identity 权限的所有权和同步；
@@ -244,7 +244,7 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 - 服务自有签名 migration/seed/initializer 产物与 Secret Provider；SystemData 不理解业务表、不直写 Repository、不接收或透传 Secret 值；
 - SystemData 自身数据库由基础设施最小引导的 bootstrap 例外，不得形成调用自身 API 的循环依赖。
 
-**交付：** 当前 Git 已包含 SystemData 骨架、Runner、组织/岗位/任职 API，以及资源导航、Feature、服务目录、主题策略、缓存、审计、Outbox 和 Identity 对账后端闭环；前端消费和管理页面尚未实施。
+**交付：** 当前 Git 已包含 SystemData 骨架、Runner、组织/岗位/任职 API，以及资源导航、Feature、服务目录、主题策略、缓存、审计、Outbox 和 Identity 对账后端闭环；TASK-SD-011～013 已补齐前端运行消费、PC 管理页面、授权七页 Mock 与 admin 真实浏览器门禁，并完成证据回写。
 **完成门禁：** 服务初始化器重复 apply 幂等、失败可验证、Secret 隔离；SystemData 只保存脱敏 Observation；已初始化服务在 SystemData 离线时仍按本地数据库事实 Ready。Advanced 策略才强制审批、备份证据、签名与漂移恢复。不得使用 `EnsureCreated`。
 
 # 9A. 架构收敛整改（不新增 PF 编号）
@@ -486,7 +486,7 @@ WorkOrder、Weighting、Trace、BatchRecord 和生产闭环分别开会话设计
 | --- | --- | --- | --- | --- | --- | --- |
 | PF-00 Identity | 当前范围已完成 | PF-00 固定工作线 | 蓝图 13、31、33 | 实施 03 | TASK-ID-001～023 已完成；PF-00 集成提交 `9f48d89` | `docs/evidence/PF-00.md`；本地门禁全绿，真实 PostgreSQL/Redis 联合链路为外部验收项 |
 | PF-01 视觉主题 | 已完成（外部真机项待验收） | 现有 PF-01 会话继续 | 已批准 PF-01 规格 | `docs/implementation/04-Industrial Platform视觉主题与平台外壳开发实施方案.md` | 设计提交 `e2d24a4`、`d7ef889`、`efb3b35`；开发未提交(按协作约定) | TASK-PF01-001～007 完成；静态门禁全绿、mock E2E 102/102、真实 Identity E2E 19/19 |
-| PF-02 SystemData | TASK-SD-001～010 已完成 | PF-02 固定工作线 | 蓝图 05、07、33 V3.0 | `docs/implementation/05-Industrial Platform SystemData开发实施方案.md` | 001～006 既有提交；007～010 实现提交 `1427d18` | 下一任务 011；运行适配归 011，PC 管理页面归 012 |
+| PF-02 SystemData | 已完成 | PF-02 固定工作线 | 蓝图 05、07、33 V3.0 | `docs/implementation/05-Industrial Platform SystemData开发实施方案.md` | 001～006 既有提交；007～010 `1427d18`；011～013 当前工作树未提交 | `docs/evidence/PF-02.md`；真实 CRUD 与完整门禁已通过；不自动进入 PF-03 |
 | 架构收敛整改 | 已完成 | 当前计划 | 已批准整改设计 | 已批准四工作包计划 | WP1～WP4 已完成 | 结果已纳入当前架构基线 |
 | PF-03 ReferenceData | 仅骨架 | 待创建 | 蓝图及现有设计待复核 | 实施 06 待修订 | - | - |
 | PF-04 File / Notification / Audit | 待启动 | 待创建 | 蓝图 05、30、31 | 实施 07 待创建 | - | - |

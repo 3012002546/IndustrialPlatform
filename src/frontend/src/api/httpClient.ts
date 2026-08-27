@@ -4,7 +4,7 @@
  * 错误分类、TraceId 提取、敏感日志脱敏。页面/Store 不得直接使用 Axios。
  */
 
-import axios, { type AxiosInstance } from 'axios'
+import axios, { isAxiosError, type AxiosInstance } from 'axios'
 
 import { createCorrelationId, extractTraceId, type ResponseHeadersLike } from './correlation'
 import { createApiError, DEFAULT_ERROR_MESSAGES, normalizeError } from './errors'
@@ -16,8 +16,16 @@ export interface RequestOptions {
   signal?: AbortSignal
 }
 
+/** 成功响应的有限元数据；运行时快照用它携带 ETag/304。 */
+export interface HttpResponseMeta<T> {
+  data: T
+  status: number
+  headers: Record<string, string | undefined>
+}
+
 export interface HttpClient {
   get<T>(path: string, options?: RequestOptions): Promise<T>
+  getWithMeta<T>(path: string, options?: RequestOptions): Promise<HttpResponseMeta<T>>
   post<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T>
   put<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T>
   /** DELETE 支持可选请求体(§29A.5 安全删除要求原因+双版本);不传 body 保持纯路径删除。 */
@@ -62,7 +70,7 @@ export function createHttpClient(deps: HttpClientDeps): HttpClient {
   })
   const logger = deps.logger ?? console
 
-  // 401 单飞刷新:同一时刻多个 401 请求共享一次 refreshSession;失败通知只发一次。
+  // 单飞刷新:同一时刻多个 401 请求共享一次 refreshSession;失败通知只发一次。
   let refreshPromise: Promise<void> | null = null
   let expiredNotified = false
 
@@ -71,14 +79,15 @@ export function createHttpClient(deps: HttpClientDeps): HttpClient {
     path: string,
     body: unknown,
     options: RequestOptions,
-  ): Promise<T> {
+    withMeta = false,
+  ): Promise<T | HttpResponseMeta<T>> {
     const correlationId =
       options.headers?.['X-Correlation-Id'] ?? deps.getCorrelationId?.() ?? createCorrelationId()
 
     // 单飞刷新 + 原请求最多重试一次;认证路径或刷新失败不再重试(防循环)。
     let retried = false
 
-    async function perform(): Promise<T> {
+    async function perform(): Promise<T | HttpResponseMeta<T>> {
       const headers: Record<string, string> = { ...(options.headers ?? {}) }
       if (headers['X-Correlation-Id'] === undefined) {
         headers['X-Correlation-Id'] = correlationId
@@ -95,12 +104,27 @@ export function createHttpClient(deps: HttpClientDeps): HttpClient {
           url: path,
           data: body,
           headers,
+          validateStatus: (status) =>
+            (status >= 200 && status < 300) || (withMeta && status === 304),
           ...(options.signal === undefined ? {} : { signal: options.signal }),
         })
-        const data = unwrap<T>(response.status, response.data, correlationId)
+        const responseHeaders = toHeaderRecord(response.headers)
+        const data =
+          response.status === 304
+            ? (undefined as T)
+            : unwrap<T>(response.status, response.data, correlationId)
         logger.debug(`[api] ${method} ${path} → ${response.status} corr=${correlationId}`)
-        return data
+        return withMeta ? { data, status: response.status, headers: responseHeaders } : data
       } catch (error) {
+        // Some browser adapters still reject a bodyless 304 despite validateStatus.
+        // Preserve the conditional response contract instead of classifying it as an API error.
+        if (withMeta && isAxiosError(error) && error.response?.status === 304) {
+          return {
+            data: undefined as T,
+            status: 304,
+            headers: toHeaderRecord(error.response.headers),
+          }
+        }
         const apiError = normalizeError(error, correlationId)
         const auth = deps.authRefresh
         const canRetry =
@@ -178,14 +202,26 @@ export function createHttpClient(deps: HttpClientDeps): HttpClient {
 
   return {
     get: <T>(path: string, options: RequestOptions = {}) =>
-      request<T>('GET', path, undefined, options),
+      request<T>('GET', path, undefined, options) as Promise<T>,
+    getWithMeta: <T>(path: string, options: RequestOptions = {}) =>
+      request<T>('GET', path, undefined, options, true) as Promise<HttpResponseMeta<T>>,
     post: <T>(path: string, body?: unknown, options: RequestOptions = {}) =>
-      request<T>('POST', path, body, options),
+      request<T>('POST', path, body, options) as Promise<T>,
     put: <T>(path: string, body?: unknown, options: RequestOptions = {}) =>
-      request<T>('PUT', path, body, options),
+      request<T>('PUT', path, body, options) as Promise<T>,
     delete: <T>(path: string, body?: unknown, options: RequestOptions = {}) =>
-      request<T>('DELETE', path, body, options),
+      request<T>('DELETE', path, body, options) as Promise<T>,
   }
+}
+
+function toHeaderRecord(headers: unknown): Record<string, string | undefined> {
+  if (typeof headers !== 'object' || headers === null) return {}
+  return Object.fromEntries(
+    Object.entries(headers as Record<string, unknown>).map(([key, value]) => [
+      key.toLowerCase(),
+      typeof value === 'string' ? value : undefined,
+    ]),
+  )
 }
 
 export { extractTraceId, redactHeaders, type ResponseHeadersLike }

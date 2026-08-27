@@ -95,6 +95,43 @@ public static class PermissionCatalog
     /// <summary>紧急恢复内置 admin(§29A.5):接受一次性恢复引用与审批关联,不接受明文密码。</summary>
     public const string BootstrapRecover = "identity.bootstrap.recover";
 
+    public const string SystemDataOrganizationView = "systemdata.organization.view";
+    public const string SystemDataOrganizationCreate = "systemdata.organization.create";
+    public const string SystemDataOrganizationUpdate = "systemdata.organization.update";
+    public const string SystemDataOrganizationMove = "systemdata.organization.move";
+    public const string SystemDataOrganizationStatus = "systemdata.organization.status";
+    public const string SystemDataPositionView = "systemdata.position.view";
+    public const string SystemDataPositionCreate = "systemdata.position.create";
+    public const string SystemDataPositionUpdate = "systemdata.position.update";
+    public const string SystemDataPositionStatus = "systemdata.position.status";
+    public const string SystemDataAssignmentView = "systemdata.assignment.view";
+    public const string SystemDataAssignmentManage = "systemdata.assignment.manage";
+    public const string SystemDataResourceView = "systemdata.resource.view";
+    public const string SystemDataNavigationView = "systemdata.navigation.view";
+    public const string SystemDataNavigationManage = "systemdata.navigation.manage";
+    public const string SystemDataNavigationPublish = "systemdata.navigation.publish";
+    public const string SystemDataNavigationRollback = "systemdata.navigation.rollback";
+    public const string SystemDataFeatureView = "systemdata.feature.view";
+    public const string SystemDataFeatureManage = "systemdata.feature.manage";
+    public const string SystemDataServiceCatalogView = "systemdata.service-catalog.view";
+    public const string SystemDataServiceCatalogManage = "systemdata.service-catalog.manage";
+    public const string SystemDataThemePolicyView = "systemdata.theme-policy.view";
+    public const string SystemDataThemePolicyManage = "systemdata.theme-policy.manage";
+    public const string SystemDataDatabaseOrchestrationView = "systemdata.database-orchestration.view";
+    public const string SystemDataDatabaseOrchestrationRegister = "systemdata.database-orchestration.register";
+    public const string SystemDataDatabaseOrchestrationPlan = "systemdata.database-orchestration.plan";
+    public const string SystemDataDatabaseOrchestrationApply = "systemdata.database-orchestration.apply";
+    public const string SystemDataDatabaseOrchestrationApprove = "systemdata.database-orchestration.approve";
+    public const string SystemDataDatabaseOrchestrationBackup = "systemdata.database-orchestration.backup";
+    public const string SystemDataDatabaseOrchestrationCancel = "systemdata.database-orchestration.cancel";
+    public const string SystemDataServiceInitializationView = "systemdata.service-initialization.view";
+    public const string SystemDataServiceInitializationRegister = "systemdata.service-initialization.register";
+    public const string SystemDataServiceInitializationPlan = "systemdata.service-initialization.plan";
+    public const string SystemDataServiceInitializationApply = "systemdata.service-initialization.apply";
+    public const string SystemDataServiceInitializationApprove = "systemdata.service-initialization.approve";
+    public const string SystemDataServiceInitializationBackup = "systemdata.service-initialization.backup";
+    public const string SystemDataServiceInitializationCancel = "systemdata.service-initialization.cancel";
+
     /// <summary>第一批权限 NId,按 §9.2 目录顺序。</summary>
     public static IReadOnlyList<string> FirstBatchNIds { get; } =
     [
@@ -128,5 +165,41 @@ public static class PermissionCatalog
         PlatformMobileView,
         BootstrapView,
         BootstrapRecover,
+        SystemDataOrganizationView,
+        SystemDataOrganizationCreate,
+        SystemDataOrganizationUpdate,
+        SystemDataOrganizationMove,
+        SystemDataOrganizationStatus,
+        SystemDataPositionView,
+        SystemDataPositionCreate,
+        SystemDataPositionUpdate,
+        SystemDataPositionStatus,
+        SystemDataAssignmentView,
+        SystemDataAssignmentManage,
+        SystemDataResourceView,
+        SystemDataNavigationView,
+        SystemDataNavigationManage,
+        SystemDataNavigationPublish,
+        SystemDataNavigationRollback,
+        SystemDataFeatureView,
+        SystemDataFeatureManage,
+        SystemDataServiceCatalogView,
+        SystemDataServiceCatalogManage,
+        SystemDataThemePolicyView,
+        SystemDataThemePolicyManage,
+        SystemDataDatabaseOrchestrationView,
+        SystemDataDatabaseOrchestrationRegister,
+        SystemDataDatabaseOrchestrationPlan,
+        SystemDataDatabaseOrchestrationApply,
+        SystemDataDatabaseOrchestrationApprove,
+        SystemDataDatabaseOrchestrationBackup,
+        SystemDataDatabaseOrchestrationCancel,
+        SystemDataServiceInitializationView,
+        SystemDataServiceInitializationRegister,
+        SystemDataServiceInitializationPlan,
+        SystemDataServiceInitializationApply,
+        SystemDataServiceInitializationApprove,
+        SystemDataServiceInitializationBackup,
+        SystemDataServiceInitializationCancel,
     ];
 }

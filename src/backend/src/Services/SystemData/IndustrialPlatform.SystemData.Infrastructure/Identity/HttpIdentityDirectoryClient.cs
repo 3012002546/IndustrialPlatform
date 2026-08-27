@@ -1,7 +1,9 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using IndustrialPlatform.SystemData.Application.Administration;
+using IndustrialPlatform.SystemData.Application.Authorization;
 using IndustrialPlatform.SystemData.Application.ControlPlane;
 using IndustrialPlatform.SystemData.Application.IdentityDirectory;
 using IndustrialPlatform.SystemData.Application.Reliability;
@@ -16,7 +18,7 @@ namespace IndustrialPlatform.SystemData.Infrastructure.Identity;
 /// <c>GET /api/v1/permissions/tree</c> 和 <c>GET /api/v1/users/{id}</c>；
 /// 未配置地址或端点不可用时 fail-closed，不伪造成功回执。
 /// </summary>
-public sealed class HttpIdentityDirectoryClient : IIdentityPermissionRegistry, IIdentityUserDirectory
+public sealed class HttpIdentityDirectoryClient : IIdentityPermissionRegistry, IIdentityUserDirectory, ISystemDataPermissionEvaluator
 {
     private static readonly Action<ILogger, Exception?> PermissionVerificationFailed = LoggerMessage.Define(
         LogLevel.Warning,
@@ -84,6 +86,54 @@ public sealed class HttpIdentityDirectoryClient : IIdentityPermissionRegistry, I
         }
     }
 
+    public async Task<SystemDataPermissionDecision> EvaluateAsync(
+        SystemDataPermissionRequest request,
+        CancellationToken cancellationToken)
+    {
+        var client = CreateClient();
+        if (client is null || string.IsNullOrWhiteSpace(request.AccessToken))
+        {
+            return Unavailable();
+        }
+
+        try
+        {
+            using var message = new HttpRequestMessage(HttpMethod.Post, "api/v1/authorization/evaluate")
+            {
+                Content = JsonContent.Create(new { permissionNId = request.PermissionNId }),
+            };
+            message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", request.AccessToken);
+            using var response = await client.SendAsync(message, cancellationToken);
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                return new SystemDataPermissionDecision(false, SystemDataPermissionDenialReason.SessionInvalid);
+            }
+            if (response.StatusCode == HttpStatusCode.Forbidden)
+            {
+                return new SystemDataPermissionDecision(false, SystemDataPermissionDenialReason.MissingPermission);
+            }
+            if (!response.IsSuccessStatusCode)
+            {
+                return Unavailable();
+            }
+
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+            var root = document.RootElement.TryGetProperty("data", out var data) ? data : document.RootElement;
+            var allowed = root.TryGetProperty("allowed", out var allowedElement) && allowedElement.GetBoolean();
+            var reasonText = ReadString(root, "reason");
+            var reason = Enum.TryParse<SystemDataPermissionDenialReason>(reasonText, out var parsed)
+                ? parsed
+                : SystemDataPermissionDenialReason.SecurityStoreUnavailable;
+            return new SystemDataPermissionDecision(allowed, allowed ? SystemDataPermissionDenialReason.None : reason);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or JsonException)
+        {
+            SystemDataMetrics.IdentityFailures.Add(1);
+            return Unavailable();
+        }
+    }
+
     private HttpClient? CreateClient()
     {
         var baseUrl = _configuration["SystemData:Identity:BaseUrl"]
@@ -128,4 +178,7 @@ public sealed class HttpIdentityDirectoryClient : IIdentityPermissionRegistry, I
     }
 
     private static string? ReadString(JsonElement element, string propertyName) => element.TryGetProperty(propertyName, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+
+    private static SystemDataPermissionDecision Unavailable() =>
+        new(false, SystemDataPermissionDenialReason.SecurityStoreUnavailable);
 }

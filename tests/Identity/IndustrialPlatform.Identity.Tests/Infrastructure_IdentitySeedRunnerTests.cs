@@ -84,10 +84,10 @@ public sealed class IdentitySeedRunnerTests : IDisposable
         Assert.Equal(3, await CountAsync("SELECT COUNT(*) FROM identity_seed_ledger"));
         Assert.Equal(1, await CountAsync("SELECT COUNT(*) FROM identity_seed_ledger WHERE status = 'Applied' AND seed_n_id = 'identity.bootstrap-admin'"));
 
-        // 目录:权限 23、SYSTEM_ADMIN 角色 1、角色权限 23、用户 1
-        Assert.Equal(30, await CountAsync("SELECT COUNT(*) FROM identity_permission"));
+        // Identity 30 项 + SystemData 36 项，SYSTEM_ADMIN 自动获得完整目录。
+        Assert.Equal(66, await CountAsync("SELECT COUNT(*) FROM identity_permission"));
         Assert.Equal(1, await CountAsync("SELECT COUNT(*) FROM identity_role WHERE n_id = 'SYSTEM_ADMIN'"));
-        Assert.Equal(30, await CountAsync("SELECT COUNT(*) FROM identity_role_permission"));
+        Assert.Equal(66, await CountAsync("SELECT COUNT(*) FROM identity_role_permission"));
         Assert.Equal(1, await CountAsync("SELECT COUNT(*) FROM identity_user"));
 
         // 一次性凭据:密码满足策略且长度 >= 20
@@ -136,6 +136,30 @@ public sealed class IdentitySeedRunnerTests : IDisposable
         Assert.Equal(3, await CountAsync("SELECT COUNT(*) FROM identity_seed_ledger"));
         Assert.Equal(firstDeliveryCount, await CountAsync("SELECT COUNT(*) FROM identity_bootstrap_credential"));
         Assert.Equal(0, await CountAsync("SELECT must_change_password FROM identity_user WHERE n_id = 'ADMIN'"));
+    }
+
+    [Fact]
+    public async Task UpgradeFromVersionOne_AddsSystemDataPermissionsToSystemAdmin()
+    {
+        await IdentityTestDatabase.ApplyCatalogAsync(_dbContext);
+
+        // 模拟已完成 1.0.0 的生产库：只有原 30 项目录和对应 SYSTEM_ADMIN 绑定。
+        await _dbContext.SqlSugar.Ado.ExecuteCommandAsync(
+            "DELETE FROM identity_role_permission WHERE permission_id IN " +
+            "(SELECT id FROM identity_permission WHERE n_id LIKE 'systemdata.%')");
+        await _dbContext.SqlSugar.Ado.ExecuteCommandAsync(
+            "DELETE FROM identity_permission WHERE n_id LIKE 'systemdata.%'");
+        await _dbContext.SqlSugar.Ado.ExecuteCommandAsync(
+            "UPDATE identity_seed_ledger SET seed_version = '1.0.0'");
+
+        Assert.Equal(30, await CountAsync("SELECT COUNT(*) FROM identity_permission"));
+
+        await IdentityTestDatabase.ApplyCatalogAsync(_dbContext);
+
+        Assert.Equal(66, await CountAsync("SELECT COUNT(*) FROM identity_permission"));
+        Assert.Equal(36, await CountAsync("SELECT COUNT(*) FROM identity_permission WHERE n_id LIKE 'systemdata.%'"));
+        Assert.Equal(66, await CountAsync("SELECT COUNT(*) FROM identity_role_permission"));
+        Assert.Equal(4, await CountAsync("SELECT COUNT(*) FROM identity_seed_ledger"));
     }
 
     [Fact]

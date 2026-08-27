@@ -2,14 +2,14 @@ using IndustrialPlatform.Application.Abstractions.Initialization;
 using IndustrialPlatform.Identity.Api.Commands;
 using IndustrialPlatform.Identity.Api.Conventions;
 using IndustrialPlatform.Identity.Api.Health;
-using IndustrialPlatform.Identity.Api.Modules;
-using IndustrialPlatform.ReferenceData.Api.Modules;
-using IndustrialPlatform.SystemData.Api.Modules;
+using IndustrialPlatform.SystemData.Api.Authorization;
 using IndustrialPlatform.UnifiedHost;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Initialization;
+using IndustrialPlatform.SystemData.Application.Authorization;
 using IndustrialPlatform.SystemData.Infrastructure.DatabaseOrchestration.Initialization;
 using IndustrialPlatform.Web.Configuration;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Authorization;
 
 // UnifiedHost:单一 ASP.NET Core 进程组合当前平台基础模块(Identity/SystemData/ReferenceData)
 // 与统一认证授权、异常、日志、OpenAPI、健康检查。Gateway 不作为第二个进程嵌入;
@@ -21,14 +21,20 @@ var builder = WebApplication.CreateBuilder(args);
 // PerService 拓扑需要 ServiceDatabases["unifiedhost"] 显式映射,否则启动明确失败。
 builder.AddOptionalLocalDevelopmentInfrastructure(DevelopmentService.UnifiedHost);
 builder.UseIndustrialSerilog();
-// 模块迁移协调器注册在托管服务最前:启动时确定顺序执行 Identity → SystemData 迁移/种子,
+// 模块迁移协调器注册在托管服务最前:启动时按 UnifiedHostModuleCatalog 顺序执行各模块迁移/种子,
 // 完成后宿主才继续启动其余托管服务(Outbox 派发、数据库编排 Runner 等)。
 // 因此 Identity/SystemData 的独立 SchemaMigrationBackgroundService 不在此注册(传 false),
 // 避免两套迁移后台服务并行迁移同一 Shared 物理库。
+foreach (var module in UnifiedHostModuleCatalog.Modules)
+{
+    module.RegisterServices(builder.Services, builder.Configuration);
+}
 builder.Services.AddHostedService<ModuleMigrationCoordinatorHostedService>();
-builder.Services.AddIdentityModule(builder.Configuration, includeStartupMigrationService: false);
-builder.Services.AddSystemDataModule(builder.Configuration, includeStartupMigrationService: false);
-builder.Services.AddReferenceDataModule(builder.Configuration);
+// UnifiedHost 不经 HTTP 回调自身；SystemData 权限直接复用 Identity 的权威评估器。
+builder.Services.AddSingleton<ISystemDataPermissionEvaluator, InProcessSystemDataPermissionEvaluator>();
+// Identity 与 SystemData 使用相同的 permission:* 策略名；组合宿主明确让 SystemData 路由
+// 使用 SystemData requirement，防止首次注册的 Identity 策略遮蔽其专用适配器。
+builder.Services.PostConfigure<AuthorizationOptions>(SystemDataPermissionPolicies.AddPermissionPolicies);
 // 统一部署使用进程内适配器；独立 SystemData.Api 的默认实现仍为受信 HTTP 适配器。
 builder.Services.AddSingleton<IServiceInitializationInvoker>(sp =>
     new InProcessServiceInitializationInvoker(sp.GetServices<IServiceInitializer>()));
@@ -45,10 +51,11 @@ if (builder.Environment.IsDevelopment())
 // 只注册一次,避免重复前缀或重复 ResultFilter 包装。
 builder.Services.AddIndustrialApi(mvc => mvc.Conventions.Add(new RoutePrefixConvention()));
 // 统一健康检查:各模块检查按模块前缀命名,避免同名覆盖(identity./systemdata./referencedata.)。
-builder.Services.AddHealthChecks()
-    .AddIdentityHealthChecks("identity")
-    .AddSystemDataHealthChecks("systemdata")
-    .AddReferenceDataHealthChecks("referencedata");
+var healthChecks = builder.Services.AddHealthChecks();
+foreach (var module in UnifiedHostModuleCatalog.Modules)
+{
+    module.RegisterHealthChecks(healthChecks);
+}
 
 var app = builder.Build();
 app.UseIndustrialWeb();
@@ -56,7 +63,7 @@ app.UseIndustrialWeb();
 // 无前缀路由不受影响，独立 Gateway/Api Host 也无需改动。
 app.Use(async (context, next) =>
 {
-    foreach (var prefix in GatewayServicePrefixes)
+    foreach (var prefix in UnifiedHostModuleCatalog.GetExternalPathPrefixes(UnifiedHostModuleCatalog.Modules))
     {
         if (context.Request.Path.StartsWithSegments(prefix, out var remaining))
         {
@@ -86,7 +93,10 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
     ResponseWriter = HealthCheckResponseWriter.Write,
 });
 app.MapControllers();
-app.MapIdentityModule();
+foreach (var module in UnifiedHostModuleCatalog.Modules)
+{
+    module.MapEndpoints(app);
+}
 
 // 生产静态文件:前端生产构建产物置于 wwwroot(由应用镜像提供,云端无需第二个前端容器)。
 // SPA 回退仅对非 API/健康检查/JWKS 路径生效,未知 API 路径保持 404 语义;
@@ -157,6 +167,4 @@ public partial class Program
     internal static readonly string[] DevelopmentCorsOrigins =
         ["http://localhost:5173", "http://localhost:4173"];
 
-    internal static readonly string[] GatewayServicePrefixes =
-        ["/identity", "/systemdata", "/referencedata"];
 }

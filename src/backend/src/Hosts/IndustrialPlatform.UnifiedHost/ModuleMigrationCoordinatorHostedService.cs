@@ -10,11 +10,10 @@ using SqlSugar;
 namespace IndustrialPlatform.UnifiedHost;
 
 /// <summary>
-/// UnifiedHost 启动协调器。宿主只按固定顺序调用服务初始化器，不引用任何具体 Migration 实现。
+/// UnifiedHost 启动协调器。宿主只按显式模块目录顺序调用服务初始化器，不引用具体 Migration 实现。
 /// </summary>
 public sealed partial class ModuleMigrationCoordinatorHostedService : IHostedService
 {
-    private static readonly string[] InitializationOrder = ["identity", "systemdata", "referencedata"];
     private readonly IReadOnlyList<IServiceInitializer> _initializers;
     private readonly IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Initialization.IServiceInitializationInvoker _invoker;
     private readonly IDatabaseTopologyProvider _topologyProvider;
@@ -69,7 +68,7 @@ public sealed partial class ModuleMigrationCoordinatorHostedService : IHostedSer
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
-    /// <summary>按 identity → systemdata → referencedata 顺序运行服务初始化器。</summary>
+    /// <summary>按 UnifiedHost 模块目录顺序运行服务初始化器。</summary>
     public static async Task RunInitializersAsync(
         IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Initialization.IServiceInitializationInvoker invoker,
         IEnumerable<IServiceInitializer> initializers,
@@ -81,7 +80,7 @@ public sealed partial class ModuleMigrationCoordinatorHostedService : IHostedSer
         ArgumentNullException.ThrowIfNull(context);
 
         var byService = initializers.ToDictionary(initializer => initializer.ServiceKey, StringComparer.OrdinalIgnoreCase);
-        foreach (var serviceKey in InitializationOrder)
+        foreach (var serviceKey in UnifiedHostModuleCatalog.GetServiceKeys(UnifiedHostModuleCatalog.Modules))
         {
             if (!byService.TryGetValue(serviceKey, out var initializer))
             {
@@ -123,7 +122,7 @@ public sealed partial class ModuleMigrationCoordinatorHostedService : IHostedSer
         }
     }
 
-    [LoggerMessage(EventId = 1, Level = LogLevel.Information, Message = "UnifiedHost 服务初始化:开始按 Identity → SystemData → ReferenceData 顺序执行。")]
+    [LoggerMessage(EventId = 1, Level = LogLevel.Information, Message = "UnifiedHost 服务初始化:开始按显式模块目录顺序执行。")]
     private partial void LogInitializationStarted();
 
     [LoggerMessage(EventId = 2, Level = LogLevel.Information, Message = "UnifiedHost 服务初始化:全部完成。")]

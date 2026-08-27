@@ -5,6 +5,7 @@ import { defineConfig } from 'vite'
 
 export default defineConfig({
   plugins: [vue()],
+  cacheDir: process.env.VITE_CACHE_DIR ?? 'node_modules/.vite',
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

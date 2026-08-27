@@ -27,6 +27,13 @@ import IdentityUserGroupsPage from '@/pages/pc/identity/IdentityUserGroupsPage.v
 import IdentityUsersPage from '@/pages/pc/identity/IdentityUsersPage.vue'
 import SsoClientsPage from '@/pages/pc/identity/sso/SsoClientsPage.vue'
 import SsoProvidersPage from '@/pages/pc/identity/sso/SsoProvidersPage.vue'
+import OrganizationsPage from '@/pages/pc/systemData/OrganizationsPage.vue'
+import AssignmentsPage from '@/pages/pc/systemData/AssignmentsPage.vue'
+import NavigationPage from '@/pages/pc/systemData/NavigationPage.vue'
+import FeaturesPage from '@/pages/pc/systemData/FeaturesPage.vue'
+import ServicesPage from '@/pages/pc/systemData/ServicesPage.vue'
+import ThemesPage from '@/pages/pc/systemData/ThemesPage.vue'
+import ServiceInitializationPage from '@/pages/pc/systemData/ServiceInitializationPage.vue'
 import WorkspaceTabsSandboxPage from '@/pages/dev/WorkspaceTabsSandboxPage.vue'
 import PdaHomePage from '@/pages/pda/PdaHomePage.vue'
 import MobileHomePage from '@/pages/mobile/MobileHomePage.vue'
@@ -49,6 +56,13 @@ export const ROUTE_NAMES = {
   identityAudits: 'identity-audits',
   ssoProviders: 'sso-providers',
   ssoClients: 'sso-clients',
+  systemDataOrganizations: 'systemdata-organizations',
+  systemDataAssignments: 'systemdata-assignments',
+  systemDataNavigation: 'systemdata-navigation',
+  systemDataFeatures: 'systemdata-features',
+  systemDataServices: 'systemdata-services',
+  systemDataThemes: 'systemdata-themes',
+  systemDataServiceInitialization: 'systemdata-service-initialization',
   workspaceTabsSandbox: 'workspace-tabs-sandbox',
   uiBaseline: 'ui-baseline',
   pdaHome: 'pda-home',
@@ -219,6 +233,90 @@ export const routes: RouteRecordRaw[] = [
           title: 'SSO Client',
           requiresAuth: true,
           permission: PERMISSIONS.ssoView,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
+      {
+        path: 'systemdata/organizations',
+        name: ROUTE_NAMES.systemDataOrganizations,
+        component: OrganizationsPage,
+        meta: {
+          title: '行政组织与岗位',
+          requiresAuth: true,
+          permission: PERMISSIONS.systemDataOrganizationView,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
+      {
+        path: 'systemdata/assignments',
+        name: ROUTE_NAMES.systemDataAssignments,
+        component: AssignmentsPage,
+        meta: {
+          title: '用户任职',
+          requiresAuth: true,
+          permission: PERMISSIONS.systemDataAssignmentView,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
+      {
+        path: 'systemdata/navigation',
+        name: ROUTE_NAMES.systemDataNavigation,
+        component: NavigationPage,
+        meta: {
+          title: '导航与资源发布',
+          requiresAuth: true,
+          permission: PERMISSIONS.systemDataNavigationView,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
+      {
+        path: 'systemdata/features',
+        name: ROUTE_NAMES.systemDataFeatures,
+        component: FeaturesPage,
+        meta: {
+          title: '功能开关',
+          requiresAuth: true,
+          permission: PERMISSIONS.systemDataFeatureView,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
+      {
+        path: 'systemdata/services',
+        name: ROUTE_NAMES.systemDataServices,
+        component: ServicesPage,
+        meta: {
+          title: '服务目录',
+          requiresAuth: true,
+          permission: PERMISSIONS.systemDataServiceCatalogView,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
+      {
+        path: 'systemdata/themes',
+        name: ROUTE_NAMES.systemDataThemes,
+        component: ThemesPage,
+        meta: {
+          title: '租户主题策略',
+          requiresAuth: true,
+          permission: PERMISSIONS.systemDataThemePolicyView,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
+      {
+        path: 'systemdata/service-initialization',
+        name: ROUTE_NAMES.systemDataServiceInitialization,
+        component: ServiceInitializationPage,
+        meta: {
+          title: '服务初始化编排',
+          requiresAuth: true,
+          permission: PERMISSIONS.systemDataServiceInitializationView,
           terminal: 'pc',
           workspace: 'business',
         },

@@ -15,6 +15,7 @@ import {
   User,
   UserFilled,
 } from '@element-plus/icons-vue'
+import { shallowReactive } from 'vue'
 
 import { PERMISSIONS } from '@/permissions'
 
@@ -24,7 +25,7 @@ import type { NavigationGroup } from './types'
  * 一级平台分组。PlatformToolRail 渲染此数组并管理当前分组;
  * PlatformFunctionTree 只渲染当前组的授权 items。
  */
-export const pcNavigationGroups: readonly NavigationGroup[] = [
+const DEFAULT_PC_NAVIGATION_GROUPS: readonly NavigationGroup[] = [
   {
     id: 'workspace',
     label: '工作台',
@@ -100,6 +101,68 @@ export const pcNavigationGroups: readonly NavigationGroup[] = [
         icon: Setting,
         permission: PERMISSIONS.ssoView,
       },
+      {
+        id: 'systemdata-organizations',
+        label: '行政组织与岗位',
+        routeName: 'systemdata-organizations',
+        icon: User,
+        permission: PERMISSIONS.systemDataOrganizationView,
+      },
+      {
+        id: 'systemdata-assignments',
+        label: '用户任职',
+        routeName: 'systemdata-assignments',
+        icon: UserFilled,
+        permission: PERMISSIONS.systemDataAssignmentView,
+      },
+      {
+        id: 'systemdata-navigation',
+        label: '导航与资源发布',
+        routeName: 'systemdata-navigation',
+        icon: Tickets,
+        permission: PERMISSIONS.systemDataNavigationView,
+      },
+      {
+        id: 'systemdata-features',
+        label: '功能开关',
+        routeName: 'systemdata-features',
+        icon: Setting,
+        permission: PERMISSIONS.systemDataFeatureView,
+      },
+      {
+        id: 'systemdata-services',
+        label: '服务目录',
+        routeName: 'systemdata-services',
+        icon: Monitor,
+        permission: PERMISSIONS.systemDataServiceCatalogView,
+      },
+      {
+        id: 'systemdata-themes',
+        label: '租户主题策略',
+        routeName: 'systemdata-themes',
+        icon: Setting,
+        permission: PERMISSIONS.systemDataThemePolicyView,
+      },
+      {
+        id: 'systemdata-service-initialization',
+        label: '服务初始化编排',
+        routeName: 'systemdata-service-initialization',
+        icon: Monitor,
+        permission: PERMISSIONS.systemDataServiceInitializationView,
+      },
     ],
   },
 ]
+
+/** PF-01 公开导航端口:运行适配器只替换数组内容,不触碰壳组件内部实现。 */
+export const pcNavigationGroups = shallowReactive<NavigationGroup[]>([
+  ...DEFAULT_PC_NAVIGATION_GROUPS,
+])
+
+export function replacePcNavigationGroups(groups: readonly NavigationGroup[]): void {
+  pcNavigationGroups.splice(0, pcNavigationGroups.length, ...groups)
+}
+
+export function resetPcNavigationGroups(): void {
+  replacePcNavigationGroups(DEFAULT_PC_NAVIGATION_GROUPS)
+}

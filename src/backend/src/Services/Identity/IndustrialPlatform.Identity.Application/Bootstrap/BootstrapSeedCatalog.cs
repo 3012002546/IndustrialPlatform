@@ -21,7 +21,7 @@ public static class BootstrapSeedCatalog
     public const string BootstrapAdminSeedKey = "identity.bootstrap-admin";
 
     /// <summary>全部种子当前版本;目录内容变化必须递增。</summary>
-    public const string SeedVersion = "1.0.0";
+    public const string SeedVersion = "1.1.0";
 
     /// <summary>系统作用域。</summary>
     public const string SystemScope = "system";
@@ -83,6 +83,42 @@ public static class BootstrapSeedCatalog
         new(PermissionCatalog.PlatformMobileView, "移动端页面", PermissionType.Page),
         new(PermissionCatalog.BootstrapView, "查看 bootstrap 状态", PermissionType.Page),
         new(PermissionCatalog.BootstrapRecover, "紧急恢复内置 admin", PermissionType.Action),
+        new(PermissionCatalog.SystemDataOrganizationView, "查看行政组织", PermissionType.Page),
+        new(PermissionCatalog.SystemDataOrganizationCreate, "创建行政组织", PermissionType.Action),
+        new(PermissionCatalog.SystemDataOrganizationUpdate, "更新行政组织", PermissionType.Action),
+        new(PermissionCatalog.SystemDataOrganizationMove, "移动行政组织", PermissionType.Action),
+        new(PermissionCatalog.SystemDataOrganizationStatus, "管理行政组织状态", PermissionType.Action),
+        new(PermissionCatalog.SystemDataPositionView, "查看岗位", PermissionType.Page),
+        new(PermissionCatalog.SystemDataPositionCreate, "创建岗位", PermissionType.Action),
+        new(PermissionCatalog.SystemDataPositionUpdate, "更新岗位", PermissionType.Action),
+        new(PermissionCatalog.SystemDataPositionStatus, "管理岗位状态", PermissionType.Action),
+        new(PermissionCatalog.SystemDataAssignmentView, "查看用户任职", PermissionType.Page),
+        new(PermissionCatalog.SystemDataAssignmentManage, "管理用户任职", PermissionType.Action),
+        new(PermissionCatalog.SystemDataResourceView, "查看界面资源", PermissionType.Page),
+        new(PermissionCatalog.SystemDataNavigationView, "查看导航", PermissionType.Page),
+        new(PermissionCatalog.SystemDataNavigationManage, "管理导航", PermissionType.Action),
+        new(PermissionCatalog.SystemDataNavigationPublish, "发布导航", PermissionType.Action),
+        new(PermissionCatalog.SystemDataNavigationRollback, "回滚导航", PermissionType.Action),
+        new(PermissionCatalog.SystemDataFeatureView, "查看功能开关", PermissionType.Page),
+        new(PermissionCatalog.SystemDataFeatureManage, "管理功能开关", PermissionType.Action),
+        new(PermissionCatalog.SystemDataServiceCatalogView, "查看服务目录", PermissionType.Page),
+        new(PermissionCatalog.SystemDataServiceCatalogManage, "管理服务目录", PermissionType.Action),
+        new(PermissionCatalog.SystemDataThemePolicyView, "查看主题策略", PermissionType.Page),
+        new(PermissionCatalog.SystemDataThemePolicyManage, "管理主题策略", PermissionType.Action),
+        new(PermissionCatalog.SystemDataDatabaseOrchestrationView, "查看数据库编排", PermissionType.Page),
+        new(PermissionCatalog.SystemDataDatabaseOrchestrationRegister, "注册数据库编排", PermissionType.Action),
+        new(PermissionCatalog.SystemDataDatabaseOrchestrationPlan, "生成数据库编排计划", PermissionType.Action),
+        new(PermissionCatalog.SystemDataDatabaseOrchestrationApply, "执行数据库编排", PermissionType.Action),
+        new(PermissionCatalog.SystemDataDatabaseOrchestrationApprove, "审批数据库编排", PermissionType.Action),
+        new(PermissionCatalog.SystemDataDatabaseOrchestrationBackup, "确认数据库备份", PermissionType.Action),
+        new(PermissionCatalog.SystemDataDatabaseOrchestrationCancel, "取消数据库编排", PermissionType.Action),
+        new(PermissionCatalog.SystemDataServiceInitializationView, "查看服务初始化", PermissionType.Page),
+        new(PermissionCatalog.SystemDataServiceInitializationRegister, "注册服务初始化", PermissionType.Action),
+        new(PermissionCatalog.SystemDataServiceInitializationPlan, "生成服务初始化计划", PermissionType.Action),
+        new(PermissionCatalog.SystemDataServiceInitializationApply, "执行服务初始化", PermissionType.Action),
+        new(PermissionCatalog.SystemDataServiceInitializationApprove, "审批服务初始化", PermissionType.Action),
+        new(PermissionCatalog.SystemDataServiceInitializationBackup, "确认服务初始化备份", PermissionType.Action),
+        new(PermissionCatalog.SystemDataServiceInitializationCancel, "取消服务初始化", PermissionType.Action),
     ];
 
     /// <summary>系统角色定义(SYSTEM_ADMIN 拥有全部目录权限)。</summary>

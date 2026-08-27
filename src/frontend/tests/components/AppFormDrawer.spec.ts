@@ -142,6 +142,19 @@ describe('AppFormDrawer', () => {
     expect(medium.get('.app-form-drawer').classes()).toContain('app-form-drawer--medium')
   })
 
+  it('PC 顶部切换模态/抽屉并记住最近选择', async () => {
+    const wrapper = mountDrawer({ modelValue: true, title: '表单', storageKey: 'test-form-mode' })
+    expect(wrapper.get('.app-form-drawer').classes()).toContain('app-form-drawer--drawer')
+    await wrapper.get('[data-testid="form-surface-mode-toggle"]').trigger('click')
+    expect(wrapper.get('.app-form-drawer').classes()).toContain('app-form-drawer--modal')
+    expect(localStorage.getItem('test-form-mode')).toBe('modal')
+    wrapper.unmount()
+
+    const reopened = mountDrawer({ modelValue: true, title: '表单', storageKey: 'test-form-mode' })
+    await new Promise((resolve) => setTimeout(resolve))
+    expect(reopened.get('.app-form-drawer').classes()).toContain('app-form-drawer--modal')
+  })
+
   it('PDA/Mobile 抽屉全宽(手持修饰类)', async () => {
     for (const terminal of ['pda', 'mobile'] as const) {
       const pinia = createPinia()

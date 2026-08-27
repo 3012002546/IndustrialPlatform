@@ -8,6 +8,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { ROUTE_NAMES } from '@/router/routes'
 import { useAuthStore } from '@/stores/authStore'
+import SystemDataRuntimeStatus from '@/components/systemData/SystemDataRuntimeStatus.vue'
 
 const authStore = useAuthStore()
 const route = useRoute()
@@ -40,5 +41,6 @@ watch(
 </script>
 
 <template>
+  <SystemDataRuntimeStatus />
   <RouterView />
 </template>

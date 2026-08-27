@@ -11,7 +11,7 @@
 - API 使用包含 `Z` 或明确偏移量的 ISO 8601 / RFC 3339 时间字符串。
 - PostgreSQL 持久化瞬时时间统一使用 `timestamp with time zone`（`timestamptz`），以 UTC 保存；展示时按用户、工厂或设备时区转换。
 
-当前执行优先级由 [`09-Industrial Platform开发总TodoList.md`](09-Industrial%20Platform开发总TodoList.md) 的 PF/MES 阶段编号维护，不再由文档文件编号推断。当前状态为：`BuildingBlocks/可运行基线/统一前端（已完成） → PF-00 Identity（当前范围已完成） → PF-01（已完成） → PF-02 SystemData（001～010 已完成，下一任务 011） → PF-03 ReferenceData → 后续 PF/MES`。架构收敛整改不新增 PF 编号或子计划。
+当前执行优先级由 [`09-Industrial Platform开发总TodoList.md`](09-Industrial%20Platform开发总TodoList.md) 的 PF/MES 阶段编号维护，不再由文档文件编号推断。当前状态为：`BuildingBlocks/可运行基线/统一前端（已完成） → PF-00 Identity（当前范围已完成） → PF-01（已完成） → PF-02 SystemData（已完成：TASK-SD-001～013） → PF-03 ReferenceData（未启动） → 后续 PF/MES`。架构收敛整改不新增 PF 编号或子计划；PF-03 仅在用户明确启动后进入。
 
 平台基础层当前七个 Service Host、内部模块边界和阶段映射统一读取 [`32-Industrial Platform Service Host与内部模块边界.md`](32-Industrial%20Platform%20Service%20Host与内部模块边界.md)。`Service Host != Domain Module != Initialization Unit != Deployment Unit`；旧文档中的独立 Service 名称在冲突时只表示未来拆分目标。服务初始化统一读取 [`33-Industrial Platform SystemData数据库编排与环境引导.md`](33-Industrial%20Platform%20SystemData数据库编排与环境引导.md)：SystemData 负责 Topology、Orchestration、Policy、Observation，各服务负责 Migration、Seed、Bootstrap、Verify、Ledger，runtime readiness 只取本地数据库事实。
 

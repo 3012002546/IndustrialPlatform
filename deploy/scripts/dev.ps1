@@ -119,7 +119,10 @@ function Invoke-HealthRequest([string]$Url) {
         $response = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 3
         return [int]$response.StatusCode
     } catch {
-        if ($null -ne $_.Exception.Response) { return [int]$_.Exception.Response.StatusCode }
+        $responseProperty = $_.Exception.PSObject.Properties['Response']
+        if ($null -ne $responseProperty -and $null -ne $responseProperty.Value) {
+            return [int]$responseProperty.Value.StatusCode
+        }
         return $null
     }
 }

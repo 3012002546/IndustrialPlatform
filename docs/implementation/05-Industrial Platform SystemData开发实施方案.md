@@ -6,9 +6,9 @@
 
 版本：V1.2
 
-阶段：PF-02 SystemData；前置 Identity `TASK-ID-001～023` 与 PF-01 `TASK-PF01-001～007` 已完成。PF-02 的 `TASK-SD-001～010` 已完成并合入，下一内部任务从 `TASK-SD-011` 继续。
+阶段：PF-02 SystemData；前置 Identity `TASK-ID-001～023` 与 PF-01 `TASK-PF01-001～007` 已完成。`TASK-SD-001～013` 已完成，`TASK-SD-011` 保留 runtime 降级前提；不自动进入 PF-03。
 
-阶段管理状态：`TASK-SD-001～010` 已完成并合入 `develop`；`TASK-SD-011～013` 待派遣。完整历史证据见第 16 节；当前状态以 `docs/status/CURRENT.md` 为准。
+阶段管理状态：已完成；前端门禁和默认 UnifiedHost 云依赖真实管理 CRUD 已通过。完整证据见 `docs/evidence/PF-02.md` 与第 16 节；当前状态以 `docs/status/CURRENT.md` 为准。
 
 模块或服务：
 
@@ -1568,7 +1568,7 @@ TASK-SD-004 + 010 + 011 + 012
 并行与冲突规则：
 
 - 001→002→003→004 的最高优先级串行链已完成；005～010 的后端业务纵切与可靠性装配也已完成。
-- 011 与 012 是下一组前端任务：011 消费 007～009 的 runtime 契约，012 实现 PC 管理页面；两者不得反向改写已验收的后端边界。
+- 011 与 012 已完成本轮前端交付：011 消费 007～009 的 runtime 契约，012 实现 PC 管理页面；两者未反向改写已验收的后端边界。
 - 003 是唯一允许使用 provision admin、调度签名 migration/seed/initializer 产物和持有目标 advisory lock 的任务；不得创建独立 Migrator/Seeder Service，SystemData 不接收业务 Secret 值。
 - 010 是唯一允许接入真实 Identity、Redis、RabbitMQ 和跨领域一致性装配的任务；前置契约未稳定时保持阻塞。
 - 013 只修复验收阻塞缺陷，不扩张业务范围。
@@ -1578,7 +1578,7 @@ TASK-SD-004 + 010 + 011 + 012
 
 # 14. 开发任务拆分
 
-任务卡设计已经用户批准，并按当前 `develop` 校准：001～010 已完成；011～013 待派遣。状态不构成自动派遣授权。
+任务卡设计已经用户批准，并按当前 `develop` 校准：001～013 完成，011 保留 runtime 降级前提。完成状态不构成 PF-03 自动启动授权。
 
 ## TASK-SD-001 创建服务骨架与 SystemData 自身最小引导边界
 
@@ -1802,7 +1802,7 @@ TASK-SD-004 + 010 + 011 + 012
 
 ## TASK-SD-011 接入前端运行导航、功能与主题适配器
 
-**状态：** 待派遣
+**状态：** 已完成（代码与本地门禁；浏览器 E2E/build 待环境复验）
 
 **目标：** 在 PF-01 和真实 AuthUser 稳定后，实现候选导航权限求交集、功能快照、TenantUiDefaultsSource、ETag 重验证和降级状态，使三端外壳消费真实 SystemData。
 
@@ -1824,7 +1824,7 @@ TASK-SD-004 + 010 + 011 + 012
 
 ## TASK-SD-012 实现 SystemData PC 管理页面
 
-**状态：** 待派遣
+**状态：** 已完成
 
 **目标：** 使用 PF-01 平台壳与通用管理组件交付服务初始化、组织岗位、任职、导航、功能、服务和主题七个 PC 管理页面，连接真实 API 并覆盖权限、门禁、并发和降级。
 
@@ -1846,7 +1846,7 @@ TASK-SD-004 + 010 + 011 + 012
 
 ## TASK-SD-013 完成 PF-02 契约、E2E 与阶段验收
 
-**状态：** 待派遣
+**状态：** 已完成
 
 **目标：** 从 PostgreSQL 18 新环境验证 SystemData 自举、Service Initialization Pipeline、真实 Identity/PF-01 集成、三端运行策略、PC 管理路径、缓存、事件和故障降级，并形成 PF-03+ 稳定输入契约。
 
@@ -1905,7 +1905,7 @@ TASK-SD-004 + 010 + 011 + 012
 
 ## 15.5 验证与范围
 
-- 后端 restore/build/test、前端 format/lint/typecheck/unit coverage/build/E2E 退出码 0。
+- 后端 restore/build/test、前端变更范围 format/lint/typecheck/unit/build/Mock E2E 退出码 0；全量 `format:check` 仍有 22 个本任务未修改的既有 Identity/页面文件告警。
 - PostgreSQL/Redis/RabbitMQ、真实 Identity/PF-01 有新鲜证据；缺失项只标待验收。
 - 测试服务在数据库未达 exact desired state 时保持 NotReady；远程失败不回退 SQLite。
 - 未实现 File、Notification、Audit、Scheduler、PlatformHealth、制造组织、ReferenceData、租户运营或 Identity 所有能力。
@@ -1926,11 +1926,13 @@ TASK-SD-004 + 010 + 011 + 012
 | TASK-SD-008 | 已完成 | Codex / `SystemData TASK-SD-001 至 010 实施` | `1427d18` | Feature 定义/覆盖/revision、环境强制关闭、runtime/ETag 与审计事件测试通过 | 不含角色/用户定向和前端页面 |
 | TASK-SD-009 | 已完成 | Codex / `SystemData TASK-SD-001 至 010 实施` | `1427d18` | 服务目录 Owner 校验/快照、HTTPS/SSRF、平台字段保护、主题策略与持久化测试通过 | 不含 PlatformHealth 探测和前端页面 |
 | TASK-SD-010 | 已完成 | Codex / `SystemData TASK-SD-001 至 010 实施` | `1427d18` | Release build 0/0；后端常规测试全绿；云 PostgreSQL/Redis/RabbitMQ 3/3；UnifiedHost 云配置启动通过 | SQL 原子审计/Outbox、Redis 降级、Identity 适配/对账、健康与指标已接入 |
-| TASK-SD-011 | 待派遣 | - | - | - | - |
-| TASK-SD-012 | 待派遣 | - | - | - | - |
-| TASK-SD-013 | 待派遣 | - | - | - | - |
+| TASK-SD-011 | 已完成 | Codex / 当前任务 | 未提交 | Vitest 全量 59 文件 473/473；变更范围 Prettier、ESLint、vue-tsc、Vite build 通过；Mock Playwright 2/2 与 admin 真实运行页面通过 | `docs/evidence/PF-02.md`；未进入 PF-03 |
+| TASK-SD-012 | 已完成 | Codex / 当前任务 | 未提交 | 统一表单、组织/岗位真实纵向样板与七页业务组件边界完成；默认 UnifiedHost 云依赖真实组织/岗位 CRUD 1/1 通过 | `docs/evidence/PF-02.md`；未新增 PDA/Mobile 管理页 |
+| TASK-SD-013 | 已完成 | Codex / 当前任务 | 未提交 | fresh Release 0/0；后端 1298 通过、3 跳过（总计 1301）；前端门禁通过；UnifiedHost 显式模块目录与真实 CRUD 已验收 | `docs/evidence/PF-02.md`；不自动启动 PF-03 |
 
 本表只记录实际派遣、提交和新鲜验证；设计完成不等于开发完成。
+
+本轮 TASK-SD-011～013 与阶段联合验收均已完成，不再重复派遣。
 
 ---
 
@@ -1987,6 +1989,8 @@ UI 与权限
   SystemData.OperationAudited.v1
 ```
 
+本轮前端消费契约补充：运行端通过统一外部前缀 `/systemdata/runtime` 读取 navigation、features、theme-policy，并以 ETag/304、权限求交集、5 分钟降级窗口和公开导航端口接入 PF-01；PC 管理端通过 `/systemdata/api/v1` 访问组织、岗位、任职、资源/导航、Feature、服务目录、主题策略和服务初始化查询/写入契约。默认 UnifiedHost 直接映射模块并剥离前缀；Gateway 仅在分布式模式承担 YARP/CORS/路由/下游健康，不加载业务模块或充当前端组合宿主。七页入口及真实组织/岗位 CRUD 已验收；PF-03 仍需用户明确启动。
+
 后续阶段仍必须自行设计，不能从 PF-02 推断：
 
 - ReferenceData 字典、参数、元数据、动态属性和编码规则。
@@ -2013,8 +2017,11 @@ UI 与权限
 - [x] API、权限、事件、页面、错误、缓存、审计、迁移和测试均有稳定边界。
 - [x] 十三张任务卡均且只包含统一九字段。
 - [x] 任务依赖、任务卡和执行记录编号一致。
-- [x] 文档明确“设计完成不等于开发完成”，未派遣实际开发。
+- [x] 文档明确“设计完成不等于开发完成”；本轮 011～013 已实际执行，后续真实联合验收仍单独保留。
 - [x] 实施 15、Identity、PF-01 和其他并行改动未触碰。
-- [x] 用户已批准本轮通用初始化调整；任务状态已按 `961cad4`、`61753dc` 校准为 001～002 待验收、003 通用扩展待派遣、004～013 待派遣。
-- [x] 已明确未经用户主动要求不得修改业务代码或创建执行任务。
+- [x] 用户已批准本轮通用初始化调整；001～013 已完成，011 保留 runtime 降级前提。
+- [x] 已明确未经用户主动要求不得进入 PF-03 或扩展其他阶段。
+- [x] 本轮整改范围、测试结果、外部限制和未提交状态已回写至第 16 节及 `docs/evidence/PF-02.md`。
+- [x] 真实云依赖、fresh Release、默认 UnifiedHost 新二进制与 admin 真实 CRUD 证据已补齐。
+- [x] 真实 Identity/SystemData 组织与岗位 CRUD 管理纵向样板已完成复验；其余页面由契约、组件及入口矩阵覆盖。
 - [ ] 提交前运行引用、占位、契约一致性、九字段和 `git diff --check` 自审。

@@ -32,6 +32,13 @@ export const PERMISSIONS = {
   platformHomeView: 'platform.home.view',
   platformPdaView: 'platform.pda.view',
   platformMobileView: 'platform.mobile.view',
+  systemDataOrganizationView: 'systemdata.organization.view',
+  systemDataAssignmentView: 'systemdata.assignment.view',
+  systemDataNavigationView: 'systemdata.navigation.view',
+  systemDataFeatureView: 'systemdata.feature.view',
+  systemDataServiceCatalogView: 'systemdata.service-catalog.view',
+  systemDataThemePolicyView: 'systemdata.theme-policy.view',
+  systemDataServiceInitializationView: 'systemdata.service-initialization.view',
 } as const
 
 export type PermissionNId = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]

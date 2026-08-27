@@ -4,6 +4,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
+import { isReactive } from 'vue'
 
 import { pcNavigationGroups } from '@/components/navigation/navigation'
 import type { NavigationItem } from '@/components/navigation/types'
@@ -29,6 +30,14 @@ describe('pcNavigationGroups', () => {
       expect(group.label).toBeTruthy()
       expect(typeof group.icon).toBe('object')
       expect(group.items.length).toBeGreaterThan(0)
+    }
+  })
+
+  it('保持导航图标组件为非代理对象,避免 Element Plus 组件被 Vue 深代理告警', () => {
+    for (const group of pcNavigationGroups) {
+      expect(isReactive(group)).toBe(false)
+      expect(isReactive(group.icon)).toBe(false)
+      for (const item of group.items) expect(isReactive(item.icon)).toBe(false)
     }
   })
 

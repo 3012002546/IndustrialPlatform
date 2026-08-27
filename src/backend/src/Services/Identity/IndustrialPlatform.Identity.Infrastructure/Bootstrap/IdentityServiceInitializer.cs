@@ -105,15 +105,10 @@ public sealed class IdentityServiceInitializer : IServiceInitializer
             cancellationToken);
 
         var migrationReady = !string.IsNullOrWhiteSpace(result.SchemaVersion);
-        var requiredSeedReady = result.SeedVersions.Any(seed =>
-            string.Equals(seed.SeedKey, BootstrapSeedCatalog.SystemCatalogSeedKey, StringComparison.Ordinal)
-            && string.Equals(seed.Status, "Applied", StringComparison.Ordinal))
-            && result.SeedVersions.Any(seed =>
-                string.Equals(seed.SeedKey, BootstrapSeedCatalog.TenantSecuritySeedKey, StringComparison.Ordinal)
-                && string.Equals(seed.Status, "Applied", StringComparison.Ordinal))
-            && (context.Policy != ServiceInitializationPolicy.Advanced || result.SeedVersions.Any(seed =>
-                string.Equals(seed.SeedKey, BootstrapSeedCatalog.BootstrapAdminSeedKey, StringComparison.Ordinal)
-                && string.Equals(seed.Status, "Applied", StringComparison.Ordinal)));
+        var requiredSeedReady = IsAppliedCurrentSeed(result.SeedVersions, BootstrapSeedCatalog.SystemCatalogSeedKey)
+            && IsAppliedCurrentSeed(result.SeedVersions, BootstrapSeedCatalog.TenantSecuritySeedKey)
+            && (context.Policy != ServiceInitializationPolicy.Advanced
+                || IsAppliedCurrentSeed(result.SeedVersions, BootstrapSeedCatalog.BootstrapAdminSeedKey));
         var bootstrapReady = context.Policy != ServiceInitializationPolicy.Advanced
             || result.BootstrapStatus == BootstrapState.Ready;
         return new ServiceInitializationState(
@@ -162,8 +157,11 @@ public sealed class IdentityServiceInitializer : IServiceInitializer
             required = [.. required, BootstrapSeedCatalog.BootstrapAdminSeedKey];
         }
 
-        return required.All(requiredKey => seeds.Any(seed =>
-            string.Equals(seed.SeedKey, requiredKey, StringComparison.Ordinal)
-            && string.Equals(seed.Status, "Applied", StringComparison.Ordinal)));
+        return required.All(requiredKey => IsAppliedCurrentSeed(seeds, requiredKey));
     }
+
+    private static bool IsAppliedCurrentSeed(IReadOnlyList<SeedVersionStatus> seeds, string seedKey) =>
+        seeds.Any(seed => string.Equals(seed.SeedKey, seedKey, StringComparison.Ordinal)
+            && string.Equals(seed.SeedVersion, BootstrapSeedCatalog.SeedVersion, StringComparison.Ordinal)
+            && string.Equals(seed.Status, "Applied", StringComparison.Ordinal));
 }

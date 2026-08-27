@@ -17,6 +17,8 @@ export interface NavigationItem {
   icon?: Component
   /** 权限点:仅当当前会话持有该权限时渲染;未声明视为公开。 */
   permission?: string
+  /** SystemData 功能开关标识;由运行适配器在进入 PF-01 公开端口前求值。 */
+  featureNId?: string
   /** 任一权限满足即可渲染,用于跨 PDA/Mobile 能力入口。 */
   anyPermissions?: readonly string[]
   /** 子菜单(可选;第一批无子菜单)。 */

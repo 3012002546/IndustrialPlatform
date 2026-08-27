@@ -1,5 +1,6 @@
 using IndustrialPlatform.SystemData.Api.Authorization;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization.Policy;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
@@ -19,6 +20,7 @@ public static class SystemDataAuthorizationServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton<IAuthorizationHandler, SystemDataPermissionAuthorizationHandler>();
+        services.AddSingleton<IAuthorizationMiddlewareResultHandler, SystemDataAuthorizationMiddlewareResultHandler>();
         services.AddAuthorization(options => SystemDataPermissionPolicies.AddPermissionPolicies(options));
 
         return services;

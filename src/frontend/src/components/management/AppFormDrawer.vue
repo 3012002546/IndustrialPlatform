@@ -6,7 +6,7 @@
  * - busy 阻止重复提交(submit 按钮禁用并忽略)。
  */
 
-import { computed, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useId } from 'vue'
 import { ElFocusTrap } from 'element-plus/es/components/focus-trap/index'
 
@@ -18,8 +18,17 @@ const props = withDefaults(
     title: string
     size?: 'narrow' | 'medium' | 'wide'
     busy?: boolean
+    mode?: 'drawer' | 'modal'
+    allowModeSwitch?: boolean
+    storageKey?: string
   }>(),
-  { size: 'medium', busy: false },
+  {
+    size: 'medium',
+    busy: false,
+    mode: 'drawer',
+    allowModeSwitch: true,
+    storageKey: 'industrial-platform:form-surface-mode',
+  },
 )
 
 const emit = defineEmits<{
@@ -30,9 +39,12 @@ const emit = defineEmits<{
 
 const deviceStore = useDeviceStore()
 const titleId = useId()
+const surfaceMode = ref<'drawer' | 'modal'>(props.mode)
 
 const open = computed(() => props.modelValue)
 const handheld = computed(() => deviceStore.terminal !== 'pc')
+const effectiveMode = computed(() => (handheld.value ? 'drawer' : surfaceMode.value))
+const canSwitchMode = computed(() => !handheld.value && props.allowModeSwitch)
 
 /** 打开前的焦点元素,关闭时归还(§7.10 focus trap)。 */
 let lastFocused: HTMLElement | null = null
@@ -47,6 +59,33 @@ watch(
     }
   },
 )
+
+watch(
+  () => props.mode,
+  (value) => {
+    surfaceMode.value = value
+  },
+)
+
+onMounted(() => {
+  if (handheld.value) return
+  try {
+    const stored = window.localStorage.getItem(props.storageKey)
+    if (stored === 'drawer' || stored === 'modal') surfaceMode.value = stored
+  } catch {
+    // Storage is optional; the default drawer remains usable in restricted browsers.
+  }
+})
+
+function toggleMode(): void {
+  if (!canSwitchMode.value) return
+  surfaceMode.value = surfaceMode.value === 'drawer' ? 'modal' : 'drawer'
+  try {
+    window.localStorage.setItem(props.storageKey, surfaceMode.value)
+  } catch {
+    // The current selection still applies for this open surface.
+  }
+}
 
 function close(kind: 'cancel'): void {
   if (kind === 'cancel') emit('cancel')
@@ -65,7 +104,11 @@ function onSubmit(): void {
 
 <template>
   <Teleport to="body">
-    <div v-if="open" class="app-form-drawer" :class="`app-form-drawer--${size}`">
+    <div
+      v-if="open"
+      class="app-form-drawer"
+      :class="[`app-form-drawer--${size}`, `app-form-drawer--${effectiveMode}`]"
+    >
       <div
         class="app-form-drawer__backdrop"
         data-testid="form-drawer-backdrop"
@@ -83,15 +126,27 @@ function onSubmit(): void {
         >
           <header class="app-form-drawer__header">
             <h2 :id="titleId" class="app-form-drawer__title">{{ title }}</h2>
-            <button
-              type="button"
-              class="app-form-drawer__close"
-              data-testid="form-drawer-close"
-              aria-label="关闭"
-              @click="close('cancel')"
-            >
-              <span aria-hidden="true">✕</span>
-            </button>
+            <div class="app-form-drawer__header-actions">
+              <button
+                v-if="canSwitchMode"
+                type="button"
+                class="app-form-drawer__mode-toggle"
+                data-testid="form-surface-mode-toggle"
+                :aria-label="effectiveMode === 'drawer' ? '切换为居中弹窗' : '切换为右侧抽屉'"
+                @click="toggleMode"
+              >
+                {{ effectiveMode === 'drawer' ? '居中弹窗' : '右侧抽屉' }}
+              </button>
+              <button
+                type="button"
+                class="app-form-drawer__close"
+                data-testid="form-drawer-close"
+                aria-label="关闭"
+                @click="close('cancel')"
+              >
+                <span aria-hidden="true">✕</span>
+              </button>
+            </div>
           </header>
           <div class="app-form-drawer__body">
             <slot />
@@ -132,6 +187,11 @@ function onSubmit(): void {
   justify-content: flex-end;
 }
 
+.app-form-drawer--modal {
+  align-items: center;
+  justify-content: center;
+}
+
 .app-form-drawer__backdrop {
   position: absolute;
   inset: 0;
@@ -147,6 +207,13 @@ function onSubmit(): void {
   background: var(--ip-color-bg-container);
   box-shadow: var(--ip-shadow-lg);
   color: var(--ip-color-text-primary);
+}
+
+.app-form-drawer--modal .app-form-drawer__panel {
+  width: min(720px, calc(100vw - 32px));
+  height: auto;
+  max-height: min(760px, calc(100vh - 48px));
+  border-radius: var(--ip-radius-lg);
 }
 
 .app-form-drawer--narrow .app-form-drawer__panel {
@@ -185,6 +252,22 @@ function onSubmit(): void {
   padding: 0;
   background: transparent;
   border: 0;
+  border-radius: var(--ip-radius-md);
+  color: var(--ip-color-text-secondary);
+  cursor: pointer;
+}
+
+.app-form-drawer__header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ip-space-2);
+}
+
+.app-form-drawer__mode-toggle {
+  min-height: 32px;
+  padding: 0 var(--ip-space-2);
+  background: transparent;
+  border: 1px solid var(--ip-color-border);
   border-radius: var(--ip-radius-md);
   color: var(--ip-color-text-secondary);
   cursor: pointer;
@@ -233,7 +316,8 @@ function onSubmit(): void {
 }
 
 .app-form-drawer__btn:focus-visible,
-.app-form-drawer__close:focus-visible {
+.app-form-drawer__close:focus-visible,
+.app-form-drawer__mode-toggle:focus-visible {
   outline: 2px solid var(--ip-focus-ring-color);
   outline-offset: 1px;
 }

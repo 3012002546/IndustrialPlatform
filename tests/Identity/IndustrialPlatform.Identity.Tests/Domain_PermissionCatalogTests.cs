@@ -40,13 +40,48 @@ public sealed class PermissionCatalogTests
         "platform.mobile.view",
         "identity.bootstrap.view",
         "identity.bootstrap.recover",
+        "systemdata.organization.view",
+        "systemdata.organization.create",
+        "systemdata.organization.update",
+        "systemdata.organization.move",
+        "systemdata.organization.status",
+        "systemdata.position.view",
+        "systemdata.position.create",
+        "systemdata.position.update",
+        "systemdata.position.status",
+        "systemdata.assignment.view",
+        "systemdata.assignment.manage",
+        "systemdata.resource.view",
+        "systemdata.navigation.view",
+        "systemdata.navigation.manage",
+        "systemdata.navigation.publish",
+        "systemdata.navigation.rollback",
+        "systemdata.feature.view",
+        "systemdata.feature.manage",
+        "systemdata.service-catalog.view",
+        "systemdata.service-catalog.manage",
+        "systemdata.theme-policy.view",
+        "systemdata.theme-policy.manage",
+        "systemdata.database-orchestration.view",
+        "systemdata.database-orchestration.register",
+        "systemdata.database-orchestration.plan",
+        "systemdata.database-orchestration.apply",
+        "systemdata.database-orchestration.approve",
+        "systemdata.database-orchestration.backup",
+        "systemdata.database-orchestration.cancel",
+        "systemdata.service-initialization.view",
+        "systemdata.service-initialization.register",
+        "systemdata.service-initialization.plan",
+        "systemdata.service-initialization.apply",
+        "systemdata.service-initialization.approve",
+        "systemdata.service-initialization.backup",
+        "systemdata.service-initialization.cancel",
     ];
 
     [Fact]
-    public void FirstBatch_HasThirtyPermissions()
+    public void FirstBatch_HasIdentityAndSystemDataPermissions()
     {
-        // §9.2 第一批 21 项 + §29A.5 用户组/重置密码 7 项 + bootstrap 2 项(TASK-ID-019/020)
-        Assert.Equal(30, PermissionCatalog.FirstBatchNIds.Count);
+        Assert.Equal(66, PermissionCatalog.FirstBatchNIds.Count);
     }
 
     [Fact]

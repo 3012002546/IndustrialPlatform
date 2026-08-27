@@ -16,6 +16,7 @@ using IndustrialPlatform.SystemData.Infrastructure.Topology;
 using IndustrialPlatform.SystemData.Infrastructure.Reliability;
 using IndustrialPlatform.SystemData.Infrastructure.Identity;
 using IndustrialPlatform.SystemData.Application.Auditing;
+using IndustrialPlatform.SystemData.Application.Authorization;
 using IndustrialPlatform.SharedKernel.Topology;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -57,6 +58,7 @@ public static class DependencyInjection
         services.AddSingleton<HttpIdentityDirectoryClient>();
         services.AddSingleton<IIdentityPermissionRegistry>(sp => sp.GetRequiredService<HttpIdentityDirectoryClient>());
         services.AddSingleton<IndustrialPlatform.SystemData.Application.IdentityDirectory.IIdentityUserDirectory>(sp => sp.GetRequiredService<HttpIdentityDirectoryClient>());
+        services.AddSingleton<ISystemDataPermissionEvaluator>(sp => sp.GetRequiredService<HttpIdentityDirectoryClient>());
         services.AddHostedService<ControlPlaneOutboxDispatcher>();
         services.AddHostedService<ControlPlaneReconciliationHostedService>();
         services.AddHostedService<SystemDataBaselineSeedRunner>();

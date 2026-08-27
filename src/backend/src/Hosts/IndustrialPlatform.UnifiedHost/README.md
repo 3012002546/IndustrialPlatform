@@ -13,9 +13,9 @@ UnifiedHost 是当前默认的统一进程部署入口。它在单一 ASP.NET Co
 
 ## 项目结构与调用链
 
-`Program.cs` → `AddIdentityModule`、`AddSystemDataModule`、`AddReferenceDataModule` → 各模块原有 Controller/Application/Infrastructure。请求先由前缀兼容中间件剥离 `/identity`、`/systemdata`、`/referencedata`，再进入各模块原有 `/api/v1` Controller 路由。
+`Program.cs` → `UnifiedHostModuleCatalog`（显式 `Identity` → `SystemData` → `ReferenceData`）→ 各模块自己的服务注册、健康检查和端点映射 → Controller/Application/Infrastructure。请求先由前缀兼容中间件剥离 `/identity`、`/systemdata`、`/referencedata`，再进入各模块原有 `/api/v1` Controller 路由。
 
-`ModuleMigrationCoordinatorHostedService.cs` 当前按 `Identity → SystemData` 确定顺序调用既有启动迁移，避免 Shared 数据库并发迁移。工作包 4 将改为按 `identity → systemdata → referencedata` 调用服务自有 `IServiceInitializer`，UnifiedHost 只保留协调职责。
+`ModuleMigrationCoordinatorHostedService.cs` 按目录声明的 `identity → systemdata → referencedata` 顺序调用服务自有 `IServiceInitializer`，避免 Shared 数据库并发迁移；宿主只协调，不实现迁移。
 
 生产 SPA 由 `UseStaticFiles` 和 fallback 托管；`/api`、`/health`、`/.well-known` 未知路径保持 404，不回退到 `index.html`。
 
@@ -46,6 +46,10 @@ UnifiedHost 只协调，不拥有初始化实现。当前通过 `ModuleMigration
 
 目标边界是调用各服务自己的 `Inspect → Plan → Apply → Verify` 初始化器，并由每个模块本地 ledger 决定 readiness。SystemData Observation 不是 UnifiedHost readiness 的替代事实。
 
+新增统一部署模块时，在模块 API 项目实现 `IUnifiedHostModule`，明确写入 `UnifiedHostModuleCatalog.Modules`；同时提供服务注册、健康检查和必要端点映射，按依赖顺序放置。不要自动扫描实现，也不要把模块迁移或业务规则复制到宿主。
+
+服务只进入 Gateway 的条件：它需要独立进程、独立伸缩或由 YARP 代理到下游。此类服务登记 Gateway 路由和健康地址，不进入 UnifiedHost 目录。统一进程模块才进入 UnifiedHost；目录模块的 `ExternalPathPrefix` 仅保持外部路径兼容，不承担 Gateway 路由职责。
+
 ## 测试入口
 
 ```powershell
@@ -71,5 +75,12 @@ dotnet test tests/UnifiedHost/IndustrialPlatform.UnifiedHost.Tests/IndustrialPla
 - 首先检查 → 服务前缀、Controller `/api/v1` 路由、`wwwroot/index.html` 是否存在，以及路径是否属于 API/health/JWKS 排除项。
 - 执行命令 → `dotnet test tests/UnifiedHost/IndustrialPlatform.UnifiedHost.Tests/IndustrialPlatform.UnifiedHost.Tests.csproj --configuration Release`
 - 正常结果 → 三个服务前缀兼容；未知 API 404；存在生产产物时非 API 页面回退 SPA。
-- 异常时下一步 → 检查 `GatewayServicePrefixes` 和 fallback 条件；不要添加 YARP 或把 Gateway 串在 UnifiedHost 内。
+- 异常时下一步 → 检查 `UnifiedHostModuleCatalog` 的 `ExternalPathPrefix` 和 fallback 条件；不要添加 YARP 或把 Gateway 串在 UnifiedHost 内。
 相关代码入口 → `Program.cs`、各服务 Controller 与 `RoutePrefixConvention.cs`。
+
+### 模块未启动或健康检查缺失
+
+- 首先检查 → `UnifiedHostModuleCatalog.cs` 中是否显式登记，以及模块适配器是否调用了三项接口。
+- 启动/迁移异常 → 检查 `ModuleMigrationCoordinatorHostedService.cs` 与对应服务初始化器。
+- 健康检查异常 → 检查模块自己的 `Add*HealthChecks` 和 `/health/ready` 聚合结果。
+- 路由异常 → 检查目录模块的 `ExternalPathPrefix`、Controller 路由和 Gateway 配置；不要将 YARP 或 Gateway 编排逻辑移入 UnifiedHost。
