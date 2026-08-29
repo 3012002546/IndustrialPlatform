@@ -25,4 +25,20 @@ describe('AppPage', () => {
     })
     expect(wrapper.find('.slot-content').text()).toBe('内容')
   })
+
+  it('supports header extension slots without replacing the shared page header', () => {
+    const wrapper = mount(AppPage, {
+      props: { title: '用户管理', description: '管理用户' },
+      slots: {
+        breadcrumb: '<nav data-testid="page-breadcrumb">首页 / 用户</nav>',
+        meta: '<span data-testid="page-meta">共 3 人</span>',
+        actions: '<button data-testid="page-action">新建</button>',
+      },
+    })
+
+    expect(wrapper.get('h1').text()).toBe('用户管理')
+    expect(wrapper.get('[data-testid="page-breadcrumb"]').text()).toContain('首页')
+    expect(wrapper.get('[data-testid="page-meta"]').text()).toContain('3')
+    expect(wrapper.get('[data-testid="page-action"]').text()).toBe('新建')
+  })
 })

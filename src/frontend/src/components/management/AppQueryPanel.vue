@@ -4,18 +4,33 @@
  */
 
 import { useId } from 'vue'
+import type { QueryDescriptor } from '@/querying'
 
 withDefaults(
   defineProps<{
     title?: string
     collapsible?: boolean
     collapsed?: boolean
+    showActions?: boolean
+    grid?: boolean
+    descriptor?: QueryDescriptor
+    submitLabel?: string
+    resetLabel?: string
   }>(),
-  { collapsible: false, collapsed: false },
+  {
+    collapsible: false,
+    collapsed: false,
+    showActions: false,
+    grid: false,
+    submitLabel: '查询',
+    resetLabel: '重置',
+  },
 )
 
 const emit = defineEmits<{
   'update:collapsed': [value: boolean]
+  submit: [descriptor?: QueryDescriptor]
+  reset: []
 }>()
 
 const titleId = useId()
@@ -24,10 +39,25 @@ const bodyId = useId()
 
 <template>
   <section class="app-query-panel">
-    <header v-if="title || collapsible || $slots.actions" class="app-query-panel__header">
+    <header
+      v-if="title || collapsible || $slots.actions || showActions"
+      class="app-query-panel__header"
+    >
       <h2 v-if="title" :id="titleId" class="app-query-panel__title">{{ title }}</h2>
       <div v-if="$slots.actions" class="app-query-panel__actions">
         <slot name="actions" />
+      </div>
+      <div v-if="showActions" class="app-query-panel__actions">
+        <button type="button" data-testid="query-panel-reset" @click="emit('reset')">
+          {{ resetLabel }}
+        </button>
+        <button
+          type="button"
+          data-testid="query-panel-submit"
+          @click="emit('submit', descriptor)"
+        >
+          {{ submitLabel }}
+        </button>
       </div>
       <button
         v-if="collapsible"
@@ -41,7 +71,12 @@ const bodyId = useId()
         {{ collapsed ? '展开' : '收起' }}
       </button>
     </header>
-    <div v-show="!collapsed" :id="bodyId" class="app-query-panel__body">
+    <div
+      v-show="!collapsed"
+      :id="bodyId"
+      class="app-query-panel__body"
+      :class="{ 'app-query-panel__body--grid': grid }"
+    >
       <slot />
     </div>
   </section>
@@ -100,5 +135,11 @@ const bodyId = useId()
   display: flex;
   flex-direction: column;
   gap: var(--ip-space-3);
+}
+
+.app-query-panel__body--grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  align-items: end;
 }
 </style>

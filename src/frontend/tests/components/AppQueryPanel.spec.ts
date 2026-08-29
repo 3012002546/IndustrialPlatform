@@ -56,4 +56,23 @@ describe('AppQueryPanel', () => {
     expect(body.attributes('id')).toBe(bodyId)
     expect(body.isVisible()).toBe(false)
   })
+
+  it('提供标准提交、重置动作并向外输出 QueryDescriptor', async () => {
+    const descriptor = {
+      filters: [],
+      orderBy: [],
+      select: ['userName'],
+      pageIndex: 1,
+      pageSize: 20,
+    }
+    const wrapper = mount(AppQueryPanel, {
+      props: { title: '查询条件', showActions: true, descriptor },
+      slots: { default: '<input aria-label="用户名" />' },
+    })
+
+    await wrapper.get('[data-testid="query-panel-submit"]').trigger('click')
+    await wrapper.get('[data-testid="query-panel-reset"]').trigger('click')
+    expect(wrapper.emitted('submit')).toEqual([[descriptor]])
+    expect(wrapper.emitted('reset')).toEqual([[]])
+  })
 })

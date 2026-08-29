@@ -37,9 +37,17 @@ onMounted(() => {
     <div data-testid="systemdata-admin-page" class="systemdata-admin-page">
       <AppPermissionState v-if="!hasPermission" />
       <template v-else>
-        <AppQueryPanel title="查询与操作">
+        <AppQueryPanel
+          title="查询与操作"
+          show-actions
+          @submit="store.retry(kind)"
+          @reset="store.retry(kind)"
+        >
+          <template #actions>
+            <div class="systemdata-admin-toolbar"><slot name="toolbar" /></div>
+          </template>
           <div class="systemdata-admin-toolbar">
-            <slot name="toolbar" /><button type="button" @click="store.retry(kind)">刷新</button>
+            <button type="button" @click="store.retry(kind)">刷新</button>
           </div>
         </AppQueryPanel>
         <div class="systemdata-status-strip" data-testid="systemdata-status-strip">
