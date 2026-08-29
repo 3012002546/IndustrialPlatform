@@ -5,20 +5,27 @@ using System.IO.Compression;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using IndustrialPlatform.Identity.Api.Controllers;
 using IndustrialPlatform.Identity.Application.Authentication;
 using IndustrialPlatform.Identity.Application.Authorization;
 using IndustrialPlatform.Identity.Application.Management;
 using IndustrialPlatform.Identity.Domain.Permissions;
 using IndustrialPlatform.Identity.Domain.Roles;
 using IndustrialPlatform.Identity.Domain.Users;
+using IndustrialPlatform.Security;
+using IndustrialPlatform.Web.Querying;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Primitives;
 
 namespace IndustrialPlatform.Identity.Api.Tests;
 
@@ -125,6 +132,64 @@ public sealed class ManagementEndpointTests
         Assert.Equal("PLATFORM_QUERY_OPTION_NOT_ALLOWED", payload.RootElement.GetProperty("code").GetString());
     }
 
+    [Theory]
+    [InlineData("/api/v1/odata/users?$filter=effectiveRoleCount%20gt%200&$top=20")]
+    [InlineData("/api/v1/odata/users?$orderby=optimisticVersion&$top=20")]
+    [InlineData("/api/v1/odata/users?$orderby=isDeleted&$top=20")]
+    public async Task Users_OData_RejectsFieldsWithoutExecutableQueryMap(string url)
+    {
+        using var factory = CreateFactory(new InMemoryManagementStore(), [PermissionCatalog.UserView]);
+        using var client = factory.CreateClient();
+
+        using var response = await SendAsync(client, HttpMethod.Get, url, token: await CreateTokenAsync(factory));
+        using var payload = JsonDocument.Parse(await response.Content.ReadAsStreamAsync());
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("PLATFORM_QUERY_FIELD_NOT_ALLOWED", payload.RootElement.GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task Users_OData_List_PreservesRequestCancellationInLinkedToken()
+    {
+        var store = new InMemoryManagementStore
+        {
+            UserPage = new StoredUserPage([StoredUser("alice.user", "alice", "Alice")], 1),
+        };
+        using var factory = CreateFactory(store, [PermissionCatalog.UserView]);
+        using var scope = factory.Services.CreateScope();
+        var httpContext = new DefaultHttpContext
+        {
+            RequestServices = scope.ServiceProvider,
+            User = new ClaimsPrincipal(new ClaimsIdentity(
+                [
+                    new Claim(ClaimConstants.UserNId, UserNId),
+                    new Claim(ClaimConstants.UserName, "alice"),
+                    new Claim(ClaimConstants.TenantId, Tenant),
+                ],
+                "test")),
+        };
+        httpContext.Request.Query = new QueryCollection(new Dictionary<string, StringValues>
+        {
+            ["$top"] = "20",
+        });
+        scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>().HttpContext = httpContext;
+        var controller = new UsersODataController(
+            scope.ServiceProvider.GetRequiredService<IUserManagementService>(),
+            new ODataQueryDescriptorParser(),
+            scope.ServiceProvider.GetRequiredService<ICurrentUser>(),
+            scope.ServiceProvider.GetRequiredService<IIdempotencyStore>())
+        {
+            ControllerContext = new ControllerContext { HttpContext = httpContext },
+        };
+
+        using var requestCancellation = new CancellationTokenSource();
+        requestCancellation.Cancel();
+        await controller.List(requestCancellation.Token);
+
+        Assert.True(store.LastUserQueryCancellationToken.IsCancellationRequested);
+        Assert.True(store.LastUserQueryCancellationToken.CanBeCanceled);
+    }
+
     [Fact]
     public async Task Users_OData_Export_UsesTheSameControlledReadModel()
     {
@@ -147,6 +212,52 @@ public sealed class ManagementEndpointTests
         using var archive = new ZipArchive(new MemoryStream(bytes), ZipArchiveMode.Read);
         using var reader = new StreamReader(archive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
         Assert.Contains("alice", await reader.ReadToEndAsync());
+    }
+
+    [Fact]
+    public async Task Users_OData_Export_UsesEnglishHeadersAndRequestedTimeZone()
+    {
+        var store = new InMemoryManagementStore
+        {
+            UserPage = new StoredUserPage([StoredUser("alice.user", "alice", "Alice")], 1),
+        };
+        using var factory = CreateFactory(store, [PermissionCatalog.UserView]);
+        using var client = factory.CreateClient();
+
+        using var response = await SendAsync(
+            client,
+            HttpMethod.Get,
+            "/api/v1/odata/users/export?$select=loginName,createdOn&$top=20&$skip=0&columns=loginName,createdOn&quantity=all&culture=en-US&timeZone=Asia%2FTaipei",
+            token: await CreateTokenAsync(factory));
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var archive = new ZipArchive(new MemoryStream(bytes), ZipArchiveMode.Read);
+        using var reader = new StreamReader(archive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+        var sheet = await reader.ReadToEndAsync();
+        Assert.Contains("Login name", sheet);
+        Assert.Contains("Created on", sheet);
+        Assert.Contains("08/01/2026 08:00:00 +08:00", sheet);
+    }
+
+    [Theory]
+    [InlineData("culture=fr-FR&timeZone=UTC", "culture")]
+    [InlineData("culture=en-US&timeZone=Not/A/TimeZone", "timeZone")]
+    public async Task Users_OData_Export_RejectsUnsupportedLocaleParameters(string localeQuery, string parameter)
+    {
+        using var factory = CreateFactory(new InMemoryManagementStore(), [PermissionCatalog.UserView]);
+        using var client = factory.CreateClient();
+
+        using var response = await SendAsync(
+            client,
+            HttpMethod.Get,
+            $"/api/v1/odata/users/export?$select=loginName&$top=20&columns=loginName&quantity=1&{localeQuery}",
+            token: await CreateTokenAsync(factory));
+        using var payload = JsonDocument.Parse(await response.Content.ReadAsStreamAsync());
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("PLATFORM_EXPORT_LOCALE_INVALID", payload.RootElement.GetProperty("code").GetString());
+        Assert.Equal(parameter, payload.RootElement.GetProperty("parameters").GetProperty("parameter").GetString());
     }
 
     [Fact]
@@ -449,9 +560,13 @@ public sealed class ManagementEndpointTests
         public User? UserAggregate { get; init; }
         public IReadOnlyList<Permission> AllPermissions { get; init; } = [];
         public List<OperationAuditEntry> Audits { get; } = [];
+        public CancellationToken LastUserQueryCancellationToken { get; private set; }
 
         public Task<StoredUserPage> QueryUsersAsync(UserListFilter filter, CancellationToken cancellationToken)
-            => Task.FromResult(UserPage);
+        {
+            LastUserQueryCancellationToken = cancellationToken;
+            return Task.FromResult(UserPage);
+        }
 
         public Task<StoredUser?> GetUserAsync(string userNId, CancellationToken cancellationToken)
             => Task.FromResult(StoredUser);

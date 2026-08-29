@@ -46,10 +46,12 @@ public sealed record UserQueryResource(
             ["directRoleNIds"] = QueryFieldDefinition.Text(filterable: false, sortable: false),
             ["groupRoleNIds"] = QueryFieldDefinition.Text(filterable: false, sortable: false),
             ["effectiveRoleNIds"] = QueryFieldDefinition.Text(filterable: false, sortable: false),
-            ["effectiveRoleCount"] = QueryFieldDefinition.Number(),
-            ["optimisticVersion"] = QueryFieldDefinition.Number(filterable: false),
+            // These read-model values are projected for detail/export only;
+            // the SqlSugar query map intentionally does not execute them.
+            ["effectiveRoleCount"] = QueryFieldDefinition.Number(filterable: false, sortable: false),
+            ["optimisticVersion"] = QueryFieldDefinition.Number(filterable: false, sortable: false),
             ["concurrencyVersion"] = QueryFieldDefinition.Text(filterable: false, sortable: false),
-            ["isDeleted"] = QueryFieldDefinition.Boolean(filterable: false),
+            ["isDeleted"] = QueryFieldDefinition.Boolean(filterable: false, sortable: false),
         },
         tieBreaker: "userNId");
 

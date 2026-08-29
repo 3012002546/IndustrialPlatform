@@ -45,7 +45,9 @@ public sealed class UsersODataController : ManagementControllerBase
         try
         {
             var descriptor = _parser.Parse(Request.Query, UserQueryResource.Definition);
-            var page = await _service.QueryUsersAsync(tenantNId, descriptor, cancellationToken);
+            using var queryCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            queryCancellation.CancelAfter(TimeSpan.FromSeconds(10));
+            var page = await _service.QueryUsersAsync(tenantNId, descriptor, queryCancellation.Token);
             var projected = page.Items.Select(item => item.Project(descriptor.Select)).ToList();
             return PageResult.Create(projected, page.Total, page.PageIndex, page.PageSize);
         }
@@ -80,9 +82,11 @@ public sealed class UsersODataController : ManagementControllerBase
             descriptor = _parser.Parse(Request.Query, UserQueryResource.Definition);
             var fields = ReadExportFields(Request.Query["columns"].ToString(), descriptor.Select);
             var quantity = StreamingXlsxExport.ParseQuantity(Request.Query["quantity"].ToString());
+            var culture = ReadExportCulture(Request.Query["culture"].ToString());
+            var timeZone = ReadExportTimeZone(Request.Query["timeZone"].ToString());
             return StreamingXlsxExport.Start(
                 "users.xlsx",
-                (output, ct) => ProduceExportAsync(output, tenantNId, descriptor, fields, quantity, ct),
+                (output, ct) => ProduceExportAsync(output, tenantNId, descriptor, fields, quantity, culture, timeZone, ct),
                 cancellationToken);
         }
         catch (QueryValidationException ex)
@@ -102,10 +106,15 @@ public sealed class UsersODataController : ManagementControllerBase
         QueryDescriptor descriptor,
         IReadOnlyList<string> fields,
         int quantity,
-        CancellationToken cancellationToken)
+        CultureInfo culture,
+        TimeZoneInfo timeZone,
+        CancellationToken requestCancellationToken)
     {
+        using var queryCancellation = CancellationTokenSource.CreateLinkedTokenSource(requestCancellationToken);
+        queryCancellation.CancelAfter(TimeSpan.FromSeconds(10));
+        var cancellationToken = queryCancellation.Token;
         await using var workbook = await StreamingXlsxWriter.CreateAsync(output, cancellationToken);
-        await workbook.WriteRowAsync(fields.Select(UserQueryResourceTitle), cancellationToken);
+        await workbook.WriteRowAsync(fields.Select(field => UserQueryExportResources.GetTitle(field, culture)), cancellationToken);
         var written = 0;
         var pageIndex = 1;
         while (written < quantity)
@@ -120,7 +129,7 @@ public sealed class UsersODataController : ManagementControllerBase
                 if (written >= quantity) break;
                 var selected = item.Project(fields);
                 await workbook.WriteRowAsync(
-                    fields.Select(field => Convert.ToString(selected[field], CultureInfo.InvariantCulture)),
+                    fields.Select(field => FormatExportValue(field, selected[field], culture, timeZone)),
                     cancellationToken);
                 written++;
             }
@@ -141,19 +150,72 @@ public sealed class UsersODataController : ManagementControllerBase
         return fields.Distinct(StringComparer.Ordinal).ToArray();
     }
 
-    private static string UserQueryResourceTitle(string field)
-        => field switch
+    private static CultureInfo ReadExportCulture(string? raw)
+    {
+        var name = string.IsNullOrWhiteSpace(raw) ? "zh-CN" : raw.Trim();
+        if (!name.Equals("zh-CN", StringComparison.OrdinalIgnoreCase) &&
+            !name.Equals("en-US", StringComparison.OrdinalIgnoreCase))
         {
-            "userNId" => "用户标识",
-            "loginName" => "登录名",
-            "name" => "姓名",
-            "email" => "邮箱",
-            "phone" => "手机号",
-            "status" => "状态",
-            "createdOn" => "创建时间",
-            "lastLoginOn" => "最近登录",
-            "mustChangePassword" => "需改密",
-            "effectiveRoleCount" => "有效角色",
-            _ => field,
+            throw InvalidExportLocale("culture");
+        }
+
+        return CultureInfo.GetCultureInfo(name);
+    }
+
+    private static TimeZoneInfo ReadExportTimeZone(string? raw)
+    {
+        var name = string.IsNullOrWhiteSpace(raw) ? "UTC" : raw.Trim();
+        var candidates = name switch
+        {
+            "UTC" => new[] { "UTC" },
+            "Asia/Taipei" => new[] { "Asia/Taipei", "Taipei Standard Time" },
+            "Taipei Standard Time" => new[] { "Taipei Standard Time", "Asia/Taipei" },
+            "America/Los_Angeles" => new[] { "America/Los_Angeles", "Pacific Standard Time" },
+            "Pacific Standard Time" => new[] { "Pacific Standard Time", "America/Los_Angeles" },
+            _ => Array.Empty<string>(),
         };
+
+        foreach (var candidate in candidates)
+        {
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById(candidate);
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                // Try the platform-specific alias next.
+            }
+            catch (InvalidTimeZoneException)
+            {
+                // Try the platform-specific alias next.
+            }
+        }
+
+        throw InvalidExportLocale("timeZone");
+    }
+
+    private static string? FormatExportValue(
+        string field,
+        object? value,
+        CultureInfo culture,
+        TimeZoneInfo timeZone)
+    {
+        if (value is null) return null;
+        if (field is "createdOn" or "lastLoginOn" && value is DateTimeOffset date)
+        {
+            var local = TimeZoneInfo.ConvertTime(date, timeZone);
+            var format = culture.Name.Equals("en-US", StringComparison.OrdinalIgnoreCase)
+                ? "MM/dd/yyyy HH:mm:ss zzz"
+                : "yyyy年MM月dd日 HH:mm:ss zzz";
+            return local.ToString(format, culture);
+        }
+
+        return Convert.ToString(value, culture);
+    }
+
+    private static QueryValidationException InvalidExportLocale(string parameter)
+        => new(new QueryValidationError(
+            "PLATFORM_EXPORT_LOCALE_INVALID",
+            "导出 culture 或 timeZone 不受支持。",
+            parameter));
 }
