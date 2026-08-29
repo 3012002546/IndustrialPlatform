@@ -77,6 +77,11 @@ for (const palette of PALETTES) {
       await expect(page.locator('nav.ip-toolrail')).toBeVisible()
       await expect(page.locator('nav.ip-function-tree')).toBeVisible()
       await expect(page.locator('.ip-pc-tabs')).toContainText(pageDef.title)
+      if (pageDef.title === '用户管理') {
+        await expect(page.getByTestId('identity-users-page')).toBeVisible()
+        await expect(page.getByTestId('identity-users-query')).toBeVisible()
+        await expect(page.getByTestId('app-data-table')).toBeVisible()
+      }
 
       // 真实数据:无「加载失败」;用户/角色/权限页另断言真实行(审计页允许空表)
       await expect(page.getByRole('heading', { name: '加载失败' })).not.toBeVisible({

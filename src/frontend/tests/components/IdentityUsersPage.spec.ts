@@ -14,8 +14,11 @@ import { VxeTable } from 'vxe-table'
 
 import { persistAuthSession } from '../fixtures/session'
 import type { AppDataTableColumn } from '@/components/management/AppDataTable'
+import AppPage from '@/components/base/AppPage.vue'
+import AppQueryPanel from '@/components/management/AppQueryPanel.vue'
 import IdentityUsersPage from '@/pages/pc/identity/IdentityUsersPage.vue'
 import { useAuthStore } from '@/stores/authStore'
+import { useLocalizationStore } from '@/stores/localizationStore'
 
 const { fakeApi } = vi.hoisted(() => ({
   fakeApi: {
@@ -83,12 +86,13 @@ function emptyPage<T>(): { items: T[]; total: number; pageIndex: number; pageSiz
 
 async function mountUsersPage(
   permissions: string[],
-  options: { stubTeleport?: boolean; stubTooltip?: boolean } = {},
+  options: { stubTeleport?: boolean; stubTooltip?: boolean; locale?: 'zh-CN' | 'en-US' } = {},
 ): Promise<VueWrapper> {
   const pinia = createPinia()
   setActivePinia(pinia)
   persistAuthSession(permissions)
   await useAuthStore().restore()
+  if (options.locale !== undefined) useLocalizationStore().setLocale(options.locale, null)
   const wrapper = mount(IdentityUsersPage, {
     global: {
       plugins: [pinia, ElementPlus],
@@ -157,6 +161,41 @@ describe('IdentityUsersPage — 创建用户(服务端随机临时密码)', () =
     expect(wrapper.find('input[type="password"]').exists()).toBe(false)
     expect(wrapper.find('input[placeholder="登录用户名"]').exists()).toBe(true)
     expect(wrapper.find('input[placeholder="显示姓名"]').exists()).toBe(true)
+  })
+
+  it('固定使用共享 PageHeader、QueryPanel 和 DataTable 组合', async () => {
+    const wrapper = await mountUsersPage(['identity.user.view', 'identity.user.create'])
+
+    const page = wrapper.findComponent(AppPage)
+    expect(page.exists()).toBe(true)
+    expect(page.attributes('data-testid')).toBe('identity-users-page')
+    expect(page.get('h1').text()).toBe('用户管理')
+    expect(page.findComponent(AppQueryPanel).exists()).toBe(true)
+    expect(page.findComponent(AppQueryPanel).props('showActions')).toBe(true)
+    expect(page.findComponent({ name: 'AppDataTable' }).exists()).toBe(true)
+    expect(page.find('[data-testid="identity-users-create"]').exists()).toBe(true)
+    expect(page.findAll('.users-page__toolbar')).toHaveLength(0)
+  })
+
+  it('无创建权限时隐藏页面主操作，并且查询动作可用键盘聚焦', async () => {
+    const wrapper = await mountUsersPage(['identity.user.view'])
+
+    expect(wrapper.find('[data-testid="identity-users-create"]').exists()).toBe(false)
+    const submit = wrapper.get('[data-testid="query-panel-submit"]')
+    const reset = wrapper.get('[data-testid="query-panel-reset"]')
+    expect(submit.attributes('type')).toBe('button')
+    expect(reset.attributes('type')).toBe('button')
+    expect(submit.attributes('disabled')).toBeUndefined()
+    expect(reset.attributes('disabled')).toBeUndefined()
+  })
+
+  it('页面标题和说明随 locale 使用稳定资源', async () => {
+    const wrapper = await mountUsersPage(['identity.user.view'], { locale: 'en-US' })
+
+    expect(wrapper.get('h1').text()).toBe('User management')
+    expect(wrapper.find('.app-page__description').text()).toBe(
+      'Manage platform users, status, and access',
+    )
   })
 
   it('列头查询覆盖用户数据库字段，但不虚接派生统计字段', async () => {

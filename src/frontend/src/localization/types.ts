@@ -68,6 +68,29 @@ export interface PlatformLocaleMessages {
       phone: string
       createdOn: string
       lastLoginOn: string
+      breadcrumb: string
+      queryTitle: string
+      businessId: string
+      group: string
+      role: string
+      includeDeleted: string
+      create: string
+      tableActions: string
+      enabled: string
+      disabled: string
+      mustChangePassword: string
+      noChangePassword: string
+      effectiveRoles: string
+      detail: string
+      edit: string
+      disable: string
+      enable: string
+      assignRole: string
+      resetPassword: string
+      restore: string
+      delete: string
+      userCountSuffix: string
+      more: string
     }
     status: { enabled: string; disabled: string; deleted: string }
   }

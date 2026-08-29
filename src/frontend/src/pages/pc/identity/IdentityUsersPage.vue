@@ -7,7 +7,7 @@
  */
 import { ElDropdown, ElDropdownItem, ElDropdownMenu, ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
-import { onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 
 import { getManagementApi } from '@/api/identity/managementRegistry'
 import type { RoleSummaryDto, UserGroupSummaryDto, UserSummaryDto } from '@/api/identity/management'
@@ -18,8 +18,12 @@ import type {
   AppDataTableRequest,
 } from '@/components/management/AppDataTable'
 import type { QueryDescriptor } from '@/querying'
+import AppPage from '@/components/base/AppPage.vue'
+import AppQueryPanel from '@/components/management/AppQueryPanel.vue'
+import { localeMessages } from '@/localization/i18n'
 import { PERMISSIONS, PermissionGate, usePermission } from '@/permissions'
 import AppDataTable from '@/components/management/AppDataTable.vue'
+import { useLocalizationStore } from '@/stores/localizationStore'
 
 import TemporaryPasswordDialog from './components/TemporaryPasswordDialog.vue'
 import { formatTime, reportManagementError } from './shared'
@@ -34,6 +38,9 @@ interface UserForm {
 
 const management = getManagementApi()
 const { has } = usePermission()
+const localization = useLocalizationStore()
+const commonCopy = computed(() => localeMessages[localization.locale].common.action)
+const copy = computed(() => localeMessages[localization.locale].identity.user)
 
 type UserAction =
   'detail' | 'edit' | 'status' | 'assign-role' | 'reset-password' | 'restore' | 'delete'
@@ -135,45 +142,45 @@ const tableQueryMode = ref<AppDataTableQueryMode>('top')
 const allRoles = ref<RoleSummaryDto[]>([])
 const allGroups = ref<UserGroupSummaryDto[]>([])
 
-const USER_COLUMNS: readonly AppDataTableColumn[] = [
+const userColumns = computed<readonly AppDataTableColumn[]>(() => [
   {
     field: 'loginName',
-    title: '登录名',
+    title: copy.value.loginName,
     minWidth: 130,
     sortable: true,
     filter: { kind: 'text' as const },
   },
-  { field: 'name', title: '姓名', minWidth: 110, filter: { kind: 'text' as const } },
+  { field: 'name', title: copy.value.name, minWidth: 110, filter: { kind: 'text' as const } },
   {
     field: 'status',
-    title: '状态',
+    title: copy.value.status,
     width: 90,
     filter: {
       kind: 'select' as const,
       options: [
-        { label: '启用', value: 'Active' },
-        { label: '禁用', value: 'Disabled' },
+        { label: copy.value.enabled, value: 'Active' },
+        { label: copy.value.disabled, value: 'Disabled' },
       ],
     },
   },
   {
     field: 'mustChangePassword',
-    title: '改密',
+    title: copy.value.mustChangePassword,
     width: 80,
     filter: {
       kind: 'select' as const,
       options: [
-        { label: '需要改密', value: true },
-        { label: '无需改密', value: false },
+        { label: copy.value.mustChangePassword, value: true },
+        { label: copy.value.noChangePassword, value: false },
       ],
     },
   },
-  { field: 'email', title: '邮箱', minWidth: 170, filter: { kind: 'text' as const } },
-  { field: 'phone', title: '手机号', minWidth: 120, filter: { kind: 'text' as const } },
-  { field: 'effectiveRoleCount', title: '有效角色', width: 100, filter: false },
+  { field: 'email', title: copy.value.email, minWidth: 170, filter: { kind: 'text' as const } },
+  { field: 'phone', title: copy.value.phone, minWidth: 120, filter: { kind: 'text' as const } },
+  { field: 'effectiveRoleCount', title: copy.value.effectiveRoles, width: 100, filter: false },
   {
     field: 'lastLoginOn',
-    title: '最近登录',
+    title: copy.value.lastLoginOn,
     width: 240,
     minWidth: 240,
     sortable: true,
@@ -181,13 +188,13 @@ const USER_COLUMNS: readonly AppDataTableColumn[] = [
   },
   {
     field: 'createdOn',
-    title: '创建时间',
+    title: copy.value.createdOn,
     width: 240,
     minWidth: 240,
     sortable: true,
     filter: { kind: 'date-range' as const },
   },
-]
+])
 
 async function loadAllRoles(): Promise<void> {
   try {
@@ -276,6 +283,10 @@ function onTableQuery(request: AppDataTableRequest): void {
   pageSize.value = request.pageSize
 }
 
+function onTableLoadError(error: unknown): void {
+  reportManagementError(error, '加载用户列表失败')
+}
+
 function onTableQueryModeChange(mode: AppDataTableQueryMode): void {
   tableQueryMode.value = mode
   if (mode === 'header') {
@@ -310,7 +321,7 @@ function buildUserQueryDescriptor(
   return {
     filters,
     orderBy: request.descriptor?.orderBy ?? [],
-    select: request.descriptor?.select ?? USER_COLUMNS.map((column) => column.field),
+    select: request.descriptor?.select ?? userColumns.value.map((column) => column.field),
     pageIndex: 'pageIndex' in request ? request.pageIndex : 1,
     pageSize: 'pageSize' in request ? request.pageSize : 100,
   }
@@ -682,42 +693,79 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="users-page">
-    <div class="users-page__toolbar">
+  <AppPage
+    class="users-page"
+    data-testid="identity-users-page"
+    :title="copy.title"
+    :description="copy.description"
+  >
+    <template #breadcrumb>
+      <nav aria-label="页面路径">{{ copy.breadcrumb }}</nav>
+    </template>
+    <template #meta>
+      <span data-testid="identity-users-total">{{ total }} {{ copy.userCountSuffix }}</span>
+    </template>
+    <template #actions>
+      <PermissionGate :permission-n-id="PERMISSIONS.userCreate">
+        <el-button
+          type="primary"
+          data-testid="identity-users-create"
+          @click="openCreate"
+        >
+          {{ copy.create }}
+        </el-button>
+      </PermissionGate>
+    </template>
+
+    <AppQueryPanel
+      data-testid="identity-users-query"
+      :title="copy.queryTitle"
+      :show-actions="true"
+      :submit-label="commonCopy.search"
+      :reset-label="commonCopy.reset"
+      :grid="true"
+      @submit="search"
+      @reset="resetQuery"
+    >
       <template v-if="tableQueryMode === 'top'">
         <el-input
           v-model="query.nId"
-          placeholder="业务标识"
+          :placeholder="copy.businessId"
+          :aria-label="copy.businessId"
           clearable
           class="users-page__filter"
           @keyup.enter="search"
         />
         <el-input
           v-model="query.loginName"
-          placeholder="登录名"
+          :placeholder="copy.loginName"
+          :aria-label="copy.loginName"
           clearable
           class="users-page__filter"
           @keyup.enter="search"
         />
         <el-input
           v-model="query.name"
-          placeholder="姓名"
+          :placeholder="copy.name"
+          :aria-label="copy.name"
           clearable
           class="users-page__filter"
           @keyup.enter="search"
         />
         <el-select
           v-model="query.status"
-          placeholder="状态"
+          :placeholder="copy.status"
+          :aria-label="copy.status"
           clearable
           class="users-page__filter users-page__filter--status"
         >
-          <el-option label="启用" value="Active" />
-          <el-option label="禁用" value="Disabled" />
+          <el-option :label="copy.enabled" value="Active" />
+          <el-option :label="copy.disabled" value="Disabled" />
         </el-select>
         <el-select
           v-model="query.groupNId"
-          placeholder="用户组"
+          :placeholder="copy.group"
+          :aria-label="copy.group"
           clearable
           filterable
           class="users-page__filter"
@@ -731,7 +779,8 @@ onMounted(() => {
         </el-select>
         <el-select
           v-model="query.roleNId"
-          placeholder="角色"
+          :placeholder="copy.role"
+          :aria-label="copy.role"
           clearable
           filterable
           class="users-page__filter"
@@ -743,38 +792,38 @@ onMounted(() => {
             :label="role.name"
           />
         </el-select>
-        <el-checkbox v-model="query.includeDeleted" @change="search">包含已删除</el-checkbox>
-        <el-button type="primary" @click="search">查询</el-button>
-        <el-button @click="resetQuery">重置</el-button>
+        <el-checkbox v-model="query.includeDeleted" :aria-label="copy.includeDeleted" @change="search">
+          {{ copy.includeDeleted }}
+        </el-checkbox>
       </template>
-      <div class="users-page__spacer" />
-    </div>
+      <p v-else class="users-page__query-mode-hint" role="status">
+        {{ copy.queryTitle }} · {{ copy.tableActions }}
+      </p>
+    </AppQueryPanel>
 
     <AppDataTable
       table-key="identity-users"
       :rows="rows"
       :total="total"
       :loading="loading"
-      :columns="USER_COLUMNS"
+      :columns="userColumns"
       :page-size="pageSize"
       :loader="loadUsersTable"
       :exporter="exportUsers"
       @query-mode-change="onTableQueryModeChange"
       @query-change="onTableQuery"
+      @load-error="onTableLoadError"
     >
-      <template #toolbar-actions>
-        <PermissionGate :permission-n-id="PERMISSIONS.userCreate">
-          <el-button type="primary" plain @click="openCreate">新建用户</el-button>
-        </PermissionGate>
-      </template>
       <template #cell-status="{ row }">
         <el-tag :type="row.status === 'Active' ? 'success' : 'danger'" effect="light">
-          {{ row.status === 'Active' ? '启用' : '禁用' }}
+          {{ row.status === 'Active' ? copy.enabled : copy.disabled }}
         </el-tag>
       </template>
       <template #cell-mustChangePassword="{ row }">
-        <el-tag v-if="row.mustChangePassword" type="warning" effect="plain">需改密</el-tag>
-        <span v-else>—</span>
+        <el-tag v-if="row.mustChangePassword" type="warning" effect="plain">
+          {{ copy.mustChangePassword }}
+        </el-tag>
+        <span v-else>{{ copy.noChangePassword }}</span>
       </template>
       <template #cell-effectiveRoleCount="{ row }">
         <el-tooltip
@@ -794,13 +843,13 @@ onMounted(() => {
             link
             type="primary"
             @click="openDetail(row)"
-            >详情</el-button
+            >{{ copy.detail }}</el-button
           >
           <PermissionGate
             v-if="isDirectUserAction(row, availableWidth, 'edit')"
             :permission-n-id="PERMISSIONS.userUpdate"
           >
-            <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
+            <el-button link type="primary" @click="openEdit(row)">{{ copy.edit }}</el-button>
           </PermissionGate>
           <PermissionGate
             v-if="isDirectUserAction(row, availableWidth, 'status')"
@@ -811,32 +860,32 @@ onMounted(() => {
               :type="row.status === 'Active' ? 'danger' : 'success'"
               @click="toggleStatus(row)"
             >
-              {{ row.status === 'Active' ? '禁用' : '启用' }}
+              {{ row.status === 'Active' ? copy.disable : copy.enable }}
             </el-button>
           </PermissionGate>
           <PermissionGate
             v-if="isDirectUserAction(row, availableWidth, 'assign-role')"
             :permission-n-id="PERMISSIONS.userAssignRole"
           >
-            <el-button link type="primary" @click="openAssignRoles(row)">分配角色</el-button>
+            <el-button link type="primary" @click="openAssignRoles(row)">{{ copy.assignRole }}</el-button>
           </PermissionGate>
           <PermissionGate
             v-if="isDirectUserAction(row, availableWidth, 'reset-password')"
             :permission-n-id="PERMISSIONS.userResetPassword"
           >
-            <el-button link type="warning" @click="openResetPassword(row)">重置密码</el-button>
+            <el-button link type="warning" @click="openResetPassword(row)">{{ copy.resetPassword }}</el-button>
           </PermissionGate>
           <PermissionGate
             v-if="isDirectUserAction(row, availableWidth, 'restore')"
             :permission-n-id="PERMISSIONS.userRestore"
           >
-            <el-button link type="success" @click="restoreUser(row)">恢复</el-button>
+            <el-button link type="success" @click="restoreUser(row)">{{ copy.restore }}</el-button>
           </PermissionGate>
           <PermissionGate
             v-if="isDirectUserAction(row, availableWidth, 'delete')"
             :permission-n-id="PERMISSIONS.userDelete"
           >
-            <el-button link type="danger" @click="deleteUser(row)">删除</el-button>
+            <el-button link type="danger" @click="deleteUser(row)">{{ copy.delete }}</el-button>
           </PermissionGate>
           <ElDropdown
             v-if="hasMoreActions(row, availableWidth)"
@@ -852,7 +901,7 @@ onMounted(() => {
               :data-testid="`identity-user-more-${row.userNId}`"
               aria-haspopup="menu"
             >
-              更多
+              {{ copy.more }}
             </button>
             <template #dropdown>
               <ElDropdownMenu :data-testid="`identity-user-more-menu-${row.userNId}`" role="menu">
@@ -860,7 +909,7 @@ onMounted(() => {
                   v-if="!isDirectUserAction(row, availableWidth, 'detail')"
                   command="detail"
                   :data-testid="`identity-user-action-detail-${row.userNId}`"
-                  >详情</ElDropdownItem
+                  >{{ copy.detail }}</ElDropdownItem
                 >
                 <PermissionGate
                   v-if="!isDirectUserAction(row, availableWidth, 'edit')"
@@ -869,7 +918,7 @@ onMounted(() => {
                   <ElDropdownItem
                     command="edit"
                     :data-testid="`identity-user-action-edit-${row.userNId}`"
-                    >编辑</ElDropdownItem
+                    >{{ copy.edit }}</ElDropdownItem
                   >
                 </PermissionGate>
                 <PermissionGate
@@ -881,7 +930,7 @@ onMounted(() => {
                     :class="row.status === 'Active' ? 'is-danger' : 'is-success'"
                     :data-testid="`identity-user-action-status-${row.userNId}`"
                   >
-                    {{ row.status === 'Active' ? '禁用' : '启用' }}
+                    {{ row.status === 'Active' ? copy.disable : copy.enable }}
                   </ElDropdownItem>
                 </PermissionGate>
                 <PermissionGate
@@ -891,7 +940,7 @@ onMounted(() => {
                   <ElDropdownItem
                     command="assign-role"
                     :data-testid="`identity-user-action-assign-role-${row.userNId}`"
-                    >分配角色</ElDropdownItem
+                    >{{ copy.assignRole }}</ElDropdownItem
                   >
                 </PermissionGate>
                 <PermissionGate
@@ -901,7 +950,7 @@ onMounted(() => {
                   <ElDropdownItem
                     command="reset-password"
                     :data-testid="`identity-user-action-reset-password-${row.userNId}`"
-                    >重置密码</ElDropdownItem
+                    >{{ copy.resetPassword }}</ElDropdownItem
                   >
                 </PermissionGate>
                 <template v-if="row.isDeleted">
@@ -912,7 +961,7 @@ onMounted(() => {
                     <ElDropdownItem
                       command="restore"
                       :data-testid="`identity-user-action-restore-${row.userNId}`"
-                      >恢复</ElDropdownItem
+                      >{{ copy.restore }}</ElDropdownItem
                     >
                   </PermissionGate>
                 </template>
@@ -925,7 +974,7 @@ onMounted(() => {
                       command="delete"
                       class="is-danger"
                       :data-testid="`identity-user-action-delete-${row.userNId}`"
-                      >删除</ElDropdownItem
+                      >{{ copy.delete }}</ElDropdownItem
                     >
                   </PermissionGate>
                 </template>
@@ -1042,21 +1091,14 @@ onMounted(() => {
       :password="tempPassword"
       :description="tempDescription"
     />
-  </section>
+  </AppPage>
 </template>
 
 <style scoped>
 .users-page {
   display: flex;
   flex-direction: column;
-  gap: var(--ip-space-1);
-}
-
-.users-page__toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--ip-space-2);
-  align-items: center;
+  gap: var(--ip-space-4);
 }
 
 .users-page__filter {
@@ -1067,8 +1109,10 @@ onMounted(() => {
   width: 110px;
 }
 
-.users-page__spacer {
-  flex: 1;
+.users-page__query-mode-hint {
+  margin: 0;
+  color: var(--ip-color-text-secondary);
+  font-size: var(--ip-font-size-sm);
 }
 
 .users-page__pagination {

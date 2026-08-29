@@ -4,7 +4,11 @@ export default defineConfig({
   testDir: './tests/e2e',
   // 真实登录/Identity 页面联合验收(PF-01 §14)需要 authMode=http + 真实后端,
   // 由 playwright.real.config.ts 单独运行,不参与 Mock 基线与 CI 全量。
-  testIgnore: ['**/real-login.spec.ts', '**/identity-pages.spec.ts'],
+  testIgnore: [
+    '**/real-login.spec.ts',
+    '**/identity-pages.spec.ts',
+    '**/user-management-golden.spec.ts',
+  ],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   // 本地 E2E 走 Vite dev server(非生产),冷编译 + 多 worker 并发全页加载会触发

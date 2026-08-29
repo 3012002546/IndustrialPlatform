@@ -12,7 +12,11 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './tests/e2e',
-  testMatch: ['**/real-login.spec.ts', '**/identity-pages.spec.ts'],
+  testMatch: [
+    '**/real-login.spec.ts',
+    '**/identity-pages.spec.ts',
+    '**/user-management-golden.spec.ts',
+  ],
   // 共享真实后端与云端库,严格串行(workers=1)降低瞬时慢首呼/共享状态影响。
   // 并行登录同一账号会触发 Identity 登录成功更新的乐观并发冲突(ConcurrencyException→500),故必须串行。
   fullyParallel: false,
