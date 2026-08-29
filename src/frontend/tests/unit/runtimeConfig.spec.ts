@@ -4,6 +4,7 @@ import {
   DEFAULT_API_BASE_URL,
   DEFAULT_AUTH_MODE,
   DEFAULT_REQUEST_TIMEOUT_MS,
+  DEFAULT_DEPLOYMENT_ENVIRONMENT,
   loadRuntimeConfig,
   parseRuntimeConfig,
   RuntimeConfigError,
@@ -21,6 +22,7 @@ describe('parseRuntimeConfig', () => {
     expect(cfg.authMode).toBe(DEFAULT_AUTH_MODE)
     expect(cfg.authMode).toBe('http')
     expect(cfg.requestTimeoutMs).toBe(DEFAULT_REQUEST_TIMEOUT_MS)
+    expect(cfg.deploymentEnvironment).toBe('DEV')
   })
 
   it('explicit mock mode works in non-production', () => {
@@ -38,6 +40,7 @@ describe('parseRuntimeConfig', () => {
       apiBaseUrl: 'https://api.example.com',
       authMode: 'http',
       requestTimeoutMs: 3000,
+      deploymentEnvironment: 'DEV',
     })
   })
 
@@ -60,15 +63,27 @@ describe('parseRuntimeConfig', () => {
     expect(() => parse({ VITE_AUTH_MODE: 'mock' }, true)).toThrow(RuntimeConfigError)
   })
 
-  it('allows production default (authMode=http) and explicit http', () => {
-    // 产品默认即 http,空配置与显式 http 在生产的构建均合法;只有显式 mock 被禁止。
-    expect(parse({}, true).authMode).toBe('http')
-    expect(parse({ VITE_AUTH_MODE: 'http' }, true).authMode).toBe('http')
+  it('allows production http only with an explicit deployment environment', () => {
+    expect(parse({ VITE_DEPLOYMENT_ENVIRONMENT: 'PROD' }, true).authMode).toBe('http')
+    expect(
+      parse({ VITE_AUTH_MODE: 'http', VITE_DEPLOYMENT_ENVIRONMENT: 'PROD' }, true).authMode,
+    ).toBe('http')
   })
 
   it('allows http auth mode in production', () => {
-    const cfg = parse({ VITE_AUTH_MODE: 'http' }, true)
+    const cfg = parse({ VITE_AUTH_MODE: 'http', VITE_DEPLOYMENT_ENVIRONMENT: 'PROD' }, true)
     expect(cfg.authMode).toBe('http')
+  })
+
+  it('parses only controlled deployment environments', () => {
+    expect(parse({}).deploymentEnvironment).toBe(DEFAULT_DEPLOYMENT_ENVIRONMENT)
+    expect(parse({ VITE_DEPLOYMENT_ENVIRONMENT: 'UAT' }).deploymentEnvironment).toBe('UAT')
+    expect(() => parse({ VITE_DEPLOYMENT_ENVIRONMENT: 'LOCAL' })).toThrow(RuntimeConfigError)
+  })
+
+  it('requires an explicit deployment environment for production', () => {
+    expect(() => parse({}, true)).toThrow(RuntimeConfigError)
+    expect(parse({ VITE_DEPLOYMENT_ENVIRONMENT: 'PROD' }, true).deploymentEnvironment).toBe('PROD')
   })
 })
 

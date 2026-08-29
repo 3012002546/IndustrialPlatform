@@ -5,6 +5,7 @@
  *   VITE_API_BASE_URL         API 统一入口,Development 默认 UnifiedHost,必须是合法 http/https URL
  *   VITE_AUTH_MODE            http(默认,本地真实 Identity)| mock(仅测试/显式配置)
  *   VITE_REQUEST_TIMEOUT_MS   正整数,HTTP 超时毫秒数
+ *   VITE_DEPLOYMENT_ENVIRONMENT DEV|TEST|UAT|PROD;生产构建必须显式提供
  *
  * 生产构建启用 mock 必须失败,不得静默切换。
  */
@@ -12,13 +13,16 @@
 export const DEFAULT_API_BASE_URL = 'http://localhost:5041'
 export const DEFAULT_AUTH_MODE = 'http'
 export const DEFAULT_REQUEST_TIMEOUT_MS = 10000
+export const DEFAULT_DEPLOYMENT_ENVIRONMENT = 'DEV' as const
 
 export type AuthMode = 'mock' | 'http'
+export type DeploymentEnvironment = 'DEV' | 'TEST' | 'UAT' | 'PROD'
 
 export interface RuntimeConfig {
   apiBaseUrl: string
   authMode: AuthMode
   requestTimeoutMs: number
+  deploymentEnvironment: DeploymentEnvironment
 }
 
 export interface RuntimeConfigSource {
@@ -64,6 +68,24 @@ function parsePositiveInt(raw: string | undefined, fallback: number, field: stri
   return n
 }
 
+function parseDeploymentEnvironment(
+  raw: string | undefined,
+  isProduction: boolean,
+): DeploymentEnvironment {
+  if (raw === undefined || raw === '') {
+    if (isProduction) {
+      throw new RuntimeConfigError(
+        '生产构建必须显式设置 VITE_DEPLOYMENT_ENVIRONMENT=PROD|UAT|TEST|DEV',
+      )
+    }
+    return DEFAULT_DEPLOYMENT_ENVIRONMENT
+  }
+  if (raw === 'DEV' || raw === 'TEST' || raw === 'UAT' || raw === 'PROD') return raw
+  throw new RuntimeConfigError(
+    `VITE_DEPLOYMENT_ENVIRONMENT 仅支持 DEV/TEST/UAT/PROD,当前值: ${raw}`,
+  )
+}
+
 /** 纯解析函数:任意原始环境记录 → RuntimeConfig,非法输入抛 RuntimeConfigError。 */
 export function parseRuntimeConfig(source: RuntimeConfigSource): RuntimeConfig {
   const apiBaseUrl = parseBaseUrl(source.raw.VITE_API_BASE_URL)
@@ -73,12 +95,16 @@ export function parseRuntimeConfig(source: RuntimeConfigSource): RuntimeConfig {
     DEFAULT_REQUEST_TIMEOUT_MS,
     'VITE_REQUEST_TIMEOUT_MS',
   )
+  const deploymentEnvironment = parseDeploymentEnvironment(
+    source.raw.VITE_DEPLOYMENT_ENVIRONMENT,
+    source.isProduction,
+  )
 
   if (source.isProduction && authMode === 'mock') {
     throw new RuntimeConfigError('生产构建禁止启用 mock 认证(VITE_AUTH_MODE=mock)')
   }
 
-  return { apiBaseUrl, authMode, requestTimeoutMs }
+  return { apiBaseUrl, authMode, requestTimeoutMs, deploymentEnvironment }
 }
 
 /** 应用加载入口:基于 import.meta.env 解析运行配置。 */

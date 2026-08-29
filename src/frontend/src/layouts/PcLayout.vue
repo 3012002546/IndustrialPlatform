@@ -13,19 +13,28 @@ import { FullScreen, Lock } from '@element-plus/icons-vue'
 
 import MockModeBanner from '@/components/base/MockModeBanner.vue'
 import PlatformBrand from '@/components/brand/PlatformBrand.vue'
+import LocaleControl from '@/components/localization/LocaleControl.vue'
 import { pcNavigationGroups } from '@/components/navigation/navigation'
+import PlatformCommandSearch, {
+  type PlatformCommandItem,
+} from '@/components/shell/PlatformCommandSearch.vue'
+import PlatformContextSwitcher from '@/components/shell/PlatformContextSwitcher.vue'
+import PlatformEnvironmentBadge from '@/components/shell/PlatformEnvironmentBadge.vue'
 import PcWorkspaceTabs from '@/components/shell/PcWorkspaceTabs.vue'
 import PlatformFunctionTree from '@/components/shell/PlatformFunctionTree.vue'
+import PlatformServiceStatus from '@/components/shell/PlatformServiceStatus.vue'
 import PlatformToolRail from '@/components/shell/PlatformToolRail.vue'
 import PlatformTopBar from '@/components/shell/PlatformTopBar.vue'
 import ThemeControl from '@/components/theme/ThemeControl.vue'
 import WorkspaceTabLimitDialog from '@/components/shell/WorkspaceTabLimitDialog.vue'
 import AppLockOverlay from '@/components/shell/AppLockOverlay.vue'
 import type { TerminalType } from '@/device/types'
+import { loadRuntimeConfig } from '@/config/runtimeConfig'
 import { useAuthStore } from '@/stores/authStore'
 import { useDeviceStore } from '@/stores/deviceStore'
 import { useWorkspaceTabsStore } from '@/stores/workspaceTabsStore'
 import { useLockStore } from '@/stores/lockStore'
+import { useSystemDataRuntimeStore } from '@/stores/systemData/runtimeStore'
 import { buildTabId } from '@/workspace'
 import type { TabLimitResolution, WorkspaceTab } from '@/workspace'
 
@@ -41,6 +50,8 @@ const authStore = useAuthStore()
 const deviceStore = useDeviceStore()
 const tabsStore = useWorkspaceTabsStore()
 const lockStore = useLockStore()
+const systemDataRuntime = useSystemDataRuntimeStore()
+const runtimeConfig = loadRuntimeConfig()
 const focusMode = ref(false)
 const browserFullscreen = ref(false)
 
@@ -67,6 +78,18 @@ const activeGroupItems = computed(() => activeGroup.value?.items ?? [])
 
 const displayName = computed(() => authStore.user?.displayName ?? '')
 const terminalLabel = computed(() => TERMINAL_LABELS[deviceStore.terminal] ?? deviceStore.terminal)
+const tenant = computed(() => {
+  const user = authStore.user
+  return user === null ? null : { id: user.tenantId, name: user.tenantId }
+})
+const commandItems = computed<readonly PlatformCommandItem[]>(() => [
+  ...pcNavigationGroups.flatMap((group) =>
+    group.items.map((item) => ({ id: item.id, label: item.label, kind: 'navigation' as const })),
+  ),
+  ...tabsStore.tabs
+    .filter((tab) => tab.kind === 'business')
+    .map((tab) => ({ id: tab.id, label: tab.title, kind: 'recent' as const })),
+])
 
 function onFullscreenChange(): void {
   browserFullscreen.value = document.fullscreenElement !== null
@@ -141,6 +164,18 @@ function onMenuSelect(routeName: string): void {
   void router.push({ name: routeName })
 }
 
+function onCommandSearchSelect(id: string): void {
+  const navigation = pcNavigationGroups
+    .flatMap((group) => group.items)
+    .find((item) => item.id === id)
+  if (navigation !== undefined) {
+    onMenuSelect(navigation.routeName)
+    return
+  }
+  const tab = tabsStore.tabs.find((candidate) => candidate.id === id)
+  if (tab !== undefined) void router.push(tab.route)
+}
+
 function onClose(tabId: string): void {
   tabsStore.closeTab(tabId)
   navigateToActive()
@@ -200,10 +235,24 @@ function onLimitResolve(resolution: TabLimitResolution): void {
       <template #brand>
         <PlatformBrand class="ip-pc-brand" variant="dark" />
         <span class="ip-pc-terminal" data-testid="terminal-info"> 终端 {{ terminalLabel }} </span>
+        <PlatformEnvironmentBadge :environment="runtimeConfig.deploymentEnvironment" />
+      </template>
+
+      <template #global-search>
+        <div class="ip-pc-context-search">
+          <PlatformContextSwitcher :tenant="tenant" />
+          <PlatformCommandSearch :items="commandItems" @select="onCommandSearchSelect" />
+        </div>
       </template>
 
       <template #global-actions>
         <MockModeBanner />
+        <PlatformServiceStatus
+          :degraded="systemDataRuntime.degraded"
+          :unavailable="systemDataRuntime.unavailable"
+          @retry="systemDataRuntime.refresh('Pc')"
+        />
+        <LocaleControl />
         <button
           type="button"
           class="ip-pc-shell-action"
@@ -412,6 +461,15 @@ function onLimitResolve(resolution: TabLimitResolution): void {
   color: var(--ip-shell-topbar-text-secondary);
   font-size: var(--ip-font-size-sm);
   white-space: nowrap;
+}
+
+.ip-pc-context-search {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ip-space-4);
+  width: min(100%, 760px);
+  min-width: 0;
 }
 
 .ip-pc-user {
