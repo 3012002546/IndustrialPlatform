@@ -8,6 +8,7 @@
     <Project Path="src\BuildingBlocks\IndustrialPlatform.Logging\IndustrialPlatform.Logging.csproj" />
     <Project Path="src\BuildingBlocks\IndustrialPlatform.Web\IndustrialPlatform.Web.csproj" />
     <Project Path="src\BuildingBlocks\IndustrialPlatform.Security\IndustrialPlatform.Security.csproj" />
+    <Project Path="src\BuildingBlocks\IndustrialPlatform.Querying\IndustrialPlatform.Querying.csproj" />
   </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/BuildingBlocks/">

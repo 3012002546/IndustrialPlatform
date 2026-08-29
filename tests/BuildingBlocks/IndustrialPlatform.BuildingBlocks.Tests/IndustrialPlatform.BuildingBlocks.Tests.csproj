@@ -15,6 +15,7 @@
     <ProjectReference Include="..\..\..\src\backend\src\BuildingBlocks\IndustrialPlatform.EventBus\IndustrialPlatform.EventBus.csproj" />
     <ProjectReference Include="..\..\..\src\backend\src\BuildingBlocks\IndustrialPlatform.Logging\IndustrialPlatform.Logging.csproj" />
     <ProjectReference Include="..\..\..\src\backend\src\BuildingBlocks\IndustrialPlatform.Web\IndustrialPlatform.Web.csproj" />
+    <ProjectReference Include="..\..\..\src\backend\src\BuildingBlocks\IndustrialPlatform.Querying\IndustrialPlatform.Querying.csproj" />
     <ProjectReference Include="..\..\..\src\backend\src\BuildingBlocks\IndustrialPlatform.Security\IndustrialPlatform.Security.csproj" />
   </ItemGroup>
 </Project>

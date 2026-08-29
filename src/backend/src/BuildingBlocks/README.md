@@ -2,7 +2,7 @@
 
 ## 职责
 
-BuildingBlocks 提供可被各服务复用、但不拥有具体业务语义的基础能力：共享内核与数据库拓扑值对象、应用层抽象、SqlSugar 仓储与工作单元、Redis 缓存和分布式锁、RabbitMQ 事件总线、Serilog/TraceId、安全上下文，以及 ASP.NET Core 的统一结果信封、异常与请求日志中间件。
+BuildingBlocks 提供可被各服务复用、但不拥有具体业务语义的基础能力：共享内核与数据库拓扑值对象、应用层抽象、受控查询描述符与 OData 输入适配、SqlSugar 仓储与工作单元、Redis 缓存和分布式锁、RabbitMQ 事件总线、Serilog/TraceId、安全上下文，以及 ASP.NET Core 的统一结果信封、异常与请求日志中间件。
 
 优先从已有扩展方法和接口接入，不在业务服务中复制数据库、缓存、日志、安全或 Web 管线封装。
 
@@ -23,9 +23,10 @@ BuildingBlocks 提供可被各服务复用、但不拥有具体业务语义的�
 | `IndustrialPlatform.EventBus` | `IEventBus`、`RabbitMqEventBus`、消费者后台服务和订阅管理 |
 | `IndustrialPlatform.Logging` | `UseIndustrialSerilog`、`TraceIdEnricher` |
 | `IndustrialPlatform.Security` | `ICurrentUser`、Claim 常量和注册扩展 |
+| `IndustrialPlatform.Querying` | 不依赖 Web/数据库的 `QueryDescriptor`、字段 schema 和稳定验证错误 |
 | `IndustrialPlatform.Web` | `UseIndustrialWeb`、`AddIndustrialApi`、`ApiResult`、异常/日志中间件 |
 
-典型调用链为：业务服务的 API/模块注册 → BuildingBlocks 扩展方法 → 具体基础设施实现。领域层只能依赖 SharedKernel，不应反向依赖 Web、Infrastructure 或 EventBus。
+典型调用链为：业务服务的 API/模块注册 → Web OData parser → `QueryDescriptor` → 服务自有范围查询 → Infrastructure SqlSugar adapter。领域层只能依赖 SharedKernel，不应反向依赖 Web、Infrastructure 或 EventBus。
 
 ## 运行入口
 

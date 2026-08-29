@@ -13,6 +13,7 @@ public sealed class AssemblyBoundaryTests
     [InlineData("IndustrialPlatform.Logging")]
     [InlineData("IndustrialPlatform.Web")]
     [InlineData("IndustrialPlatform.Security")]
+    [InlineData("IndustrialPlatform.Querying")]
     public void LoadsExpectedBuildingBlockAssembly(string assemblyName)
     {
         var assembly = Assembly.Load(new AssemblyName(assemblyName));

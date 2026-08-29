@@ -13,13 +13,14 @@ public sealed class ProjectReferenceArchitectureTests
             ["src/backend/src/BuildingBlocks/IndustrialPlatform.EventBus/IndustrialPlatform.EventBus.csproj"] =
                 ["IndustrialPlatform.SharedKernel"],
             ["src/backend/src/BuildingBlocks/IndustrialPlatform.Infrastructure/IndustrialPlatform.Infrastructure.csproj"] =
-                ["IndustrialPlatform.Application.Abstractions", "IndustrialPlatform.SharedKernel"],
+                ["IndustrialPlatform.Application.Abstractions", "IndustrialPlatform.Querying", "IndustrialPlatform.SharedKernel"],
             ["src/backend/src/BuildingBlocks/IndustrialPlatform.Logging/IndustrialPlatform.Logging.csproj"] = [],
             ["src/backend/src/BuildingBlocks/IndustrialPlatform.Security/IndustrialPlatform.Security.csproj"] =
                 ["IndustrialPlatform.Application.Abstractions"],
             ["src/backend/src/BuildingBlocks/IndustrialPlatform.SharedKernel/IndustrialPlatform.SharedKernel.csproj"] = [],
+            ["src/backend/src/BuildingBlocks/IndustrialPlatform.Querying/IndustrialPlatform.Querying.csproj"] = [],
             ["src/backend/src/BuildingBlocks/IndustrialPlatform.Web/IndustrialPlatform.Web.csproj"] =
-                ["IndustrialPlatform.Application.Abstractions", "IndustrialPlatform.SharedKernel"],
+                ["IndustrialPlatform.Application.Abstractions", "IndustrialPlatform.Querying", "IndustrialPlatform.SharedKernel"],
             ["src/backend/src/Gateway/IndustrialPlatform.Gateway/IndustrialPlatform.Gateway.csproj"] =
                 ["IndustrialPlatform.Logging", "IndustrialPlatform.Web"],
             ["src/backend/src/Hosts/IndustrialPlatform.UnifiedHost/IndustrialPlatform.UnifiedHost.csproj"] =
