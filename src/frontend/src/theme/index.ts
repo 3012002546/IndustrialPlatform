@@ -7,18 +7,22 @@ export { DEFAULT_UI_PREFERENCES, isPcDensity, isThemeMode, isThemePalette } from
 export { PC_DENSITIES, THEME_MODES, THEME_PALETTES } from './defaults'
 export {
   LEGACY_PC_SIDEBAR_COLLAPSED_KEY,
+  PC_NAVIGATION_MODE_KEY_PREFIX,
   UI_BOOTSTRAP_STORAGE_KEY,
   buildUserUiPreferenceKey,
+  buildPcNavigationModeKey,
   mergeUiPreferences,
   parseBootstrapAppearance,
   parseUiPreferences,
   readBootstrapAppearance,
   readLegacyPcSidebarCollapsed,
   readUiPreferences,
+  readPcNavigationMode,
   removeLegacyPcSidebarCollapsed,
   serializeUiPreferences,
   writeBootstrapAppearance,
   writeUiPreferences,
+  writePcNavigationMode,
   type BootstrapAppearance,
   type UiPreferencesStorage,
 } from './preferences'
@@ -43,6 +47,7 @@ export type {
   ResolvedUiAppearance,
   ThemeMode,
   ThemePalette,
+  PcNavigationMode,
   UiPreferencesV1,
   UserUiScope,
 } from './types'

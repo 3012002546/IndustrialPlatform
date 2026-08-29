@@ -68,4 +68,13 @@ describe('PlatformToolRail', () => {
     await first.trigger('focus')
     expect((first.element as HTMLButtonElement).tagName).toBe('BUTTON')
   })
+
+  it('compact 模式保留图标入口但隐藏分组文字', () => {
+    const wrapper = mount(PlatformToolRail, {
+      props: { groups: GROUPS, activeGroupId: 'workspace', mode: 'compact' },
+    })
+    expect(wrapper.get('nav').classes()).toContain('ip-toolrail--compact')
+    expect(wrapper.findAll('.ip-toolrail__label')).toHaveLength(0)
+    expect(wrapper.findAll('.ip-toolrail__icon')).toHaveLength(GROUPS.length)
+  })
 })

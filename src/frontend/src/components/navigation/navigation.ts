@@ -19,7 +19,7 @@ import { shallowReactive } from 'vue'
 
 import { PERMISSIONS } from '@/permissions'
 
-import type { NavigationGroup } from './types'
+import type { NavigationGroup, NavigationItem } from './types'
 
 /**
  * 一级平台分组。PlatformToolRail 渲染此数组并管理当前分组;
@@ -154,13 +154,35 @@ const DEFAULT_PC_NAVIGATION_GROUPS: readonly NavigationGroup[] = [
   },
 ]
 
+function normalizeItem(item: NavigationItem): NavigationItem {
+  return {
+    ...item,
+    labelKey: item.labelKey ?? `navigation.item.${item.id}`,
+    fallbackLabel: item.fallbackLabel ?? item.label,
+    ...(item.children === undefined
+      ? {}
+      : { children: item.children.map(normalizeItem) }),
+  }
+}
+
+export function normalizeNavigationGroups(
+  groups: readonly NavigationGroup[],
+): NavigationGroup[] {
+  return groups.map((group) => ({
+    ...group,
+    labelKey: group.labelKey ?? `navigation.group.${group.id}`,
+    fallbackLabel: group.fallbackLabel ?? group.label,
+    items: group.items.map(normalizeItem),
+  }))
+}
+
 /** PF-01 公开导航端口:运行适配器只替换数组内容,不触碰壳组件内部实现。 */
 export const pcNavigationGroups = shallowReactive<NavigationGroup[]>([
-  ...DEFAULT_PC_NAVIGATION_GROUPS,
+  ...normalizeNavigationGroups(DEFAULT_PC_NAVIGATION_GROUPS),
 ])
 
 export function replacePcNavigationGroups(groups: readonly NavigationGroup[]): void {
-  pcNavigationGroups.splice(0, pcNavigationGroups.length, ...groups)
+  pcNavigationGroups.splice(0, pcNavigationGroups.length, ...normalizeNavigationGroups(groups))
 }
 
 export function resetPcNavigationGroups(): void {

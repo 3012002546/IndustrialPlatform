@@ -46,8 +46,9 @@
 
   /* ---- 布局固定尺寸(密度不得改变这四项,§6) ---- */
   --ip-shell-topbar-height: 52px;
-  --ip-shell-toolrail-width: 52px;
-  --ip-shell-functiontree-width: 216px;
+  --ip-shell-toolrail-width: 96px;
+  --ip-shell-toolrail-width-compact: 52px;
+  --ip-shell-functiontree-width: 208px;
   --ip-shell-tabs-height: 36px;
 
   /* ---- 布局:PC 管理框架(第一批兼容尺寸,003 迁移到 shell Token) ---- */

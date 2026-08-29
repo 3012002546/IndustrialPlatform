@@ -15,6 +15,8 @@ import {
   readLegacyPcSidebarCollapsed,
   readUiPreferences,
   removeLegacyPcSidebarCollapsed,
+  readPcNavigationMode,
+  writePcNavigationMode,
   writeBootstrapAppearance,
   writeUiPreferences,
   mergeUiPreferences,
@@ -29,6 +31,7 @@ import type {
   ThemePalette,
   UiPreferencesV1,
   UserUiScope,
+  PcNavigationMode,
 } from '@/theme/types'
 
 /** 租户默认主题来源(PF-01 阶段为空适配器;PF-02 通过 setTenantUiDefaultsSource 安装)。 */
@@ -67,6 +70,7 @@ export const useThemeStore = defineStore('theme', () => {
   const scope = ref<UserUiScope | null>(null)
   /** 是否已完成首次初始化(幂等)。 */
   const ready = ref(false)
+  const navigationMode = ref<PcNavigationMode>('expanded')
 
   let systemMedia: MediaQueryList | null = null
   let systemListener: (() => void) | null = null
@@ -162,6 +166,7 @@ export const useThemeStore = defineStore('theme', () => {
         Date.now(),
       )
       const legacy = userPrefs === null ? readLegacyPcSidebarCollapsed(storage) : null
+      const storedNavigationMode = readPcNavigationMode(storage, nextScope)
 
       scope.value = nextScope
       if (legacy !== null) {
@@ -180,6 +185,9 @@ export const useThemeStore = defineStore('theme', () => {
       } else {
         preferences.value = merged
       }
+      navigationMode.value =
+        storedNavigationMode ?? (legacy === true ? 'secondary-collapsed' : 'expanded')
+      writePcNavigationMode(storage, nextScope, navigationMode.value)
 
       effectiveColorMode.value = resolveEffectiveColorMode(
         preferences.value.mode,
@@ -223,8 +231,14 @@ export const useThemeStore = defineStore('theme', () => {
 
   /** 设置 PC 功能树折叠状态(接入 ThemeStore,不再直接读写旧侧栏键)。 */
   function setPcFunctionTreeCollapsed(value: boolean): void {
-    preferences.value = { ...preferences.value, pcFunctionTreeCollapsed: value }
+    setPcNavigationMode(value ? 'secondary-collapsed' : 'expanded')
+  }
+
+  function setPcNavigationMode(value: PcNavigationMode): void {
+    navigationMode.value = value
+    preferences.value = { ...preferences.value, pcFunctionTreeCollapsed: value !== 'expanded' }
     persistUser()
+    if (scope.value !== null) writePcNavigationMode(defaultStorage(), scope.value, value)
   }
 
   /** 移除系统模式监听器(测试与应用销毁时调用)。 */
@@ -241,12 +255,14 @@ export const useThemeStore = defineStore('theme', () => {
     effectiveColorMode,
     scope,
     ready,
+    navigationMode,
     initialize,
     bindUser,
     setPalette,
     setMode,
     setDensity,
     setPcFunctionTreeCollapsed,
+    setPcNavigationMode,
     dispose,
   }
 })

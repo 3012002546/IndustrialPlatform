@@ -15,6 +15,8 @@ export type EffectiveColorMode = 'light' | 'dark'
 /** PC 内容密度。 */
 export type PcDensity = 'comfortable' | 'compact'
 
+export type PcNavigationMode = 'expanded' | 'secondary-collapsed' | 'compact'
+
 /**
  * 版本化 UI 偏好快照(v1)。
  * 只保存外观与功能树折叠状态;不保存 Token、密码、权限列表或业务数据。

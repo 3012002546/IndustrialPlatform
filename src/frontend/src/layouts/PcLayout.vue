@@ -34,6 +34,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useDeviceStore } from '@/stores/deviceStore'
 import { useWorkspaceTabsStore } from '@/stores/workspaceTabsStore'
 import { useLockStore } from '@/stores/lockStore'
+import { useThemeStore } from '@/stores/themeStore'
 import { useSystemDataRuntimeStore } from '@/stores/systemData/runtimeStore'
 import { buildTabId } from '@/workspace'
 import type { TabLimitResolution, WorkspaceTab } from '@/workspace'
@@ -50,6 +51,7 @@ const authStore = useAuthStore()
 const deviceStore = useDeviceStore()
 const tabsStore = useWorkspaceTabsStore()
 const lockStore = useLockStore()
+const themeStore = useThemeStore()
 const systemDataRuntime = useSystemDataRuntimeStore()
 const runtimeConfig = loadRuntimeConfig()
 const focusMode = ref(false)
@@ -75,6 +77,7 @@ const activeGroup = computed(
 
 /** 当前组的全部 items(功能树内部再做权限过滤)。 */
 const activeGroupItems = computed(() => activeGroup.value?.items ?? [])
+const navigationMode = computed(() => themeStore.navigationMode)
 
 const displayName = computed(() => authStore.user?.displayName ?? '')
 const terminalLabel = computed(() => TERMINAL_LABELS[deviceStore.terminal] ?? deviceStore.terminal)
@@ -337,6 +340,7 @@ function onLimitResolve(resolution: TabLimitResolution): void {
         class="ip-pc-chrome"
         v-model:active-group-id="activeGroupId"
         :groups="pcNavigationGroups"
+        :mode="navigationMode"
       />
 
       <div class="ip-pc-function-and-workspace">

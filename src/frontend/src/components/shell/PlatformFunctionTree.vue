@@ -23,6 +23,7 @@ const authStore = useAuthStore()
 const themeStore = useThemeStore()
 const route = useRoute()
 const openMenuId = ref<string | null>(null)
+const menuQuery = ref('')
 
 /** 权限过滤后的可见菜单(§13.2):未声明权限视为公开,声明但未持有则隐藏。 */
 function hasAccess(item: NavigationItem): boolean {
@@ -33,10 +34,19 @@ function hasAccess(item: NavigationItem): boolean {
   )
 }
 
-const visibleItems = computed(() => props.items.filter((item) => hasAccess(item)))
+const visibleItems = computed(() =>
+  props.items.filter((item) => {
+    if (!hasAccess(item)) return false
+    const query = menuQuery.value.trim().toLocaleLowerCase()
+    if (query === '') return true
+    return (item.fallbackLabel ?? item.label).toLocaleLowerCase().includes(query)
+  }),
+)
 
 /** 功能树收起状态来自 ThemeStore(§7.8),不直接读写 localStorage。 */
-const collapsed = computed(() => themeStore.preferences.pcFunctionTreeCollapsed)
+const collapsed = computed(
+  () => themeStore.navigationMode !== 'expanded' || themeStore.preferences.pcFunctionTreeCollapsed,
+)
 
 function toggle(): void {
   themeStore.setPcFunctionTreeCollapsed(!collapsed.value)
@@ -96,6 +106,15 @@ watch(
         }}</span>
       </button>
     </div>
+    <input
+      v-if="!collapsed"
+      v-model="menuQuery"
+      class="ip-function-tree__search"
+      type="search"
+      placeholder="搜索菜单"
+      aria-label="搜索菜单"
+      @keydown.esc="menuQuery = ''"
+    />
 
     <ul id="ip-function-tree-list" class="ip-function-tree__list">
       <li v-for="item in visibleItems" :key="item.id" class="ip-function-tree__item">
@@ -276,6 +295,7 @@ watch(
 }
 
 .ip-function-tree--collapsed .ip-function-tree__list {
+  display: none;
   padding: var(--ip-space-2) 0;
   overflow: visible;
 }

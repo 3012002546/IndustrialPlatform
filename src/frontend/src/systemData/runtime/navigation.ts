@@ -26,6 +26,8 @@ function mapItem(node: NavigationRuntimeNodeDto): NavigationItem | null {
   return {
     id: node.nodeNId,
     label: node.label,
+    labelKey: `navigation.item.${node.resourceNId ?? node.nodeNId}`,
+    fallbackLabel: node.label,
     routeName: node.routeName,
     icon: iconFor(node.iconKey),
     ...(node.requiredPermissionNId === null ? {} : { permission: node.requiredPermissionNId }),
@@ -44,11 +46,14 @@ export function mapRuntimeNavigation(
     .map((node) => ({
       id: node.nodeNId,
       label: node.label,
+      labelKey: `navigation.group.${node.resourceNId ?? node.nodeNId}`,
+      fallbackLabel: node.label,
       icon: iconFor(node.iconKey),
+      displayOrder: node.displayOrder,
       items: node.children
         .map(mapItem)
         .filter((item): item is NavigationItem => item !== null)
-        .sort((a, b) => a.label.localeCompare(b.label, 'zh-Hans')),
+        .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0) || a.id.localeCompare(b.id)),
     }))
 }
 

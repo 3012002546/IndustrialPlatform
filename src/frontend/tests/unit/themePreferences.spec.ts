@@ -7,15 +7,18 @@ import { describe, expect, it } from 'vitest'
 
 import {
   DEFAULT_UI_PREFERENCES,
+  buildPcNavigationModeKey,
   buildUserUiPreferenceKey,
   mergeUiPreferences,
   parseBootstrapAppearance,
   parseUiPreferences,
   readLegacyPcSidebarCollapsed,
+  readPcNavigationMode,
   readUiPreferences,
   removeLegacyPcSidebarCollapsed,
   serializeUiPreferences,
   writeUiPreferences,
+  writePcNavigationMode,
   type UiPreferencesStorage,
 } from '@/theme'
 
@@ -118,6 +121,18 @@ describe('buildUserUiPreferenceKey', () => {
     expect(buildUserUiPreferenceKey({ tenantId: 'a', userId: 'b' })).not.toBe(
       buildUserUiPreferenceKey({ tenantId: 'b', userId: 'a' }),
     )
+  })
+})
+
+describe('PC navigation mode preference', () => {
+  it('按租户与用户隔离并安全读写三种模式', () => {
+    const storage = storageMock()
+    expect(buildPcNavigationModeKey(SCOPE)).toContain('industrial-platform.pc.navigation-mode.v2:')
+    expect(writePcNavigationMode(storage, SCOPE, 'compact')).toBe(true)
+    expect(readPcNavigationMode(storage, SCOPE)).toBe('compact')
+    expect(readPcNavigationMode(storage, { tenantId: 't2', userId: 'u2' })).toBeNull()
+    storage.backing[buildPcNavigationModeKey(SCOPE)] = 'invalid'
+    expect(readPcNavigationMode(storage, SCOPE)).toBeNull()
   })
 })
 

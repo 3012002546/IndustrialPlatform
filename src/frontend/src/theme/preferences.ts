@@ -5,7 +5,14 @@
  */
 
 import { isPcDensity, isThemeMode, isThemePalette } from './defaults'
-import type { PcDensity, ThemeMode, ThemePalette, UiPreferencesV1, UserUiScope } from './types'
+import type {
+  PcDensity,
+  PcNavigationMode,
+  ThemeMode,
+  ThemePalette,
+  UiPreferencesV1,
+  UserUiScope,
+} from './types'
 
 /** 首帧设备级外观快照(无用户/租户/会话信息)。 */
 export interface BootstrapAppearance {
@@ -23,6 +30,7 @@ const USER_PREFERENCES_KEY_PREFIX = 'industrial-platform.ui.preferences.v1'
 
 /** 第一批侧栏折叠键:仅作为一次迁移输入(§7.2),成功后删除。 */
 export const LEGACY_PC_SIDEBAR_COLLAPSED_KEY = 'industrial-platform.pc.sidebar.collapsed.v1'
+export const PC_NAVIGATION_MODE_KEY_PREFIX = 'industrial-platform.pc.navigation-mode.v2'
 
 /** 存储抽象:jsdom/浏览器均可用,异常由读写封装捕获。 */
 export interface UiPreferencesStorage {
@@ -181,5 +189,38 @@ export function removeLegacyPcSidebarCollapsed(storage: UiPreferencesStorage): v
     storage.removeItem(LEGACY_PC_SIDEBAR_COLLAPSED_KEY)
   } catch {
     // 删除失败不阻断迁移结果
+  }
+}
+
+export function buildPcNavigationModeKey(scope: UserUiScope): string {
+  return `${PC_NAVIGATION_MODE_KEY_PREFIX}:${encodeURIComponent(scope.tenantId)}:${encodeURIComponent(scope.userId)}`
+}
+
+function isPcNavigationMode(value: string | null): value is PcNavigationMode {
+  return value === 'expanded' || value === 'secondary-collapsed' || value === 'compact'
+}
+
+export function readPcNavigationMode(
+  storage: UiPreferencesStorage,
+  scope: UserUiScope,
+): PcNavigationMode | null {
+  try {
+    const value = storage.getItem(buildPcNavigationModeKey(scope))
+    return isPcNavigationMode(value) ? value : null
+  } catch {
+    return null
+  }
+}
+
+export function writePcNavigationMode(
+  storage: UiPreferencesStorage,
+  scope: UserUiScope,
+  mode: PcNavigationMode,
+): boolean {
+  try {
+    storage.setItem(buildPcNavigationModeKey(scope), mode)
+    return true
+  } catch {
+    return false
   }
 }

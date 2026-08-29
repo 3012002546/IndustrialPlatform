@@ -217,6 +217,18 @@ describe('ThemeStore — 用户绑定与持久化', () => {
     ).toBe('neutral-gray')
   })
 
+  it('三态导航模式与旧功能树折叠偏好保持兼容', async () => {
+    const { store } = boot()
+    await store.initialize()
+    await store.bindUser(SCOPE)
+    store.setPcNavigationMode('compact')
+    expect(store.navigationMode).toBe('compact')
+    expect(store.preferences.pcFunctionTreeCollapsed).toBe(true)
+    store.setPcNavigationMode('expanded')
+    expect(store.navigationMode).toBe('expanded')
+    expect(store.preferences.pcFunctionTreeCollapsed).toBe(false)
+  })
+
   it('bindUser 同一作用域幂等;setTenantUiDefaultsSource 可替换默认来源', async () => {
     const source = {
       load: vi.fn(async () => ({ palette: 'neutral-gray' as const, mode: 'light' as const })),

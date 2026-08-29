@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest'
 import { isReactive } from 'vue'
 
-import { pcNavigationGroups } from '@/components/navigation/navigation'
+import { normalizeNavigationGroups, pcNavigationGroups } from '@/components/navigation/navigation'
 import type { NavigationItem } from '@/components/navigation/types'
 import { ROUTE_NAMES, routes } from '@/router/routes'
 
@@ -23,6 +23,49 @@ function registeredRouteNames(): Set<string> {
 }
 
 describe('pcNavigationGroups', () => {
+  it('每个静态分组与菜单项都有稳定文案键和保底文案', () => {
+    for (const group of pcNavigationGroups) {
+      expect(group.labelKey).toBe(`navigation.group.${group.id}`)
+      expect(group.fallbackLabel).toBe(group.label)
+      for (const item of group.items) {
+        expect(item.labelKey).toBe(`navigation.item.${item.id}`)
+        expect(item.fallbackLabel).toBe(item.label)
+      }
+    }
+  })
+
+  it('运行时替换会递归补齐文案契约且不改变输入对象', () => {
+    const groups = normalizeNavigationGroups([
+      {
+        id: 'custom',
+        label: '自定义',
+        icon: pcNavigationGroups[0]!.icon,
+        items: [
+          {
+            id: 'custom-item',
+            label: '自定义项',
+            routeName: 'pc-home',
+            icon: pcNavigationGroups[0]!.icon,
+            children: [
+              {
+                id: 'custom-child',
+                label: '子项',
+                routeName: 'pc-home',
+                icon: pcNavigationGroups[0]!.icon,
+              },
+            ],
+          },
+        ],
+      },
+    ])
+    expect(groups[0]).toMatchObject({ labelKey: 'navigation.group.custom', fallbackLabel: '自定义' })
+    expect(groups[0]!.items[0]).toMatchObject({
+      labelKey: 'navigation.item.custom-item',
+      fallbackLabel: '自定义项',
+      children: [{ labelKey: 'navigation.item.custom-child', fallbackLabel: '子项' }],
+    })
+  })
+
   it('至少包含工作台分组,每个分组有 id/label/icon/items', () => {
     expect(pcNavigationGroups.length).toBeGreaterThan(0)
     for (const group of pcNavigationGroups) {

@@ -6,11 +6,21 @@
 
 import type { Component } from 'vue'
 
+export interface NavigationText {
+  labelKey: string
+  fallbackLabel: string
+}
+
+export type PcNavigationMode = 'expanded' | 'secondary-collapsed' | 'compact'
+
 export interface NavigationItem {
   /** 菜单项唯一标识。 */
   id: string
   /** 菜单显示名。 */
   label: string
+  /** Stable resource key and safe fallback for dynamic/localized labels. */
+  labelKey?: string
+  fallbackLabel?: string
   /** 目标路由名(全局唯一,见 router/routes.ts 的 ROUTE_NAMES)。 */
   routeName: string
   /** 图标组件(正式 Element Plus 图标,§7.7;禁止 Emoji/文本占位)。 */
@@ -25,12 +35,16 @@ export interface NavigationItem {
   children?: NavigationItem[]
   /** 菜单需要携带的显式查询参数,用于正式终端预览等场景。 */
   routeQuery?: Readonly<Record<string, string>>
+  displayOrder?: number
 }
 
 /** 一级平台分组:工具轨渲染分组,功能树渲染当前组的授权 items。 */
 export interface NavigationGroup {
   id: string
   label: string
+  labelKey?: string
+  fallbackLabel?: string
   icon: Component
   items: readonly NavigationItem[]
+  displayOrder?: number
 }

@@ -7,11 +7,12 @@
 
 import type { NavigationGroup } from '@/components/navigation/types'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   groups: readonly NavigationGroup[]
   /** 当前分组 id(受控状态,由父级 PcLayout 持有)。 */
   activeGroupId: string
-}>()
+  mode?: 'expanded' | 'secondary-collapsed' | 'compact'
+}>(), { mode: 'expanded' })
 
 const emit = defineEmits<{
   'update:activeGroupId': [id: string]
@@ -24,7 +25,7 @@ function select(id: string): void {
 </script>
 
 <template>
-  <nav class="ip-toolrail" aria-label="平台分组">
+  <nav class="ip-toolrail" :class="{ 'ip-toolrail--compact': props.mode === 'compact' }" aria-label="平台分组">
     <ul class="ip-toolrail__list">
       <li v-for="group in groups" :key="group.id" class="ip-toolrail__item">
         <button
@@ -38,6 +39,7 @@ function select(id: string): void {
           @click="select(group.id)"
         >
           <component :is="group.icon" class="ip-toolrail__icon" aria-hidden="true" />
+          <span v-if="props.mode !== 'compact'" class="ip-toolrail__label">{{ group.fallbackLabel ?? group.label }}</span>
         </button>
       </li>
     </ul>
@@ -51,6 +53,10 @@ function select(id: string): void {
   width: var(--ip-shell-toolrail-width);
   background: var(--ip-shell-toolrail-bg);
   border-right: 1px solid var(--ip-color-border);
+}
+
+.ip-toolrail--compact {
+  width: var(--ip-shell-toolrail-width-compact);
 }
 
 .ip-toolrail__list {
@@ -114,6 +120,20 @@ function select(id: string): void {
 .ip-toolrail__icon {
   width: 20px;
   height: 20px;
+}
+
+.ip-toolrail__label {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: var(--ip-font-size-xs);
+  line-height: 1.2;
+  text-align: center;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.ip-toolrail--compact .ip-toolrail__label {
+  display: none;
 }
 
 .ip-toolrail__button:focus-visible {
