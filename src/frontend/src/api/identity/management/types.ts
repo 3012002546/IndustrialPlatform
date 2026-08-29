@@ -39,6 +39,8 @@ export interface UserSummaryDto {
   concurrencyVersion: string
   /** 墓碑标识(includeDeleted 列表用于恢复操作,§29A.3)。 */
   isDeleted: boolean
+  effectiveRoleCount?: number
+  lastUpdatedOn?: string
 }
 
 /** 创建用户请求(§29A.4):不再接受明文初始密码,服务端生成随机临时密码。 */

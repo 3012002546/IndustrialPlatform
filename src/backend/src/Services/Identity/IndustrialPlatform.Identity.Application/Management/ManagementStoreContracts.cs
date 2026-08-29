@@ -1,6 +1,7 @@
 using IndustrialPlatform.Identity.Domain.Permissions;
 using IndustrialPlatform.Identity.Domain.Roles;
 using IndustrialPlatform.Identity.Domain.Users;
+using IndustrialPlatform.Querying.Descriptors;
 
 namespace IndustrialPlatform.Identity.Application.Management;
 
@@ -38,6 +39,15 @@ public sealed record StoredUser(
 /// <summary>用户查询分页结果。</summary>
 public sealed record StoredUserPage(IReadOnlyList<StoredUser> Items, long Total);
 
+/// <summary>Identity Users 受控查询端口;基础租户/软删除范围由实现先行施加。</summary>
+public interface IUserQueryStore
+{
+    Task<StoredUserPage> QueryUsersAsync(
+        string tenantNId,
+        QueryDescriptor descriptor,
+        CancellationToken cancellationToken);
+}
+
 /// <summary>角色管理查询投影(含权限 NId 与双版本)。</summary>
 public sealed record StoredRole(
     Guid Id,
@@ -66,7 +76,17 @@ public sealed record UserListFilter(
     int PageSize,
     bool IncludeDeleted = false,
     string? GroupNId = null,
-    string? RoleNId = null);
+    string? RoleNId = null,
+    string? SortField = null,
+    string? SortOrder = null,
+    string? Keyword = null,
+    string? Email = null,
+    string? Phone = null,
+    bool? MustChangePassword = null,
+    DateTimeOffset? LastLoginFrom = null,
+    DateTimeOffset? LastLoginTo = null,
+    DateTimeOffset? CreatedFrom = null,
+    DateTimeOffset? CreatedTo = null);
 
 /// <summary>用户组管理查询投影(§29A.5):含成员数与角色数,双版本供乐观并发回传;IsDeleted 标识墓碑。</summary>
 public sealed record StoredUserGroup(
@@ -87,10 +107,10 @@ public sealed record StoredUserGroup(
 public sealed record StoredUserGroupPage(IReadOnlyList<StoredUserGroup> Items, long Total);
 
 /// <summary>角色列表过滤(§16.2)。租户隔离在 SQL 层实施;NId/Name 为包含匹配。</summary>
-public sealed record RoleListFilter(string TenantNId, string? NId, string? Name, int PageIndex, int PageSize);
+public sealed record RoleListFilter(string TenantNId, string? NId, string? Name, int PageIndex, int PageSize, string? SortField = null, string? SortOrder = null, string? Keyword = null, string? Description = null, bool? IsSystem = null);
 
 /// <summary>登录审计查询过滤(§16.3)。租户隔离在 SQL 层实施;UserNId 精确匹配,Success 可选过滤。</summary>
-public sealed record LoginAuditFilter(string TenantNId, string? UserNId, bool? Success, int PageIndex, int PageSize);
+public sealed record LoginAuditFilter(string TenantNId, string? UserNId, bool? Success, int PageIndex, int PageSize, string? SortField = null, string? SortOrder = null, string? Keyword = null, string? LoginNameSnapshot = null, string? FailureCode = null, string? IpAddressHash = null, string? UserAgentHash = null, string? TraceId = null, DateTimeOffset? OccurredFrom = null, DateTimeOffset? OccurredTo = null);
 
 /// <summary>登录审计查询投影(只含哈希摘要,不含原始 IP/User-Agent)。</summary>
 public sealed record LoginAuditRow(

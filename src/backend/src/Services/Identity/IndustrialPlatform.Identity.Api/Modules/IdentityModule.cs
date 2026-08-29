@@ -46,6 +46,7 @@ public static class IdentityModule
         services.AddIdentityAuthentication();
         services.AddIdentityAuthorization();
         services.AddCurrentUser();
+        services.AddIndustrialQuerying();
         services.AddHttpClient();
         return services;
     }

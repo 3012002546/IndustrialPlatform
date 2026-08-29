@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.IO.Compression;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -51,6 +53,27 @@ public sealed class ManagementEndpointTests
     }
 
     [Fact]
+    public async Task Users_Export_WithPermission_ReturnsStreamingXlsx()
+    {
+        var store = new InMemoryManagementStore
+        {
+            UserPage = new StoredUserPage([StoredUser("alice.user", "alice", "Alice")], 1),
+        };
+        using var factory = CreateFactory(store, [PermissionCatalog.UserView]);
+        using var client = factory.CreateClient();
+
+        using var response = await SendAsync(client, HttpMethod.Get, "/api/v1/users/export", token: await CreateTokenAsync(factory));
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", response.Content.Headers.ContentType?.MediaType);
+        using var archive = new ZipArchive(new MemoryStream(bytes), ZipArchiveMode.Read);
+        using var reader = new StreamReader(archive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+        var sheet = await reader.ReadToEndAsync();
+        Assert.Contains("alice.user", sheet);
+    }
+
+    [Fact]
     public async Task Users_List_Unauthenticated_Returns401Envelope()
     {
         using var factory = CreateFactory(new InMemoryManagementStore(), [PermissionCatalog.UserView]);
@@ -61,6 +84,69 @@ public sealed class ManagementEndpointTests
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Equal("401", payload.RootElement.GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task Users_OData_UsesPlatformEnvelopeAndControlledDescriptor()
+    {
+        var store = new InMemoryManagementStore
+        {
+            UserPage = new StoredUserPage([StoredUser("alice.user", "alice", "Alice")], 1),
+        };
+        using var factory = CreateFactory(store, [PermissionCatalog.UserView]);
+        using var client = factory.CreateClient();
+
+        using var response = await SendAsync(
+            client,
+            HttpMethod.Get,
+            "/api/v1/odata/users?$select=loginName,name&$top=20&$skip=0&$count=true",
+            token: await CreateTokenAsync(factory));
+        using var payload = JsonDocument.Parse(await response.Content.ReadAsStreamAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(payload.RootElement.GetProperty("success").GetBoolean());
+        Assert.Equal(1, payload.RootElement.GetProperty("data").GetProperty("total").GetInt32());
+    }
+
+    [Fact]
+    public async Task Users_OData_RejectsDisabledOptionWithBadRequestEnvelope()
+    {
+        using var factory = CreateFactory(new InMemoryManagementStore(), [PermissionCatalog.UserView]);
+        using var client = factory.CreateClient();
+
+        using var response = await SendAsync(
+            client,
+            HttpMethod.Get,
+            "/api/v1/odata/users?$expand=roles&$top=20",
+            token: await CreateTokenAsync(factory));
+        using var payload = JsonDocument.Parse(await response.Content.ReadAsStreamAsync());
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("PLATFORM_QUERY_OPTION_NOT_ALLOWED", payload.RootElement.GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task Users_OData_Export_UsesTheSameControlledReadModel()
+    {
+        var store = new InMemoryManagementStore
+        {
+            UserPage = new StoredUserPage([StoredUser("alice.user", "alice", "Alice")], 1),
+        };
+        using var factory = CreateFactory(store, [PermissionCatalog.UserView]);
+        using var client = factory.CreateClient();
+
+        using var response = await SendAsync(
+            client,
+            HttpMethod.Get,
+            "/api/v1/odata/users/export?$select=loginName&$top=20&$skip=0&columns=loginName&quantity=all&culture=zh-CN&timeZone=Asia%2FTaipei",
+            token: await CreateTokenAsync(factory));
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", response.Content.Headers.ContentType?.MediaType);
+        using var archive = new ZipArchive(new MemoryStream(bytes), ZipArchiveMode.Read);
+        using var reader = new StreamReader(archive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+        Assert.Contains("alice", await reader.ReadToEndAsync());
     }
 
     [Fact]

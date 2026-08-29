@@ -1,4 +1,5 @@
 using IndustrialPlatform.Identity.Contracts.Management;
+using IndustrialPlatform.Querying.Descriptors;
 
 namespace IndustrialPlatform.Identity.Application.Management;
 
@@ -72,6 +73,12 @@ public interface IUserManagementService
 
     /// <summary>按租户分页查询用户(NId/LoginName/Name 包含匹配,Status 枚举名)。</summary>
     Task<ManagementPage<UserSummary>> ListAsync(string tenantNId, UserListFilter filter, CancellationToken cancellationToken);
+
+    /// <summary>按受控 QueryDescriptor 查询用户 read model;租户与已删除范围由服务端固定施加。</summary>
+    Task<ManagementPage<UserQueryResource>> QueryUsersAsync(
+        string tenantNId,
+        QueryDescriptor descriptor,
+        CancellationToken cancellationToken);
 
     /// <summary>按业务标识查询用户详情;不存在或跨租户返回 404。</summary>
     Task<UserSummary> GetAsync(string tenantNId, string userNId, CancellationToken cancellationToken);

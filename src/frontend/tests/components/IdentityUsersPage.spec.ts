@@ -10,14 +10,18 @@ import ElementPlus from 'element-plus'
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
+import { VxeTable } from 'vxe-table'
 
 import { persistAuthSession } from '../fixtures/session'
+import type { AppDataTableColumn } from '@/components/management/AppDataTable'
 import IdentityUsersPage from '@/pages/pc/identity/IdentityUsersPage.vue'
 import { useAuthStore } from '@/stores/authStore'
 
 const { fakeApi } = vi.hoisted(() => ({
   fakeApi: {
     listUsers: vi.fn(),
+    listUsersOData: vi.fn(),
+    exportUsersOData: vi.fn(),
     getUser: vi.fn(),
     createUser: vi.fn(),
     updateUser: vi.fn(),
@@ -74,10 +78,13 @@ const TeleportStub = defineComponent({
 const wrappers: VueWrapper[] = []
 
 function emptyPage<T>(): { items: T[]; total: number; pageIndex: number; pageSize: number } {
-  return { items: [], total: 0, pageIndex: 1, pageSize: 20 }
+  return { items: [], total: 0, pageIndex: 1, pageSize: 25 }
 }
 
-async function mountUsersPage(permissions: string[]): Promise<VueWrapper> {
+async function mountUsersPage(
+  permissions: string[],
+  options: { stubTeleport?: boolean; stubTooltip?: boolean } = {},
+): Promise<VueWrapper> {
   const pinia = createPinia()
   setActivePinia(pinia)
   persistAuthSession(permissions)
@@ -86,13 +93,13 @@ async function mountUsersPage(permissions: string[]): Promise<VueWrapper> {
     global: {
       plugins: [pinia, ElementPlus],
       stubs: {
-        teleport: TeleportStub,
+        ...(options.stubTeleport === false ? {} : { teleport: TeleportStub }),
         // jsdom 下 Element Plus 表格/下拉的布局副作用(递归更新告警)与断言无关,统一打桩。
         'el-table': true,
         'el-table-column': true,
         'el-select': true,
         'el-option': true,
-        'el-tooltip': true,
+        ...(options.stubTooltip === false ? {} : { 'el-tooltip': true }),
         'el-checkbox': true,
         'el-pagination': true,
         'el-descriptions': true,
@@ -125,6 +132,7 @@ describe('IdentityUsersPage — 创建用户(服务端随机临时密码)', () =
     // 页面经 persistAuthSession 写入 Mock 会话键后 restore,显式声明 mock,不依赖产品默认(现为 http)。
     vi.stubEnv('VITE_AUTH_MODE', 'mock')
     fakeApi.listUsers.mockResolvedValue(emptyPage())
+    fakeApi.listUsersOData.mockResolvedValue(emptyPage())
     fakeApi.listRoles.mockResolvedValue(emptyPage())
     fakeApi.listUserGroups.mockResolvedValue(emptyPage())
   })
@@ -149,6 +157,181 @@ describe('IdentityUsersPage — 创建用户(服务端随机临时密码)', () =
     expect(wrapper.find('input[type="password"]').exists()).toBe(false)
     expect(wrapper.find('input[placeholder="登录用户名"]').exists()).toBe(true)
     expect(wrapper.find('input[placeholder="显示姓名"]').exists()).toBe(true)
+  })
+
+  it('列头查询覆盖用户数据库字段，但不虚接派生统计字段', async () => {
+    const wrapper = await mountUsersPage(['identity.user.view'])
+
+    const columns = wrapper
+      .findComponent({ name: 'AppDataTable' })
+      .props('columns') as AppDataTableColumn[]
+    expect(columns.find((column) => column.field === 'lastLoginOn')).toEqual(
+      expect.objectContaining({ width: 240, minWidth: 240 }),
+    )
+    expect(columns.find((column) => column.field === 'createdOn')).toEqual(
+      expect.objectContaining({ width: 240, minWidth: 240 }),
+    )
+    expect(columns.find((column) => column.field === 'lastLoginOn')?.fixed).toBeUndefined()
+    expect(columns.find((column) => column.field === 'createdOn')?.fixed).toBeUndefined()
+
+    await wrapper.get('[data-testid="app-data-table-query-toggle"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="app-data-table-header-filter-loginName"]').exists()).toBe(
+      true,
+    )
+    expect(wrapper.find('[data-testid="app-data-table-header-filter-email"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="app-data-table-header-filter-phone"]').exists()).toBe(true)
+    expect(
+      wrapper.find('[data-testid="app-data-table-header-filter-lastLoginOn-range"]').exists(),
+    ).toBe(true)
+    expect(
+      wrapper.find('[data-testid="app-data-table-header-filter-createdOn-range"]').exists(),
+    ).toBe(true)
+    expect(
+      wrapper.find('[data-testid="app-data-table-header-filter-effectiveRoleCount"]').exists(),
+    ).toBe(false)
+  })
+
+  it('keeps both date range filters scrollable instead of widening the narrow fixed area', async () => {
+    const wrapper = await mountUsersPage(['identity.user.view'])
+
+    await wrapper.get('[data-testid="app-data-table-query-toggle"]').trigger('click')
+    await flushPromises()
+
+    const columns = wrapper
+      .findComponent({ name: 'AppDataTable' })
+      .props('columns') as AppDataTableColumn[]
+    const dateColumns = columns.filter(
+      (column) => column.field === 'lastLoginOn' || column.field === 'createdOn',
+    )
+    expect(dateColumns).toHaveLength(2)
+    expect(dateColumns.every((column) => column.fixed === undefined)).toBe(true)
+    expect(dateColumns.every((column) => column.width === 240 && column.minWidth === 240)).toBe(
+      true,
+    )
+    expect(
+      wrapper.find('[data-testid="app-data-table-header-filter-lastLoginOn-range"]').exists(),
+    ).toBe(true)
+    expect(
+      wrapper.find('[data-testid="app-data-table-header-filter-createdOn-range"]').exists(),
+    ).toBe(true)
+  })
+
+  it('maps header filters, sort and pagination into the users API loader', async () => {
+    const wrapper = await mountUsersPage(['identity.user.view'])
+
+    await wrapper.get('[data-testid="app-data-table-query-toggle"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-testid="app-data-table-header-filter-email"]').setValue('alice@')
+    await wrapper.get('[data-testid="app-data-table-header-filter-email"]').trigger('keyup.enter')
+    await flushPromises()
+
+    const table = wrapper.findComponent({ name: 'VxeTable' })
+    table.vm.$emit('sort-change', { field: 'lastLoginOn', order: 'desc' })
+    await flushPromises()
+
+    expect(fakeApi.listUsersOData).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        pageIndex: 1,
+        pageSize: 25,
+        filters: expect.arrayContaining([
+          expect.objectContaining({ field: 'email', value: 'alice@' }),
+        ]),
+        orderBy: expect.arrayContaining([
+          expect.objectContaining({ field: 'lastLoginOn', direction: 'desc' }),
+        ]),
+      }),
+    )
+  })
+
+  it('maps the table quick search to the active users server query', async () => {
+    const wrapper = await mountUsersPage(['identity.user.view'])
+
+    await wrapper.get('[data-testid="app-data-table-quick-search"]').setValue('alice')
+    await flushPromises()
+
+    expect(fakeApi.listUsers).toHaveBeenCalledTimes(1)
+    expect(fakeApi.listUsers).not.toHaveBeenLastCalledWith(
+      expect.objectContaining({ keyword: 'alice' }),
+    )
+  })
+
+  it('shows user actions progressively from the actual action-column width', async () => {
+    fakeApi.listUsers.mockResolvedValue({
+      items: [
+        {
+          userNId: 'u1',
+          loginName: 'alice',
+          name: 'Alice',
+          email: 'alice@example.com',
+          phone: null,
+          status: 'Active',
+          tenantNId: 't1',
+          createdOn: '2026-01-01T00:00:00Z',
+          lastLoginOn: null,
+          mustChangePassword: false,
+          directRoleNIds: [],
+          groupRoleNIds: [],
+          effectiveRoleNIds: [],
+          optimisticVersion: 1,
+          concurrencyVersion: 'c1',
+          isDeleted: false,
+        },
+      ],
+      total: 1,
+      pageIndex: 1,
+      pageSize: 25,
+    })
+    const wrapper = await mountUsersPage(
+      [
+        'identity.user.view',
+        'identity.user.update',
+        'identity.user.status',
+        'identity.user.assign-role',
+        'identity.user.reset-password',
+        'identity.user.delete',
+      ],
+      { stubTeleport: false, stubTooltip: false },
+    )
+    const actions = wrapper.get('[data-testid="identity-user-actions-u1"]')
+
+    expect(actions.text()).toContain('详情')
+    expect(actions.text()).toContain('编辑')
+    expect(actions.text()).toContain('禁用')
+    expect(actions.find('[data-testid="identity-user-more-u1"]').exists()).toBe(true)
+    const closedMenu = document.body.querySelector('[data-testid="identity-user-more-menu-u1"]')
+    expect(closedMenu?.closest('.el-popper')?.getAttribute('style')).toContain('display: none')
+    await actions.get('[data-testid="identity-user-more-u1"]').trigger('click')
+    await flushPromises()
+    const menu = document.body.querySelector('[data-testid="identity-user-more-menu-u1"]')
+    expect(menu).not.toBeNull()
+    expect(menu?.textContent).toContain('分配角色')
+    expect(menu?.textContent).toContain('重置密码')
+    expect(menu?.textContent).toContain('删除')
+    expect(menu?.closest('.vxe-table--fixed-right-body-wrapper')).toBeNull()
+    const assignRoles = menu?.querySelector('[data-testid="identity-user-action-assign-role-u1"]')
+    expect(assignRoles).not.toBeNull()
+    ;(assignRoles as HTMLElement).click()
+    await flushPromises()
+    const closedAfterCommand = document.body.querySelector(
+      '[data-testid="identity-user-more-menu-u1"]',
+    )
+    expect(closedAfterCommand?.closest('.el-popper')?.getAttribute('style')).toContain(
+      'display: none',
+    )
+    expect((wrapper.vm as unknown as { rolesDialogOpen: boolean }).rolesDialogOpen).toBe(true)
+    expect(wrapper.find('.app-data-table__dialog-backdrop').exists()).toBe(false)
+
+    wrapper.findComponent(VxeTable).vm.$emit('resizable-change', {
+      resizeColumn: { field: '__actions' },
+      resizeWidth: 367,
+    })
+    await flushPromises()
+    expect(actions.text()).toContain('分配角色')
+    expect(actions.text()).toContain('重置密码')
+    expect(actions.text()).toContain('删除')
+    expect(actions.find('[data-testid="identity-user-more-u1"]').exists()).toBe(false)
   })
 
   it('创建提交正确载荷(不含 initialPassword),并在成功后弹出一次性临时密码', async () => {

@@ -11,6 +11,7 @@ using IndustrialPlatform.Identity.Domain.Passwords;
 using IndustrialPlatform.Identity.Domain.Users;
 using IndustrialPlatform.SharedKernel.Exceptions;
 using IndustrialPlatform.SharedKernel.Events;
+using IndustrialPlatform.Querying.Descriptors;
 using Microsoft.Extensions.Logging;
 
 namespace IndustrialPlatform.Identity.Application.Management;
@@ -536,6 +537,25 @@ public sealed partial class UserManagementService : IUserManagementService
         var page = await _store.QueryUsersAsync(filter with { TenantNId = tenantNId }, cancellationToken);
         var items = page.Items.Select(ToSummary).ToList();
         return new ManagementPage<UserSummary>(items, page.Total, filter.PageIndex, filter.PageSize);
+    }
+
+    /// <inheritdoc/>
+    public async Task<ManagementPage<UserQueryResource>> QueryUsersAsync(
+        string tenantNId,
+        QueryDescriptor descriptor,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(descriptor);
+        var page = _store is IUserQueryStore queryStore
+            ? await queryStore.QueryUsersAsync(tenantNId, descriptor, cancellationToken)
+            : await _store.QueryUsersAsync(
+                UserQueryResource.ToLegacyFilter(tenantNId, descriptor),
+                cancellationToken);
+        return new ManagementPage<UserQueryResource>(
+            page.Items.Select(item => UserQueryResource.From(ToSummary(item))).ToList(),
+            page.Total,
+            descriptor.PageIndex,
+            descriptor.PageSize);
     }
 
     /// <inheritdoc/>

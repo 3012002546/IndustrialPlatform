@@ -10,6 +10,7 @@
     <ProjectReference Include="..\IndustrialPlatform.Identity.Contracts\IndustrialPlatform.Identity.Contracts.csproj" />
     <ProjectReference Include="..\IndustrialPlatform.Identity.Domain\IndustrialPlatform.Identity.Domain.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\IndustrialPlatform.Application.Abstractions\IndustrialPlatform.Application.Abstractions.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\IndustrialPlatform.Querying\IndustrialPlatform.Querying.csproj" />
   </ItemGroup>
 
 </Project>

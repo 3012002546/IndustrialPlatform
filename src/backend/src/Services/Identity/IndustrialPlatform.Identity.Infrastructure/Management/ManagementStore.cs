@@ -8,6 +8,8 @@ using IndustrialPlatform.Identity.Infrastructure.Persistence;
 using IndustrialPlatform.Identity.Infrastructure.Persistence.Entities;
 using IndustrialPlatform.Identity.Infrastructure.Persistence.Repositories;
 using IndustrialPlatform.Infrastructure.Database;
+using IndustrialPlatform.Infrastructure.Querying;
+using IndustrialPlatform.Querying.Descriptors;
 using SqlSugar;
 
 namespace IndustrialPlatform.Identity.Infrastructure.Management;
@@ -16,7 +18,7 @@ namespace IndustrialPlatform.Identity.Infrastructure.Management;
 /// 管理用例持久化端口实现(§16):组合领域仓储并补充分页/关系投影/持有者统计查询。
 /// 按 NId 查询不区分租户,租户隔离由应用层显式校验;含软删除的唯一性检查供 NId 防复用。
 /// </summary>
-public sealed class ManagementStore : IManagementStore
+public sealed class ManagementStore : IManagementStore, IUserQueryStore
 {
     private readonly SqlSugarDbContext _dbContext;
     private readonly IUserRepository _userRepository;
@@ -68,6 +70,20 @@ public sealed class ManagementStore : IManagementStore
             query = query.Where(t => t.Status == status);
         }
 
+        if (!string.IsNullOrWhiteSpace(filter.Keyword))
+        {
+            var keyword = filter.Keyword.Trim();
+            query = query.Where(t => t.NId.Contains(keyword) || t.LoginName.Contains(keyword) || t.Name.Contains(keyword) || (t.Email != null && t.Email.Contains(keyword)) || (t.Phone != null && t.Phone.Contains(keyword)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Email)) query = query.Where(t => t.Email != null && t.Email.Contains(filter.Email.Trim()));
+        if (!string.IsNullOrWhiteSpace(filter.Phone)) query = query.Where(t => t.Phone != null && t.Phone.Contains(filter.Phone.Trim()));
+        if (filter.MustChangePassword is { } mustChangePassword) query = query.Where(t => t.MustChangePassword == mustChangePassword);
+        if (filter.LastLoginFrom is { } lastLoginFrom) query = query.Where(t => t.LastLoginOn >= lastLoginFrom);
+        if (filter.LastLoginTo is { } lastLoginTo) query = query.Where(t => t.LastLoginOn <= lastLoginTo);
+        if (filter.CreatedFrom is { } createdFrom) query = query.Where(t => t.CreatedOn >= createdFrom);
+        if (filter.CreatedTo is { } createdTo) query = query.Where(t => t.CreatedOn <= createdTo);
+
         // §29A.5:按有效成员过滤(用户组)
         if (!string.IsNullOrWhiteSpace(filter.GroupNId))
         {
@@ -101,8 +117,16 @@ public sealed class ManagementStore : IManagementStore
         }
 
         var total = await query.CountAsync(cancellationToken);
-        var rows = await query
-            .OrderBy(t => t.CreatedOn, OrderByType.Desc)
+        var orderedQuery = filter.SortField?.ToLowerInvariant() switch
+        {
+            "nid" => filter.SortOrder == "desc" ? query.OrderByDescending(t => t.NId) : query.OrderBy(t => t.NId),
+            "loginname" => filter.SortOrder == "desc" ? query.OrderByDescending(t => t.LoginName) : query.OrderBy(t => t.LoginName),
+            "name" => filter.SortOrder == "desc" ? query.OrderByDescending(t => t.Name) : query.OrderBy(t => t.Name),
+            "status" => filter.SortOrder == "desc" ? query.OrderByDescending(t => t.Status) : query.OrderBy(t => t.Status),
+            "lastloginon" => filter.SortOrder == "desc" ? query.OrderByDescending(t => t.LastLoginOn) : query.OrderBy(t => t.LastLoginOn),
+            _ => query.OrderBy(t => t.CreatedOn, OrderByType.Desc),
+        };
+        var rows = await orderedQuery
             .Skip((filter.PageIndex - 1) * filter.PageSize)
             .Take(filter.PageSize)
             .ToListAsync(cancellationToken);
@@ -110,6 +134,54 @@ public sealed class ManagementStore : IManagementStore
         var roleSource = await BuildUserRoleSourceMapAsync(rows.Select(r => r.Id).ToArray(), filter.TenantNId, cancellationToken);
         var items = rows
             .Select(r => ToStoredUser(r, roleSource.TryGetValue(r.Id, out var source) ? source : RoleSource.Empty))
+            .ToList();
+        return new StoredUserPage(items, total);
+    }
+
+    /// <inheritdoc/>
+    public async Task<StoredUserPage> QueryUsersAsync(
+        string tenantNId,
+        QueryDescriptor descriptor,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(tenantNId);
+        ArgumentNullException.ThrowIfNull(descriptor);
+        var map = new SqlSugarQueryFieldMap<UserTable>(
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["userNId"] = "n_id",
+                ["loginName"] = "login_name",
+                ["name"] = "name",
+                ["email"] = "email",
+                ["phone"] = "phone",
+                ["status"] = "status",
+                ["createdOn"] = "created_on",
+                ["lastLoginOn"] = "last_login_on",
+                ["mustChangePassword"] = "must_change_password",
+            },
+            tieBreaker: "userNId");
+        var plan = SqlSugarQueryAdapter.BuildPlan(descriptor, map);
+        var query = _dbContext.SqlSugar.Queryable<UserTable>()
+            .Where(row => row.TenantNId == tenantNId && !row.IsDeleted);
+        if (plan.FilterSql.Count > 0)
+        {
+            query = query.Where(string.Join(" AND ", plan.FilterSql), plan.Parameters);
+        }
+
+        var total = await query.CountAsync(cancellationToken);
+        var rows = await query
+            .OrderBy(string.Join(", ", plan.OrderBySql))
+            .Skip(plan.Skip)
+            .Take(plan.PageSize)
+            .ToListAsync(cancellationToken);
+        var roleSource = await BuildUserRoleSourceMapAsync(
+            rows.Select(row => row.Id).ToArray(),
+            tenantNId,
+            cancellationToken);
+        var items = rows
+            .Select(row => ToStoredUser(
+                row,
+                roleSource.TryGetValue(row.Id, out var source) ? source : RoleSource.Empty))
             .ToList();
         return new StoredUserPage(items, total);
     }
@@ -177,9 +249,22 @@ public sealed class ManagementStore : IManagementStore
             query = query.Where(t => t.Name.Contains(filter.Name.Trim()));
         }
 
+        if (!string.IsNullOrWhiteSpace(filter.Keyword))
+        {
+            var keyword = filter.Keyword.Trim();
+            query = query.Where(t => t.NId.Contains(keyword) || t.Name.Contains(keyword) || (t.Description != null && t.Description.Contains(keyword)));
+        }
+        if (!string.IsNullOrWhiteSpace(filter.Description)) query = query.Where(t => t.Description != null && t.Description.Contains(filter.Description.Trim()));
+        if (filter.IsSystem is { } isSystem) query = query.Where(t => t.IsSystem == isSystem);
+
         var total = await query.CountAsync(cancellationToken);
-        var rows = await query
-            .OrderBy(t => t.CreatedOn, OrderByType.Desc)
+        var orderedQuery = filter.SortField?.ToLowerInvariant() switch
+        {
+            "nid" => filter.SortOrder == "desc" ? query.OrderByDescending(t => t.NId) : query.OrderBy(t => t.NId),
+            "name" => filter.SortOrder == "desc" ? query.OrderByDescending(t => t.Name) : query.OrderBy(t => t.Name),
+            _ => query.OrderBy(t => t.CreatedOn, OrderByType.Desc),
+        };
+        var rows = await orderedQuery
             .Skip((filter.PageIndex - 1) * filter.PageSize)
             .Take(filter.PageSize)
             .ToListAsync(cancellationToken);

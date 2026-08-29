@@ -5,13 +5,21 @@
  * 独立重置密码权限;409 并发冲突提示重载。
  * 临时密码只经一次性弹窗展示,禁止持久化。操作按钮按 PermissionGate 控制(identity.user.*)。
  */
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElDropdown, ElDropdownItem, ElDropdownMenu, ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { onMounted, reactive, ref, watch } from 'vue'
 
 import { getManagementApi } from '@/api/identity/managementRegistry'
 import type { RoleSummaryDto, UserGroupSummaryDto, UserSummaryDto } from '@/api/identity/management'
-import { PERMISSIONS, PermissionGate } from '@/permissions'
+import type {
+  AppDataTableColumn,
+  AppDataTableExportRequest,
+  AppDataTableQueryMode,
+  AppDataTableRequest,
+} from '@/components/management/AppDataTable'
+import type { QueryDescriptor } from '@/querying'
+import { PERMISSIONS, PermissionGate, usePermission } from '@/permissions'
+import AppDataTable from '@/components/management/AppDataTable.vue'
 
 import TemporaryPasswordDialog from './components/TemporaryPasswordDialog.vue'
 import { formatTime, reportManagementError } from './shared'
@@ -25,6 +33,83 @@ interface UserForm {
 }
 
 const management = getManagementApi()
+const { has } = usePermission()
+
+type UserAction =
+  'detail' | 'edit' | 'status' | 'assign-role' | 'reset-password' | 'restore' | 'delete'
+
+const USER_ACTION_WIDTHS: Record<UserAction, number> = {
+  detail: 42,
+  edit: 42,
+  status: 42,
+  'assign-role': 70,
+  'reset-password': 70,
+  restore: 42,
+  delete: 42,
+}
+
+const USER_ACTION_GAP = 4
+const USER_MORE_WIDTH = 52
+
+function userActionCandidates(row: UserSummaryDto): UserAction[] {
+  const actions: UserAction[] = ['detail']
+  if (has(PERMISSIONS.userUpdate)) actions.push('edit')
+  if (row.isDeleted) {
+    if (has(PERMISSIONS.userRestore)) actions.push('restore')
+  } else {
+    if (has(PERMISSIONS.userStatus)) actions.push('status')
+    if (has(PERMISSIONS.userAssignRole)) actions.push('assign-role')
+    if (has(PERMISSIONS.userResetPassword)) actions.push('reset-password')
+    if (has(PERMISSIONS.userDelete)) actions.push('delete')
+  }
+  return actions
+}
+
+function directUserActions(row: UserSummaryDto, availableWidth?: number): UserAction[] {
+  const actions = userActionCandidates(row)
+  const width = Math.max(120, Math.round(availableWidth ?? 220))
+  const totalWidth = actions.reduce(
+    (total, action, index) =>
+      total + USER_ACTION_WIDTHS[action] + (index === 0 ? 0 : USER_ACTION_GAP),
+    0,
+  )
+  if (totalWidth <= width) return actions
+
+  const direct: UserAction[] = []
+  let used = 0
+  for (const [index, action] of actions.entries()) {
+    const gap = direct.length === 0 ? 0 : USER_ACTION_GAP
+    const hasOverflow = index < actions.length - 1
+    const moreWidth = hasOverflow ? USER_ACTION_GAP + USER_MORE_WIDTH : 0
+    if (used + gap + USER_ACTION_WIDTHS[action] + moreWidth > width) break
+    direct.push(action)
+    used += gap + USER_ACTION_WIDTHS[action]
+  }
+  return direct
+}
+
+function isDirectUserAction(
+  row: UserSummaryDto,
+  availableWidth: number | undefined,
+  action: UserAction,
+): boolean {
+  return directUserActions(row, availableWidth).includes(action)
+}
+
+function hasMoreActions(row: UserSummaryDto, availableWidth?: number): boolean {
+  const direct = directUserActions(row, availableWidth)
+  return userActionCandidates(row).some((action) => !direct.includes(action))
+}
+
+function onRowActionCommand(row: UserSummaryDto, command: string): void {
+  if (command === 'detail') openDetail(row)
+  else if (command === 'edit') openEdit(row)
+  else if (command === 'status') void toggleStatus(row)
+  else if (command === 'assign-role') openAssignRoles(row)
+  else if (command === 'reset-password') openResetPassword(row)
+  else if (command === 'restore') void restoreUser(row)
+  else if (command === 'delete') void deleteUser(row)
+}
 
 // ---------------------------------------------------------------------------
 // 列表与过滤
@@ -43,11 +128,66 @@ const query = reactive({
   includeDeleted: false,
 })
 const pageIndex = ref(1)
-const pageSize = ref(20)
+const pageSize = ref(25)
+const tableQueryMode = ref<AppDataTableQueryMode>('top')
 
 /** 全部可用角色/用户组选项(供角色/用户组过滤与角色来源展示)。 */
 const allRoles = ref<RoleSummaryDto[]>([])
 const allGroups = ref<UserGroupSummaryDto[]>([])
+
+const USER_COLUMNS: readonly AppDataTableColumn[] = [
+  {
+    field: 'loginName',
+    title: '登录名',
+    minWidth: 130,
+    sortable: true,
+    filter: { kind: 'text' as const },
+  },
+  { field: 'name', title: '姓名', minWidth: 110, filter: { kind: 'text' as const } },
+  {
+    field: 'status',
+    title: '状态',
+    width: 90,
+    filter: {
+      kind: 'select' as const,
+      options: [
+        { label: '启用', value: 'Active' },
+        { label: '禁用', value: 'Disabled' },
+      ],
+    },
+  },
+  {
+    field: 'mustChangePassword',
+    title: '改密',
+    width: 80,
+    filter: {
+      kind: 'select' as const,
+      options: [
+        { label: '需要改密', value: true },
+        { label: '无需改密', value: false },
+      ],
+    },
+  },
+  { field: 'email', title: '邮箱', minWidth: 170, filter: { kind: 'text' as const } },
+  { field: 'phone', title: '手机号', minWidth: 120, filter: { kind: 'text' as const } },
+  { field: 'effectiveRoleCount', title: '有效角色', width: 100, filter: false },
+  {
+    field: 'lastLoginOn',
+    title: '最近登录',
+    width: 240,
+    minWidth: 240,
+    sortable: true,
+    filter: { kind: 'date-range' as const },
+  },
+  {
+    field: 'createdOn',
+    title: '创建时间',
+    width: 240,
+    minWidth: 240,
+    sortable: true,
+    filter: { kind: 'date-range' as const },
+  },
+]
 
 async function loadAllRoles(): Promise<void> {
   try {
@@ -129,6 +269,117 @@ function resetQuery(): void {
   query.includeDeleted = false
   pageIndex.value = 1
   void loadUsers()
+}
+
+function onTableQuery(request: AppDataTableRequest): void {
+  pageIndex.value = request.pageIndex
+  pageSize.value = request.pageSize
+}
+
+function onTableQueryModeChange(mode: AppDataTableQueryMode): void {
+  tableQueryMode.value = mode
+  if (mode === 'header') {
+    query.nId = ''
+    query.loginName = ''
+    query.name = ''
+    query.status = ''
+    query.groupNId = ''
+    query.roleNId = ''
+    query.includeDeleted = false
+  }
+  pageIndex.value = 1
+}
+
+function buildUserQueryDescriptor(
+  request: AppDataTableRequest | AppDataTableExportRequest,
+): QueryDescriptor {
+  const filters = [...(request.descriptor?.filters ?? [])]
+  if (request.queryMode === 'top') {
+    const topFilters: Array<[string, unknown]> = [
+      ['userNId', query.nId.trim()],
+      ['loginName', query.loginName.trim()],
+      ['name', query.name.trim()],
+      ['status', query.status],
+    ]
+    topFilters.forEach(([field, value]) => {
+      if (value !== '') {
+        filters.push({ field, operator: field === 'status' ? 'eq' : 'contains', value })
+      }
+    })
+  }
+  return {
+    filters,
+    orderBy: request.descriptor?.orderBy ?? [],
+    select: request.descriptor?.select ?? USER_COLUMNS.map((column) => column.field),
+    pageIndex: 'pageIndex' in request ? request.pageIndex : 1,
+    pageSize: 'pageSize' in request ? request.pageSize : 100,
+  }
+}
+
+async function exportUsers(request: AppDataTableExportRequest): Promise<void> {
+  if (management.exportUsersOData !== undefined && request.descriptor !== undefined) {
+    const blob = await management.exportUsersOData(
+      buildUserQueryDescriptor(request),
+      request.columns,
+      request.quantity,
+      document.documentElement.lang || 'zh-CN',
+      Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+    )
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `${request.filename}.xlsx`
+    anchor.click()
+    URL.revokeObjectURL(url)
+    return
+  }
+  if (management.exportUsers === undefined) return
+  const filters = request.queryMode === 'top' ? { ...query, ...request.filters } : request.filters
+  const blob = await management.exportUsers({
+    keyword: String(filters.keyword ?? '').trim() || undefined,
+    nId: String(filters.nId ?? '').trim() || undefined,
+    loginName: String(filters.loginName ?? '').trim() || undefined,
+    name: String(filters.name ?? '').trim() || undefined,
+    status: String(filters.status ?? '') || undefined,
+    groupNId: String(filters.groupNId ?? '') || undefined,
+    roleNId: String(filters.roleNId ?? '') || undefined,
+    email: String(filters.email ?? '').trim() || undefined,
+    phone: String(filters.phone ?? '').trim() || undefined,
+    mustChangePassword:
+      filters.mustChangePassword === undefined || filters.mustChangePassword === ''
+        ? undefined
+        : filters.mustChangePassword === true || filters.mustChangePassword === 'true',
+    lastLoginFrom: Array.isArray(filters.lastLoginOn)
+      ? String(filters.lastLoginOn[0] ?? '') || undefined
+      : undefined,
+    lastLoginTo: Array.isArray(filters.lastLoginOn)
+      ? String(filters.lastLoginOn[1] ?? '') || undefined
+      : undefined,
+    createdFrom: Array.isArray(filters.createdOn)
+      ? String(filters.createdOn[0] ?? '') || undefined
+      : undefined,
+    createdTo: Array.isArray(filters.createdOn)
+      ? String(filters.createdOn[1] ?? '') || undefined
+      : undefined,
+    includeDeleted: filters.includeDeleted === true || filters.includeDeleted === 'true',
+    quantity: request.quantity,
+    columns: request.columns,
+    sortField: request.sort?.field,
+    sortOrder: request.sort?.order,
+  })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = `${request.filename}.xlsx`
+  anchor.click()
+  URL.revokeObjectURL(url)
+}
+
+async function loadUsersTable(request: AppDataTableRequest) {
+  const result = await management.listUsersOData(buildUserQueryDescriptor(request))
+  rows.value = result.items
+  total.value = result.total
+  return result
 }
 
 // ---------------------------------------------------------------------------
@@ -433,115 +684,128 @@ onMounted(() => {
 <template>
   <section class="users-page">
     <div class="users-page__toolbar">
-      <el-input
-        v-model="query.nId"
-        placeholder="业务标识"
-        clearable
-        class="users-page__filter"
-        @keyup.enter="search"
-      />
-      <el-input
-        v-model="query.loginName"
-        placeholder="登录名"
-        clearable
-        class="users-page__filter"
-        @keyup.enter="search"
-      />
-      <el-input
-        v-model="query.name"
-        placeholder="姓名"
-        clearable
-        class="users-page__filter"
-        @keyup.enter="search"
-      />
-      <el-select
-        v-model="query.status"
-        placeholder="状态"
-        clearable
-        class="users-page__filter users-page__filter--status"
-      >
-        <el-option label="启用" value="Active" />
-        <el-option label="禁用" value="Disabled" />
-      </el-select>
-      <el-select
-        v-model="query.groupNId"
-        placeholder="用户组"
-        clearable
-        filterable
-        class="users-page__filter"
-      >
-        <el-option
-          v-for="group in allGroups"
-          :key="group.groupNId"
-          :value="group.groupNId"
-          :label="group.name"
+      <template v-if="tableQueryMode === 'top'">
+        <el-input
+          v-model="query.nId"
+          placeholder="业务标识"
+          clearable
+          class="users-page__filter"
+          @keyup.enter="search"
         />
-      </el-select>
-      <el-select
-        v-model="query.roleNId"
-        placeholder="角色"
-        clearable
-        filterable
-        class="users-page__filter"
-      >
-        <el-option
-          v-for="role in allRoles"
-          :key="role.roleNId"
-          :value="role.roleNId"
-          :label="role.name"
+        <el-input
+          v-model="query.loginName"
+          placeholder="登录名"
+          clearable
+          class="users-page__filter"
+          @keyup.enter="search"
         />
-      </el-select>
-      <el-checkbox v-model="query.includeDeleted" @change="search">包含已删除</el-checkbox>
-      <el-button type="primary" @click="search">查询</el-button>
-      <el-button @click="resetQuery">重置</el-button>
+        <el-input
+          v-model="query.name"
+          placeholder="姓名"
+          clearable
+          class="users-page__filter"
+          @keyup.enter="search"
+        />
+        <el-select
+          v-model="query.status"
+          placeholder="状态"
+          clearable
+          class="users-page__filter users-page__filter--status"
+        >
+          <el-option label="启用" value="Active" />
+          <el-option label="禁用" value="Disabled" />
+        </el-select>
+        <el-select
+          v-model="query.groupNId"
+          placeholder="用户组"
+          clearable
+          filterable
+          class="users-page__filter"
+        >
+          <el-option
+            v-for="group in allGroups"
+            :key="group.groupNId"
+            :value="group.groupNId"
+            :label="group.name"
+          />
+        </el-select>
+        <el-select
+          v-model="query.roleNId"
+          placeholder="角色"
+          clearable
+          filterable
+          class="users-page__filter"
+        >
+          <el-option
+            v-for="role in allRoles"
+            :key="role.roleNId"
+            :value="role.roleNId"
+            :label="role.name"
+          />
+        </el-select>
+        <el-checkbox v-model="query.includeDeleted" @change="search">包含已删除</el-checkbox>
+        <el-button type="primary" @click="search">查询</el-button>
+        <el-button @click="resetQuery">重置</el-button>
+      </template>
       <div class="users-page__spacer" />
-      <PermissionGate :permission-n-id="PERMISSIONS.userCreate">
-        <el-button type="primary" plain @click="openCreate">新建用户</el-button>
-      </PermissionGate>
     </div>
 
-    <el-table :data="rows" v-loading="loading" row-key="userNId" border stripe>
-      <el-table-column prop="loginName" label="登录名" min-width="130" />
-      <el-table-column prop="name" label="姓名" min-width="110" />
-      <el-table-column label="状态" width="90" align="center">
-        <template #default="{ row }">
-          <el-tag :type="row.status === 'Active' ? 'success' : 'danger'" effect="light">
-            {{ row.status === 'Active' ? '启用' : '禁用' }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="改密" width="80" align="center">
-        <template #default="{ row }">
-          <el-tag v-if="row.mustChangePassword" type="warning" effect="plain">需改密</el-tag>
-          <span v-else>—</span>
-        </template>
-      </el-table-column>
-      <el-table-column prop="email" label="邮箱" min-width="170" show-overflow-tooltip />
-      <el-table-column prop="phone" label="手机号" min-width="120" />
-      <el-table-column label="有效角色" width="100" align="center">
-        <template #default="{ row }">
-          <el-tooltip
-            :content="`直接:${roleNames(row.directRoleNIds)} / 组继承:${roleNames(row.groupRoleNIds)}`"
-            placement="top"
-            :show-after="300"
+    <AppDataTable
+      table-key="identity-users"
+      :rows="rows"
+      :total="total"
+      :loading="loading"
+      :columns="USER_COLUMNS"
+      :page-size="pageSize"
+      :loader="loadUsersTable"
+      :exporter="exportUsers"
+      @query-mode-change="onTableQueryModeChange"
+      @query-change="onTableQuery"
+    >
+      <template #toolbar-actions>
+        <PermissionGate :permission-n-id="PERMISSIONS.userCreate">
+          <el-button type="primary" plain @click="openCreate">新建用户</el-button>
+        </PermissionGate>
+      </template>
+      <template #cell-status="{ row }">
+        <el-tag :type="row.status === 'Active' ? 'success' : 'danger'" effect="light">
+          {{ row.status === 'Active' ? '启用' : '禁用' }}
+        </el-tag>
+      </template>
+      <template #cell-mustChangePassword="{ row }">
+        <el-tag v-if="row.mustChangePassword" type="warning" effect="plain">需改密</el-tag>
+        <span v-else>—</span>
+      </template>
+      <template #cell-effectiveRoleCount="{ row }">
+        <el-tooltip
+          :content="`直接:${roleNames(row.directRoleNIds)} / 组继承:${roleNames(row.groupRoleNIds)}`"
+          placement="top"
+          :show-after="300"
+        >
+          <span>{{ row.effectiveRoleNIds.length }}</span>
+        </el-tooltip>
+      </template>
+      <template #cell-lastLoginOn="{ row }">{{ formatTime(row.lastLoginOn) }}</template>
+      <template #cell-createdOn="{ row }">{{ formatTime(row.createdOn) }}</template>
+      <template #actions="{ row, availableWidth }">
+        <div class="users-page__row-actions" :data-testid="`identity-user-actions-${row.userNId}`">
+          <el-button
+            v-if="isDirectUserAction(row, availableWidth, 'detail')"
+            link
+            type="primary"
+            @click="openDetail(row)"
+            >详情</el-button
           >
-            <span>{{ row.effectiveRoleNIds.length }}</span>
-          </el-tooltip>
-        </template>
-      </el-table-column>
-      <el-table-column label="最近登录" width="160">
-        <template #default="{ row }">{{ formatTime(row.lastLoginOn) }}</template>
-      </el-table-column>
-      <el-table-column label="创建时间" width="160">
-        <template #default="{ row }">{{ formatTime(row.createdOn) }}</template>
-      </el-table-column>
-      <el-table-column label="操作" width="330" fixed="right">
-        <template #default="{ row }">
-          <el-button link type="primary" @click="openDetail(row)">详情</el-button>
-          <PermissionGate :permission-n-id="PERMISSIONS.userUpdate">
+          <PermissionGate
+            v-if="isDirectUserAction(row, availableWidth, 'edit')"
+            :permission-n-id="PERMISSIONS.userUpdate"
+          >
             <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
           </PermissionGate>
-          <PermissionGate :permission-n-id="PERMISSIONS.userStatus">
+          <PermissionGate
+            v-if="isDirectUserAction(row, availableWidth, 'status')"
+            :permission-n-id="PERMISSIONS.userStatus"
+          >
             <el-button
               link
               :type="row.status === 'Active' ? 'danger' : 'success'"
@@ -550,47 +814,127 @@ onMounted(() => {
               {{ row.status === 'Active' ? '禁用' : '启用' }}
             </el-button>
           </PermissionGate>
-          <PermissionGate :permission-n-id="PERMISSIONS.userAssignRole">
+          <PermissionGate
+            v-if="isDirectUserAction(row, availableWidth, 'assign-role')"
+            :permission-n-id="PERMISSIONS.userAssignRole"
+          >
             <el-button link type="primary" @click="openAssignRoles(row)">分配角色</el-button>
           </PermissionGate>
-          <PermissionGate :permission-n-id="PERMISSIONS.userResetPassword">
+          <PermissionGate
+            v-if="isDirectUserAction(row, availableWidth, 'reset-password')"
+            :permission-n-id="PERMISSIONS.userResetPassword"
+          >
             <el-button link type="warning" @click="openResetPassword(row)">重置密码</el-button>
           </PermissionGate>
-          <template v-if="row.isDeleted">
-            <PermissionGate :permission-n-id="PERMISSIONS.userRestore">
-              <el-button link type="success" @click="restoreUser(row)">恢复</el-button>
-            </PermissionGate>
-          </template>
-          <template v-else>
-            <PermissionGate :permission-n-id="PERMISSIONS.userDelete">
-              <el-button link type="danger" @click="deleteUser(row)">删除</el-button>
-            </PermissionGate>
-          </template>
-        </template>
-      </el-table-column>
-    </el-table>
-
-    <el-pagination
-      class="users-page__pagination"
-      layout="total, sizes, prev, pager, next, jumper"
-      :total="total"
-      :page-size="pageSize"
-      :page-sizes="[10, 20, 50, 100]"
-      :current-page="pageIndex"
-      @current-change="
-        (page: number) => {
-          pageIndex = page
-          void loadUsers()
-        }
-      "
-      @size-change="
-        (size: number) => {
-          pageSize = size
-          pageIndex = 1
-          void loadUsers()
-        }
-      "
-    />
+          <PermissionGate
+            v-if="isDirectUserAction(row, availableWidth, 'restore')"
+            :permission-n-id="PERMISSIONS.userRestore"
+          >
+            <el-button link type="success" @click="restoreUser(row)">恢复</el-button>
+          </PermissionGate>
+          <PermissionGate
+            v-if="isDirectUserAction(row, availableWidth, 'delete')"
+            :permission-n-id="PERMISSIONS.userDelete"
+          >
+            <el-button link type="danger" @click="deleteUser(row)">删除</el-button>
+          </PermissionGate>
+          <ElDropdown
+            v-if="hasMoreActions(row, availableWidth)"
+            trigger="click"
+            placement="bottom-end"
+            :teleported="true"
+            popper-class="users-page__more-popper"
+            @command="onRowActionCommand(row, $event)"
+          >
+            <button
+              type="button"
+              class="users-page__more-trigger"
+              :data-testid="`identity-user-more-${row.userNId}`"
+              aria-haspopup="menu"
+            >
+              更多
+            </button>
+            <template #dropdown>
+              <ElDropdownMenu :data-testid="`identity-user-more-menu-${row.userNId}`" role="menu">
+                <ElDropdownItem
+                  v-if="!isDirectUserAction(row, availableWidth, 'detail')"
+                  command="detail"
+                  :data-testid="`identity-user-action-detail-${row.userNId}`"
+                  >详情</ElDropdownItem
+                >
+                <PermissionGate
+                  v-if="!isDirectUserAction(row, availableWidth, 'edit')"
+                  :permission-n-id="PERMISSIONS.userUpdate"
+                >
+                  <ElDropdownItem
+                    command="edit"
+                    :data-testid="`identity-user-action-edit-${row.userNId}`"
+                    >编辑</ElDropdownItem
+                  >
+                </PermissionGate>
+                <PermissionGate
+                  v-if="!isDirectUserAction(row, availableWidth, 'status')"
+                  :permission-n-id="PERMISSIONS.userStatus"
+                >
+                  <ElDropdownItem
+                    command="status"
+                    :class="row.status === 'Active' ? 'is-danger' : 'is-success'"
+                    :data-testid="`identity-user-action-status-${row.userNId}`"
+                  >
+                    {{ row.status === 'Active' ? '禁用' : '启用' }}
+                  </ElDropdownItem>
+                </PermissionGate>
+                <PermissionGate
+                  v-if="!isDirectUserAction(row, availableWidth, 'assign-role')"
+                  :permission-n-id="PERMISSIONS.userAssignRole"
+                >
+                  <ElDropdownItem
+                    command="assign-role"
+                    :data-testid="`identity-user-action-assign-role-${row.userNId}`"
+                    >分配角色</ElDropdownItem
+                  >
+                </PermissionGate>
+                <PermissionGate
+                  v-if="!isDirectUserAction(row, availableWidth, 'reset-password')"
+                  :permission-n-id="PERMISSIONS.userResetPassword"
+                >
+                  <ElDropdownItem
+                    command="reset-password"
+                    :data-testid="`identity-user-action-reset-password-${row.userNId}`"
+                    >重置密码</ElDropdownItem
+                  >
+                </PermissionGate>
+                <template v-if="row.isDeleted">
+                  <PermissionGate
+                    v-if="!isDirectUserAction(row, availableWidth, 'restore')"
+                    :permission-n-id="PERMISSIONS.userRestore"
+                  >
+                    <ElDropdownItem
+                      command="restore"
+                      :data-testid="`identity-user-action-restore-${row.userNId}`"
+                      >恢复</ElDropdownItem
+                    >
+                  </PermissionGate>
+                </template>
+                <template v-else>
+                  <PermissionGate
+                    v-if="!isDirectUserAction(row, availableWidth, 'delete')"
+                    :permission-n-id="PERMISSIONS.userDelete"
+                  >
+                    <ElDropdownItem
+                      command="delete"
+                      class="is-danger"
+                      :data-testid="`identity-user-action-delete-${row.userNId}`"
+                      >删除</ElDropdownItem
+                    >
+                  </PermissionGate>
+                </template>
+              </ElDropdownMenu>
+            </template>
+          </ElDropdown>
+        </div>
+      </template>
+    </AppDataTable>
 
     <!-- 详情(含角色来源) -->
     <el-dialog v-model="detailOpen" title="用户详情" width="560px">
@@ -705,13 +1049,13 @@ onMounted(() => {
 .users-page {
   display: flex;
   flex-direction: column;
-  gap: var(--ip-space-4);
+  gap: var(--ip-space-1);
 }
 
 .users-page__toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--ip-space-3);
+  gap: var(--ip-space-2);
   align-items: center;
 }
 
@@ -739,5 +1083,56 @@ onMounted(() => {
 
 .users-page__role-select {
   width: 100%;
+}
+
+.users-page__row-actions {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ip-space-1);
+  white-space: nowrap;
+}
+
+.users-page__more-trigger {
+  min-height: var(--ip-density-control-height);
+  padding: 0 var(--ip-space-1);
+  color: var(--ip-color-primary);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.users-page__more-trigger:focus-visible {
+  outline: 2px solid var(--ip-color-primary);
+  outline-offset: 2px;
+}
+
+:global(.users-page__more-popper) {
+  min-width: 148px;
+  padding: var(--ip-space-1);
+  background: var(--ip-color-bg-container);
+  border: 1px solid var(--ip-color-border);
+  border-radius: var(--ip-radius-md);
+  box-shadow: var(--ip-shadow-md);
+}
+
+:global(.users-page__more-popper .el-dropdown-menu) {
+  padding: 0;
+  background: transparent;
+}
+
+:global(.users-page__more-popper .el-dropdown-menu__item) {
+  min-height: var(--ip-density-control-height);
+  color: var(--ip-color-text-primary);
+  border-radius: var(--ip-radius-sm);
+}
+
+:global(.users-page__more-popper .el-dropdown-menu__item.is-danger) {
+  color: var(--ip-color-danger);
+}
+
+:global(.users-page__more-popper .el-dropdown-menu__item.is-success) {
+  color: var(--ip-color-success);
 }
 </style>

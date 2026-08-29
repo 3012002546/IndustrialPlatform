@@ -68,7 +68,6 @@ public sealed partial class ODataQueryDescriptorParser
             raw.Contains(" all", StringComparison.OrdinalIgnoreCase) ||
             raw.Contains('/', StringComparison.Ordinal) ||
             CastExpression().IsMatch(raw) ||
-            ArithmeticExpression().IsMatch(raw) ||
             raw.Contains(" or ", StringComparison.OrdinalIgnoreCase))
         {
             throw Invalid("PLATFORM_QUERY_INVALID", "过滤表达式包含禁用的导航、逻辑或算术语法。", "$filter");
@@ -224,6 +223,8 @@ public sealed partial class ODataQueryDescriptorParser
         raw = raw.Trim();
         if (raw.Length >= 2 && raw[0] == '\'' && raw[^1] == '\'') return Unquote(raw);
         if (bool.TryParse(raw, out var boolean)) return boolean;
+        if ((raw.Contains('-', StringComparison.Ordinal) || raw.Contains('T', StringComparison.Ordinal)) &&
+            DateTimeOffset.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var date)) return date;
         if (long.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var integer)) return integer;
         if (decimal.TryParse(raw, NumberStyles.Number, CultureInfo.InvariantCulture, out var number)) return number;
         throw Invalid("PLATFORM_QUERY_INVALID", "过滤值必须是受支持的 OData 字面量。", "$filter");
@@ -328,6 +329,4 @@ public sealed partial class ODataQueryDescriptorParser
     [GeneratedRegex(@"\bcast\s*\(", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex CastExpression();
 
-    [GeneratedRegex(@"[+*/]|(?<![A-Za-z])-", RegexOptions.CultureInvariant)]
-    private static partial Regex ArithmeticExpression();
 }
