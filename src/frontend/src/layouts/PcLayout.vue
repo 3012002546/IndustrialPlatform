@@ -20,6 +20,7 @@ import PlatformCommandSearch, {
 } from '@/components/shell/PlatformCommandSearch.vue'
 import PlatformContextSwitcher from '@/components/shell/PlatformContextSwitcher.vue'
 import PlatformEnvironmentBadge from '@/components/shell/PlatformEnvironmentBadge.vue'
+import PcExperienceModeControl from '@/components/shell/PcExperienceModeControl.vue'
 import PcWorkspaceTabs from '@/components/shell/PcWorkspaceTabs.vue'
 import PlatformFunctionTree from '@/components/shell/PlatformFunctionTree.vue'
 import PlatformServiceStatus from '@/components/shell/PlatformServiceStatus.vue'
@@ -250,6 +251,7 @@ function onLimitResolve(resolution: TabLimitResolution): void {
 
       <template #global-actions>
         <MockModeBanner />
+        <PcExperienceModeControl mode="management" />
         <PlatformServiceStatus
           :degraded="systemDataRuntime.degraded"
           :unavailable="systemDataRuntime.unavailable"

@@ -125,4 +125,6 @@
   --ip-shell-functiontree-bg: var(--ip-color-bg-container);
   --ip-shell-tabs-bg: var(--ip-color-bg-muted);
   --ip-shell-tabs-active-bg: var(--ip-color-bg-container);
+  --ip-operation-card-primary: var(--ip-color-primary);
+  --ip-operation-card-secondary: color-mix(in srgb, var(--ip-color-primary) 82%, #111827);
 }

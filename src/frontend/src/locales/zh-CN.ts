@@ -47,6 +47,23 @@ export const zhCN = {
     },
     mode: { management: '管理模式', operation: '生产操作模式' },
   },
+  operation: {
+    title: '生产操作',
+    description: '选择要执行的生产任务',
+    settingsDescription: '语言、主题、全屏和体验模式',
+    launcherState: { available: '可用', comingSoon: '待实现' },
+    launchers: {
+      taskExecution: '任务执行',
+      workOrder: '工单作业',
+      materialFeeding: '投料作业',
+      weighing: '称量作业',
+      feedingStatistics: '投料统计',
+      materialConcentration: '物料集中',
+      materialReceipt: '物料接收',
+      recipeView: '配方查看',
+      interfaceSettings: '界面设置',
+    },
+  },
   identity: {
     user: {
       title: '用户管理',

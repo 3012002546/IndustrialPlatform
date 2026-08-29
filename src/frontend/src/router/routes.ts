@@ -19,6 +19,8 @@ import NotFoundPage from '@/pages/public/NotFoundPage.vue'
 import SsoCallbackPage from '@/pages/sso/SsoCallbackPage.vue'
 import SsoLoginPage from '@/pages/sso/SsoLoginPage.vue'
 import PcHomePage from '@/pages/pc/PcHomePage.vue'
+import PcOperationHomePage from '@/pages/pc/PcOperationHomePage.vue'
+import OperationLayout from '@/layouts/OperationLayout.vue'
 import TerminalPreviewPage from '@/pages/pc/TerminalPreviewPage.vue'
 import IdentityAuditsPage from '@/pages/pc/identity/IdentityAuditsPage.vue'
 import IdentityPermissionsPage from '@/pages/pc/identity/IdentityPermissionsPage.vue'
@@ -48,6 +50,7 @@ export const ROUTE_NAMES = {
   ssoCallback: 'sso-callback',
   forbidden: 'forbidden',
   pcHome: 'pc-home',
+  pcOperation: 'pc-operation',
   terminalPreview: 'terminal-preview',
   identityUsers: 'identity-users',
   identityUserGroups: 'identity-user-groups',
@@ -124,6 +127,25 @@ export const routes: RouteRecordRaw[] = [
     name: ROUTE_NAMES.forbidden,
     component: ForbiddenPage,
     meta: { title: '无权限' },
+  },
+  {
+    path: '/pc/operation',
+    component: OperationLayout,
+    children: [
+      {
+        path: '',
+        name: ROUTE_NAMES.pcOperation,
+        component: PcOperationHomePage,
+        meta: {
+          title: '生产操作',
+          requiresAuth: true,
+          permission: PERMISSIONS.platformOperationView,
+          terminal: 'pc',
+          experience: 'operation',
+          workspace: 'none',
+        },
+      },
+    ],
   },
   {
     path: '/pc',

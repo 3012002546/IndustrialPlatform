@@ -83,6 +83,9 @@ public static class PermissionCatalog
     /// <summary>平台首页查看。</summary>
     public const string PlatformHomeView = "platform.home.view";
 
+    /// <summary>平台生产操作模式查看。</summary>
+    public const string PlatformOperationView = "platform.operation.view";
+
     /// <summary>平台 PDA 查看。</summary>
     public const string PlatformPdaView = "platform.pda.view";
 
@@ -161,6 +164,7 @@ public static class PermissionCatalog
         SsoManage,
         SsoTest,
         PlatformHomeView,
+        PlatformOperationView,
         PlatformPdaView,
         PlatformMobileView,
         BootstrapView,

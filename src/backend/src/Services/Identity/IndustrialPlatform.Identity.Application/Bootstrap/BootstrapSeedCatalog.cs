@@ -79,6 +79,7 @@ public static class BootstrapSeedCatalog
         new(PermissionCatalog.SsoManage, "管理 SSO", PermissionType.Action),
         new(PermissionCatalog.SsoTest, "测试 SSO", PermissionType.Action),
         new(PermissionCatalog.PlatformHomeView, "平台首页", PermissionType.Page),
+        new(PermissionCatalog.PlatformOperationView, "生产操作模式", PermissionType.Page),
         new(PermissionCatalog.PlatformPdaView, "PDA 端页面", PermissionType.Page),
         new(PermissionCatalog.PlatformMobileView, "移动端页面", PermissionType.Page),
         new(PermissionCatalog.BootstrapView, "查看 bootstrap 状态", PermissionType.Page),

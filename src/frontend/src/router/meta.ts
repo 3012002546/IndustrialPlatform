@@ -6,6 +6,7 @@
 import 'vue-router'
 
 import type { TerminalType } from '@/device/types'
+import type { PcExperienceMode } from '@/operation/types'
 
 export interface AppRouteMeta {
   /** 页面标题(守卫写入 document.title,格式 `${title} · Industrial Platform`)。 */
@@ -18,6 +19,8 @@ export interface AppRouteMeta {
   anyPermissions?: readonly string[]
   /** 显式终端路由(§11.2:显式访问不得自动改写)。 */
   terminal?: TerminalType
+  /** PC 体验模式约束;模式入口由权限守卫与此元数据共同声明。 */
+  experience?: PcExperienceMode
   /** 工作区语义:fixed 固定工作台、business 受控业务标签、none 非工作区(PF-01 §7.9)。 */
   workspace?: 'fixed' | 'business' | 'none'
 }

@@ -172,6 +172,22 @@ describe('路由守卫 — 权限', () => {
     expect(router.currentRoute.value.name).toBe('pc-home')
   })
 
+  it('无 platform.operation.view 直达生产操作路由 → 403', async () => {
+    stubViewport(1280)
+    await login(['platform.home.view'])
+    const router = buildRouter()
+    await router.push('/pc/operation')
+    expect(router.currentRoute.value.name).toBe('forbidden')
+  })
+
+  it('持有 platform.operation.view 可直达生产操作路由', async () => {
+    stubViewport(1280)
+    await login([PERMISSIONS.platformOperationView])
+    const router = buildRouter()
+    await router.push('/pc/operation')
+    expect(router.currentRoute.value.name).toBe('pc-operation')
+  })
+
   it('持有 PDA 或 Mobile 权限之一可进入终端预览工作区', async () => {
     stubViewport(1280)
     await login(['platform.mobile.view'])

@@ -47,6 +47,23 @@ export const enUS = {
     },
     mode: { management: 'Management mode', operation: 'Production operation mode' },
   },
+  operation: {
+    title: 'Production operations',
+    description: 'Choose a production task',
+    settingsDescription: 'Language, theme, fullscreen, and experience mode',
+    launcherState: { available: 'Available', comingSoon: 'Coming soon' },
+    launchers: {
+      taskExecution: 'Task execution',
+      workOrder: 'Work order',
+      materialFeeding: 'Material feeding',
+      weighing: 'Weighing',
+      feedingStatistics: 'Feeding statistics',
+      materialConcentration: 'Material concentration',
+      materialReceipt: 'Material receiving',
+      recipeView: 'Recipe view',
+      interfaceSettings: 'Interface settings',
+    },
+  },
   identity: {
     user: {
       title: 'User management',

@@ -30,6 +30,7 @@ export const PERMISSIONS = {
   ssoManage: 'identity.sso.manage',
   ssoTest: 'identity.sso.test',
   platformHomeView: 'platform.home.view',
+  platformOperationView: 'platform.operation.view',
   platformPdaView: 'platform.pda.view',
   platformMobileView: 'platform.mobile.view',
   systemDataOrganizationView: 'systemdata.organization.view',

@@ -36,6 +36,7 @@ public sealed class PermissionCatalogTests
         "identity.sso.manage",
         "identity.sso.test",
         "platform.home.view",
+        "platform.operation.view",
         "platform.pda.view",
         "platform.mobile.view",
         "identity.bootstrap.view",
@@ -81,7 +82,7 @@ public sealed class PermissionCatalogTests
     [Fact]
     public void FirstBatch_HasIdentityAndSystemDataPermissions()
     {
-        Assert.Equal(66, PermissionCatalog.FirstBatchNIds.Count);
+        Assert.Equal(67, PermissionCatalog.FirstBatchNIds.Count);
     }
 
     [Fact]

@@ -50,6 +50,13 @@ export interface PlatformLocaleMessages {
     commandSearch: { placeholder: string; empty: string; recent: string; commands: string }
     mode: { management: string; operation: string }
   }
+  operation: {
+    title: string
+    description: string
+    settingsDescription: string
+    launcherState: { available: string; comingSoon: string }
+    launchers: Record<string, string>
+  }
   identity: {
     user: {
       title: string

@@ -15,6 +15,7 @@ export const MOCK_PASSWORD = 'Mock@123456'
 /** 第一批演示权限。 */
 export const MOCK_PERMISSIONS = [
   'platform.home.view',
+  'platform.operation.view',
   'platform.pda.view',
   'platform.mobile.view',
 ] as const
