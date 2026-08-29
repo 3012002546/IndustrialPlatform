@@ -80,6 +80,8 @@ describe('workspace identity — 固定工作台与常量', () => {
     expect(workbench).toEqual({
       id: FIXED_WORKBENCH_ID,
       title: FIXED_WORKBENCH_TITLE,
+      titleKey: 'shell.navigation.workspace',
+      fallbackTitle: FIXED_WORKBENCH_TITLE,
       kind: 'fixed',
       route: { name: FIXED_WORKBENCH_ID, params: {}, query: {} },
       reloadVersion: 0,

@@ -13,8 +13,12 @@ export interface PersistedRouteLocation {
 /** 工作台标签:固定工作台不计入配额;业务标签最多 12 个。 */
 export interface WorkspaceTab {
   id: string
+  /** Legacy display field retained in memory; persisted snapshots use fallbackTitle. */
   title: string
+  titleKey?: string
+  fallbackTitle?: string
   kind: 'fixed' | 'business'
+  pinned?: boolean
   route: PersistedRouteLocation
   /** 递增触发 RouterView 内容重挂载(不整页刷新)。 */
   reloadVersion: number
@@ -35,6 +39,8 @@ export type TabLimitResolution =
 export interface WorkspaceRouteCandidate {
   id: string
   title: string
+  titleKey?: string
+  fallbackTitle?: string
   kind: 'fixed' | 'business' | 'none'
   route: PersistedRouteLocation
   permission?: string

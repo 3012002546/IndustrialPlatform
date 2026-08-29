@@ -188,6 +188,19 @@ describe('workspaceTabsStore — closeTab', () => {
     expect(result.kind).toBe('fixed')
     expect(store.tabs).toHaveLength(1)
   })
+
+  it('业务标签可固定/取消固定,关闭全部保留固定标签', () => {
+    const store = useWorkspaceTabsStore()
+    store.bindUser(SCOPE)
+    store.requestOpen(sandboxCandidate(0))
+    store.requestOpen(sandboxCandidate(1))
+    expect(store.setTabPinned('sandbox:0', true)).toBe(true)
+    store.closeAll()
+    expect(store.tabs.map((tab) => tab.id)).toEqual(['pc-home', 'sandbox:0'])
+    expect(store.closeTab('sandbox:0').id).toBe('pc-home')
+    expect(store.setTabPinned('sandbox:0', false)).toBe(true)
+    expect(store.closeTab('sandbox:0').id).toBe('pc-home')
+  })
 })
 
 describe('workspaceTabsStore — closeOthers / closeRight', () => {
@@ -235,6 +248,26 @@ describe('workspaceTabsStore — closeOthers / closeRight', () => {
     expect(store.tabs.map((t) => t.id)).toEqual(['pc-home', 'sandbox:0'])
     expect(store.activeTabId).toBe('pc-home')
   })
+
+  it('closeLeft 只关闭目标左侧业务标签并保留固定工作台', () => {
+    const store = useWorkspaceTabsStore()
+    store.bindUser(SCOPE)
+    openMany(3)
+    store.activeTabId = 'sandbox:1'
+    store.closeLeft('sandbox:2')
+    expect(store.tabs.map((t) => t.id)).toEqual(['pc-home', 'sandbox:2'])
+    expect(store.activeTabId).toBe('sandbox:2')
+  })
+
+  it('closeAll 关闭全部业务标签并确定性激活固定工作台', () => {
+    const store = useWorkspaceTabsStore()
+    store.bindUser(SCOPE)
+    openMany(3)
+    store.activeTabId = 'sandbox:2'
+    store.closeAll()
+    expect(store.tabs.map((t) => t.id)).toEqual(['pc-home'])
+    expect(store.activeTabId).toBe('pc-home')
+  })
 })
 
 describe('workspaceTabsStore — reloadCurrent / resolvePending / prune', () => {
@@ -253,6 +286,23 @@ describe('workspaceTabsStore — reloadCurrent / resolvePending / prune', () => 
     store.requestOpen(fixedCandidate())
     store.reloadCurrent() // 固定工作台不递增
     expect(store.tabs.find((t) => t.id === 'sandbox:0')?.reloadVersion).toBe(version + 1)
+  })
+
+  it('activateTab 持久化激活目标且 reloadTab 可刷新非当前业务标签', () => {
+    const store = useWorkspaceTabsStore()
+    store.bindUser(SCOPE)
+    openMany(2)
+    store.activeTabId = 'sandbox:1'
+    const version = store.tabs.find((tab) => tab.id === 'sandbox:0')?.reloadVersion ?? 0
+
+    expect(store.activateTab('sandbox:0')?.id).toBe('sandbox:0')
+    store.reloadTab('sandbox:0')
+
+    expect(store.activeTabId).toBe('sandbox:0')
+    expect(store.tabs.find((tab) => tab.id === 'sandbox:0')?.reloadVersion).toBe(version + 1)
+    expect(localStorage.getItem(TABS_KEY)).toContain(
+      '"activeTabId":"sandbox:0"',
+    )
   })
 
   it('resolvePending cancel → null 且清空 pending', () => {

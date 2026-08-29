@@ -13,6 +13,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useDeviceStore } from '@/stores/deviceStore'
 import { useThemeStore } from '@/stores/themeStore'
 import { useWorkspaceTabsStore } from '@/stores/workspaceTabsStore'
+import { resolveLocaleMessage } from '@/localization/i18n'
 import { buildTabId, toPersistedRoute } from '@/workspace'
 import type { WorkspaceRouteCandidate } from '@/workspace'
 
@@ -21,9 +22,14 @@ import { ROUTE_NAMES } from './routes'
 export const TITLE_SUFFIX = 'Industrial Platform'
 
 /** 设置页面标题;无标题时仅保留平台名。 */
-export function setDocumentTitle(title: string | undefined): void {
+export function setDocumentTitle(title: string | undefined, titleKey?: string, fallbackTitle?: string): void {
   if (typeof document === 'undefined') return
-  document.title = title === undefined ? TITLE_SUFFIX : `${title} · ${TITLE_SUFFIX}`
+  const displayTitle = fallbackTitle ?? title
+  const locale = document.documentElement.lang === 'en-US' ? 'en-US' : 'zh-CN'
+  const localizedTitle = displayTitle === undefined
+    ? undefined
+    : resolveLocaleMessage(locale, titleKey, displayTitle)
+  document.title = localizedTitle === undefined ? TITLE_SUFFIX : `${localizedTitle} · ${TITLE_SUFFIX}`
 }
 
 export function installRouterGuards(router: Router): void {
@@ -99,7 +105,9 @@ export function installRouterGuards(router: Router): void {
       }
       const candidate: WorkspaceRouteCandidate = {
         id: buildTabId(String(to.name ?? ''), to.params, to.query),
-        title: to.meta.title,
+        title: to.meta.fallbackTitle ?? to.meta.title,
+        ...(to.meta.titleKey === undefined ? {} : { titleKey: to.meta.titleKey }),
+        fallbackTitle: to.meta.fallbackTitle ?? to.meta.title,
         kind: workspace,
         route: toPersistedRoute({
           name: String(to.name ?? ''),
@@ -125,7 +133,7 @@ export function installRouterGuards(router: Router): void {
     }
 
     // 5. 设置页面标题
-    setDocumentTitle(to.meta.title)
+    setDocumentTitle(to.meta.title, to.meta.titleKey, to.meta.fallbackTitle)
     return true
   })
 }

@@ -6,11 +6,12 @@
  * 组件为展示层:数据来自 WorkspaceTabsStore,动作 emit 给 PcLayout 处理导航。
  */
 
-import { computed, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { Search } from '@element-plus/icons-vue'
-import { ElDropdown, ElDropdownItem, ElDropdownMenu } from 'element-plus'
 
 import { pcNavigationGroups } from '@/components/navigation/navigation'
+import { resolveLocaleMessage } from '@/localization/i18n'
+import { useLocalizationStore } from '@/stores/localizationStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useWorkspaceTabsStore } from '@/stores/workspaceTabsStore'
 import type { WorkspaceTab } from '@/workspace'
@@ -20,13 +21,27 @@ const emit = defineEmits<{
   close: [tabId: string]
   'close-others': [tabId: string]
   'close-right': [tabId: string]
+  'close-left': [tabId: string]
+  'close-all': []
   reload: [tabId: string]
+  focus: [tabId: string]
+  'focus-exit': [tabId: string]
   'menu-select': [routeName: string]
+  'toggle-pin': [tabId: string]
 }>()
+
+const props = withDefaults(defineProps<{ focusMode?: boolean }>(), { focusMode: false })
 
 const tabsStore = useWorkspaceTabsStore()
 const authStore = useAuthStore()
+const localization = useLocalizationStore()
 const selectedMenu = ref('')
+const contextTabId = ref<string | null>(null)
+const contextMenuStyle = ref<Record<string, string>>({})
+const contextMenuRef = ref<HTMLElement | null>(null)
+const contextTab = computed(() =>
+  tabsStore.tabs.find((item) => item.id === contextTabId.value) ?? null,
+)
 
 const searchableMenus = computed(() =>
   pcNavigationGroups.flatMap((group) =>
@@ -50,15 +65,64 @@ function activate(tab: WorkspaceTab): void {
   emit('activate', tab.id)
 }
 
+function titleFor(tab: WorkspaceTab): string {
+  return resolveLocaleMessage(localization.locale, tab.titleKey, tab.fallbackTitle ?? tab.title)
+}
+
 function close(tabId: string): void {
   emit('close', tabId)
 }
 
-function onMenuCommand(tab: WorkspaceTab, command: unknown): void {
-  if (command === 'close-others') emit('close-others', tab.id)
-  else if (command === 'close-right') emit('close-right', tab.id)
-  else if (command === 'reload') emit('reload', tab.id)
+function openContextMenu(event: MouseEvent, tab: WorkspaceTab): void {
+  contextTabId.value = tab.id
+  contextMenuStyle.value = { left: `${event.clientX}px`, top: `${event.clientY}px` }
+  void nextTick(() => {
+    const menu = contextMenuRef.value
+    if (menu === null) return
+    const rect = menu.getBoundingClientRect()
+    const menuWidth = rect.width || 180
+    const menuHeight = rect.height || 320
+    contextMenuStyle.value = {
+      left: `${Math.max(0, Math.min(event.clientX, window.innerWidth - menuWidth))}px`,
+      top: `${Math.max(0, Math.min(event.clientY, window.innerHeight - menuHeight))}px`,
+    }
+  })
 }
+
+function closeContextMenu(): void {
+  contextTabId.value = null
+}
+
+function selectContextCommand(command: string): void {
+  const tabId = contextTabId.value
+  if (tabId === null) return
+  if (command === 'close') emit('close', tabId)
+  else if (command === 'close-left') emit('close-left', tabId)
+  else if (command === 'close-right') emit('close-right', tabId)
+  else if (command === 'close-others') emit('close-others', tabId)
+  else if (command === 'close-all') emit('close-all')
+  else if (command === 'reload') emit('reload', tabId)
+  else if (command === 'focus') emit('focus', tabId)
+  else if (command === 'focus-exit') emit('focus-exit', tabId)
+  else if (command === 'toggle-pin') emit('toggle-pin', tabId)
+  closeContextMenu()
+}
+
+function onDocumentPointerDown(event: PointerEvent): void {
+  if (contextMenuRef.value?.contains(event.target as Node)) return
+  closeContextMenu()
+}
+
+function onDocumentKeyDown(event: KeyboardEvent): void {
+  if (event.key === 'Escape') closeContextMenu()
+}
+
+onMounted(() => document.addEventListener('pointerdown', onDocumentPointerDown))
+onMounted(() => document.addEventListener('keydown', onDocumentKeyDown))
+onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', onDocumentPointerDown)
+  document.removeEventListener('keydown', onDocumentKeyDown)
+})
 </script>
 
 <template>
@@ -88,49 +152,93 @@ function onMenuCommand(tab: WorkspaceTab, command: unknown): void {
       <div
         class="ip-pc-tabs__item"
         :class="{ 'ip-pc-tabs__item--active': tab.id === tabsStore.activeTabId }"
+        @contextmenu.prevent="openContextMenu($event, tab)"
       >
         <button
           type="button"
           class="ip-pc-tabs__tab"
           role="tab"
           :aria-selected="tab.id === tabsStore.activeTabId"
-          :aria-label="tab.title"
-          :title="tab.title"
+          :aria-label="titleFor(tab)"
+          :title="titleFor(tab)"
           @click="activate(tab)"
         >
-          {{ tab.title }}
+          {{ titleFor(tab) }}
         </button>
 
-        <template v-if="tab.kind === 'business'">
+        <template v-if="tab.kind === 'business' && tab.pinned !== true">
           <button
             type="button"
             class="ip-pc-tabs__close"
-            :aria-label="`关闭 ${tab.title}`"
+            :aria-label="`关闭 ${titleFor(tab)}`"
             title="关闭"
             @click="close(tab.id)"
           >
             ×
           </button>
-          <ElDropdown trigger="click" @command="(cmd) => onMenuCommand(tab, cmd)">
-            <button
-              type="button"
-              class="ip-pc-tabs__more"
-              :aria-label="`${tab.title} 更多操作`"
-              title="更多操作"
-            >
-              ⋯
-            </button>
-            <template #dropdown>
-              <ElDropdownMenu>
-                <ElDropdownItem command="close-others">关闭其他</ElDropdownItem>
-                <ElDropdownItem command="close-right">关闭右侧</ElDropdownItem>
-                <ElDropdownItem command="reload">重新加载</ElDropdownItem>
-              </ElDropdownMenu>
-            </template>
-          </ElDropdown>
-        </template>
+          </template>
       </div>
     </template>
+    <div
+      v-if="contextTabId !== null"
+      ref="contextMenuRef"
+      class="ip-pc-tabs__context-menu"
+      data-testid="workspace-tab-context-menu"
+      role="menu"
+      :style="contextMenuStyle"
+    >
+      <button type="button" data-testid="workspace-tab-menu-reload" role="menuitem" @click="selectContextCommand('reload')">
+        刷新
+      </button>
+      <button
+        type="button"
+        data-testid="workspace-tab-menu-close"
+        role="menuitem"
+        :disabled="contextTab?.kind === 'fixed' || contextTab?.pinned === true"
+        @click="selectContextCommand('close')"
+      >
+        关闭
+      </button>
+      <button type="button" data-testid="workspace-tab-menu-close-left" role="menuitem" @click="selectContextCommand('close-left')">
+        关闭左侧
+      </button>
+      <button type="button" data-testid="workspace-tab-menu-close-right" role="menuitem" @click="selectContextCommand('close-right')">
+        关闭右侧
+      </button>
+      <button type="button" data-testid="workspace-tab-menu-close-others" role="menuitem" @click="selectContextCommand('close-others')">
+        关闭其他
+      </button>
+      <button type="button" data-testid="workspace-tab-menu-close-all" role="menuitem" @click="selectContextCommand('close-all')">
+        关闭全部
+      </button>
+      <button
+        v-if="contextTab?.kind === 'business'"
+        type="button"
+        data-testid="workspace-tab-menu-toggle-pin"
+        role="menuitem"
+        @click="selectContextCommand('toggle-pin')"
+      >
+        {{ contextTab?.pinned === true ? '取消固定' : '固定标签' }}
+      </button>
+      <button
+        v-if="!props.focusMode"
+        type="button"
+        data-testid="workspace-tab-menu-focus"
+        role="menuitem"
+        @click="selectContextCommand('focus')"
+      >
+        当前页专注
+      </button>
+      <button
+        v-else
+        type="button"
+        data-testid="workspace-tab-menu-focus-exit"
+        role="menuitem"
+        @click="selectContextCommand('focus-exit')"
+      >
+        退出专注
+      </button>
+    </div>
   </nav>
 </template>
 
@@ -194,8 +302,7 @@ function onMenuCommand(tab: WorkspaceTab, command: unknown): void {
   white-space: nowrap;
 }
 
-.ip-pc-tabs__close,
-.ip-pc-tabs__more {
+.ip-pc-tabs__close {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
@@ -210,16 +317,56 @@ function onMenuCommand(tab: WorkspaceTab, command: unknown): void {
   cursor: pointer;
 }
 
-.ip-pc-tabs__close:hover,
-.ip-pc-tabs__more:hover {
+.ip-pc-tabs__close:hover {
   color: var(--ip-color-text-primary);
   background: var(--ip-color-bg-muted);
 }
 
 .ip-pc-tabs__tab:focus-visible,
-.ip-pc-tabs__close:focus-visible,
-.ip-pc-tabs__more:focus-visible {
+.ip-pc-tabs__close:focus-visible {
   outline: 2px solid var(--ip-focus-ring-color);
   outline-offset: 1px;
+}
+
+.ip-pc-tabs__close {
+  visibility: hidden;
+}
+
+.ip-pc-tabs__item--active .ip-pc-tabs__close,
+.ip-pc-tabs__item:hover .ip-pc-tabs__close,
+.ip-pc-tabs__close:focus-visible {
+  visibility: visible;
+}
+
+.ip-pc-tabs__context-menu {
+  position: fixed;
+  z-index: 1300;
+  display: grid;
+  min-width: 128px;
+  padding: var(--ip-space-1);
+  background: var(--ip-color-bg-container);
+  border: 1px solid var(--ip-color-border);
+  border-radius: var(--ip-radius-sm);
+  box-shadow: var(--ip-shadow-md);
+}
+
+.ip-pc-tabs__context-menu button {
+  padding: var(--ip-space-2) var(--ip-space-3);
+  color: var(--ip-color-text-primary);
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: var(--ip-radius-sm);
+  cursor: pointer;
+}
+
+.ip-pc-tabs__context-menu button:hover,
+.ip-pc-tabs__context-menu button:focus-visible {
+  background: var(--ip-color-bg-muted);
+}
+
+.ip-pc-tabs__context-menu button:disabled {
+  color: var(--ip-color-text-disabled);
+  cursor: not-allowed;
 }
 </style>

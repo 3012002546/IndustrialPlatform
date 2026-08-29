@@ -66,6 +66,27 @@ describe('workspace persistence — 用户键', () => {
 })
 
 describe('workspace persistence — parseTabsSnapshot', () => {
+  it('迁移旧 title 快照并保留稳定标题字段', () => {
+    const parsed = parseTabsSnapshot(
+      JSON.stringify(
+        snapshot({
+          tabs: [
+            createFixedWorkbench(),
+            {
+              ...businessTab(0),
+              titleKey: 'identity.user.title',
+              fallbackTitle: '用户管理',
+            },
+          ],
+        }),
+      ),
+    )
+    expect(parsed?.tabs[1]).toMatchObject({
+      titleKey: 'identity.user.title',
+      fallbackTitle: '用户管理',
+    })
+  })
+
   it('null 与非法 JSON → null', () => {
     expect(parseTabsSnapshot(null)).toBeNull()
     expect(parseTabsSnapshot('not json')).toBeNull()

@@ -39,6 +39,10 @@ function isKind(value: unknown): value is WorkspaceTab['kind'] {
   return value === 'fixed' || value === 'business'
 }
 
+function optionalString(value: unknown): string | undefined {
+  return value === undefined ? undefined : isString(value) && value.length > 0 ? value : undefined
+}
+
 function isLocationPart(value: unknown): value is Record<string, string | string[]> {
   if (!isRecord(value)) return false
   return Object.values(value).every((v) => isString(v) || (Array.isArray(v) && v.every(isString)))
@@ -55,7 +59,10 @@ export function buildUserTabsKey(scope: UserUiScope): string {
 function parseTab(value: unknown): WorkspaceTab | null {
   if (!isRecord(value)) return null
   if (!isString(value['id']) || value['id'].length === 0) return null
-  if (!isString(value['title'])) return null
+  const title = optionalString(value['title'])
+  const fallbackTitle = optionalString(value['fallbackTitle']) ?? title
+  const titleKey = optionalString(value['titleKey'])
+  if (fallbackTitle === undefined) return null
   if (!isKind(value['kind'])) return null
   const route = value['route']
   if (!isRecord(route)) return null
@@ -67,8 +74,11 @@ function parseTab(value: unknown): WorkspaceTab | null {
   }
   return {
     id: value['id'],
-    title: value['title'],
+    title: fallbackTitle,
+    ...(titleKey === undefined ? {} : { titleKey }),
+    fallbackTitle,
     kind: value['kind'],
+    ...(value['pinned'] === true ? { pinned: true } : {}),
     route: { name: route['name'], params: route['params'], query: route['query'] },
     reloadVersion: value['reloadVersion'],
   }
@@ -115,7 +125,18 @@ export function parseTabsSnapshot(raw: string | null): WorkspaceTabsSnapshot | n
 
 /** 序列化标签快照(写入方保证结构合法)。 */
 export function serializeTabsSnapshot(snapshot: WorkspaceTabsSnapshot): string {
-  return JSON.stringify(snapshot)
+  return JSON.stringify({
+    ...snapshot,
+    tabs: snapshot.tabs.map((tab) => ({
+      id: tab.id,
+      titleKey: tab.titleKey,
+      fallbackTitle: tab.fallbackTitle ?? tab.title,
+      kind: tab.kind,
+      ...(tab.pinned === true ? { pinned: true } : {}),
+      route: tab.route,
+      reloadVersion: tab.reloadVersion,
+    })),
+  })
 }
 
 /** 读取用户标签快照:存储异常/非法 JSON 均返回 null。 */

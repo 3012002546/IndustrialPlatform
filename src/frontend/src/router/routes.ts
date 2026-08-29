@@ -138,6 +138,8 @@ export const routes: RouteRecordRaw[] = [
         component: PcOperationHomePage,
         meta: {
           title: '生产操作',
+          titleKey: 'operation.title',
+          fallbackTitle: '生产操作',
           requiresAuth: true,
           permission: PERMISSIONS.platformOperationView,
           terminal: 'pc',
@@ -157,6 +159,8 @@ export const routes: RouteRecordRaw[] = [
         component: PcHomePage,
         meta: {
           title: 'PC 首页',
+          titleKey: 'shell.navigation.workspace',
+          fallbackTitle: '工作台',
           requiresAuth: true,
           permission: PERMISSIONS.platformHomeView,
           terminal: 'pc',
@@ -181,6 +185,8 @@ export const routes: RouteRecordRaw[] = [
         component: IdentityUsersPage,
         meta: {
           title: '用户管理',
+          titleKey: 'identity.user.title',
+          fallbackTitle: '用户管理',
           requiresAuth: true,
           permission: PERMISSIONS.userView,
           terminal: 'pc',

@@ -11,6 +11,20 @@ export const localeMessages: Record<SupportedLocale, PlatformLocaleMessages> = {
   'en-US': enUS,
 }
 
+export function resolveLocaleMessage(
+  locale: SupportedLocale,
+  key: string | undefined,
+  fallback: string,
+): string {
+  if (key === undefined || key.length === 0) return fallback
+  let value: unknown = localeMessages[locale]
+  for (const part of key.split('.')) {
+    if (typeof value !== 'object' || value === null || !(part in value)) return fallback
+    value = (value as Record<string, unknown>)[part]
+  }
+  return typeof value === 'string' ? value : fallback
+}
+
 export function createPlatformI18n(locale: SupportedLocale = 'zh-CN'): I18n {
   return createI18n({
     legacy: false,

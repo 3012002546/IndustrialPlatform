@@ -205,6 +205,10 @@ function onCloseAll(): void {
   navigateToActive()
 }
 
+function onTogglePin(tabId: string): void {
+  tabsStore.setTabPinned(tabId, !(tabsStore.tabs.find((tab) => tab.id === tabId)?.pinned === true))
+}
+
 function onFocusTab(tabId: string): void {
   const tab = tabsStore.activateTab(tabId)
   if (tab === null) return
@@ -330,6 +334,7 @@ function onLimitResolve(resolution: TabLimitResolution): void {
       @close-right="onCloseRight"
       @close-left="onCloseLeft"
       @close-all="onCloseAll"
+      @toggle-pin="onTogglePin"
       @reload="onReload"
       :focus-mode="focusMode"
       @focus="onFocusTab"

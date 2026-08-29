@@ -11,6 +11,9 @@ import type { PcExperienceMode } from '@/operation/types'
 export interface AppRouteMeta {
   /** 页面标题(守卫写入 document.title,格式 `${title} · Industrial Platform`)。 */
   title: string
+  /** Stable resource key for locale switching; fallbackTitle is safe when a resource is unavailable. */
+  titleKey?: string
+  fallbackTitle?: string
   /** 受保护路由:无会话跳转登录。 */
   requiresAuth?: boolean
   /** 权限点:无权限跳转 /403。 */

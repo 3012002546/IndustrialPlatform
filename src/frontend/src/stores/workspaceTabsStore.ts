@@ -11,6 +11,7 @@ import { computed, ref } from 'vue'
 
 import type { UserUiScope } from '@/theme/types'
 import { createFixedWorkbench, MAX_BUSINESS_TABS } from '@/workspace/identity'
+import { clearPageState } from '@/workspace/pageState'
 import { readTabsSnapshot, writeTabsSnapshot, type WorkspaceStorage } from '@/workspace/persistence'
 import type {
   OpenTabResult,
@@ -22,6 +23,14 @@ import type {
 
 function defaultStorage(): WorkspaceStorage {
   return globalThis.localStorage
+}
+
+function clearStoredPageState(tabId: string): void {
+  try {
+    clearPageState(globalThis.sessionStorage, tabId)
+  } catch {
+    // Closing a tab remains best-effort even when sessionStorage is unavailable.
+  }
 }
 
 function sameScope(a: UserUiScope, b: UserUiScope): boolean {
@@ -110,7 +119,9 @@ export const useWorkspaceTabsStore = defineStore('workspaceTabs', () => {
     }
     const tab: WorkspaceTab = {
       id: candidate.id,
-      title: candidate.title,
+      title: candidate.fallbackTitle ?? candidate.title,
+      ...(candidate.titleKey === undefined ? {} : { titleKey: candidate.titleKey }),
+      fallbackTitle: candidate.fallbackTitle ?? candidate.title,
       kind: 'business',
       route: candidate.route,
       reloadVersion: 1,
@@ -128,10 +139,11 @@ export const useWorkspaceTabsStore = defineStore('workspaceTabs', () => {
    */
   function closeTab(tabId: string): WorkspaceTab {
     const target = tabs.value.find((t) => t.id === tabId)
-    if (target === undefined || target.kind === 'fixed') return fixedTab.value
+    if (target === undefined || target.kind === 'fixed' || target.pinned === true) return fixedTab.value
     const wasActive = activeTabId.value === tabId
     const index = tabs.value.indexOf(target)
     tabs.value = tabs.value.filter((t) => t.id !== tabId)
+    clearStoredPageState(tabId)
     const next = tabs.value[index] ?? tabs.value[index - 1] ?? fixedTab.value
     if (wasActive) activeTabId.value = next.id
     persist()
@@ -140,8 +152,13 @@ export const useWorkspaceTabsStore = defineStore('workspaceTabs', () => {
 
   /** 关闭其他业务标签(保留固定工作台与目标标签);激活标签被移除时才改 activeTabId。 */
   function closeOthers(tabId: string): void {
-    tabs.value = tabs.value.filter((t) => t.kind === 'fixed' || t.id === tabId)
-    if (!tabs.value.some((t) => t.id === activeTabId.value)) activeTabId.value = tabId
+    if (!tabs.value.some((t) => t.id === tabId)) return
+    const removed = tabs.value.filter((t) => t.kind === 'business' && t.id !== tabId && t.pinned !== true)
+    tabs.value = tabs.value.filter((t) => t.kind === 'fixed' || t.pinned === true || t.id === tabId)
+    removed.forEach((tab) => clearStoredPageState(tab.id))
+    if (!tabs.value.some((t) => t.id === activeTabId.value)) {
+      activeTabId.value = tabs.value.find((t) => t.id === tabId)?.id ?? fixedTab.value.id
+    }
     persist()
   }
 
@@ -150,20 +167,74 @@ export const useWorkspaceTabsStore = defineStore('workspaceTabs', () => {
     const index = tabs.value.findIndex((t) => t.id === tabId)
     if (index === -1) return
     const kept: WorkspaceTab[] = []
+    const removed: WorkspaceTab[] = []
     tabs.value.forEach((t, i) => {
-      if (t.kind === 'fixed' || i <= index) kept.push(t)
+      if (t.kind === 'fixed' || i <= index || t.pinned === true) kept.push(t)
+      else removed.push(t)
     })
     tabs.value = kept
+    removed.forEach((tab) => clearStoredPageState(tab.id))
     if (!tabs.value.some((t) => t.id === activeTabId.value)) activeTabId.value = tabId
+    persist()
+  }
+
+  /** 关闭目标左侧的业务标签;固定工作台永远保留,当前标签被移除时激活目标。 */
+  function closeLeft(tabId: string): void {
+    const index = tabs.value.findIndex((t) => t.id === tabId)
+    if (index <= 0) return
+    const removed = tabs.value.filter(
+      (t, currentIndex) => t.kind === 'business' && currentIndex < index && t.pinned !== true,
+    )
+    tabs.value = tabs.value.filter(
+      (t, currentIndex) => t.kind === 'fixed' || currentIndex >= index || t.pinned === true,
+    )
+    removed.forEach((tab) => clearStoredPageState(tab.id))
+    if (!tabs.value.some((t) => t.id === activeTabId.value)) {
+      activeTabId.value = tabs.value.find((t) => t.id === tabId)?.id ?? fixedTab.value.id
+    }
+    persist()
+  }
+
+  /** 关闭全部业务标签,仅保留并激活固定工作台。 */
+  function closeAll(): void {
+    const removed = tabs.value.filter((t) => t.kind === 'business' && t.pinned !== true)
+    tabs.value = tabs.value.filter((t) => t.kind === 'fixed' || t.pinned === true)
+    removed.forEach((tab) => clearStoredPageState(tab.id))
+    activeTabId.value = fixedTab.value.id
+    persist()
+  }
+
+  function setTabPinned(tabId: string, pinned: boolean): boolean {
+    const tab = tabs.value.find((candidate) => candidate.id === tabId)
+    if (tab === undefined || tab.kind === 'fixed') return false
+    if (pinned) tab.pinned = true
+    else delete tab.pinned
+    persist()
+    return true
+  }
+
+  /** 通过 Store 激活已存在标签并持久化,避免页面直接改写 activeTabId。 */
+  function activateTab(tabId: string): WorkspaceTab | null {
+    const tab = tabs.value.find((t) => t.id === tabId)
+    if (tab === undefined) return null
+    if (activeTabId.value !== tab.id) {
+      activeTabId.value = tab.id
+      persist()
+    }
+    return tab
+  }
+
+  /** 递增指定业务标签 reloadVersion(触发其路由内容重挂载)。 */
+  function reloadTab(tabId: string): void {
+    const tab = tabs.value.find((t) => t.id === tabId)
+    if (tab === undefined || tab.kind !== 'business') return
+    tab.reloadVersion += 1
     persist()
   }
 
   /** 递增当前业务标签 reloadVersion(触发 RouterView 内容重挂载)。 */
   function reloadCurrent(): void {
-    const tab = tabs.value.find((t) => t.id === activeTabId.value)
-    if (tab === undefined || tab.kind !== 'business') return
-    tab.reloadVersion += 1
-    persist()
+    reloadTab(activeTabId.value)
   }
 
   /**
@@ -192,8 +263,10 @@ export const useWorkspaceTabsStore = defineStore('workspaceTabs', () => {
   /** 按授权过滤业务标签(守卫提供 isAllowed);固定工作台始终保留。 */
   function prune(isAllowed: (tab: WorkspaceTab) => boolean): void {
     const before = tabs.value.length
+    const removed = tabs.value.filter((t) => t.kind === 'business' && !isAllowed(t))
     tabs.value = tabs.value.filter((t) => t.kind === 'fixed' || isAllowed(t))
     if (tabs.value.length >= before) return
+    removed.forEach((tab) => clearStoredPageState(tab.id))
     if (!tabs.value.some((t) => t.id === activeTabId.value)) {
       activeTabId.value = tabs.value.find((t) => t.kind === 'fixed')?.id ?? tabs.value[0]?.id ?? ''
     }
@@ -214,6 +287,11 @@ export const useWorkspaceTabsStore = defineStore('workspaceTabs', () => {
     closeTab,
     closeOthers,
     closeRight,
+    closeLeft,
+    closeAll,
+    setTabPinned,
+    activateTab,
+    reloadTab,
     reloadCurrent,
     resolvePending,
     prune,

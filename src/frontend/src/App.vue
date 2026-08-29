@@ -7,12 +7,21 @@ import { watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { ROUTE_NAMES } from '@/router/routes'
+import { setDocumentTitle } from '@/router/guards'
+import { useLocalizationStore } from '@/stores/localizationStore'
 import { useAuthStore } from '@/stores/authStore'
 import SystemDataRuntimeStatus from '@/components/systemData/SystemDataRuntimeStatus.vue'
 
 const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
+const localization = useLocalizationStore()
+
+watch(
+  [() => route.name, () => localization.locale],
+  () => setDocumentTitle(route.meta.title, route.meta.titleKey, route.meta.fallbackTitle),
+  { immediate: true },
+)
 
 watch(
   () => authStore.user?.permissions,

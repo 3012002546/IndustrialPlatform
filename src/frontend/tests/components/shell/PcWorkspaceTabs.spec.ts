@@ -5,9 +5,9 @@
  */
 
 import { mount } from '@vue/test-utils'
-import { ElDropdown } from 'element-plus'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { nextTick } from 'vue'
 
 import PcWorkspaceTabs from '@/components/shell/PcWorkspaceTabs.vue'
 import { useWorkspaceTabsStore } from '@/stores/workspaceTabsStore'
@@ -38,7 +38,7 @@ describe('PcWorkspaceTabs', () => {
     return mount(PcWorkspaceTabs, { global: { plugins: [pinia] } })
   }
 
-  it('固定工作台标签恒在首位,无关闭/菜单按钮', () => {
+  it('固定工作台标签恒在首位,无关闭按钮', () => {
     const wrapper = mountWithTabs([0, 1])
     const nav = wrapper.get('nav.ip-pc-tabs')
     expect(nav.attributes('aria-label')).toBe('工作台标签')
@@ -47,8 +47,8 @@ describe('PcWorkspaceTabs', () => {
     expect(items[0]?.text()).toContain('工作台')
     // 固定工作台项不含关闭/更多按钮
     expect(items[0]?.findAll('button')).toHaveLength(1)
-    // 两个业务标签各含关闭 + 更多
-    expect(items[1]?.findAll('button')).toHaveLength(3)
+    // 业务标签只含标签与关闭按钮;其他操作通过右键菜单
+    expect(items[1]?.findAll('button')).toHaveLength(2)
   })
 
   it('固定工作台前提供加宽且权限感知的菜单搜索', () => {
@@ -60,12 +60,25 @@ describe('PcWorkspaceTabs', () => {
     )
   })
 
-  it('业务标签带关闭按钮与更多菜单,点击 emit close', async () => {
+  it('业务标签带关闭按钮,点击 emit close', async () => {
     const wrapper = mountWithTabs([0])
     const close = wrapper.get('.ip-pc-tabs__close')
     expect(close.attributes('aria-label')).toBe('关闭 沙箱 0')
     await close.trigger('click')
     expect(wrapper.emitted('close')).toEqual([['sandbox:0']])
+  })
+
+  it('固定业务标签不显示关闭按钮,右键可切换固定状态', async () => {
+    const tabsStore = useWorkspaceTabsStore()
+    tabsStore.bindUser({ tenantId: 't1', userId: 'u1' })
+    tabsStore.requestOpen(sandboxCandidate(0))
+    tabsStore.setTabPinned('sandbox:0', true)
+    const wrapper = mount(PcWorkspaceTabs, { global: { plugins: [pinia] } })
+    expect(wrapper.findAll('.ip-pc-tabs__item')[1]?.find('.ip-pc-tabs__close').exists()).toBe(false)
+    await wrapper.findAll('.ip-pc-tabs__item')[1]!.trigger('contextmenu')
+    expect(wrapper.get('[data-testid="workspace-tab-menu-toggle-pin"]').text()).toContain('取消固定')
+    await wrapper.get('[data-testid="workspace-tab-menu-toggle-pin"]').trigger('click')
+    expect(wrapper.emitted('toggle-pin')).toEqual([['sandbox:0']])
   })
 
   it('aria-selected 跟随活跃标签', () => {
@@ -83,15 +96,46 @@ describe('PcWorkspaceTabs', () => {
     expect(wrapper.emitted('activate')).toEqual([['sandbox:0']])
   })
 
-  it('更多菜单命令 emit close-others / close-right / reload', async () => {
+  it('右键菜单命令 emit close / close-left / close-right / close-others / close-all / reload / focus', async () => {
     const wrapper = mountWithTabs([0])
-    const dropdown = wrapper.get('nav.ip-pc-tabs').findAllComponents(ElDropdown)[0]!
-    await dropdown.vm.$emit('command', 'close-others')
+    await wrapper.findAll('.ip-pc-tabs__item')[1]!.trigger('contextmenu')
+    expect(wrapper.get('[data-testid="workspace-tab-context-menu"]').text()).toContain('当前页专注')
+    await wrapper.get('[data-testid="workspace-tab-menu-close-others"]').trigger('click')
     expect(wrapper.emitted('close-others')).toEqual([['sandbox:0']])
-    await dropdown.vm.$emit('command', 'close-right')
+    await wrapper.findAll('.ip-pc-tabs__item')[1]!.trigger('contextmenu')
+    await wrapper.get('[data-testid="workspace-tab-menu-close-left"]').trigger('click')
+    expect(wrapper.emitted('close-left')).toEqual([['sandbox:0']])
+    await wrapper.findAll('.ip-pc-tabs__item')[1]!.trigger('contextmenu')
+    await wrapper.get('[data-testid="workspace-tab-menu-close-right"]').trigger('click')
     expect(wrapper.emitted('close-right')).toEqual([['sandbox:0']])
-    await dropdown.vm.$emit('command', 'reload')
+    await wrapper.findAll('.ip-pc-tabs__item')[1]!.trigger('contextmenu')
+    await wrapper.get('[data-testid="workspace-tab-menu-close-all"]').trigger('click')
+    expect(wrapper.emitted('close-all')).toEqual([[]])
+    await wrapper.findAll('.ip-pc-tabs__item')[1]!.trigger('contextmenu')
+    await wrapper.get('[data-testid="workspace-tab-menu-reload"]').trigger('click')
     expect(wrapper.emitted('reload')).toEqual([['sandbox:0']])
+    await wrapper.findAll('.ip-pc-tabs__item')[1]!.trigger('contextmenu')
+    await wrapper.get('[data-testid="workspace-tab-menu-focus"]').trigger('click')
+    expect(wrapper.emitted('focus')).toEqual([['sandbox:0']])
+  })
+
+  it('右键菜单位置限制在视口内并支持 Escape 关闭', async () => {
+    const wrapper = mountWithTabs([0])
+    await wrapper.findAll('.ip-pc-tabs__item')[1]!.trigger('contextmenu', {
+      clientX: 100000,
+      clientY: 100000,
+    })
+    await wrapper.vm.$nextTick()
+    const menu = wrapper.get('[data-testid="workspace-tab-context-menu"]')
+    expect(Number.parseInt(menu.attributes('style')?.match(/left: ([^;]+)/)?.[1] ?? '0')).toBeLessThan(
+      window.innerWidth,
+    )
+    expect(Number.parseInt(menu.attributes('style')?.match(/top: ([^;]+)/)?.[1] ?? '0')).toBeLessThan(
+      window.innerHeight,
+    )
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await nextTick()
+    expect(wrapper.find('[data-testid="workspace-tab-context-menu"]').exists()).toBe(false)
   })
 
   it('消费标签栏语义 token(--ip-shell-tabs-height)', async () => {

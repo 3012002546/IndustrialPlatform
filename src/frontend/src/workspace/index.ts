@@ -19,6 +19,13 @@ export {
   serializeTabsSnapshot,
   writeTabsSnapshot,
 } from './persistence'
+export {
+  buildPageStateKey,
+  clearPageState,
+  readPageState,
+  removePageState,
+  writePageState,
+} from './pageState'
 export type {
   OpenTabResult,
   PersistedRouteLocation,
@@ -27,3 +34,4 @@ export type {
   WorkspaceTab,
   WorkspaceUserScope,
 } from './types'
+export type { WorkspacePageSort, WorkspacePageState, WorkspacePageStateStorage } from './pageState'
