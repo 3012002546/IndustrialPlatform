@@ -24,6 +24,17 @@ export const enUS = {
       forbidden: 'Access denied',
       comingSoon: 'Coming soon',
       available: 'Available',
+      unauthenticated: 'Not signed in',
+    },
+    locale: { label: 'Language', zhCN: 'Chinese', enUS: 'English' },
+    theme: {
+      label: 'Theme',
+      palette: 'Palette',
+      mode: 'Light/dark mode',
+      density: 'Density',
+      palettes: { industrialCyan: 'Industrial cyan', technologyBlue: 'Technology blue', neutralGray: 'Neutral gray' },
+      modes: { light: 'Light', dark: 'Dark', system: 'Follow system' },
+      densities: { comfortable: 'Comfortable', compact: 'Compact' },
     },
     query: { title: 'Query conditions', submit: 'Search', reset: 'Reset', expand: 'Expand', collapse: 'Collapse' },
     table: {

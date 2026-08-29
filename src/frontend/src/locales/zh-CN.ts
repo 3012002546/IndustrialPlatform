@@ -24,6 +24,17 @@ export const zhCN = {
       forbidden: '无权访问',
       comingSoon: '待实现',
       available: '可用',
+      unauthenticated: '未登录',
+    },
+    locale: { label: '语言', zhCN: '中文', enUS: 'English' },
+    theme: {
+      label: '主题',
+      palette: '配色',
+      mode: '明暗模式',
+      density: '密度',
+      palettes: { industrialCyan: '工业青', technologyBlue: '科技蓝', neutralGray: '中性灰' },
+      modes: { light: '明亮', dark: '暗色', system: '跟随系统' },
+      densities: { comfortable: '舒适', compact: '紧凑' },
     },
     query: { title: '查询条件', submit: '查询', reset: '重置', expand: '展开', collapse: '收起' },
     table: {

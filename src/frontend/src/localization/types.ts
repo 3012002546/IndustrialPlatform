@@ -32,6 +32,17 @@ export interface PlatformLocaleMessages {
       forbidden: string
       comingSoon: string
       available: string
+      unauthenticated: string
+    }
+    locale: { label: string; zhCN: string; enUS: string }
+    theme: {
+      label: string
+      palette: string
+      mode: string
+      density: string
+      palettes: { industrialCyan: string; technologyBlue: string; neutralGray: string }
+      modes: { light: string; dark: string; system: string }
+      densities: { comfortable: string; compact: string }
     }
     query: {
       title: string

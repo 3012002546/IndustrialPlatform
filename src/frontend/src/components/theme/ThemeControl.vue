@@ -7,6 +7,8 @@
 
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
+import { localeMessages } from '@/localization/i18n'
+import { usePlatformLocale } from '@/localization/localeContext'
 import { useThemeStore } from '@/stores/themeStore'
 import { PC_DENSITIES, THEME_MODES, THEME_PALETTES } from '@/theme'
 import type { PcDensity, ThemeMode, ThemePalette } from '@/theme'
@@ -16,24 +18,9 @@ const props = defineProps<{
   terminal: 'pc' | 'pda' | 'mobile'
 }>()
 
-const PALETTE_LABELS: Record<ThemePalette, string> = {
-  'industrial-cyan': '工业青',
-  'technology-blue': '科技蓝',
-  'neutral-gray': '中性灰',
-}
-
-const MODE_LABELS: Record<ThemeMode, string> = {
-  light: '明亮',
-  dark: '暗色',
-  system: '跟随系统',
-}
-
-const DENSITY_LABELS: Record<PcDensity, string> = {
-  comfortable: '舒适',
-  compact: '紧凑',
-}
-
 const store = useThemeStore()
+const locale = usePlatformLocale()
+const copy = computed(() => localeMessages[locale.value].common.theme)
 const open = ref(false)
 const triggerRef = ref<HTMLButtonElement | null>(null)
 const panelRef = ref<HTMLElement | null>(null)
@@ -42,6 +29,19 @@ const isPc = computed(() => props.terminal === 'pc')
 const currentPalette = computed(() => store.preferences.palette)
 const currentMode = computed(() => store.preferences.mode)
 const currentDensity = computed(() => store.preferences.density)
+
+function paletteLabel(palette: ThemePalette): string {
+  const key = palette === 'industrial-cyan' ? 'industrialCyan' : palette === 'technology-blue' ? 'technologyBlue' : 'neutralGray'
+  return copy.value.palettes[key]
+}
+
+function modeLabel(mode: ThemeMode): string {
+  return copy.value.modes[mode]
+}
+
+function densityLabel(density: PcDensity): string {
+  return copy.value.densities[density]
+}
 
 function toggle(): void {
   open.value = !open.value
@@ -85,7 +85,7 @@ onBeforeUnmount(() => {
       data-testid="theme-control-trigger"
       aria-haspopup="true"
       :aria-expanded="open"
-      aria-label="主题设置"
+      :aria-label="copy.label"
       @click="toggle"
     >
       <span
@@ -93,7 +93,7 @@ onBeforeUnmount(() => {
         :class="`theme-control__swatch--${currentPalette}`"
         aria-hidden="true"
       />
-      <span class="theme-control__trigger-text">主题</span>
+      <span class="theme-control__trigger-text">{{ copy.label }}</span>
     </button>
 
     <div
@@ -101,11 +101,11 @@ onBeforeUnmount(() => {
       ref="panelRef"
       class="theme-control__panel"
       role="group"
-      aria-label="主题设置"
+      :aria-label="copy.label"
       @keydown="onPanelKeydown"
     >
       <fieldset class="theme-control__fieldset">
-        <legend>配色</legend>
+        <legend>{{ copy.palette }}</legend>
         <label v-for="palette in THEME_PALETTES" :key="palette" class="theme-control__option">
           <input
             type="radio"
@@ -120,12 +120,12 @@ onBeforeUnmount(() => {
             :class="`theme-control__swatch--${palette}`"
             aria-hidden="true"
           />
-          <span>{{ PALETTE_LABELS[palette] }}</span>
+          <span>{{ paletteLabel(palette) }}</span>
         </label>
       </fieldset>
 
       <fieldset class="theme-control__fieldset">
-        <legend>明暗模式</legend>
+        <legend>{{ copy.mode }}</legend>
         <label v-for="mode in THEME_MODES" :key="mode" class="theme-control__option">
           <input
             type="radio"
@@ -135,12 +135,12 @@ onBeforeUnmount(() => {
             :data-testid="`theme-mode-${mode}`"
             @change="store.setMode(mode)"
           />
-          <span>{{ MODE_LABELS[mode] }}</span>
+          <span>{{ modeLabel(mode) }}</span>
         </label>
       </fieldset>
 
       <fieldset v-if="isPc" class="theme-control__fieldset">
-        <legend>密度</legend>
+        <legend>{{ copy.density }}</legend>
         <label v-for="density in PC_DENSITIES" :key="density" class="theme-control__option">
           <input
             type="radio"
@@ -150,7 +150,7 @@ onBeforeUnmount(() => {
             :data-testid="`theme-density-${density}`"
             @change="store.setDensity(density)"
           />
-          <span>{{ DENSITY_LABELS[density] }}</span>
+          <span>{{ densityLabel(density) }}</span>
         </label>
       </fieldset>
     </div>

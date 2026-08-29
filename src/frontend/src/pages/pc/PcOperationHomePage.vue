@@ -1,19 +1,20 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { localeMessages } from '@/localization/i18n'
-import { useLocalizationStore } from '@/stores/localizationStore'
+import { localeMessages, resolveLocaleMessage } from '@/localization/i18n'
+import { usePlatformLocale } from '@/localization/localeContext'
 import { operationLaunchers } from '@/operation/launchers'
 import LocaleControl from '@/components/localization/LocaleControl.vue'
 import PcExperienceModeControl from '@/components/shell/PcExperienceModeControl.vue'
 import ThemeControl from '@/components/theme/ThemeControl.vue'
 import type { OperationLauncher } from '@/operation/types'
 
-const localization = useLocalizationStore()
+const locale = usePlatformLocale()
 const settingsOpen = ref(false)
 const browserFullscreen = ref(false)
 
-const copy = computed(() => localeMessages[localization.locale].operation)
-function titleFor(id: string, fallback: string): string {
+const copy = computed(() => localeMessages[locale.value].operation)
+const commonCopy = computed(() => localeMessages[locale.value].common)
+function titleFor(id: string): string {
   const key = id.replaceAll('-', '')
   const mapping: Record<string, string> = {
     taskexecution: 'taskExecution',
@@ -26,7 +27,7 @@ function titleFor(id: string, fallback: string): string {
     recipeview: 'recipeView',
     interfacesettings: 'interfaceSettings',
   }
-  return copy.value.launchers[mapping[key] ?? id] ?? fallback
+  return resolveLocaleMessage(locale.value, `operation.launchers.${mapping[key] ?? id}`, '')
 }
 
 async function toggleFullscreen(): Promise<void> {
@@ -70,7 +71,7 @@ function activate(id: string, state: OperationLauncher['state']): void {
         @keydown.space.prevent="activate(launcher.id, launcher.state)"
       >
         <component :is="launcher.icon" class="pc-operation-card__icon" aria-hidden="true" />
-        <span class="pc-operation-card__title">{{ titleFor(launcher.id, launcher.fallbackTitle) }}</span>
+        <span class="pc-operation-card__title">{{ titleFor(launcher.id) }}</span>
         <span class="pc-operation-card__status">
           {{ launcher.state === 'coming-soon' ? copy.launcherState.comingSoon : copy.launcherState.available }}
         </span>
@@ -78,14 +79,14 @@ function activate(id: string, state: OperationLauncher['state']): void {
     </div>
 
     <aside v-if="settingsOpen" class="pc-operation-settings" data-testid="operation-settings-panel">
-      <h2>{{ titleFor('interface-settings', '界面设置') }}</h2>
+      <h2>{{ titleFor('interface-settings') }}</h2>
       <p>{{ copy.settingsDescription }}</p>
       <div class="pc-operation-settings__controls">
         <LocaleControl />
         <ThemeControl terminal="pc" />
         <PcExperienceModeControl mode="operation" />
         <button type="button" @click="toggleFullscreen">
-          {{ browserFullscreen ? '退出全屏' : '全屏' }}
+          {{ browserFullscreen ? commonCopy.action.exitFullscreen : commonCopy.action.fullscreen }}
         </button>
       </div>
     </aside>

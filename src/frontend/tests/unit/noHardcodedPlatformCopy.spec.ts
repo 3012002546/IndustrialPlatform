@@ -23,6 +23,8 @@ const publicShellFiles = [
   'src/components/shell/WorkspaceTabLimitDialog.vue',
   'src/components/systemData/SystemDataAdminFrame.vue',
   'src/components/systemData/SystemDataRuntimeStatus.vue',
+  'src/layouts/OperationLayout.vue',
+  'src/pages/pc/PcOperationHomePage.vue',
 ]
 
 const forbiddenPlatformCopy = [
@@ -58,6 +60,13 @@ describe('platform copy resource boundary', () => {
       for (const copy of forbiddenPlatformCopy) {
         expect(source, `${relativePath} contains public copy: ${copy}`).not.toContain(copy)
       }
+    }
+  })
+
+  it('keeps production operation shell copy in locale resources', () => {
+    for (const relativePath of ['src/layouts/OperationLayout.vue', 'src/pages/pc/PcOperationHomePage.vue']) {
+      const source = readRepositoryFile(`src/frontend/${relativePath}`)
+      expect(source, `${relativePath} contains hardcoded Chinese copy`).not.toMatch(/[\u3400-\u9fff]/)
     }
   })
 

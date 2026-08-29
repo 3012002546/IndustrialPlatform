@@ -11,12 +11,16 @@ import PlatformContextSwitcher from '@/components/shell/PlatformContextSwitcher.
 import PlatformEnvironmentBadge from '@/components/shell/PlatformEnvironmentBadge.vue'
 import ThemeControl from '@/components/theme/ThemeControl.vue'
 import { loadRuntimeConfig } from '@/config/runtimeConfig'
+import { localeMessages } from '@/localization/i18n'
+import { usePlatformLocale } from '@/localization/localeContext'
 import { useAuthStore } from '@/stores/authStore'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const runtimeConfig = loadRuntimeConfig()
+const locale = usePlatformLocale()
 const browserFullscreen = ref(false)
+const copy = computed(() => localeMessages[locale.value])
 const displayName = computed(() => authStore.user?.displayName ?? '')
 const tenant = computed(() => {
   const user = authStore.user
@@ -64,7 +68,7 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFullscr
           type="button"
           class="ip-operation-action"
           data-testid="operation-fullscreen"
-          :aria-label="browserFullscreen ? '退出浏览器全屏' : '浏览器全屏'"
+          :aria-label="browserFullscreen ? copy.common.action.exitFullscreen : copy.common.action.fullscreen"
           @click="toggleBrowserFullscreen"
         >
           <FullScreen aria-hidden="true" />
@@ -73,10 +77,10 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFullscr
       </div>
       <ElDropdown trigger="click" @command="onUserCommand">
         <button type="button" class="ip-operation-user" data-testid="operation-user-menu">
-          {{ displayName || '未登录' }}
+          {{ displayName || copy.common.state.unauthenticated }}
         </button>
         <template #dropdown>
-          <ElDropdownMenu><ElDropdownItem command="logout">退出登录</ElDropdownItem></ElDropdownMenu>
+          <ElDropdownMenu><ElDropdownItem command="logout">{{ copy.common.action.logout }}</ElDropdownItem></ElDropdownMenu>
         </template>
       </ElDropdown>
     </header>

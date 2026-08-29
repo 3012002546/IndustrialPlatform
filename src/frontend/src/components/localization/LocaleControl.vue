@@ -1,8 +1,14 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+
+import { localeMessages } from '@/localization/i18n'
+import { usePlatformLocale } from '@/localization/localeContext'
 import { useLocalizationStore } from '@/stores/localizationStore'
 import type { SupportedLocale } from '@/localization/types'
 
 const localization = useLocalizationStore()
+const locale = usePlatformLocale()
+const copy = computed(() => localeMessages[locale.value].common.locale)
 
 function onChange(event: Event): void {
   const value = (event.target as HTMLSelectElement).value
@@ -12,10 +18,10 @@ function onChange(event: Event): void {
 
 <template>
   <label class="ip-locale-control">
-    <span class="ip-sr-only">语言</span>
-    <select aria-label="语言" :value="localization.locale" @change="onChange">
-      <option value="zh-CN">中文</option>
-      <option value="en-US">English</option>
+    <span class="ip-sr-only">{{ copy.label }}</span>
+    <select :aria-label="copy.label" :value="localization.locale" @change="onChange">
+      <option value="zh-CN">{{ copy.zhCN }}</option>
+      <option value="en-US">{{ copy.enUS }}</option>
     </select>
   </label>
 </template>
