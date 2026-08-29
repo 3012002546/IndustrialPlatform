@@ -134,7 +134,7 @@ export const zhCN = {
       recent: '最近访问',
       commands: '快捷命令',
     },
-    mode: { management: '管理模式', operation: '生产操作模式' },
+    mode: { management: '管理', operation: '生产操作' },
     copy: {
       tenant: '租户',
       searchMenu: '搜索菜单',

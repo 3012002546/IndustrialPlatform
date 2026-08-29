@@ -134,7 +134,7 @@ export const enUS = {
       recent: 'Recent pages',
       commands: 'Quick commands',
     },
-    mode: { management: 'Management mode', operation: 'Production operation mode' },
+    mode: { management: 'Management', operation: 'Operations' },
     copy: {
       tenant: 'Tenant',
       searchMenu: 'Search menu',

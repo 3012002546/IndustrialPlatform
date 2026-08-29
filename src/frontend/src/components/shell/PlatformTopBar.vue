@@ -70,7 +70,14 @@ defineSlots<{
 
 .ip-topbar__user {
   display: inline-flex;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   align-items: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ip-topbar__user > * {
+  min-width: 0;
+  max-width: 100%;
 }
 </style>
