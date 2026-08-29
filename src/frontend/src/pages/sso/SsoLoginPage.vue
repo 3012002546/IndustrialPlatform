@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { ApiError, DEFAULT_ERROR_MESSAGES } from '@/api/errors'
+import PlatformBrand from '@/components/brand/PlatformBrand.vue'
 import { getSsoApi, type SsoDiscoveryProviderDto } from '@/api/identity/sso'
 import { mapAuthSession } from '@/api/identity/mapper'
 import { ROUTE_NAMES } from '@/router/routes'
@@ -111,6 +112,7 @@ onMounted(() => {
   <main class="sso-login-page">
     <section class="sso-login-card" aria-labelledby="sso-login-title">
       <header class="sso-login-card__header">
+        <PlatformBrand variant="light" />
         <h1 id="sso-login-title" class="sso-login-card__title">企业登录</h1>
         <p class="sso-login-card__subtitle">Industrial Platform · 统一身份认证</p>
       </header>

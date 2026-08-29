@@ -8,12 +8,14 @@ export interface AppInfo {
   name: string
   version: string
   description: string
+  brandAssetBasePath: string
 }
 
 export const APP_INFO: AppInfo = {
   name: 'Industrial Platform',
   version: '0.1.0',
   description: '工业平台统一前端(PC / PDA / Mobile)',
+  brandAssetBasePath: '/brand',
 }
 
 export function getAppInfo(): AppInfo {

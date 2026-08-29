@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 48" role="img" aria-labelledby="title">
+  <title id="title">Industrial Platform</title>
+  <path d="M4 4h40v40H4zM16 15h16v4H16zM16 22h10v4H16zM16 29h16v4H16z" fill="#111827"/>
+  <text x="62" y="31" fill="#111827" font-family="system-ui,Segoe UI,sans-serif" font-size="20" font-weight="650">Industrial Platform</text>
+</svg>

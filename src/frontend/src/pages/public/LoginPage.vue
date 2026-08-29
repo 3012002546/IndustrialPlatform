@@ -15,6 +15,7 @@ import {
 import { getAuthGateway } from '@/auth/gateway'
 import type { BootstrapStatus } from '@/auth/types'
 import MockModeBanner from '@/components/base/MockModeBanner.vue'
+import PlatformBrand from '@/components/brand/PlatformBrand.vue'
 import { ApiError, DEFAULT_ERROR_MESSAGES } from '@/api/errors'
 import { loadRuntimeConfig } from '@/config/runtimeConfig'
 import { ROUTE_NAMES } from '@/router/routes'
@@ -136,6 +137,7 @@ async function onSubmit(): Promise<void> {
     >
       <div class="login-card__form-pane">
       <header class="login-card__header">
+        <PlatformBrand variant="light" />
         <h1 id="login-title" class="login-card__title">登录</h1>
         <p class="login-card__subtitle">Industrial Platform · PC / PDA / Mobile</p>
       </header>
@@ -237,7 +239,7 @@ async function onSubmit(): Promise<void> {
           ref="loginMethodToggle"
           type="button"
           class="login-card__method-toggle"
-          aria-label="切换登录方式"
+          aria-label="切换认证方式"
           aria-haspopup="dialog"
           :aria-expanded="loginMethodMenuOpen"
           aria-controls="login-method-panel"

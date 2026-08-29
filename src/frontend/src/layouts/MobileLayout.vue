@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
 
 import MockModeBanner from '@/components/base/MockModeBanner.vue'
+import PlatformBrand from '@/components/brand/PlatformBrand.vue'
 import ThemeControl from '@/components/theme/ThemeControl.vue'
 import { resolveActiveTerminal, type TerminalType } from '@/device'
 import { ROUTE_NAMES } from '@/router/routes'
@@ -46,7 +47,7 @@ function isActive(tab: MobileTab): boolean {
     <a class="ip-mobile-skip-link" href="#main-content">跳到主内容</a>
 
     <header class="ip-mobile-header">
-      <div class="ip-mobile-header__brand">Industrial Platform</div>
+      <PlatformBrand class="ip-mobile-header__brand" variant="light" />
       <div class="ip-mobile-header__right">
         <span class="ip-mobile-terminal" data-testid="terminal-info">
           <svg
