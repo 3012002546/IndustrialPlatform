@@ -1,9 +1,11 @@
 import ElementPlus from 'element-plus'
+import VxeUITable from 'vxe-table'
 import { createPinia, type Pinia } from 'pinia'
 import { createApp, type App as VueApp, type Component, type Plugin } from 'vue'
 import type { Router } from 'vue-router'
 
 import 'element-plus/dist/index.css'
+import 'vxe-table/lib/style.css'
 import '@/styles/tokens.css'
 import '@/styles/base.css'
 
@@ -24,9 +26,12 @@ import {
   setAuthGateway,
 } from '@/auth'
 import { loadRuntimeConfig } from '@/config/runtimeConfig'
+import { platformI18n } from '@/localization/i18n'
 import { createAppRouter } from '@/router'
 import { ROUTE_NAMES } from '@/router/routes'
 import { useAuthStore } from '@/stores/authStore'
+import { useLocalizationStore } from '@/stores/localizationStore'
+import { useSystemDataRuntimeStore } from '@/stores/systemData/runtimeStore'
 import {
   createSystemDataManagementApi,
   createSystemDataRuntimeApi,
@@ -83,7 +88,9 @@ function installAuthGateway(pinia: Pinia, router: Router): void {
     registerSystemDataManagementApi(createSystemDataManagementApi(client))
     const systemDataRuntimeApi = createSystemDataRuntimeApi(client)
     registerSystemDataRuntimeApi(systemDataRuntimeApi)
-    setTenantUiDefaultsSource(createSystemDataTenantUiDefaultsSource(systemDataRuntimeApi))
+    setTenantUiDefaultsSource(
+      createSystemDataTenantUiDefaultsSource(useSystemDataRuntimeStore(pinia)),
+    )
     // SSO 端点与认证/管理共用同一 client(withCredentials 携带 SSO 会话 Cookie)。
     registerSsoApi(createIdentitySsoApi(client))
     // SSO 管理端点(identity.sso.* 权限,共享 client 令牌注入)。
@@ -105,6 +112,9 @@ export function createIndustrialApp(options: IndustrialAppOptions = {}): VueApp 
   const pinia = createPinia()
   app.use(pinia)
   app.use(ElementPlus)
+  app.use(VxeUITable)
+  app.use(platformI18n)
+  useLocalizationStore(pinia).initialize()
 
   const router = createAppRouter()
   app.use(router)

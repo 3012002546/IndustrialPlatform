@@ -1,0 +1,65 @@
+import type { PlatformLocaleMessages } from '@/localization/types'
+
+export const zhCN = {
+  common: {
+    brand: { name: 'Industrial Platform', description: '工业平台统一工作空间' },
+    action: {
+      search: '搜索',
+      reset: '重置',
+      save: '保存',
+      cancel: '取消',
+      close: '关闭',
+      confirm: '确认',
+      refresh: '刷新',
+      settings: '界面设置',
+      fullscreen: '浏览器全屏',
+      exitFullscreen: '退出浏览器全屏',
+      logout: '退出登录',
+      retry: '重试',
+    },
+    state: {
+      loading: '加载中',
+      empty: '暂无数据',
+      error: '加载失败',
+      forbidden: '无权访问',
+      comingSoon: '待实现',
+      available: '可用',
+    },
+  },
+  shell: {
+    navigation: { workspace: '工作台', platformManagement: '平台管理' },
+    top: {
+      environment: '环境',
+      tenant: '租户',
+      noTenant: '未配置租户',
+      terminal: '终端',
+      globalSearch: '全局搜索',
+      serviceStatus: '服务状态',
+      userMenu: '用户菜单',
+      lock: '锁定工作区',
+      mode: '体验模式',
+    },
+    commandSearch: {
+      placeholder: '搜索已授权菜单、最近访问或快捷命令',
+      empty: '没有匹配的已授权入口',
+      recent: '最近访问',
+      commands: '快捷命令',
+    },
+    mode: { management: '管理模式', operation: '生产操作模式' },
+  },
+  identity: {
+    user: {
+      title: '用户管理',
+      description: '管理平台用户、状态与访问权限',
+      loginName: '登录名',
+      name: '姓名',
+      status: '状态',
+      email: '邮箱',
+      phone: '手机号',
+      createdOn: '创建时间',
+      lastLoginOn: '最近登录',
+    },
+    status: { enabled: '启用', disabled: '禁用', deleted: '已删除' },
+  },
+  systemData: { runtimeStatus: '运行状态', notConfigured: '未配置' },
+} satisfies PlatformLocaleMessages

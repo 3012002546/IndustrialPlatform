@@ -1,0 +1,65 @@
+import type { PlatformLocaleMessages } from '@/localization/types'
+
+export const enUS = {
+  common: {
+    brand: { name: 'Industrial Platform', description: 'Unified industrial platform workspace' },
+    action: {
+      search: 'Search',
+      reset: 'Reset',
+      save: 'Save',
+      cancel: 'Cancel',
+      close: 'Close',
+      confirm: 'Confirm',
+      refresh: 'Refresh',
+      settings: 'Interface settings',
+      fullscreen: 'Browser fullscreen',
+      exitFullscreen: 'Exit browser fullscreen',
+      logout: 'Sign out',
+      retry: 'Retry',
+    },
+    state: {
+      loading: 'Loading',
+      empty: 'No data',
+      error: 'Load failed',
+      forbidden: 'Access denied',
+      comingSoon: 'Coming soon',
+      available: 'Available',
+    },
+  },
+  shell: {
+    navigation: { workspace: 'Workspace', platformManagement: 'Platform management' },
+    top: {
+      environment: 'Environment',
+      tenant: 'Tenant',
+      noTenant: 'No tenant configured',
+      terminal: 'Terminal',
+      globalSearch: 'Global search',
+      serviceStatus: 'Service status',
+      userMenu: 'User menu',
+      lock: 'Lock workspace',
+      mode: 'Experience mode',
+    },
+    commandSearch: {
+      placeholder: 'Search authorized menus, recent pages, or commands',
+      empty: 'No authorized entry matches your search',
+      recent: 'Recent pages',
+      commands: 'Quick commands',
+    },
+    mode: { management: 'Management mode', operation: 'Production operation mode' },
+  },
+  identity: {
+    user: {
+      title: 'User management',
+      description: 'Manage platform users, status, and access',
+      loginName: 'Login name',
+      name: 'Name',
+      status: 'Status',
+      email: 'Email',
+      phone: 'Phone',
+      createdOn: 'Created on',
+      lastLoginOn: 'Last login',
+    },
+    status: { enabled: 'Enabled', disabled: 'Disabled', deleted: 'Deleted' },
+  },
+  systemData: { runtimeStatus: 'Runtime status', notConfigured: 'Not configured' },
+} satisfies PlatformLocaleMessages

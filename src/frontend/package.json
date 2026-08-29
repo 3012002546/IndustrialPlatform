@@ -29,7 +29,10 @@
     "element-plus": "^2.14.4",
     "pinia": "^3.0.4",
     "vue": "^3.5.41",
-    "vue-router": "^4.6.4"
+    "vue-i18n": "11.4.10",
+    "vue-router": "^4.6.4",
+    "vxe-table": "4.15.13",
+    "xe-utils": "3.5.31"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",
