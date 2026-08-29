@@ -6,7 +6,9 @@ import AppLoadingState from '@/components/base/AppLoadingState.vue'
 import AppPage from '@/components/base/AppPage.vue'
 import AppPermissionState from '@/components/base/AppPermissionState.vue'
 import AppQueryPanel from '@/components/management/AppQueryPanel.vue'
+import { localeMessages } from '@/localization/i18n'
 import { useAuthStore } from '@/stores/authStore'
+import { useLocalizationStore } from '@/stores/localizationStore'
 import {
   type SystemDataAdminKind,
   useSystemDataManagementStore,
@@ -19,11 +21,13 @@ const props = defineProps<{
   permission?: string
 }>()
 const authStore = useAuthStore()
+const localization = useLocalizationStore()
 const store = useSystemDataManagementStore()
+const copy = computed(() => localeMessages[localization.locale].systemData.copy)
 const hasPermission = computed(() => !props.permission || authStore.hasPermission(props.permission))
 const statusMessage = computed(() =>
   store.error?.includes('409') || store.error?.includes('冲突')
-    ? '并发版本冲突：请重新读取后再提交。'
+    ? copy.value.conflict
     : (store.error ?? ''),
 )
 
@@ -38,7 +42,7 @@ onMounted(() => {
       <AppPermissionState v-if="!hasPermission" />
       <template v-else>
         <AppQueryPanel
-          title="查询与操作"
+          :title="copy.queryAndActions"
           show-actions
           @submit="store.retry(kind)"
           @reset="store.retry(kind)"
@@ -47,20 +51,20 @@ onMounted(() => {
             <div class="systemdata-admin-toolbar"><slot name="toolbar" /></div>
           </template>
           <div class="systemdata-admin-toolbar">
-            <button type="button" @click="store.retry(kind)">刷新</button>
+            <button type="button" @click="store.retry(kind)">{{ copy.refresh }}</button>
           </div>
         </AppQueryPanel>
         <div class="systemdata-status-strip" data-testid="systemdata-status-strip">
-          <span v-if="store.loading" role="status">正在保存或读取，请勿重复提交。</span
+          <span v-if="store.loading" role="status">{{ copy.savingOrReading }}</span
           ><span v-else>{{ description }}</span>
         </div>
         <AppLoadingState v-if="store.loading" />
         <AppErrorAlert
           v-else-if="store.error"
-          title="管理接口不可用"
+          :title="copy.interfaceUnavailable"
           :message="statusMessage"
           :trace-id="store.traceId || ''"
-          ><button type="button" @click="store.retry(kind)">重试</button></AppErrorAlert
+          ><button type="button" @click="store.retry(kind)">{{ copy.retry }}</button></AppErrorAlert
         >
         <div v-else class="systemdata-admin-content"><slot :store="store" /></div>
       </template>

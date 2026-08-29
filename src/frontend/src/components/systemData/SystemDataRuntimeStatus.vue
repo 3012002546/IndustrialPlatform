@@ -1,7 +1,13 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+
+import { localeMessages } from '@/localization/i18n'
 import { useSystemDataRuntimeStore } from '@/stores/systemData/runtimeStore'
+import { useLocalizationStore } from '@/stores/localizationStore'
 
 const store = useSystemDataRuntimeStore()
+const localization = useLocalizationStore()
+const copy = computed(() => localeMessages[localization.locale].systemData.copy)
 
 function retry(): void {
   void store.refresh('Pc')
@@ -15,9 +21,9 @@ function retry(): void {
     role="status"
     data-testid="systemdata-runtime-degraded"
   >
-    <span>SystemData 运行策略暂处于降级状态；已发布导航仍可继续使用。</span>
-    <span v-if="store.unavailable">当前快照不可用，管理写入不会使用陈旧数据。</span>
-    <button type="button" @click="retry">重试</button>
+    <span>{{ copy.degraded }}</span>
+    <span v-if="store.unavailable">{{ copy.snapshotUnavailable }}</span>
+    <button type="button" @click="retry">{{ copy.retry }}</button>
   </div>
 </template>
 

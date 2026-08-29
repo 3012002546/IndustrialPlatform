@@ -6,6 +6,9 @@
  */
 
 import type { NavigationGroup } from '@/components/navigation/types'
+import { computed } from 'vue'
+import { localeMessages } from '@/localization/i18n'
+import { usePlatformLocale } from '@/localization/localeContext'
 
 const props = withDefaults(defineProps<{
   groups: readonly NavigationGroup[]
@@ -17,6 +20,8 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   'update:activeGroupId': [id: string]
 }>()
+const locale = usePlatformLocale()
+const copy = computed(() => localeMessages[locale.value].shell.copy)
 
 function select(id: string): void {
   if (id === props.activeGroupId) return
@@ -25,7 +30,7 @@ function select(id: string): void {
 </script>
 
 <template>
-  <nav class="ip-toolrail" :class="{ 'ip-toolrail--compact': props.mode === 'compact' }" aria-label="平台分组">
+  <nav class="ip-toolrail" :class="{ 'ip-toolrail--compact': props.mode === 'compact' }" :aria-label="copy.platformGroups">
     <ul class="ip-toolrail__list">
       <li v-for="group in groups" :key="group.id" class="ip-toolrail__item">
         <button

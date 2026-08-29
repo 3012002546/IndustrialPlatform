@@ -1,6 +1,13 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+
+import { localeMessages } from '@/localization/i18n'
+import { usePlatformLocale } from '@/localization/localeContext'
+
 defineProps<{ degraded: boolean; unavailable: boolean }>()
 const emit = defineEmits<{ retry: [] }>()
+const locale = usePlatformLocale()
+const copy = computed(() => localeMessages[locale.value].systemData.copy)
 </script>
 
 <template>
@@ -10,9 +17,9 @@ const emit = defineEmits<{ retry: [] }>()
     data-testid="platform-service-status"
     role="status"
   >
-    <span>SystemData 运行策略暂处于降级状态</span>
-    <span v-if="unavailable">当前快照不可用</span>
-    <button type="button" @click="emit('retry')">重试</button>
+    <span>{{ copy.degraded }}</span>
+    <span v-if="unavailable">{{ copy.snapshotUnavailable }}</span>
+    <button type="button" @click="emit('retry')">{{ copy.retry }}</button>
   </div>
 </template>
 

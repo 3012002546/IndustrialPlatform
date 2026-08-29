@@ -6,6 +6,8 @@ import { PERMISSIONS } from '@/permissions'
 import { ROUTE_NAMES } from '@/router/routes'
 import { useAuthStore } from '@/stores/authStore'
 import { usePcExperienceStore } from '@/stores/pcExperienceStore'
+import { localeMessages } from '@/localization/i18n'
+import { usePlatformLocale } from '@/localization/localeContext'
 import type { PcExperienceMode } from '@/operation/types'
 
 const props = withDefaults(
@@ -17,6 +19,8 @@ const emit = defineEmits<{ change: [mode: PcExperienceMode] }>()
 const router = useRouter()
 const authStore = useAuthStore()
 const experienceStore = usePcExperienceStore()
+const locale = usePlatformLocale()
+const copy = computed(() => localeMessages[locale.value])
 const visible = computed(
   () =>
     authStore.hasPermission(PERMISSIONS.platformHomeView) &&
@@ -47,7 +51,7 @@ async function switchMode(mode: PcExperienceMode): Promise<void> {
     class="pc-experience-mode-control"
     data-testid="pc-experience-mode-control"
     role="group"
-    aria-label="体验模式"
+    :aria-label="copy.shell.copy.experienceMode"
   >
     <button
       type="button"
@@ -55,7 +59,7 @@ async function switchMode(mode: PcExperienceMode): Promise<void> {
       :aria-pressed="currentMode === 'management'"
       @click="switchMode('management')"
     >
-      管理
+      {{ copy.shell.mode.management }}
     </button>
     <button
       type="button"
@@ -63,7 +67,7 @@ async function switchMode(mode: PcExperienceMode): Promise<void> {
       :aria-pressed="currentMode === 'operation'"
       @click="switchMode('operation')"
     >
-      生产操作
+      {{ copy.shell.mode.operation }}
     </button>
   </div>
 </template>

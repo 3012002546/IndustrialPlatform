@@ -10,7 +10,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { Search } from '@element-plus/icons-vue'
 
 import { pcNavigationGroups } from '@/components/navigation/navigation'
-import { resolveLocaleMessage } from '@/localization/i18n'
+import { localeMessages, resolveLocaleMessage } from '@/localization/i18n'
 import { useLocalizationStore } from '@/stores/localizationStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useWorkspaceTabsStore } from '@/stores/workspaceTabsStore'
@@ -35,6 +35,7 @@ const props = withDefaults(defineProps<{ focusMode?: boolean }>(), { focusMode: 
 const tabsStore = useWorkspaceTabsStore()
 const authStore = useAuthStore()
 const localization = useLocalizationStore()
+const copy = computed(() => localeMessages[localization.locale].shell.copy)
 const selectedMenu = ref('')
 const contextTabId = ref<string | null>(null)
 const contextMenuStyle = ref<Record<string, string>>({})
@@ -126,7 +127,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <nav class="ip-pc-tabs" aria-label="工作台标签" role="tablist">
+  <nav class="ip-pc-tabs" :aria-label="copy.tabList" role="tablist">
     <template v-for="(tab, index) in tabsStore.tabs" :key="tab.id">
       <el-select
         v-if="index === 0"
@@ -134,8 +135,8 @@ onBeforeUnmount(() => {
         class="ip-pc-tabs__menu-search"
         filterable
         clearable
-        placeholder="搜索菜单"
-        aria-label="搜索菜单"
+        :placeholder="copy.searchMenu"
+        :aria-label="copy.searchMenu"
         @change="selectMenu"
       >
         <template #prefix
@@ -170,8 +171,8 @@ onBeforeUnmount(() => {
           <button
             type="button"
             class="ip-pc-tabs__close"
-            :aria-label="`关闭 ${titleFor(tab)}`"
-            title="关闭"
+            :aria-label="`${copy.tabClose} ${titleFor(tab)}`"
+            :title="copy.tabClose"
             @click="close(tab.id)"
           >
             ×
@@ -188,7 +189,7 @@ onBeforeUnmount(() => {
       :style="contextMenuStyle"
     >
       <button type="button" data-testid="workspace-tab-menu-reload" role="menuitem" @click="selectContextCommand('reload')">
-        刷新
+        {{ localeMessages[localization.locale].common.action.refresh }}
       </button>
       <button
         type="button"
@@ -197,19 +198,19 @@ onBeforeUnmount(() => {
         :disabled="contextTab?.kind === 'fixed' || contextTab?.pinned === true"
         @click="selectContextCommand('close')"
       >
-        关闭
+        {{ copy.tabClose }}
       </button>
       <button type="button" data-testid="workspace-tab-menu-close-left" role="menuitem" @click="selectContextCommand('close-left')">
-        关闭左侧
+        {{ copy.tabCloseLeft }}
       </button>
       <button type="button" data-testid="workspace-tab-menu-close-right" role="menuitem" @click="selectContextCommand('close-right')">
-        关闭右侧
+        {{ copy.tabCloseRight }}
       </button>
       <button type="button" data-testid="workspace-tab-menu-close-others" role="menuitem" @click="selectContextCommand('close-others')">
-        关闭其他
+        {{ copy.tabCloseOthers }}
       </button>
       <button type="button" data-testid="workspace-tab-menu-close-all" role="menuitem" @click="selectContextCommand('close-all')">
-        关闭全部
+        {{ copy.tabCloseAll }}
       </button>
       <button
         v-if="contextTab?.kind === 'business'"
@@ -218,7 +219,7 @@ onBeforeUnmount(() => {
         role="menuitem"
         @click="selectContextCommand('toggle-pin')"
       >
-        {{ contextTab?.pinned === true ? '取消固定' : '固定标签' }}
+        {{ contextTab?.pinned === true ? copy.tabUnpin : copy.tabPin }}
       </button>
       <button
         v-if="!props.focusMode"
@@ -227,7 +228,7 @@ onBeforeUnmount(() => {
         role="menuitem"
         @click="selectContextCommand('focus')"
       >
-        当前页专注
+        {{ copy.tabFocus }}
       </button>
       <button
         v-else
@@ -236,7 +237,7 @@ onBeforeUnmount(() => {
         role="menuitem"
         @click="selectContextCommand('focus-exit')"
       >
-        退出专注
+        {{ copy.tabFocusExit }}
       </button>
     </div>
   </nav>

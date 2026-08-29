@@ -31,6 +31,8 @@ import {
 } from '@element-plus/icons-vue'
 
 import { getCurrentSession } from '@/auth/gateway'
+import { localeMessages } from '@/localization/i18n'
+import { useLocalizationStore } from '@/stores/localizationStore'
 import type {
   AppDataTableColumn,
   AppDataTableDensity,
@@ -140,15 +142,17 @@ const PlatformDateRangeFilter = defineComponent({
   },
   emits: ['update:modelValue', 'change'],
   setup(dateProps, { emit }) {
+    const localization = useLocalizationStore()
+    const copy = computed(() => localeMessages[localization.locale].common.table)
     const update = (value: string[] | null) => emit('update:modelValue', value ?? ['', ''])
     return () =>
       h(ElDatePicker, {
         modelValue: dateProps.modelValue,
         type: 'daterange',
         valueFormat: 'YYYY-MM-DD',
-        rangeSeparator: '至',
-        startPlaceholder: '开始',
-        endPlaceholder: '结束',
+        rangeSeparator: copy.value.rangeSeparator,
+        startPlaceholder: copy.value.rangeStart,
+        endPlaceholder: copy.value.rangeEnd,
         clearable: false,
         onUpdateModelValue: update,
         onChange: (value: string[] | null) => emit('change', value ?? ['', '']),
@@ -189,6 +193,9 @@ const props = withDefaults(
     selection: 'none',
   },
 )
+
+const localization = useLocalizationStore()
+const copy = computed(() => localeMessages[localization.locale].common.table)
 
 const emit = defineEmits([
   'update:rows',
@@ -243,7 +250,7 @@ const exportFilename = ref(props.tableKey)
 const exportType = ref<AppDataTableExportType>(props.exporter === undefined ? 'csv' : 'xlsx')
 const exportFields = ref<string[]>(props.columns.map((column) => column.field))
 const printFields = ref<string[]>([])
-const printTitle = ref(`${props.tableKey}打印`)
+const printTitle = ref(`${props.tableKey}${copy.value.printTitleSuffix}`)
 const printDataMode = ref<AppDataTableQuickExportMode>('current')
 const printWidthMode = ref<AppDataTablePrintWidthMode>('current')
 const selectedRows = ref<T[]>([])
@@ -271,11 +278,11 @@ const exportTypeOptions = computed<readonly { value: AppDataTableExportType; lab
   () => [
     ...(props.exporter === undefined
       ? []
-      : [{ value: 'xlsx' as const, label: 'Excel 工作簿（.xlsx）' }]),
-    { value: 'csv', label: 'CSV 文件（.csv）' },
-    { value: 'html', label: 'HTML 文件（.html）' },
-    { value: 'xml', label: 'XML 文件（.xml）' },
-    { value: 'txt', label: 'TXT 文件（.txt）' },
+      : [{ value: 'xlsx' as const, label: copy.value.excel }]),
+    { value: 'csv', label: copy.value.csv },
+    { value: 'html', label: copy.value.html },
+    { value: 'xml', label: copy.value.xml },
+    { value: 'txt', label: copy.value.txt },
   ],
 )
 
@@ -297,10 +304,10 @@ function canUseExportType(type: AppDataTableExportType): boolean {
 const exportScopeHint = computed(() => {
   if (isServerExportScope.value) {
     return props.exporter === undefined
-      ? '全部数据和自定义数据需要已配置的服务端 Excel 导出'
-      : '全部数据和自定义数据使用服务端 Excel 导出'
+      ? copy.value.serverExportRequired
+      : copy.value.serverExportUsed
   }
-  return '当前页和选中数据仅导出当前已加载数据'
+  return copy.value.loadedDataOnly
 })
 
 function normalizeExportSelection(): void {
@@ -469,7 +476,7 @@ const groupSpanMethod: VxeTablePropTypes.SpanMethod<AppDataTableRenderRow<T>> = 
 
 function groupValue(row: T, field: string): string {
   const value = cellValue(row, field)
-  return value === undefined || value === null || value === '' ? '未设置' : String(value)
+  return value === undefined || value === null || value === '' ? copy.value.unset : String(value)
 }
 
 const groupedTableRows = computed<AppDataTableRenderRow<T>[]>(() => {
@@ -627,9 +634,9 @@ const nativeCustomConfig = {
   placement: 'bottom-right' as const,
   immediate: false,
   showFooter: true,
-  resetButtonText: '恢复默认',
-  cancelButtonText: '取消',
-  confirmButtonText: '确认',
+  resetButtonText: copy.value.resetDefault,
+  cancelButtonText: copy.value.cancel,
+  confirmButtonText: localeMessages[localization.locale].common.action.confirm,
 }
 
 async function reload(): Promise<void> {
@@ -877,7 +884,7 @@ async function exportData(): Promise<void> {
     quickExportMode.value === 'custom'
       ? Math.max(1, Math.floor(customExportQuantity.value || 10000))
       : 'all'
-  if (quantity === 'all' && !window.confirm('全部导出可能需要较长时间，确认继续？')) return
+  if (quantity === 'all' && !window.confirm(copy.value.exportConfirm)) return
   const tableRequest = request()
   const culture = document.documentElement.lang || 'zh-CN'
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
@@ -1074,7 +1081,7 @@ function appendFilterControl(cell: HTMLElement, column: AppDataTableColumn): voi
     select.style.height = '26px'
     select.style.minHeight = '26px'
     select.dataset.testid = testId()
-    select.setAttribute('aria-label', `${column.title}查询`)
+    select.setAttribute('aria-label', `${column.title}${copy.value.querySuffix}`)
     const placeholder = document.createElement('option')
     placeholder.value = ''
     placeholder.textContent = column.title
@@ -1093,7 +1100,7 @@ function appendFilterControl(cell: HTMLElement, column: AppDataTableColumn): voi
     const range = document.createElement('div')
     range.className = 'app-data-table__date-range-control'
     range.style.height = '26px'
-    range.setAttribute('aria-label', `${column.title}日期范围`)
+    range.setAttribute('aria-label', `${column.title}${copy.value.dateRange}`)
     range.dataset.testid = testId('-range')
     render(
       h(PlatformDateRangeFilter, {
@@ -1117,8 +1124,8 @@ function appendFilterControl(cell: HTMLElement, column: AppDataTableColumn): voi
   input.style.height = '26px'
   input.style.minHeight = '26px'
   input.value = String(headerFilters.value[column.field] ?? '')
-  input.placeholder = `${column.title}查询`
-  input.setAttribute('aria-label', `${column.title}查询`)
+  input.placeholder = `${column.title}${copy.value.querySuffix}`
+  input.setAttribute('aria-label', `${column.title}${copy.value.querySuffix}`)
   input.dataset.testid = testId()
   input.addEventListener('input', (event) => {
     setHeaderFilter(column.field, (event.target as HTMLInputElement).value)
@@ -1205,12 +1212,16 @@ function createNativePreferenceToggle(
 function syncNativeCustomHeader(panel: HTMLElement): void {
   const header = findVxeElement<HTMLElement>(panel, '.vxe-table-custom--header')
   if (header === null) return
+  header.dataset.columnSettingsTitle = copy.value.columnSettings
+  header.dataset.columnSettingsDescription = copy.value.columnSettingsHint
 
   const allLabel = findVxeElement<HTMLElement>(
     header,
     '.vxe-table-custom--panel-list .vxe-checkbox--label',
   )
-  if (allLabel !== null && allLabel.textContent !== '列显示') allLabel.textContent = '列显示'
+  if (allLabel !== null && allLabel.textContent !== copy.value.columnVisible) {
+    allLabel.textContent = copy.value.columnVisible
+  }
 
   let tools = findVxeElement<HTMLElement>(header, '.app-data-table__native-header-tools')
   if (tools === null) {
@@ -1219,7 +1230,7 @@ function syncNativeCustomHeader(panel: HTMLElement): void {
     tools.append(
       createNativePreferenceToggle(
         'app-data-table-native-show-index',
-        '序号列',
+        copy.value.indexColumn,
         preferences.value.showIndex,
         (value) => {
           preferences.value.showIndex = value
@@ -1228,7 +1239,7 @@ function syncNativeCustomHeader(panel: HTMLElement): void {
       ),
       createNativePreferenceToggle(
         'app-data-table-native-border',
-        '边框',
+        copy.value.border,
         preferences.value.border,
         (value) => {
           preferences.value.border = value
@@ -1240,7 +1251,7 @@ function syncNativeCustomHeader(panel: HTMLElement): void {
     resetWidths.type = 'button'
     resetWidths.className = 'app-data-table__native-reset'
     resetWidths.dataset.testid = 'app-data-table-native-reset-widths'
-    resetWidths.textContent = '重置列宽'
+    resetWidths.textContent = copy.value.resetWidth
     resetWidths.addEventListener('click', (event) => {
       event.preventDefault()
       event.stopPropagation()
@@ -1250,7 +1261,7 @@ function syncNativeCustomHeader(panel: HTMLElement): void {
     reset.type = 'button'
     reset.className = 'app-data-table__native-reset'
     reset.dataset.testid = 'app-data-table-native-reset'
-    reset.textContent = '重置'
+    reset.textContent = copy.value.resetDefault
     reset.addEventListener('click', (event) => {
       event.preventDefault()
       event.stopPropagation()
@@ -1340,7 +1351,7 @@ async function printData(): Promise<void> {
     const options = {
       columns: printFields.value,
       mode: printDataMode.value,
-      sheetName: printTitle.value.trim() || `${props.tableKey}打印`,
+      sheetName: printTitle.value.trim() || `${props.tableKey}${copy.value.printTitleSuffix}`,
     }
     if (table?.getPrintHtml !== undefined) {
       const result = await table.getPrintHtml(options)
@@ -1559,6 +1570,8 @@ defineExpose({
       { 'app-data-table--fullscreen': tableFullscreen },
     ]"
     data-testid="app-data-table"
+    :data-column-settings-title="copy.columnSettings"
+    :data-column-settings-description="copy.columnSettingsHint"
     @mousedown="dismissPanels"
   >
     <div v-if="activeQueryMode === 'top' && $slots.toolbar" class="app-data-table__top-query">
@@ -1569,20 +1582,20 @@ defineExpose({
       <div
         v-if="$slots['toolbar-actions']"
         class="app-data-table__business-actions app-data-table__toolbar-actions app-data-table__toolbar-actions--styled"
-        aria-label="表格业务操作"
+        :aria-label="copy.businessActions"
       >
         <slot name="toolbar-actions" />
       </div>
 
       <div class="app-data-table__toolbar">
-        <div class="app-data-table__toolbar-left" role="group" aria-label="表格主要工具">
+        <div class="app-data-table__toolbar-left" role="group" :aria-label="copy.primaryTools">
           <button
             type="button"
             class="app-data-table__icon-button"
             :class="{ 'is-active': activeQueryMode === 'header' }"
             data-testid="app-data-table-query-toggle"
-            :aria-label="activeQueryMode === 'top' ? '切换列头查询' : '切换顶部查询'"
-            :title="activeQueryMode === 'top' ? '切换列头查询' : '切换顶部查询'"
+            :aria-label="activeQueryMode === 'top' ? copy.queryHeader : copy.queryTop"
+            :title="activeQueryMode === 'top' ? copy.queryHeader : copy.queryTop"
             :aria-pressed="activeQueryMode === 'header'"
             @click="switchQueryMode(activeQueryMode === 'top' ? 'header' : 'top')"
           >
@@ -1595,8 +1608,8 @@ defineExpose({
               class="app-data-table__icon-button"
               data-testid="app-data-table-sort"
               :aria-expanded="sortOpen"
-              aria-label="排序"
-              title="排序"
+              :aria-label="copy.sort"
+              :title="copy.sort"
               @click="toggleSortPanel"
             >
               <SortUp aria-hidden="true" />
@@ -1611,8 +1624,8 @@ defineExpose({
               @mousedown.stop
             >
               <div class="app-data-table__dialog-header">
-                <strong>排序设置</strong>
-                <span>为字段选择方向，可随时清除</span>
+                <strong>{{ copy.sortSettings }}</strong>
+                <span>{{ copy.sortHint }}</span>
               </div>
               <div class="app-data-table__panel-list">
                 <div
@@ -1625,7 +1638,7 @@ defineExpose({
                   <span
                     class="app-data-table__sort-directions"
                     role="group"
-                    :aria-label="`${column.title}排序方向`"
+                    :aria-label="`${column.title}${copy.sortDirection}`"
                   >
                     <button
                       type="button"
@@ -1635,7 +1648,7 @@ defineExpose({
                       }"
                       @click="applyToolbarSort(column.field, 'asc')"
                     >
-                      升序
+                      {{ copy.ascending }}
                     </button>
                     <button
                       type="button"
@@ -1645,7 +1658,7 @@ defineExpose({
                       }"
                       @click="applyToolbarSort(column.field, 'desc')"
                     >
-                      降序
+                      {{ copy.descending }}
                     </button>
                   </span>
                 </div>
@@ -1657,7 +1670,7 @@ defineExpose({
                   :disabled="sort === undefined"
                   @click="clearToolbarSort"
                 >
-                  清除排序
+                  {{ copy.clearSort }}
                 </button>
               </div>
             </div>
@@ -1669,8 +1682,8 @@ defineExpose({
               class="app-data-table__icon-button"
               data-testid="app-data-table-group"
               :aria-expanded="groupOpen"
-              aria-label="分组"
-              title="分组"
+              :aria-label="copy.group"
+              :title="copy.group"
               @click="toggleGroupPanel"
             >
               <Connection aria-hidden="true" />
@@ -1685,8 +1698,8 @@ defineExpose({
               @mousedown.stop
             >
               <div class="app-data-table__dialog-header">
-                <strong>分组设置</strong>
-                <span>按勾选顺序生成多级分组</span>
+                <strong>{{ copy.groupSettings }}</strong>
+                <span>{{ copy.groupHint }}</span>
               </div>
               <div class="app-data-table__panel-list">
                 <button
@@ -1711,7 +1724,7 @@ defineExpose({
                   :disabled="groupFields.length === 0"
                   @click="clearGroupFields"
                 >
-                  清空分组
+                  {{ copy.clearGroup }}
                 </button>
               </div>
             </div>
@@ -1719,14 +1732,14 @@ defineExpose({
           <label
             class="app-data-table__quick-search"
             :class="{ 'is-disabled': activeQueryMode === 'header' }"
-            aria-label="快速搜索当前数据"
+            :aria-label="copy.quickSearch"
           >
             <Search aria-hidden="true" />
             <input
               data-testid="app-data-table-quick-search"
               type="search"
               :value="quickSearch"
-              placeholder="快速搜索当前数据"
+              :placeholder="copy.quickSearch"
               :disabled="activeQueryMode === 'header'"
               @input="setQuickSearch(($event.target as HTMLInputElement).value)"
             />
@@ -1738,8 +1751,8 @@ defineExpose({
               class="app-data-table__icon-button"
               data-testid="app-data-table-export"
               :aria-expanded="exportMenuOpen"
-              aria-label="下载"
-              title="下载"
+              :aria-label="copy.download"
+              :title="copy.download"
               @click="toggleExportDialog"
             >
               <Download aria-hidden="true" />
@@ -1752,22 +1765,22 @@ defineExpose({
               data-font-size="12px"
               style="--app-data-table-form-panel-width: 520px; overflow-y: hidden"
               role="dialog"
-              aria-label="下载设置"
+              :aria-label="copy.downloadSettings"
               @mousedown.self="exportMenuOpen = false"
               @mousedown.stop
               @click.stop
             >
               <div class="app-data-table__dialog-header">
-                <strong>下载数据</strong>
-                <span>选择文件名、格式、范围和字段</span>
+                <strong>{{ copy.downloadData }}</strong>
+                <span>{{ copy.downloadHint }}</span>
               </div>
               <div class="app-data-table__form-grid">
                 <label class="app-data-table__form-row">
-                  <span>文件名</span>
+                  <span>{{ copy.fileName }}</span>
                   <input v-model="exportFilename" data-testid="app-data-table-export-filename" />
                 </label>
                 <label class="app-data-table__form-row">
-                  <span>保存类型</span>
+                  <span>{{ copy.saveType }}</span>
                   <select v-model="exportType" data-testid="app-data-table-export-type">
                     <option
                       v-for="option in exportTypeOptions"
@@ -1780,7 +1793,7 @@ defineExpose({
                   </select>
                 </label>
                 <label class="app-data-table__form-row">
-                  <span>保存数据</span>
+                  <span>{{ copy.saveData }}</span>
                   <div class="app-data-table__export-scope-field">
                     <div class="app-data-table__export-scope-control">
                       <select
@@ -1788,15 +1801,15 @@ defineExpose({
                         data-testid="app-data-table-export-scope"
                         @change="onExportScopeChange"
                       >
-                        <option value="current">当前页（已加载数据）</option>
-                        <option value="selected" :disabled="selectedRows.length === 0">
-                          选中行（{{ selectedRows.length }}）
+                      <option value="current">{{ copy.currentPage }}</option>
+                      <option value="selected" :disabled="selectedRows.length === 0">
+                        {{ copy.selectedRows }}（{{ selectedRows.length }}）
                         </option>
                         <option value="all" :disabled="props.exporter === undefined">
-                          全部数据
+                          {{ copy.allData }}
                         </option>
                         <option value="custom" :disabled="props.exporter === undefined">
-                          自定义数据
+                          {{ copy.customData }}
                         </option>
                       </select>
                       <input
@@ -1805,7 +1818,7 @@ defineExpose({
                         type="number"
                         min="1"
                         step="1"
-                        aria-label="自定义导出数量"
+                        :aria-label="copy.customExportQuantity"
                         data-testid="app-data-table-export-custom-quantity"
                       />
                     </div>
@@ -1820,13 +1833,13 @@ defineExpose({
               </div>
               <section class="app-data-table__form-section">
                 <div class="app-data-table__form-section-heading">
-                  <strong>选择字段</strong>
-                  <small>按当前列配置输出，操作列不会加入下载内容</small>
+                  <strong>{{ copy.selectFields }}</strong>
+                  <small>{{ copy.selectFieldsHint }}</small>
                 </div>
                 <fieldset
                   class="app-data-table__export-fields app-data-table__field-picker app-data-table__field-picker--single-column"
                 >
-                  <legend class="app-data-table__sr-only">选择字段</legend>
+                  <legend class="app-data-table__sr-only">{{ copy.selectFields }}</legend>
                   <label v-for="column in visibleColumns" :key="column.field">
                     <input v-model="exportFields" type="checkbox" :value="column.field" />
                     <span>{{ column.title }}</span>
@@ -1841,14 +1854,14 @@ defineExpose({
                   data-testid="app-data-table-export-cancel"
                   @click="exportMenuOpen = false"
                 >
-                  取消
+                  {{ copy.cancel }}
                 </button>
                 <button
                   type="button"
                   data-testid="app-data-table-export-confirm"
                   @click="submitExport"
                 >
-                  下载
+                  {{ copy.downloadConfirm }}
                 </button>
               </div>
             </div>
@@ -1859,8 +1872,8 @@ defineExpose({
               type="button"
               class="app-data-table__icon-button"
               data-testid="app-data-table-print"
-              aria-label="打印表格"
-              title="打印表格（当前已加载数据）"
+              :aria-label="copy.print"
+              :title="copy.printCurrentTitle"
               @click="openPrintDialog"
             >
               <Printer aria-hidden="true" />
@@ -1873,45 +1886,45 @@ defineExpose({
               data-font-size="12px"
               style="--app-data-table-form-panel-width: 520px; overflow-y: hidden"
               role="dialog"
-              aria-label="打印设置"
+              :aria-label="copy.printSettings"
               @mousedown.stop
               @click.stop
             >
               <div class="app-data-table__dialog-header">
-                <strong>打印数据</strong>
-                <span>使用当前打印入口输出已加载数据</span>
+                <strong>{{ copy.printData }}</strong>
+                <span>{{ copy.printHint }}</span>
               </div>
               <div class="app-data-table__form-grid">
                 <label class="app-data-table__form-row">
-                  <span>标题</span>
+                  <span>{{ copy.title }}</span>
                   <input v-model="printTitle" data-testid="app-data-table-print-title" />
                 </label>
                 <label class="app-data-table__form-row">
-                  <span>选择数据</span>
+                  <span>{{ copy.selectData }}</span>
                   <select v-model="printDataMode" data-testid="app-data-table-print-scope">
-                    <option value="current">当前页（已加载数据）</option>
+                    <option value="current">{{ copy.currentPage }}</option>
                     <option value="selected" :disabled="selectedRows.length === 0">
-                      选中行（{{ selectedRows.length }}）
+                      {{ copy.selectionSummary.replace('{count}', String(selectedRows.length)) }}
                     </option>
                   </select>
                 </label>
                 <label class="app-data-table__form-row">
-                  <span>列宽设置</span>
+                  <span>{{ copy.columnWidth }}</span>
                   <select v-model="printWidthMode" data-testid="app-data-table-print-width">
-                    <option value="current">按表格当前列宽</option>
-                    <option value="adaptive">按内容自适应</option>
+                    <option value="current">{{ copy.currentColumnWidth }}</option>
+                    <option value="adaptive">{{ copy.adaptiveWidth }}</option>
                   </select>
                 </label>
               </div>
               <section class="app-data-table__form-section">
                 <div class="app-data-table__form-section-heading">
-                  <strong>选择字段</strong>
-                  <small>操作列不参与打印</small>
+                  <strong>{{ copy.selectFields }}</strong>
+                  <small>{{ copy.printFieldsHint }}</small>
                 </div>
                 <fieldset
                   class="app-data-table__export-fields app-data-table__field-picker app-data-table__field-picker--single-column"
                 >
-                  <legend class="app-data-table__sr-only">选择字段</legend>
+                  <legend class="app-data-table__sr-only">{{ copy.selectFields }}</legend>
                   <label v-for="column in printableColumns" :key="column.field">
                     <input
                       v-model="printFields"
@@ -1931,22 +1944,22 @@ defineExpose({
                   data-testid="app-data-table-print-cancel"
                   @click="printOpen = false"
                 >
-                  取消
+                  {{ copy.cancel }}
                 </button>
                 <button type="button" data-testid="app-data-table-print-confirm" @click="printData">
-                  打印
+                  {{ copy.printData }}
                 </button>
               </div>
             </div>
           </div>
         </div>
-        <div class="app-data-table__toolbar-right" role="group" aria-label="表格辅助工具">
+        <div class="app-data-table__toolbar-right" role="group" :aria-label="copy.auxiliaryTools">
           <button
             type="button"
             class="app-data-table__icon-button"
             data-testid="app-data-table-clear"
-            aria-label="清空查询"
-            title="清空查询"
+            :aria-label="copy.clearQuery"
+            :title="copy.clearQuery"
             @click="clearConditions"
           >
             <Brush aria-hidden="true" />
@@ -1955,8 +1968,8 @@ defineExpose({
             type="button"
             class="app-data-table__icon-button"
             data-testid="app-data-table-refresh"
-            aria-label="刷新表格"
-            title="刷新表格"
+            :aria-label="copy.refresh"
+            :title="copy.refresh"
             @click="reload"
           >
             <Refresh aria-hidden="true" />
@@ -1965,8 +1978,8 @@ defineExpose({
             type="button"
             class="app-data-table__icon-button"
             data-testid="app-data-table-fullscreen"
-            :aria-label="tableFullscreen ? '退出表格全屏' : '表格全屏'"
-            :title="tableFullscreen ? '退出表格全屏' : '表格全屏'"
+            :aria-label="tableFullscreen ? copy.exitFullscreen : copy.fullscreen"
+            :title="tableFullscreen ? copy.exitFullscreen : copy.fullscreen"
             @click="tableFullscreen = !tableFullscreen"
           >
             <FullScreen aria-hidden="true" />
@@ -1976,8 +1989,8 @@ defineExpose({
             class="app-data-table__icon-button"
             data-testid="app-data-table-column-settings"
             ref="columnSettingsTrigger"
-            aria-label="列设置"
-            title="列设置"
+            :aria-label="copy.columnSettings"
+            :title="copy.columnSettings"
             @click="openNativeCustom($event)"
           >
             <Setting aria-hidden="true" />
@@ -1988,8 +2001,8 @@ defineExpose({
               type="button"
               class="app-data-table__icon-button"
               data-testid="app-data-table-table-settings"
-              aria-label="行设置"
-              title="行设置"
+              :aria-label="copy.rowSettings"
+              :title="copy.rowSettings"
               :aria-expanded="settingsOpen"
               @click="toggleTableSettings"
             >
@@ -2005,22 +2018,22 @@ defineExpose({
               @click.stop
             >
               <div class="app-data-table__dialog-header">
-                <strong>行设置</strong>
-                <span>调整表格密度与辅助显示</span>
+                <strong>{{ copy.rowSettings }}</strong>
+                <span>{{ copy.rowSettingsHint }}</span>
               </div>
               <div class="app-data-table__settings-options">
                 <label
-                  ><span>显示序号</span
+                  ><span>{{ copy.showIndex }}</span
                   ><input v-model="preferences.showIndex" type="checkbox" @change="persist"
                 /></label>
                 <label
-                  ><span>显示边框</span
+                  ><span>{{ copy.showBorder }}</span
                   ><input v-model="preferences.border" type="checkbox" @change="persist"
                 /></label>
               </div>
               <div class="app-data-table__settings-section">
-                <span>行高密度</span>
-                <div class="app-data-table__densities" role="group" aria-label="表格密度">
+                <span>{{ copy.density }}</span>
+                <div class="app-data-table__densities" role="group" :aria-label="copy.density">
                   <button
                     v-for="density in ['comfortable', 'medium', 'compact'] as const"
                     :key="density"
@@ -2030,7 +2043,11 @@ defineExpose({
                     @click="setDensity(density)"
                   >
                     {{
-                      density === 'comfortable' ? '默认' : density === 'medium' ? '中等' : '紧凑'
+                      density === 'comfortable'
+                        ? copy.defaultDensity
+                        : density === 'medium'
+                          ? copy.mediumDensity
+                          : copy.compactDensity
                     }}
                   </button>
                 </div>
@@ -2041,7 +2058,7 @@ defineExpose({
                   data-testid="app-data-table-settings-close"
                   @click="settingsOpen = false"
                 >
-                  完成
+                  {{ copy.done }}
                 </button>
               </div>
             </div>
@@ -2067,7 +2084,7 @@ defineExpose({
           @radio-change="onSelectionChange"
           @resizable-change="onColumnResizeChange"
         >
-          <VxeColumn v-if="mode === 'detail'" type="expand" width="60" title="详情">
+          <VxeColumn v-if="mode === 'detail'" type="expand" width="60" :title="copy.detail">
             <template #content="{ row }"><slot name="detail" :row="row" /></template>
           </VxeColumn>
           <VxeColumn
@@ -2080,14 +2097,14 @@ defineExpose({
           <VxeColumn
             v-if="selection === 'single'"
             type="radio"
-            title="选择"
+            :title="copy.select"
             width="64"
             header-class-name="app-data-table__header-structural"
           />
           <VxeColumn
             v-if="selection === 'multiple'"
             type="checkbox"
-            title="选择"
+            :title="copy.select"
             width="64"
             header-class-name="app-data-table__header-structural"
           />
@@ -2143,7 +2160,7 @@ defineExpose({
           <VxeColumn
             v-if="$slots.actions"
             field="__actions"
-            title="操作"
+            :title="copy.actions"
             fixed="right"
             :width="actionColumnWidth"
             :min-width="120"
@@ -2168,20 +2185,20 @@ defineExpose({
           aria-live="polite"
         >
           <span class="app-data-table__loading-spinner" aria-hidden="true" />
-          <span>加载中…</span>
+          <span>{{ copy.loading }}</span>
         </div>
       </div>
 
       <div class="app-data-table__footer">
         <div v-if="selection !== 'none'" class="app-data-table__selection-summary">
-          <span>已选择 {{ selectedRows.length }} 行</span>
+          <span>{{ copy.selectionSummary.replace('{count}', String(selectedRows.length)) }}</span>
           <button
             type="button"
             data-testid="app-data-table-clear-selection"
             :disabled="selectedRows.length === 0"
             @click="clearSelection"
           >
-            清空选择
+            {{ copy.clearSelection }}
           </button>
         </div>
         <el-pagination
@@ -3207,14 +3224,14 @@ defineExpose({
 }
 
 .app-data-table :deep(.vxe-table-custom--header::before) {
-  content: '列设置';
+  content: attr(data-column-settings-title);
   font-size: var(--ip-font-size-md, 14px);
   font-weight: 650;
   line-height: 1.35;
 }
 
 .app-data-table :deep(.vxe-table-custom--header::after) {
-  content: '调整列显隐、顺序、固定与宽度';
+  content: attr(data-column-settings-description);
   color: var(--ip-color-text-secondary);
   font-size: var(--ip-font-size-sm);
   font-weight: 400;

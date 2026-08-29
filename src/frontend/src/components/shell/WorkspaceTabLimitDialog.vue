@@ -10,12 +10,17 @@ import { ElButton, ElDialog, ElRadio, ElRadioGroup } from 'element-plus'
 
 import { useWorkspaceTabsStore } from '@/stores/workspaceTabsStore'
 import type { TabLimitResolution } from '@/workspace'
+import { localeMessages } from '@/localization/i18n'
+import { usePlatformLocale } from '@/localization/localeContext'
 
 const emit = defineEmits<{
   resolve: [resolution: TabLimitResolution]
 }>()
 
 const tabsStore = useWorkspaceTabsStore()
+const locale = usePlatformLocale()
+const copy = computed(() => localeMessages[locale.value].shell.copy)
+const commonCopy = computed(() => localeMessages[locale.value].common.action)
 
 /** 选中待决议的现有业务标签(默认第一个)。 */
 const selectedId = ref('')
@@ -53,7 +58,7 @@ function closeAndOpen(): void {
   <ElDialog
     :model-value="visible"
     class="ip-tab-limit-dialog"
-    title="业务标签已达上限"
+    :title="copy.tabLimitTitle"
     width="420px"
     :close-on-click-modal="true"
     :close-on-press-escape="true"
@@ -64,7 +69,7 @@ function closeAndOpen(): void {
     "
   >
     <p class="ip-tab-limit-dialog__hint">
-      同时打开的业务标签已达 12 个上限。请选择复用一个现有标签,或关闭一个标签后打开新页面。
+      {{ copy.tabLimitDescription }}
     </p>
     <ElRadioGroup v-model="selectedId" class="ip-tab-limit-dialog__list">
       <ElRadio
@@ -77,12 +82,12 @@ function closeAndOpen(): void {
       </ElRadio>
     </ElRadioGroup>
     <template #footer>
-      <ElButton @click="visible = false">取消</ElButton>
+      <ElButton @click="visible = false">{{ commonCopy.cancel }}</ElButton>
       <ElButton type="primary" :disabled="!hasSelection" @click="reuseSelected">
-        复用选中标签
+        {{ copy.tabReuse }}
       </ElButton>
       <ElButton type="warning" :disabled="!hasSelection" @click="closeAndOpen">
-        关闭选中后打开
+        {{ copy.tabCloseAndOpen }}
       </ElButton>
     </template>
   </ElDialog>

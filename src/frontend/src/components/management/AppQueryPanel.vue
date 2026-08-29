@@ -3,10 +3,12 @@
  * AppQueryPanel(PF-01 §7.10):查询区容器。可选标题、动作槽与折叠。
  */
 
-import { useId } from 'vue'
+import { computed, useId } from 'vue'
 import type { QueryDescriptor } from '@/querying'
+import { localeMessages } from '@/localization/i18n'
+import { usePlatformLocale } from '@/localization/localeContext'
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     title?: string
     collapsible?: boolean
@@ -22,10 +24,15 @@ withDefaults(
     collapsed: false,
     showActions: false,
     grid: false,
-    submitLabel: '查询',
-    resetLabel: '重置',
   },
 )
+
+const locale = usePlatformLocale()
+const copy = computed(() => ({
+  ...localeMessages[locale.value].common.query,
+  submit: props.submitLabel ?? localeMessages[locale.value].common.query.submit,
+  reset: props.resetLabel ?? localeMessages[locale.value].common.query.reset,
+}))
 
 const emit = defineEmits<{
   'update:collapsed': [value: boolean]
@@ -49,14 +56,14 @@ const bodyId = useId()
       </div>
       <div v-if="showActions" class="app-query-panel__actions">
         <button type="button" data-testid="query-panel-reset" @click="emit('reset')">
-          {{ resetLabel }}
+          {{ copy.reset }}
         </button>
         <button
           type="button"
           data-testid="query-panel-submit"
           @click="emit('submit', descriptor)"
         >
-          {{ submitLabel }}
+          {{ copy.submit }}
         </button>
       </div>
       <button
@@ -68,7 +75,7 @@ const bodyId = useId()
         :aria-controls="bodyId"
         @click="emit('update:collapsed', !collapsed)"
       >
-        {{ collapsed ? '展开' : '收起' }}
+        {{ collapsed ? copy.expand : copy.collapse }}
       </button>
     </header>
     <div

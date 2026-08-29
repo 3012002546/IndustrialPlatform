@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
+import { localeMessages } from '@/localization/i18n'
+import { usePlatformLocale } from '@/localization/localeContext'
+
 export interface PlatformCommandItem {
   id: string
   label: string
@@ -12,6 +15,8 @@ const emit = defineEmits<{ select: [id: string] }>()
 const query = ref('')
 const open = ref(false)
 const input = ref<HTMLInputElement | null>(null)
+const locale = usePlatformLocale()
+const copy = computed(() => localeMessages[locale.value].shell.commandSearch)
 
 const results = computed(() => {
   const value = query.value.trim().toLocaleLowerCase()
@@ -51,8 +56,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onGlobalKeydown))
       ref="input"
       v-model="query"
       type="search"
-      placeholder="搜索已授权菜单、最近访问或快捷命令"
-      aria-label="全局搜索"
+      :placeholder="copy.placeholder"
+      :aria-label="localeMessages[locale].shell.top.globalSearch"
       :aria-expanded="open"
       aria-controls="platform-command-search-results"
       @focus="open = true"
@@ -69,7 +74,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onGlobalKeydown))
         {{ item.label }}
       </button>
       <span v-if="results.length === 0" class="ip-command-search__empty">
-        没有匹配的已授权入口
+        {{ copy.empty }}
       </span>
     </div>
   </div>

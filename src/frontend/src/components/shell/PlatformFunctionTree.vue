@@ -11,6 +11,8 @@ import { RouterLink, useRoute } from 'vue-router'
 import type { NavigationItem } from '@/components/navigation/types'
 import { useAuthStore } from '@/stores/authStore'
 import { useThemeStore } from '@/stores/themeStore'
+import { localeMessages } from '@/localization/i18n'
+import { usePlatformLocale } from '@/localization/localeContext'
 
 const props = defineProps<{
   /** 功能树 aria 标签(区分所在分组)。 */
@@ -21,6 +23,8 @@ const props = defineProps<{
 
 const authStore = useAuthStore()
 const themeStore = useThemeStore()
+const locale = usePlatformLocale()
+const copy = computed(() => localeMessages[locale.value].shell.copy)
 const route = useRoute()
 const openMenuId = ref<string | null>(null)
 const menuQuery = ref('')
@@ -95,14 +99,14 @@ watch(
         :aria-expanded="!collapsed"
         aria-controls="ip-function-tree-list"
         data-testid="function-tree-toggle"
-        :title="collapsed ? '展开功能树' : '收起功能树'"
+        :title="collapsed ? copy.expandFunctionTree : copy.collapseFunctionTree"
         @click="toggle"
       >
         <span class="ip-function-tree__toggle-icon" aria-hidden="true">{{
           collapsed ? '»' : '«'
         }}</span>
         <span class="ip-function-tree__visually-hidden">{{
-          collapsed ? '展开功能树' : '收起功能树'
+          collapsed ? copy.expandFunctionTree : copy.collapseFunctionTree
         }}</span>
       </button>
     </div>
@@ -111,8 +115,8 @@ watch(
       v-model="menuQuery"
       class="ip-function-tree__search"
       type="search"
-      placeholder="搜索菜单"
-      aria-label="搜索菜单"
+      :placeholder="copy.searchMenu"
+      :aria-label="copy.searchMenu"
       @keydown.esc="menuQuery = ''"
     />
 

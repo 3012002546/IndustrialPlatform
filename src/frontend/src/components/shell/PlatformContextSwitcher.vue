@@ -1,15 +1,22 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+
+import { localeMessages } from '@/localization/i18n'
+import { usePlatformLocale } from '@/localization/localeContext'
+
 export interface PlatformTenantContext {
   id: string
   name: string
 }
 
 defineProps<{ tenant: PlatformTenantContext | null }>()
+const locale = usePlatformLocale()
+const copy = computed(() => localeMessages[locale.value].shell.top)
 </script>
 
 <template>
   <span v-if="tenant !== null" class="ip-context-switcher" data-testid="tenant-context">
-    <span class="ip-context-switcher__label">租户</span>
+    <span class="ip-context-switcher__label">{{ copy.tenant }}</span>
     <strong>{{ tenant.name }}</strong>
   </span>
 </template>
