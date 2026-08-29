@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using IndustrialPlatform.Identity.Application.Management;
 using IndustrialPlatform.Security;
+using IndustrialPlatform.Web.Errors;
 using IndustrialPlatform.Web.Results;
 using Microsoft.AspNetCore.Mvc;
 
@@ -100,9 +101,23 @@ public abstract class ManagementControllerBase : ControllerBase
     protected static ObjectResult OkEnvelope() =>
         new(ApiResult.Ok()) { StatusCode = StatusCodes.Status200OK };
 
-    protected static ObjectResult BadRequestEnvelope(string code, string message) =>
-        StatusCodeEnvelope(StatusCodes.Status400BadRequest, code, message);
+    protected static ObjectResult BadRequestEnvelope(
+        string code,
+        string message,
+        IReadOnlyDictionary<string, object?>? parameters = null) =>
+        StatusCodeEnvelope(StatusCodes.Status400BadRequest, code, message, parameters);
 
-    protected static ObjectResult StatusCodeEnvelope(int statusCode, string code, string message) =>
-        new(ApiResult.Fail<object?>(code, message)) { StatusCode = statusCode };
+    protected static ObjectResult StatusCodeEnvelope(
+        int statusCode,
+        string code,
+        string message,
+        IReadOnlyDictionary<string, object?>? parameters = null,
+        string? traceId = null)
+    {
+        var descriptor = new ApiErrorDescriptor(code, message, parameters, traceId);
+        var envelope = ApiResult.Fail<object?>(descriptor.Code, descriptor.Message);
+        envelope.Parameters = descriptor.Parameters;
+        envelope.TraceId = descriptor.TraceId;
+        return new ObjectResult(envelope) { StatusCode = statusCode };
+    }
 }

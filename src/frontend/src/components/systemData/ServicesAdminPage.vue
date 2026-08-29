@@ -2,10 +2,15 @@
 import { computed, reactive, ref } from 'vue'
 import AppEmptyState from '@/components/base/AppEmptyState.vue'
 import AppFormDrawer from '@/components/management/AppFormDrawer.vue'
+import AppDataTable from '@/components/management/AppDataTable.vue'
+import type { AppDataTableExportRequest } from '@/components/management/AppDataTable'
+import { downloadBlob } from '@/components/management/download'
 import SystemDataAdminFrame from './SystemDataAdminFrame.vue'
+import PermissionGate from '@/permissions/PermissionGate.vue'
 import { PERMISSIONS } from '@/permissions'
 import type { ServiceCatalogDto } from '@/api/systemData/managementTypes'
 import { useSystemDataManagementStore } from '@/stores/systemData/managementStore'
+import { getSystemDataManagementApi } from '@/api/systemData/managementRegistry'
 const props = withDefaults(
   defineProps<{ title?: string; description?: string; permission?: string }>(),
   {
@@ -19,10 +24,32 @@ const store = useSystemDataManagementStore()
 const open = ref(false)
 const editing = ref('')
 const form = reactive({ name: '', entryPoint: 'https://', owner: '' })
+const SERVICE_COLUMNS = [
+  { field: 'name', title: '名称', minWidth: 160, filter: { kind: 'text' as const } },
+  { field: 'entryPoint', title: '入口', minWidth: 220, filter: { kind: 'text' as const } },
+  { field: 'healthPath', title: '健康声明', minWidth: 180, filter: { kind: 'text' as const } },
+  { field: 'status', title: '状态', width: 100, filter: { kind: 'text' as const } },
+]
 const groups = computed(() => ({
   Platform: store.services.filter((item) => item.kind === 'Platform'),
   External: store.services.filter((item) => item.kind !== 'Platform'),
 }))
+async function exportServices(
+  group: 'Platform' | 'External',
+  request: AppDataTableExportRequest,
+): Promise<void> {
+  const api = getSystemDataManagementApi()
+  if (api === null) return
+  const blob = await api.exportServices({
+    kind: group,
+    search: typeof request.filters.name === 'string' ? request.filters.name : undefined,
+    quantity: request.quantity,
+    columns: request.columns,
+    sortField: request.sort?.field,
+    sortOrder: request.sort?.order,
+  })
+  downloadBlob(blob, `${request.filename}.xlsx`)
+}
 function edit(item: ServiceCatalogDto): void {
   editing.value = item.serviceNId
   Object.assign(form, {
@@ -55,42 +82,42 @@ async function submit(): Promise<void> {
     :title="props.title"
     :description="props.description"
     :permission="props.permission"
-    ><template #toolbar><button type="button" @click="create">新建 External</button></template>
+    ><template #toolbar
+      ><PermissionGate :permission-n-id="PERMISSIONS.systemDataServiceCatalogManage"
+        ><button type="button" @click="create">新建 External</button></PermissionGate
+      ></template
+    >
     <div v-for="(items, group) in groups" :key="group">
       <h2>{{ group }}</h2>
       <AppEmptyState v-if="!items.length" :title="group + ' 服务为空'" />
-      <table v-else>
-        <thead>
-          <tr>
-            <th>名称</th>
-            <th>入口</th>
-            <th>健康声明</th>
-            <th>状态</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="item in items" :key="item.serviceNId">
-            <td>{{ item.name }}</td>
-            <td>{{ item.entryPoint }}</td>
-            <td>{{ item.healthPath ?? '由 PlatformHealth 提供' }}</td>
-            <td>{{ item.status }}</td>
-            <td>
-              <button v-if="item.kind === 'External'" type="button" @click="edit(item)">编辑</button
-              ><button
-                type="button"
-                @click="
-                  store.setServiceStatus(item.serviceNId, {
-                    status: item.status === 'Active' ? 'Inactive' : 'Active',
-                  })
-                "
-              >
-                {{ item.status === 'Active' ? '停用' : '启用' }}
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <AppDataTable
+        v-else
+        :table-key="`systemdata-services-${group}`"
+        route-key="systemdata-services"
+        row-key="serviceNId"
+        :rows="items"
+        :total="items.length"
+        :columns="SERVICE_COLUMNS"
+        :exporter="(request) => exportServices(group, request)"
+      >
+        <template #cell-healthPath="{ row }">{{
+          row.healthPath ?? '由 PlatformHealth 提供'
+        }}</template>
+        <template #actions="{ row }">
+          <PermissionGate :permission-n-id="PERMISSIONS.systemDataServiceCatalogManage"
+            ><button v-if="row.kind === 'External'" type="button" @click="edit(row)">编辑</button
+            ><button
+            type="button"
+            @click="
+              store.setServiceStatus(row.serviceNId, {
+                status: row.status === 'Active' ? 'Inactive' : 'Active',
+              })
+            "
+          >
+            {{ row.status === 'Active' ? '停用' : '启用' }}
+          </button></PermissionGate>
+        </template>
+      </AppDataTable>
     </div></SystemDataAdminFrame
   ><AppFormDrawer
     v-model="open"

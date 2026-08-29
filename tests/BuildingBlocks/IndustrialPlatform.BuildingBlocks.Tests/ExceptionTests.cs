@@ -1,4 +1,6 @@
+using System.Text.Json;
 using IndustrialPlatform.SharedKernel.Exceptions;
+using IndustrialPlatform.Web.Results;
 using Xunit;
 
 namespace IndustrialPlatform.BuildingBlocks.Tests;
@@ -36,5 +38,28 @@ public sealed class ExceptionTests
         var exception = new BusinessException("wrapped", inner);
 
         Assert.Same(inner, exception.InnerException);
+    }
+
+    [Fact]
+    public void ApiResult_OmitsOptionalErrorFieldsWhenUnset()
+    {
+        var json = JsonSerializer.Serialize(ApiResult.Ok());
+
+        Assert.DoesNotContain("parameters", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("traceId", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ApiResult_CarriesOptionalErrorFields()
+    {
+        var result = ApiResult.Fail<object?>("PLATFORM_QUERY_INVALID", "fallback");
+        result.Parameters = new Dictionary<string, object?> { ["parameter"] = "$filter" };
+        result.TraceId = "trace-1";
+
+        var json = JsonSerializer.Serialize(result);
+
+        Assert.Contains("PLATFORM_QUERY_INVALID", json, StringComparison.Ordinal);
+        Assert.Contains("$filter", json, StringComparison.Ordinal);
+        Assert.Contains("trace-1", json, StringComparison.Ordinal);
     }
 }

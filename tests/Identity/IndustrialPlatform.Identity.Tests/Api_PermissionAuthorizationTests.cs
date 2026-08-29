@@ -25,6 +25,11 @@ public sealed class PermissionProbeController : ControllerBase
     [Authorize(Policy = PermissionPolicies.UserView)]
     [HttpGet]
     public IActionResult Get() => Ok(new { granted = true });
+
+    /// <summary>受 <c>platform.operation.view</c> 策略保护的生产操作入口探针。</summary>
+    [Authorize(Policy = PermissionPolicies.PlatformOperationView)]
+    [HttpGet("operation")]
+    public IActionResult GetOperation() => Ok(new { granted = true });
 }
 
 /// <summary>
@@ -53,6 +58,27 @@ public sealed class PermissionAuthorizationTests
         using var response = await client.SendAsync(ProbeRequest(await CreateTokenAsync(factory, authVersion: 3)));
 
         // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task OperationProbe_WithOperationPermission_Returns200()
+    {
+        var dataStore = new FakeAuthorizationDataStore
+        {
+            Snapshot = new AuthorizationSnapshot(
+                Tenant,
+                UserNId,
+                UserStatus.Active,
+                3,
+                ["platform.operation.view"]),
+        };
+        using var factory = CreateFactory(dataStore: dataStore);
+        using var client = factory.CreateClient();
+
+        using var response = await client.SendAsync(
+            ProbeRequest(await CreateTokenAsync(factory, authVersion: 3), "/api/v1/test/permission-probe/operation"));
+
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
@@ -188,9 +214,11 @@ public sealed class PermissionAuthorizationTests
         return result.Token;
     }
 
-    private static HttpRequestMessage ProbeRequest(string token)
+    private static HttpRequestMessage ProbeRequest(
+        string token,
+        string path = "/api/v1/test/permission-probe")
     {
-        var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/test/permission-probe");
+        var request = new HttpRequestMessage(HttpMethod.Get, path);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return request;
     }

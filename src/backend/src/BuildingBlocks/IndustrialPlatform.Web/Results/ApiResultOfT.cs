@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace IndustrialPlatform.Web.Results;
 
 /// <summary>
@@ -17,4 +19,12 @@ public class ApiResult<T>
 
     /// <summary>数据负载,失败时通常为 null。</summary>
     public T? Data { get; set; }
+
+    /// <summary>可选的本地化参数或诊断参数。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public object? Parameters { get; set; }
+
+    /// <summary>可选的分布式追踪标识。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? TraceId { get; set; }
 }

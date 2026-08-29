@@ -3,10 +3,15 @@ import { computed, reactive, ref } from 'vue'
 import AppEmptyState from '@/components/base/AppEmptyState.vue'
 import AppFormDrawer from '@/components/management/AppFormDrawer.vue'
 import AppTreeTableLayout from '@/components/management/AppTreeTableLayout.vue'
+import AppDataTable from '@/components/management/AppDataTable.vue'
+import type { AppDataTableExportRequest } from '@/components/management/AppDataTable'
+import { downloadBlob } from '@/components/management/download'
 import SystemDataAdminFrame from './SystemDataAdminFrame.vue'
+import PermissionGate from '@/permissions/PermissionGate.vue'
 import { PERMISSIONS } from '@/permissions'
 import type { OrganizationNodeDto, PositionDto } from '@/api/systemData/managementTypes'
 import { useSystemDataManagementStore } from '@/stores/systemData/managementStore'
+import { getSystemDataManagementApi } from '@/api/systemData/managementRegistry'
 
 const props = withDefaults(
   defineProps<{ title?: string; description?: string; permission?: string }>(),
@@ -32,6 +37,40 @@ const form = reactive({
 })
 const moveTargetNId = ref('')
 const moveReason = ref('')
+const ORGANIZATION_COLUMNS = [
+  { field: 'name', title: '组织', minWidth: 180 },
+  { field: 'type', title: '类型', width: 100, filter: { kind: 'text' as const } },
+  { field: 'status', title: '状态', width: 100, filter: { kind: 'text' as const } },
+]
+const POSITION_COLUMNS = [
+  { field: 'name', title: '岗位', minWidth: 180 },
+  { field: 'status', title: '状态', width: 100, filter: { kind: 'text' as const } },
+]
+async function exportOrganizations(request: AppDataTableExportRequest): Promise<void> {
+  const api = getSystemDataManagementApi()
+  if (api === null) return
+  const blob = await api.exportOrganizations({
+    search: typeof request.filters.name === 'string' ? request.filters.name : undefined,
+    quantity: request.quantity,
+    columns: request.columns,
+    sortField: request.sort?.field,
+    sortOrder: request.sort?.order,
+  })
+  downloadBlob(blob, `${request.filename}.xlsx`)
+}
+
+async function exportPositions(request: AppDataTableExportRequest): Promise<void> {
+  const api = getSystemDataManagementApi()
+  if (api === null) return
+  const blob = await api.exportPositions({
+    organizationNId: store.selectedOrganizationNId ?? undefined,
+    quantity: request.quantity,
+    columns: request.columns,
+    sortField: request.sort?.field,
+    sortOrder: request.sort?.order,
+  })
+  downloadBlob(blob, `${request.filename}.xlsx`)
+}
 const organizations = computed(() => {
   const flatten = (nodes: readonly OrganizationNodeDto[]): OrganizationNodeDto[] =>
     nodes.flatMap((node) => [node, ...flatten(node.children)])
@@ -83,6 +122,10 @@ function editPosition(item: PositionDto): void {
   editingPosition.value = item
   editingOrganization.value = false
   drawerOpen.value = true
+}
+function selectOrganizationTable(selected: unknown): void {
+  const item = (selected as OrganizationNodeDto[])[0]
+  if (item) store.selectOrganization(item.nId)
 }
 async function submit(): Promise<void> {
   formError.value = ''
@@ -151,31 +194,48 @@ async function submit(): Promise<void> {
     :description="props.description"
     :permission="props.permission"
   >
-    <template #toolbar
-      ><button type="button" @click="newOrganization">新建组织</button
-      ><button v-if="store.selectedOrganizationNId" type="button" @click="startPosition">
-        新建岗位
-      </button></template
-    >
     <AppTreeTableLayout tree-label="组织森林" content-label="岗位表">
-      <template #tree
-        ><ul class="systemdata-tree">
-          <li
-            v-for="item in organizations"
-            :key="item.nId"
-            :class="{ 'is-selected': item.nId === store.selectedOrganizationNId }"
+      <template #tree>
+        <AppDataTable
+          table-key="systemdata-organizations"
+          route-key="systemdata-organizations"
+          row-key="nId"
+          mode="tree"
+          selection="single"
+          :rows="store.organizationTree"
+          :total="organizations.length"
+          :columns="ORGANIZATION_COLUMNS"
+          :exporter="exportOrganizations"
+          @selection-change="selectOrganizationTable"
+        >
+          <template #toolbar-actions
+            ><PermissionGate :permission-n-id="PERMISSIONS.systemDataOrganizationCreate"
+              ><button type="button" data-testid="systemdata-organizations-new" @click="newOrganization">
+                新建组织
+              </button></PermissionGate
+            ><PermissionGate :permission-n-id="PERMISSIONS.systemDataPositionCreate"
+              ><button
+                v-if="store.selectedOrganizationNId"
+                type="button"
+                data-testid="systemdata-positions-new"
+                @click="startPosition"
+              >
+                新建岗位
+              </button></PermissionGate></template
           >
-            <button type="button" @click="store.selectOrganization(item.nId)">
-              {{ item.name }}</button
-            ><small>{{ item.type }} · {{ item.status }}</small>
-          </li>
-        </ul></template
-      >
+          <template #cell-name="{ row }">
+            <button type="button" @click="store.selectOrganization(row.nId)">{{ row.name }}</button>
+          </template>
+        </AppDataTable>
+      </template>
       <template #toolbar
         ><strong>组织详情与岗位</strong
-        ><button v-if="store.selectedOrganization" type="button" @click="editOrganization">
-          编辑组织</button
-        ><button
+        ><PermissionGate :permission-n-id="PERMISSIONS.systemDataOrganizationUpdate"
+          ><button v-if="store.selectedOrganization" type="button" @click="editOrganization">
+            编辑组织
+          </button></PermissionGate
+        ><PermissionGate :permission-n-id="PERMISSIONS.systemDataOrganizationStatus"
+          ><button
           v-if="store.selectedOrganizationNId"
           type="button"
           @click="
@@ -185,7 +245,7 @@ async function submit(): Promise<void> {
             })
           "
         >
-          {{ store.selectedOrganization?.status === 'Active' ? '停用组织' : '启用组织' }}</button
+          {{ store.selectedOrganization?.status === 'Active' ? '停用组织' : '启用组织' }}</button></PermissionGate
         ><el-select
           v-if="store.selectedOrganizationNId"
           v-model="moveTargetNId"
@@ -198,7 +258,8 @@ async function submit(): Promise<void> {
             :key="item.nId"
             :label="item.name + '（' + item.nId + '）'"
             :value="item.nId" /></el-select
-        ><button
+        ><PermissionGate :permission-n-id="PERMISSIONS.systemDataOrganizationMove"
+          ><button
           v-if="store.selectedOrganizationNId"
           type="button"
           @click="
@@ -206,7 +267,7 @@ async function submit(): Promise<void> {
           "
         >
           预览移动
-        </button></template
+        </button></PermissionGate></template
       >
       <p v-if="store.selectedOrganization">
         {{ store.selectedOrganization.name }} · {{ store.selectedOrganization.type }} ·
@@ -216,41 +277,41 @@ async function submit(): Promise<void> {
         v-else-if="store.positions.items.length === 0"
         title="暂无岗位"
       />
-      <table v-else>
-        <thead>
-          <tr>
-            <th>岗位</th>
-            <th>状态</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="item in store.positions.items" :key="item.nId">
-            <td>
-              {{ item.name }}<small>{{ item.description }}</small>
-            </td>
-            <td>{{ item.status }}</td>
-            <td>
-              <button type="button" @click="editPosition(item)">编辑</button
-              ><button
-                type="button"
-                @click="
-                  store.setPositionStatus(item.nId, {
-                    status: item.status === 'Active' ? 'Inactive' : 'Active',
-                    reason: '岗位状态调整',
-                  })
-                "
-              >
-                {{ item.status === 'Active' ? '停用' : '启用' }}
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <AppDataTable
+        v-else
+        table-key="systemdata-positions"
+        route-key="systemdata-organizations"
+        row-key="nId"
+        :rows="store.positions.items"
+        :total="store.positions.total"
+        :columns="POSITION_COLUMNS"
+        :exporter="exportPositions"
+      >
+        <template #cell-name="{ row }"
+          >{{ row.name }}<small>{{ row.description }}</small></template
+        >
+        <template #actions="{ row }">
+          <PermissionGate :permission-n-id="PERMISSIONS.systemDataPositionUpdate"
+            ><button type="button" @click="editPosition(row)">编辑</button></PermissionGate
+          ><PermissionGate :permission-n-id="PERMISSIONS.systemDataPositionStatus"
+            ><button
+            type="button"
+            @click="
+              store.setPositionStatus(row.nId, {
+                status: row.status === 'Active' ? 'Inactive' : 'Active',
+                reason: '岗位状态调整',
+              })
+            "
+          >
+            {{ row.status === 'Active' ? '停用' : '启用' }}
+          </button></PermissionGate>
+        </template>
+      </AppDataTable>
       <div v-if="store.movePreview" role="status">
         移动预览：组织 {{ store.movePreview.subtreeOrganizationCount }} · 岗位
         {{ store.movePreview.subtreePositionCount
-        }}<button
+        }}<PermissionGate :permission-n-id="PERMISSIONS.systemDataOrganizationMove"
+          ><button
           type="button"
           @click="
             store.moveOrganization(store.movePreview.nId, {
@@ -262,7 +323,7 @@ async function submit(): Promise<void> {
           "
         >
           确认移动
-        </button>
+        </button></PermissionGate>
       </div>
     </AppTreeTableLayout>
   </SystemDataAdminFrame>

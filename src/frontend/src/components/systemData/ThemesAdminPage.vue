@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { reactive, watch } from 'vue'
 import SystemDataAdminFrame from './SystemDataAdminFrame.vue'
+import PermissionGate from '@/permissions/PermissionGate.vue'
 import { PERMISSIONS } from '@/permissions'
 import { useSystemDataManagementStore } from '@/stores/systemData/managementStore'
 const props = withDefaults(
@@ -60,9 +61,10 @@ watch(() => store.themePolicy, sync, { immediate: true })
     :permission="props.permission"
     ><template #toolbar
       ><button type="button" @click="sync">重新读取策略</button
-      ><button type="button" :disabled="store.loading" @click="save">
-        保存策略并重新获取
-      </button></template
+      ><PermissionGate :permission-n-id="PERMISSIONS.systemDataThemePolicyManage"
+        ><button type="button" :disabled="store.loading" @click="save">
+          保存策略并重新获取
+        </button></PermissionGate></template
     >
     <div class="systemdata-theme-editor">
       <h2>允许配色</h2>

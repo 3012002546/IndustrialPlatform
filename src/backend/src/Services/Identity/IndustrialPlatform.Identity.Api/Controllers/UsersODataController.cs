@@ -51,7 +51,12 @@ public sealed class UsersODataController : ManagementControllerBase
         }
         catch (QueryValidationException ex)
         {
-            return BadRequestEnvelope(ex.Error.Code, ex.Error.Message);
+            return BadRequestEnvelope(
+                ex.Error.Code,
+                ex.Error.Message,
+                ex.Error.Parameter is null
+                    ? null
+                    : new Dictionary<string, object?> { ["parameter"] = ex.Error.Parameter });
         }
         catch (ValidationException ex)
         {
@@ -82,7 +87,12 @@ public sealed class UsersODataController : ManagementControllerBase
         }
         catch (QueryValidationException ex)
         {
-            return BadRequestEnvelope(ex.Error.Code, ex.Error.Message);
+            return BadRequestEnvelope(
+                ex.Error.Code,
+                ex.Error.Message,
+                ex.Error.Parameter is null
+                    ? null
+                    : new Dictionary<string, object?> { ["parameter"] = ex.Error.Parameter });
         }
     }
 

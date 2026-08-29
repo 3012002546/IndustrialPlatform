@@ -7,7 +7,12 @@
 import axios, { isAxiosError, type AxiosInstance } from 'axios'
 
 import { createCorrelationId, extractTraceId, type ResponseHeadersLike } from './correlation'
-import { createApiError, DEFAULT_ERROR_MESSAGES, normalizeError } from './errors'
+import {
+  createApiError,
+  DEFAULT_ERROR_MESSAGES,
+  localizeApiErrorMessage,
+  normalizeError,
+} from './errors'
 import { parseEnvelope } from './envelope'
 import { redactHeaders } from './redact'
 
@@ -25,6 +30,8 @@ export interface HttpResponseMeta<T> {
 
 export interface HttpClient {
   get<T>(path: string, options?: RequestOptions): Promise<T>
+  /** 二进制下载，不解包 ApiResult 信封；用于服务端流式文件。 */
+  getBlob?(path: string, options?: RequestOptions): Promise<Blob>
   getWithMeta<T>(path: string, options?: RequestOptions): Promise<HttpResponseMeta<T>>
   post<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T>
   put<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T>
@@ -181,9 +188,10 @@ export function createHttpClient(deps: HttpClientDeps): HttpClient {
         return envelope.data as T
       }
       if (envelope.valid) {
-        throw createApiError('business', envelope.message, correlationId, {
+        throw createApiError('business', localizeApiErrorMessage(envelope.code, envelope.message), correlationId, {
           status,
           code: envelope.code,
+          ...(envelope.parameters === undefined ? {} : { parameters: envelope.parameters }),
           ...(envelope.traceId === undefined ? {} : { traceId: envelope.traceId }),
         })
       }
@@ -203,6 +211,24 @@ export function createHttpClient(deps: HttpClientDeps): HttpClient {
   return {
     get: <T>(path: string, options: RequestOptions = {}) =>
       request<T>('GET', path, undefined, options) as Promise<T>,
+    getBlob: async (path: string, options: RequestOptions = {}) => {
+      const token = deps.getToken?.()
+      const response = await client.get<Blob>(path, {
+        responseType: 'blob',
+        headers: {
+          ...(options.headers ?? {}),
+          ...(token && options.headers?.Authorization === undefined
+            ? { Authorization: `Bearer ${token}` }
+            : {}),
+          'X-Correlation-Id':
+            options.headers?.['X-Correlation-Id'] ??
+            deps.getCorrelationId?.() ??
+            createCorrelationId(),
+        },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      })
+      return response.data
+    },
     getWithMeta: <T>(path: string, options: RequestOptions = {}) =>
       request<T>('GET', path, undefined, options, true) as Promise<HttpResponseMeta<T>>,
     post: <T>(path: string, body?: unknown, options: RequestOptions = {}) =>

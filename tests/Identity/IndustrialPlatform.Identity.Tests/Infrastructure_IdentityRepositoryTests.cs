@@ -308,8 +308,8 @@ public sealed class IdentityRepositoryTests : IDisposable
     {
         var all = await _permissions.GetAllAsync();
 
-        // §9.2 第一批 21 项 + §29A.5 用户组/重置密码 7 项 + bootstrap 2 项(TASK-ID-019/020)
-        Assert.Equal(66, all.Count);
+        // §9.2 第一批 22 项 + §29A.5 用户组/重置密码 7 项 + bootstrap 2 项(TASK-ID-019/020)
+        Assert.Equal(67, all.Count);
         Assert.Contains(all, p => p.NId == PermissionCatalog.UserView);
         Assert.Contains(all, p => p.NId == PermissionCatalog.UserDelete);
         Assert.Contains(all, p => p.NId == PermissionCatalog.UserGroupRestore);

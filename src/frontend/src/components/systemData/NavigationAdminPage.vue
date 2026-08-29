@@ -2,6 +2,7 @@
 import { computed, reactive, ref } from 'vue'
 import AppEmptyState from '@/components/base/AppEmptyState.vue'
 import SystemDataAdminFrame from './SystemDataAdminFrame.vue'
+import PermissionGate from '@/permissions/PermissionGate.vue'
 import { PERMISSIONS } from '@/permissions'
 import type { NavigationNodeDto } from '@/api/systemData/managementTypes'
 import { useSystemDataManagementStore } from '@/stores/systemData/managementStore'
@@ -64,11 +65,23 @@ async function save(): Promise<void> {
     :permission="props.permission"
   >
     <template #toolbar
-      ><button type="button" @click="store.validateNavigation">验证草稿</button
-      ><button type="button" :disabled="store.loading" @click="store.publishNavigation">发布</button
-      ><button type="button" @click="store.rollbackNavigation">
-        回滚 PreviousSnapshot
-      </button></template
+      ><PermissionGate :permission-n-id="PERMISSIONS.systemDataNavigationManage"
+        ><button type="button" data-testid="systemdata-navigation-validate" @click="store.validateNavigation">
+          验证草稿
+        </button></PermissionGate
+      ><PermissionGate :permission-n-id="PERMISSIONS.systemDataNavigationPublish"
+        ><button
+          type="button"
+          data-testid="systemdata-navigation-publish"
+          :disabled="store.loading"
+          @click="store.publishNavigation"
+        >
+          发布
+        </button></PermissionGate
+      ><PermissionGate :permission-n-id="PERMISSIONS.systemDataNavigationRollback"
+        ><button type="button" data-testid="systemdata-navigation-rollback" @click="store.rollbackNavigation">
+          回滚 PreviousSnapshot
+        </button></PermissionGate></template
     >
     <div class="systemdata-navigation-layout">
       <section>
@@ -77,9 +90,11 @@ async function save(): Promise<void> {
           <li v-for="node in nodes" :key="node.nodeNId">
             <button type="button" @click="edit(node)">{{ node.label }}</button> · {{ node.kind }} ·
             {{ node.status
-            }}<button type="button" @click="store.deleteNavigationNode(node.nodeNId)">
-              停用节点
-            </button>
+            }}<PermissionGate :permission-n-id="PERMISSIONS.systemDataNavigationManage"
+              ><button type="button" @click="store.deleteNavigationNode(node.nodeNId)">
+                停用节点
+              </button></PermissionGate
+            >
           </li>
         </ul>
         <AppEmptyState v-if="!nodes.length" title="暂无导航草稿" />
@@ -115,7 +130,11 @@ async function save(): Promise<void> {
             ><el-checkbox-group v-model="draft.visibleTerminals"
               ><el-checkbox label="Pc" /><el-checkbox label="Pda" /><el-checkbox
                 label="Mobile" /></el-checkbox-group></el-form-item></el-form
-        ><button type="button" @click="save">保存草稿节点</button>
+        ><PermissionGate :permission-n-id="PERMISSIONS.systemDataNavigationManage"
+          ><button type="button" data-testid="systemdata-navigation-save" @click="save">
+            保存草稿节点
+          </button></PermissionGate
+        >
       </section>
       <section>
         <h2>运行预览</h2>

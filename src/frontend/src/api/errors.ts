@@ -6,6 +6,7 @@
 import { AxiosError, isAxiosError } from 'axios'
 
 import type { ApiErrorDetails, ApiErrorKind } from '@/types/api'
+import { platformI18n, type SupportedLocale } from '@/localization/i18n'
 
 import { extractTraceId, type ResponseHeadersLike } from './correlation'
 import { parseEnvelope } from './envelope'
@@ -37,16 +38,54 @@ export const DEFAULT_ERROR_MESSAGES: Record<ApiErrorKind, string> = {
   unknown: '发生未知错误,请稍后重试',
 }
 
+const STABLE_ERROR_MESSAGES: Record<string, Record<SupportedLocale, string>> = {
+  PLATFORM_QUERY_INVALID: {
+    'zh-CN': '查询条件无效。',
+    'en-US': 'The query is invalid.',
+  },
+  PLATFORM_QUERY_OPTION_NOT_ALLOWED: {
+    'zh-CN': '查询选项未获允许。',
+    'en-US': 'The query option is not allowed.',
+  },
+  PLATFORM_QUERY_FIELD_NOT_ALLOWED: {
+    'zh-CN': '查询字段未获允许。',
+    'en-US': 'The query field is not allowed.',
+  },
+  PLATFORM_QUERY_LIMIT_EXCEEDED: {
+    'zh-CN': '查询结果超出限制。',
+    'en-US': 'The query limit was exceeded.',
+  },
+  PLATFORM_QUERY_PAGING_ALIGNMENT_REQUIRED: {
+    'zh-CN': '分页参数必须与页大小对齐。',
+    'en-US': 'Paging parameters must align with the page size.',
+  },
+}
+
+/** 按稳定错误码本地化；未登记的旧错误回退服务端 message。 */
+export function localizeApiErrorMessage(code: string | undefined, fallback: string): string {
+  if (code === undefined) return fallback
+  const messages = STABLE_ERROR_MESSAGES[code]
+  if (messages === undefined) return fallback
+  const locale = (platformI18n.global.locale as unknown as { value?: unknown }).value
+  return messages[locale === 'en-US' ? 'en-US' : 'zh-CN']
+}
+
 /** 构造 ApiError;仅当可选字段有值时赋值,满足 exactOptionalPropertyTypes。 */
 export function createApiError(
   kind: ApiErrorKind,
   message: string,
   correlationId: string,
-  options: { status?: number; code?: string; traceId?: string } = {},
+  options: {
+    status?: number
+    code?: string
+    parameters?: Record<string, unknown>
+    traceId?: string
+  } = {},
 ): ApiError {
   const details: ApiErrorDetails = { kind, message, correlationId }
   if (options.status !== undefined) details.status = options.status
   if (options.code !== undefined) details.code = options.code
+  if (options.parameters !== undefined) details.parameters = options.parameters
   if (options.traceId !== undefined) details.traceId = options.traceId
   return new ApiError(details)
 }
@@ -82,9 +121,10 @@ function mapAxiosError(error: AxiosError, correlationId: string): ApiError {
     // ID_PERMISSION_DENIED),便于页面展示准确原因;非法信封退回通用文案。
     const envelope = parseEnvelope(data)
     if (envelope.valid) {
-      return createApiError(kind, envelope.message, correlationId, {
+      return createApiError(kind, localizeApiErrorMessage(envelope.code, envelope.message), correlationId, {
         status,
         code: envelope.code,
+        ...(envelope.parameters === undefined ? {} : { parameters: envelope.parameters }),
         ...(traceId === undefined ? {} : { traceId }),
       })
     }
@@ -109,11 +149,17 @@ function mapAxiosError(error: AxiosError, correlationId: string): ApiError {
   // 非 2xx 业务信封:保留 code 与 message
   const envelope = parseEnvelope(data)
   if (envelope.valid) {
-    return createApiError('business', envelope.message, correlationId, {
+    return createApiError(
+      'business',
+      localizeApiErrorMessage(envelope.code, envelope.message),
+      correlationId,
+      {
       status,
       code: envelope.code,
+      ...(envelope.parameters === undefined ? {} : { parameters: envelope.parameters }),
       ...(traceId === undefined ? {} : { traceId }),
-    })
+      },
+    )
   }
 
   return createApiError('invalidResponse', DEFAULT_ERROR_MESSAGES.invalidResponse, correlationId, {

@@ -1,5 +1,7 @@
 using System.Text.Json;
+using System.Diagnostics;
 using IndustrialPlatform.SharedKernel.Exceptions;
+using IndustrialPlatform.Web.Errors;
 using IndustrialPlatform.Web.Results;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -57,7 +59,13 @@ public sealed partial class ExceptionMiddleware
             LogUnhandledException(context.Request.Method, context.Request.Path, exception);
         }
 
-        var envelope = ApiResult.Fail<object?>(code, message);
+        var descriptor = new ApiErrorDescriptor(
+            code,
+            message,
+            TraceId: Activity.Current?.TraceId.ToString());
+        var envelope = ApiResult.Fail<object?>(descriptor.Code, descriptor.Message);
+        envelope.Parameters = descriptor.Parameters;
+        envelope.TraceId = descriptor.TraceId;
         await JsonSerializer.SerializeAsync(context.Response.Body, envelope, JsonOptions, context.RequestAborted);
     }
 

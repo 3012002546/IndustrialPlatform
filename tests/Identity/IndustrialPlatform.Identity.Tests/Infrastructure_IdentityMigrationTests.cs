@@ -193,11 +193,11 @@ public sealed class IdentityMigrationTests : IDisposable
         await ApplyAsync();
         var second = await ReadSeedCountsAsync();
 
-        // Identity 30 项 + SystemData 36 项、SYSTEM_ADMIN 系统角色、无默认用户;
+        // Identity 31 项 + SystemData 36 项、SYSTEM_ADMIN 系统角色、无默认用户;
         // 两个不可变目录种子账本记录,重复执行不新增。
-        Assert.Equal(66, first.PermissionCount);
+        Assert.Equal(67, first.PermissionCount);
         Assert.Equal(1, first.RoleCount);
-        Assert.Equal(66, first.RolePermissionCount);
+        Assert.Equal(67, first.RolePermissionCount);
         Assert.Equal(0, first.UserCount);
         Assert.Equal(2, first.LedgerCount);
         Assert.Equal(first, second);

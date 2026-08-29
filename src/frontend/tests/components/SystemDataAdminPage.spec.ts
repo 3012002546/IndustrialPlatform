@@ -1,6 +1,8 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
+import { persistAuthSession } from '../fixtures/session'
+import { useAuthStore } from '@/stores/authStore'
 
 vi.mock('@/api/systemData/managementRegistry', () => ({
   getSystemDataManagementApi: () => ({
@@ -192,6 +194,19 @@ describe('SystemDataAdminPage', () => {
   ] as const)('renders the authorized %s page key path', async (kind, marker) => {
     const pinia = createPinia()
     setActivePinia(pinia)
+    useAuthStore().adoptSession(
+      persistAuthSession([
+        'systemdata.organization.view',
+        'systemdata.organization.create',
+        'systemdata.assignment.view',
+        'systemdata.navigation.view',
+        'systemdata.feature.view',
+        'systemdata.service-catalog.view',
+        'systemdata.theme-policy.view',
+        'systemdata.service-initialization.view',
+        'systemdata.service-initialization.plan',
+      ]),
+    )
     const wrapper = mount(SystemDataAdminPage, {
       props: { kind, title: `SystemData ${kind}` },
       global: { plugins: [pinia] },
@@ -214,6 +229,7 @@ describe('SystemDataAdminPage', () => {
         .findAll('.systemdata-init-tabs button')
         .find((button) => button.text() === 'Operation')
       await operationTab?.trigger('click')
+      await flushPromises()
       expect(wrapper.text()).toContain('Inspect:Succeeded')
     }
     wrapper.unmount()
@@ -222,13 +238,16 @@ describe('SystemDataAdminPage', () => {
   it('组织创建表单在缺少 NId/名称/顺序时阻止提交', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
+    useAuthStore().adoptSession(
+      persistAuthSession(['systemdata.organization.view', 'systemdata.organization.create']),
+    )
     const wrapper = mount(SystemDataAdminPage, {
       props: { kind: 'organizations', title: '行政组织与岗位' },
       global: { plugins: [pinia] },
     })
     await flushPromises()
 
-    await wrapper.get('.systemdata-admin-toolbar button').trigger('click')
+    await wrapper.get('[data-testid="systemdata-organizations-new"]').trigger('click')
     const submit = document.body.querySelector('[data-testid="form-drawer-submit"]')
     expect(submit).not.toBeNull()
     submit?.dispatchEvent(new MouseEvent('click', { bubbles: true }))

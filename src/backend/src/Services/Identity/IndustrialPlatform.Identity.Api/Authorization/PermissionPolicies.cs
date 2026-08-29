@@ -91,6 +91,9 @@ public static class PermissionPolicies
     /// <summary>平台首页查看。</summary>
     public const string PlatformHomeView = Prefix + PermissionCatalog.PlatformHomeView;
 
+    /// <summary>平台生产操作模式查看。</summary>
+    public const string PlatformOperationView = Prefix + PermissionCatalog.PlatformOperationView;
+
     /// <summary>平台 PDA 查看。</summary>
     public const string PlatformPdaView = Prefix + PermissionCatalog.PlatformPdaView;
 

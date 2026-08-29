@@ -2,11 +2,16 @@
 import { ref } from 'vue'
 import AppEmptyState from '@/components/base/AppEmptyState.vue'
 import AppFormDrawer from '@/components/management/AppFormDrawer.vue'
+import AppDataTable from '@/components/management/AppDataTable.vue'
+import type { AppDataTableExportRequest } from '@/components/management/AppDataTable'
+import { downloadBlob } from '@/components/management/download'
 import SystemDataAdminFrame from './SystemDataAdminFrame.vue'
+import PermissionGate from '@/permissions/PermissionGate.vue'
 import { PERMISSIONS } from '@/permissions'
 import { getManagementApi } from '@/api/identity/managementRegistry'
 import type { UserSummaryDto } from '@/api/identity/management'
 import { useSystemDataManagementStore } from '@/stores/systemData/managementStore'
+import { getSystemDataManagementApi } from '@/api/systemData/managementRegistry'
 const props = withDefaults(
   defineProps<{ title?: string; description?: string; permission?: string }>(),
   {
@@ -26,6 +31,35 @@ const primary = ref(false)
 const from = ref('')
 const to = ref('')
 const unavailable = ref(false)
+const ASSIGNMENT_COLUMNS = [
+  { field: 'positionName', title: '岗位', minWidth: 160 },
+  { field: 'state', title: '状态', width: 110 },
+  {
+    field: 'isPrimary',
+    title: '主任职',
+    width: 90,
+    filter: {
+      kind: 'select' as const,
+      options: [
+        { label: '是', value: true },
+        { label: '否', value: false },
+      ],
+    },
+  },
+  { field: 'effectiveFrom', title: '生效区间', minWidth: 220 },
+]
+async function exportAssignments(request: AppDataTableExportRequest): Promise<void> {
+  const api = getSystemDataManagementApi()
+  const user = selectedUser.value
+  if (api === null || user === null) return
+  const blob = await api.exportAssignments(user.userNId, {
+    quantity: request.quantity,
+    columns: request.columns,
+    sortField: request.sort?.field,
+    sortOrder: request.sort?.order,
+  })
+  downloadBlob(blob, `${request.filename}.xlsx`)
+}
 async function searchUsers(): Promise<void> {
   unavailable.value = false
   try {
@@ -71,7 +105,11 @@ async function submit(): Promise<void> {
     :title="props.title"
     :description="props.description"
     :permission="props.permission"
-    ><template #toolbar><button type="button" @click="openNew">新建任职</button></template>
+    ><template #toolbar
+      ><PermissionGate :permission-n-id="PERMISSIONS.systemDataAssignmentManage"
+        ><button type="button" @click="openNew">新建任职</button></PermissionGate
+      ></template
+    >
     <div class="systemdata-assignment-search">
       <label>Identity 用户搜索</label>
       <el-input
@@ -97,52 +135,45 @@ async function submit(): Promise<void> {
       title="暂无任职记录"
       description="选择 Identity 用户后读取时间线。"
     />
-    <table v-else>
-      <thead>
-        <tr>
-          <th>岗位</th>
-          <th>状态</th>
-          <th>主任职</th>
-          <th>生效区间</th>
-          <th>操作</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="item in store.assignments" :key="item.nId">
-          <td>{{ item.positionName }}</td>
-          <td>{{ item.state }}</td>
-          <td>{{ item.isPrimary ? '是' : '否' }}</td>
-          <td>{{ item.effectiveFrom }} – {{ item.effectiveTo ?? '至今' }}</td>
-          <td>
-            <button
-              v-if="item.state === 'Current'"
-              type="button"
-              @click="store.endAssignment(item.nId)"
-            >
-              结束</button
-            ><button
-              v-if="item.state === 'Scheduled'"
-              type="button"
-              @click="store.cancelAssignment(item.nId, { reason: '管理员取消计划任职' })"
-            >
-              取消</button
-            ><button
-              v-if="!item.isPrimary && !['Cancelled', 'Ended'].includes(item.state)"
-              type="button"
-              @click="
-                store.setPrimaryAssignment(item.userNId, {
-                  targetAssignmentNId: item.nId,
-                  effectiveOn: new Date().toISOString(),
-                  reason: '管理员切换主任职',
-                })
-              "
-            >
-              切换主任职
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table></SystemDataAdminFrame
+    <AppDataTable
+      v-else
+      table-key="systemdata-assignments"
+      route-key="systemdata-assignments"
+      row-key="nId"
+      :rows="store.assignments"
+      :total="store.assignments.length"
+      :columns="ASSIGNMENT_COLUMNS"
+      :exporter="exportAssignments"
+    >
+      <template #cell-isPrimary="{ row }">{{ row.isPrimary ? '是' : '否' }}</template>
+      <template #cell-effectiveFrom="{ row }"
+        >{{ row.effectiveFrom }} – {{ row.effectiveTo ?? '至今' }}</template
+      >
+      <template #actions="{ row }">
+        <PermissionGate :permission-n-id="PERMISSIONS.systemDataAssignmentManage"
+          ><button v-if="row.state === 'Current'" type="button" @click="store.endAssignment(row.nId)">
+          结束</button
+        ><button
+          v-if="row.state === 'Scheduled'"
+          type="button"
+          @click="store.cancelAssignment(row.nId, { reason: '管理员取消计划任职' })"
+        >
+          取消</button
+        ><button
+          v-if="!row.isPrimary && !['Cancelled', 'Ended'].includes(row.state)"
+          type="button"
+          @click="
+            store.setPrimaryAssignment(row.userNId, {
+              targetAssignmentNId: row.nId,
+              effectiveOn: new Date().toISOString(),
+              reason: '管理员切换主任职',
+            })
+          "
+        >
+          切换主任职
+        </button></PermissionGate>
+      </template>
+    </AppDataTable></SystemDataAdminFrame
   >
   <AppFormDrawer v-model="drawerOpen" :busy="store.loading" title="新建任职" @submit="submit"
     ><el-form label-width="120px"

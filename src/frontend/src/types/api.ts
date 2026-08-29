@@ -9,6 +9,8 @@ export interface ApiResult<T> {
   code: string
   message: string
   data: T | null
+  parameters?: Record<string, unknown> | null
+  traceId?: string | null
 }
 
 /** 统一错误分类;页面与 Store 只接触 ApiError,不接触 Axios 错误对象。 */
@@ -31,6 +33,8 @@ export interface ApiErrorDetails {
   code?: string
   /** 前后端排查关联 ID,从响应体 / X-Trace-Id / traceparent 提取。 */
   traceId?: string
+  /** 可供本地化消息模板使用的服务端参数。 */
+  parameters?: Record<string, unknown>
   /** 每次请求生成的 UUID,请求头 X-Correlation-Id。 */
   correlationId: string
 }

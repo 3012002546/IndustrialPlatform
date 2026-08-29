@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import { reactive, ref, computed } from 'vue'
 import AppEmptyState from '@/components/base/AppEmptyState.vue'
+import AppDataTable from '@/components/management/AppDataTable.vue'
+import type { AppDataTableExportRequest } from '@/components/management/AppDataTable'
+import { downloadBlob } from '@/components/management/download'
 import SystemDataAdminFrame from './SystemDataAdminFrame.vue'
+import PermissionGate from '@/permissions/PermissionGate.vue'
 import { PERMISSIONS } from '@/permissions'
 import { useSystemDataManagementStore } from '@/stores/systemData/managementStore'
+import { getSystemDataManagementApi } from '@/api/systemData/managementRegistry'
 const props = withDefaults(
   defineProps<{ title?: string; description?: string; permission?: string }>(),
   {
@@ -35,6 +40,36 @@ const selectedPlan = computed(
   () =>
     store.initializationPlans?.items.find((item) => item.planNId === selectedPlanNId.value) ?? null,
 )
+const REGISTRATION_COLUMNS = [
+  { field: 'serviceKey', title: 'ServiceKey', minWidth: 160 },
+  { field: 'moduleKey', title: 'ModuleKey', minWidth: 160 },
+  { field: 'status', title: '状态/期望状态', minWidth: 180, filter: { kind: 'text' as const } },
+  { field: 'migrationVersion', title: '迁移版本', width: 120, filter: { kind: 'text' as const } },
+]
+const OPERATION_COLUMNS = [
+  { field: 'operationNId', title: 'OperationNId', minWidth: 180 },
+  { field: 'status', title: '状态/阶段', width: 150, filter: { kind: 'text' as const } },
+  { field: 'steps', title: '步骤', minWidth: 260, filter: { kind: 'text' as const } },
+]
+async function exportRegistrations(request: AppDataTableExportRequest): Promise<void> {
+  const api = getSystemDataManagementApi()
+  if (api === null) return
+  const blob = await api.exportInitializationRegistrations({
+    quantity: request.quantity,
+    columns: request.columns,
+  })
+  downloadBlob(blob, `${request.filename}.xlsx`)
+}
+
+async function exportOperations(request: AppDataTableExportRequest): Promise<void> {
+  const api = getSystemDataManagementApi()
+  if (api === null) return
+  const blob = await api.exportInitializationOperations({
+    quantity: request.quantity,
+    columns: request.columns,
+  })
+  downloadBlob(blob, `${request.filename}.xlsx`)
+}
 async function register(): Promise<void> {
   if (Object.values(registration).some((value) => !value)) return
   await store.registerInitialization({ ...registration, manifestVersion: '1' })
@@ -94,20 +129,21 @@ async function apply(): Promise<void> {
           ><el-input
             v-model="registration.artifactChecksum"
             placeholder="SHA-256，来源于发布物" /></el-form-item></el-form
-      ><button type="button" @click="register">注册/重注册</button>
-      <table v-if="store.initializationRegistrations?.items.length">
-        <tbody>
-          <tr
-            v-for="item in store.initializationRegistrations.items"
-            :key="item.serviceKey + item.moduleKey"
-          >
-            <td>{{ item.serviceKey }}</td>
-            <td>{{ item.moduleKey }}</td>
-            <td>{{ item.status }} / {{ item.desiredState }}</td>
-            <td>{{ item.migrationVersion }}</td>
-          </tr>
-        </tbody>
-      </table>
+      ><PermissionGate :permission-n-id="PERMISSIONS.systemDataServiceInitializationRegister"
+        ><button type="button" @click="register">注册/重注册</button></PermissionGate
+      >
+      <AppDataTable
+        v-if="store.initializationRegistrations?.items.length"
+        table-key="systemdata-initialization-registrations"
+        route-key="systemdata-service-initialization"
+        row-key="moduleKey"
+        :rows="store.initializationRegistrations.items"
+        :total="store.initializationRegistrations.total"
+        :columns="REGISTRATION_COLUMNS"
+        :exporter="exportRegistrations"
+      >
+        <template #cell-status="{ row }">{{ row.status }} / {{ row.desiredState }}</template>
+      </AppDataTable>
       <AppEmptyState v-else title="暂无注册清单" />
     </section>
     <section v-else-if="tab === 'seedsets'">
@@ -125,7 +161,9 @@ async function apply(): Promise<void> {
         ><el-form-item label="ModuleKey"><el-input v-model="plan.moduleKey" /></el-form-item
         ><el-form-item label="RequestedVersion"
           ><el-input v-model="plan.requestedVersion" /></el-form-item></el-form
-      ><button type="button" @click="createPlan">生成计划</button>
+      ><PermissionGate :permission-n-id="PERMISSIONS.systemDataServiceInitializationPlan"
+        ><button type="button" @click="createPlan">生成计划</button></PermissionGate
+      >
       <ul>
         <li v-for="item in store.initializationPlans?.items ?? []" :key="item.planNId">
           <button type="button" @click="selectedPlanNId = item.planNId">{{ item.planNId }}</button>
@@ -133,40 +171,50 @@ async function apply(): Promise<void> {
         </li>
       </ul>
       <div v-if="selectedPlan">
-        <el-input v-model="reason" placeholder="审批理由" /><button
-          type="button"
-          @click="store.createApproval(selectedPlan.planNId, reason)"
+        <el-input v-model="reason" placeholder="审批理由" /><PermissionGate
+          :permission-n-id="PERMISSIONS.systemDataServiceInitializationApprove"
+          ><button type="button" @click="store.createApproval(selectedPlan.planNId, reason)">
+            登记审批
+          </button></PermissionGate
+        ><el-input v-model="backup" placeholder="脱敏备份证据引用" /><PermissionGate
+          :permission-n-id="PERMISSIONS.systemDataServiceInitializationBackup"
+          ><button type="button" @click="store.createBackupEvidence(selectedPlan.planNId, backup)">
+            登记备份证据
+          </button></PermissionGate
+        ><PermissionGate :permission-n-id="PERMISSIONS.systemDataServiceInitializationApply"
+          ><button type="button" @click="apply">Apply（服务端门禁）</button></PermissionGate
         >
-          登记审批</button
-        ><el-input v-model="backup" placeholder="脱敏备份证据引用" /><button
-          type="button"
-          @click="store.createBackupEvidence(selectedPlan.planNId, backup)"
-        >
-          登记备份证据</button
-        ><button type="button" @click="apply">Apply（服务端门禁）</button>
       </div>
       <AppEmptyState v-else title="请选择计划后查看审批/备份/apply 门禁" />
     </section>
     <section v-else-if="tab === 'operations'">
       <h2>Operation/结果</h2>
-      <table v-if="store.initializationOperations?.items.length">
-        <tbody>
-          <tr v-for="item in store.initializationOperations.items" :key="item.operationNId">
-            <td>{{ item.operationNId }}</td>
-            <td>{{ item.status }} / {{ item.phase }}</td>
-            <td>{{ item.steps.map((step) => step.phase + ':' + step.status).join(' / ') }}</td>
-            <td>
-              <button
-                v-if="['Queued', 'Running'].includes(item.status)"
-                type="button"
-                @click="store.cancelInitialization(item.operationNId)"
-              >
-                取消编排
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <AppDataTable
+        v-if="store.initializationOperations?.items.length"
+        table-key="systemdata-initialization-operations"
+        route-key="systemdata-service-initialization"
+        row-key="operationNId"
+        :rows="store.initializationOperations.items"
+        :total="store.initializationOperations.total"
+        :columns="OPERATION_COLUMNS"
+        :exporter="exportOperations"
+      >
+        <template #cell-status="{ row }">{{ row.status }} / {{ row.phase }}</template>
+        <template #cell-steps="{ row }">{{
+          row.steps
+            .map((step: { phase: string; status: string }) => step.phase + ':' + step.status)
+            .join(' / ')
+        }}</template>
+        <template #actions="{ row }">
+          <PermissionGate :permission-n-id="PERMISSIONS.systemDataServiceInitializationCancel"
+            ><button
+              v-if="['Queued', 'Running'].includes(row.status)"
+              type="button"
+              @click="store.cancelInitialization(row.operationNId)"
+            >取消编排</button></PermissionGate
+          >
+        </template>
+      </AppDataTable>
       <AppEmptyState v-else title="暂无 Operation" />
       <p>生产执行顺序：plan → approval → backup → apply → verify；页面不展示连接信息。</p>
     </section>

@@ -2,9 +2,14 @@
 import { ref } from 'vue'
 import AppEmptyState from '@/components/base/AppEmptyState.vue'
 import AppFormDrawer from '@/components/management/AppFormDrawer.vue'
+import AppDataTable from '@/components/management/AppDataTable.vue'
+import type { AppDataTableExportRequest } from '@/components/management/AppDataTable'
+import { downloadBlob } from '@/components/management/download'
 import SystemDataAdminFrame from './SystemDataAdminFrame.vue'
+import PermissionGate from '@/permissions/PermissionGate.vue'
 import { PERMISSIONS } from '@/permissions'
 import { useSystemDataManagementStore } from '@/stores/systemData/managementStore'
+import { getSystemDataManagementApi } from '@/api/systemData/managementRegistry'
 const props = withDefaults(
   defineProps<{ title?: string; description?: string; permission?: string }>(),
   {
@@ -19,6 +24,35 @@ const mode = ref('Inherit')
 const reason = ref('')
 const confirmed = ref(false)
 const open = ref(false)
+const FEATURE_COLUMNS = [
+  { field: 'featureNId', title: 'FeatureNId', minWidth: 180, filter: { kind: 'text' as const } },
+  { field: 'ownerModuleNId', title: '模块', minWidth: 140 },
+  {
+    field: 'effectiveEnabled',
+    title: '默认/最终',
+    minWidth: 150,
+    filter: {
+      kind: 'select' as const,
+      options: [
+        { label: '启用', value: true },
+        { label: '关闭', value: false },
+      ],
+    },
+  },
+  { field: 'status', title: '状态', width: 110 },
+]
+async function exportFeatures(request: AppDataTableExportRequest): Promise<void> {
+  const api = getSystemDataManagementApi()
+  if (api === null) return
+  const blob = await api.exportFeatures({
+    search: typeof request.filters.featureNId === 'string' ? request.filters.featureNId : undefined,
+    quantity: request.quantity,
+    columns: request.columns,
+    sortField: request.sort?.field,
+    sortOrder: request.sort?.order,
+  })
+  downloadBlob(blob, `${request.filename}.xlsx`)
+}
 function edit(nId: string): void {
   selected.value = nId
   mode.value = 'Inherit'
@@ -40,29 +74,26 @@ async function submit(): Promise<void> {
     :permission="props.permission"
     ><h2>功能开关</h2>
     <AppEmptyState v-if="!store.features.length" title="暂无功能定义" />
-    <table v-else>
-      <thead>
-        <tr>
-          <th>FeatureNId</th>
-          <th>模块</th>
-          <th>默认/最终</th>
-          <th>状态</th>
-          <th>操作</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="feature in store.features" :key="feature.featureNId">
-          <td>{{ feature.featureNId }}</td>
-          <td>{{ feature.ownerModuleNId }}</td>
-          <td>
-            {{ feature.defaultEnabled ? 'Enabled' : 'Disabled' }} /
-            {{ feature.effectiveEnabled ? 'Enabled' : 'Disabled' }}
-          </td>
-          <td>{{ feature.status }}</td>
-          <td><button type="button" @click="edit(feature.featureNId)">覆盖</button></td>
-        </tr>
-      </tbody>
-    </table></SystemDataAdminFrame
+    <AppDataTable
+      v-else
+      table-key="systemdata-features"
+      route-key="systemdata-features"
+      row-key="featureNId"
+      :rows="store.features"
+      :total="store.features.length"
+      :columns="FEATURE_COLUMNS"
+      :exporter="exportFeatures"
+    >
+      <template #cell-effectiveEnabled="{ row }">
+        {{ row.defaultEnabled ? 'Enabled' : 'Disabled' }} /
+        {{ row.effectiveEnabled ? 'Enabled' : 'Disabled' }}
+      </template>
+      <template #actions="{ row }"
+        ><PermissionGate :permission-n-id="PERMISSIONS.systemDataFeatureManage"
+          ><button type="button" @click="edit(row.featureNId)">覆盖</button></PermissionGate
+        ></template
+      >
+    </AppDataTable></SystemDataAdminFrame
   ><AppFormDrawer v-model="open" :busy="store.loading" title="功能覆盖" @submit="submit"
     ><el-form label-width="120px"
       ><el-form-item label="覆盖模式"

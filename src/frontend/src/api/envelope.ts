@@ -23,6 +23,7 @@ export interface ParsedEnvelope {
   code: string
   message: string
   data: unknown
+  parameters?: Record<string, unknown>
   traceId?: string
 }
 
@@ -32,6 +33,10 @@ export function parseEnvelope(value: unknown): ParsedEnvelope {
     return { valid: false, success: false, code: '', message: '', data: null }
   }
   const bodyRecord = value as unknown as Record<string, unknown>
+  const parameters =
+    typeof bodyRecord['parameters'] === 'object' && bodyRecord['parameters'] !== null
+      ? (bodyRecord['parameters'] as Record<string, unknown>)
+      : undefined
   const traceId = typeof bodyRecord['traceId'] === 'string' ? bodyRecord['traceId'] : undefined
   return {
     valid: true,
@@ -39,6 +44,7 @@ export function parseEnvelope(value: unknown): ParsedEnvelope {
     code: value.code,
     message: value.message,
     data: value.data,
+    ...(parameters === undefined ? {} : { parameters }),
     ...(traceId === undefined ? {} : { traceId }),
   }
 }
