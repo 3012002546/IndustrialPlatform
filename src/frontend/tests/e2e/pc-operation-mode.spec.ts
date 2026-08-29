@@ -26,6 +26,22 @@ test('双权限用户可以在管理壳与生产操作壳之间切换', async ({
   await expect(page.getByRole('navigation', { name: '平台分组' })).toBeVisible()
 })
 
+test('生产操作模式随当前语言切换为英文且公共文案无中文回退', async ({ page }) => {
+  await login(page)
+  await page.getByLabel('语言').selectOption('en-US')
+  await page.getByRole('button', { name: 'Operations' }).click()
+  await expect(page).toHaveURL(/\/pc\/operation/)
+
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en-US')
+  await expect(page.getByRole('heading', { name: 'Production operations' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Task execution' })).toBeVisible()
+  await expect(page.getByTestId('operation-fullscreen')).toHaveAttribute(
+    'aria-label',
+    'Browser fullscreen',
+  )
+  await expect(page.locator('.pc-operation-home')).not.toContainText(/[\u3400-\u9fff]/)
+})
+
 test('无生产操作权限直达生产操作路由被拒绝', async ({ page }) => {
   await login(page)
   await page.evaluate(() => {
