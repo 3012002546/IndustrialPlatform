@@ -17,7 +17,12 @@ const E2E_PASSWORD = 'E2e!Admin@2026'
 const PALETTES = ['industrial-cyan', 'technology-blue', 'neutral-gray'] as const
 
 const IDENTITY_PAGES = [
-  { path: '/pc/identity/users', title: '用户管理', data: (p: Page) => p.getByText('e2e.admin') },
+  {
+    path: '/pc/identity/users',
+    title: '用户管理',
+    data: (p: Page) =>
+      p.locator('.vxe-table--main-wrapper').getByText(E2E_ADMIN, { exact: true }),
+  },
   {
     path: '/pc/identity/roles',
     title: '角色权限',

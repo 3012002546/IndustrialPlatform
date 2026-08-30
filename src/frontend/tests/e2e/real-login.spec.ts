@@ -17,6 +17,10 @@ export const E2E_ADMIN = 'e2e.admin'
 export const E2E_LIMITED = 'e2e.limited'
 export const E2E_PASSWORD = 'E2e!Admin@2026'
 
+function usersMainTable(page: Page) {
+  return page.locator('.vxe-table--main-wrapper')
+}
+
 const AUTH_HTTP_KEY = 'industrial-platform.auth.http.v1'
 const AUTH_MOCK_KEY = 'industrial-platform.auth.mock.v1'
 
@@ -156,7 +160,9 @@ test('真实权限驱动 Router Guard:管理员直达管理页,受限用户菜�
   // 直达管理页:真实数据渲染
   await page.goto('/pc/identity/users')
   await expect(page).toHaveURL(/\/pc\/identity\/users/)
-  await expect(page.getByText('e2e.admin')).toBeVisible({ timeout: 60_000 })
+  await expect(usersMainTable(page).getByText(E2E_ADMIN, { exact: true })).toBeVisible({
+    timeout: 60_000,
+  })
   await logout(page)
 
   // 受限用户:功能树不渲染越权项(菜单隐藏)……
@@ -175,7 +181,9 @@ test('业务标签恢复:管理员刷新恢复业务标签,受限用户不携带
   await login(page, E2E_ADMIN)
   await page.goto('/pc/identity/users')
   await expect(page).toHaveURL(/\/pc\/identity\/users/)
-  await expect(page.getByText('e2e.admin')).toBeVisible({ timeout: 60_000 })
+  await expect(usersMainTable(page).getByText(E2E_ADMIN, { exact: true })).toBeVisible({
+    timeout: 60_000,
+  })
   await expect(page.locator('.ip-pc-tabs')).toContainText('用户管理')
 
   // 刷新:标签恢复,仍停留在业务标签页
