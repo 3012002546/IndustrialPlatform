@@ -58,6 +58,7 @@ import {
   findVxeClosest,
   findVxeElement,
   findVxeElements,
+  markVxeElementDecorative,
 } from './appDataTable/vxeDomAdapter'
 
 interface AppDataTableGroupRow {
@@ -139,6 +140,7 @@ const PlatformDateRangeFilter = defineComponent({
       type: Array as PropType<string[]>,
       default: () => ['', ''],
     },
+    disabled: Boolean,
   },
   emits: ['update:modelValue', 'change'],
   setup(dateProps, { emit }) {
@@ -153,6 +155,7 @@ const PlatformDateRangeFilter = defineComponent({
         rangeSeparator: copy.value.rangeSeparator,
         startPlaceholder: copy.value.rangeStart,
         endPlaceholder: copy.value.rangeEnd,
+        disabled: dateProps.disabled,
         clearable: false,
         onUpdateModelValue: update,
         onChange: (value: string[] | null) => emit('change', value ?? ['', '']),
@@ -1071,17 +1074,27 @@ function nativeHeaderFieldClass(field: string): string {
   return `app-data-table__header-field-${field.replace(/[^A-Za-z0-9_-]/g, '_')}`
 }
 
-function appendFilterControl(cell: HTMLElement, column: AppDataTableColumn): void {
+function appendFilterControl(
+  cell: HTMLElement,
+  column: AppDataTableColumn,
+  interactive = true,
+): void {
   const filter = columnFilter(column)
   if (filter === undefined) return
-  const testId = (suffix = '') => `app-data-table-header-filter-${column.field}${suffix}`
+  const testId = (suffix = '') =>
+    interactive ? `app-data-table-header-filter-${column.field}${suffix}` : undefined
   if (filter.kind === 'select') {
     const select = document.createElement('select')
     select.value = String(headerFilters.value[column.field] ?? '')
     select.style.height = '26px'
     select.style.minHeight = '26px'
-    select.dataset.testid = testId()
+    const selectTestId = testId()
+    if (selectTestId !== undefined) select.dataset.testid = selectTestId
     select.setAttribute('aria-label', `${column.title}${copy.value.querySuffix}`)
+    if (!interactive) {
+      select.disabled = true
+      select.tabIndex = -1
+    }
     const placeholder = document.createElement('option')
     placeholder.value = ''
     placeholder.textContent = column.title
@@ -1092,7 +1105,9 @@ function appendFilterControl(cell: HTMLElement, column: AppDataTableColumn): voi
       item.textContent = option.label
       select.append(item)
     })
-    select.addEventListener('change', (event) => onHeaderFilterChange(column.field, event))
+    if (interactive) {
+      select.addEventListener('change', (event) => onHeaderFilterChange(column.field, event))
+    }
     cell.append(select)
     return
   }
@@ -1101,10 +1116,12 @@ function appendFilterControl(cell: HTMLElement, column: AppDataTableColumn): voi
     range.className = 'app-data-table__date-range-control'
     range.style.height = '26px'
     range.setAttribute('aria-label', `${column.title}${copy.value.dateRange}`)
-    range.dataset.testid = testId('-range')
+    const rangeTestId = testId('-range')
+    if (rangeTestId !== undefined) range.dataset.testid = rangeTestId
     render(
       h(PlatformDateRangeFilter, {
         modelValue: [headerRangePart(column.field, 0), headerRangePart(column.field, 1)],
+        disabled: !interactive,
         'onUpdate:modelValue': (value: string[]) => {
           setHeaderFilter(column.field, value)
         },
@@ -1115,6 +1132,7 @@ function appendFilterControl(cell: HTMLElement, column: AppDataTableColumn): voi
       }),
       range,
     )
+    if (!interactive) markVxeElementDecorative(range)
     mountedDateRangeFilters.add(range)
     cell.append(range)
     return
@@ -1126,15 +1144,33 @@ function appendFilterControl(cell: HTMLElement, column: AppDataTableColumn): voi
   input.value = String(headerFilters.value[column.field] ?? '')
   input.placeholder = `${column.title}${copy.value.querySuffix}`
   input.setAttribute('aria-label', `${column.title}${copy.value.querySuffix}`)
-  input.dataset.testid = testId()
-  input.addEventListener('input', (event) => {
-    setHeaderFilter(column.field, (event.target as HTMLInputElement).value)
-    applyHeaderFilter()
-  })
-  input.addEventListener('keyup', (event) => {
-    if ((event as KeyboardEvent).key === 'Enter') applyHeaderFilter()
-  })
+  const inputTestId = testId()
+  if (inputTestId !== undefined) input.dataset.testid = inputTestId
+  input.tabIndex = interactive ? 0 : -1
+  input.readOnly = !interactive
+  if (interactive) {
+    input.addEventListener('input', (event) => {
+      setHeaderFilter(column.field, (event.target as HTMLInputElement).value)
+      applyHeaderFilter()
+    })
+    input.addEventListener('keyup', (event) => {
+      if ((event as KeyboardEvent).key === 'Enter') applyHeaderFilter()
+    })
+  }
   cell.append(input)
+}
+
+function isMainVxeHeader(headerTable: HTMLTableElement): boolean {
+  const wrapper = findVxeClosest(headerTable, '.vxe-table--header-wrapper')
+  return wrapper?.classList.contains('body--wrapper') === true
+}
+
+function syncVxeDuplicateAccessibility(): void {
+  const root = (tableRef.value as unknown as { $el?: HTMLElement } | null)?.$el
+  if (root === undefined) return
+  findVxeElements<HTMLElement>(root, '.vxe-table--column.fixed--hidden').forEach(
+    markVxeElementDecorative,
+  )
 }
 
 function syncNativeHeaderFilterRows(): void {
@@ -1179,11 +1215,13 @@ function syncNativeHeaderFilterRows(): void {
         const column = visibleColumns.value.find((candidate) =>
           headerCell.classList.contains(nativeHeaderFieldClass(candidate.field)),
         )
-        if (column !== undefined) appendFilterControl(cell, column)
+        if (column !== undefined) appendFilterControl(cell, column, isMainVxeHeader(headerTable))
         row.append(cell)
       })
+    if (!isMainVxeHeader(headerTable)) markVxeElementDecorative(row)
     headerTable.tHead?.append(row)
   })
+  syncVxeDuplicateAccessibility()
 }
 
 function createNativePreferenceToggle(
@@ -1425,12 +1463,14 @@ onMounted(() => {
   if (table && toolbar) void table.connectToolbar(toolbar)
   void nextTick(() => {
     syncNativeHeaderFilterRows()
+    syncVxeDuplicateAccessibility()
     syncNativeCustomPanel()
     syncActionColumnWidth()
     observeActionColumn()
   })
   window.setTimeout(() => {
     syncNativeHeaderFilterRows()
+    syncVxeDuplicateAccessibility()
     syncNativeCustomPanel()
     syncActionColumnWidth()
     observeActionColumn()
@@ -1439,6 +1479,7 @@ onMounted(() => {
   if (tableRoot !== undefined && typeof MutationObserver !== 'undefined') {
     headerObserver = new MutationObserver(() => {
       syncNativeHeaderFilterRows()
+      syncVxeDuplicateAccessibility()
       syncNativeCustomPanel()
       syncActionColumnWidth()
     })
@@ -1453,12 +1494,14 @@ onMounted(() => {
 onUpdated(() => {
   void nextTick(() => {
     syncNativeHeaderFilterRows()
+    syncVxeDuplicateAccessibility()
     syncNativeCustomPanel()
     syncActionColumnWidth()
     observeActionColumn()
   })
   window.setTimeout(() => {
     syncNativeHeaderFilterRows()
+    syncVxeDuplicateAccessibility()
     syncNativeCustomPanel()
     syncActionColumnWidth()
     observeActionColumn()

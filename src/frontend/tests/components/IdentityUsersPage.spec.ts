@@ -216,9 +216,9 @@ describe('IdentityUsersPage — 创建用户(服务端随机临时密码)', () =
     await wrapper.get('[data-testid="app-data-table-query-toggle"]').trigger('click')
     await flushPromises()
 
-    expect(wrapper.find('[data-testid="app-data-table-header-filter-loginName"]').exists()).toBe(
-      true,
-    )
+    expect(
+      wrapper.findAll('[data-testid="app-data-table-header-filter-loginName"]'),
+    ).toHaveLength(1)
     expect(wrapper.find('[data-testid="app-data-table-header-filter-email"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="app-data-table-header-filter-phone"]').exists()).toBe(true)
     expect(
