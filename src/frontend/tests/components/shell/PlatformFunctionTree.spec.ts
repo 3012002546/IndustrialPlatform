@@ -16,6 +16,7 @@ import type { NavigationItem } from '@/components/navigation/types'
 import PlatformFunctionTree from '@/components/shell/PlatformFunctionTree.vue'
 import { routes } from '@/router/routes'
 import { useAuthStore } from '@/stores/authStore'
+import { useLocalizationStore } from '@/stores/localizationStore'
 import { useThemeStore } from '@/stores/themeStore'
 
 const ItemIcon = defineComponent({ name: 'ItemIcon', template: '<span>■</span>' })
@@ -69,6 +70,7 @@ interface Harness {
   wrapper: VueWrapper
   router: Router
   themeStore: ReturnType<typeof useThemeStore>
+  localization: ReturnType<typeof useLocalizationStore>
 }
 
 async function mountTree(
@@ -76,6 +78,7 @@ async function mountTree(
   initialPath = '/pc/home',
   label = '系统管理',
   items: readonly NavigationItem[] = ITEMS,
+  labelKey?: string,
 ): Promise<Harness> {
   const pinia = createPinia()
   setActivePinia(pinia)
@@ -84,6 +87,7 @@ async function mountTree(
   await authStore.restore()
   const themeStore = useThemeStore()
   await themeStore.initialize()
+  const localization = useLocalizationStore()
   vi.stubGlobal(
     'matchMedia',
     vi.fn(() => ({
@@ -97,10 +101,10 @@ async function mountTree(
   const router = createRouter({ history: createMemoryHistory(), routes })
   await router.push(initialPath)
   const wrapper = mount(PlatformFunctionTree, {
-    props: { label, items },
+    props: { label, items, ...(labelKey === undefined ? {} : { labelKey }) },
     global: { plugins: [pinia, router] },
   })
-  return { wrapper, router, themeStore }
+  return { wrapper, router, themeStore, localization }
 }
 
 describe('PlatformFunctionTree', () => {
@@ -215,5 +219,41 @@ describe('PlatformFunctionTree', () => {
     expect(
       wrapper.get('[data-testid="function-tree-popover-parent"] [role="menuitem"]'),
     ).toBeTruthy()
+  })
+
+  it('语言切换即时更新二级菜单、子菜单和 nav aria 文案', async () => {
+    const localizedItems: readonly NavigationItem[] = [
+      {
+        ...ITEMS[0]!,
+        labelKey: 'shell.navigation.item.pc-home',
+        fallbackLabel: '首页',
+        children: [
+          {
+            id: 'child',
+            label: '子级菜单',
+            labelKey: 'shell.navigation.item.identity-users',
+            fallbackLabel: '子级菜单',
+            routeName: 'pc-home',
+            icon: ItemIcon,
+          },
+        ],
+      },
+    ]
+    const { wrapper, localization } = await mountTree(
+      [],
+      '/pc/home',
+      '工作台',
+      localizedItems,
+      'shell.navigation.group.workspace',
+    )
+    localization.setLocale('en-US', null)
+    await nextTick()
+    expect(wrapper.get('nav').attributes('aria-label')).toBe('Workspace')
+    expect(wrapper.find('.ip-function-tree__label').text()).toBe('Home')
+
+    localization.setLocale('zh-CN', null)
+    await nextTick()
+    expect(wrapper.get('nav').attributes('aria-label')).toBe('工作台')
+    expect(wrapper.find('.ip-function-tree__label').text()).toBe('首页')
   })
 })

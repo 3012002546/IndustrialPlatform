@@ -19,6 +19,7 @@ import { PERMISSIONS } from '@/permissions'
 import { routes } from '@/router/routes'
 import WorkspaceTabLimitDialog from '@/components/shell/WorkspaceTabLimitDialog.vue'
 import { useAuthStore } from '@/stores/authStore'
+import { useLocalizationStore } from '@/stores/localizationStore'
 import { useThemeStore } from '@/stores/themeStore'
 import { useWorkspaceTabsStore } from '@/stores/workspaceTabsStore'
 import type { WorkspaceRouteCandidate } from '@/workspace'
@@ -58,6 +59,7 @@ interface LayoutHarness {
   wrapper: VueWrapper
   router: Router
   themeStore: ReturnType<typeof useThemeStore>
+  localization: ReturnType<typeof useLocalizationStore>
 }
 
 function sandboxCandidate(slot: number): WorkspaceRouteCandidate {
@@ -87,12 +89,13 @@ async function mountLayout(permissions: string[] = ALL_PC_PERMISSIONS): Promise<
   )
   const themeStore = useThemeStore()
   await themeStore.initialize()
+  const localization = useLocalizationStore()
   // 守卫在真实运行时绑定工作区作用域;组件测试手动等价绑定(scope 与 mock 用户 t1/u1 一致)
   useWorkspaceTabsStore().bindUser({ tenantId: 't1', userId: 'u1' })
   const router = createRouter({ history: createMemoryHistory(), routes })
   await router.push('/pc/home')
   const wrapper = mount(PcLayout, { global: { plugins: [pinia, router] } })
-  return { wrapper, router, themeStore }
+  return { wrapper, router, themeStore, localization }
 }
 
 describe('PcLayout', () => {
@@ -172,6 +175,37 @@ describe('PcLayout', () => {
   it('用户菜单显示当前用户 displayName', async () => {
     const { wrapper } = await mountLayout()
     expect(wrapper.get('[data-testid="user-menu"]').text()).toContain('Mock 演示账号')
+  })
+
+  it('语言切换即时更新一级、二级、Tabs 与全局搜索结果', async () => {
+    const { wrapper, localization } = await mountLayout()
+    const systemButton = wrapper
+      .findAll('nav.ip-toolrail button')
+      .find((button) => button.attributes('aria-label') === '系统管理')!
+    await systemButton.trigger('click')
+
+    localization.setLocale('en-US', null)
+    await nextTick()
+    expect(wrapper.get('nav.ip-toolrail [aria-current="page"]').attributes('aria-label')).toBe(
+      'System management',
+    )
+    expect(wrapper.get('nav.ip-function-tree').attributes('aria-label')).toBe('System management')
+    expect(wrapper.findAll('.ip-function-tree__label').map((node) => node.text())).toContain(
+      'User management',
+    )
+    expect(wrapper.get('nav.ip-pc-tabs').text()).toContain('Workspace')
+
+    const search = wrapper.get('[data-testid="command-search"] input')
+    await search.trigger('focus')
+    expect(wrapper.find('[data-testid="command-search-result"]').text()).toBe('Home')
+
+    localization.setLocale('zh-CN', null)
+    await nextTick()
+    expect(wrapper.get('nav.ip-toolrail [aria-current="page"]').attributes('aria-label')).toBe(
+      '系统管理',
+    )
+    expect(wrapper.get('nav.ip-function-tree').attributes('aria-label')).toBe('系统管理')
+    expect(wrapper.get('nav.ip-pc-tabs').text()).toContain('工作台')
   })
 
   it('当前分组跟随初始路由:工作台按钮 aria-current,功能树标签为工作台', async () => {

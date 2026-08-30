@@ -188,6 +188,8 @@ export const routes: RouteRecordRaw[] = [
         component: TerminalPreviewPage,
         meta: {
           title: '终端预览',
+          titleKey: 'shell.navigation.item.terminal-preview',
+          fallbackTitle: '终端预览',
           requiresAuth: true,
           anyPermissions: [PERMISSIONS.platformPdaView, PERMISSIONS.platformMobileView],
           terminal: 'pc',
@@ -200,7 +202,7 @@ export const routes: RouteRecordRaw[] = [
         component: IdentityUsersPage,
         meta: {
           title: '用户管理',
-          titleKey: 'identity.user.title',
+          titleKey: 'shell.navigation.item.identity-users',
           fallbackTitle: '用户管理',
           requiresAuth: true,
           permission: PERMISSIONS.userView,
@@ -214,6 +216,8 @@ export const routes: RouteRecordRaw[] = [
         component: IdentityUserGroupsPage,
         meta: {
           title: '用户组管理',
+          titleKey: 'shell.navigation.item.identity-user-groups',
+          fallbackTitle: '用户组管理',
           requiresAuth: true,
           permission: PERMISSIONS.userGroupView,
           terminal: 'pc',
@@ -226,6 +230,8 @@ export const routes: RouteRecordRaw[] = [
         component: IdentityRolesPage,
         meta: {
           title: '角色权限',
+          titleKey: 'shell.navigation.item.identity-roles',
+          fallbackTitle: '角色权限',
           requiresAuth: true,
           permission: PERMISSIONS.roleView,
           terminal: 'pc',
@@ -238,6 +244,8 @@ export const routes: RouteRecordRaw[] = [
         component: IdentityPermissionsPage,
         meta: {
           title: '权限目录',
+          titleKey: 'shell.navigation.item.identity-permissions',
+          fallbackTitle: '权限目录',
           requiresAuth: true,
           permission: PERMISSIONS.permissionView,
           terminal: 'pc',
@@ -250,6 +258,8 @@ export const routes: RouteRecordRaw[] = [
         component: IdentityAuditsPage,
         meta: {
           title: '登录审计',
+          titleKey: 'shell.navigation.item.identity-audits',
+          fallbackTitle: '登录审计',
           requiresAuth: true,
           permission: PERMISSIONS.auditLoginView,
           terminal: 'pc',
@@ -262,6 +272,8 @@ export const routes: RouteRecordRaw[] = [
         component: SsoProvidersPage,
         meta: {
           title: '企业登录源',
+          titleKey: 'shell.navigation.item.identity-sso-providers',
+          fallbackTitle: '企业登录源',
           requiresAuth: true,
           permission: PERMISSIONS.ssoView,
           terminal: 'pc',
@@ -274,6 +286,8 @@ export const routes: RouteRecordRaw[] = [
         component: SsoClientsPage,
         meta: {
           title: 'SSO Client',
+          titleKey: 'shell.navigation.item.identity-sso-clients',
+          fallbackTitle: 'SSO Client',
           requiresAuth: true,
           permission: PERMISSIONS.ssoView,
           terminal: 'pc',
@@ -286,6 +300,8 @@ export const routes: RouteRecordRaw[] = [
         component: OrganizationsPage,
         meta: {
           title: '行政组织与岗位',
+          titleKey: 'shell.navigation.item.systemdata-organizations',
+          fallbackTitle: '行政组织与岗位',
           requiresAuth: true,
           permission: PERMISSIONS.systemDataOrganizationView,
           terminal: 'pc',
@@ -298,6 +314,8 @@ export const routes: RouteRecordRaw[] = [
         component: AssignmentsPage,
         meta: {
           title: '用户任职',
+          titleKey: 'shell.navigation.item.systemdata-assignments',
+          fallbackTitle: '用户任职',
           requiresAuth: true,
           permission: PERMISSIONS.systemDataAssignmentView,
           terminal: 'pc',
@@ -310,6 +328,8 @@ export const routes: RouteRecordRaw[] = [
         component: NavigationPage,
         meta: {
           title: '导航与资源发布',
+          titleKey: 'shell.navigation.item.systemdata-navigation',
+          fallbackTitle: '导航与资源发布',
           requiresAuth: true,
           permission: PERMISSIONS.systemDataNavigationView,
           terminal: 'pc',
@@ -322,6 +342,8 @@ export const routes: RouteRecordRaw[] = [
         component: FeaturesPage,
         meta: {
           title: '功能开关',
+          titleKey: 'shell.navigation.item.systemdata-features',
+          fallbackTitle: '功能开关',
           requiresAuth: true,
           permission: PERMISSIONS.systemDataFeatureView,
           terminal: 'pc',
@@ -334,6 +356,8 @@ export const routes: RouteRecordRaw[] = [
         component: ServicesPage,
         meta: {
           title: '服务目录',
+          titleKey: 'shell.navigation.item.systemdata-services',
+          fallbackTitle: '服务目录',
           requiresAuth: true,
           permission: PERMISSIONS.systemDataServiceCatalogView,
           terminal: 'pc',
@@ -346,6 +370,8 @@ export const routes: RouteRecordRaw[] = [
         component: ThemesPage,
         meta: {
           title: '租户主题策略',
+          titleKey: 'shell.navigation.item.systemdata-themes',
+          fallbackTitle: '租户主题策略',
           requiresAuth: true,
           permission: PERMISSIONS.systemDataThemePolicyView,
           terminal: 'pc',
@@ -358,6 +384,8 @@ export const routes: RouteRecordRaw[] = [
         component: ServiceInitializationPage,
         meta: {
           title: '服务初始化编排',
+          titleKey: 'shell.navigation.item.systemdata-service-initialization',
+          fallbackTitle: '服务初始化编排',
           requiresAuth: true,
           permission: PERMISSIONS.systemDataServiceInitializationView,
           terminal: 'pc',

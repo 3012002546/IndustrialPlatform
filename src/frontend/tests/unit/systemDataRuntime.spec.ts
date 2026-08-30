@@ -54,6 +54,8 @@ describe('SystemData runtime navigation adapter', () => {
         items: [expect.objectContaining({ id: 'allowed', routeName: 'systemdata-services' })],
       }),
     ])
+    expect(groups[0]?.labelKey).toBe('shell.navigation.group.group-1')
+    expect(groups[0]?.items[0]?.labelKey).toBe('shell.navigation.item.allowed')
   })
 })
 

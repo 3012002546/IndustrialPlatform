@@ -157,7 +157,7 @@ const DEFAULT_PC_NAVIGATION_GROUPS: readonly NavigationGroup[] = [
 function normalizeItem(item: NavigationItem): NavigationItem {
   return {
     ...item,
-    labelKey: item.labelKey ?? `navigation.item.${item.id}`,
+    labelKey: item.labelKey ?? `shell.navigation.item.${item.id}`,
     fallbackLabel: item.fallbackLabel ?? item.label,
     ...(item.children === undefined
       ? {}
@@ -170,7 +170,7 @@ export function normalizeNavigationGroups(
 ): NavigationGroup[] {
   return groups.map((group) => ({
     ...group,
-    labelKey: group.labelKey ?? `navigation.group.${group.id}`,
+    labelKey: group.labelKey ?? `shell.navigation.group.${group.id}`,
     fallbackLabel: group.fallbackLabel ?? group.label,
     items: group.items.map(normalizeItem),
   }))

@@ -11,7 +11,7 @@ import * as device from '@/device'
 import { createMockAuthGateway, setAuthGateway, setCurrentSession, writeAuthSession } from '@/auth'
 import type { AuthGateway, AuthSession } from '@/auth/types'
 import { PERMISSIONS } from '@/permissions'
-import { installRouterGuards } from '@/router/guards'
+import { installRouterGuards, setDocumentTitle } from '@/router/guards'
 import { routes } from '@/router/routes'
 import { useAuthStore } from '@/stores/authStore'
 import { useWorkspaceTabsStore } from '@/stores/workspaceTabsStore'
@@ -321,6 +321,32 @@ describe('路由守卫 — 历史与标题', () => {
     const router = buildRouter()
     await router.push('/login')
     expect(document.title).toBe('登录 · Industrial Platform')
+  })
+
+  it('静态导航路由标题跟随 shell 资源键切换语言', async () => {
+    stubViewport(1280)
+    await login([PERMISSIONS.platformHomeView, PERMISSIONS.userGroupView])
+    document.documentElement.lang = 'en-US'
+    const router = buildRouter()
+    await router.push('/pc/identity/user-groups')
+
+    expect(router.currentRoute.value.meta.titleKey).toBe(
+      'shell.navigation.item.identity-user-groups',
+    )
+    setDocumentTitle(
+      router.currentRoute.value.meta.title,
+      router.currentRoute.value.meta.titleKey,
+      router.currentRoute.value.meta.fallbackTitle,
+    )
+    expect(document.title).toBe('User groups · Industrial Platform')
+
+    document.documentElement.lang = 'zh-CN'
+    setDocumentTitle(
+      router.currentRoute.value.meta.title,
+      router.currentRoute.value.meta.titleKey,
+      router.currentRoute.value.meta.fallbackTitle,
+    )
+    expect(document.title).toBe('用户组管理 · Industrial Platform')
   })
 })
 

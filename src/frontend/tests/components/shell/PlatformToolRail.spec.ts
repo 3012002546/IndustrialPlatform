@@ -4,11 +4,14 @@
  */
 
 import { mount, type VueWrapper } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
 
+import { normalizeNavigationGroups } from '@/components/navigation/navigation'
 import PlatformToolRail from '@/components/shell/PlatformToolRail.vue'
 import type { NavigationGroup } from '@/components/navigation/types'
+import { useLocalizationStore } from '@/stores/localizationStore'
 
 const IconA = defineComponent({ name: 'IconA', template: '<span>★</span>' })
 const IconB = defineComponent({ name: 'IconB', template: '<span>◆</span>' })
@@ -25,6 +28,10 @@ function mountRail(activeGroupId = 'workspace'): VueWrapper {
 }
 
 describe('PlatformToolRail', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
   it('渲染每个分组的图标按钮,带 aria-label 名称', () => {
     const wrapper = mountRail()
     const buttons = wrapper.findAll('button')
@@ -77,4 +84,71 @@ describe('PlatformToolRail', () => {
     expect(wrapper.findAll('.ip-toolrail__label')).toHaveLength(0)
     expect(wrapper.findAll('.ip-toolrail__icon')).toHaveLength(GROUPS.length)
   })
+
+  it('语言切换即时更新一级分组、更多菜单与 aria 文案', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const localization = useLocalizationStore()
+    const groups = normalizeNavigationGroups([
+      { ...GROUPS[0]!, items: [] },
+      { ...GROUPS[1]!, items: [] },
+    ])
+    localization.setLocale('en-US', null)
+    const wrapper = mount(PlatformToolRail, {
+      props: { groups, activeGroupId: 'workspace' },
+      global: { plugins: [pinia] },
+    })
+
+    expect(wrapper.findAll('.ip-toolrail__button')[0]?.attributes('aria-label')).toBe('Workspace')
+    expect(wrapper.find('nav').attributes('aria-label')).toBe('Platform groups')
+
+    localization.setLocale('zh-CN', null)
+    await wrapper.vm.$nextTick()
+    expect(wrapper.findAll('.ip-toolrail__button')[0]?.attributes('aria-label')).toBe('工作台')
+    expect(wrapper.find('nav').attributes('aria-label')).toBe('平台分组')
+  })
+
+  it('更多菜单中的溢出分组也跟随语言切换', async () => {
+    let triggerResize: (() => void) | undefined
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(private readonly callback: ResizeObserverCallback) {
+          triggerResize = () =>
+            this.callback(
+              [{ contentRect: { height: 74 } } as ResizeObserverEntry],
+              this as unknown as ResizeObserver,
+            )
+        }
+
+        observe(): void {}
+
+        disconnect(): void {}
+      },
+    )
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const localization = useLocalizationStore()
+    const groups = normalizeNavigationGroups([
+      ...GROUPS,
+      { id: 'extra', label: '额外', icon: IconA, items: [] },
+    ])
+    const wrapper = mount(PlatformToolRail, {
+      props: { groups, activeGroupId: 'workspace' },
+      global: { plugins: [pinia] },
+    })
+    triggerResize?.()
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="toolrail-more"]').exists()).toBe(true)
+    await wrapper.get('[data-testid="toolrail-more"]').trigger('click')
+    localization.setLocale('en-US', null)
+    await wrapper.vm.$nextTick()
+    expect(wrapper.get('[data-testid="toolrail-more-menu"]').text()).toContain('System management')
+
+    localization.setLocale('zh-CN', null)
+    await wrapper.vm.$nextTick()
+    expect(wrapper.get('[data-testid="toolrail-more-menu"]').text()).toContain('系统管理')
+  })
+
 })

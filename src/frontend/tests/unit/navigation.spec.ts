@@ -25,10 +25,10 @@ function registeredRouteNames(): Set<string> {
 describe('pcNavigationGroups', () => {
   it('每个静态分组与菜单项都有稳定文案键和保底文案', () => {
     for (const group of pcNavigationGroups) {
-      expect(group.labelKey).toBe(`navigation.group.${group.id}`)
+      expect(group.labelKey).toBe(`shell.navigation.group.${group.id}`)
       expect(group.fallbackLabel).toBe(group.label)
       for (const item of group.items) {
-        expect(item.labelKey).toBe(`navigation.item.${item.id}`)
+        expect(item.labelKey).toBe(`shell.navigation.item.${item.id}`)
         expect(item.fallbackLabel).toBe(item.label)
       }
     }
@@ -58,11 +58,14 @@ describe('pcNavigationGroups', () => {
         ],
       },
     ])
-    expect(groups[0]).toMatchObject({ labelKey: 'navigation.group.custom', fallbackLabel: '自定义' })
+    expect(groups[0]).toMatchObject({
+      labelKey: 'shell.navigation.group.custom',
+      fallbackLabel: '自定义',
+    })
     expect(groups[0]!.items[0]).toMatchObject({
-      labelKey: 'navigation.item.custom-item',
+      labelKey: 'shell.navigation.item.custom-item',
       fallbackLabel: '自定义项',
-      children: [{ labelKey: 'navigation.item.custom-child', fallbackLabel: '子项' }],
+      children: [{ labelKey: 'shell.navigation.item.custom-child', fallbackLabel: '子项' }],
     })
   })
 

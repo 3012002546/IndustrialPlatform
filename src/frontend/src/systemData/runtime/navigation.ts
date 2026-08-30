@@ -26,7 +26,7 @@ function mapItem(node: NavigationRuntimeNodeDto): NavigationItem | null {
   return {
     id: node.nodeNId,
     label: node.label,
-    labelKey: `navigation.item.${node.resourceNId ?? node.nodeNId}`,
+    labelKey: `shell.navigation.item.${node.resourceNId ?? node.nodeNId}`,
     fallbackLabel: node.label,
     routeName: node.routeName,
     icon: iconFor(node.iconKey),
@@ -46,7 +46,7 @@ export function mapRuntimeNavigation(
     .map((node) => ({
       id: node.nodeNId,
       label: node.label,
-      labelKey: `navigation.group.${node.resourceNId ?? node.nodeNId}`,
+      labelKey: `shell.navigation.group.${node.resourceNId ?? node.nodeNId}`,
       fallbackLabel: node.label,
       icon: iconFor(node.iconKey),
       displayOrder: node.displayOrder,
