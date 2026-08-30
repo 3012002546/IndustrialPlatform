@@ -1,14 +1,21 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import { PERMISSIONS } from '@/permissions'
 import { ROUTE_NAMES } from '@/router/routes'
 import { useAuthStore } from '@/stores/authStore'
-import { usePcExperienceStore } from '@/stores/pcExperienceStore'
+import {
+  clearPcExperienceReturnRoute,
+  readPcExperienceReturnRoute,
+  usePcExperienceStore,
+  writePcExperienceReturnRoute,
+} from '@/stores/pcExperienceStore'
 import { localeMessages } from '@/localization/i18n'
 import { usePlatformLocale } from '@/localization/localeContext'
 import type { PcExperienceMode } from '@/operation/types'
+import { toPersistedRoute } from '@/workspace'
+import type { PcExperienceReturnRoute } from '@/stores/pcExperienceStore'
 
 const props = withDefaults(
   defineProps<{ mode?: PcExperienceMode }>(),
@@ -17,6 +24,7 @@ const props = withDefaults(
 const emit = defineEmits<{ change: [mode: PcExperienceMode] }>()
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const experienceStore = usePcExperienceStore()
 const locale = usePlatformLocale()
@@ -27,6 +35,70 @@ const visible = computed(
     authStore.hasPermission(PERMISSIONS.platformOperationView),
 )
 const currentMode = computed(() => experienceStore.mode ?? props.mode)
+
+function currentScope() {
+  const user = authStore.user
+  return user === null
+    ? null
+    : { tenantId: user.tenantId, userId: user.userId, device: 'pc' as const }
+}
+
+function saveManagementReturnRoute(): void {
+  const scope = currentScope()
+  if (
+    scope === null ||
+    route.meta.requiresAuth !== true ||
+    route.meta.terminal !== 'pc' ||
+    route.meta.experience === 'operation' ||
+    typeof route.name !== 'string'
+  ) {
+    return
+  }
+  const persisted = toPersistedRoute({
+    name: route.name,
+    params: route.params,
+    query: route.query,
+  })
+  writePcExperienceReturnRoute(scope, { path: route.path, ...persisted })
+}
+
+function isAllowedManagementRoute(saved: PcExperienceReturnRoute): boolean {
+  try {
+    const resolved = router.resolve({
+      name: saved.name,
+      params: saved.params,
+      query: saved.query,
+    })
+    if (
+      resolved.path !== saved.path ||
+      resolved.meta.requiresAuth !== true ||
+      resolved.meta.terminal !== 'pc' ||
+      resolved.meta.experience === 'operation'
+    ) {
+      return false
+    }
+    const permission = resolved.meta.permission
+    if (typeof permission === 'string' && !authStore.hasPermission(permission)) return false
+    const anyPermissions = resolved.meta.anyPermissions as readonly string[] | undefined
+    return (
+      anyPermissions === undefined || anyPermissions.some((item) => authStore.hasPermission(item))
+    )
+  } catch {
+    return false
+  }
+}
+
+function managementReturnLocation() {
+  const scope = currentScope()
+  if (scope !== null) {
+    const saved = readPcExperienceReturnRoute(scope)
+    clearPcExperienceReturnRoute(scope)
+    if (saved !== null && isAllowedManagementRoute(saved)) {
+      return { name: saved.name, params: saved.params, query: saved.query }
+    }
+  }
+  return { name: ROUTE_NAMES.pcHome }
+}
 
 onMounted(() => {
   const user = authStore.user
@@ -40,8 +112,11 @@ onMounted(() => {
 
 async function switchMode(mode: PcExperienceMode): Promise<void> {
   if (!experienceStore.setMode(mode)) return
+  if (mode === 'operation') saveManagementReturnRoute()
   emit('change', mode)
-  await router.push({ name: mode === 'operation' ? ROUTE_NAMES.pcOperation : ROUTE_NAMES.pcHome })
+  await router.push(
+    mode === 'operation' ? { name: ROUTE_NAMES.pcOperation } : managementReturnLocation(),
+  )
 }
 </script>
 

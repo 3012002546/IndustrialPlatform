@@ -20,6 +20,7 @@ import type { UserSummaryDto } from '@/api/identity/management'
 import IdentityUsersPage from '@/pages/pc/identity/IdentityUsersPage.vue'
 import { useAuthStore } from '@/stores/authStore'
 import { useLocalizationStore } from '@/stores/localizationStore'
+import { buildPageStateKey, writePageState } from '@/workspace/pageState'
 
 const { fakeApi } = vi.hoisted(() => ({
   fakeApi: {
@@ -188,6 +189,25 @@ describe('IdentityUsersPage — 创建用户(服务端随机临时密码)', () =
     expect(reset.attributes('type')).toBe('button')
     expect(submit.attributes('disabled')).toBeUndefined()
     expect(reset.attributes('disabled')).toBeUndefined()
+  })
+
+  it('按当前用户作用域恢复 page-state 后再发起首次列表查询', async () => {
+    const scope = { tenantId: 't1', userId: 'u1' }
+    writePageState(sessionStorage, scope, 'identity-users', {
+      query: { loginName: 'e2e.admin' },
+      pageIndex: 2,
+      pageSize: 10,
+      scrollTop: 180,
+    })
+    fakeApi.listUsers.mockResolvedValue({ items: [], total: 0, pageIndex: 2, pageSize: 10 })
+
+    const wrapper = await mountUsersPage(['identity.user.view'])
+
+    expect(wrapper.get('input[aria-label="登录名"]').element).toHaveProperty('value', 'e2e.admin')
+    expect(fakeApi.listUsers).toHaveBeenCalledWith(
+      expect.objectContaining({ loginName: 'e2e.admin', pageIndex: 2, pageSize: 10 }),
+    )
+    expect(sessionStorage.getItem(buildPageStateKey(scope, 'identity-users'))).not.toBeNull()
   })
 
   it('页面标题和说明随 locale 使用稳定资源', async () => {

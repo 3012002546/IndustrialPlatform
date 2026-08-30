@@ -3,8 +3,44 @@ import { computed, ref } from 'vue'
 
 import { PERMISSIONS } from '@/permissions'
 import type { PcExperienceMode, PcExperienceScope } from '@/operation/types'
+import type { PersistedRouteLocation } from '@/workspace/types'
 
 export const PC_EXPERIENCE_MODE_KEY_PREFIX = 'industrial-platform.pc.experience-mode.v1'
+export const PC_EXPERIENCE_RETURN_ROUTE_KEY_PREFIX =
+  'industrial-platform.pc.experience-return-route.v1'
+
+export interface PcExperienceReturnRoute extends PersistedRouteLocation {
+  path: string
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function isStringMap(value: unknown): value is Record<string, string | string[]> {
+  if (!isRecord(value)) return false
+  return Object.values(value).every(
+    (item) =>
+      typeof item === 'string' ||
+      (Array.isArray(item) && item.every((entry) => typeof entry === 'string')),
+  )
+}
+
+function isReturnRoute(value: unknown): value is PcExperienceReturnRoute {
+  if (!isRecord(value)) return false
+  const keys = new Set(['path', 'name', 'params', 'query'])
+  return (
+    Object.keys(value).every((key) => keys.has(key)) &&
+    typeof value.path === 'string' &&
+    value.path.startsWith('/pc/') &&
+    value.path.length <= 2048 &&
+    typeof value.name === 'string' &&
+    value.name.length > 0 &&
+    value.name.length <= 128 &&
+    isStringMap(value.params) &&
+    isStringMap(value.query)
+  )
+}
 
 function isMode(value: string | null | undefined): value is PcExperienceMode {
   return value === 'management' || value === 'operation'
@@ -12,6 +48,46 @@ function isMode(value: string | null | undefined): value is PcExperienceMode {
 
 export function buildPcExperiencePreferenceKey(scope: PcExperienceScope): string {
   return `${PC_EXPERIENCE_MODE_KEY_PREFIX}:${encodeURIComponent(scope.tenantId)}:${encodeURIComponent(scope.userId)}:${scope.device}`
+}
+
+export function buildPcExperienceReturnRouteKey(scope: PcExperienceScope): string {
+  return `${PC_EXPERIENCE_RETURN_ROUTE_KEY_PREFIX}:${encodeURIComponent(scope.tenantId)}:${encodeURIComponent(scope.userId)}:${scope.device}`
+}
+
+export function writePcExperienceReturnRoute(
+  scope: PcExperienceScope,
+  route: PcExperienceReturnRoute,
+): boolean {
+  if (!isReturnRoute(route)) return false
+  try {
+    const serialized = JSON.stringify(route)
+    if (serialized.length > 4096) return false
+    globalThis.sessionStorage.setItem(buildPcExperienceReturnRouteKey(scope), serialized)
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function readPcExperienceReturnRoute(
+  scope: PcExperienceScope,
+): PcExperienceReturnRoute | null {
+  try {
+    const raw = globalThis.sessionStorage.getItem(buildPcExperienceReturnRouteKey(scope))
+    if (raw === null) return null
+    const parsed: unknown = JSON.parse(raw)
+    return isReturnRoute(parsed) ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+export function clearPcExperienceReturnRoute(scope: PcExperienceScope): void {
+  try {
+    globalThis.sessionStorage.removeItem(buildPcExperienceReturnRouteKey(scope))
+  } catch {
+    // Session storage is best effort; mode navigation must remain usable.
+  }
 }
 
 export function canEnterPcExperienceMode(

@@ -2,15 +2,19 @@ import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import {
+  buildPcExperienceReturnRouteKey,
   buildPcExperiencePreferenceKey,
   canEnterPcExperienceMode,
+  readPcExperienceReturnRoute,
   resolvePcExperienceMode,
   usePcExperienceStore,
+  writePcExperienceReturnRoute,
 } from '@/stores/pcExperienceStore'
 
 describe('pcExperienceStore', () => {
   beforeEach(() => {
     localStorage.clear()
+    sessionStorage.clear()
     setActivePinia(createPinia())
   })
 
@@ -39,5 +43,22 @@ describe('pcExperienceStore', () => {
     store.setMode('operation')
     expect(store.mode).toBe('operation')
     expect(localStorage.getItem('industrial-platform.pc.experience-mode.v1:t1:u1:pc')).toBe('operation')
+  })
+
+  it('按 tenant/user/device 在当前浏览器会话保存管理返回位置', () => {
+    const scope = { tenantId: 't1', userId: 'u1', device: 'pc' as const }
+    const otherScope = { tenantId: 't2', userId: 'u1', device: 'pc' as const }
+    const location = {
+      path: '/pc/identity/users',
+      name: 'identity-users',
+      params: {},
+      query: { loginName: 'e2e.admin' },
+    }
+
+    expect(writePcExperienceReturnRoute(scope, location)).toBe(true)
+    expect(sessionStorage.getItem(buildPcExperienceReturnRouteKey(scope))).not.toBeNull()
+    expect(readPcExperienceReturnRoute(scope)).toEqual(location)
+    expect(readPcExperienceReturnRoute(otherScope)).toBeNull()
+    expect(localStorage.length).toBe(0)
   })
 })

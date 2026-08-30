@@ -201,6 +201,17 @@ test('业务标签恢复:管理员刷新恢复业务标签,受限用户不携带
 test('真实生产操作壳在 1280/1440 视口保持紧凑顶栏与完整卡片区', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1280, height: 720 })
   await login(page, E2E_ADMIN)
+  await page.goto('/pc/identity/users')
+  await expect(page.getByTestId('identity-users-page')).toBeVisible({ timeout: 60_000 })
+  const loginName = page.getByLabel('登录名', { exact: true })
+  await loginName.fill(E2E_ADMIN)
+  await page.getByTestId('query-panel-submit').click()
+  await expect(loginName).toHaveValue(E2E_ADMIN)
+  await expect(usersMainTable(page).getByText(E2E_ADMIN, { exact: true })).toBeVisible({
+    timeout: 60_000,
+  })
+  await expect(page.locator('.ip-pc-tabs__item--active .ip-pc-tabs__tab')).toContainText('用户管理')
+
   await page.getByRole('button', { name: '生产操作' }).click()
   await expect(page).toHaveURL(/\/pc\/operation/)
   await expect(page.getByTestId('operation-user-menu').locator('svg')).toHaveCSS('width', '18px')
@@ -223,6 +234,12 @@ test('真实生产操作壳在 1280/1440 视口保持紧凑顶栏与完整卡片
   expect(lastCard!.y + lastCard!.height).toBeLessThanOrEqual(900)
   expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight)).toBe(true)
   await page.screenshot({ path: testInfo.outputPath('real-operation-1440x900.png'), fullPage: true })
+
+  await page.getByRole('button', { name: '管理' }).click()
+  await expect(page).toHaveURL(/\/pc\/identity\/users/)
+  await expect(page.locator('.ip-pc-tabs__item--active .ip-pc-tabs__tab')).toContainText('用户管理')
+  await expect(page.getByLabel('登录名', { exact: true })).toHaveValue(E2E_ADMIN)
+  await expect(usersMainTable(page).getByText(E2E_ADMIN, { exact: true })).toHaveCount(1)
 })
 
 test('注销干净回登录页且控制台无敏感令牌/密码日志', async ({ page }) => {

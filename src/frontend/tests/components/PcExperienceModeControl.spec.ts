@@ -1,4 +1,6 @@
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
+import { h } from 'vue'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -46,5 +48,58 @@ describe('PcExperienceModeControl', () => {
     await useAuthStore().restore()
     const wrapper = mount(PcExperienceModeControl)
     expect(wrapper.find('[data-testid="pc-experience-mode-control"]').exists()).toBe(false)
+  })
+
+  it('从管理业务页切换后返回时恢复原路由、查询与用户管理页签', async () => {
+    localStorage.clear()
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    writeAuthSession(
+      sessionStorage,
+      session(['platform.home.view', 'platform.operation.view', 'identity.user.view']),
+    )
+    await useAuthStore().restore()
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/pc/home', name: 'pc-home', component: { render: () => h('div', 'home') } },
+        {
+          path: '/pc/operation',
+          name: 'pc-operation',
+          component: { render: () => h('div', 'operation') },
+          meta: {
+            title: 'Production operation',
+            requiresAuth: true,
+            terminal: 'pc',
+            experience: 'operation',
+          },
+        },
+        {
+          path: '/pc/identity/users',
+          name: 'identity-users',
+          component: { render: () => h('div', 'users') },
+          meta: {
+            title: 'Users',
+            requiresAuth: true,
+            terminal: 'pc',
+            permission: 'identity.user.view',
+          },
+        },
+      ],
+    })
+    await router.push({ name: 'identity-users', query: { loginName: 'e2e.admin' } })
+    await router.isReady()
+    const wrapper = mount(PcExperienceModeControl, {
+      global: { plugins: [router, pinia] },
+    })
+
+    await wrapper.findAll('button')[1]!.trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.name).toBe('pc-operation')
+
+    await wrapper.findAll('button')[0]!.trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.name).toBe('identity-users')
+    expect(router.currentRoute.value.query).toEqual({ loginName: 'e2e.admin' })
   })
 })

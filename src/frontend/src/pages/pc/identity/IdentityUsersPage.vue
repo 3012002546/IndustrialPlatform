@@ -7,7 +7,7 @@
  */
 import { ElDropdown, ElDropdownItem, ElDropdownMenu, ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 
 import { getManagementApi } from '@/api/identity/managementRegistry'
 import type { RoleSummaryDto, UserGroupSummaryDto, UserSummaryDto } from '@/api/identity/management'
@@ -24,6 +24,9 @@ import { localeMessages } from '@/localization/i18n'
 import { PERMISSIONS, PermissionGate, usePermission } from '@/permissions'
 import AppDataTable from '@/components/management/AppDataTable.vue'
 import { useLocalizationStore } from '@/stores/localizationStore'
+import { useAuthStore } from '@/stores/authStore'
+import { readPageState, writePageState } from '@/workspace/pageState'
+import type { UserUiScope } from '@/theme/types'
 
 import TemporaryPasswordDialog from './components/TemporaryPasswordDialog.vue'
 import { formatTime, reportManagementError } from './shared'
@@ -38,6 +41,7 @@ interface UserForm {
 
 const management = getManagementApi()
 const { has } = usePermission()
+const authStore = useAuthStore()
 const localization = useLocalizationStore()
 const commonCopy = computed(() => localeMessages[localization.locale].common.action)
 const copy = computed(() => localeMessages[localization.locale].identity.user)
@@ -138,6 +142,67 @@ const query = reactive({
 const pageIndex = ref(1)
 const pageSize = ref(25)
 const tableQueryMode = ref<AppDataTableQueryMode>('top')
+
+const IDENTITY_USERS_TAB_ID = 'identity-users'
+
+function currentPageStateScope(): UserUiScope | null {
+  const user = authStore.user
+  return user === null ? null : { tenantId: user.tenantId, userId: user.userId }
+}
+
+function pageScrollElement(): HTMLElement | null {
+  const main = document.querySelector<HTMLElement>('.ip-pc-main')
+  if (main !== null) return main
+  return document.scrollingElement instanceof HTMLElement ? document.scrollingElement : null
+}
+
+function readQueryValue(value: string | string[] | undefined): string {
+  return Array.isArray(value) ? String(value[0] ?? '') : (value ?? '')
+}
+
+function restorePageState(): void {
+  const scope = currentPageStateScope()
+  if (scope === null) return
+  const saved = readPageState(sessionStorage, scope, IDENTITY_USERS_TAB_ID)
+  if (saved === null) return
+
+  const savedQuery = saved.query ?? {}
+  query.nId = readQueryValue(savedQuery.nId)
+  query.loginName = readQueryValue(savedQuery.loginName)
+  query.name = readQueryValue(savedQuery.name)
+  query.status = readQueryValue(savedQuery.status)
+  query.groupNId = readQueryValue(savedQuery.groupNId)
+  query.roleNId = readQueryValue(savedQuery.roleNId)
+  query.includeDeleted = readQueryValue(savedQuery.includeDeleted) === 'true'
+  if (saved.pageIndex !== undefined) pageIndex.value = saved.pageIndex
+  if (saved.pageSize !== undefined) pageSize.value = saved.pageSize
+
+  if (saved.scrollTop !== undefined) {
+    void nextTick(() => {
+      const scroller = pageScrollElement()
+      if (scroller !== null) scroller.scrollTop = saved.scrollTop ?? 0
+    })
+  }
+}
+
+function persistPageState(): void {
+  const scope = currentPageStateScope()
+  if (scope === null) return
+  writePageState(sessionStorage, scope, IDENTITY_USERS_TAB_ID, {
+    query: {
+      nId: query.nId,
+      loginName: query.loginName,
+      name: query.name,
+      status: query.status,
+      groupNId: query.groupNId,
+      roleNId: query.roleNId,
+      includeDeleted: String(query.includeDeleted),
+    },
+    pageIndex: pageIndex.value,
+    pageSize: pageSize.value,
+    scrollTop: pageScrollElement()?.scrollTop ?? 0,
+  })
+}
 
 /** 全部可用角色/用户组选项(供角色/用户组过滤与角色来源展示)。 */
 const allRoles = ref<RoleSummaryDto[]>([])
@@ -282,6 +347,7 @@ async function loadUsers(): Promise<void> {
 
 function search(): void {
   pageIndex.value = 1
+  persistPageState()
   void loadUsers()
 }
 
@@ -294,12 +360,14 @@ function resetQuery(): void {
   query.roleNId = ''
   query.includeDeleted = false
   pageIndex.value = 1
+  persistPageState()
   void loadUsers()
 }
 
 function onTableQuery(request: AppDataTableRequest): void {
   pageIndex.value = request.pageIndex
   pageSize.value = request.pageSize
+  persistPageState()
 }
 
 function onTableLoadError(error: unknown): void {
@@ -318,6 +386,7 @@ function onTableQueryModeChange(mode: AppDataTableQueryMode): void {
     query.includeDeleted = false
   }
   pageIndex.value = 1
+  persistPageState()
 }
 
 function buildUserQueryDescriptor(
@@ -709,9 +778,14 @@ const userRules: FormRules = {
 }
 
 onMounted(() => {
+  restorePageState()
   void loadUsers()
   void loadAllRoles()
   void loadAllGroups()
+})
+
+onBeforeUnmount(() => {
+  persistPageState()
 })
 </script>
 
