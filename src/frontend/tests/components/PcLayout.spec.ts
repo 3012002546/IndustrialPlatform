@@ -117,6 +117,26 @@ describe('PcLayout', () => {
     expect(wrapper.get('main#main-content').attributes('tabindex')).toBe('-1')
   })
 
+  it('主内容区统一使用 10px 页面边距，工作台路由复用同一边距', async () => {
+    const { wrapper, router } = await mountLayout()
+    const main = wrapper.get('main#main-content')
+    expect(router.currentRoute.value.path).toBe('/pc/home')
+    expect(window.getComputedStyle(main.element).padding).toBe('10px')
+  })
+
+  it('锁定保留页面并显示遮罩，锁定动作不调用 Identity logout', async () => {
+    const { wrapper, router } = await mountLayout()
+    const logout = vi.spyOn(useAuthStore(), 'logout')
+    const dropdown = wrapper.findComponent(ElDropdown)
+    expect(dropdown.exists()).toBe(true)
+    dropdown.vm.$emit('command', 'lock')
+    await nextTick()
+    expect(wrapper.find('[data-testid="app-lock-overlay"]').exists()).toBe(true)
+    expect(router.currentRoute.value.name).toBe('pc-home')
+    expect(logout).not.toHaveBeenCalled()
+    expect(useAuthStore().isAuthenticated).toBe(false)
+  })
+
   it('跳到主内容入口是布局内第一个可聚焦元素', async () => {
     const { wrapper } = await mountLayout()
     const skip = wrapper.get('a.ip-pc-skip-link')

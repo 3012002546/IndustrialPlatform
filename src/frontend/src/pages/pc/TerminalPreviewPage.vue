@@ -125,7 +125,7 @@ function toggleFullscreen(): void {
 </script>
 
 <template>
-  <section class="terminal-preview-page" data-testid="terminal-preview-workspace">
+  <section class="terminal-preview-page" data-testid="terminal-preview-workspace" style="padding: 0">
     <header class="terminal-preview-page__header">
       <div>
         <p class="terminal-preview-page__eyebrow">PC 工作台 / 设备能力验证</p>
@@ -299,7 +299,6 @@ function toggleFullscreen(): void {
   display: flex;
   flex-direction: column;
   min-height: 100%;
-  padding: var(--ip-space-5);
   color: var(--ip-color-text-primary);
   background: var(--ip-color-bg-page);
 }
@@ -454,10 +453,6 @@ function toggleFullscreen(): void {
 }
 
 @media (max-width: 860px) {
-  .terminal-preview-page {
-    padding: var(--ip-space-3);
-  }
-
   .terminal-preview-page__header {
     align-items: flex-start;
     flex-direction: column;

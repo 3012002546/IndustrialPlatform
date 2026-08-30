@@ -23,6 +23,12 @@ async function mountPreview(
 }
 
 describe('TerminalPreviewPage', () => {
+  it('复用 PcLayout 内容边距，不再叠加整页外层 padding', async () => {
+    const { wrapper } = await mountPreview()
+
+    expect(window.getComputedStyle(wrapper.get('.terminal-preview-page').element).padding).toBe('0px')
+  })
+
   it('默认通过同源 iframe 打开真实 PDA 首页预览契约', async () => {
     const { wrapper } = await mountPreview()
     const frame = wrapper.get('[data-testid="terminal-preview-frame"]')

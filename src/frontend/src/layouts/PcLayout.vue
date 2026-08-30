@@ -375,7 +375,7 @@ function onLimitResolve(resolution: TabLimitResolution): void {
           :label-key="activeGroup.labelKey"
           :items="activeGroupItems"
         />
-        <main id="main-content" class="ip-pc-main" tabindex="-1">
+        <main id="main-content" class="ip-pc-main" style="padding: 10px" tabindex="-1">
           <RouterView :key="contentKey" />
         </main>
       </div>
