@@ -21,6 +21,7 @@ export {
 } from './persistence'
 export {
   buildPageStateKey,
+  buildPageStateKeyPrefix,
   clearPageState,
   readPageState,
   removePageState,

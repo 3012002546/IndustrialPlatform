@@ -48,6 +48,7 @@ import type {
 } from './AppDataTable'
 import {
   buildAppDataTablePreferenceKey,
+  buildScopedAppDataTableUserKey,
   createDefaultAppDataTablePreferences,
   readAppDataTablePreferences,
   writeAppDataTablePreferences,
@@ -220,7 +221,10 @@ const routeName = (() => {
     return 'unknown'
   }
 })()
-const userName = props.userKey ?? getCurrentSession()?.user.userId ?? 'anonymous'
+const session = getCurrentSession()
+const userName =
+  props.userKey ??
+  (session === null ? 'anonymous' : buildScopedAppDataTableUserKey(session.user))
 const preferenceKey = buildAppDataTablePreferenceKey(userName, routeName, props.tableKey)
 
 function defaultPreferences(): AppDataTablePreferences {

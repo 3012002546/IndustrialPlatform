@@ -7,8 +7,11 @@ import {
   writePageState,
   type WorkspacePageState,
 } from '@/workspace/pageState'
+import type { UserUiScope } from '@/theme/types'
 
 describe('workspace page state', () => {
+  const scope: UserUiScope = { tenantId: 'tenant-1', userId: 'user-1' }
+
   beforeEach(() => {
     sessionStorage.clear()
     localStorage.clear()
@@ -22,18 +25,24 @@ describe('workspace page state', () => {
       sort: [{ field: 'createdOn', direction: 'desc' }],
       scrollTop: 320,
     }
-    expect(writePageState(sessionStorage, 'identity-users&p=1', state)).toBe(true)
-    expect(readPageState(sessionStorage, 'identity-users&p=1')).toEqual(state)
-    expect(sessionStorage.getItem(buildPageStateKey('identity-users&p=1'))).not.toBeNull()
+    expect(writePageState(sessionStorage, scope, 'identity-users&p=1', state)).toBe(true)
+    expect(readPageState(sessionStorage, scope, 'identity-users&p=1')).toEqual(state)
+    expect(sessionStorage.getItem(buildPageStateKey(scope, 'identity-users&p=1'))).not.toBeNull()
     expect(localStorage.length).toBe(0)
   })
 
-  it('非法状态安全回退,关闭标签清理状态', () => {
+  it('同一 tab id 也按 tenant/user 隔离,非法状态安全回退并可清理', () => {
     const tabId = 'identity-users&p=1'
-    sessionStorage.setItem(buildPageStateKey(tabId), '{"pageIndex":0}')
-    expect(readPageState(sessionStorage, tabId)).toBeNull()
-    writePageState(sessionStorage, tabId, { pageIndex: 1 })
-    clearPageState(sessionStorage, tabId)
-    expect(readPageState(sessionStorage, tabId)).toBeNull()
+    const otherScope: UserUiScope = { tenantId: 'tenant-2', userId: 'user-2' }
+    sessionStorage.setItem(buildPageStateKey(scope, tabId), '{"pageIndex":0}')
+    expect(readPageState(sessionStorage, scope, tabId)).toBeNull()
+    expect(readPageState(sessionStorage, otherScope, tabId)).toBeNull()
+    writePageState(sessionStorage, scope, tabId, { pageIndex: 1 })
+    writePageState(sessionStorage, otherScope, tabId, { pageIndex: 2 })
+    expect(readPageState(sessionStorage, scope, tabId)).toEqual({ pageIndex: 1 })
+    expect(readPageState(sessionStorage, otherScope, tabId)).toEqual({ pageIndex: 2 })
+    clearPageState(sessionStorage, scope, tabId)
+    expect(readPageState(sessionStorage, scope, tabId)).toBeNull()
+    expect(readPageState(sessionStorage, otherScope, tabId)).toEqual({ pageIndex: 2 })
   })
 })

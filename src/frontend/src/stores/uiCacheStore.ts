@@ -1,5 +1,7 @@
 import { buildUserTabsKey } from '@/workspace/persistence'
+import { buildPageStateKeyPrefix } from '@/workspace/pageState'
 import type { UserUiScope } from '@/theme/types'
+import { buildScopedAppDataTableUserKey } from '@/components/management/appDataTable/preferences'
 
 /**
  * 删除当前用户的非安全 UI 缓存。前缀是显式白名单，认证、租户、locale、theme、
@@ -11,12 +13,14 @@ export function clearCurrentUserUiCache(
   const localKeys = [
     buildUserTabsKey(scope),
     ...readKeys(globalThis.localStorage).filter((key) =>
-      key.startsWith(`industrial-platform.table-preferences.v1:${scope.userId}:`),
+      key.startsWith(
+        `industrial-platform.table-preferences.v1:${buildScopedAppDataTableUserKey(scope)}:`,
+      ),
     ),
   ]
   localKeys.forEach((key) => removeKey(globalThis.localStorage, key))
   readKeys(globalThis.sessionStorage)
-    .filter((key) => key.startsWith('industrial-platform.pc.page-state.v1:'))
+    .filter((key) => key.startsWith(`${buildPageStateKeyPrefix(scope)}:`))
     .forEach((key) => removeKey(globalThis.sessionStorage, key))
   globalThis.dispatchEvent(new CustomEvent('industrial-platform:ui-cache-cleared'))
 }

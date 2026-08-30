@@ -95,6 +95,8 @@ const bodyId = useId()
   flex-direction: column;
   gap: var(--ip-space-3);
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .app-query-panel__header {
@@ -141,6 +143,7 @@ const bodyId = useId()
 .app-query-panel__body {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   gap: var(--ip-space-3);
 }
 

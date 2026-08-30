@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Options;
+
 namespace IndustrialPlatform.Identity.Application.Authentication;
 
 /// <summary>
@@ -6,11 +8,20 @@ namespace IndustrialPlatform.Identity.Application.Authentication;
 public sealed class IdentitySessionManagementService : IIdentitySessionManagementService
 {
     private readonly IRefreshSessionStore _store;
+    private readonly ISessionRevocationStore _sessionRevocation;
+    private readonly IOptions<AuthenticationOptions> _options;
 
-    public IdentitySessionManagementService(IRefreshSessionStore store)
+    public IdentitySessionManagementService(
+        IRefreshSessionStore store,
+        ISessionRevocationStore sessionRevocation,
+        IOptions<AuthenticationOptions> options)
     {
         ArgumentNullException.ThrowIfNull(store);
+        ArgumentNullException.ThrowIfNull(sessionRevocation);
+        ArgumentNullException.ThrowIfNull(options);
         _store = store;
+        _sessionRevocation = sessionRevocation;
+        _options = options;
     }
 
     public async Task<IReadOnlyList<IdentityActiveSession>> ListActiveAsync(
@@ -48,6 +59,16 @@ public sealed class IdentitySessionManagementService : IIdentitySessionManagemen
             sessionNId.Trim(),
             "admin_revoke",
             cancellationToken);
+        if (found)
+        {
+            // Refresh row 撤销阻止后续旋转;sid 撤销立即阻止已经签发的 Access Token。
+            // TTL 以 Access Token 最大生命周期为界,不把撤销键延长到 Refresh Token 生命周期。
+            var minutes = Math.Clamp(_options.Value.AccessTokenRevocationMinutes, 1, 24 * 60);
+            await _sessionRevocation.RevokeAsync(
+                sessionNId.Trim(),
+                TimeSpan.FromMinutes(minutes),
+                cancellationToken);
+        }
         return new IdentitySessionRevokeResult(
             found,
             found && string.Equals(sessionNId.Trim(), currentSessionNId, StringComparison.Ordinal));

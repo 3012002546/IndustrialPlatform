@@ -23,4 +23,10 @@ public sealed class AuthenticationOptions
 
     /// <summary>Refresh Token 默认有效期天数(§13,7 天)。</summary>
     public int RefreshTokenLifetimeDays { get; set; } = 7;
+
+    /// <summary>
+    /// 管理员撤销单个会话时的 sid 撤销键最大有效期(分钟)。
+    /// 必须覆盖该会话可能仍在有效期内的 Access Token,但不随 Refresh Token 延长。
+    /// </summary>
+    public int AccessTokenRevocationMinutes { get; set; } = 30;
 }

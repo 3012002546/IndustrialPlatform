@@ -1,3 +1,5 @@
+import type { UserUiScope } from '@/theme/types'
+
 /**
  * 当前浏览器会话内的业务页状态。只允许查询/分页/排序/滚动这些可恢复 UI 状态，
  * 不使用 localStorage，也不接受 token、权限或个人资料等身份/安全字段。
@@ -22,10 +24,15 @@ export interface WorkspacePageStateStorage {
   removeItem(key: string): void
 }
 
-const PAGE_STATE_KEY_PREFIX = 'industrial-platform.pc.page-state.v1'
+const PAGE_STATE_KEY_PREFIX = 'industrial-platform.pc.page-state.v2'
 
-export function buildPageStateKey(tabId: string): string {
-  return `${PAGE_STATE_KEY_PREFIX}:${encodeURIComponent(tabId)}`
+/** 当前 tenant/user 的 page-state 键前缀;旧 v1 无身份范围,不再读取或清理。 */
+export function buildPageStateKeyPrefix(scope: UserUiScope): string {
+  return `${PAGE_STATE_KEY_PREFIX}:${encodeURIComponent(scope.tenantId)}:${encodeURIComponent(scope.userId)}`
+}
+
+export function buildPageStateKey(scope: UserUiScope, tabId: string): string {
+  return `${buildPageStateKeyPrefix(scope)}:${encodeURIComponent(tabId)}`
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -67,10 +74,11 @@ function isValidState(value: unknown): value is WorkspacePageState {
 
 export function readPageState(
   storage: WorkspacePageStateStorage,
+  scope: UserUiScope,
   tabId: string,
 ): WorkspacePageState | null {
   try {
-    const raw = storage.getItem(buildPageStateKey(tabId))
+    const raw = storage.getItem(buildPageStateKey(scope, tabId))
     if (raw === null) return null
     const value: unknown = JSON.parse(raw)
     return isValidState(value) ? value : null
@@ -81,21 +89,26 @@ export function readPageState(
 
 export function writePageState(
   storage: WorkspacePageStateStorage,
+  scope: UserUiScope,
   tabId: string,
   state: WorkspacePageState,
 ): boolean {
   if (!isValidState(state)) return false
   try {
-    storage.setItem(buildPageStateKey(tabId), JSON.stringify(state))
+    storage.setItem(buildPageStateKey(scope, tabId), JSON.stringify(state))
     return true
   } catch {
     return false
   }
 }
 
-export function clearPageState(storage: WorkspacePageStateStorage, tabId: string): void {
+export function clearPageState(
+  storage: WorkspacePageStateStorage,
+  scope: UserUiScope,
+  tabId: string,
+): void {
   try {
-    storage.removeItem(buildPageStateKey(tabId))
+    storage.removeItem(buildPageStateKey(scope, tabId))
   } catch {
     // Session storage errors must not block closing a tab.
   }

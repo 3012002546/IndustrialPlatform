@@ -74,10 +74,11 @@ public sealed class SessionManagementEndpointTests
     public async Task Sessions_RevokePermission_CannotReadButCanRevokeOneTenantSessionIdempotently()
     {
         var store = new FakeRefreshSessionStore();
+        var revocation = new FakeRevocationStore();
         store.Add(Tenant, "SES-target");
         store.Add(Tenant, "SES-sibling");
         store.Add("other-tenant", "SES-target");
-        using var factory = CreateFactory(store, PermissionCatalog.SessionRevoke);
+        using var factory = CreateFactory(store, revocation, PermissionCatalog.SessionRevoke);
         using var client = factory.CreateClient();
         var token = await CreateTokenAsync(factory);
 
@@ -98,6 +99,46 @@ public sealed class SessionManagementEndpointTests
         Assert.False(store.IsRevoked(Tenant, "SES-sibling"));
         Assert.False(store.IsRevoked("other-tenant", "SES-target"));
         Assert.Equal(2, store.RevokeCalls.Count(call => call == (Tenant, "SES-target")));
+        Assert.Equal(2, revocation.Calls.Count(call => call.SessionNId == "SES-target"));
+        Assert.All(revocation.Calls, call => Assert.Equal(TimeSpan.FromMinutes(30), call.Ttl));
+    }
+
+    [Fact]
+    public async Task Sessions_RevokeInvalidatesTargetAccessTokenButNotSiblingSession()
+    {
+        var store = new FakeRefreshSessionStore();
+        var revocation = new FakeRevocationStore();
+        store.Add(Tenant, "SES-target");
+        store.Add(Tenant, "SES-sibling");
+        using var factory = CreateFactory(
+            store,
+            revocation,
+            PermissionCatalog.SessionView,
+            PermissionCatalog.SessionRevoke);
+        using var client = factory.CreateClient();
+
+        using var revoke = await SendAsync(
+            client,
+            HttpMethod.Post,
+            "/api/v1/sessions/SES-target/revoke",
+            await CreateTokenAsync(factory, "SES-target"));
+        Assert.Equal(HttpStatusCode.OK, revoke.StatusCode);
+        Assert.True(revocation.IsRevoked("SES-target"));
+        Assert.False(revocation.IsRevoked("SES-sibling"));
+
+        using var targetRead = await SendAsync(
+            client,
+            HttpMethod.Get,
+            "/api/v1/sessions/active",
+            await CreateTokenAsync(factory, "SES-target"));
+        using var siblingRead = await SendAsync(
+            client,
+            HttpMethod.Get,
+            "/api/v1/sessions/active",
+            await CreateTokenAsync(factory, "SES-sibling"));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, targetRead.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, siblingRead.StatusCode);
     }
 
     [Fact]
@@ -105,7 +146,8 @@ public sealed class SessionManagementEndpointTests
     {
         var store = new FakeRefreshSessionStore();
         store.Add(Tenant, CurrentSession);
-        using var factory = CreateFactory(store, PermissionCatalog.SessionRevoke);
+        var revocation = new FakeRevocationStore();
+        using var factory = CreateFactory(store, revocation, PermissionCatalog.SessionRevoke);
         using var client = factory.CreateClient();
 
         using var response = await SendAsync(
@@ -119,6 +161,7 @@ public sealed class SessionManagementEndpointTests
         Assert.True(result.GetProperty("found").GetBoolean());
         Assert.True(result.GetProperty("isCurrent").GetBoolean());
         Assert.True(store.IsRevoked(Tenant, CurrentSession));
+        Assert.True(revocation.IsRevoked(CurrentSession));
     }
 
     [Fact]
@@ -140,13 +183,19 @@ public sealed class SessionManagementEndpointTests
     private static WebApplicationFactory<Program> CreateFactory(
         FakeRefreshSessionStore store,
         params string[] permissions)
+        => CreateFactory(store, new FakeRevocationStore(), permissions);
+
+    private static WebApplicationFactory<Program> CreateFactory(
+        FakeRefreshSessionStore store,
+        FakeRevocationStore revocation,
+        params string[] permissions)
         => new WebApplicationFactory<Program>()
             .WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
             {
                 services.RemoveAll<IRefreshSessionStore>();
                 services.AddSingleton<IRefreshSessionStore>(store);
                 services.RemoveAll<ISessionRevocationStore>();
-                services.AddSingleton<ISessionRevocationStore>(new FakeRevocationStore());
+                services.AddSingleton<ISessionRevocationStore>(revocation);
                 services.RemoveAll<IAuthorizationDataStore>();
                 services.AddSingleton<IAuthorizationDataStore>(
                     new FakeAuthorizationDataStore(
@@ -312,10 +361,20 @@ public sealed class SessionManagementEndpointTests
 
     private sealed class FakeRevocationStore : ISessionRevocationStore
     {
+        private readonly HashSet<string> revoked = new(StringComparer.Ordinal);
+
+        public List<(string SessionNId, TimeSpan Ttl)> Calls { get; } = [];
+
         public Task RevokeAsync(string sessionNId, TimeSpan ttl, CancellationToken cancellationToken)
-            => Task.CompletedTask;
+        {
+            Calls.Add((sessionNId, ttl));
+            revoked.Add(sessionNId);
+            return Task.CompletedTask;
+        }
 
         public Task<bool> IsRevokedAsync(string sessionNId, CancellationToken cancellationToken)
-            => Task.FromResult(false);
+            => Task.FromResult(revoked.Contains(sessionNId));
+
+        public bool IsRevoked(string sessionNId) => revoked.Contains(sessionNId);
     }
 }

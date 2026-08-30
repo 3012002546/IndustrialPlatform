@@ -1,4 +1,5 @@
 import type { AppDataTableColumn, AppDataTableDensity } from '../AppDataTable'
+import type { UserUiScope } from '@/theme/types'
 
 export interface AppDataTablePreferences {
   visibleFields: string[]
@@ -13,6 +14,11 @@ export interface AppDataTablePreferences {
 export interface AppDataTableStorage {
   getItem(key: string): string | null
   setItem(key: string, value: string): void
+}
+
+/** 已登录表格偏好的 tenant/user 作用域键;显式 userKey 仍用于隔离挂载测试/嵌入场景。 */
+export function buildScopedAppDataTableUserKey(scope: UserUiScope): string {
+  return `${encodeURIComponent(scope.tenantId)}:${encodeURIComponent(scope.userId)}`
 }
 
 export function buildAppDataTablePreferenceKey(

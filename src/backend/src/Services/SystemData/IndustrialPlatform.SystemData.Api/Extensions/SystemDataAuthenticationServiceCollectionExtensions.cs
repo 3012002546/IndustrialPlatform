@@ -2,6 +2,8 @@ using System.Security.Cryptography;
 using IndustrialPlatform.Security;
 using IndustrialPlatform.Web.Results;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Protocols;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Microsoft.Extensions.DependencyInjection;
@@ -34,6 +36,8 @@ public static class SystemDataAuthenticationServiceCollectionExtensions
                 var jwt = configuration.GetSection("Jwt");
                 var issuer = jwt["Issuer"];
                 var audience = jwt["Audience"];
+                var signingKeyPem = jwt["SigningKey"];
+                var signingKey = ParsePublicKey(signingKeyPem);
 
                 options.MapInboundClaims = false;
                 options.TokenValidationParameters = new TokenValidationParameters
@@ -46,7 +50,7 @@ public static class SystemDataAuthenticationServiceCollectionExtensions
                     ClockSkew = TimeSpan.FromSeconds(30),
                     RequireSignedTokens = true,
                     ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = ParsePublicKey(jwt["SigningKey"]),
+                    IssuerSigningKey = signingKey,
                     // 与本服务 claim 名对齐,使授权策略可读 user_name/role
                     NameClaimType = ClaimConstants.UserName,
                     RoleClaimType = ClaimConstants.Role,
@@ -69,6 +73,26 @@ public static class SystemDataAuthenticationServiceCollectionExtensions
                             ApiResult.Fail<object?>("SD_PERMISSION_DENIED", "无权限执行此操作。"));
                     },
                 };
+
+                // 独立 SystemData 不持有 Identity 私钥。没有显式公钥时，按标准 JWKS
+                // 端点读取 Identity 的公开签名密钥并由 JwtBearer 缓存/刷新；两种部署模式
+                // 都继续使用同一 issuer/audience 和签名校验，不因网关转发而信任任意令牌。
+                if (signingKey is null
+                    && string.IsNullOrWhiteSpace(signingKeyPem)
+                    && !string.IsNullOrWhiteSpace(jwt["JwksUrl"]))
+                {
+                    options.ConfigurationManager = new ConfigurationManager<OpenIdConnectConfiguration>(
+                        jwt["JwksUrl"]!,
+                        new SystemDataJwksConfigurationRetriever(),
+                        new HttpDocumentRetriever
+                        {
+                            RequireHttps = !string.Equals(
+                                jwt["RequireHttpsMetadata"],
+                                "false",
+                                StringComparison.OrdinalIgnoreCase),
+                        });
+                    options.RefreshOnIssuerKeyNotFound = true;
+                }
             });
 
         return services;
@@ -93,5 +117,33 @@ public static class SystemDataAuthenticationServiceCollectionExtensions
             rsa.Dispose();
             return null;
         }
+    }
+}
+
+/// <summary>
+/// 将 Identity 的 RFC 7517 JWKS 文档适配为 JwtBearer 的签名配置。
+/// Identity 当前只公开 JWKS,不额外引入伪 OIDC 配置或私钥共享。
+/// </summary>
+internal sealed class SystemDataJwksConfigurationRetriever : IConfigurationRetriever<OpenIdConnectConfiguration>
+{
+    public async Task<OpenIdConnectConfiguration> GetConfigurationAsync(
+        string address,
+        IDocumentRetriever retriever,
+        CancellationToken cancellationToken)
+    {
+        var document = await retriever.GetDocumentAsync(address, cancellationToken);
+        var keys = new JsonWebKeySet(document).GetSigningKeys();
+        if (keys.Count == 0)
+        {
+            throw new InvalidOperationException("Identity JWKS 文档未提供可用签名公钥。");
+        }
+
+        var configuration = new OpenIdConnectConfiguration();
+        foreach (var key in keys)
+        {
+            configuration.SigningKeys.Add(key);
+        }
+
+        return configuration;
     }
 }

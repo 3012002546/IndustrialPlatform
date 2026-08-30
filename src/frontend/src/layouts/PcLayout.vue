@@ -402,12 +402,15 @@ function onLimitResolve(resolution: TabLimitResolution): void {
 .ip-pc-layout {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  min-width: 0;
   height: 100vh;
 }
 
 .ip-pc-body {
   display: flex;
   flex: 1 1 auto;
+  min-width: 0;
   min-height: 0;
 }
 
@@ -425,6 +428,11 @@ function onLimitResolve(resolution: TabLimitResolution): void {
   box-sizing: border-box;
   overflow: auto;
   background: var(--ip-color-bg-page);
+}
+
+.ip-pc-main > :deep(*) {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .ip-pc-layout--focus .ip-pc-chrome {
@@ -515,7 +523,7 @@ function onLimitResolve(resolution: TabLimitResolution): void {
   align-items: center;
   gap: var(--ip-space-2);
   width: 100%;
-  min-width: 144px;
+  min-width: 0;
   min-height: 32px;
   padding: 0 var(--ip-space-2);
   color: var(--ip-shell-topbar-text);
@@ -540,6 +548,15 @@ function onLimitResolve(resolution: TabLimitResolution): void {
 
 .ip-pc-user__caret {
   color: var(--ip-shell-topbar-text-secondary);
+}
+
+@media (max-width: 720px) {
+  /* At the narrow PC fallback width, keep the primary actions and user menu;
+     terminal metadata is secondary and may yield space to the content shell. */
+  .ip-pc-terminal,
+  .ip-pc-brand :deep(.ip-environment-badge) {
+    display: none;
+  }
 }
 
 /* 跳到主内容入口(§14.1):视觉隐藏,聚焦时可见且置于最前。 */

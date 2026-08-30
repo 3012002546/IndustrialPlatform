@@ -37,4 +37,31 @@ public sealed class SystemDataAuthenticationOptionsTests
         Assert.True(options.TokenValidationParameters.RequireSignedTokens);
         Assert.NotNull(options.TokenValidationParameters.IssuerSigningKey);
     }
+
+    [Fact]
+    public void AddSystemDataAuthentication_UsesIdentityJwksWhenPublicKeyIsNotInjected()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Jwt:Issuer"] = "industrial-platform-identity",
+                ["Jwt:Audience"] = "industrial-platform-api",
+                ["Jwt:SigningKey"] = "",
+                ["Jwt:JwksUrl"] = "http://localhost:5041/.well-known/jwks.json",
+                ["Jwt:RequireHttpsMetadata"] = "false",
+            })
+            .Build();
+        var services = new ServiceCollection();
+
+        services.AddSystemDataAuthentication(configuration);
+
+        using var provider = services.BuildServiceProvider();
+        var options = provider
+            .GetRequiredService<IOptionsMonitor<JwtBearerOptions>>()
+            .Get(JwtBearerDefaults.AuthenticationScheme);
+
+        Assert.NotNull(options.ConfigurationManager);
+        Assert.Null(options.TokenValidationParameters.IssuerSigningKey);
+        Assert.True(options.TokenValidationParameters.RequireSignedTokens);
+    }
 }

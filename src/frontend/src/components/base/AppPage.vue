@@ -50,6 +50,8 @@ const titleId = useId()
   flex-direction: column;
   gap: var(--ip-space-4);
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .app-page__header {
@@ -100,6 +102,8 @@ const titleId = useId()
 
 .app-page__body {
   flex: 1;
+  width: 100%;
+  min-width: 0;
   min-height: 0;
 }
 </style>

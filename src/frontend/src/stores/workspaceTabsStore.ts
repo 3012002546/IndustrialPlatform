@@ -25,9 +25,10 @@ function defaultStorage(): WorkspaceStorage {
   return globalThis.localStorage
 }
 
-function clearStoredPageState(tabId: string): void {
+function clearStoredPageState(scope: UserUiScope | null, tabId: string): void {
+  if (scope === null) return
   try {
-    clearPageState(globalThis.sessionStorage, tabId)
+    clearPageState(globalThis.sessionStorage, scope, tabId)
   } catch {
     // Closing a tab remains best-effort even when sessionStorage is unavailable.
   }
@@ -143,7 +144,7 @@ export const useWorkspaceTabsStore = defineStore('workspaceTabs', () => {
     const wasActive = activeTabId.value === tabId
     const index = tabs.value.indexOf(target)
     tabs.value = tabs.value.filter((t) => t.id !== tabId)
-    clearStoredPageState(tabId)
+    clearStoredPageState(scope.value, tabId)
     const next = tabs.value[index] ?? tabs.value[index - 1] ?? fixedTab.value
     if (wasActive) activeTabId.value = next.id
     persist()
@@ -155,7 +156,7 @@ export const useWorkspaceTabsStore = defineStore('workspaceTabs', () => {
     if (!tabs.value.some((t) => t.id === tabId)) return
     const removed = tabs.value.filter((t) => t.kind === 'business' && t.id !== tabId && t.pinned !== true)
     tabs.value = tabs.value.filter((t) => t.kind === 'fixed' || t.pinned === true || t.id === tabId)
-    removed.forEach((tab) => clearStoredPageState(tab.id))
+    removed.forEach((tab) => clearStoredPageState(scope.value, tab.id))
     if (!tabs.value.some((t) => t.id === activeTabId.value)) {
       activeTabId.value = tabs.value.find((t) => t.id === tabId)?.id ?? fixedTab.value.id
     }
@@ -173,7 +174,7 @@ export const useWorkspaceTabsStore = defineStore('workspaceTabs', () => {
       else removed.push(t)
     })
     tabs.value = kept
-    removed.forEach((tab) => clearStoredPageState(tab.id))
+    removed.forEach((tab) => clearStoredPageState(scope.value, tab.id))
     if (!tabs.value.some((t) => t.id === activeTabId.value)) activeTabId.value = tabId
     persist()
   }
@@ -188,7 +189,7 @@ export const useWorkspaceTabsStore = defineStore('workspaceTabs', () => {
     tabs.value = tabs.value.filter(
       (t, currentIndex) => t.kind === 'fixed' || currentIndex >= index || t.pinned === true,
     )
-    removed.forEach((tab) => clearStoredPageState(tab.id))
+    removed.forEach((tab) => clearStoredPageState(scope.value, tab.id))
     if (!tabs.value.some((t) => t.id === activeTabId.value)) {
       activeTabId.value = tabs.value.find((t) => t.id === tabId)?.id ?? fixedTab.value.id
     }
@@ -199,7 +200,7 @@ export const useWorkspaceTabsStore = defineStore('workspaceTabs', () => {
   function closeAll(): void {
     const removed = tabs.value.filter((t) => t.kind === 'business' && t.pinned !== true)
     tabs.value = tabs.value.filter((t) => t.kind === 'fixed' || t.pinned === true)
-    removed.forEach((tab) => clearStoredPageState(tab.id))
+    removed.forEach((tab) => clearStoredPageState(scope.value, tab.id))
     activeTabId.value = fixedTab.value.id
     persist()
   }
@@ -280,7 +281,7 @@ export const useWorkspaceTabsStore = defineStore('workspaceTabs', () => {
     const removed = tabs.value.filter((t) => t.kind === 'business' && !isAllowed(t))
     tabs.value = tabs.value.filter((t) => t.kind === 'fixed' || isAllowed(t))
     if (tabs.value.length >= before) return
-    removed.forEach((tab) => clearStoredPageState(tab.id))
+    removed.forEach((tab) => clearStoredPageState(scope.value, tab.id))
     if (!tabs.value.some((t) => t.id === activeTabId.value)) {
       activeTabId.value = tabs.value.find((t) => t.kind === 'fixed')?.id ?? tabs.value[0]?.id ?? ''
     }
