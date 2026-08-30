@@ -5,7 +5,7 @@
  * - 所有选项为原生 radio,即时生效;不发 API,不显示虚假同步状态。
  */
 
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { localeMessages } from '@/localization/i18n'
 import { usePlatformLocale } from '@/localization/localeContext'
@@ -24,6 +24,7 @@ const copy = computed(() => localeMessages[locale.value].common.theme)
 const open = ref(false)
 const triggerRef = ref<HTMLButtonElement | null>(null)
 const panelRef = ref<HTMLElement | null>(null)
+const panelStyle = ref<Record<string, string>>({})
 
 const isPc = computed(() => props.terminal === 'pc')
 const currentPalette = computed(() => store.preferences.palette)
@@ -45,6 +46,7 @@ function densityLabel(density: PcDensity): string {
 
 function toggle(): void {
   open.value = !open.value
+  if (open.value) void nextTick(positionPanel)
 }
 
 function close(): void {
@@ -66,13 +68,34 @@ function onDocumentPointerDown(event: Event): void {
   close()
 }
 
+function positionPanel(): void {
+  const triggerRect = triggerRef.value?.getBoundingClientRect()
+  if (triggerRect === undefined) return
+  const panelWidth = panelRef.value?.getBoundingClientRect().width || 240
+  const panelHeight = panelRef.value?.getBoundingClientRect().height || 360
+  const gap = 8
+  const left = Math.max(gap, Math.min(triggerRect.right - panelWidth, window.innerWidth - panelWidth - gap))
+  const below = triggerRect.bottom + gap
+  const top = below + panelHeight <= window.innerHeight - gap
+    ? below
+    : Math.max(gap, triggerRect.top - panelHeight - gap)
+  panelStyle.value = { top: `${top}px`, left: `${left}px` }
+}
+
 watch(open, (value) => {
   if (value) document.addEventListener('pointerdown', onDocumentPointerDown)
   else document.removeEventListener('pointerdown', onDocumentPointerDown)
 })
 
+onMounted(() => {
+  window.addEventListener('resize', positionPanel)
+  window.addEventListener('scroll', positionPanel, true)
+})
+
 onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', onDocumentPointerDown)
+  window.removeEventListener('resize', positionPanel)
+  window.removeEventListener('scroll', positionPanel, true)
 })
 </script>
 
@@ -102,6 +125,7 @@ onBeforeUnmount(() => {
       class="theme-control__panel"
       role="group"
       :aria-label="copy.label"
+      :style="panelStyle"
       @keydown="onPanelKeydown"
     >
       <fieldset class="theme-control__fieldset">
@@ -209,11 +233,11 @@ onBeforeUnmount(() => {
 }
 
 .theme-control__panel {
-  position: absolute;
-  top: calc(100% + var(--ip-space-2));
-  right: 0;
+  position: fixed;
   z-index: var(--ip-z-dropdown);
   min-width: 240px;
+  max-height: calc(100vh - 16px);
+  overflow: auto;
   padding: var(--ip-space-3) var(--ip-space-4);
   background: var(--ip-color-bg-container);
   border: 1px solid var(--ip-color-border);

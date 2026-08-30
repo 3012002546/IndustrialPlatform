@@ -35,6 +35,8 @@ import type {
   UserGroupDetailDto,
   UserGroupSummaryDto,
   UserSummaryDto,
+  IdentityActiveSessionDto,
+  IdentitySessionRevokeResultDto,
 } from './types'
 
 const IDENTITY_MANAGEMENT_PREFIX = '/identity/api/v1'
@@ -236,6 +238,10 @@ export interface IdentityManagementApi {
 
   // 登录审计
   listLoginAudits(params: ListLoginAuditsParams): Promise<PageResultDto<LoginAuditItemDto>>
+
+  // 当前有效刷新会话
+  listActiveSessions(): Promise<PageResultDto<IdentityActiveSessionDto>>
+  revokeSession(sessionNId: string): Promise<IdentitySessionRevokeResultDto>
 }
 
 export function createIdentityManagementApi(client: HttpClient): IdentityManagementApi {
@@ -356,5 +362,13 @@ export function createIdentityManagementApi(client: HttpClient): IdentityManagem
     // 登录审计
     listLoginAudits: (params) =>
       client.get<PageResultDto<LoginAuditItemDto>>(`${base}/audits/logins${toQueryString(params)}`),
+
+    listActiveSessions: () =>
+      client.get<PageResultDto<IdentityActiveSessionDto>>(`${base}/sessions/active`),
+    revokeSession: (sessionNId) =>
+      client.post<IdentitySessionRevokeResultDto>(
+        `${base}/sessions/${encodeURIComponent(sessionNId)}/revoke`,
+        {},
+      ),
   }
 }

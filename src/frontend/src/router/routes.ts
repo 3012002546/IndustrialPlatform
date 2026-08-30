@@ -27,6 +27,7 @@ import IdentityPermissionsPage from '@/pages/pc/identity/IdentityPermissionsPage
 import IdentityRolesPage from '@/pages/pc/identity/IdentityRolesPage.vue'
 import IdentityUserGroupsPage from '@/pages/pc/identity/IdentityUserGroupsPage.vue'
 import IdentityUsersPage from '@/pages/pc/identity/IdentityUsersPage.vue'
+import ProfilePage from '@/pages/pc/ProfilePage.vue'
 import SsoClientsPage from '@/pages/pc/identity/sso/SsoClientsPage.vue'
 import SsoProvidersPage from '@/pages/pc/identity/sso/SsoProvidersPage.vue'
 import OrganizationsPage from '@/pages/pc/systemData/OrganizationsPage.vue'
@@ -51,6 +52,7 @@ export const ROUTE_NAMES = {
   forbidden: 'forbidden',
   pcHome: 'pc-home',
   pcOperation: 'pc-operation',
+  profile: 'profile',
   terminalPreview: 'terminal-preview',
   identityUsers: 'identity-users',
   identityUserGroups: 'identity-user-groups',
@@ -165,6 +167,19 @@ export const routes: RouteRecordRaw[] = [
           permission: PERMISSIONS.platformHomeView,
           terminal: 'pc',
           workspace: 'fixed',
+        },
+      },
+      {
+        path: 'profile',
+        name: ROUTE_NAMES.profile,
+        component: ProfilePage,
+        meta: {
+          title: '个人中心',
+          titleKey: 'shell.top.profile',
+          fallbackTitle: '个人中心',
+          requiresAuth: true,
+          terminal: 'pc',
+          workspace: 'none',
         },
       },
       {

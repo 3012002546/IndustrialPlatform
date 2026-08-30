@@ -125,6 +125,72 @@ public sealed class RefreshSessionStore : IRefreshSessionStore
             .ExecuteCommandAsync(cancellationToken);
     }
 
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<ActiveRefreshSession>> ListActiveForTenantAsync(
+        string tenantNId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var sessions = await _dbContext.SqlSugar.Queryable<RefreshSessionTable>()
+            .Where(row => row.TenantNId == tenantNId
+                && !row.IsDeleted
+                && !row.UserIsDeleted
+                && row.UsedOn == null
+                && row.RevokedOn == null
+                && row.ExpiresOn > now)
+            .OrderByDescending(row => row.CreatedOn)
+            .ToListAsync(cancellationToken);
+
+        if (sessions.Count == 0) return [];
+
+        var userIds = sessions.Select(row => row.UserId).Distinct().ToArray();
+        var users = await _dbContext.SqlSugar.Queryable<UserTable>()
+            .Where(row => userIds.Contains(row.Id) && !row.IsDeleted && row.TenantNId == tenantNId)
+            .ToListAsync(cancellationToken);
+        var usersById = users.ToDictionary(row => row.Id);
+        return sessions
+            .Where(row => usersById.ContainsKey(row.UserId))
+            .Select(row =>
+            {
+                var user = usersById[row.UserId];
+                return new ActiveRefreshSession(
+                    row.NId,
+                    user.NId,
+                    user.LoginName,
+                    user.Name,
+                    row.CreatedOn,
+                    row.LastUpdatedOn,
+                    row.ExpiresOn,
+                    row.UserId);
+            })
+            .ToList();
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> RevokeByNIdAsync(
+        string tenantNId,
+        string sessionNId,
+        string reason,
+        CancellationToken cancellationToken)
+    {
+        var exists = await _dbContext.SqlSugar.Queryable<RefreshSessionTable>()
+            .Where(row => row.TenantNId == tenantNId && row.NId == sessionNId && !row.IsDeleted)
+            .AnyAsync(cancellationToken);
+        if (!exists) return false;
+
+        var now = DateTimeOffset.UtcNow;
+        await _dbContext.SqlSugar.Updateable<RefreshSessionTable>()
+            .SetColumns(row => new RefreshSessionTable
+            {
+                RevokedOn = row.RevokedOn ?? now,
+                RevokeReason = row.RevokeReason ?? reason,
+                LastUpdatedOn = now,
+            })
+            .Where(row => row.TenantNId == tenantNId && row.NId == sessionNId && !row.IsDeleted)
+            .ExecuteCommandAsync(cancellationToken);
+        return true;
+    }
+
     /// <summary>
     /// 旋转原子更新未命中时判定并发结果:当前会话已被消费(并发旋转成功)返回重放,
     /// 已撤销/删除/不存在返回无效。

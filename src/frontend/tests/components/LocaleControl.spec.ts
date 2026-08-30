@@ -15,13 +15,26 @@ vi.mock('@/stores/localizationStore', () => ({
 describe('LocaleControl', () => {
   beforeEach(() => setLocale.mockReset())
 
-  it('exposes an accessible locale selector and changes only the locale', async () => {
+  it('exposes a 32px accessible locale button and teleported menu', async () => {
     const wrapper = mount(LocaleControl)
-    const select = wrapper.get('select[aria-label="语言"]')
-    expect(select.findAll('option').map((option) => option.text())).toEqual(['中文', 'English'])
+    const trigger = wrapper.get('button[aria-label="语言"]')
+    expect(trigger.attributes('aria-haspopup')).toBe('listbox')
+    expect(trigger.attributes('aria-expanded')).toBe('false')
 
-    await select.setValue('en-US')
+    await trigger.trigger('click')
+    const option = document.querySelector<HTMLElement>('[role="option"][aria-selected="false"]')
+    expect(option).not.toBeNull()
+    expect(option?.textContent).toContain('English')
+    option?.click()
 
     expect(setLocale).toHaveBeenCalledWith('en-US')
+  })
+
+  it('closes with Escape and returns focus to the trigger', async () => {
+    const wrapper = mount(LocaleControl)
+    const trigger = wrapper.get('button[aria-label="语言"]')
+    await trigger.trigger('click')
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    expect(wrapper.find('[role="listbox"]').exists()).toBe(false)
   })
 })

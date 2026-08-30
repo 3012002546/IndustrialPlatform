@@ -21,9 +21,12 @@ const publicShellFiles = [
   'src/components/shell/PlatformServiceStatus.vue',
   'src/components/shell/PlatformToolRail.vue',
   'src/components/shell/WorkspaceTabLimitDialog.vue',
+  'src/components/shell/PlatformSessionControls.vue',
   'src/components/systemData/SystemDataAdminFrame.vue',
   'src/components/systemData/SystemDataRuntimeStatus.vue',
   'src/layouts/OperationLayout.vue',
+  'src/layouts/PcLayout.vue',
+  'src/pages/pc/ProfilePage.vue',
   'src/pages/pc/PcOperationHomePage.vue',
 ]
 

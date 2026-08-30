@@ -62,6 +62,20 @@ export const useAuthStore = defineStore('auth', () => {
         clearAuthSession(storage, key)
       }
       commitSession(stored)
+      if (stored !== null && loadRuntimeConfig().authMode === 'http') {
+        try {
+          // /auth/me is the authoritative permission snapshot. Refreshing it on
+          // restore makes a bootstrap/catalog permission change visible without
+          // requiring a hard-coded administrator or a stale re-login token.
+          const currentUser = await getAuthGateway().getCurrentUser()
+          const refreshed = { ...stored, user: currentUser }
+          commitSession(refreshed)
+          writeAuthSession(storage, refreshed, key)
+        } catch {
+          // The HTTP client handles an invalid/expired session. A transient
+          // profile failure must not erase a still-valid local session.
+        }
+      }
     })()
     try {
       await restorePromise
@@ -122,6 +136,12 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  /** 清除本地会话但不调用 Identity logout；供安全锁定保留当前页面/标签。 */
+  function clearLocalSession(): void {
+    commitSession(null)
+    clearAuthSession(defaultStorage(), sessionStorageKey())
+  }
+
   /** 修改当前用户密码(§29A.4):成功后服务端撤销全部会话,前端清理本地会话并回登录页。 */
   async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
     await getAuthGateway().changePassword(currentPassword, newPassword)
@@ -137,6 +157,7 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     refresh,
     logout,
+    clearLocalSession,
     changePassword,
     adoptSession,
     hasPermission,

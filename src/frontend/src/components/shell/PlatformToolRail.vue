@@ -6,8 +6,8 @@
  */
 
 import type { NavigationGroup } from '@/components/navigation/types'
-import { computed } from 'vue'
-import { localeMessages } from '@/localization/i18n'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { localeMessages, resolveLocaleMessage } from '@/localization/i18n'
 import { usePlatformLocale } from '@/localization/localeContext'
 
 const props = withDefaults(defineProps<{
@@ -22,30 +22,121 @@ const emit = defineEmits<{
 }>()
 const locale = usePlatformLocale()
 const copy = computed(() => localeMessages[locale.value].shell.copy)
+const topCopy = computed(() => localeMessages[locale.value].shell.top)
+const railRef = ref<HTMLElement | null>(null)
+const moreOpen = ref(false)
+const moreButtonRef = ref<HTMLButtonElement | null>(null)
+const availableHeight = ref(0)
+let resizeObserver: ResizeObserver | undefined
+
+const ITEM_HEIGHT = 58
+const MORE_HEIGHT = 58
+
+function groupLabel(group: NavigationGroup): string {
+  return resolveLocaleMessage(locale.value, group.labelKey, group.fallbackLabel ?? group.label)
+}
+
+const visibleCount = computed(() => {
+  if (props.groups.length === 0 || availableHeight.value <= 0) return props.groups.length
+  const padding = 16
+  const capacity = Math.max(1, Math.floor((availableHeight.value - padding - MORE_HEIGHT) / ITEM_HEIGHT))
+  return Math.min(props.groups.length, capacity)
+})
+
+const visibleGroups = computed(() => props.groups.slice(0, visibleCount.value))
+const moreGroups = computed(() => props.groups.slice(visibleCount.value))
+const activeInMore = computed(() => moreGroups.value.some((group) => group.id === props.activeGroupId))
 
 function select(id: string): void {
+  moreOpen.value = false
   if (id === props.activeGroupId) return
   emit('update:activeGroupId', id)
 }
+
+function toggleMore(): void {
+  moreOpen.value = !moreOpen.value
+  if (moreOpen.value) void nextTick(() => moreButtonRef.value?.focus())
+}
+
+function onDocumentKeydown(event: KeyboardEvent): void {
+  if (event.key !== 'Escape' || !moreOpen.value) return
+  moreOpen.value = false
+  moreButtonRef.value?.focus()
+}
+
+function onDocumentPointerdown(event: PointerEvent): void {
+  if (!railRef.value?.contains(event.target as Node)) moreOpen.value = false
+}
+
+onMounted(() => {
+  const element = railRef.value
+  if (element !== null && typeof ResizeObserver !== 'undefined') {
+    resizeObserver = new ResizeObserver(([entry]) => {
+      availableHeight.value = entry?.contentRect.height ?? 0
+    })
+    resizeObserver.observe(element)
+    availableHeight.value = element.getBoundingClientRect().height
+  }
+  document.addEventListener('keydown', onDocumentKeydown)
+  document.addEventListener('pointerdown', onDocumentPointerdown)
+})
+
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect()
+  document.removeEventListener('keydown', onDocumentKeydown)
+  document.removeEventListener('pointerdown', onDocumentPointerdown)
+})
 </script>
 
 <template>
-  <nav class="ip-toolrail" :class="{ 'ip-toolrail--compact': props.mode === 'compact' }" :aria-label="copy.platformGroups">
+  <nav ref="railRef" class="ip-toolrail" :class="{ 'ip-toolrail--compact': props.mode === 'compact' }" :aria-label="copy.platformGroups">
     <ul class="ip-toolrail__list">
-      <li v-for="group in groups" :key="group.id" class="ip-toolrail__item">
+      <li v-for="group in visibleGroups" :key="group.id" class="ip-toolrail__item">
         <button
           type="button"
           class="ip-toolrail__button"
           :class="{ 'ip-toolrail__button--active': group.id === activeGroupId }"
           :aria-current="group.id === activeGroupId ? 'page' : undefined"
           :aria-pressed="group.id === activeGroupId"
-          :title="group.label"
-          :aria-label="group.label"
+          :title="groupLabel(group)"
+          :aria-label="groupLabel(group)"
           @click="select(group.id)"
         >
           <component :is="group.icon" class="ip-toolrail__icon" aria-hidden="true" />
-          <span v-if="props.mode !== 'compact'" class="ip-toolrail__label">{{ group.fallbackLabel ?? group.label }}</span>
+          <span v-if="props.mode !== 'compact'" class="ip-toolrail__label">{{ groupLabel(group) }}</span>
         </button>
+      </li>
+      <li v-if="moreGroups.length > 0" class="ip-toolrail__item ip-toolrail__more-item">
+        <button
+          ref="moreButtonRef"
+          type="button"
+          class="ip-toolrail__button ip-toolrail__more-button"
+          :class="{ 'ip-toolrail__button--active': activeInMore }"
+          :aria-label="topCopy.moreNavigation"
+          :title="topCopy.moreNavigation"
+          :aria-expanded="moreOpen"
+          aria-haspopup="menu"
+          data-testid="toolrail-more"
+          @click="toggleMore"
+        >
+          <span class="ip-toolrail__more-icon" aria-hidden="true">•••</span>
+          <span v-if="props.mode !== 'compact'" class="ip-toolrail__label">{{ topCopy.more }}</span>
+        </button>
+        <div v-if="moreOpen" class="ip-toolrail__more-menu" role="menu" data-testid="toolrail-more-menu">
+          <button
+            v-for="group in moreGroups"
+            :key="group.id"
+            type="button"
+            role="menuitem"
+            class="ip-toolrail__more-menu-item"
+            :class="{ 'ip-toolrail__more-menu-item--active': group.id === activeGroupId }"
+            :aria-current="group.id === activeGroupId ? 'page' : undefined"
+            @click="select(group.id)"
+          >
+            <component :is="group.icon" aria-hidden="true" />
+            <span>{{ groupLabel(group) }}</span>
+          </button>
+        </div>
       </li>
     </ul>
   </nav>
@@ -67,6 +158,7 @@ function select(id: string): void {
 .ip-toolrail__list {
   display: flex;
   flex-direction: column;
+  min-height: 0;
   width: 100%;
   margin: 0;
   padding: var(--ip-space-2) 0;
@@ -77,14 +169,21 @@ function select(id: string): void {
   padding: var(--ip-space-1) var(--ip-space-2);
 }
 
+.ip-toolrail__more-item {
+  position: relative;
+  margin-top: auto;
+}
+
 .ip-toolrail__button {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 40px;
-  padding: 0;
+  min-height: 50px;
+  padding: var(--ip-space-1) 0;
+  flex-direction: column;
+  gap: 2px;
   color: var(--ip-color-text-secondary);
   background: transparent;
   border: 0;
@@ -130,11 +229,60 @@ function select(id: string): void {
 .ip-toolrail__label {
   display: -webkit-box;
   overflow: hidden;
-  font-size: var(--ip-font-size-xs);
+  max-width: 48px;
+  font-size: 11px;
   line-height: 1.2;
   text-align: center;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+.ip-toolrail__more-icon {
+  height: 20px;
+  font-size: var(--ip-font-size-md);
+  line-height: 16px;
+  letter-spacing: 1px;
+}
+
+.ip-toolrail__more-menu {
+  position: absolute;
+  z-index: 30;
+  bottom: var(--ip-space-1);
+  left: calc(100% + var(--ip-space-2));
+  display: grid;
+  min-width: 190px;
+  gap: 2px;
+  padding: var(--ip-space-1);
+  background: var(--ip-color-bg-container);
+  border: 1px solid var(--ip-color-border);
+  border-radius: var(--ip-radius-md);
+  box-shadow: var(--ip-shadow-md);
+}
+
+.ip-toolrail__more-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--ip-space-2);
+  min-height: 36px;
+  padding: 0 var(--ip-space-3);
+  color: var(--ip-color-text-secondary);
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: var(--ip-radius-sm);
+  cursor: pointer;
+}
+
+.ip-toolrail__more-menu-item:hover,
+.ip-toolrail__more-menu-item:focus-visible,
+.ip-toolrail__more-menu-item--active {
+  color: var(--ip-color-primary);
+  background: var(--ip-color-primary-bg);
+}
+
+.ip-toolrail__more-menu-item:focus-visible {
+  outline: 2px solid var(--ip-focus-ring-color);
+  outline-offset: -1px;
 }
 
 .ip-toolrail--compact .ip-toolrail__label {

@@ -55,7 +55,8 @@ test('双权限用户可以在管理壳与生产操作壳之间切换', async ({
 
 test('生产操作模式随当前语言切换为英文且公共文案无中文回退', async ({ page }) => {
   await login(page)
-  await page.getByLabel('语言').selectOption('en-US')
+  await page.getByRole('button', { name: '语言' }).click()
+  await page.getByRole('option', { name: 'English' }).click()
   await page.getByRole('button', { name: 'Operations' }).click()
   await expect(page).toHaveURL(/\/pc\/operation/)
 

@@ -16,9 +16,9 @@ const imageFailed = ref(false)
 
 const source = computed(() => {
   if (props.compact || !props.showName || props.variant === 'mark') {
-    return `${APP_INFO.brandAssetBasePath}/mark.svg`
+    return `${APP_INFO.brandAssetBasePath}/mark.png`
   }
-  return `${APP_INFO.brandAssetBasePath}/${props.variant === 'monochrome' ? 'monochrome' : `horizontal-${props.variant}`}.svg`
+  return `${APP_INFO.brandAssetBasePath}/${props.variant === 'monochrome' ? 'horizontal-light' : `horizontal-${props.variant}`}.png`
 })
 
 function onImageError(): void {
@@ -29,7 +29,11 @@ function onImageError(): void {
 <template>
   <span
     class="ip-brand"
-    :class="{ 'ip-brand--compact': props.compact, 'ip-brand--fallback': imageFailed }"
+    :class="{
+      'ip-brand--compact': props.compact,
+      'ip-brand--dark': props.variant === 'dark',
+      'ip-brand--fallback': imageFailed,
+    }"
     :aria-label="APP_INFO.name"
   >
     <span v-if="imageFailed" class="ip-brand__fallback-mark" role="img" :aria-label="APP_INFO.name">
@@ -60,6 +64,11 @@ function onImageError(): void {
 .ip-brand--compact .ip-brand__fallback-mark {
   width: 32px;
   height: 32px;
+}
+
+/* Keep the supplied crop intact; only its dark-shell presentation changes. */
+.ip-brand--dark .ip-brand__image {
+  filter: brightness(0) invert(1);
 }
 
 .ip-brand__name {

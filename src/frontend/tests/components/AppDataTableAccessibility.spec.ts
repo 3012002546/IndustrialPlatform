@@ -1,6 +1,6 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import AppDataTable from '@/components/management/AppDataTable.vue'
 import { markVxeElementDecorative } from '@/components/management/appDataTable/vxeDomAdapter'
@@ -48,5 +48,50 @@ describe('AppDataTable accessibility semantics', () => {
         (element) => element.getAttribute('tabindex') === '-1',
       ),
     ).toBe(true)
+  })
+
+  it('does not send the synthetic action column and uses exact operators for select filters', async () => {
+    const loader = vi.fn(async () => ({
+      items: [],
+      total: 0,
+      pageIndex: 1,
+      pageSize: 20,
+    }))
+    const wrapper = mount(AppDataTable, {
+      props: {
+        tableKey: 'query-contract',
+        routeKey: 'query-contract',
+        userKey: 'operator',
+        rows: [],
+        columns: [
+          { field: 'loginName', title: '登录名', filter: { kind: 'text' as const } },
+          {
+            field: 'status',
+            title: '状态',
+            filter: { kind: 'select' as const, options: [{ label: '启用', value: 'Active' }] },
+          },
+        ],
+        loader,
+      },
+      slots: { actions: '<button type="button">操作</button>' },
+    })
+
+    const vm = wrapper.vm as unknown as {
+      switchQueryMode: (mode: 'top' | 'header') => void
+      setHeaderFilter: (field: string, value: unknown) => void
+      request: () => { columns: string[]; descriptor?: { filters: Array<{ field: string; operator: string; value: unknown }> } }
+    }
+    vm.switchQueryMode('header')
+    vm.setHeaderFilter('status', 'Active')
+    await flushPromises()
+
+    const request = vm.request()
+    expect(request.columns).toEqual(['loginName', 'status'])
+    expect(request.columns).not.toContain('__actions')
+    expect(request.descriptor?.filters).toContainEqual({
+      field: 'status',
+      operator: 'eq',
+      value: 'Active',
+    })
   })
 })

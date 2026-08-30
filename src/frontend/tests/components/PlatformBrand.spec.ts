@@ -10,7 +10,7 @@ describe('PlatformBrand', () => {
       const wrapper = mount(PlatformBrand, { props: { variant } })
       const image = wrapper.get('img')
       expect(image.attributes('src')).toBe(
-        variant === 'monochrome' ? '/brand/monochrome.svg' : `/brand/horizontal-${variant}.svg`,
+        variant === 'monochrome' ? '/brand/horizontal-light.png' : `/brand/horizontal-${variant}.png`,
       )
       expect(image.attributes('alt')).toBe('Industrial Platform')
       expect(wrapper.findAll('.ip-brand__name')).toHaveLength(0)
@@ -19,20 +19,20 @@ describe('PlatformBrand', () => {
 
   it('uses the undistorted mark asset for compact horizontal brands', () => {
     const wrapper = mount(PlatformBrand, { props: { variant: 'dark', compact: true } })
-    expect(wrapper.get('img').attributes('src')).toBe('/brand/mark.svg')
+    expect(wrapper.get('img').attributes('src')).toBe('/brand/mark.png')
     expect(wrapper.findAll('.ip-brand__name')).toHaveLength(0)
     expect(wrapper.classes()).toContain('ip-brand--compact')
   })
 
   it('uses the standalone mark when the public name flag is disabled', () => {
     const wrapper = mount(PlatformBrand, { props: { variant: 'dark', showName: false } })
-    expect(wrapper.get('img').attributes('src')).toBe('/brand/mark.svg')
+    expect(wrapper.get('img').attributes('src')).toBe('/brand/mark.png')
     expect(wrapper.findAll('.ip-brand__name')).toHaveLength(0)
   })
 
   it('renders the standalone mark without a product name by default', () => {
     const wrapper = mount(PlatformBrand, { props: { variant: 'mark', showName: false } })
-    expect(wrapper.get('img').attributes('src')).toBe('/brand/mark.svg')
+    expect(wrapper.get('img').attributes('src')).toBe('/brand/mark.png')
     expect(wrapper.text()).not.toContain('Industrial Platform')
   })
 

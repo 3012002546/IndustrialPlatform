@@ -29,6 +29,8 @@ export const GENERATED_PERMISSION_NIDS = [
   'identity.sso.view',
   'identity.sso.manage',
   'identity.sso.test',
+  'identity.session.view',
+  'identity.session.revoke',
   'platform.home.view',
   'platform.operation.view',
   'platform.pda.view',

@@ -248,3 +248,20 @@ export interface LoginAuditItemDto {
   traceId: string
   occurredOn: string
 }
+
+/** 有效刷新会话摘要；服务端不返回 token、IP 或 User-Agent。 */
+export interface IdentityActiveSessionDto {
+  sessionNId: string
+  userNId: string
+  loginName: string
+  name: string
+  loginOn: string
+  lastRefreshedOn: string
+  expiresOn: string
+  isCurrent: boolean
+}
+
+export interface IdentitySessionRevokeResultDto {
+  found: boolean
+  isCurrent: boolean
+}

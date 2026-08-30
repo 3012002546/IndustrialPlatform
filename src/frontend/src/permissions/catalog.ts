@@ -31,6 +31,8 @@ export const PERMISSIONS = {
   ssoView: 'identity.sso.view',
   ssoManage: 'identity.sso.manage',
   ssoTest: 'identity.sso.test',
+  sessionView: 'identity.session.view',
+  sessionRevoke: 'identity.session.revoke',
   platformHomeView: 'platform.home.view',
   platformOperationView: 'platform.operation.view',
   platformPdaView: 'platform.pda.view',

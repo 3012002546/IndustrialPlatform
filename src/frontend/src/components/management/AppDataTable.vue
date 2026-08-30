@@ -585,11 +585,18 @@ function buildQueryDescriptor(columns: string[]): QueryDescriptor {
       if (value === undefined || value === null || value === '') return false
       return !(Array.isArray(value) && value.every((item) => item === ''))
     })
-    .map(([field, value]) => ({
-      field,
-      operator: Array.isArray(value) ? ('between' as const) : ('contains' as const),
-      value,
-    }))
+    .map(([field, value]) => {
+      const filter = columnFilter(props.columns.find((column) => column.field === field) ?? { field, title: field })
+      return {
+        field,
+        operator: Array.isArray(value)
+          ? ('between' as const)
+          : filter?.kind === 'select'
+            ? ('eq' as const)
+            : ('contains' as const),
+        value,
+      }
+    })
   return {
     filters,
     orderBy:
@@ -604,6 +611,7 @@ function buildQueryDescriptor(columns: string[]): QueryDescriptor {
 }
 
 function request(): AppDataTableRequest {
+  const dataFields = new Set(visibleColumns.value.map((column) => column.field))
   const nativeColumns = tableRef.value?.getColumns?.() as
     Array<{ field?: string; visible?: boolean }> | undefined
   const columns =
@@ -611,6 +619,7 @@ function request(): AppDataTableRequest {
       ? nativeColumns
           .filter((column) => column.visible !== false && column.field !== undefined)
           .map((column) => column.field as string)
+          .filter((field) => dataFields.has(field))
       : visibleColumns.value.map((column) => column.field)
   const descriptor = buildQueryDescriptor(columns)
   return {
@@ -1457,6 +1466,16 @@ function onKeydown(event: KeyboardEvent): void {
   closeNativeCustom()
 }
 
+function clearUiCacheState(): void {
+  topQuery.value = {}
+  headerFilters.value = {}
+  quickSearch.value = ''
+  currentPage.value = 1
+  sort.value = undefined
+  selectedRows.value = []
+  void reload()
+}
+
 onMounted(() => {
   const table = tableRef.value
   const toolbar = toolbarRef.value
@@ -1489,6 +1508,7 @@ onMounted(() => {
   window.addEventListener('resize', syncToolbarTallPanelsPosition)
   document.addEventListener('mousedown', dismissPanels)
   document.addEventListener('keydown', onKeydown)
+  document.addEventListener('industrial-platform:ui-cache-cleared', clearUiCacheState)
 })
 
 onUpdated(() => {
@@ -1519,6 +1539,7 @@ onBeforeUnmount(() => {
   mountedDateRangeFilters.clear()
   document.removeEventListener('mousedown', dismissPanels)
   document.removeEventListener('keydown', onKeydown)
+  document.removeEventListener('industrial-platform:ui-cache-cleared', clearUiCacheState)
 })
 
 const treeConfig = computed<Record<string, unknown> | undefined>(() => {

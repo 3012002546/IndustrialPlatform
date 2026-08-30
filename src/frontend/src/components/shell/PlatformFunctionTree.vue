@@ -11,12 +11,13 @@ import { RouterLink, useRoute } from 'vue-router'
 import type { NavigationItem } from '@/components/navigation/types'
 import { useAuthStore } from '@/stores/authStore'
 import { useThemeStore } from '@/stores/themeStore'
-import { localeMessages } from '@/localization/i18n'
+import { localeMessages, resolveLocaleMessage } from '@/localization/i18n'
 import { usePlatformLocale } from '@/localization/localeContext'
 
 const props = defineProps<{
   /** 功能树 aria 标签(区分所在分组)。 */
   label: string
+  labelKey?: string | undefined
   /** 当前分组的授权 items(由父级过滤后传入)。 */
   items: readonly NavigationItem[]
 }>()
@@ -28,6 +29,12 @@ const copy = computed(() => localeMessages[locale.value].shell.copy)
 const route = useRoute()
 const openMenuId = ref<string | null>(null)
 const menuQuery = ref('')
+
+const treeLabel = computed(() => resolveLocaleMessage(locale.value, props.labelKey, props.label))
+
+function itemLabel(item: NavigationItem): string {
+  return resolveLocaleMessage(locale.value, item.labelKey, item.fallbackLabel ?? item.label)
+}
 
 /** 权限过滤后的可见菜单(§13.2):未声明权限视为公开,声明但未持有则隐藏。 */
 function hasAccess(item: NavigationItem): boolean {
@@ -43,7 +50,7 @@ const visibleItems = computed(() =>
     if (!hasAccess(item)) return false
     const query = menuQuery.value.trim().toLocaleLowerCase()
     if (query === '') return true
-    return (item.fallbackLabel ?? item.label).toLocaleLowerCase().includes(query)
+    return itemLabel(item).toLocaleLowerCase().includes(query)
   }),
 )
 
@@ -89,10 +96,10 @@ watch(
   <nav
     class="ip-function-tree"
     :class="{ 'ip-function-tree--collapsed': collapsed }"
-    :aria-label="label"
+    :aria-label="treeLabel"
   >
     <div class="ip-function-tree__header">
-      <span class="ip-function-tree__title">{{ label }}</span>
+      <span class="ip-function-tree__title">{{ treeLabel }}</span>
       <button
         type="button"
         class="ip-function-tree__toggle"
@@ -110,25 +117,29 @@ watch(
         }}</span>
       </button>
     </div>
-    <input
-      v-if="!collapsed"
-      v-model="menuQuery"
-      class="ip-function-tree__search"
-      type="search"
-      :placeholder="copy.searchMenu"
-      :aria-label="copy.searchMenu"
-      @keydown.esc="menuQuery = ''"
-    />
+    <div
+      class="ip-function-tree__surface"
+      :class="{ 'ip-function-tree__surface--collapsed': collapsed }"
+    >
+      <input
+        v-if="!collapsed"
+        v-model="menuQuery"
+        class="ip-function-tree__search"
+        type="search"
+        :placeholder="copy.menuSearchHint"
+        :aria-label="copy.menuSearchHint"
+        @keydown.esc="menuQuery = ''"
+      />
 
-    <ul id="ip-function-tree-list" class="ip-function-tree__list">
+      <ul id="ip-function-tree-list" class="ip-function-tree__list">
       <li v-for="item in visibleItems" :key="item.id" class="ip-function-tree__item">
         <template v-if="collapsed && visibleChildren(item).length > 0">
           <button
             type="button"
             class="ip-function-tree__link ip-function-tree__link--collapsed-parent"
             :class="{ 'ip-function-tree__link--active': isItemActive(item) }"
-            :aria-label="item.label"
-            :title="item.label"
+            :aria-label="itemLabel(item)"
+            :title="itemLabel(item)"
             aria-haspopup="menu"
             :aria-expanded="openMenuId === item.id"
             :data-testid="`function-tree-parent-${item.id}`"
@@ -138,7 +149,7 @@ watch(
             <span v-if="item.icon" class="ip-function-tree__icon" aria-hidden="true">
               <component :is="item.icon" />
             </span>
-            <span v-if="!collapsed" class="ip-function-tree__label">{{ item.label }}</span>
+            <span v-if="!collapsed" class="ip-function-tree__label">{{ itemLabel(item) }}</span>
           </button>
           <div
             v-if="openMenuId === item.id"
@@ -161,7 +172,7 @@ watch(
               <span v-if="child.icon" class="ip-function-tree__icon" aria-hidden="true">
                 <component :is="child.icon" />
               </span>
-              <span>{{ child.label }}</span>
+              <span>{{ itemLabel(child) }}</span>
             </RouterLink>
           </div>
         </template>
@@ -174,13 +185,13 @@ watch(
             class="ip-function-tree__link"
             :class="{ 'ip-function-tree__link--active': isActive(item.routeName) }"
             :aria-current="isActive(item.routeName) ? 'page' : undefined"
-            :aria-label="collapsed ? item.label : undefined"
-            :title="collapsed ? item.label : undefined"
+            :aria-label="collapsed ? itemLabel(item) : undefined"
+            :title="collapsed ? itemLabel(item) : undefined"
           >
             <span v-if="item.icon" class="ip-function-tree__icon" aria-hidden="true">
               <component :is="item.icon" />
             </span>
-            <span v-if="!collapsed" class="ip-function-tree__label">{{ item.label }}</span>
+            <span v-if="!collapsed" class="ip-function-tree__label">{{ itemLabel(item) }}</span>
           </RouterLink>
         </template>
         <template v-else>
@@ -189,7 +200,7 @@ watch(
               <span v-if="item.icon" class="ip-function-tree__icon" aria-hidden="true">
                 <component :is="item.icon" />
               </span>
-              <span class="ip-function-tree__label">{{ item.label }}</span>
+              <span class="ip-function-tree__label">{{ itemLabel(item) }}</span>
             </span>
             <ul class="ip-function-tree__children">
               <li v-for="child in visibleChildren(item)" :key="child.id">
@@ -205,14 +216,15 @@ watch(
                   <span v-if="child.icon" class="ip-function-tree__icon" aria-hidden="true">
                     <component :is="child.icon" />
                   </span>
-                  <span class="ip-function-tree__label">{{ child.label }}</span>
+                  <span class="ip-function-tree__label">{{ itemLabel(child) }}</span>
                 </RouterLink>
               </li>
             </ul>
           </div>
         </template>
       </li>
-    </ul>
+      </ul>
+    </div>
   </nav>
 </template>
 
@@ -260,6 +272,33 @@ watch(
   white-space: nowrap;
 }
 
+.ip-function-tree__surface {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  flex-direction: column;
+  margin: var(--ip-space-2);
+  overflow: hidden;
+  background: var(--ip-color-bg-container);
+  border: 1px solid var(--ip-color-border);
+  border-radius: var(--ip-radius-md);
+}
+
+.ip-function-tree__surface--collapsed {
+  display: none;
+}
+
+.ip-function-tree__search {
+  flex: 0 0 auto;
+  min-height: 32px;
+  margin: var(--ip-space-2);
+  padding: 0 var(--ip-space-2);
+  color: var(--ip-color-text-primary);
+  background: var(--ip-color-bg-page);
+  border: 1px solid var(--ip-color-border);
+  border-radius: var(--ip-radius-sm);
+}
+
 .ip-function-tree__toggle {
   display: inline-flex;
   flex: 0 0 auto;
@@ -293,7 +332,7 @@ watch(
 .ip-function-tree__list {
   flex: 1 1 auto;
   margin: 0;
-  padding: var(--ip-space-2);
+  padding: 0 var(--ip-space-2) var(--ip-space-2);
   overflow-y: auto;
   list-style: none;
 }

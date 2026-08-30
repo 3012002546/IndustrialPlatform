@@ -21,7 +21,7 @@ public static class BootstrapSeedCatalog
     public const string BootstrapAdminSeedKey = "identity.bootstrap-admin";
 
     /// <summary>全部种子当前版本;目录内容变化必须递增。</summary>
-    public const string SeedVersion = "1.1.0";
+    public const string SeedVersion = "1.2.0";
 
     /// <summary>系统作用域。</summary>
     public const string SystemScope = "system";
@@ -78,6 +78,8 @@ public static class BootstrapSeedCatalog
         new(PermissionCatalog.SsoView, "查看 SSO", PermissionType.Page),
         new(PermissionCatalog.SsoManage, "管理 SSO", PermissionType.Action),
         new(PermissionCatalog.SsoTest, "测试 SSO", PermissionType.Action),
+        new(PermissionCatalog.SessionView, "查看有效登录会话", PermissionType.Page),
+        new(PermissionCatalog.SessionRevoke, "强制退出登录会话", PermissionType.Action),
         new(PermissionCatalog.PlatformHomeView, "平台首页", PermissionType.Page),
         new(PermissionCatalog.PlatformOperationView, "生产操作模式", PermissionType.Page),
         new(PermissionCatalog.PlatformPdaView, "PDA 端页面", PermissionType.Page),

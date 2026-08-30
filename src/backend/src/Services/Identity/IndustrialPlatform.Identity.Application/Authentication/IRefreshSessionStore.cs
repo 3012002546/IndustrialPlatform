@@ -32,6 +32,19 @@ public sealed record StoredRefreshSession(
     string? RevokeReason,
     string? ReplacedBySessionNId);
 
+/// <summary>
+/// 管理端有效刷新会话摘要。绝不包含 refresh token、token hash、IP 或 User-Agent。
+/// </summary>
+public sealed record ActiveRefreshSession(
+    string SessionNId,
+    string UserNId,
+    string LoginName,
+    string Name,
+    DateTimeOffset CreatedOn,
+    DateTimeOffset LastRefreshedOn,
+    DateTimeOffset ExpiresOn,
+    Guid UserId);
+
 /// <summary>旋转操作结果:Rotated=成功、Reused=Token 已被消费(重放)、Invalid=已撤销/过期/不存在。</summary>
 public enum RefreshRotationStatus
 {
@@ -74,4 +87,19 @@ public interface IRefreshSessionStore
 
     /// <summary>撤销某用户全部会话(幂等),用于全部注销与密码修改。</summary>
     Task RevokeAllForUserAsync(Guid userId, string reason, CancellationToken cancellationToken);
+
+    /// <summary>列出租户内当前有效刷新会话，服务端先施加完整有效性条件。</summary>
+    Task<IReadOnlyList<ActiveRefreshSession>> ListActiveForTenantAsync(
+        string tenantNId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+        => Task.FromResult<IReadOnlyList<ActiveRefreshSession>>([]);
+
+    /// <summary>按租户撤销单个刷新会话；不存在返回 false，已撤销重复调用返回 true。</summary>
+    Task<bool> RevokeByNIdAsync(
+        string tenantNId,
+        string sessionNId,
+        string reason,
+        CancellationToken cancellationToken)
+        => Task.FromResult(false);
 }

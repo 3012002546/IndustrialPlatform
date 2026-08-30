@@ -28,6 +28,7 @@ public static class DependencyInjection
         services.AddOptions<AuthenticationOptions>()
             .Bind(configuration.GetSection("Identity:Authentication"));
         services.AddSingleton<IAuthenticationService, AuthenticationService>();
+        services.AddSingleton<IIdentitySessionManagementService, IdentitySessionManagementService>();
 
         // 服务端授权(TASK-ID-007):评估器、拒绝审计与授权配置;数据/缓存端口由基础设施注册。
         services.AddOptions<AuthorizationOptions>()

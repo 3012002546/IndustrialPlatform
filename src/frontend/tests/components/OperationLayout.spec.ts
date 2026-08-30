@@ -54,7 +54,7 @@ describe('OperationLayout', () => {
 
     expect(wrapper.get('.ip-operation-topbar .ip-brand').findAll('.ip-brand__name')).toHaveLength(0)
     expect(wrapper.get('.ip-operation-topbar .ip-brand img').attributes('src')).toBe(
-      '/brand/horizontal-dark.svg',
+      '/brand/horizontal-dark.png',
     )
     expect(wrapper.find('.ip-operation-topbar__context').exists()).toBe(true)
     expect(wrapper.find('.ip-operation-topbar__right').exists()).toBe(true)

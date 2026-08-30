@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterView, useRouter } from 'vue-router'
-import { ElDropdown, ElDropdownItem, ElDropdownMenu } from 'element-plus'
-import { FullScreen } from '@element-plus/icons-vue'
+import { ElDropdown, ElDropdownItem, ElDropdownMenu, ElMessage, ElMessageBox } from 'element-plus'
+import { Delete, FullScreen, Lock, SwitchButton, UserFilled } from '@element-plus/icons-vue'
 
 import PlatformBrand from '@/components/brand/PlatformBrand.vue'
 import LocaleControl from '@/components/localization/LocaleControl.vue'
@@ -10,13 +10,19 @@ import PcExperienceModeControl from '@/components/shell/PcExperienceModeControl.
 import PlatformContextSwitcher from '@/components/shell/PlatformContextSwitcher.vue'
 import PlatformEnvironmentBadge from '@/components/shell/PlatformEnvironmentBadge.vue'
 import ThemeControl from '@/components/theme/ThemeControl.vue'
+import PlatformSessionControls from '@/components/shell/PlatformSessionControls.vue'
 import { loadRuntimeConfig } from '@/config/runtimeConfig'
 import { localeMessages } from '@/localization/i18n'
 import { usePlatformLocale } from '@/localization/localeContext'
 import { useAuthStore } from '@/stores/authStore'
+import { clearCurrentUserUiCache } from '@/stores/uiCacheStore'
+import { useWorkspaceTabsStore } from '@/stores/workspaceTabsStore'
+import { useLockStore } from '@/stores/lockStore'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const tabsStore = useWorkspaceTabsStore()
+const lockStore = useLockStore()
 const runtimeConfig = loadRuntimeConfig()
 const locale = usePlatformLocale()
 const browserFullscreen = ref(false)
@@ -41,11 +47,31 @@ async function toggleBrowserFullscreen(): Promise<void> {
 }
 
 function onUserCommand(command: unknown): void {
-  if (command !== 'logout') return
-  void (async () => {
+  if (command === 'profile') void router.push({ name: 'profile' })
+  else if (command === 'clear-cache') void clearCache()
+  else if (command === 'lock') {
+    lockStore.lock()
+  } else if (command === 'logout') void (async () => {
     await authStore.logout()
     await router.push({ name: 'login' })
   })()
+}
+
+async function clearCache(): Promise<void> {
+  const user = authStore.user
+  if (user === null) return
+  try {
+    await ElMessageBox.confirm(copy.value.shell.top.clearCacheConfirm, copy.value.shell.top.clearCache, {
+      confirmButtonText: copy.value.shell.top.clearCache,
+      cancelButtonText: copy.value.common.action.cancel,
+      type: 'warning',
+    })
+  } catch {
+    return
+  }
+  clearCurrentUserUiCache({ tenantId: user.tenantId, userId: user.userId })
+  tabsStore.clearUiCache()
+  ElMessage.success(copy.value.shell.top.cacheCleared)
 }
 
 onMounted(() => {
@@ -68,6 +94,7 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFullscr
       <div class="ip-operation-topbar__right">
         <div class="ip-operation-topbar__actions">
           <LocaleControl />
+          <PlatformSessionControls />
           <PcExperienceModeControl mode="operation" />
           <button
             type="button"
@@ -83,16 +110,18 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFullscr
           <ThemeControl terminal="pc" />
         </div>
         <ElDropdown trigger="click" @command="onUserCommand">
-          <button type="button" class="ip-operation-user" data-testid="operation-user-menu">
+          <button type="button" class="ip-operation-user" data-testid="operation-user-menu" :aria-label="copy.shell.top.userMenu">
+            <UserFilled aria-hidden="true" />
             <span class="ip-operation-user__name">{{
               displayName || copy.common.state.unauthenticated
             }}</span>
           </button>
           <template #dropdown>
             <ElDropdownMenu
-              ><ElDropdownItem command="logout">{{
-                copy.common.action.logout
-              }}</ElDropdownItem></ElDropdownMenu
+              ><ElDropdownItem command="profile"><UserFilled aria-hidden="true" />{{ copy.shell.top.profile }}</ElDropdownItem>
+              <ElDropdownItem command="clear-cache"><Delete aria-hidden="true" />{{ copy.shell.top.clearCache }}</ElDropdownItem>
+              <ElDropdownItem command="lock"><Lock aria-hidden="true" />{{ copy.shell.top.lock }}</ElDropdownItem>
+              <ElDropdownItem command="logout"><SwitchButton aria-hidden="true" />{{ copy.common.action.logout }}</ElDropdownItem></ElDropdownMenu
             >
           </template>
         </ElDropdown>
@@ -117,8 +146,8 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFullscr
   align-items: center;
   gap: var(--ip-space-3);
   min-height: var(--ip-shell-topbar-height);
-  padding: 0 var(--ip-space-5);
-  overflow: hidden;
+  padding: 0 4px;
+  overflow: visible;
   color: var(--ip-shell-topbar-text);
   background: var(--ip-shell-topbar-background);
 }
@@ -128,6 +157,7 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFullscr
   flex: 0 1 auto;
   align-items: center;
   min-width: 0;
+  margin-right: 4px;
 }
 
 .ip-operation-topbar__context {
@@ -168,7 +198,7 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFullscr
 
 .ip-operation-user {
   width: clamp(120px, 14vw, 220px);
-  min-width: 120px;
+  min-width: 144px;
   overflow: hidden;
   text-align: left;
   white-space: nowrap;

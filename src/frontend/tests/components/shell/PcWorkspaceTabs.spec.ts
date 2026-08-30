@@ -51,13 +51,10 @@ describe('PcWorkspaceTabs', () => {
     expect(items[1]?.findAll('button')).toHaveLength(2)
   })
 
-  it('固定工作台前提供加宽且权限感知的菜单搜索', () => {
+  it('不重复渲染菜单搜索;菜单搜索由二级面板与全局命令搜索承载', () => {
     const wrapper = mountWithTabs([])
-    expect(wrapper.get('[aria-label="搜索菜单"]')).toBeTruthy()
-    expect(wrapper.find('.ip-pc-tabs__menu-search').exists()).toBe(true)
-    expect(wrapper.get('.ip-pc-tabs').element.firstElementChild?.classList).toContain(
-      'ip-pc-tabs__menu-search',
-    )
+    expect(wrapper.find('[aria-label="搜索菜单"]').exists()).toBe(false)
+    expect(wrapper.find('.ip-pc-tabs__menu-search').exists()).toBe(false)
   })
 
   it('业务标签带关闭按钮,点击 emit close', async () => {

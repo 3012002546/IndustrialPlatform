@@ -80,6 +80,12 @@ public static class PermissionCatalog
     /// <summary>测试 SSO。</summary>
     public const string SsoTest = "identity.sso.test";
 
+    /// <summary>查看当前有效刷新会话。</summary>
+    public const string SessionView = "identity.session.view";
+
+    /// <summary>撤销单个刷新会话。</summary>
+    public const string SessionRevoke = "identity.session.revoke";
+
     /// <summary>平台首页查看。</summary>
     public const string PlatformHomeView = "platform.home.view";
 
@@ -163,6 +169,8 @@ public static class PermissionCatalog
         SsoView,
         SsoManage,
         SsoTest,
+        SessionView,
+        SessionRevoke,
         PlatformHomeView,
         PlatformOperationView,
         PlatformPdaView,

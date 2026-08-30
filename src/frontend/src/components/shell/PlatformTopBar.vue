@@ -38,13 +38,14 @@ defineSlots<{
 
 <style scoped>
 .ip-topbar {
+  position: relative;
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: var(--ip-space-4);
+  gap: 4px;
   height: var(--ip-shell-topbar-height);
-  padding: 0 var(--ip-space-4);
-  overflow: hidden;
+  padding: 0 4px;
+  overflow: visible;
   background: var(--ip-shell-topbar-background);
   color: var(--ip-shell-topbar-text);
 }
@@ -70,6 +71,7 @@ defineSlots<{
   gap: var(--ip-space-3);
   min-width: 0;
   margin-left: auto;
+  margin-right: 0;
 }
 
 .ip-topbar__actions {
@@ -95,8 +97,8 @@ defineSlots<{
 
 @media (max-width: 1280px) {
   .ip-topbar {
-    gap: var(--ip-space-2);
-    padding: 0 var(--ip-space-3);
+    gap: 4px;
+    padding: 0 4px;
   }
 
   .ip-topbar__right {

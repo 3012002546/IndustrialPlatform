@@ -88,6 +88,12 @@ public static class PermissionPolicies
     /// <summary>测试 SSO。</summary>
     public const string SsoTest = Prefix + PermissionCatalog.SsoTest;
 
+    /// <summary>查看当前有效刷新会话。</summary>
+    public const string SessionView = Prefix + PermissionCatalog.SessionView;
+
+    /// <summary>撤销单个刷新会话。</summary>
+    public const string SessionRevoke = Prefix + PermissionCatalog.SessionRevoke;
+
     /// <summary>平台首页查看。</summary>
     public const string PlatformHomeView = Prefix + PermissionCatalog.PlatformHomeView;
 

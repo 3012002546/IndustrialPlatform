@@ -8,8 +8,8 @@
 
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
-import { ElDropdown, ElDropdownItem, ElDropdownMenu } from 'element-plus'
-import { FullScreen, Lock } from '@element-plus/icons-vue'
+import { ElDropdown, ElDropdownItem, ElDropdownMenu, ElMessage, ElMessageBox } from 'element-plus'
+import { Delete, FullScreen, Lock, SwitchButton, UserFilled } from '@element-plus/icons-vue'
 
 import MockModeBanner from '@/components/base/MockModeBanner.vue'
 import PlatformBrand from '@/components/brand/PlatformBrand.vue'
@@ -26,6 +26,7 @@ import PlatformFunctionTree from '@/components/shell/PlatformFunctionTree.vue'
 import PlatformServiceStatus from '@/components/shell/PlatformServiceStatus.vue'
 import PlatformToolRail from '@/components/shell/PlatformToolRail.vue'
 import PlatformTopBar from '@/components/shell/PlatformTopBar.vue'
+import PlatformSessionControls from '@/components/shell/PlatformSessionControls.vue'
 import ThemeControl from '@/components/theme/ThemeControl.vue'
 import WorkspaceTabLimitDialog from '@/components/shell/WorkspaceTabLimitDialog.vue'
 import AppLockOverlay from '@/components/shell/AppLockOverlay.vue'
@@ -37,6 +38,9 @@ import { useWorkspaceTabsStore } from '@/stores/workspaceTabsStore'
 import { useLockStore } from '@/stores/lockStore'
 import { useThemeStore } from '@/stores/themeStore'
 import { useSystemDataRuntimeStore } from '@/stores/systemData/runtimeStore'
+import { clearCurrentUserUiCache } from '@/stores/uiCacheStore'
+import { localeMessages, resolveLocaleMessage } from '@/localization/i18n'
+import { usePlatformLocale } from '@/localization/localeContext'
 import { buildTabId } from '@/workspace'
 import type { TabLimitResolution, WorkspaceTab } from '@/workspace'
 
@@ -57,6 +61,7 @@ const systemDataRuntime = useSystemDataRuntimeStore()
 const runtimeConfig = loadRuntimeConfig()
 const focusMode = ref(false)
 const browserFullscreen = ref(false)
+const locale = usePlatformLocale()
 
 /** 当前平台分组:默认第一个;路由变化时跟随所属分组。 */
 const activeGroupId = ref(pcNavigationGroups[0]?.id ?? '')
@@ -88,12 +93,21 @@ const tenant = computed(() => {
 })
 const commandItems = computed<readonly PlatformCommandItem[]>(() => [
   ...pcNavigationGroups.flatMap((group) =>
-    group.items.map((item) => ({ id: item.id, label: item.label, kind: 'navigation' as const })),
+    group.items.map((item) => ({
+      id: item.id,
+      label: resolveLocaleMessage(locale.value, item.labelKey, item.fallbackLabel ?? item.label),
+      kind: 'navigation' as const,
+    })),
   ),
   ...tabsStore.tabs
     .filter((tab) => tab.kind === 'business')
-    .map((tab) => ({ id: tab.id, label: tab.title, kind: 'recent' as const })),
+    .map((tab) => ({
+      id: tab.id,
+      label: resolveLocaleMessage(locale.value, tab.titleKey, tab.fallbackTitle ?? tab.title),
+      kind: 'recent' as const,
+    })),
 ])
+const shellCopy = computed(() => localeMessages[locale.value].shell.top)
 
 function onFullscreenChange(): void {
   browserFullscreen.value = document.fullscreenElement !== null
@@ -127,10 +141,29 @@ onBeforeUnmount(() => {
   document.removeEventListener('keydown', onDocumentKeydown)
 })
 
-/** 用户菜单命令:目前仅「退出登录」。退出后总是回登录页(§14.1)。 */
+/** 用户菜单命令:仅处理真实的个人中心、白名单 UI 缓存、锁定与退出。 */
 function onUserCommand(command: unknown): void {
-  if (command !== 'logout') return
-  void handleLogout()
+  if (command === 'profile') void router.push({ name: 'profile' })
+  else if (command === 'clear-cache') void clearCache()
+  else if (command === 'lock') lockStore.lock()
+  else if (command === 'logout') void handleLogout()
+}
+
+async function clearCache(): Promise<void> {
+  const user = authStore.user
+  if (user === null) return
+  try {
+    await ElMessageBox.confirm(shellCopy.value.clearCacheConfirm, shellCopy.value.clearCache, {
+      confirmButtonText: shellCopy.value.clearCache,
+      cancelButtonText: localeMessages[locale.value].common.action.cancel,
+      type: 'warning',
+    })
+  } catch {
+    return
+  }
+  clearCurrentUserUiCache({ tenantId: user.tenantId, userId: user.userId })
+  tabsStore.clearUiCache()
+  ElMessage.success(shellCopy.value.cacheCleared)
 }
 
 async function handleLogout(): Promise<void> {
@@ -237,12 +270,12 @@ function onLimitResolve(resolution: TabLimitResolution): void {
 
 <template>
   <div class="ip-pc-layout" :class="{ 'ip-pc-layout--focus': focusMode }">
-    <a class="ip-pc-skip-link" href="#main-content">跳到主内容</a>
+    <a class="ip-pc-skip-link" href="#main-content">{{ localeMessages[locale].common.action.skipToContent }}</a>
 
     <PlatformTopBar class="ip-pc-chrome">
       <template #brand>
         <PlatformBrand class="ip-pc-brand" variant="dark" />
-        <span class="ip-pc-terminal" data-testid="terminal-info"> 终端 {{ terminalLabel }} </span>
+        <span class="ip-pc-terminal" data-testid="terminal-info">{{ shellCopy.terminal }} {{ terminalLabel }}</span>
         <PlatformEnvironmentBadge :environment="runtimeConfig.deploymentEnvironment" />
       </template>
 
@@ -261,45 +294,26 @@ function onLimitResolve(resolution: TabLimitResolution): void {
           :unavailable="systemDataRuntime.unavailable"
           @retry="systemDataRuntime.refresh('Pc')"
         />
+        <PlatformSessionControls />
         <LocaleControl />
         <button
           type="button"
           class="ip-pc-shell-action"
           data-testid="browser-fullscreen"
-          :aria-label="browserFullscreen ? '退出浏览器全屏' : '浏览器全屏'"
-          :title="browserFullscreen ? '退出浏览器全屏' : '浏览器全屏'"
+          :aria-label="browserFullscreen ? localeMessages[locale].common.action.exitFullscreen : localeMessages[locale].common.action.fullscreen"
+          :title="browserFullscreen ? localeMessages[locale].common.action.exitFullscreen : localeMessages[locale].common.action.fullscreen"
           @click="toggleBrowserFullscreen"
         >
           <FullScreen aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          class="ip-pc-shell-action"
-          data-testid="lock-workspace"
-          aria-label="锁定工作区"
-          title="锁定工作区"
-          @click="lockStore.lock"
-        >
-          <Lock aria-hidden="true" />
         </button>
         <ThemeControl terminal="pc" />
       </template>
 
       <template #user>
         <ElDropdown trigger="click" @command="onUserCommand">
-          <button type="button" class="ip-pc-user" data-testid="user-menu" aria-label="用户菜单">
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 16 16"
-              fill="none"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <circle cx="8" cy="5" r="2.5" stroke="currentColor" />
-              <path d="M2.5 13.5a5.5 5.5 0 0 1 11 0" stroke="currentColor" stroke-linecap="round" />
-            </svg>
-            <span class="ip-pc-user__name">{{ displayName || '未登录' }}</span>
+          <button type="button" class="ip-pc-user" data-testid="user-menu" :aria-label="shellCopy.userMenu">
+            <UserFilled aria-hidden="true" />
+            <span class="ip-pc-user__name">{{ displayName || localeMessages[locale].common.state.unauthenticated }}</span>
             <svg
               class="ip-pc-user__caret"
               width="12"
@@ -319,7 +333,10 @@ function onLimitResolve(resolution: TabLimitResolution): void {
           </button>
           <template #dropdown>
             <ElDropdownMenu>
-              <ElDropdownItem command="logout">退出登录</ElDropdownItem>
+              <ElDropdownItem command="profile"><UserFilled aria-hidden="true" />{{ shellCopy.profile }}</ElDropdownItem>
+              <ElDropdownItem command="clear-cache"><Delete aria-hidden="true" />{{ shellCopy.clearCache }}</ElDropdownItem>
+              <ElDropdownItem command="lock"><Lock aria-hidden="true" />{{ shellCopy.lock }}</ElDropdownItem>
+              <ElDropdownItem command="logout"><SwitchButton aria-hidden="true" />{{ localeMessages[locale].common.action.logout }}</ElDropdownItem>
             </ElDropdownMenu>
           </template>
         </ElDropdown>
@@ -355,9 +372,10 @@ function onLimitResolve(resolution: TabLimitResolution): void {
           class="ip-pc-chrome"
           v-if="activeGroup !== null"
           :label="activeGroup.label"
+          :label-key="activeGroup.labelKey"
           :items="activeGroupItems"
         />
-        <main id="main-content" class="ip-pc-main" style="padding: 10px" tabindex="-1">
+        <main id="main-content" class="ip-pc-main" tabindex="-1">
           <RouterView :key="contentKey" />
         </main>
       </div>
@@ -370,10 +388,10 @@ function onLimitResolve(resolution: TabLimitResolution): void {
       type="button"
       class="ip-focus-exit"
       data-testid="focus-mode-exit"
-      aria-label="退出页面专注全屏"
+      :aria-label="localeMessages[locale].common.action.exitFocusMode"
       @click="exitFocusMode"
     >
-      退出专注全屏
+      {{ localeMessages[locale].common.action.exitFocusMode }}
     </button>
 
     <AppLockOverlay />
@@ -448,6 +466,14 @@ function onLimitResolve(resolution: TabLimitResolution): void {
   cursor: pointer;
 }
 
+.ip-pc-brand {
+  margin-right: 4px;
+}
+
+.ip-pc-brand :deep(img) {
+  max-width: min(228px, 19vw);
+}
+
 .ip-pc-shell-action:hover,
 .ip-pc-shell-action:focus-visible {
   background: rgb(255 255 255 / 0.12);
@@ -489,7 +515,7 @@ function onLimitResolve(resolution: TabLimitResolution): void {
   align-items: center;
   gap: var(--ip-space-2);
   width: 100%;
-  min-width: 120px;
+  min-width: 144px;
   min-height: 32px;
   padding: 0 var(--ip-space-2);
   color: var(--ip-shell-topbar-text);

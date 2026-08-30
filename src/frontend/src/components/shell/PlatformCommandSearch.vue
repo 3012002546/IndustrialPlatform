@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import { localeMessages } from '@/localization/i18n'
 import { usePlatformLocale } from '@/localization/localeContext'
@@ -15,6 +15,8 @@ const emit = defineEmits<{ select: [id: string] }>()
 const query = ref('')
 const open = ref(false)
 const input = ref<HTMLInputElement | null>(null)
+const resultsPanel = ref<HTMLElement | null>(null)
+const resultsStyle = ref<Record<string, string>>({})
 const locale = usePlatformLocale()
 const copy = computed(() => localeMessages[locale.value].shell.commandSearch)
 
@@ -27,6 +29,7 @@ const results = computed(() => {
 function focusSearch(): void {
   open.value = true
   void input.value?.focus()
+  void nextTick(positionResults)
 }
 
 function onGlobalKeydown(event: KeyboardEvent): void {
@@ -41,13 +44,40 @@ function close(): void {
   query.value = ''
 }
 
+function positionResults(): void {
+  const rect = input.value?.getBoundingClientRect()
+  if (rect === undefined) return
+  const width = Math.min(rect.width, window.innerWidth - 16)
+  const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8))
+  resultsStyle.value = {
+    top: `${Math.min(window.innerHeight - 8, rect.bottom + 6)}px`,
+    left: `${left}px`,
+    width: `${width}px`,
+  }
+}
+
+function onDocumentPointerDown(event: PointerEvent): void {
+  if (input.value?.contains(event.target as Node) || resultsPanel.value?.contains(event.target as Node)) return
+  close()
+}
+
 function selectItem(item: PlatformCommandItem): void {
   emit('select', item.id)
   close()
 }
 
-onMounted(() => window.addEventListener('keydown', onGlobalKeydown))
-onBeforeUnmount(() => window.removeEventListener('keydown', onGlobalKeydown))
+onMounted(() => {
+  window.addEventListener('keydown', onGlobalKeydown)
+  window.addEventListener('resize', positionResults)
+  window.addEventListener('scroll', positionResults, true)
+  document.addEventListener('pointerdown', onDocumentPointerDown)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onGlobalKeydown)
+  window.removeEventListener('resize', positionResults)
+  window.removeEventListener('scroll', positionResults, true)
+  document.removeEventListener('pointerdown', onDocumentPointerDown)
+})
 </script>
 
 <template>
@@ -60,10 +90,16 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onGlobalKeydown))
       :aria-label="localeMessages[locale].shell.top.globalSearch"
       :aria-expanded="open"
       aria-controls="platform-command-search-results"
-      @focus="open = true"
+      @focus="open = true; void nextTick(positionResults)"
       @keydown.esc="close"
     />
-    <div v-if="open" id="platform-command-search-results" class="ip-command-search__results">
+    <div
+      v-if="open"
+      id="platform-command-search-results"
+      ref="resultsPanel"
+      class="ip-command-search__results"
+      :style="resultsStyle"
+    >
       <button
         v-for="item in results"
         :key="item.id"
@@ -99,13 +135,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onGlobalKeydown))
 }
 
 .ip-command-search__results {
-  position: absolute;
+  position: fixed;
   z-index: 20;
-  top: calc(100% + var(--ip-space-1));
-  right: 0;
-  left: 0;
   display: flex;
   flex-direction: column;
+  max-height: calc(100vh - 16px);
+  overflow: auto;
   padding: var(--ip-space-1);
   color: var(--ip-color-text-primary);
   background: var(--ip-color-bg-container);

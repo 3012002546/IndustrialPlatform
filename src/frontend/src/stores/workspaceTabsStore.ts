@@ -12,7 +12,7 @@ import { computed, ref } from 'vue'
 import type { UserUiScope } from '@/theme/types'
 import { createFixedWorkbench, MAX_BUSINESS_TABS } from '@/workspace/identity'
 import { clearPageState } from '@/workspace/pageState'
-import { readTabsSnapshot, writeTabsSnapshot, type WorkspaceStorage } from '@/workspace/persistence'
+import { buildUserTabsKey, readTabsSnapshot, writeTabsSnapshot, type WorkspaceStorage } from '@/workspace/persistence'
 import type {
   OpenTabResult,
   PersistedRouteLocation,
@@ -237,6 +237,20 @@ export const useWorkspaceTabsStore = defineStore('workspaceTabs', () => {
     reloadTab(activeTabId.value)
   }
 
+  /** 清除当前用户的可恢复工作区状态；认证、主题和语言不在此 Store 内处理。 */
+  function clearUiCache(): void {
+    tabs.value = [createFixedWorkbench()]
+    activeTabId.value = tabs.value[0]!.id
+    pending.value = null
+    if (scope.value !== null) {
+      try {
+        globalThis.localStorage.removeItem(buildUserTabsKey(scope.value))
+      } catch {
+        // Cache cleanup is best effort; the in-memory state is still reset.
+      }
+    }
+  }
+
   /**
    * 处理上限对话框决议(§7.9):返回应导航的目标路由,取消返回 null。
    * close-and-open → 关闭所选标签并返回 pending 目标;reuse → 激活所选标签并返回其路由。
@@ -293,6 +307,7 @@ export const useWorkspaceTabsStore = defineStore('workspaceTabs', () => {
     activateTab,
     reloadTab,
     reloadCurrent,
+    clearUiCache,
     resolvePending,
     prune,
   }

@@ -22,6 +22,8 @@ export interface PlatformLocaleMessages {
       settings: string
       fullscreen: string
       exitFullscreen: string
+      skipToContent: string
+      exitFocusMode: string
       logout: string
       retry: string
     }
@@ -141,7 +143,12 @@ export interface PlatformLocaleMessages {
     }
   }
   shell: {
-    navigation: { workspace: string; platformManagement: string }
+    navigation: {
+      workspace: string
+      platformManagement: string
+      group: Record<string, string>
+      item: Record<string, string>
+    }
     top: {
       environment: string
       tenant: string
@@ -152,6 +159,31 @@ export interface PlatformLocaleMessages {
       userMenu: string
       lock: string
       mode: string
+      messages: string
+      onlineUsers: string
+      profile: string
+      clearCache: string
+      notification: string
+      notificationUnavailable: string
+      onlineUsersDescription: string
+      onlineUsersEmpty: string
+      revokeSession: string
+      revokeSessionConfirm: string
+      revokeSessionSuccess: string
+      profileAccount: string
+      profileName: string
+      profileTenant: string
+      profileRoles: string
+      changePassword: string
+      cacheCleared: string
+      clearCacheConfirm: string
+      more: string
+      moreNavigation: string
+      index: string
+      loginTime: string
+      lastRefresh: string
+      expires: string
+      currentSession: string
     }
     commandSearch: { placeholder: string; empty: string; recent: string; commands: string }
     mode: { management: string; operation: string }
@@ -181,6 +213,7 @@ export interface PlatformLocaleMessages {
       tabFocusExit: string
       tabReuse: string
       tabCloseAndOpen: string
+      menuSearchHint: string
     }
   }
   operation: {

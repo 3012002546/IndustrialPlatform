@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createApiError } from '@/api/errors'
 import {
+  AUTH_SESSION_HTTP_STORAGE_KEY,
   AUTH_SESSION_STORAGE_KEY,
   getCurrentSession,
   setAuthGateway,
@@ -140,6 +141,27 @@ describe('AuthStore — 恢复', () => {
     await store.restore()
     expect(store.isAuthenticated).toBe(true)
     expect(store.session?.accessToken).toBe('at-stored')
+  })
+
+  it('HTTP 模式恢复时用 /auth/me 刷新权限快照', async () => {
+    vi.stubEnv('VITE_AUTH_MODE', 'http')
+    const { gateway } = createFakeGateway()
+    gateway.getCurrentUser = async () => ({
+      ...makeSession().user,
+      permissions: ['platform.home.view', 'platform.operation.view', 'identity.session.view'],
+    })
+    setAuthGateway(gateway)
+    writeAuthSession(sessionStorage, makeSession('at-http'), AUTH_SESSION_HTTP_STORAGE_KEY)
+
+    const store = useAuthStore()
+    await store.restore()
+
+    expect(store.session?.accessToken).toBe('at-http')
+    expect(store.hasPermission('platform.operation.view')).toBe(true)
+    expect(store.hasPermission('identity.session.view')).toBe(true)
+    expect(JSON.parse(sessionStorage.getItem(AUTH_SESSION_HTTP_STORAGE_KEY) ?? '{}').session.user.permissions).toContain(
+      'identity.session.view',
+    )
   })
 
   it('损坏或过期存储被清理且不恢复', async () => {
