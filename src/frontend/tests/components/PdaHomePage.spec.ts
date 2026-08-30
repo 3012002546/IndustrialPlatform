@@ -89,6 +89,8 @@ describe('PdaHomePage', () => {
   })
 
   it('仅使用时间问候作为页面主标题', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 7, 20, 10, 13, 3))
     const wrapper = await mountHome()
     expect(wrapper.findAll('h1')).toHaveLength(1)
     expect(wrapper.get('h1').text()).toMatch(/好，Mock 演示账号$/)
