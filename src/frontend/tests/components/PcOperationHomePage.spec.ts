@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import PcOperationHomePage from '@/pages/pc/PcOperationHomePage.vue'
 import { useLocalizationStore } from '@/stores/localizationStore'
+import operationHomeSource from '@/pages/pc/PcOperationHomePage.vue?raw'
 
 describe('PcOperationHomePage', () => {
   let pinia: ReturnType<typeof createPinia>
@@ -43,5 +44,14 @@ describe('PcOperationHomePage', () => {
     expect(wrapper.text()).toContain('Interface settings')
     expect(wrapper.text()).toContain('Browser fullscreen')
     expect(wrapper.text()).not.toMatch(/[\u3400-\u9fff]/)
+  })
+
+  it('维持三列卡片的可视最小高度，避免操作页被压缩截断', () => {
+    const wrapper = mount(PcOperationHomePage, { global: { plugins: [pinia] } })
+    const cards = wrapper.findAll('.pc-operation-card')
+
+    expect(cards).toHaveLength(9)
+    expect(operationHomeSource).toMatch(/\.pc-operation-grid[\s\S]*display:\s*grid/)
+    expect(operationHomeSource).toMatch(/\.pc-operation-card[\s\S]*min-height:\s*176px/)
   })
 })

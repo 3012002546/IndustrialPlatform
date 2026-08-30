@@ -59,4 +59,16 @@ describe('OperationLayout', () => {
     expect(wrapper.find('.ip-operation-topbar__context').exists()).toBe(true)
     expect(wrapper.find('.ip-operation-topbar__right').exists()).toBe(true)
   })
+
+  it('用户菜单图标保持管理壳一致的 18px 尺寸', () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', component: { render: () => h('div', 'home') } }],
+    })
+    const wrapper = mount(OperationLayout, { global: { plugins: [router, pinia] } })
+    const icon = wrapper.get('[data-testid="operation-user-menu"] svg')
+
+    expect(icon.attributes('width')).toBe('18')
+    expect(icon.attributes('height')).toBe('18')
+  })
 })

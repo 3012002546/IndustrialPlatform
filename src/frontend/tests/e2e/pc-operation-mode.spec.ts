@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 
 async function login(page: import('@playwright/test').Page): Promise<void> {
   await page.goto('/login')
@@ -8,7 +8,20 @@ async function login(page: import('@playwright/test').Page): Promise<void> {
   await expect(page).toHaveURL(/\/pc\/home/)
 }
 
-test('双权限用户可以在管理壳与生产操作壳之间切换', async ({ page }) => {
+async function assertOperationShell(page: Page): Promise<void> {
+  await expect(page.getByTestId('operation-user-menu').locator('svg')).toHaveCSS('width', '18px')
+  await expect(page.getByTestId('operation-user-menu').locator('svg')).toHaveCSS('height', '18px')
+  const topbar = await page.locator('.ip-operation-topbar').boundingBox()
+  const user = await page.getByTestId('operation-user-menu').boundingBox()
+  expect(topbar).not.toBeNull()
+  expect(user).not.toBeNull()
+  expect(topbar!.height).toBeLessThanOrEqual(64)
+  expect(user!.height).toBeLessThanOrEqual(40)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  expect(user!.x + user!.width).toBeLessThanOrEqual((await page.viewportSize())!.width)
+}
+
+test('双权限用户可以在管理壳与生产操作壳之间切换', async ({ page }, testInfo) => {
   await login(page)
   await expect(page.getByTestId('pc-experience-mode-control')).toBeVisible()
   await page.getByRole('button', { name: '生产操作' }).click()
@@ -24,6 +37,7 @@ test('双权限用户可以在管理壳与生产操作壳之间切换', async ({
   await expect(page.getByTestId('operation-user-menu')).toHaveCSS('white-space', 'nowrap')
   const viewport = page.viewportSize()
   expect(viewport).not.toBeNull()
+  await assertOperationShell(page)
   for (const locator of [
     page.locator('.ip-operation-topbar'),
     page.locator('.ip-operation-topbar__brand'),
@@ -47,10 +61,26 @@ test('双权限用户可以在管理壳与生产操作壳之间切换', async ({
     .evaluate((element) => getComputedStyle(element).color)
   expect(operationUserColor).toBe(topbarColor)
 
-  await page.screenshot({ path: 'tests/e2e/screenshots/pc-operation-1280x720.png', fullPage: true })
+  await page.screenshot({ path: testInfo.outputPath('pc-operation-1280x720.png'), fullPage: true })
   await page.getByRole('button', { name: '管理' }).click()
   await expect(page).toHaveURL(/\/pc\/home/)
   await expect(page.getByRole('navigation', { name: '平台分组' })).toBeVisible()
+})
+
+test('1440×900 生产操作壳完整显示三行卡片且顶栏不被撑高', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await login(page)
+  await page.getByRole('button', { name: '生产操作' }).click()
+  await expect(page).toHaveURL(/\/pc\/operation/)
+  await assertOperationShell(page)
+
+  const cards = page.locator('.pc-operation-card')
+  await expect(cards).toHaveCount(9)
+  const lastCard = await cards.last().boundingBox()
+  expect(lastCard).not.toBeNull()
+  expect(lastCard!.y + lastCard!.height).toBeLessThanOrEqual(900)
+  expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight)).toBe(true)
+  await page.screenshot({ path: testInfo.outputPath('pc-operation-1440x900.png'), fullPage: true })
 })
 
 test('生产操作模式随当前语言切换为英文且公共文案无中文回退', async ({ page }) => {

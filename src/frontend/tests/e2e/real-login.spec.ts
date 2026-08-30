@@ -198,6 +198,33 @@ test('业务标签恢复:管理员刷新恢复业务标签,受限用户不携带
   await expect(page.locator('.ip-pc-tabs')).not.toContainText('用户管理')
 })
 
+test('真实生产操作壳在 1280/1440 视口保持紧凑顶栏与完整卡片区', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1280, height: 720 })
+  await login(page, E2E_ADMIN)
+  await page.getByRole('button', { name: '生产操作' }).click()
+  await expect(page).toHaveURL(/\/pc\/operation/)
+  await expect(page.getByTestId('operation-user-menu').locator('svg')).toHaveCSS('width', '18px')
+  await expect(page.getByTestId('operation-user-menu').locator('svg')).toHaveCSS('height', '18px')
+
+  const topbar = await page.locator('.ip-operation-topbar').boundingBox()
+  const userMenu = await page.getByTestId('operation-user-menu').boundingBox()
+  expect(topbar).not.toBeNull()
+  expect(userMenu).not.toBeNull()
+  expect(topbar!.height).toBeLessThanOrEqual(64)
+  expect(userMenu!.height).toBeLessThanOrEqual(40)
+  expect(userMenu!.x + userMenu!.width).toBeLessThanOrEqual(1280)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  await page.screenshot({ path: testInfo.outputPath('real-operation-1280x720.png'), fullPage: true })
+
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await expect(page.locator('.pc-operation-card')).toHaveCount(9)
+  const lastCard = await page.locator('.pc-operation-card').last().boundingBox()
+  expect(lastCard).not.toBeNull()
+  expect(lastCard!.y + lastCard!.height).toBeLessThanOrEqual(900)
+  expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight)).toBe(true)
+  await page.screenshot({ path: testInfo.outputPath('real-operation-1440x900.png'), fullPage: true })
+})
+
 test('注销干净回登录页且控制台无敏感令牌/密码日志', async ({ page }) => {
   const consoleTexts: string[] = []
   page.on('console', (msg) => consoleTexts.push(msg.text()))

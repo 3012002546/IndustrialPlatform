@@ -111,7 +111,7 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFullscr
         </div>
         <ElDropdown trigger="click" @command="onUserCommand">
           <button type="button" class="ip-operation-user" data-testid="operation-user-menu" :aria-label="copy.shell.top.userMenu">
-            <UserFilled aria-hidden="true" />
+            <UserFilled width="18" height="18" aria-hidden="true" />
             <span class="ip-operation-user__name">{{
               displayName || copy.common.state.unauthenticated
             }}</span>
@@ -185,7 +185,10 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFullscr
 
 .ip-operation-action,
 .ip-operation-user {
+  display: inline-flex;
   box-sizing: border-box;
+  align-items: center;
+  gap: var(--ip-space-2);
   min-height: 32px;
   padding: 0 var(--ip-space-2);
   color: var(--ip-shell-topbar-text);
@@ -202,6 +205,18 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFullscr
   overflow: hidden;
   text-align: left;
   white-space: nowrap;
+}
+
+.ip-operation-action > :deep(svg),
+.ip-operation-user > :deep(svg) {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+}
+
+.ip-operation-user > * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .ip-operation-user__name {
