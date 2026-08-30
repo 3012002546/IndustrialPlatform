@@ -16,6 +16,7 @@ import { persistAuthSession } from '../fixtures/session'
 import type { AppDataTableColumn } from '@/components/management/AppDataTable'
 import AppPage from '@/components/base/AppPage.vue'
 import AppQueryPanel from '@/components/management/AppQueryPanel.vue'
+import type { UserSummaryDto } from '@/api/identity/management'
 import IdentityUsersPage from '@/pages/pc/identity/IdentityUsersPage.vue'
 import { useAuthStore } from '@/stores/authStore'
 import { useLocalizationStore } from '@/stores/localizationStore'
@@ -230,6 +231,36 @@ describe('IdentityUsersPage — 创建用户(服务端随机临时密码)', () =
     expect(
       wrapper.find('[data-testid="app-data-table-header-filter-effectiveRoleCount"]').exists(),
     ).toBe(false)
+  })
+
+  it('列头查询接受 OData 部分投影并保持角色统计可渲染', async () => {
+    fakeApi.listUsersOData.mockResolvedValue({
+      items: [
+        {
+          userNId: 'u-odata',
+          loginName: 'odata.user',
+          name: 'OData User',
+          email: null,
+          phone: null,
+          status: 'Active',
+          tenantNId: 't1',
+          createdOn: '2026-01-01T00:00:00Z',
+          lastLoginOn: null,
+          mustChangePassword: false,
+          effectiveRoleCount: 2,
+        } as unknown as UserSummaryDto,
+      ],
+      total: 1,
+      pageIndex: 1,
+      pageSize: 25,
+    })
+
+    const wrapper = await mountUsersPage(['identity.user.view'])
+    await wrapper.get('[data-testid="app-data-table-query-toggle"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('2')
+    expect(wrapper.find('[data-testid="identity-users-page"]').exists()).toBe(true)
   })
 
   it('keeps both date range filters scrollable instead of widening the narrow fixed area', async () => {

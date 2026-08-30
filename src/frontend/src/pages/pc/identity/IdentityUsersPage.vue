@@ -235,8 +235,26 @@ function roleName(roleNId: string): string {
   return allRoles.value.find((role) => role.roleNId === roleNId)?.name ?? roleNId
 }
 
-function roleNames(roleNIds: readonly string[]): string {
-  return roleNIds.map(roleName).join('、') || '—'
+function roleNames(roleNIds: readonly string[] | undefined): string {
+  return (roleNIds ?? []).map(roleName).join('、') || '—'
+}
+
+/**
+ * OData `$select` is intentionally a partial projection. Keep the page row
+ * shape safe for the cell slots without pretending omitted fields were
+ * returned by the server.
+ */
+function normalizeODataUser(item: UserSummaryDto): UserSummaryDto {
+  const directRoleNIds = Array.isArray(item.directRoleNIds) ? item.directRoleNIds : []
+  const groupRoleNIds = Array.isArray(item.groupRoleNIds) ? item.groupRoleNIds : []
+  const effectiveRoleNIds = Array.isArray(item.effectiveRoleNIds) ? item.effectiveRoleNIds : []
+  return {
+    ...item,
+    directRoleNIds,
+    groupRoleNIds,
+    effectiveRoleNIds,
+    effectiveRoleCount: item.effectiveRoleCount ?? effectiveRoleNIds.length,
+  }
 }
 
 async function loadUsers(): Promise<void> {
@@ -389,7 +407,7 @@ async function exportUsers(request: AppDataTableExportRequest): Promise<void> {
 
 async function loadUsersTable(request: AppDataTableRequest) {
   const result = await management.listUsersOData(buildUserQueryDescriptor(request))
-  rows.value = result.items
+  rows.value = result.items.map(normalizeODataUser)
   total.value = result.total
   return result
 }
@@ -836,7 +854,7 @@ onMounted(() => {
           placement="top"
           :show-after="300"
         >
-          <span>{{ row.effectiveRoleNIds.length }}</span>
+          <span>{{ row.effectiveRoleCount ?? row.effectiveRoleNIds?.length ?? 0 }}</span>
         </el-tooltip>
       </template>
       <template #cell-lastLoginOn="{ row }">{{ formatTime(row.lastLoginOn) }}</template>
@@ -1106,6 +1124,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: var(--ip-space-4);
+  min-width: 0;
 }
 
 .users-page__filter {

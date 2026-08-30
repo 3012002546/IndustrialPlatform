@@ -45,6 +45,7 @@ public static class SystemDataAuthenticationServiceCollectionExtensions
                     ValidateLifetime = true,
                     ClockSkew = TimeSpan.FromSeconds(30),
                     RequireSignedTokens = true,
+                    ValidateIssuerSigningKey = true,
                     IssuerSigningKey = ParsePublicKey(jwt["SigningKey"]),
                     // 与本服务 claim 名对齐,使授权策略可读 user_name/role
                     NameClaimType = ClaimConstants.UserName,

@@ -26,7 +26,8 @@ const IDENTITY_PAGES = [
   {
     path: '/pc/identity/roles',
     title: '角色权限',
-    data: (p: Page) => p.getByText('系统管理员', { exact: true }),
+    data: (p: Page) =>
+      p.locator('.vxe-table--main-wrapper').getByText('系统管理员', { exact: true }),
   },
   {
     path: '/pc/identity/permissions',

@@ -2302,6 +2302,7 @@ defineExpose({
 }
 .app-data-table__card {
   position: relative;
+  min-width: 0;
   padding: var(--ip-space-3);
   background: var(--ip-color-bg-container);
   border: 1px solid var(--ip-color-border);
@@ -2311,7 +2312,9 @@ defineExpose({
 .app-data-table__surface {
   position: relative;
   min-width: 0;
+  max-width: 100%;
   margin-top: var(--ip-space-2);
+  overflow-x: auto;
 }
 .app-data-table__loading {
   position: absolute;
