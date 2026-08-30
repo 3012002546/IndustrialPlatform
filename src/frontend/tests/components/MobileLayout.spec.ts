@@ -136,7 +136,7 @@ describe('MobileLayout', () => {
 
   it('顶栏展示品牌、终端与 Mock 模式标识', async () => {
     const { wrapper } = await mountLayout()
-    expect(wrapper.get('.ip-mobile-header__brand').text()).toContain('Industrial Platform')
+    expect(wrapper.get('.ip-mobile-header__brand img').attributes('alt')).toBe('Industrial Platform')
     expect(wrapper.get('[data-testid="terminal-info"]').text()).toContain('Mobile')
     expect(wrapper.text()).toContain('Mock')
   })
