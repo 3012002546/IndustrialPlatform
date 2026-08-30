@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ElAlert, ElButton, ElDrawer, ElEmpty, ElMessage, ElMessageBox, ElTable, ElTableColumn } from 'element-plus'
-import { Bell, Refresh, UserFilled } from '@element-plus/icons-vue'
+import { Bell, Promotion, Refresh, UserFilled } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 
 import { getManagementApi } from '@/api/identity/managementRegistry'
@@ -20,6 +20,10 @@ const sessionsOpen = ref(false)
 const sessionsLoading = ref(false)
 const sessionsError = ref(false)
 const sessions = ref<IdentityActiveSessionDto[]>([])
+const notificationOpen = ref(false)
+const notificationTrigger = ref<HTMLButtonElement | null>(null)
+const notificationPanel = ref<HTMLElement | null>(null)
+const notificationPanelStyle = ref<Record<string, string>>({})
 
 const canViewSessions = computed(() => authStore.hasPermission(PERMISSIONS.sessionView))
 const canRevokeSessions = computed(() => authStore.hasPermission(PERMISSIONS.sessionRevoke))
@@ -51,6 +55,47 @@ async function openSessions(): Promise<void> {
   await loadSessions()
 }
 
+function positionNotificationPanel(): void {
+  const triggerRect = notificationTrigger.value?.getBoundingClientRect()
+  if (triggerRect === undefined) return
+  const panelWidth = notificationPanel.value?.getBoundingClientRect().width || 360
+  const panelHeight = notificationPanel.value?.getBoundingClientRect().height || 180
+  const gap = 8
+  const left = Math.max(gap, Math.min(triggerRect.right - panelWidth, window.innerWidth - panelWidth - gap))
+  const below = triggerRect.bottom + gap
+  const top = below + panelHeight <= window.innerHeight - gap
+    ? below
+    : Math.max(gap, triggerRect.top - panelHeight - gap)
+  notificationPanelStyle.value = { top: `${top}px`, left: `${left}px` }
+}
+
+function toggleNotifications(): void {
+  notificationOpen.value = !notificationOpen.value
+  if (notificationOpen.value) {
+    void nextTick(() => {
+      positionNotificationPanel()
+      notificationPanel.value?.focus()
+    })
+  }
+}
+
+function closeNotifications(restoreFocus = false): void {
+  notificationOpen.value = false
+  if (restoreFocus) void nextTick(() => notificationTrigger.value?.focus())
+}
+
+function onNotificationKeydown(event: KeyboardEvent): void {
+  if (event.key !== 'Escape') return
+  event.preventDefault()
+  closeNotifications(true)
+}
+
+function onDocumentPointerDown(event: PointerEvent): void {
+  const target = event.target as Node | null
+  if (notificationTrigger.value?.contains(target) || notificationPanel.value?.contains(target)) return
+  closeNotifications()
+}
+
 async function revokeSession(row: IdentityActiveSessionDto): Promise<void> {
   if (!canRevokeSessions.value) return
   try {
@@ -75,19 +120,51 @@ async function revokeSession(row: IdentityActiveSessionDto): Promise<void> {
     sessionsError.value = true
   }
 }
+
+onMounted(() => {
+  document.addEventListener('pointerdown', onDocumentPointerDown)
+  window.addEventListener('resize', positionNotificationPanel)
+  window.addEventListener('scroll', positionNotificationPanel, true)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', onDocumentPointerDown)
+  window.removeEventListener('resize', positionNotificationPanel)
+  window.removeEventListener('scroll', positionNotificationPanel, true)
+})
 </script>
 
 <template>
   <button
+    ref="notificationTrigger"
     type="button"
     class="ip-shell-action ip-shell-message"
     data-testid="shell-notifications"
     :aria-label="copy.notification"
+    :aria-expanded="notificationOpen"
+    aria-haspopup="dialog"
     :title="copy.notificationUnavailable"
-    disabled
+    @click="toggleNotifications"
   >
     <Bell aria-hidden="true" />
   </button>
+
+  <Teleport to="body">
+    <div
+      v-if="notificationOpen"
+      ref="notificationPanel"
+      class="ip-shell-notifications-panel"
+      data-testid="shell-notification-panel"
+      role="dialog"
+      tabindex="-1"
+      :aria-label="copy.notification"
+      :style="notificationPanelStyle"
+      @keydown="onNotificationKeydown"
+    >
+      <div class="ip-shell-notifications-panel__title">{{ copy.notification }}</div>
+      <ElEmpty :description="copy.notificationEmpty" />
+    </div>
+  </Teleport>
   <button
     v-if="canViewSessions"
     type="button"
@@ -142,6 +219,15 @@ async function revokeSession(row: IdentityActiveSessionDto): Promise<void> {
       <ElTableColumn :label="common.table.actions" width="108" fixed="right">
         <template #default="scope">
           <ElButton
+            link
+            disabled
+            :title="copy.sendMessageUnavailable"
+            :aria-label="copy.sendMessage"
+            data-testid="shell-send-message"
+          >
+            <Promotion aria-hidden="true" />
+          </ElButton>
+          <ElButton
             v-if="canRevokeSessions"
             link
             type="danger"
@@ -184,6 +270,29 @@ async function revokeSession(row: IdentityActiveSessionDto): Promise<void> {
 .ip-shell-action :deep(svg) {
   width: 18px;
   height: 18px;
+}
+
+.ip-shell-notifications-panel {
+  position: fixed;
+  z-index: 2200;
+  width: min(360px, calc(100vw - 16px));
+  max-height: calc(100vh - 16px);
+  overflow: auto;
+  padding: var(--ip-space-3) var(--ip-space-4);
+  color: var(--ip-color-text-primary);
+  background: var(--ip-color-bg-container);
+  border: 1px solid var(--ip-color-border);
+  border-radius: var(--ip-radius-lg);
+  box-shadow: var(--ip-shadow-lg);
+}
+
+.ip-shell-notifications-panel__title {
+  font-size: var(--ip-font-size-md);
+  font-weight: 650;
+}
+
+.ip-shell-notifications-panel :deep(.el-empty) {
+  padding: var(--ip-space-4) 0 var(--ip-space-2);
 }
 
 .ip-online-sessions__description {

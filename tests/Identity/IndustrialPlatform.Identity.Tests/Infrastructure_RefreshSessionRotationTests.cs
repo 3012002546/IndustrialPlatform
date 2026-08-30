@@ -94,6 +94,68 @@ public sealed class RefreshSessionRotationTests : IDisposable
             DateTimeOffset.UtcNow);
 
     [Fact]
+    public async Task ListActiveForTenant_ReturnsOnlyValidSessionsWithSafeUserProjection()
+    {
+        var user = await SeedUserAsync();
+        var now = DateTimeOffset.UtcNow;
+        await _sessions.AddAsync(NewSession(user.Id, "SES-active", "FAM-active", "raw-active"), CancellationToken.None);
+        await _sessions.AddAsync(NewSession(user.Id, "SES-expired", "FAM-expired", "raw-expired", now.AddMinutes(-1)), CancellationToken.None);
+        await _sessions.AddAsync(NewSession(user.Id, "SES-used", "FAM-used", "raw-used"), CancellationToken.None);
+        await _sessions.AddAsync(NewSession(user.Id, "SES-revoked", "FAM-revoked", "raw-revoked"), CancellationToken.None);
+
+        await _dbContext.SqlSugar.Updateable<RefreshSessionTable>()
+            .SetColumns(row => new RefreshSessionTable { UsedOn = now })
+            .Where(row => row.NId == "SES-used")
+            .ExecuteCommandAsync();
+        await _dbContext.SqlSugar.Updateable<RefreshSessionTable>()
+            .SetColumns(row => new RefreshSessionTable { RevokedOn = now })
+            .Where(row => row.NId == "SES-revoked")
+            .ExecuteCommandAsync();
+
+        var result = await _sessions.ListActiveForTenantAsync("development", now, CancellationToken.None);
+
+        var active = Assert.Single(result);
+        Assert.Equal("SES-active", active.SessionNId);
+        Assert.Equal(user.NId, active.UserNId);
+        Assert.Equal(user.LoginName, active.LoginName);
+        Assert.Equal(user.Name, active.Name);
+    }
+
+    [Fact]
+    public async Task RevokeByNId_IsTenantScopedAndIdempotentForOnlyTheTargetSession()
+    {
+        var user = await SeedUserAsync();
+        await _sessions.AddAsync(NewSession(user.Id, "SES-target", "FAM-target", "raw-target"), CancellationToken.None);
+        await _sessions.AddAsync(NewSession(user.Id, "SES-sibling", "FAM-sibling", "raw-sibling"), CancellationToken.None);
+
+        Assert.False(await _sessions.RevokeByNIdAsync("other-tenant", "SES-target", "admin_revoke", CancellationToken.None));
+        Assert.True(await _sessions.RevokeByNIdAsync("development", "SES-target", "admin_revoke", CancellationToken.None));
+        Assert.True(await _sessions.RevokeByNIdAsync("development", "SES-target", "admin_revoke", CancellationToken.None));
+
+        var rows = await _dbContext.SqlSugar.Queryable<RefreshSessionTable>().ToListAsync();
+        Assert.True(rows.Single(row => row.NId == "SES-target").RevokedOn.HasValue);
+        Assert.Null(rows.Single(row => row.NId == "SES-sibling").RevokedOn);
+    }
+
+    [Fact]
+    public async Task RevokeByNId_MakesOnlyTheTargetRefreshSessionInvalid()
+    {
+        var user = await SeedUserAsync();
+        await _sessions.AddAsync(NewSession(user.Id, "SES-target", "FAM-target", "raw-target"), CancellationToken.None);
+
+        Assert.True(await _sessions.RevokeByNIdAsync("development", "SES-target", "admin_revoke", CancellationToken.None));
+        var revoked = await _sessions.FindByRawTokenAsync("raw-target", CancellationToken.None);
+        Assert.NotNull(revoked);
+
+        Assert.Equal(
+            RefreshRotationStatus.Invalid,
+            await _sessions.RotateAsync(
+                revoked.Id,
+                NewSession(user.Id, "SES-replacement", "FAM-target", "raw-replacement"),
+                CancellationToken.None));
+    }
+
+    [Fact]
     public async Task FindByRawToken_MatchesByHashAndReturnsProjection()
     {
         var user = await SeedUserAsync();

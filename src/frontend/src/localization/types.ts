@@ -165,6 +165,9 @@ export interface PlatformLocaleMessages {
       clearCache: string
       notification: string
       notificationUnavailable: string
+      notificationEmpty: string
+      sendMessage: string
+      sendMessageUnavailable: string
       onlineUsersDescription: string
       onlineUsersEmpty: string
       revokeSession: string

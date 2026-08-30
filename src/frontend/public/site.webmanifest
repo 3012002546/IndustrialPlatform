@@ -8,7 +8,7 @@
   "icons": [
     {
       "src": "/brand/mark.png",
-      "sizes": "385x371",
+      "sizes": "370x371",
       "type": "image/png",
       "purpose": "any maskable"
     }

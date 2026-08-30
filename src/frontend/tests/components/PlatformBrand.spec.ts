@@ -1,9 +1,16 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 
 import PlatformBrand from '@/components/brand/PlatformBrand.vue'
 
 describe('PlatformBrand', () => {
+  function readPngDimensions(path: string): { width: number; height: number } {
+    const bytes = readFileSync(path)
+    return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) }
+  }
+
   it.each(['light', 'dark', 'monochrome'] as const)(
     'renders the %s asset with an accessible name',
     (variant) => {
@@ -41,5 +48,26 @@ describe('PlatformBrand', () => {
     await wrapper.get('img').trigger('error')
     expect(wrapper.get('[role="img"]').attributes('aria-label')).toBe('Industrial Platform')
     expect(wrapper.text()).toContain('IP')
+  })
+
+  it('ships a tightly cropped mark and matching PWA icon dimensions', () => {
+    expect(readPngDimensions(resolve(process.cwd(), 'public/brand/mark.png'))).toEqual({
+      width: 370,
+      height: 371,
+    })
+    expect(readPngDimensions(resolve(process.cwd(), 'public/brand/mark-master.png'))).toEqual({
+      width: 370,
+      height: 371,
+    })
+
+    const manifest = JSON.parse(
+      readFileSync(resolve(process.cwd(), 'public/site.webmanifest'), 'utf8'),
+    ) as { icons: Array<{ src: string; sizes: string }> }
+    expect(manifest.icons).toContainEqual({
+      src: '/brand/mark.png',
+      sizes: '370x371',
+      type: 'image/png',
+      purpose: 'any maskable',
+    })
   })
 })

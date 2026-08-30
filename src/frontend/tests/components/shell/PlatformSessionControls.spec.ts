@@ -59,15 +59,64 @@ describe('PlatformSessionControls', () => {
     vi.unstubAllEnvs()
   })
 
-  it('keeps Notification as a disabled no-op and gates online sessions independently', async () => {
+  it('opens the notification empty state without a backend request', async () => {
     const wrapper = await mountControls([])
 
-    expect(wrapper.get('[data-testid="shell-notifications"]').attributes('disabled')).toBeDefined()
+    const trigger = wrapper.get('[data-testid="shell-notifications"]')
+    expect(trigger.attributes('disabled')).toBeUndefined()
     expect(wrapper.get('[data-testid="shell-notifications"]').attributes('title')).toContain(
       '待实现',
     )
     expect(wrapper.find('[data-testid="online-users-button"]').exists()).toBe(false)
+
+    await trigger.trigger('click')
+    await flushPromises()
+
+    const panel = document.body.querySelector('[data-testid="shell-notification-panel"]')
+    expect(panel).not.toBeNull()
+    expect(panel?.textContent).toContain('尚未接入')
     expect(fakeApi.listActiveSessions).not.toHaveBeenCalled()
+
+    panel?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await flushPromises()
+    expect(document.body.querySelector('[data-testid="shell-notification-panel"]')).toBeNull()
+    expect(document.activeElement).toBe(trigger.element)
+  })
+
+  it('renders a disabled PF04 send-message action that cannot issue a request', async () => {
+    fakeApi.listActiveSessions.mockResolvedValue({
+      items: [
+        {
+          sessionNId: 'SES-1',
+          userNId: 'USR-1',
+          loginName: 'operator',
+          name: '操作员',
+          loginOn: '2026-08-30T01:00:00Z',
+          lastRefreshedOn: '2026-08-30T01:30:00Z',
+          expiresOn: '2026-08-31T01:00:00Z',
+          isCurrent: false,
+        },
+      ],
+      total: 1,
+      pageIndex: 1,
+      pageSize: 100,
+    })
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    const wrapper = await mountControls([PERMISSIONS.sessionView])
+
+    await wrapper.get('[data-testid="online-users-button"]').trigger('click')
+    await flushPromises()
+
+    const send = document.body.querySelector<HTMLButtonElement>('[data-testid="shell-send-message"]')
+    expect(send).not.toBeNull()
+    expect(send?.disabled).toBe(true)
+    expect(send?.title).toContain('待实现')
+    send?.click()
+    send?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    send?.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }))
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(fakeApi.revokeSession).not.toHaveBeenCalled()
+    fetchSpy.mockRestore()
   })
 
   it('loads a safe active-session projection in the drawer for identity.session.view', async () => {
