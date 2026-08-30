@@ -128,8 +128,20 @@ describe('PcLayout', () => {
 
   it('顶栏展示品牌名与终端信息', async () => {
     const { wrapper } = await mountLayout()
-    expect(wrapper.get('.ip-pc-brand').text()).toContain('Industrial Platform')
+    expect(wrapper.get('.ip-pc-brand img').attributes('alt')).toBe('Industrial Platform')
+    expect(wrapper.get('.ip-pc-brand').findAll('.ip-brand__name')).toHaveLength(0)
     expect(wrapper.get('[data-testid="terminal-info"]').text()).toContain('PC')
+  })
+
+  it('顶栏按左中右三段组织且租户与用户入口保持单行可读', async () => {
+    const { wrapper } = await mountLayout()
+    expect(wrapper.find('.ip-topbar__brand').exists()).toBe(true)
+    expect(wrapper.find('.ip-topbar__search').exists()).toBe(true)
+    expect(wrapper.find('.ip-topbar__right').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="tenant-context"]').classes()).toContain(
+      'ip-context-switcher--single-line',
+    )
+    expect(wrapper.find('[data-testid="user-menu"] .ip-pc-user__name').exists()).toBe(true)
   })
 
   it('顶栏展示 Mock 模式横幅', async () => {

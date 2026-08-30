@@ -1,6 +1,6 @@
 /**
  * PlatformTopBar 组件测试(PF-01 §6.1):
- * 四区域结构(brand/search/actions/user)、具名槽渲染、空槽抑制、
+ * 三段结构(brand/search/right)、具名槽渲染、空槽抑制、
  * 固定高度与渐变背景 Token 消费、顶栏为 flex 布局。
  */
 
@@ -21,12 +21,13 @@ function mountTopBar(slots: Record<string, string> = {}): VueWrapper {
 }
 
 describe('PlatformTopBar', () => {
-  it('渲染 header.ip-topbar,包含 brand/search/actions/user 四个区域容器', () => {
+  it('渲染 header.ip-topbar,包含左中右三段和右侧 actions/user 子区域', () => {
     const wrapper = mountTopBar()
     const header = wrapper.get('header.ip-topbar')
     expect(header.classes()).toContain('ip-topbar')
     expect(wrapper.find('.ip-topbar__brand').exists()).toBe(true)
     expect(wrapper.find('.ip-topbar__search').exists()).toBe(false)
+    expect(wrapper.find('.ip-topbar__right').exists()).toBe(true)
     expect(wrapper.find('.ip-topbar__actions').exists()).toBe(true)
     expect(wrapper.find('.ip-topbar__user').exists()).toBe(true)
   })

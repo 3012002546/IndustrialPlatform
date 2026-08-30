@@ -24,6 +24,34 @@ async function login(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\/pc\/home/)
 }
 
+async function expectHeaderReadable(page: Page): Promise<void> {
+  const viewport = page.viewportSize()
+  expect(viewport).not.toBeNull()
+  const header = page.locator('header.ip-topbar')
+  const brand = page.locator('.ip-topbar__brand')
+  const context = page.getByTestId('tenant-context')
+  const search = page.getByTestId('command-search')
+  const right = page.locator('.ip-topbar__right')
+  const user = page.getByTestId('user-menu')
+
+  await expect(page.locator('.ip-pc-brand .ip-brand__name')).toHaveCount(0)
+  await expect(context).toHaveCSS('white-space', 'nowrap')
+  await expect(user).toHaveCSS('white-space', 'nowrap')
+
+  for (const locator of [header, brand, context, search, right, user]) {
+    const box = await locator.boundingBox()
+    expect(box).not.toBeNull()
+    expect(box!.x).toBeGreaterThanOrEqual(0)
+    expect(box!.x + box!.width).toBeLessThanOrEqual(viewport!.width)
+  }
+  const searchBox = await search.boundingBox()
+  expect(searchBox).not.toBeNull()
+  expect(searchBox!.width).toBeGreaterThanOrEqual(160)
+  const userBox = await user.boundingBox()
+  expect(userBox).not.toBeNull()
+  expect(userBox!.width).toBeGreaterThanOrEqual(120)
+}
+
 test('四区结构:顶栏、工具轨、功能树与主内容区', async ({ page }) => {
   await login(page)
   await expect(page.locator('header.ip-topbar')).toBeVisible()
@@ -74,6 +102,7 @@ test('两个 PC 目标视口无横向滚动并保存外壳截图', async ({ page
   await page.setViewportSize({ width: 1280, height: 720 })
   await login(page)
   await expect(page.getByRole('link', { name: '首页' })).toBeVisible()
+  await expectHeaderReadable(page)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   )
@@ -85,6 +114,7 @@ test('两个 PC 目标视口无横向滚动并保存外壳截图', async ({ page
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/pc/home')
   await expect(page.getByRole('link', { name: '首页' })).toBeVisible()
+  await expectHeaderReadable(page)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   )

@@ -84,6 +84,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onGlobalKeydown))
 .ip-command-search {
   position: relative;
   width: min(480px, 100%);
+  min-width: 160px;
 }
 
 .ip-command-search input {

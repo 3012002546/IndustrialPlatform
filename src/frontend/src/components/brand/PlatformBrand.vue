@@ -15,7 +15,9 @@ const props = withDefaults(defineProps<PlatformBrandProps>(), { showName: true }
 const imageFailed = ref(false)
 
 const source = computed(() => {
-  if (props.variant === 'mark') return `${APP_INFO.brandAssetBasePath}/mark.svg`
+  if (props.compact || !props.showName || props.variant === 'mark') {
+    return `${APP_INFO.brandAssetBasePath}/mark.svg`
+  }
   return `${APP_INFO.brandAssetBasePath}/${props.variant === 'monochrome' ? 'monochrome' : `horizontal-${props.variant}`}.svg`
 })
 
@@ -34,10 +36,6 @@ function onImageError(): void {
       IP
     </span>
     <img v-else class="ip-brand__image" :src="source" :alt="APP_INFO.name" @error="onImageError" />
-    <span
-      v-if="props.showName && props.variant !== 'mark'"
-      class="ip-brand__name"
-    >{{ APP_INFO.name }}</span>
   </span>
 </template>
 

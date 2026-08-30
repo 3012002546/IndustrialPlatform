@@ -39,7 +39,24 @@ describe('OperationLayout', () => {
     const wrapper = mount(OperationLayout, { global: { plugins: [router, pinia] } })
 
     expect(wrapper.text()).toContain('Not signed in')
-    expect(wrapper.get('[data-testid="operation-fullscreen"]').attributes('aria-label')).toBe('Browser fullscreen')
+    expect(wrapper.get('[data-testid="operation-fullscreen"]').attributes('aria-label')).toBe(
+      'Browser fullscreen',
+    )
     expect(wrapper.text()).not.toMatch(/[\u3400-\u9fff]/)
+  })
+
+  it('生产操作壳只显示一次品牌且顶栏区域保持单行', () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', component: { render: () => h('div', 'home') } }],
+    })
+    const wrapper = mount(OperationLayout, { global: { plugins: [router, pinia] } })
+
+    expect(wrapper.get('.ip-operation-topbar .ip-brand').findAll('.ip-brand__name')).toHaveLength(0)
+    expect(wrapper.get('.ip-operation-topbar .ip-brand img').attributes('src')).toBe(
+      '/brand/horizontal-dark.svg',
+    )
+    expect(wrapper.find('.ip-operation-topbar__context').exists()).toBe(true)
+    expect(wrapper.find('.ip-operation-topbar__right').exists()).toBe(true)
   })
 })

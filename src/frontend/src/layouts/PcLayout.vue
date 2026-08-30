@@ -485,8 +485,11 @@ function onLimitResolve(resolution: TabLimitResolution): void {
 
 .ip-pc-user {
   display: inline-flex;
+  box-sizing: border-box;
   align-items: center;
   gap: var(--ip-space-2);
+  width: 100%;
+  min-width: 120px;
   min-height: 32px;
   padding: 0 var(--ip-space-2);
   color: var(--ip-shell-topbar-text);
@@ -495,6 +498,14 @@ function onLimitResolve(resolution: TabLimitResolution): void {
   border-radius: var(--ip-radius-md);
   cursor: pointer;
   font-size: var(--ip-font-size-md);
+  white-space: nowrap;
+}
+
+.ip-pc-user__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ip-pc-user:hover {

@@ -24,12 +24,14 @@ defineSlots<{
       <slot name="global-search" />
     </div>
 
-    <div class="ip-topbar__actions">
-      <slot name="global-actions" />
-    </div>
+    <div class="ip-topbar__right">
+      <div class="ip-topbar__actions">
+        <slot name="global-actions" />
+      </div>
 
-    <div class="ip-topbar__user">
-      <slot name="user" />
+      <div class="ip-topbar__user">
+        <slot name="user" />
+      </div>
     </div>
   </header>
 </template>
@@ -42,6 +44,7 @@ defineSlots<{
   gap: var(--ip-space-4);
   height: var(--ip-shell-topbar-height);
   padding: 0 var(--ip-space-4);
+  overflow: hidden;
   background: var(--ip-shell-topbar-background);
   color: var(--ip-shell-topbar-text);
 }
@@ -55,9 +58,18 @@ defineSlots<{
 
 .ip-topbar__search {
   display: inline-flex;
-  flex: 1 1 auto;
+  flex: 1 1 160px;
   min-width: 0;
   justify-content: center;
+}
+
+.ip-topbar__right {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--ip-space-3);
+  min-width: 0;
+  margin-left: auto;
 }
 
 .ip-topbar__actions {
@@ -65,19 +77,53 @@ defineSlots<{
   flex: 0 0 auto;
   align-items: center;
   gap: var(--ip-space-2);
-  margin-left: auto;
 }
 
 .ip-topbar__user {
   display: inline-flex;
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   align-items: center;
-  min-width: 0;
+  width: clamp(120px, 14vw, 220px);
+  min-width: 120px;
   overflow: hidden;
 }
 
 .ip-topbar__user > * {
   min-width: 0;
   max-width: 100%;
+}
+
+@media (max-width: 1280px) {
+  .ip-topbar {
+    gap: var(--ip-space-2);
+    padding: 0 var(--ip-space-3);
+  }
+
+  .ip-topbar__right {
+    gap: var(--ip-space-2);
+  }
+
+  .ip-topbar__actions {
+    gap: var(--ip-space-1);
+  }
+
+  /* Mock 仅是开发提示,保留 status 文本在无障碍树中,视觉上收为状态点。 */
+  .ip-topbar__actions :deep(.mock-mode-banner) {
+    box-sizing: border-box;
+    width: 24px;
+    min-width: 24px;
+    max-width: 24px;
+    padding: var(--ip-space-1);
+    overflow: hidden;
+  }
+
+  .ip-topbar__actions :deep(.mock-mode-banner__dot) {
+    flex: 0 0 auto;
+  }
+
+  .ip-topbar__actions :deep(.mock-mode-banner > span:last-child) {
+    overflow: hidden;
+    white-space: nowrap;
+  }
 }
 </style>

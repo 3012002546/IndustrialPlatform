@@ -58,31 +58,45 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFullscr
 <template>
   <div class="ip-operation-layout">
     <header class="ip-operation-topbar">
-      <PlatformBrand variant="light" />
-      <PlatformContextSwitcher :tenant="tenant" />
-      <PlatformEnvironmentBadge :environment="runtimeConfig.deploymentEnvironment" />
-      <div class="ip-operation-topbar__actions">
-        <LocaleControl />
-        <PcExperienceModeControl mode="operation" />
-        <button
-          type="button"
-          class="ip-operation-action"
-          data-testid="operation-fullscreen"
-          :aria-label="browserFullscreen ? copy.common.action.exitFullscreen : copy.common.action.fullscreen"
-          @click="toggleBrowserFullscreen"
-        >
-          <FullScreen aria-hidden="true" />
-        </button>
-        <ThemeControl terminal="pc" />
+      <div class="ip-operation-topbar__brand">
+        <PlatformBrand variant="dark" />
       </div>
-      <ElDropdown trigger="click" @command="onUserCommand">
-        <button type="button" class="ip-operation-user" data-testid="operation-user-menu">
-          {{ displayName || copy.common.state.unauthenticated }}
-        </button>
-        <template #dropdown>
-          <ElDropdownMenu><ElDropdownItem command="logout">{{ copy.common.action.logout }}</ElDropdownItem></ElDropdownMenu>
-        </template>
-      </ElDropdown>
+      <div class="ip-operation-topbar__context">
+        <PlatformContextSwitcher :tenant="tenant" />
+        <PlatformEnvironmentBadge :environment="runtimeConfig.deploymentEnvironment" />
+      </div>
+      <div class="ip-operation-topbar__right">
+        <div class="ip-operation-topbar__actions">
+          <LocaleControl />
+          <PcExperienceModeControl mode="operation" />
+          <button
+            type="button"
+            class="ip-operation-action"
+            data-testid="operation-fullscreen"
+            :aria-label="
+              browserFullscreen ? copy.common.action.exitFullscreen : copy.common.action.fullscreen
+            "
+            @click="toggleBrowserFullscreen"
+          >
+            <FullScreen aria-hidden="true" />
+          </button>
+          <ThemeControl terminal="pc" />
+        </div>
+        <ElDropdown trigger="click" @command="onUserCommand">
+          <button type="button" class="ip-operation-user" data-testid="operation-user-menu">
+            <span class="ip-operation-user__name">{{
+              displayName || copy.common.state.unauthenticated
+            }}</span>
+          </button>
+          <template #dropdown>
+            <ElDropdownMenu
+              ><ElDropdownItem command="logout">{{
+                copy.common.action.logout
+              }}</ElDropdownItem></ElDropdownMenu
+            >
+          </template>
+        </ElDropdown>
+      </div>
     </header>
     <main id="main-content" class="ip-operation-main" tabindex="-1">
       <RouterView />
@@ -101,34 +115,70 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFullscr
 .ip-operation-topbar {
   display: flex;
   align-items: center;
-  gap: var(--ip-space-4);
+  gap: var(--ip-space-3);
   min-height: var(--ip-shell-topbar-height);
   padding: 0 var(--ip-space-5);
+  overflow: hidden;
   color: var(--ip-shell-topbar-text);
   background: var(--ip-shell-topbar-background);
 }
 
-.ip-operation-topbar > :nth-child(2) {
-  margin-left: var(--ip-space-4);
+.ip-operation-topbar__brand {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  min-width: 0;
 }
 
+.ip-operation-topbar__context {
+  display: inline-flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--ip-space-3);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ip-operation-topbar__right,
 .ip-operation-topbar__actions {
   display: inline-flex;
   align-items: center;
+  gap: var(--ip-space-2);
+  min-width: 0;
+}
+
+.ip-operation-topbar__right {
+  flex: 0 0 auto;
   gap: var(--ip-space-2);
   margin-left: auto;
 }
 
 .ip-operation-action,
 .ip-operation-user {
+  box-sizing: border-box;
   min-height: 32px;
   padding: 0 var(--ip-space-2);
-  color: inherit;
+  color: var(--ip-shell-topbar-text);
   background: transparent;
   border: 0;
   border-radius: var(--ip-radius-md);
   cursor: pointer;
   font: inherit;
+}
+
+.ip-operation-user {
+  width: clamp(120px, 14vw, 220px);
+  min-width: 120px;
+  overflow: hidden;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.ip-operation-user__name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ip-operation-action:focus-visible,
@@ -151,11 +201,11 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFullscr
     padding: var(--ip-space-2) var(--ip-space-3);
   }
 
-  .ip-operation-topbar > :nth-child(2) {
+  .ip-operation-topbar__context {
     margin-left: 0;
   }
 
-  .ip-operation-topbar__actions {
+  .ip-operation-topbar__right {
     margin-left: 0;
   }
 }

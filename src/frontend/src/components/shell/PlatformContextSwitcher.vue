@@ -15,7 +15,11 @@ const copy = computed(() => localeMessages[locale.value].shell.top)
 </script>
 
 <template>
-  <span v-if="tenant !== null" class="ip-context-switcher" data-testid="tenant-context">
+  <span
+    v-if="tenant !== null"
+    class="ip-context-switcher ip-context-switcher--single-line"
+    data-testid="tenant-context"
+  >
     <span class="ip-context-switcher__label">{{ copy.tenant }}</span>
     <strong>{{ tenant.name }}</strong>
   </span>
@@ -28,6 +32,10 @@ const copy = computed(() => localeMessages[locale.value].shell.top)
   gap: var(--ip-space-2);
   min-width: 0;
   color: inherit;
+}
+
+.ip-context-switcher--single-line {
+  white-space: nowrap;
 }
 
 .ip-context-switcher strong {
