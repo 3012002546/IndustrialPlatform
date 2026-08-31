@@ -9,8 +9,7 @@ import type {
 } from '@/api/systemData/types'
 import type { NavigationGroup } from '@/components/navigation/types'
 import {
-  pcNavigationGroups,
-  resetPcNavigationGroups,
+  getDefaultPcNavigationGroups,
   replacePcNavigationGroups,
 } from '@/components/navigation/navigation'
 import {
@@ -60,8 +59,12 @@ export const useSystemDataRuntimeStore = defineStore(
     function recomputeNavigation(): void {
       const snapshot = navigationCache.value
       if (snapshot === null) {
-        navigationGroups.value = [...pcNavigationGroups]
-        resetPcNavigationGroups()
+        navigationGroups.value = applyNavigationPolicy(
+          getDefaultPcNavigationGroups(),
+          permissionNIds.value,
+          featureNIds(featureCache.value?.data.items ?? []),
+        )
+        replacePcNavigationGroups(navigationGroups.value)
         return
       }
       const raw = mapRuntimeNavigation(snapshot.data.nodes)
@@ -70,8 +73,7 @@ export const useSystemDataRuntimeStore = defineStore(
         permissionNIds.value,
         featureNIds(featureCache.value?.data.items ?? []),
       )
-      if (navigationGroups.value.length === 0) resetPcNavigationGroups()
-      else replacePcNavigationGroups(navigationGroups.value)
+      replacePcNavigationGroups(navigationGroups.value)
     }
 
     function setPermissions(next: readonly string[]): void {
@@ -89,7 +91,7 @@ export const useSystemDataRuntimeStore = defineStore(
       degraded.value = false
       unavailable.value = false
       lastVerifiedAt.value = null
-      resetPcNavigationGroups()
+      replacePcNavigationGroups([])
     }
 
     async function refresh(terminal: 'Pc' | 'Pda' | 'Mobile' = 'Pc'): Promise<void> {

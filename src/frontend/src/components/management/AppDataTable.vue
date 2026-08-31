@@ -907,7 +907,7 @@ async function exportData(): Promise<void> {
   if (quantity === 'all' && !window.confirm(copy.value.exportConfirm)) return
   const tableRequest = request()
   const culture = document.documentElement.lang || 'zh-CN'
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+  const timeZone = localization.preferences.timeZone
   const exportRequest: AppDataTableExportRequest = {
     ...tableRequest,
     ...buildAppDataTableExportRequest({

@@ -40,6 +40,28 @@ test('用户管理黄金页:共享结构、键盘路径与窄窗口', async ({ p
     '14px',
   )
 
+  const headerGeometry = await page.evaluate(() => {
+    const search = document.querySelector<HTMLElement>('.ip-topbar__search')?.getBoundingClientRect()
+    const mode = document.querySelector<HTMLElement>('[data-testid="pc-experience-mode-control"]')?.getBoundingClientRect()
+    const user = document.querySelector<HTMLElement>('[data-testid="user-menu"]')?.getBoundingClientRect()
+    const query = document.querySelector<HTMLElement>('[data-testid="identity-users-query"]')?.getBoundingClientRect()
+    const pager = document.querySelector<HTMLElement>('.users-page__pagination')?.getBoundingClientRect()
+    return {
+      searchRight: search?.right ?? 0,
+      modeLeft: mode?.left ?? 0,
+      userRight: user?.right ?? 0,
+      queryHeight: query?.height ?? 0,
+      pagerBottom: pager?.bottom ?? 0,
+      viewportHeight: window.innerHeight,
+      scrollHeight: document.documentElement.scrollHeight,
+    }
+  })
+  expect(headerGeometry.searchRight).toBeLessThanOrEqual(headerGeometry.modeLeft)
+  expect(headerGeometry.queryHeight).toBeLessThanOrEqual(96)
+  expect(headerGeometry.pagerBottom).toBeLessThanOrEqual(headerGeometry.viewportHeight)
+  expect(headerGeometry.scrollHeight).toBeLessThanOrEqual(headerGeometry.viewportHeight)
+  expect(1280 - headerGeometry.userRight).toBeLessThanOrEqual(8)
+
   const submit = page.getByTestId('query-panel-submit')
   await submit.focus()
   await expect(submit).toBeFocused()

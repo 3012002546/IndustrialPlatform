@@ -63,11 +63,17 @@ function filterItem(
   enabledFeatures: ReadonlySet<string>,
 ): NavigationItem | null {
   if (item.permission !== undefined && !permissionNIds.has(item.permission)) return null
+  if (
+    item.anyPermissions !== undefined &&
+    !item.anyPermissions.some((permission) => permissionNIds.has(permission))
+  ) {
+    return null
+  }
   if (item.featureNId !== undefined && !enabledFeatures.has(item.featureNId)) return null
   const children = (item.children ?? [])
     .map((child) => filterItem(child, permissionNIds, enabledFeatures))
     .filter((child): child is NavigationItem => child !== null)
-  return { ...item, ...(children.length === 0 ? {} : { children }) }
+  return item.children === undefined ? { ...item } : { ...item, children }
 }
 
 /** Apply current AuthUser permissions and effective features, then remove empty groups. */

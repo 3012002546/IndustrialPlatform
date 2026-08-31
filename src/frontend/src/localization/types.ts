@@ -36,6 +36,21 @@ export interface PlatformLocaleMessages {
       available: string
       unauthenticated: string
     }
+    errors: {
+      network: string
+      timeout: string
+      business: string
+      unauthorized: string
+      forbidden: string
+      notFound: string
+      server: string
+      invalidResponse: string
+      cancelled: string
+      unknown: string
+      conflictTitle: string
+      conflictMessage: string
+      reload: string
+    }
     locale: { label: string; zhCN: string; enUS: string }
     theme: {
       label: string

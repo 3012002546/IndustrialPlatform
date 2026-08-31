@@ -13,7 +13,8 @@ public sealed record NewRefreshSession(
     DateTimeOffset ExpiresOn,
     string? IpAddress,
     string? UserAgent,
-    DateTimeOffset CreatedOn);
+    DateTimeOffset CreatedOn,
+    DateTimeOffset? LastUpdatedOn = null);
 
 /// <summary>
 /// 刷新会话持久化投影(§13 业务字段)。仅承载校验与旋转所需字段,
@@ -30,7 +31,8 @@ public sealed record StoredRefreshSession(
     DateTimeOffset? UsedOn,
     DateTimeOffset? RevokedOn,
     string? RevokeReason,
-    string? ReplacedBySessionNId);
+    string? ReplacedBySessionNId,
+    DateTimeOffset? CreatedOn = null);
 
 /// <summary>
 /// 管理端有效刷新会话摘要。绝不包含 refresh token、token hash、IP 或 User-Agent。

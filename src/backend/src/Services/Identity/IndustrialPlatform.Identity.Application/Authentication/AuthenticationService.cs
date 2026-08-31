@@ -251,10 +251,11 @@ public sealed partial class AuthenticationService : IAuthenticationService
                 session.FamilyNId,
                 user.Id,
                 newRawRefresh,
-                now.AddDays(_options.Value.RefreshTokenLifetimeDays),
-                clientIp,
-                userAgent,
-                now),
+                    now.AddDays(_options.Value.RefreshTokenLifetimeDays),
+                    clientIp,
+                    userAgent,
+                    session.CreatedOn ?? now,
+                    now),
             cancellationToken);
 
         if (status == RefreshRotationStatus.Reused)

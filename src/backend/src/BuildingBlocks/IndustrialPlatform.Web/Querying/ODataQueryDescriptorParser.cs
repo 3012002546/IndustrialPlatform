@@ -59,6 +59,11 @@ public sealed class ODataQueryDescriptorParser
                 "$skip");
         }
 
+        if (skip > int.MaxValue || skip / top >= int.MaxValue)
+        {
+            throw Invalid("PLATFORM_QUERY_LIMIT_EXCEEDED", "分页参数超出平台限制。", "$skip");
+        }
+
         var filters = ParseFilters(parser, options, context, validation, schema);
         var select = ParseSelect(parser, options, context, validation, schema, options.ContainsKey("$select"));
         var orderBy = ParseOrderBy(parser, options, context, validation, schema);
@@ -68,7 +73,7 @@ public sealed class ODataQueryDescriptorParser
             filters,
             orderBy,
             select,
-            checked((int)(skip / top) + 1),
+            (int)(skip / top) + 1,
             checked((int)top),
             IncludeCount: includeCount);
         return QueryDescriptorValidator.Validate(descriptor, schema);

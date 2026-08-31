@@ -48,6 +48,13 @@ const commonCopy = computed(() => localeMessages[localization.locale].common.act
 const copy = computed(() => localeMessages[localization.locale].identity.user)
 const dialogCopy = computed(() => copy.value.copy)
 
+function formatUserTime(value: string | null | undefined): string {
+  return formatTime(value, {
+    locale: localization.locale,
+    timeZone: localization.preferences.timeZone,
+  })
+}
+
 type UserAction =
   'detail' | 'edit' | 'status' | 'assign-role' | 'reset-password' | 'restore' | 'delete'
 
@@ -144,6 +151,26 @@ const pageIndex = ref(1)
 const pageSize = ref(25)
 const tableQueryMode = ref<AppDataTableQueryMode>('top')
 const advancedQueryOpen = ref(false)
+
+const USER_ROW_SELECT = [
+  'userNId',
+  'loginName',
+  'name',
+  'email',
+  'phone',
+  'status',
+  'tenantNId',
+  'createdOn',
+  'lastLoginOn',
+  'mustChangePassword',
+  'directRoleNIds',
+  'groupRoleNIds',
+  'effectiveRoleNIds',
+  'effectiveRoleCount',
+  'optimisticVersion',
+  'concurrencyVersion',
+  'isDeleted',
+] as const
 
 const IDENTITY_USERS_TAB_ID = 'identity-users'
 
@@ -411,20 +438,44 @@ function buildUserQueryDescriptor(
   return {
     filters,
     orderBy: request.descriptor?.orderBy ?? [],
-    select: request.descriptor?.select ?? userColumns.value.map((column) => column.field),
+    select: [...new Set([...(request.descriptor?.select ?? []), ...USER_ROW_SELECT])],
     pageIndex: 'pageIndex' in request ? request.pageIndex : 1,
     pageSize: 'pageSize' in request ? request.pageSize : 100,
   }
 }
 
+function hasLegacyOnlyTopConditions(): boolean {
+  return query.groupNId.trim() !== '' || query.roleNId.trim() !== '' || query.includeDeleted
+}
+
+function buildLegacyTopQuery(request: AppDataTableRequest): Parameters<typeof management.listUsers>[0] {
+  return {
+    nId: query.nId.trim() || undefined,
+    loginName: query.loginName.trim() || undefined,
+    name: query.name.trim() || undefined,
+    status: query.status || undefined,
+    groupNId: query.groupNId.trim() || undefined,
+    roleNId: query.roleNId.trim() || undefined,
+    includeDeleted: query.includeDeleted || undefined,
+    pageIndex: request.pageIndex,
+    pageSize: request.pageSize,
+    sortField: request.sort?.field,
+    sortOrder: request.sort?.order,
+  }
+}
+
 async function exportUsers(request: AppDataTableExportRequest): Promise<void> {
-  if (management.exportUsersOData !== undefined && request.descriptor !== undefined) {
+  if (
+    !hasLegacyOnlyTopConditions() &&
+    management.exportUsersOData !== undefined &&
+    request.descriptor !== undefined
+  ) {
     const blob = await management.exportUsersOData(
       buildUserQueryDescriptor(request),
       request.columns,
       request.quantity,
       document.documentElement.lang || 'zh-CN',
-      Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+      localization.preferences.timeZone,
     )
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement('a')
@@ -477,6 +528,12 @@ async function exportUsers(request: AppDataTableExportRequest): Promise<void> {
 }
 
 async function loadUsersTable(request: AppDataTableRequest) {
+  if (request.queryMode === 'top' && hasLegacyOnlyTopConditions()) {
+    const result = await management.listUsers(buildLegacyTopQuery(request))
+    rows.value = result.items
+    total.value = result.total
+    return result
+  }
   const result = await management.listUsersOData(buildUserQueryDescriptor(request))
   rows.value = result.items.map(normalizeODataUser)
   total.value = result.total
@@ -976,8 +1033,8 @@ onBeforeUnmount(() => {
           <span>{{ row.effectiveRoleCount ?? row.effectiveRoleNIds?.length ?? 0 }}</span>
         </el-tooltip>
       </template>
-      <template #cell-lastLoginOn="{ row }">{{ formatTime(row.lastLoginOn) }}</template>
-      <template #cell-createdOn="{ row }">{{ formatTime(row.createdOn) }}</template>
+      <template #cell-lastLoginOn="{ row }">{{ formatUserTime(row.lastLoginOn) }}</template>
+      <template #cell-createdOn="{ row }">{{ formatUserTime(row.createdOn) }}</template>
       <template #actions="{ row, availableWidth }">
         <div class="users-page__row-actions" :data-testid="`identity-user-actions-${row.userNId}`">
           <el-button
@@ -1142,10 +1199,10 @@ onBeforeUnmount(() => {
         <el-descriptions-item :label="copy.email">{{ detailTarget.email ?? '—' }}</el-descriptions-item>
         <el-descriptions-item :label="copy.phone">{{ detailTarget.phone ?? '—' }}</el-descriptions-item>
         <el-descriptions-item :label="copy.lastLoginOn">{{
-          formatTime(detailTarget.lastLoginOn)
+          formatUserTime(detailTarget.lastLoginOn)
         }}</el-descriptions-item>
         <el-descriptions-item :label="copy.createdOn">{{
-          formatTime(detailTarget.createdOn)
+          formatUserTime(detailTarget.createdOn)
         }}</el-descriptions-item>
         <el-descriptions-item :label="dialogCopy.directRoles">{{
           roleNames(detailTarget.directRoleNIds)
@@ -1366,6 +1423,29 @@ onBeforeUnmount(() => {
 .users-page__field-status { width: 116px; }
 .users-page__field-group,
 .users-page__field-role { width: 138px; }
+
+@media (min-width: 960px) and (max-width: 1280px) {
+  .users-page :deep(.app-query-panel__body--grid) {
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+
+  .users-page__field-login,
+  .users-page__field-business-id { width: 130px; }
+  .users-page__field-name { width: 110px; }
+  .users-page__field-status { width: 100px; }
+  .users-page__field-group,
+  .users-page__field-role { width: 120px; }
+
+  .users-page :deep(.app-query-panel__body-actions) {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  .users-page__more-conditions {
+    white-space: nowrap;
+  }
+}
 
 .users-page__field :deep(.el-input),
 .users-page__field :deep(.el-select) { width: 100%; }

@@ -51,6 +51,22 @@ public sealed class IdentitySessionManagementTests
         Assert.Equal(TimeSpan.FromMinutes(30), revocationCall.Ttl);
     }
 
+    [Fact]
+    public async Task Revoke_DoesNotReportSuccessWhenSidWriteFails()
+    {
+        var store = new FakeStore { RevokeResult = true };
+        var revocation = new FakeRevocationStore { ThrowOnRevoke = true };
+        var service = new IdentitySessionManagementService(
+            store,
+            revocation,
+            Options.Create(new AuthenticationOptions { AccessTokenRevocationMinutes = 30 }));
+
+        await Assert.ThrowsAsync<SecurityStoreUnavailableException>(() => service.RevokeAsync(
+            "tenant-a", "sid-1", null, CancellationToken.None));
+
+        Assert.Single(revocation.Calls);
+    }
+
     private sealed class FakeStore : IRefreshSessionStore
     {
         public IReadOnlyList<ActiveRefreshSession> Active { get; init; } = [];
@@ -76,10 +92,12 @@ public sealed class IdentitySessionManagementTests
     private sealed class FakeRevocationStore : ISessionRevocationStore
     {
         public List<(string SessionNId, TimeSpan Ttl)> Calls { get; } = [];
+        public bool ThrowOnRevoke { get; init; }
 
         public Task RevokeAsync(string sessionNId, TimeSpan ttl, CancellationToken cancellationToken)
         {
             Calls.Add((sessionNId, ttl));
+            if (ThrowOnRevoke) throw new SecurityStoreUnavailableException();
             return Task.CompletedTask;
         }
 

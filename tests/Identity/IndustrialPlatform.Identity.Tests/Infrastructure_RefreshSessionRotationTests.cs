@@ -81,7 +81,14 @@ public sealed class RefreshSessionRotationTests : IDisposable
         return user;
     }
 
-    private static NewRefreshSession NewSession(Guid userId, string nId, string family, string rawToken, DateTimeOffset? expires = null)
+    private static NewRefreshSession NewSession(
+        Guid userId,
+        string nId,
+        string family,
+        string rawToken,
+        DateTimeOffset? expires = null,
+        DateTimeOffset? createdOn = null,
+        DateTimeOffset? lastUpdatedOn = null)
         => new(
             "development",
             nId,
@@ -91,7 +98,8 @@ public sealed class RefreshSessionRotationTests : IDisposable
             expires ?? DateTimeOffset.UtcNow.AddDays(7),
             "10.0.0.1",
             "test-agent",
-            DateTimeOffset.UtcNow);
+            createdOn ?? DateTimeOffset.UtcNow,
+            lastUpdatedOn);
 
     [Fact]
     public async Task ListActiveForTenant_ReturnsOnlyValidSessionsWithSafeUserProjection()
@@ -214,6 +222,35 @@ public sealed class RefreshSessionRotationTests : IDisposable
         Assert.False(replacement.UsedOn.HasValue);
         // 新 Token 只存哈希,不落明文
         Assert.NotEqual("raw-token-2", replacement.TokenHash);
+    }
+
+    [Fact]
+    public async Task Rotate_PreservesOriginalLoginTimeAndRecordsRefreshTime()
+    {
+        var user = await SeedUserAsync();
+        var t1 = DateTimeOffset.UtcNow.AddMinutes(-2);
+        var t2 = t1.AddMinutes(1);
+        await _sessions.AddAsync(
+            NewSession(user.Id, "SES-old", "FAM-1", "raw-token-1", createdOn: t1),
+            CancellationToken.None);
+        var stored = await _sessions.FindByRawTokenAsync("raw-token-1", CancellationToken.None);
+        Assert.NotNull(stored);
+        Assert.Equal(t1.DateTime, stored!.CreatedOn!.Value.DateTime);
+
+        Assert.Equal(
+            RefreshRotationStatus.Rotated,
+            await _sessions.RotateAsync(
+                stored.Id,
+                NewSession(user.Id, "SES-new", "FAM-1", "raw-token-2", createdOn: t1, lastUpdatedOn: t2),
+                CancellationToken.None));
+
+        var active = Assert.Single(await _sessions.ListActiveForTenantAsync(
+            "development",
+            t2.AddSeconds(1),
+            CancellationToken.None));
+        Assert.Equal("SES-new", active.SessionNId);
+        Assert.Equal(t1.DateTime, active.CreatedOn.DateTime);
+        Assert.Equal(t2.DateTime, active.LastRefreshedOn.DateTime);
     }
 
     [Fact]

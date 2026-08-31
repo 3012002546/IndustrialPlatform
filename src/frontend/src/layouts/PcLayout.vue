@@ -41,7 +41,9 @@ import { useSystemDataRuntimeStore } from '@/stores/systemData/runtimeStore'
 import { clearCurrentUserUiCache } from '@/stores/uiCacheStore'
 import { localeMessages, resolveLocaleMessage } from '@/localization/i18n'
 import { usePlatformLocale } from '@/localization/localeContext'
+import { applyNavigationPolicy } from '@/systemData/runtime/navigation'
 import { buildTabId } from '@/workspace'
+import type { NavigationItem } from '@/components/navigation/types'
 import type { TabLimitResolution, WorkspaceTab } from '@/workspace'
 
 const TERMINAL_LABELS: Record<TerminalType, string> = {
@@ -62,6 +64,10 @@ const runtimeConfig = loadRuntimeConfig()
 const focusMode = ref(false)
 const browserFullscreen = ref(false)
 const locale = usePlatformLocale()
+
+const authorizedNavigationGroups = computed(() =>
+  applyNavigationPolicy(pcNavigationGroups, authStore.user?.permissions ?? [], new Set()),
+)
 
 /** 当前平台分组:默认第一个;路由变化时跟随所属分组。 */
 const activeGroupId = ref(pcNavigationGroups[0]?.id ?? '')
@@ -92,14 +98,27 @@ const tenant = computed(() => {
   const user = authStore.user
   return user === null ? null : { id: user.tenantId, name: user.tenantId }
 })
+
+function flattenNavigationItems(
+  groups: readonly { items: readonly NavigationItem[] }[],
+): readonly NavigationItem[] {
+  const result: NavigationItem[] = []
+  const visit = (items: readonly NavigationItem[]): void => {
+    for (const item of items) {
+      result.push(item)
+      if (item.children !== undefined) visit(item.children)
+    }
+  }
+  for (const group of groups) visit(group.items)
+  return result
+}
+
 const commandItems = computed<readonly PlatformCommandItem[]>(() => [
-  ...pcNavigationGroups.flatMap((group) =>
-    group.items.map((item) => ({
-      id: item.id,
-      label: resolveLocaleMessage(locale.value, item.labelKey, item.fallbackLabel ?? item.label),
-      kind: 'navigation' as const,
-    })),
-  ),
+  ...flattenNavigationItems(authorizedNavigationGroups.value).map((item) => ({
+    id: item.id,
+    label: resolveLocaleMessage(locale.value, item.labelKey, item.fallbackLabel ?? item.label),
+    kind: 'navigation' as const,
+  })),
   ...tabsStore.tabs
     .filter((tab) => tab.kind === 'business')
     .map((tab) => ({
@@ -203,9 +222,9 @@ function onMenuSelect(routeName: string): void {
 }
 
 function onCommandSearchSelect(id: string): void {
-  const navigation = pcNavigationGroups
-    .flatMap((group) => group.items)
-    .find((item) => item.id === id)
+  const navigation = flattenNavigationItems(authorizedNavigationGroups.value).find(
+    (item) => item.id === id,
+  )
   if (navigation !== undefined) {
     onMenuSelect(navigation.routeName)
     return

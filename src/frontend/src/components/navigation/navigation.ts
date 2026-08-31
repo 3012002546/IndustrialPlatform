@@ -216,3 +216,8 @@ export function replacePcNavigationGroups(groups: readonly NavigationGroup[]): v
 export function resetPcNavigationGroups(): void {
   replacePcNavigationGroups(DEFAULT_PC_NAVIGATION_GROUPS)
 }
+
+/** 返回一份不与当前响应式导航共享对象的静态基线,供运行时权限过滤使用。 */
+export function getDefaultPcNavigationGroups(): NavigationGroup[] {
+  return normalizeNavigationGroups(DEFAULT_PC_NAVIGATION_GROUPS)
+}

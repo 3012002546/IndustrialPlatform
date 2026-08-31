@@ -49,7 +49,7 @@ public sealed class RefreshSessionStore : IRefreshSessionStore
 
         var sugar = _dbContext.SqlSugar;
         var replacementRow = ToTable(replacement);
-        var now = DateTimeOffset.UtcNow;
+        var now = replacement.LastUpdatedOn ?? DateTimeOffset.UtcNow;
 
         sugar.Ado.BeginTran();
         try
@@ -219,7 +219,7 @@ public sealed class RefreshSessionStore : IRefreshSessionStore
             IsDeleted = false,
             EntityType = typeof(RefreshSessionTable).FullName ?? typeof(RefreshSessionTable).Name,
             CreatedOn = session.CreatedOn,
-            LastUpdatedOn = session.CreatedOn,
+            LastUpdatedOn = session.LastUpdatedOn ?? session.CreatedOn,
             OptimisticVersion = 0,
             ConcurrencyVersion = Guid.NewGuid(),
             TenantNId = session.TenantNId,
@@ -245,5 +245,6 @@ public sealed class RefreshSessionStore : IRefreshSessionStore
             row.UsedOn,
             row.RevokedOn,
             row.RevokeReason,
-            row.ReplacedBySessionNId);
+            row.ReplacedBySessionNId,
+            row.CreatedOn);
 }

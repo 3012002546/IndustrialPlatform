@@ -140,8 +140,8 @@ defineSlots<{
   }
 
   .ip-topbar__search {
-    margin-left: -107.5px;
-    max-width: 215px;
+    margin-left: -80px;
+    max-width: 160px;
   }
 
   /* Mock 仅是开发提示,保留 status 文本在无障碍树中,视觉上收为状态点。 */

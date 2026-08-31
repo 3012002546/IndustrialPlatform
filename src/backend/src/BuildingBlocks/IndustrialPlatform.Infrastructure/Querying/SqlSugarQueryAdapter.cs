@@ -1,5 +1,6 @@
 using System.Globalization;
 using IndustrialPlatform.Querying.Descriptors;
+using IndustrialPlatform.Querying.Validation;
 using SqlSugar;
 
 namespace IndustrialPlatform.Infrastructure.Querying;
@@ -41,11 +42,20 @@ public static class SqlSugarQueryAdapter
             orderBy.Add($"{fieldMap.Resolve(fieldMap.TieBreaker)} ASC");
         }
 
+        var skip = (long)(descriptor.PageIndex - 1) * descriptor.PageSize;
+        if (skip > int.MaxValue)
+        {
+            throw new QueryValidationException(new QueryValidationError(
+                "PLATFORM_QUERY_LIMIT_EXCEEDED",
+                "分页参数超出平台限制。",
+                "$skip"));
+        }
+
         return new SqlSugarQueryPlan(
             filters,
             parameters,
             orderBy,
-            checked((descriptor.PageIndex - 1) * descriptor.PageSize),
+            (int)skip,
             descriptor.PageSize);
     }
 
@@ -76,11 +86,23 @@ public static class SqlSugarQueryAdapter
         switch (filter.Operator)
         {
             case QueryOperator.Contains:
-                parameters[name] = $"%{Convert.ToString(filter.Value, CultureInfo.InvariantCulture)}%";
-                return $"{column} LIKE @{name}";
+                parameters[name] = $"%{EscapeLikeValue(Convert.ToString(filter.Value, CultureInfo.InvariantCulture))}%";
+                return $"{column} LIKE @{name} ESCAPE '\\'";
             case QueryOperator.StartsWith:
-                parameters[name] = $"{Convert.ToString(filter.Value, CultureInfo.InvariantCulture)}%";
-                return $"{column} LIKE @{name}";
+                parameters[name] = $"{EscapeLikeValue(Convert.ToString(filter.Value, CultureInfo.InvariantCulture))}%";
+                return $"{column} LIKE @{name} ESCAPE '\\'";
+            case QueryOperator.Eq when filter.Value is null:
+                return $"{column} IS NULL";
+            case QueryOperator.Ne when filter.Value is null:
+                return $"{column} IS NOT NULL";
+            case QueryOperator.Gt when filter.Value is null:
+            case QueryOperator.Ge when filter.Value is null:
+            case QueryOperator.Lt when filter.Value is null:
+            case QueryOperator.Le when filter.Value is null:
+                throw new QueryValidationException(new QueryValidationError(
+                    "PLATFORM_QUERY_INVALID",
+                    "空值只支持 eq 或 ne 比较。",
+                    "$filter"));
             case QueryOperator.Eq:
                 parameters[name] = filter.Value;
                 return $"{column} = @{name}";
@@ -107,6 +129,12 @@ public static class SqlSugarQueryAdapter
                 throw new ArgumentOutOfRangeException(nameof(filter));
         }
     }
+
+    private static string EscapeLikeValue(string? value)
+        => (value ?? string.Empty)
+            .Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("%", "\\%", StringComparison.Ordinal)
+            .Replace("_", "\\_", StringComparison.Ordinal);
 
     private static string BuildBetweenSql(
         string column,

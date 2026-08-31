@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { House } from '@element-plus/icons-vue'
 
 import {
   applyNavigationPolicy,
@@ -6,6 +7,7 @@ import {
   themePolicyToTenantDefaults,
 } from '@/systemData/runtime/navigation'
 import type { NavigationRuntimeNodeDto, ThemePolicyDto } from '@/api/systemData/types'
+import type { NavigationGroup } from '@/components/navigation/types'
 
 const node = (overrides: Partial<NavigationRuntimeNodeDto>): NavigationRuntimeNodeDto => ({
   nodeNId: 'group-1',
@@ -56,6 +58,45 @@ describe('SystemData runtime navigation adapter', () => {
     ])
     expect(groups[0]?.labelKey).toBe('shell.navigation.group.group-1')
     expect(groups[0]?.items[0]?.labelKey).toBe('shell.navigation.item.allowed')
+  })
+
+  it('filters anyPermissions and does not leak filtered children or empty groups', () => {
+    const groups: NavigationGroup[] = [
+      {
+        id: 'platform',
+        label: '平台',
+        icon: House,
+        items: [
+          {
+            id: 'terminal',
+            label: '终端',
+            routeName: 'terminal-preview',
+            anyPermissions: ['platform.pda.view', 'platform.mobile.view'],
+          },
+          {
+            id: 'platform-parent',
+            label: '容器',
+            routeName: 'pc-home',
+            children: [
+              {
+                id: 'users',
+                label: '用户',
+                routeName: 'identity-users',
+                permission: 'identity.user.view',
+              },
+            ],
+          },
+        ],
+      },
+    ]
+
+    const filtered = applyNavigationPolicy(groups, ['platform.home.view'], new Set())
+
+    expect(filtered).toEqual([
+      expect.objectContaining({
+        items: [expect.objectContaining({ id: 'platform-parent', children: [] })],
+      }),
+    ])
   })
 })
 

@@ -10,6 +10,7 @@ using IndustrialPlatform.Identity.Infrastructure.Persistence.Repositories;
 using IndustrialPlatform.Infrastructure.Database;
 using IndustrialPlatform.Infrastructure.Querying;
 using IndustrialPlatform.Querying.Descriptors;
+using IndustrialPlatform.Querying.Validation;
 using SqlSugar;
 
 namespace IndustrialPlatform.Identity.Infrastructure.Management;
@@ -146,6 +147,7 @@ public sealed class ManagementStore : IManagementStore, IUserQueryStore
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tenantNId);
         ArgumentNullException.ThrowIfNull(descriptor);
+        var executableDescriptor = NormalizeStatusFilters(descriptor);
         var map = new SqlSugarQueryFieldMap<UserTable>(
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
@@ -160,7 +162,7 @@ public sealed class ManagementStore : IManagementStore, IUserQueryStore
                 ["mustChangePassword"] = "must_change_password",
             },
             tieBreaker: "userNId");
-        var plan = SqlSugarQueryAdapter.BuildPlan(descriptor, map);
+        var plan = SqlSugarQueryAdapter.BuildPlan(executableDescriptor, map);
         var query = _dbContext.SqlSugar.Queryable<UserTable>()
             .Where(row => row.TenantNId == tenantNId && !row.IsDeleted);
         if (plan.FilterSql.Count > 0)
@@ -184,6 +186,32 @@ public sealed class ManagementStore : IManagementStore, IUserQueryStore
                 roleSource.TryGetValue(row.Id, out var source) ? source : RoleSource.Empty))
             .ToList();
         return new StoredUserPage(items, total);
+    }
+
+    private static QueryDescriptor NormalizeStatusFilters(QueryDescriptor descriptor)
+        => descriptor with
+        {
+            Filters = descriptor.Filters
+                .Select(filter => filter.Field.Equals("status", StringComparison.Ordinal)
+                    ? filter with { Value = NormalizeStatusValue(filter.Value, filter.Operator) }
+                    : filter)
+                .ToArray(),
+        };
+
+    private static object NormalizeStatusValue(object? value, QueryOperator @operator)
+    {
+        if (@operator is QueryOperator.In or QueryOperator.Between &&
+            value is IEnumerable<object?> values)
+        {
+            return values.Select(item => NormalizeStatusValue(item, QueryOperator.Eq)).ToArray();
+        }
+
+        if (value is UserStatus status) return (int)status;
+        if (value is string text && Enum.TryParse<UserStatus>(text, true, out var parsed)) return (int)parsed;
+        throw new QueryValidationException(new QueryValidationError(
+            "PLATFORM_QUERY_INVALID",
+            "用户状态过滤值无效。",
+            "status"));
     }
 
     /// <inheritdoc/>

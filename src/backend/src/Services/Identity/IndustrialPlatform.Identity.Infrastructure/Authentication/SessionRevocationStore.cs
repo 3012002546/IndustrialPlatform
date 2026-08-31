@@ -51,6 +51,7 @@ public sealed class SessionRevocationStore : ISessionRevocationStore
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             RevocationWriteFailed(_logger, key, ex);
+            throw new SecurityStoreUnavailableException();
         }
     }
 

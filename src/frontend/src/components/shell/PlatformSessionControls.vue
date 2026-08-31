@@ -187,14 +187,14 @@ onBeforeUnmount(() => {
   >
     <p class="ip-online-sessions__description">{{ copy.onlineUsersDescription }}</p>
     <div class="ip-online-sessions__toolbar">
-      <ElButton :loading="sessionsLoading" :aria-label="common.action.refresh" @click="loadSessions">
+      <ElButton data-testid="online-users-refresh" :loading="sessionsLoading" :aria-busy="sessionsLoading" :aria-label="common.action.refresh" @click="loadSessions">
         <Refresh aria-hidden="true" />
         {{ common.action.refresh }}
       </ElButton>
     </div>
     <ElAlert v-if="sessionsError" type="error" :closable="false" show-icon>
       {{ common.state.error }}
-      <ElButton link type="danger" @click="loadSessions">{{ common.action.retry }}</ElButton>
+      <ElButton data-testid="online-users-retry" link type="danger" @click="loadSessions">{{ common.action.retry }}</ElButton>
     </ElAlert>
     <ElEmpty v-else-if="!sessionsLoading && sessions.length === 0" :description="copy.onlineUsersEmpty" />
     <ElTable v-else v-loading="sessionsLoading" :data="sessions" row-key="sessionNId" size="small">

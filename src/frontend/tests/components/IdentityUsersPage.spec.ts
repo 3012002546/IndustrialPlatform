@@ -233,6 +233,15 @@ describe('IdentityUsersPage — 创建用户(服务端随机临时密码)', () =
     expect(table.props('toolbarLabels')).toBe(true)
   })
 
+  it('1280px 窄 PC 保持五个主条件与操作同一行', () => {
+    expect(identityUsersPageSource).toMatch(
+      /@media\s*\(min-width:\s*960px\)\s+and\s+\(max-width:\s*1280px\)[\s\S]*?\.users-page :deep\(\.app-query-panel__body--grid\)[\s\S]*?flex-wrap:\s*nowrap;/,
+    )
+    expect(identityUsersPageSource).toMatch(
+      /\.users-page :deep\(\.app-query-panel__body-actions\)[\s\S]*?flex-wrap:\s*nowrap;/,
+    )
+  })
+
   it('无创建权限时隐藏页面主操作，并且查询动作可用键盘聚焦', async () => {
     const wrapper = await mountUsersPage(['identity.user.view'])
 
@@ -383,6 +392,18 @@ describe('IdentityUsersPage — 创建用户(服务端随机临时密码)', () =
         ]),
       }),
     )
+  })
+
+  it('keeps top-level group, role and deleted filters when the table reloads', () => {
+    expect(identityUsersPageSource).toMatch(/query\.groupNId\.trim\(\) !== ''/)
+    expect(identityUsersPageSource).toMatch(/query\.roleNId\.trim\(\) !== ''/)
+    expect(identityUsersPageSource).toMatch(/query\.includeDeleted/)
+    expect(identityUsersPageSource).toMatch(
+      /request\.queryMode === 'top' && hasLegacyOnlyTopConditions\(\)/,
+    )
+    expect(identityUsersPageSource).toMatch(/groupNId: query\.groupNId\.trim\(\) \|\| undefined/)
+    expect(identityUsersPageSource).toMatch(/roleNId: query\.roleNId\.trim\(\) \|\| undefined/)
+    expect(identityUsersPageSource).toMatch(/includeDeleted: query\.includeDeleted \|\| undefined/)
   })
 
   it('maps the table quick search to the active users server query', async () => {

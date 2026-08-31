@@ -295,6 +295,16 @@ describe('PcLayout', () => {
     expect(labels).not.toContain('用户管理')
   })
 
+  it('无运行时快照时全局命令搜索也只暴露当前权限菜单', async () => {
+    const { wrapper } = await mountLayout([PERMISSIONS.platformHomeView])
+    const search = wrapper.get('[data-testid="command-search"] input')
+
+    await search.trigger('focus')
+    await search.setValue('用户')
+    expect(wrapper.find('[data-testid="command-search-result"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('用户管理')
+  })
+
   it('功能树链接可路由跳转:首页链接 href 指向 /pc/home', async () => {
     const { wrapper } = await mountLayout()
     const homeLink = wrapper.get('nav.ip-function-tree a')

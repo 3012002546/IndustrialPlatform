@@ -161,4 +161,20 @@ public sealed class ODataQueryDescriptorParserTests
         Assert.Equal("PLATFORM_QUERY_LIMIT_EXCEEDED", topError.Error.Code);
     }
 
+    [Theory]
+    [InlineData("1", "2147483647")]
+    [InlineData("100", "2147483700")]
+    public void RejectsPagingOverflowAsPlatformValidation(string top, string skip)
+    {
+        var error = Assert.Throws<QueryValidationException>(() => new ODataQueryDescriptorParser().Parse(
+            new QueryCollection(new Dictionary<string, StringValues>
+            {
+                ["$top"] = top,
+                ["$skip"] = skip,
+            }), Users));
+
+        Assert.Equal("PLATFORM_QUERY_LIMIT_EXCEEDED", error.Error.Code);
+        Assert.Equal("$skip", error.Error.Parameter);
+    }
+
 }

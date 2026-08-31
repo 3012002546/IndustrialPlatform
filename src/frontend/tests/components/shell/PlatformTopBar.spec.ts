@@ -116,4 +116,15 @@ describe('PlatformTopBar', () => {
       /\.ip-topbar__search\s*\{[\s\S]*?transform:\s*translate\(-50%,\s*-50%\);/,
     )
   })
+
+  it('1280px 时缩短搜索占位以避让右侧模式与工具组', async () => {
+    const sourceModules = import.meta.glob('../../../src/components/shell/*.vue', {
+      query: '?raw',
+      import: 'default',
+    })
+    const source = (await sourceModules['../../../src/components/shell/PlatformTopBar.vue']!()) as string
+    expect(source).toMatch(
+      /@media\s*\(max-width:\s*1280px\)[\s\S]*?\.ip-topbar__search\s*\{[\s\S]*?margin-left:\s*-80px;[\s\S]*?max-width:\s*160px;/,
+    )
+  })
 })

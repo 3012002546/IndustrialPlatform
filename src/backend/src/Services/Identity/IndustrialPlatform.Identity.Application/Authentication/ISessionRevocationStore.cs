@@ -9,7 +9,7 @@ public interface ISessionRevocationStore
 {
     /// <summary>
     /// 撤销会话 `sid` 指定时长(通常为 Access Token 剩余有效期)。写入为尽力而为:
-    /// 持久化撤销以数据库会话撤销为权威,Redis 写失败仅告警。
+    /// 写入失败必须抛出安全存储不可用,调用端不得把未确认的撤销报告为成功。
     /// </summary>
     Task RevokeAsync(string sessionNId, TimeSpan ttl, CancellationToken cancellationToken);
 

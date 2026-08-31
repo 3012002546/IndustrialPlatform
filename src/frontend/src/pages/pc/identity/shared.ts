@@ -6,6 +6,9 @@
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import { ApiError } from '@/api/errors'
+import { localeMessages, platformI18n } from '@/localization/i18n'
+import { formatDateTime } from '@/localization/formatters'
+import type { SupportedLocale } from '@/localization/types'
 
 /** 是否后端乐观并发冲突(409 ID_CONCURRENCY_CONFLICT)。 */
 export function isConcurrencyConflict(error: unknown): boolean {
@@ -25,9 +28,13 @@ function errorMessage(error: unknown, fallback: string): string {
  */
 export function reportManagementError(error: unknown, fallback: string): void {
   if (isConcurrencyConflict(error)) {
-    void ElMessageBox.alert('数据已被其他管理员修改,请重新加载后重试。', '数据冲突', {
+    const locale = (platformI18n.global.locale as unknown as { value?: unknown }).value === 'en-US'
+      ? 'en-US'
+      : 'zh-CN'
+    const copy = localeMessages[locale].common.errors
+    void ElMessageBox.alert(copy.conflictMessage, copy.conflictTitle, {
       type: 'warning',
-      confirmButtonText: '重新加载',
+      confirmButtonText: copy.reload,
     }).then(() => {
       window.location.reload()
     })
@@ -37,7 +44,22 @@ export function reportManagementError(error: unknown, fallback: string): void {
 }
 
 /** 时间展示:null/空回退占位。 */
-export function formatTime(value: string | null | undefined): string {
+export function formatTime(
+  value: string | null | undefined,
+  options?: { locale?: SupportedLocale; timeZone?: string },
+): string {
   if (value === null || value === undefined || value.length === 0) return '—'
-  return value.replace('T', ' ').slice(0, 19)
+  const locale = options?.locale ?? ((platformI18n.global.locale as unknown as { value?: unknown }).value === 'en-US' ? 'en-US' : 'zh-CN')
+  const timeZone = options?.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC'
+  return formatDateTime(value, { locale, timeZone }) || '—'
+}
+
+/** 下载后端生成的文件，所有管理表格共用同一下载路径。 */
+export function downloadBlob(blob: Blob, fileName: string): void {
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = fileName
+  anchor.click()
+  URL.revokeObjectURL(url)
 }

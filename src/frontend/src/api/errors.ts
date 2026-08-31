@@ -6,7 +6,7 @@
 import { AxiosError, isAxiosError } from 'axios'
 
 import type { ApiErrorDetails, ApiErrorKind } from '@/types/api'
-import { platformI18n, type SupportedLocale } from '@/localization/i18n'
+import { localeMessages, platformI18n, type SupportedLocale } from '@/localization/i18n'
 
 import { extractTraceId, type ResponseHeadersLike } from './correlation'
 import { parseEnvelope } from './envelope'
@@ -36,6 +36,12 @@ export const DEFAULT_ERROR_MESSAGES: Record<ApiErrorKind, string> = {
   invalidResponse: '服务返回格式异常',
   cancelled: '请求已取消',
   unknown: '发生未知错误,请稍后重试',
+}
+
+function defaultErrorMessage(kind: ApiErrorKind): string {
+  const locale = (platformI18n.global.locale as unknown as { value?: unknown }).value
+  const key = kind as keyof typeof localeMessages['zh-CN']['common']['errors']
+  return localeMessages[locale === 'en-US' ? 'en-US' : 'zh-CN'].common.errors[key]
 }
 
 const STABLE_ERROR_MESSAGES: Record<string, Record<SupportedLocale, string>> = {
@@ -94,21 +100,21 @@ export function createApiError(
 export function normalizeError(error: unknown, correlationId: string): ApiError {
   if (error instanceof ApiError) return error
   if (isAxiosError(error)) return mapAxiosError(error, correlationId)
-  return createApiError('unknown', DEFAULT_ERROR_MESSAGES.unknown, correlationId)
+  return createApiError('unknown', defaultErrorMessage('unknown'), correlationId)
 }
 
 function mapAxiosError(error: AxiosError, correlationId: string): ApiError {
   // 主动取消
   if (error.code === AxiosError.ERR_CANCELED) {
-    return createApiError('cancelled', DEFAULT_ERROR_MESSAGES.cancelled, correlationId)
+    return createApiError('cancelled', defaultErrorMessage('cancelled'), correlationId)
   }
   // 超时
   if (error.code === AxiosError.ETIMEDOUT || error.code === 'ECONNABORTED') {
-    return createApiError('timeout', DEFAULT_ERROR_MESSAGES.timeout, correlationId)
+    return createApiError('timeout', defaultErrorMessage('timeout'), correlationId)
   }
   // 无响应 → 网络层
   if (!error.response) {
-    return createApiError('network', DEFAULT_ERROR_MESSAGES.network, correlationId)
+    return createApiError('network', defaultErrorMessage('network'), correlationId)
   }
 
   const { status, data } = error.response
@@ -128,19 +134,19 @@ function mapAxiosError(error: AxiosError, correlationId: string): ApiError {
         ...(traceId === undefined ? {} : { traceId }),
       })
     }
-    return createApiError(kind, DEFAULT_ERROR_MESSAGES[kind], correlationId, {
+    return createApiError(kind, defaultErrorMessage(kind), correlationId, {
       status,
       ...(traceId === undefined ? {} : { traceId }),
     })
   }
   if (status === 404) {
-    return createApiError('notFound', DEFAULT_ERROR_MESSAGES.notFound, correlationId, {
+    return createApiError('notFound', defaultErrorMessage('notFound'), correlationId, {
       status,
       ...(traceId === undefined ? {} : { traceId }),
     })
   }
   if (status >= 500) {
-    return createApiError('server', DEFAULT_ERROR_MESSAGES.server, correlationId, {
+    return createApiError('server', defaultErrorMessage('server'), correlationId, {
       status,
       ...(traceId === undefined ? {} : { traceId }),
     })
@@ -162,7 +168,7 @@ function mapAxiosError(error: AxiosError, correlationId: string): ApiError {
     )
   }
 
-  return createApiError('invalidResponse', DEFAULT_ERROR_MESSAGES.invalidResponse, correlationId, {
+  return createApiError('invalidResponse', defaultErrorMessage('invalidResponse'), correlationId, {
     status,
     ...(traceId === undefined ? {} : { traceId }),
   })
