@@ -9,8 +9,9 @@ async function login(page: import('@playwright/test').Page): Promise<void> {
 }
 
 async function assertOperationShell(page: Page): Promise<void> {
-  await expect(page.getByTestId('operation-user-menu').locator('svg')).toHaveCSS('width', '18px')
-  await expect(page.getByTestId('operation-user-menu').locator('svg')).toHaveCSS('height', '18px')
+  const userIcon = page.getByTestId('operation-user-menu').locator('.ip-operation-user__avatar svg')
+  await expect(userIcon).toHaveCSS('width', '18px')
+  await expect(userIcon).toHaveCSS('height', '18px')
   const topbar = await page.locator('.ip-operation-topbar').boundingBox()
   const user = await page.getByTestId('operation-user-menu').boundingBox()
   expect(topbar).not.toBeNull()

@@ -142,6 +142,7 @@ const query = reactive({
 const pageIndex = ref(1)
 const pageSize = ref(25)
 const tableQueryMode = ref<AppDataTableQueryMode>('top')
+const advancedQueryOpen = ref(false)
 
 const IDENTITY_USERS_TAB_ID = 'identity-users'
 
@@ -799,8 +800,10 @@ onBeforeUnmount(() => {
     <template #breadcrumb>
       <nav :aria-label="dialogCopy.pagePath">{{ copy.breadcrumb }}</nav>
     </template>
-    <template #meta>
-      <span data-testid="identity-users-total">{{ total }} {{ copy.userCountSuffix }}</span>
+    <template #heading-meta>
+      <span class="users-page__count" data-testid="identity-users-total">
+        {{ total }} {{ copy.userCountSuffix }}
+      </span>
     </template>
     <template #actions>
       <PermissionGate :permission-n-id="PERMISSIONS.userCreate">
@@ -816,7 +819,6 @@ onBeforeUnmount(() => {
 
     <AppQueryPanel
       data-testid="identity-users-query"
-      :title="copy.queryTitle"
       :show-actions="true"
       :submit-label="commonCopy.search"
       :reset-label="commonCopy.reset"
@@ -824,74 +826,112 @@ onBeforeUnmount(() => {
       @submit="search"
       @reset="resetQuery"
     >
+      <template #body-actions>
+        <button
+          type="button"
+          class="users-page__more-conditions"
+          data-testid="query-panel-toggle"
+          :aria-expanded="advancedQueryOpen"
+          aria-controls="identity-users-advanced-query"
+          @click="advancedQueryOpen = !advancedQueryOpen"
+        >
+          {{ copy.moreConditions }}
+        </button>
+      </template>
       <template v-if="tableQueryMode === 'top'">
-        <el-input
-          v-model="query.nId"
-          :placeholder="copy.businessId"
-          :aria-label="copy.businessId"
-          clearable
-          class="users-page__filter"
-          @keyup.enter="search"
-        />
-        <el-input
-          v-model="query.loginName"
-          :placeholder="copy.loginName"
-          :aria-label="copy.loginName"
-          clearable
-          class="users-page__filter"
-          @keyup.enter="search"
-        />
-        <el-input
-          v-model="query.name"
-          :placeholder="copy.name"
-          :aria-label="copy.name"
-          clearable
-          class="users-page__filter"
-          @keyup.enter="search"
-        />
-        <el-select
-          v-model="query.status"
-          :placeholder="copy.status"
-          :aria-label="copy.status"
-          clearable
-          class="users-page__filter users-page__filter--status"
-        >
-          <el-option :label="copy.enabled" value="Active" />
-          <el-option :label="copy.disabled" value="Disabled" />
-        </el-select>
-        <el-select
-          v-model="query.groupNId"
-          :placeholder="copy.group"
-          :aria-label="copy.group"
-          clearable
-          filterable
-          class="users-page__filter"
-        >
-          <el-option
-            v-for="group in allGroups"
-            :key="group.groupNId"
-            :value="group.groupNId"
-            :label="group.name"
+        <label class="users-page__field users-page__field-login">
+          <span>{{ copy.loginName }}</span>
+          <el-input
+            v-model="query.loginName"
+            :placeholder="copy.loginName"
+            :aria-label="copy.loginName"
+            clearable
+            class="users-page__filter users-page__filter--login"
+            @keyup.enter="search"
           />
-        </el-select>
-        <el-select
-          v-model="query.roleNId"
-          :placeholder="copy.role"
-          :aria-label="copy.role"
-          clearable
-          filterable
-          class="users-page__filter"
-        >
-          <el-option
-            v-for="role in allRoles"
-            :key="role.roleNId"
-            :value="role.roleNId"
-            :label="role.name"
+        </label>
+        <label class="users-page__field users-page__field-name">
+          <span>{{ copy.name }}</span>
+          <el-input
+            v-model="query.name"
+            :placeholder="copy.name"
+            :aria-label="copy.name"
+            clearable
+            class="users-page__filter users-page__filter--name"
+            @keyup.enter="search"
           />
-        </el-select>
-        <el-checkbox v-model="query.includeDeleted" :aria-label="copy.includeDeleted" @change="search">
-          {{ copy.includeDeleted }}
-        </el-checkbox>
+        </label>
+        <label class="users-page__field users-page__field-status">
+          <span>{{ copy.status }}</span>
+          <el-select
+            v-model="query.status"
+            :placeholder="copy.status"
+            :aria-label="copy.status"
+            clearable
+            class="users-page__filter users-page__filter--status"
+          >
+            <el-option :label="copy.enabled" value="Active" />
+            <el-option :label="copy.disabled" value="Disabled" />
+          </el-select>
+        </label>
+        <label class="users-page__field users-page__field-group">
+          <span>{{ copy.group }}</span>
+          <el-select
+            v-model="query.groupNId"
+            :placeholder="copy.group"
+            :aria-label="copy.group"
+            clearable
+            filterable
+            class="users-page__filter users-page__filter--group"
+          >
+            <el-option
+              v-for="group in allGroups"
+              :key="group.groupNId"
+              :value="group.groupNId"
+              :label="group.name"
+            />
+          </el-select>
+        </label>
+        <label class="users-page__field users-page__field-role">
+          <span>{{ copy.role }}</span>
+          <el-select
+            v-model="query.roleNId"
+            :placeholder="copy.role"
+            :aria-label="copy.role"
+            clearable
+            filterable
+            class="users-page__filter users-page__filter--role"
+          >
+            <el-option
+              v-for="role in allRoles"
+              :key="role.roleNId"
+              :value="role.roleNId"
+              :label="role.name"
+            />
+          </el-select>
+        </label>
+        <div
+          v-if="advancedQueryOpen"
+          id="identity-users-advanced-query"
+          class="users-page__advanced-fields"
+        >
+          <label class="users-page__field users-page__field-business-id">
+            <span>{{ copy.businessId }}</span>
+            <el-input
+              v-model="query.nId"
+              :placeholder="copy.businessId"
+              :aria-label="copy.businessId"
+              clearable
+              class="users-page__filter users-page__filter--business-id"
+              @keyup.enter="search"
+            />
+          </label>
+          <label class="users-page__include-deleted">
+            <el-checkbox v-model="query.includeDeleted" :aria-label="copy.includeDeleted" @change="search">
+              {{ copy.includeDeleted }}
+            </el-checkbox>
+          </label>
+        </div>
       </template>
       <p v-else class="users-page__query-mode-hint" role="status">
         {{ copy.queryTitle }} · {{ copy.tableActions }}
@@ -905,6 +945,8 @@ onBeforeUnmount(() => {
       :loading="loading"
       :columns="userColumns"
       :page-size="pageSize"
+      :toolbar-title="copy.userList"
+      :toolbar-labels="true"
       :loader="loadUsersTable"
       :exporter="exportUsers"
       @query-mode-change="onTableQueryModeChange"
@@ -1197,12 +1239,124 @@ onBeforeUnmount(() => {
 .users-page {
   display: flex;
   flex-direction: column;
-  gap: var(--ip-space-4);
+  gap: 0;
+  overflow: hidden;
+  background: var(--ip-color-bg-container);
+  border: 1px solid var(--ip-color-border);
+  border-radius: var(--ip-radius-lg);
   min-width: 0;
 }
 
+.users-page :deep(.app-page__header) {
+  padding: 18px 20px 17px;
+  border-bottom: 1px solid var(--ip-color-border);
+}
+
+.users-page :deep(.app-page__body) {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.users-page :deep(.app-data-table) {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.users-page :deep(.app-data-table__card) {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.users-page :deep(.app-query-panel) {
+  gap: 0;
+  padding: 14px 20px 16px;
+  border-bottom: 1px solid var(--ip-color-border);
+}
+
+.users-page :deep(.app-query-panel__header) {
+  justify-content: flex-end;
+  margin-bottom: var(--ip-space-3);
+}
+
+.users-page :deep(.app-query-panel__body) {
+  gap: 12px;
+}
+
+.users-page :deep(.app-query-panel__toggle) {
+  padding: 0;
+  border: 0;
+  color: var(--ip-color-primary);
+}
+
+.users-page__more-conditions {
+  min-height: var(--ip-density-control-height);
+  padding: 0;
+  color: var(--ip-color-primary);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--ip-font-size-xs);
+  line-height: 1.2;
+}
+
+.users-page__count {
+  display: inline-flex;
+  min-height: 22px;
+  align-items: center;
+  box-sizing: border-box;
+  padding: 0 var(--ip-space-2);
+  color: var(--ip-color-text-secondary);
+  background: var(--ip-color-bg-muted);
+  border: 1px solid var(--ip-color-border);
+  border-radius: 999px;
+  font-size: var(--ip-font-size-xs);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.users-page__more-conditions:focus-visible {
+  outline: 2px solid var(--ip-focus-ring-color);
+  outline-offset: 2px;
+}
+
+.users-page__field {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--ip-color-text-secondary);
+  font-size: var(--ip-font-size-sm);
+  font-weight: 500;
+}
+
+.users-page__field-login,
+.users-page__field-business-id { width: 154px; }
+.users-page__field-name { width: 128px; }
+.users-page__field-status { width: 116px; }
+.users-page__field-group,
+.users-page__field-role { width: 138px; }
+
+.users-page__field :deep(.el-input),
+.users-page__field :deep(.el-select) { width: 100%; }
+
+.users-page__include-deleted {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--ip-density-control-height);
+}
+
+.users-page__advanced-fields {
+  display: contents;
+}
+
 .users-page__filter {
-  width: 160px;
+  width: 100%;
 }
 
 .users-page__filter--status {

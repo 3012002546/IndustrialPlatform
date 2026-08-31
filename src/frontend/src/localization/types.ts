@@ -67,6 +67,8 @@ export interface PlatformLocaleMessages {
       rangeEnd: string
       queryHeader: string
       queryTop: string
+      queryHeaderLabel: string
+      queryTopLabel: string
       sort: string
       sortSettings: string
       sortHint: string
@@ -147,6 +149,7 @@ export interface PlatformLocaleMessages {
       workspace: string
       platformManagement: string
       group: Record<string, string>
+      section: Record<string, string>
       item: Record<string, string>
     }
     top: {
@@ -239,6 +242,8 @@ export interface PlatformLocaleMessages {
       lastLoginOn: string
       breadcrumb: string
       queryTitle: string
+      moreConditions: string
+      userList: string
       businessId: string
       group: string
       role: string

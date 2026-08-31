@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /**
  * PC 平台外壳(PF-01 §7.8):组合四层——
- * PlatformTopBar 52px → body(PlatformToolRail 52px + 功能树与内容工作区
- * [PlatformFunctionTree 216px/0px + RouterView 内容画布])。
+ * PlatformTopBar 56px → body(PlatformToolRail 72px + 功能树与内容工作区
+ * [PlatformFunctionTree 208px/52px + tabs/RouterView 内容画布])。
  * 功能树收起状态由 ThemeStore 持久化,不再直接读写旧侧栏键。
  */
 
@@ -83,6 +83,7 @@ const activeGroup = computed(
 
 /** 当前组的全部 items(功能树内部再做权限过滤)。 */
 const activeGroupItems = computed(() => activeGroup.value?.items ?? [])
+const activeGroupSections = computed(() => activeGroup.value?.sections ?? [])
 const navigationMode = computed(() => themeStore.navigationMode)
 
 const displayName = computed(() => authStore.user?.displayName ?? '')
@@ -279,9 +280,12 @@ function onLimitResolve(resolution: TabLimitResolution): void {
         <PlatformEnvironmentBadge :environment="runtimeConfig.deploymentEnvironment" />
       </template>
 
+      <template #context>
+        <PlatformContextSwitcher :tenant="tenant" />
+      </template>
+
       <template #global-search>
         <div class="ip-pc-context-search">
-          <PlatformContextSwitcher :tenant="tenant" />
           <PlatformCommandSearch :items="commandItems" @select="onCommandSearchSelect" />
         </div>
       </template>
@@ -312,8 +316,11 @@ function onLimitResolve(resolution: TabLimitResolution): void {
       <template #user>
         <ElDropdown trigger="click" @command="onUserCommand">
           <button type="button" class="ip-pc-user" data-testid="user-menu" :aria-label="shellCopy.userMenu">
-            <UserFilled aria-hidden="true" />
-            <span class="ip-pc-user__name">{{ displayName || localeMessages[locale].common.state.unauthenticated }}</span>
+            <span class="ip-pc-user__avatar"><UserFilled aria-hidden="true" /></span>
+            <span class="ip-pc-user__copy">
+              <strong class="ip-pc-user__name">{{ displayName || localeMessages[locale].common.state.unauthenticated }}</strong>
+              <small>{{ authStore.user?.username ?? '' }}</small>
+            </span>
             <svg
               class="ip-pc-user__caret"
               width="12"
@@ -343,22 +350,6 @@ function onLimitResolve(resolution: TabLimitResolution): void {
       </template>
     </PlatformTopBar>
 
-    <PcWorkspaceTabs
-      class="ip-pc-chrome"
-      @activate="onActivate"
-      @close="onClose"
-      @close-others="onCloseOthers"
-      @close-right="onCloseRight"
-      @close-left="onCloseLeft"
-      @close-all="onCloseAll"
-      @toggle-pin="onTogglePin"
-      @reload="onReload"
-      :focus-mode="focusMode"
-      @focus="onFocusTab"
-      @focus-exit="onFocusExit"
-      @menu-select="onMenuSelect"
-    />
-
     <div class="ip-pc-body">
       <PlatformToolRail
         class="ip-pc-chrome"
@@ -374,10 +365,28 @@ function onLimitResolve(resolution: TabLimitResolution): void {
           :label="activeGroup.label"
           :label-key="activeGroup.labelKey"
           :items="activeGroupItems"
+          :sections="activeGroupSections"
         />
-        <main id="main-content" class="ip-pc-main" style="padding: 10px" tabindex="-1">
-          <RouterView :key="contentKey" />
-        </main>
+        <div class="ip-pc-content">
+          <PcWorkspaceTabs
+            class="ip-pc-chrome"
+            @activate="onActivate"
+            @close="onClose"
+            @close-others="onCloseOthers"
+            @close-right="onCloseRight"
+            @close-left="onCloseLeft"
+            @close-all="onCloseAll"
+            @toggle-pin="onTogglePin"
+            @reload="onReload"
+            :focus-mode="focusMode"
+            @focus="onFocusTab"
+            @focus-exit="onFocusExit"
+            @menu-select="onMenuSelect"
+          />
+          <main id="main-content" class="ip-pc-main" style="padding: 16px" tabindex="-1">
+            <RouterView :key="contentKey" />
+          </main>
+        </div>
       </div>
     </div>
 
@@ -415,13 +424,23 @@ function onLimitResolve(resolution: TabLimitResolution): void {
 }
 
 .ip-pc-function-and-workspace {
-  display: flex;
+  display: grid;
+  grid-template-columns: var(--ip-shell-functiontree-width) minmax(0, 1fr);
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
 }
 
+.ip-pc-content {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+}
+
 .ip-pc-main {
+  display: flex;
+  flex-direction: column;
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
@@ -431,6 +450,7 @@ function onLimitResolve(resolution: TabLimitResolution): void {
 }
 
 .ip-pc-main > :deep(*) {
+  flex: 1 1 auto;
   min-width: 0;
   max-width: 100%;
 }
@@ -449,6 +469,12 @@ function onLimitResolve(resolution: TabLimitResolution): void {
 .ip-pc-layout--focus .ip-pc-body,
 .ip-pc-layout--focus .ip-pc-function-and-workspace {
   display: block;
+}
+
+.ip-pc-layout--focus .ip-pc-content {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .ip-pc-layout--focus .ip-pc-main {
@@ -475,11 +501,17 @@ function onLimitResolve(resolution: TabLimitResolution): void {
 }
 
 .ip-pc-brand {
-  margin-right: 4px;
+  flex: 0 0 184px;
+  width: 184px;
+  margin-right: 8px;
 }
 
 .ip-pc-brand :deep(img) {
-  max-width: min(228px, 19vw);
+  width: 184px;
+  height: 30px;
+  max-width: none;
+  max-height: none;
+  object-fit: contain;
 }
 
 .ip-pc-shell-action:hover,
@@ -521,7 +553,7 @@ function onLimitResolve(resolution: TabLimitResolution): void {
   display: inline-flex;
   box-sizing: border-box;
   align-items: center;
-  gap: var(--ip-space-2);
+  gap: 9px;
   width: 100%;
   min-width: 0;
   min-height: 32px;
@@ -536,8 +568,43 @@ function onLimitResolve(resolution: TabLimitResolution): void {
 }
 
 .ip-pc-user__name {
+  display: block;
   min-width: 0;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ip-pc-user__avatar {
+  display: inline-flex;
+  flex: 0 0 28px;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: #35728e;
+  background: #d9e9f2;
+  border-radius: 50%;
+}
+
+.ip-pc-user__avatar :deep(svg) {
+  width: 17px;
+  height: 17px;
+}
+
+.ip-pc-user__copy {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.2;
+}
+
+.ip-pc-user__copy small {
+  overflow: hidden;
+  color: var(--ip-shell-topbar-text-secondary);
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

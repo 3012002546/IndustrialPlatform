@@ -51,10 +51,25 @@ const DEFAULT_PC_NAVIGATION_GROUPS: readonly NavigationGroup[] = [
     id: 'system',
     label: '系统管理',
     icon: Setting,
+    sections: [
+      {
+        id: 'identity-access',
+        label: '身份与访问',
+        labelKey: 'shell.navigation.section.identity-access',
+        fallbackLabel: '身份与访问',
+      },
+      {
+        id: 'organization-platform',
+        label: '组织与平台',
+        labelKey: 'shell.navigation.section.organization-platform',
+        fallbackLabel: '组织与平台',
+      },
+    ],
     items: [
       {
         id: 'identity-users',
         label: '用户管理',
+        sectionId: 'identity-access',
         routeName: 'identity-users',
         icon: User,
         permission: PERMISSIONS.userView,
@@ -62,6 +77,7 @@ const DEFAULT_PC_NAVIGATION_GROUPS: readonly NavigationGroup[] = [
       {
         id: 'identity-user-groups',
         label: '用户组管理',
+        sectionId: 'identity-access',
         routeName: 'identity-user-groups',
         icon: UserFilled,
         permission: PERMISSIONS.userGroupView,
@@ -69,6 +85,7 @@ const DEFAULT_PC_NAVIGATION_GROUPS: readonly NavigationGroup[] = [
       {
         id: 'identity-roles',
         label: '角色权限',
+        sectionId: 'identity-access',
         routeName: 'identity-roles',
         icon: Avatar,
         permission: PERMISSIONS.roleView,
@@ -76,6 +93,7 @@ const DEFAULT_PC_NAVIGATION_GROUPS: readonly NavigationGroup[] = [
       {
         id: 'identity-permissions',
         label: '权限目录',
+        sectionId: 'identity-access',
         routeName: 'identity-permissions',
         icon: Lock,
         permission: PERMISSIONS.permissionView,
@@ -83,6 +101,7 @@ const DEFAULT_PC_NAVIGATION_GROUPS: readonly NavigationGroup[] = [
       {
         id: 'identity-audits',
         label: '登录审计',
+        sectionId: 'identity-access',
         routeName: 'identity-audits',
         icon: Tickets,
         permission: PERMISSIONS.auditLoginView,
@@ -90,6 +109,7 @@ const DEFAULT_PC_NAVIGATION_GROUPS: readonly NavigationGroup[] = [
       {
         id: 'identity-sso-providers',
         label: '企业登录源',
+        sectionId: 'identity-access',
         routeName: 'sso-providers',
         icon: Monitor,
         permission: PERMISSIONS.ssoView,
@@ -97,6 +117,7 @@ const DEFAULT_PC_NAVIGATION_GROUPS: readonly NavigationGroup[] = [
       {
         id: 'identity-sso-clients',
         label: 'SSO Client',
+        sectionId: 'identity-access',
         routeName: 'sso-clients',
         icon: Setting,
         permission: PERMISSIONS.ssoView,
@@ -104,6 +125,7 @@ const DEFAULT_PC_NAVIGATION_GROUPS: readonly NavigationGroup[] = [
       {
         id: 'systemdata-organizations',
         label: '行政组织与岗位',
+        sectionId: 'organization-platform',
         routeName: 'systemdata-organizations',
         icon: User,
         permission: PERMISSIONS.systemDataOrganizationView,
@@ -111,6 +133,7 @@ const DEFAULT_PC_NAVIGATION_GROUPS: readonly NavigationGroup[] = [
       {
         id: 'systemdata-assignments',
         label: '用户任职',
+        sectionId: 'organization-platform',
         routeName: 'systemdata-assignments',
         icon: UserFilled,
         permission: PERMISSIONS.systemDataAssignmentView,
@@ -118,6 +141,7 @@ const DEFAULT_PC_NAVIGATION_GROUPS: readonly NavigationGroup[] = [
       {
         id: 'systemdata-navigation',
         label: '导航与资源发布',
+        sectionId: 'organization-platform',
         routeName: 'systemdata-navigation',
         icon: Tickets,
         permission: PERMISSIONS.systemDataNavigationView,
@@ -125,6 +149,7 @@ const DEFAULT_PC_NAVIGATION_GROUPS: readonly NavigationGroup[] = [
       {
         id: 'systemdata-features',
         label: '功能开关',
+        sectionId: 'organization-platform',
         routeName: 'systemdata-features',
         icon: Setting,
         permission: PERMISSIONS.systemDataFeatureView,
@@ -132,6 +157,7 @@ const DEFAULT_PC_NAVIGATION_GROUPS: readonly NavigationGroup[] = [
       {
         id: 'systemdata-services',
         label: '服务目录',
+        sectionId: 'organization-platform',
         routeName: 'systemdata-services',
         icon: Monitor,
         permission: PERMISSIONS.systemDataServiceCatalogView,
@@ -139,6 +165,7 @@ const DEFAULT_PC_NAVIGATION_GROUPS: readonly NavigationGroup[] = [
       {
         id: 'systemdata-themes',
         label: '租户主题策略',
+        sectionId: 'organization-platform',
         routeName: 'systemdata-themes',
         icon: Setting,
         permission: PERMISSIONS.systemDataThemePolicyView,
@@ -146,6 +173,7 @@ const DEFAULT_PC_NAVIGATION_GROUPS: readonly NavigationGroup[] = [
       {
         id: 'systemdata-service-initialization',
         label: '服务初始化编排',
+        sectionId: 'organization-platform',
         routeName: 'systemdata-service-initialization',
         icon: Monitor,
         permission: PERMISSIONS.systemDataServiceInitializationView,

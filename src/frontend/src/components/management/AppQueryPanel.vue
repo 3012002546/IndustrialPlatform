@@ -18,6 +18,7 @@ const props = withDefaults(
     descriptor?: QueryDescriptor
     submitLabel?: string
     resetLabel?: string
+    toggleLabel?: string
   }>(),
   {
     collapsible: false,
@@ -47,14 +48,14 @@ const bodyId = useId()
 <template>
   <section class="app-query-panel">
     <header
-      v-if="title || collapsible || $slots.actions || showActions"
+      v-if="title || collapsible || $slots.actions || (showActions && !grid)"
       class="app-query-panel__header"
     >
       <h2 v-if="title" :id="titleId" class="app-query-panel__title">{{ title }}</h2>
       <div v-if="$slots.actions" class="app-query-panel__actions">
         <slot name="actions" />
       </div>
-      <div v-if="showActions" class="app-query-panel__actions">
+      <div v-if="showActions && !grid" class="app-query-panel__actions">
         <button type="button" data-testid="query-panel-reset" @click="emit('reset')">
           {{ copy.reset }}
         </button>
@@ -75,7 +76,7 @@ const bodyId = useId()
         :aria-controls="bodyId"
         @click="emit('update:collapsed', !collapsed)"
       >
-        {{ collapsed ? copy.expand : copy.collapse }}
+        {{ collapsed ? copy.expand : (toggleLabel ?? copy.collapse) }}
       </button>
     </header>
     <div
@@ -85,6 +86,30 @@ const bodyId = useId()
       :class="{ 'app-query-panel__body--grid': grid }"
     >
       <slot />
+      <div
+        v-if="(showActions && grid) || $slots['body-actions']"
+        class="app-query-panel__actions app-query-panel__body-actions"
+      >
+        <button
+          v-if="showActions && grid"
+          type="button"
+          class="app-query-panel__submit"
+          data-testid="query-panel-submit"
+          @click="emit('submit', descriptor)"
+        >
+          {{ copy.submit }}
+        </button>
+        <button
+          v-if="showActions && grid"
+          type="button"
+          class="app-query-panel__reset"
+          data-testid="query-panel-reset"
+          @click="emit('reset')"
+        >
+          {{ copy.reset }}
+        </button>
+        <slot name="body-actions" />
+      </div>
     </div>
   </section>
 </template>
@@ -148,8 +173,34 @@ const bodyId = useId()
 }
 
 .app-query-panel__body--grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
   align-items: end;
+  gap: var(--ip-density-control-gap);
+}
+
+.app-query-panel__body-actions {
+  align-self: flex-end;
+}
+
+.app-query-panel__actions button {
+  box-sizing: border-box;
+  min-height: var(--ip-density-control-height);
+  padding: 0 var(--ip-space-3);
+  color: var(--ip-color-text-primary);
+  background: var(--ip-color-bg-container);
+  border: 1px solid var(--ip-color-border);
+  border-radius: var(--ip-radius-sm);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--ip-font-size-sm);
+  line-height: 1.2;
+}
+
+.app-query-panel__actions .app-query-panel__submit {
+  color: var(--ip-color-text-inverse, #fff);
+  background: var(--ip-color-primary);
+  border-color: var(--ip-color-primary);
 }
 </style>

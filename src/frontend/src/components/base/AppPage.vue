@@ -11,6 +11,7 @@ defineProps<{
 defineSlots<{
   default?: () => unknown
   breadcrumb?: () => unknown
+  'heading-meta'?: () => unknown
   meta?: () => unknown
   actions?: () => unknown
 }>()
@@ -29,7 +30,12 @@ const titleId = useId()
       </div>
       <div class="app-page__heading-row">
         <div class="app-page__heading">
-          <h1 v-if="title" :id="titleId" class="app-page__title">{{ title }}</h1>
+          <div v-if="title || $slots['heading-meta']" class="app-page__title-row">
+            <h1 v-if="title" :id="titleId" class="app-page__title">{{ title }}</h1>
+            <div v-if="$slots['heading-meta']" class="app-page__heading-meta">
+              <slot name="heading-meta" />
+            </div>
+          </div>
           <p v-if="description" class="app-page__description">{{ description }}</p>
         </div>
         <div v-if="$slots.meta || $slots.actions" class="app-page__extensions">
@@ -74,6 +80,19 @@ const titleId = useId()
 
 .app-page__heading {
   min-width: 0;
+}
+
+.app-page__title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ip-space-2);
+  min-width: 0;
+}
+
+.app-page__heading-meta {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
 }
 
 .app-page__extensions,

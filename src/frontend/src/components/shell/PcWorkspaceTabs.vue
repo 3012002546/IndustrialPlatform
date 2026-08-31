@@ -203,8 +203,9 @@ onBeforeUnmount(() => {
   display: flex;
   flex: 0 0 auto;
   gap: var(--ip-space-1);
+  box-sizing: border-box;
   height: var(--ip-shell-tabs-height);
-  padding: var(--ip-space-1) var(--ip-space-2);
+  padding: 0;
   overflow-x: auto;
   overflow-y: hidden;
   white-space: nowrap;
@@ -216,30 +217,33 @@ onBeforeUnmount(() => {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
-  height: 28px;
+  box-sizing: border-box;
+  height: 100%;
   max-width: 200px;
   padding: 0 var(--ip-space-1) 0 var(--ip-space-3);
-  background: var(--ip-color-bg-muted);
-  border: 1px solid var(--ip-color-border);
-  border-radius: var(--ip-radius-md);
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
 }
 
 .ip-pc-tabs__item--active {
   background: var(--ip-color-primary-bg);
-  border-color: var(--ip-color-primary);
   color: var(--ip-color-primary);
+  border-bottom-color: var(--ip-color-primary);
 }
 
 .ip-pc-tabs__tab {
   flex: 0 1 auto;
   min-width: 0;
+  height: 100%;
   padding: 0;
   overflow: hidden;
   color: inherit;
   background: transparent;
   border: 0;
   cursor: pointer;
-  font-size: var(--ip-font-size-md);
+  font-size: var(--ip-font-size-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }

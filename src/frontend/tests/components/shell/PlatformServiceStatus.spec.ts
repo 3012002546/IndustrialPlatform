@@ -18,4 +18,19 @@ describe('PlatformServiceStatus', () => {
     })
     expect(wrapper.find('[data-testid="platform-service-status"]').exists()).toBe(false)
   })
+
+  it('bounds long degraded copy so it cannot expand the topbar actions', async () => {
+    const loader = import.meta.glob('../../../src/components/shell/PlatformServiceStatus.vue', {
+      query: '?raw',
+      import: 'default',
+    })
+    const source = (await loader['../../../src/components/shell/PlatformServiceStatus.vue']!()) as string
+
+    expect(source).toMatch(
+      /\.ip-platform-service-status\s*\{[\s\S]*?max-width:\s*min\(280px,\s*24vw\);[\s\S]*?overflow:\s*hidden;/,
+    )
+    expect(source).toMatch(
+      /\.ip-platform-service-status\s+span\s*\{[\s\S]*?text-overflow:\s*ellipsis;[\s\S]*?white-space:\s*nowrap;/,
+    )
+  })
 })

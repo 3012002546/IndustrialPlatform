@@ -143,4 +143,32 @@ describe('PcWorkspaceTabs', () => {
     const source = (await loader['../../../src/components/shell/PcWorkspaceTabs.vue']!()) as string
     expect(source).toContain('--ip-shell-tabs-height')
   })
+
+  it('使用 38px 边界盒并以整项底部线标识活动标签,不使用整块 pill 外框', async () => {
+    const loader = import.meta.glob('../../../src/components/shell/PcWorkspaceTabs.vue', {
+      query: '?raw',
+      import: 'default',
+    })
+    const source = (await loader['../../../src/components/shell/PcWorkspaceTabs.vue']!()) as string
+
+    expect(source).toMatch(/\.ip-pc-tabs\s*\{[\s\S]*?box-sizing:\s*border-box;/)
+    expect(source).toMatch(
+      /\.ip-pc-tabs__item\s*\{[\s\S]*?box-sizing:\s*border-box;[\s\S]*?border-bottom:\s*2px\s+solid\s+transparent;/,
+    )
+    expect(source).toMatch(/\.ip-pc-tabs__item--active\s*\{[\s\S]*?border-bottom-color:\s*var\(--ip-color-primary\);/)
+  })
+
+  it('整项占满 38px 标签栏,标签文字使用紧凑字号', async () => {
+    const loader = import.meta.glob('../../../src/components/shell/PcWorkspaceTabs.vue', {
+      query: '?raw',
+      import: 'default',
+    })
+    const source = (await loader['../../../src/components/shell/PcWorkspaceTabs.vue']!()) as string
+
+    expect(source).toMatch(/\.ip-pc-tabs\s*\{[\s\S]*?padding:\s*0;/)
+    expect(source).toMatch(/\.ip-pc-tabs__item\s*\{[\s\S]*?height:\s*100%;/)
+    expect(source).toMatch(
+      /\.ip-pc-tabs__tab\s*\{[\s\S]*?font-size:\s*var\(--ip-font-size-xs\);/,
+    )
+  })
 })

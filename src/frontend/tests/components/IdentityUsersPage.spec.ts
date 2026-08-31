@@ -13,7 +13,9 @@ import { defineComponent } from 'vue'
 import { VxeTable } from 'vxe-table'
 
 import { persistAuthSession } from '../fixtures/session'
+import AppDataTable from '@/components/management/AppDataTable.vue'
 import type { AppDataTableColumn } from '@/components/management/AppDataTable'
+import appDataTableSource from '@/components/management/AppDataTable.vue?raw'
 import AppPage from '@/components/base/AppPage.vue'
 import AppQueryPanel from '@/components/management/AppQueryPanel.vue'
 import type { UserSummaryDto } from '@/api/identity/management'
@@ -81,6 +83,12 @@ const TeleportStub = defineComponent({
 })
 
 const wrappers: VueWrapper[] = []
+
+type AppDataTableTestInstance = { $props: Record<string, unknown> }
+
+function findDataTable(wrapper: VueWrapper): VueWrapper<AppDataTableTestInstance> {
+  return wrapper.findComponent(AppDataTable) as unknown as VueWrapper<AppDataTableTestInstance>
+}
 
 function emptyPage<T>(): { items: T[]; total: number; pageIndex: number; pageSize: number } {
   return { items: [], total: 0, pageIndex: 1, pageSize: 25 }
@@ -174,9 +182,45 @@ describe('IdentityUsersPage — 创建用户(服务端随机临时密码)', () =
     expect(page.get('h1').text()).toBe('用户管理')
     expect(page.findComponent(AppQueryPanel).exists()).toBe(true)
     expect(page.findComponent(AppQueryPanel).props('showActions')).toBe(true)
-    expect(page.findComponent({ name: 'AppDataTable' }).exists()).toBe(true)
+    expect(page.findComponent(AppDataTable).exists()).toBe(true)
     expect(page.find('[data-testid="identity-users-create"]').exists()).toBe(true)
     expect(page.findAll('.users-page__toolbar')).toHaveLength(0)
+  })
+
+  it('把真实总数作为标题旁的轻量计数 pill,表面只保留 VXE 自己的横向滚动', async () => {
+    const wrapper = await mountUsersPage(['identity.user.view'])
+
+    const title = wrapper.get('.app-page__title')
+    const count = wrapper.get('.users-page__count')
+    expect(title.element.parentElement?.contains(count.element)).toBe(true)
+    expect(count.attributes('data-testid')).toBe('identity-users-total')
+    expect(appDataTableSource).toMatch(
+      /\.app-data-table__surface\s*\{[\s\S]*?overflow:\s*hidden;/,
+    )
+  })
+
+  it('五个主查询条件默认可见,低频条件单独收纳在更多条件中', async () => {
+    const wrapper = await mountUsersPage(['identity.user.view'])
+
+    expect(wrapper.find('.users-page__field-login').text()).toContain('登录名')
+    expect(wrapper.find('.users-page__field-name').text()).toContain('姓名')
+    expect(wrapper.find('.users-page__field-status').text()).toContain('状态')
+    expect(wrapper.find('.users-page__field-group').text()).toContain('用户组')
+    expect(wrapper.find('.users-page__field-role').text()).toContain('角色')
+    const toggle = wrapper.get('[data-testid="query-panel-toggle"]')
+    expect(toggle.text()).toContain('更多条件')
+    expect(toggle.attributes('aria-expanded')).toBe('false')
+    expect(wrapper.find('.app-query-panel__header').exists()).toBe(false)
+    expect(wrapper.get('.app-query-panel__body').find('[data-testid="query-panel-toggle"]').exists()).toBe(true)
+    expect(wrapper.find('.users-page__field-business-id').exists()).toBe(false)
+
+    await toggle.trigger('click')
+    expect(toggle.attributes('aria-expanded')).toBe('true')
+    expect(wrapper.find('.users-page__field-business-id').exists()).toBe(true)
+
+    const table = findDataTable(wrapper)
+    expect(table.props('toolbarTitle')).toBe('用户列表')
+    expect(table.props('toolbarLabels')).toBe(true)
   })
 
   it('无创建权限时隐藏页面主操作，并且查询动作可用键盘聚焦', async () => {
@@ -222,9 +266,7 @@ describe('IdentityUsersPage — 创建用户(服务端随机临时密码)', () =
   it('列头查询覆盖用户数据库字段，但不虚接派生统计字段', async () => {
     const wrapper = await mountUsersPage(['identity.user.view'])
 
-    const columns = wrapper
-      .findComponent({ name: 'AppDataTable' })
-      .props('columns') as AppDataTableColumn[]
+    const columns = findDataTable(wrapper).props('columns') as AppDataTableColumn[]
     expect(columns.find((column) => column.field === 'lastLoginOn')).toEqual(
       expect.objectContaining({ width: 240, minWidth: 240 }),
     )
@@ -289,9 +331,7 @@ describe('IdentityUsersPage — 创建用户(服务端随机临时密码)', () =
     await wrapper.get('[data-testid="app-data-table-query-toggle"]').trigger('click')
     await flushPromises()
 
-    const columns = wrapper
-      .findComponent({ name: 'AppDataTable' })
-      .props('columns') as AppDataTableColumn[]
+    const columns = findDataTable(wrapper).props('columns') as AppDataTableColumn[]
     const dateColumns = columns.filter(
       (column) => column.field === 'lastLoginOn' || column.field === 'createdOn',
     )

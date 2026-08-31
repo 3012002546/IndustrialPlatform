@@ -53,6 +53,8 @@ export const enUS = {
       rangeEnd: 'End',
       queryHeader: 'Switch to header filters',
       queryTop: 'Switch to top filters',
+      queryHeaderLabel: 'Header filters',
+      queryTopLabel: 'Top filters',
       sort: 'Sort',
       sortSettings: 'Sort settings',
       sortHint: 'Choose a direction for a field; clear it at any time',
@@ -133,6 +135,10 @@ export const enUS = {
       workspace: 'Workspace',
       platformManagement: 'Platform management',
       group: { workspace: 'Workspace', system: 'System management' },
+      section: {
+        'identity-access': 'Identity & access',
+        'organization-platform': 'Organization & platform',
+      },
       item: {
         'pc-home': 'Home',
         'terminal-preview': 'Terminal preview',
@@ -257,6 +263,8 @@ export const enUS = {
       lastLoginOn: 'Last login',
       breadcrumb: 'Platform management / Identity & access / User management',
       queryTitle: 'Query conditions',
+      moreConditions: 'More conditions',
+      userList: 'User list',
       businessId: 'Business ID',
       group: 'User group',
       role: 'Role',

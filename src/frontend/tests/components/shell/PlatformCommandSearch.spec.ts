@@ -31,4 +31,19 @@ describe('PlatformCommandSearch', () => {
     await wrapper.get('input').trigger('keydown', { key: 'Escape' })
     expect(wrapper.get('input').attributes('aria-expanded')).toBe('false')
   })
+
+  it('deduplicates navigation and recent entries with the same stable id', async () => {
+    const wrapper = mount(PlatformCommandSearch, {
+      props: {
+        items: [
+          { id: 'identity-users', label: '用户管理', kind: 'navigation' },
+          { id: 'identity-users', label: '用户管理', kind: 'recent' },
+        ],
+      },
+    })
+
+    await wrapper.get('input').trigger('focus')
+
+    expect(wrapper.findAll('[data-testid="command-search-result"]')).toHaveLength(1)
+  })
 })

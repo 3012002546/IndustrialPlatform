@@ -33,6 +33,8 @@ export interface NavigationItem {
   anyPermissions?: readonly string[]
   /** 子菜单(可选;第一批无子菜单)。 */
   children?: NavigationItem[]
+  /** 二级导航中的真实业务分组,仅由导航数据声明,不创建额外入口。 */
+  sectionId?: string
   /** 菜单需要携带的显式查询参数,用于正式终端预览等场景。 */
   routeQuery?: Readonly<Record<string, string>>
   displayOrder?: number
@@ -46,5 +48,14 @@ export interface NavigationGroup {
   fallbackLabel?: string
   icon: Component
   items: readonly NavigationItem[]
+  /** 当前分组内的二级业务分组定义,缺省时保持原有平面菜单。 */
+  sections?: readonly NavigationSection[] | undefined
   displayOrder?: number
+}
+
+export interface NavigationSection {
+  id: string
+  label: string
+  labelKey?: string
+  fallbackLabel?: string
 }

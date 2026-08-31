@@ -53,6 +53,8 @@ export const zhCN = {
       rangeEnd: '结束',
       queryHeader: '切换列头查询',
       queryTop: '切换顶部查询',
+      queryHeaderLabel: '列头查询',
+      queryTopLabel: '顶部查询',
       sort: '排序',
       sortSettings: '排序设置',
       sortHint: '为字段选择方向，可随时清除',
@@ -133,6 +135,10 @@ export const zhCN = {
       workspace: '工作台',
       platformManagement: '平台管理',
       group: { workspace: '工作台', system: '系统管理' },
+      section: {
+        'identity-access': '身份与访问',
+        'organization-platform': '组织与平台',
+      },
       item: {
         'pc-home': '首页',
         'terminal-preview': '终端预览',
@@ -257,6 +263,8 @@ export const zhCN = {
       lastLoginOn: '最近登录',
       breadcrumb: '平台管理 / 身份与访问 / 用户管理',
       queryTitle: '查询条件',
+      moreConditions: '更多条件',
+      userList: '用户列表',
       businessId: '业务标识',
       group: '用户组',
       role: '角色',

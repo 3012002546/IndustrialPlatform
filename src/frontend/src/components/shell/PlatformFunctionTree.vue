@@ -8,7 +8,7 @@
 import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
-import type { NavigationItem } from '@/components/navigation/types'
+import type { NavigationItem, NavigationSection } from '@/components/navigation/types'
 import { useAuthStore } from '@/stores/authStore'
 import { useThemeStore } from '@/stores/themeStore'
 import { localeMessages, resolveLocaleMessage } from '@/localization/i18n'
@@ -20,6 +20,8 @@ const props = defineProps<{
   labelKey?: string | undefined
   /** 当前分组的授权 items(由父级过滤后传入)。 */
   items: readonly NavigationItem[]
+  /** 当前分组内由真实导航数据声明的二级分组。 */
+  sections?: readonly NavigationSection[]
 }>()
 
 const authStore = useAuthStore()
@@ -34,6 +36,10 @@ const treeLabel = computed(() => resolveLocaleMessage(locale.value, props.labelK
 
 function itemLabel(item: NavigationItem): string {
   return resolveLocaleMessage(locale.value, item.labelKey, item.fallbackLabel ?? item.label)
+}
+
+function sectionLabel(section: NavigationSection): string {
+  return resolveLocaleMessage(locale.value, section.labelKey, section.fallbackLabel ?? section.label)
 }
 
 /** 权限过滤后的可见菜单(§13.2):未声明权限视为公开,声明但未持有则隐藏。 */
@@ -53,6 +59,39 @@ const visibleItems = computed(() =>
     return itemLabel(item).toLocaleLowerCase().includes(query)
   }),
 )
+
+const visibleSections = computed(() => {
+  const sections = props.sections ?? []
+  if (sections.length === 0) {
+    return [{ key: 'default', definition: undefined, items: visibleItems.value }]
+  }
+
+  const itemsBySection = new Map<string, NavigationItem[]>()
+  const ungrouped: NavigationItem[] = []
+  for (const item of visibleItems.value) {
+    const sectionId = item.sectionId
+    if (sectionId === undefined || !sections.some((section) => section.id === sectionId)) {
+      ungrouped.push(item)
+      continue
+    }
+    const sectionItems = itemsBySection.get(sectionId) ?? []
+    sectionItems.push(item)
+    itemsBySection.set(sectionId, sectionItems)
+  }
+
+  return [
+    ...sections
+      .map((section) => ({
+        key: section.id,
+        definition: section,
+        items: itemsBySection.get(section.id) ?? [],
+      }))
+      .filter((section) => section.items.length > 0),
+    ...(ungrouped.length > 0
+      ? [{ key: 'ungrouped', definition: undefined, items: ungrouped }]
+      : []),
+  ]
+})
 
 /** 功能树收起状态来自 ThemeStore(§7.8),不直接读写 localStorage。 */
 const collapsed = computed(
@@ -132,7 +171,11 @@ watch(
       />
 
       <ul id="ip-function-tree-list" class="ip-function-tree__list">
-      <li v-for="item in visibleItems" :key="item.id" class="ip-function-tree__item">
+      <template v-for="section in visibleSections" :key="section.key">
+        <li v-if="section.definition !== undefined" class="ip-function-tree__section">
+          {{ sectionLabel(section.definition) }}
+        </li>
+      <li v-for="item in section.items" :key="item.id" class="ip-function-tree__item">
         <template v-if="collapsed && visibleChildren(item).length > 0">
           <button
             type="button"
@@ -223,6 +266,7 @@ watch(
           </div>
         </template>
       </li>
+      </template>
       </ul>
     </div>
   </nav>
@@ -240,7 +284,7 @@ watch(
 }
 
 .ip-function-tree--collapsed {
-  width: 40px;
+  width: var(--ip-shell-toolrail-width-compact);
   overflow: visible;
 }
 
@@ -258,8 +302,8 @@ watch(
   align-items: center;
   justify-content: space-between;
   gap: var(--ip-space-2);
-  min-height: var(--ip-shell-topbar-height);
-  padding: 0 var(--ip-space-3);
+  min-height: 54px;
+  padding: 0 18px;
   border-bottom: 1px solid var(--ip-color-border);
 }
 
@@ -277,21 +321,24 @@ watch(
   flex: 1 1 auto;
   min-height: 0;
   flex-direction: column;
-  margin: var(--ip-space-2);
+  margin: 0;
   overflow: hidden;
   background: var(--ip-color-bg-container);
-  border: 1px solid var(--ip-color-border);
-  border-radius: var(--ip-radius-md);
+  border: 0;
+  border-radius: 0;
 }
 
 .ip-function-tree__surface--collapsed {
-  display: none;
+  margin: var(--ip-space-2) 0;
+  overflow: visible;
+  border: 0;
+  background: transparent;
 }
 
 .ip-function-tree__search {
   flex: 0 0 auto;
   min-height: 32px;
-  margin: var(--ip-space-2);
+  margin: 0 var(--ip-space-3) var(--ip-space-2);
   padding: 0 var(--ip-space-2);
   color: var(--ip-color-text-primary);
   background: var(--ip-color-bg-page);
@@ -337,10 +384,28 @@ watch(
   list-style: none;
 }
 
+.ip-function-tree__section {
+  margin: 12px var(--ip-space-3) 4px;
+  color: var(--ip-color-text-secondary);
+  font-size: var(--ip-font-size-xs);
+  font-weight: 500;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.ip-function-tree__section:first-child {
+  margin-top: 12px;
+}
+
 .ip-function-tree--collapsed .ip-function-tree__list {
-  display: none;
+  display: flex;
+  flex-direction: column;
   padding: var(--ip-space-2) 0;
   overflow: visible;
+}
+
+.ip-function-tree--collapsed .ip-function-tree__section {
+  display: none;
 }
 
 .ip-function-tree--collapsed .ip-function-tree__item {
@@ -359,18 +424,18 @@ watch(
 }
 
 .ip-function-tree__item + .ip-function-tree__item {
-  margin-top: var(--ip-space-1);
+  margin-top: 2px;
 }
 
 .ip-function-tree__link {
   display: flex;
   align-items: center;
-  gap: var(--ip-space-3);
-  min-height: 40px;
+  gap: 10px;
+  min-height: 36px;
   padding: 0 var(--ip-space-3);
   border-radius: var(--ip-radius-md);
   color: var(--ip-color-text-secondary);
-  font-size: var(--ip-font-size-md);
+  font-size: var(--ip-font-size-sm);
   line-height: var(--ip-line-height-normal);
   font-family: inherit;
   text-decoration: none;

@@ -22,8 +22,17 @@ const copy = computed(() => localeMessages[locale.value].shell.commandSearch)
 
 const results = computed(() => {
   const value = query.value.trim().toLocaleLowerCase()
-  if (value === '') return props.items.slice(0, 8)
-  return props.items.filter((item) => item.label.toLocaleLowerCase().includes(value)).slice(0, 8)
+  const candidates = value === ''
+    ? props.items
+    : props.items.filter((item) => item.label.toLocaleLowerCase().includes(value))
+  const seen = new Set<string>()
+  return candidates
+    .filter((item) => {
+      if (seen.has(item.id)) return false
+      seen.add(item.id)
+      return true
+    })
+    .slice(0, 8)
 })
 
 function focusSearch(): void {

@@ -41,4 +41,5 @@ describe('AppPage', () => {
     expect(wrapper.get('[data-testid="page-meta"]').text()).toContain('3')
     expect(wrapper.get('[data-testid="page-action"]').text()).toBe('新建')
   })
+
 })

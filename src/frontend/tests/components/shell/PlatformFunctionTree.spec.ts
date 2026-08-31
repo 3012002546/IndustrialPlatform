@@ -12,7 +12,7 @@ import { defineComponent, nextTick } from 'vue'
 
 import { writeAuthSession } from '@/auth'
 import type { AuthSession } from '@/auth/types'
-import type { NavigationItem } from '@/components/navigation/types'
+import type { NavigationItem, NavigationSection } from '@/components/navigation/types'
 import PlatformFunctionTree from '@/components/shell/PlatformFunctionTree.vue'
 import { routes } from '@/router/routes'
 import { useAuthStore } from '@/stores/authStore'
@@ -79,6 +79,7 @@ async function mountTree(
   label = '系统管理',
   items: readonly NavigationItem[] = ITEMS,
   labelKey?: string,
+  sections?: readonly NavigationSection[],
 ): Promise<Harness> {
   const pinia = createPinia()
   setActivePinia(pinia)
@@ -101,7 +102,12 @@ async function mountTree(
   const router = createRouter({ history: createMemoryHistory(), routes })
   await router.push(initialPath)
   const wrapper = mount(PlatformFunctionTree, {
-    props: { label, items, ...(labelKey === undefined ? {} : { labelKey }) },
+    props: {
+      label,
+      items,
+      ...(labelKey === undefined ? {} : { labelKey }),
+      ...(sections === undefined ? {} : { sections }),
+    },
     global: { plugins: [pinia, router] },
   })
   return { wrapper, router, themeStore, localization }
@@ -255,5 +261,44 @@ describe('PlatformFunctionTree', () => {
     await nextTick()
     expect(wrapper.get('nav').attributes('aria-label')).toBe('工作台')
     expect(wrapper.find('.ip-function-tree__label').text()).toBe('首页')
+  })
+
+  it('按真实导航项 sectionId 渲染身份与组织分组,并即时切换文案', async () => {
+    const sections: readonly NavigationSection[] = [
+      {
+        id: 'identity-access',
+        label: '身份与访问',
+        labelKey: 'shell.navigation.section.identity-access',
+        fallbackLabel: '身份与访问',
+      },
+      {
+        id: 'organization-platform',
+        label: '组织与平台',
+        labelKey: 'shell.navigation.section.organization-platform',
+        fallbackLabel: '组织与平台',
+      },
+    ]
+    const organizationItem = { ...ITEMS[1]! }
+    delete organizationItem.permission
+    const items: readonly NavigationItem[] = [
+      { ...ITEMS[0]!, id: 'identity', sectionId: 'identity-access' },
+      {
+        ...organizationItem,
+        id: 'organization',
+        sectionId: 'organization-platform',
+      },
+    ]
+    const { wrapper, localization } = await mountTree([], '/pc/home', '系统管理', items, undefined, sections)
+
+    expect(wrapper.findAll('.ip-function-tree__section').map((node) => node.text())).toEqual([
+      '身份与访问',
+      '组织与平台',
+    ])
+    localization.setLocale('en-US', null)
+    await nextTick()
+    expect(wrapper.findAll('.ip-function-tree__section').map((node) => node.text())).toEqual([
+      'Identity & access',
+      'Organization & platform',
+    ])
   })
 })

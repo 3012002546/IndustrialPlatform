@@ -7,6 +7,7 @@ import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 
 import AppQueryPanel from '@/components/management/AppQueryPanel.vue'
+import appQueryPanelSource from '@/components/management/AppQueryPanel.vue?raw'
 
 describe('AppQueryPanel', () => {
   it('渲染标题与默认槽内容', () => {
@@ -75,4 +76,35 @@ describe('AppQueryPanel', () => {
     expect(wrapper.emitted('submit')).toEqual([[descriptor]])
     expect(wrapper.emitted('reset')).toEqual([[]])
   })
+
+  it('网格查询把动作放在字段同一 surface 内并支持自定义更多条件文案', async () => {
+    const wrapper = mount(AppQueryPanel, {
+      props: {
+        grid: true,
+        showActions: true,
+      },
+      slots: {
+        default: '<label class="query-field">字段</label>',
+        'body-actions': '<button type="button" data-testid="more-conditions">更多条件</button>',
+      },
+    })
+
+    expect(wrapper.get('.app-query-panel__body').find('[data-testid="query-panel-submit"]').exists()).toBe(true)
+    expect(wrapper.get('.app-query-panel__body').find('[data-testid="query-panel-reset"]').exists()).toBe(true)
+    expect(wrapper.find('.app-query-panel__header').exists()).toBe(false)
+    expect(wrapper.get('.app-query-panel__body').get('[data-testid="more-conditions"]').text()).toBe('更多条件')
+  })
+
+  it('网格查询沿用紧凑横向字段流,不把字段继承成纵向查询列', () => {
+    expect(appQueryPanelSource).toMatch(
+      /\.app-query-panel__body--grid\s*\{[\s\S]*?flex-direction:\s*row;/,
+    )
+  })
+
+  it('查询操作使用与字段一致的紧凑字号', () => {
+    expect(appQueryPanelSource).toMatch(
+      /\.app-query-panel__actions button\s*\{[\s\S]*?font-size:\s*var\(--ip-font-size-sm\);/,
+    )
+  })
+
 })

@@ -185,6 +185,8 @@ const props = withDefaults(
     exporter?: (request: AppDataTableExportRequest) => Promise<void> | void
     tree?: AppDataTableTreeOptions<T>
     selection?: 'none' | 'single' | 'multiple'
+    toolbarTitle?: string
+    toolbarLabels?: boolean
   }>(),
   {
     rows: () => [],
@@ -195,6 +197,7 @@ const props = withDefaults(
     queryMode: 'top',
     pageSize: 25,
     selection: 'none',
+    toolbarLabels: false,
   },
 )
 
@@ -1657,6 +1660,7 @@ defineExpose({
 
       <div class="app-data-table__toolbar">
         <div class="app-data-table__toolbar-left" role="group" :aria-label="copy.primaryTools">
+          <strong v-if="toolbarTitle" class="app-data-table__toolbar-title">{{ toolbarTitle }}</strong>
           <button
             type="button"
             class="app-data-table__icon-button"
@@ -1668,6 +1672,9 @@ defineExpose({
             @click="switchQueryMode(activeQueryMode === 'top' ? 'header' : 'top')"
           >
             <Filter class="app-data-table__query-filter-icon" aria-hidden="true" />
+            <span v-if="toolbarLabels" class="app-data-table__toolbar-label">
+              {{ activeQueryMode === 'top' ? copy.queryHeaderLabel : copy.queryTopLabel }}
+            </span>
           </button>
           <div class="app-data-table__toolbar-popover">
             <button
@@ -1681,6 +1688,7 @@ defineExpose({
               @click="toggleSortPanel"
             >
               <SortUp aria-hidden="true" />
+              <span v-if="toolbarLabels" class="app-data-table__toolbar-label">{{ copy.sort }}</span>
             </button>
             <div
               v-if="sortOpen"
@@ -1755,6 +1763,7 @@ defineExpose({
               @click="toggleGroupPanel"
             >
               <Connection aria-hidden="true" />
+              <span v-if="toolbarLabels" class="app-data-table__toolbar-label">{{ copy.group }}</span>
             </button>
             <div
               v-if="groupOpen"
@@ -2307,18 +2316,21 @@ defineExpose({
 .app-data-table__card {
   position: relative;
   min-width: 0;
-  padding: var(--ip-space-3);
+  padding: 0;
   background: var(--ip-color-bg-container);
-  border: 1px solid var(--ip-color-border);
-  border-radius: var(--ip-radius-md);
-  box-shadow: var(--ip-shadow-sm);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 .app-data-table__surface {
   position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
   min-width: 0;
   max-width: 100%;
-  margin-top: var(--ip-space-2);
-  overflow-x: auto;
+  margin: 0 var(--ip-space-5);
+  border-top: 1px solid var(--ip-color-border);
+  overflow: hidden;
 }
 .app-data-table__loading {
   position: absolute;
@@ -2362,12 +2374,25 @@ defineExpose({
 .app-data-table__toolbar {
   justify-content: space-between;
   min-height: var(--ip-density-control-height);
+  box-sizing: border-box;
+  min-height: 56px;
+  padding: 12px var(--ip-space-5);
 }
 .app-data-table__toolbar-left,
 .app-data-table__toolbar-right {
   display: flex;
   align-items: center;
   gap: var(--ip-space-2);
+}
+.app-data-table__toolbar-title {
+  margin-right: var(--ip-space-2);
+  color: var(--ip-color-text-primary);
+  font-size: var(--ip-font-size-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.app-data-table__toolbar-label {
+  white-space: nowrap;
 }
 .app-data-table__business-actions {
   margin-bottom: 10px;
@@ -2378,11 +2403,22 @@ defineExpose({
   position: relative;
 }
 .app-data-table__toolbar > button,
-.app-data-table__toolbar-left button,
-.app-data-table__toolbar-right button,
+.app-data-table__toolbar-left > button,
+.app-data-table__toolbar-left .app-data-table__toolbar-popover > button,
+.app-data-table__toolbar-left .app-data-table__export > button,
+.app-data-table__toolbar-right > button {
+  min-height: 29px;
+  height: 29px;
+  padding: 0 var(--ip-space-2);
+  color: var(--ip-color-text-secondary);
+  background: transparent;
+  border: 0;
+  border-radius: var(--ip-radius-sm);
+  cursor: pointer;
+  font-size: var(--ip-font-size-xs);
+}
 .app-data-table__popover button,
 .app-data-table__settings button,
-.app-data-table__export button,
 .app-data-table__export-formats button {
   min-height: var(--ip-density-control-height);
   padding: 0 var(--ip-space-2);
@@ -2408,13 +2444,21 @@ defineExpose({
     box-shadow 120ms ease;
 }
 .app-data-table__toolbar .app-data-table__icon-button {
-  min-height: var(--ip-density-control-height);
+  min-height: 29px;
+  height: 29px;
+  width: auto;
+  min-width: 0;
+  padding: 0 var(--ip-space-2);
+  border-radius: var(--ip-radius-sm);
+}
+.app-data-table__toolbar-right .app-data-table__icon-button {
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
   padding: 0;
-  border-radius: 50%;
 }
 .app-data-table__icon-button:hover {
   color: var(--ip-color-primary);
-  border-color: var(--ip-color-primary);
   background: var(--ip-color-bg-muted);
 }
 .app-data-table__icon-button:focus-visible {
@@ -2424,8 +2468,8 @@ defineExpose({
 .app-data-table__icon-button.is-active {
   color: var(--ip-color-primary);
   background: color-mix(in srgb, var(--ip-color-primary) 12%, var(--ip-color-bg-container));
-  border-color: var(--ip-color-primary);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ip-color-primary) 18%, transparent);
+  border-color: transparent;
+  box-shadow: none;
 }
 .app-data-table__icon-button :deep(svg),
 .app-data-table__icon-button :deep(.el-icon) {
@@ -2842,6 +2886,33 @@ defineExpose({
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.app-data-table :deep(.vxe-table) {
+  font-size: var(--ip-font-size-xs);
+}
+
+.app-data-table :deep(.vxe-table--header-wrapper .vxe-header--row),
+.app-data-table :deep(.vxe-table--header-wrapper .vxe-header--column),
+.app-data-table :deep(.vxe-table--header-wrapper .vxe-cell) {
+  height: 38px;
+}
+
+.app-data-table :deep(.vxe-table--header-wrapper .vxe-cell) {
+  min-height: 38px !important;
+}
+
+.app-data-table :deep(.vxe-table--header-wrapper .vxe-header--column) {
+  color: var(--ip-color-text-secondary);
+  font-size: var(--ip-font-size-xs);
+  font-weight: 500;
+  border-right-color: transparent;
+}
+
+.app-data-table :deep(.vxe-table--body-wrapper .vxe-body--column) {
+  color: var(--ip-color-text-secondary);
+  font-size: var(--ip-font-size-xs);
+  border-right-color: transparent;
+}
 .app-data-table__header-title.is-sortable {
   cursor: pointer;
 }
@@ -2886,6 +2957,9 @@ defineExpose({
 }
 .app-data-table__footer {
   justify-content: space-between;
+  min-height: 56px;
+  box-sizing: border-box;
+  padding: 0 var(--ip-space-5);
 }
 .app-data-table__pagination {
   margin-left: auto;
