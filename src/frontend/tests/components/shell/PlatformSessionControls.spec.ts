@@ -153,6 +153,33 @@ describe('PlatformSessionControls', () => {
     expect(document.body.textContent).not.toContain('IP')
   })
 
+  it('renders the active-session list through the platform AppDataTable contract', async () => {
+    fakeApi.listActiveSessions.mockResolvedValue({
+      items: [
+        {
+          sessionNId: 'SES-1',
+          userNId: 'USR-1',
+          loginName: 'operator',
+          name: '操作员',
+          loginOn: '2026-08-30T01:00:00Z',
+          lastRefreshedOn: '2026-08-30T01:30:00Z',
+          expiresOn: '2026-08-31T01:00:00Z',
+          isCurrent: true,
+        },
+      ],
+      total: 1,
+      pageIndex: 1,
+      pageSize: 100,
+    })
+    const wrapper = await mountControls([PERMISSIONS.sessionView])
+
+    await wrapper.get('[data-testid="online-users-button"]').trigger('click')
+    await flushPromises()
+
+    expect(document.body.querySelector('[data-testid="app-data-table"]')).not.toBeNull()
+    expect(document.body.querySelector('.el-table')).toBeNull()
+  })
+
   it('shows loading then a real empty state and supports manual refresh', async () => {
     let resolveRequest: ((value: unknown) => void) | undefined
     fakeApi.listActiveSessions.mockReturnValue(

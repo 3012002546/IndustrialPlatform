@@ -56,9 +56,24 @@ import {
 } from './appDataTable/preferences'
 import { buildAppDataTableExportRequest } from './appDataTable/exporting'
 import {
-  findVxeClosest,
-  findVxeElement,
-  findVxeElements,
+  findAppDataTableActionColumns,
+  findAppDataTableCustomHeaderTools,
+  findAppDataTablePreferenceInput,
+  findAppDataTableSurface,
+  findVxeActiveCustomPanel,
+  findVxeCustomBody,
+  findVxeCustomHeader,
+  findVxeCustomPanel,
+  findVxeCustomSelectAllLabel,
+  findVxeDateRangeControls,
+  findVxeHeaderFilterRows,
+  findVxeHeaderRow,
+  findVxeHeaderTables,
+  findVxeHeaderWrapper,
+  isVxeCustomPanelActive,
+  isVxeMainHeader,
+  markVxeCustomPanelPlatformClass,
+  markVxeDuplicateColumnsDecorative,
   markVxeElementDecorative,
 } from './appDataTable/vxeDomAdapter'
 
@@ -790,10 +805,7 @@ async function resetColumnWidths(): Promise<void> {
 function syncActionColumnWidth(): void {
   const root = (tableRef.value as unknown as { $el?: HTMLElement } | null)?.$el
   if (root === undefined) return
-  const candidates = findVxeElements<HTMLElement>(
-    root,
-    '.app-data-table__actions-column-header, .app-data-table__actions-column',
-  )
+  const candidates = findAppDataTableActionColumns(root)
   let renderedWidth = 0
   candidates.forEach((element) => {
     renderedWidth = Math.max(renderedWidth, element.getBoundingClientRect().width)
@@ -809,7 +821,7 @@ function observeActionColumn(): void {
   if (root === undefined) return
   actionColumnObserver = new ResizeObserver(() => syncActionColumnWidth())
   actionColumnObserver.observe(root)
-  const surface = findVxeClosest<HTMLElement>(root, '.app-data-table__surface')
+  const surface = findAppDataTableSurface(root)
   if (surface !== null) actionColumnObserver.observe(surface)
 }
 
@@ -978,7 +990,7 @@ function syncNativeCustomPanelPosition(): void {
   const root = (tableRef.value as unknown as { $el?: HTMLElement } | null)?.$el
   const trigger = columnSettingsTrigger.value
   if (root === undefined || trigger === null) return
-  const panel = findVxeElement<HTMLElement>(root, '.vxe-table-custom-wrapper.is--active')
+  const panel = findVxeActiveCustomPanel(root)
   if (panel === null) return
 
   const triggerRect = trigger.getBoundingClientRect()
@@ -1177,36 +1189,29 @@ function appendFilterControl(
   cell.append(input)
 }
 
-function isMainVxeHeader(headerTable: HTMLTableElement): boolean {
-  const wrapper = findVxeClosest(headerTable, '.vxe-table--header-wrapper')
-  return wrapper?.classList.contains('body--wrapper') === true
-}
-
 function syncVxeDuplicateAccessibility(): void {
   const root = (tableRef.value as unknown as { $el?: HTMLElement } | null)?.$el
   if (root === undefined) return
-  findVxeElements<HTMLElement>(root, '.vxe-table--column.fixed--hidden').forEach(
-    markVxeElementDecorative,
-  )
+  markVxeDuplicateColumnsDecorative(root)
 }
 
 function syncNativeHeaderFilterRows(): void {
   const root = (tableRef.value as unknown as { $el?: HTMLElement } | null)?.$el
   if (root === undefined) return
-  const tables = findVxeElements<HTMLTableElement>(root, 'table.vxe-table--header')
+  const tables = findVxeHeaderTables(root)
   if (
     activeQueryMode.value === 'header' &&
     tables.length > 0 &&
     tables.every((headerTable) => {
-      const row = findVxeElement(headerTable, '.app-data-table__header-filter-row')
-      return row !== null && row.children.length > 0
+      const row = findVxeHeaderFilterRows(headerTable)[0]
+      return row !== undefined && row.children.length > 0
     })
   ) {
     return
   }
   tables.forEach((headerTable) => {
-    findVxeElements(headerTable, '.app-data-table__header-filter-row').forEach((row) => {
-      findVxeElements<HTMLElement>(row, '.app-data-table__date-range-control').forEach((filter) => {
+    findVxeHeaderFilterRows(headerTable).forEach((row) => {
+      findVxeDateRangeControls(row).forEach((filter) => {
         render(null, filter)
         mountedDateRangeFilters.delete(filter)
       })
@@ -1215,10 +1220,10 @@ function syncNativeHeaderFilterRows(): void {
   })
   if (activeQueryMode.value !== 'header') return
   tables.forEach((headerTable) => {
-    const headerRow = findVxeElement<HTMLTableRowElement>(headerTable, 'thead > .vxe-header--row')
-    const headerWrapper = findVxeClosest(headerTable, '.vxe-table--header-wrapper')
+    const headerRow = findVxeHeaderRow(headerTable)
+    const headerWrapper = findVxeHeaderWrapper(headerTable)
     if (headerRow === null || headerWrapper === null) return
-    if (findVxeElement(headerTable, '.app-data-table__header-filter-row') !== null) return
+    if (findVxeHeaderFilterRows(headerTable).length > 0) return
     const row = document.createElement('tr')
     row.className = 'app-data-table__header-filter-row'
     Array.from(headerRow.children)
@@ -1232,10 +1237,10 @@ function syncNativeHeaderFilterRows(): void {
         const column = visibleColumns.value.find((candidate) =>
           headerCell.classList.contains(nativeHeaderFieldClass(candidate.field)),
         )
-        if (column !== undefined) appendFilterControl(cell, column, isMainVxeHeader(headerTable))
+        if (column !== undefined) appendFilterControl(cell, column, isVxeMainHeader(headerTable))
         row.append(cell)
       })
-    if (!isMainVxeHeader(headerTable)) markVxeElementDecorative(row)
+    if (!isVxeMainHeader(headerTable)) markVxeElementDecorative(row)
     headerTable.tHead?.append(row)
   })
   syncVxeDuplicateAccessibility()
@@ -1265,20 +1270,17 @@ function createNativePreferenceToggle(
 }
 
 function syncNativeCustomHeader(panel: HTMLElement): void {
-  const header = findVxeElement<HTMLElement>(panel, '.vxe-table-custom--header')
+  const header = findVxeCustomHeader(panel)
   if (header === null) return
   header.dataset.columnSettingsTitle = copy.value.columnSettings
   header.dataset.columnSettingsDescription = copy.value.columnSettingsHint
 
-  const allLabel = findVxeElement<HTMLElement>(
-    header,
-    '.vxe-table-custom--panel-list .vxe-checkbox--label',
-  )
+  const allLabel = findVxeCustomSelectAllLabel(header)
   if (allLabel !== null && allLabel.textContent !== copy.value.columnVisible) {
     allLabel.textContent = copy.value.columnVisible
   }
 
-  let tools = findVxeElement<HTMLElement>(header, '.app-data-table__native-header-tools')
+  let tools = findAppDataTableCustomHeaderTools(header)
   if (tools === null) {
     tools = document.createElement('div')
     tools.className = 'app-data-table__native-header-tools'
@@ -1334,14 +1336,8 @@ function syncNativeCustomHeader(panel: HTMLElement): void {
     header.append(tools)
   }
 
-  const showIndex = findVxeElement<HTMLInputElement>(
-    tools,
-    '[data-testid="app-data-table-native-show-index"]',
-  )
-  const border = findVxeElement<HTMLInputElement>(
-    tools,
-    '[data-testid="app-data-table-native-border"]',
-  )
+  const showIndex = findAppDataTablePreferenceInput(tools, 'app-data-table-native-show-index')
+  const border = findAppDataTablePreferenceInput(tools, 'app-data-table-native-border')
   if (showIndex !== null) showIndex.checked = preferences.value.showIndex
   if (border !== null) border.checked = preferences.value.border
 }
@@ -1349,10 +1345,10 @@ function syncNativeCustomHeader(panel: HTMLElement): void {
 function syncNativeCustomPanel(): void {
   const root = (tableRef.value as unknown as { $el?: HTMLElement } | null)?.$el
   if (root === undefined) return
-  const panel = findVxeElement<HTMLElement>(root, '.vxe-table-custom-wrapper')
+  const panel = findVxeCustomPanel(root)
   if (panel === null) return
 
-  if (!panel.classList.contains('is--active')) {
+  if (!isVxeCustomPanelActive(panel)) {
     panel.style.display = 'none'
     return
   }
@@ -1361,13 +1357,13 @@ function syncNativeCustomPanel(): void {
 
   syncNativeCustomHeader(panel)
 
-  panel.classList.add('app-data-table__native-column-settings')
+  markVxeCustomPanelPlatformClass(panel)
   panel.style.height = tallUtilityPanelHeight
   panel.style.maxHeight = tallUtilityPanelHeight
   panel.style.flexDirection = 'column'
   panel.style.fontSize = '12px'
   panel.dataset.fontSize = '12px'
-  const body = findVxeElement<HTMLElement>(panel, '.vxe-table-custom--body')
+  const body = findVxeCustomBody(panel)
   if (body !== null) {
     body.style.height = 'auto'
     body.style.minHeight = '0'

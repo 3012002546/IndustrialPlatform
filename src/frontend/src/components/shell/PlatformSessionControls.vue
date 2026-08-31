@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import { ElAlert, ElButton, ElDrawer, ElEmpty, ElMessage, ElMessageBox, ElTable, ElTableColumn } from 'element-plus'
+import { ElAlert, ElButton, ElDrawer, ElEmpty, ElMessage, ElMessageBox } from 'element-plus'
 import { Bell, Promotion, Refresh, UserFilled } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 
 import { getManagementApi } from '@/api/identity/managementRegistry'
 import type { IdentityActiveSessionDto } from '@/api/identity/management/types'
+import AppDataTable from '@/components/management/AppDataTable.vue'
+import type { AppDataTableColumn } from '@/components/management/AppDataTable'
 import { localeMessages } from '@/localization/i18n'
 import { usePlatformLocale } from '@/localization/localeContext'
 import { PERMISSIONS } from '@/permissions'
@@ -25,6 +27,14 @@ const notificationTrigger = ref<HTMLButtonElement | null>(null)
 const notificationPanel = ref<HTMLElement | null>(null)
 const notificationPanelStyle = ref<Record<string, string>>({})
 
+interface ActiveSessionTableRow extends IdentityActiveSessionDto {
+  index: number
+  loginOn: string
+  lastRefreshedOn: string
+  expiresOn: string
+  currentSessionLabel: string
+}
+
 const canViewSessions = computed(() => authStore.hasPermission(PERMISSIONS.sessionView))
 const canRevokeSessions = computed(() => authStore.hasPermission(PERMISSIONS.sessionRevoke))
 
@@ -34,6 +44,27 @@ function formatDate(value: string): string {
     ? '—'
     : new Intl.DateTimeFormat(locale.value, { dateStyle: 'medium', timeStyle: 'short' }).format(date)
 }
+
+const sessionColumns = computed<readonly AppDataTableColumn[]>(() => [
+  { field: 'index', title: copy.value.index, width: 58, sortable: false, filter: false },
+  { field: 'loginName', title: copy.value.profileAccount, minWidth: 120, sortable: false, filter: false },
+  { field: 'name', title: copy.value.profileName, minWidth: 100, sortable: false, filter: false },
+  { field: 'loginOn', title: copy.value.loginTime, minWidth: 150, sortable: false, filter: false },
+  { field: 'lastRefreshedOn', title: copy.value.lastRefresh, minWidth: 150, sortable: false, filter: false },
+  { field: 'expiresOn', title: copy.value.expires, minWidth: 150, sortable: false, filter: false },
+  { field: 'currentSessionLabel', title: copy.value.currentSession, width: 92, sortable: false, filter: false },
+])
+
+const sessionRows = computed<readonly ActiveSessionTableRow[]>(() =>
+  sessions.value.map((session, index) => ({
+    ...session,
+    index: index + 1,
+    loginOn: formatDate(session.loginOn),
+    lastRefreshedOn: formatDate(session.lastRefreshedOn),
+    expiresOn: formatDate(session.expiresOn),
+    currentSessionLabel: session.isCurrent ? copy.value.currentSession : '—',
+  })),
+)
 
 async function loadSessions(): Promise<void> {
   if (!canViewSessions.value) return
@@ -197,32 +228,27 @@ onBeforeUnmount(() => {
       <ElButton data-testid="online-users-retry" link type="danger" @click="loadSessions">{{ common.action.retry }}</ElButton>
     </ElAlert>
     <ElEmpty v-else-if="!sessionsLoading && sessions.length === 0" :description="copy.onlineUsersEmpty" />
-    <ElTable v-else v-loading="sessionsLoading" :data="sessions" row-key="sessionNId" size="small">
-      <ElTableColumn type="index" :label="copy.index" width="58" />
-      <ElTableColumn prop="loginName" :label="copy.profileAccount" min-width="120" />
-      <ElTableColumn prop="name" :label="copy.profileName" min-width="100" />
-      <ElTableColumn :label="copy.loginTime" min-width="150">
-        <template #default="scope">{{ formatDate(scope.row.loginOn) }}</template>
-      </ElTableColumn>
-      <ElTableColumn :label="copy.lastRefresh" min-width="150">
-        <template #default="scope">{{ formatDate(scope.row.lastRefreshedOn) }}</template>
-      </ElTableColumn>
-      <ElTableColumn :label="copy.expires" min-width="150">
-        <template #default="scope">{{ formatDate(scope.row.expiresOn) }}</template>
-      </ElTableColumn>
-      <ElTableColumn :label="copy.currentSession" width="92">
-        <template #default="scope">
-          <span v-if="scope.row.isCurrent" class="ip-online-sessions__current">●</span>
-          <span class="ip-online-sessions__visually-hidden">{{ scope.row.isCurrent ? copy.currentSession : '' }}</span>
+    <div v-else class="ip-online-sessions__table" data-testid="online-users-table">
+      <AppDataTable
+        table-key="online-sessions"
+        route-key="online-sessions"
+        row-key="sessionNId"
+        :columns="sessionColumns"
+        :rows="sessionRows"
+        :total="sessionRows.length"
+        :loading="sessionsLoading"
+        :page-size="100"
+      >
+        <template #cell-currentSessionLabel="{ row }">
+          <span v-if="row.isCurrent" class="ip-online-sessions__current">●</span>
+          <span class="ip-online-sessions__visually-hidden">{{ row.currentSessionLabel }}</span>
         </template>
-      </ElTableColumn>
-      <ElTableColumn :label="common.table.actions" width="108" fixed="right">
-        <template #default="scope">
+        <template #actions="{ row }">
           <ElButton
             link
             disabled
             :title="copy.sendMessageUnavailable"
-            :aria-label="copy.sendMessage"
+            :aria-label="copy.sendMessageUnavailable"
             data-testid="shell-send-message"
           >
             <Promotion aria-hidden="true" />
@@ -231,13 +257,13 @@ onBeforeUnmount(() => {
             v-if="canRevokeSessions"
             link
             type="danger"
-            @click="revokeSession(scope.row as IdentityActiveSessionDto)"
+            @click="revokeSession(row as ActiveSessionTableRow)"
           >
             {{ copy.revokeSession }}
           </ElButton>
         </template>
-      </ElTableColumn>
-    </ElTable>
+      </AppDataTable>
+    </div>
   </ElDrawer>
 </template>
 
@@ -305,6 +331,11 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: flex-end;
   margin-bottom: var(--ip-space-3);
+}
+
+.ip-online-sessions__table :deep(.app-data-table__toolbar),
+.ip-online-sessions__table :deep(.app-data-table__footer) {
+  display: none;
 }
 
 .ip-online-sessions__current {
