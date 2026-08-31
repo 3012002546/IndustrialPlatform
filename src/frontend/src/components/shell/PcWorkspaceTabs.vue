@@ -7,6 +7,7 @@
  */
 
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { ArrowDown, Close, House, Refresh, User } from '@element-plus/icons-vue'
 import { localeMessages, resolveLocaleMessage } from '@/localization/i18n'
 import { useLocalizationStore } from '@/stores/localizationStore'
 import { useWorkspaceTabsStore } from '@/stores/workspaceTabsStore'
@@ -50,9 +51,9 @@ function close(tabId: string): void {
   emit('close', tabId)
 }
 
-function openContextMenu(event: MouseEvent, tab: WorkspaceTab): void {
+function openContextMenuAt(tab: WorkspaceTab, clientX: number, clientY: number): void {
   contextTabId.value = tab.id
-  contextMenuStyle.value = { left: `${event.clientX}px`, top: `${event.clientY}px` }
+  contextMenuStyle.value = { left: `${clientX}px`, top: `${clientY}px` }
   void nextTick(() => {
     const menu = contextMenuRef.value
     if (menu === null) return
@@ -60,10 +61,27 @@ function openContextMenu(event: MouseEvent, tab: WorkspaceTab): void {
     const menuWidth = rect.width || 180
     const menuHeight = rect.height || 320
     contextMenuStyle.value = {
-      left: `${Math.max(0, Math.min(event.clientX, window.innerWidth - menuWidth))}px`,
-      top: `${Math.max(0, Math.min(event.clientY, window.innerHeight - menuHeight))}px`,
+      left: `${Math.max(0, Math.min(clientX, window.innerWidth - menuWidth))}px`,
+      top: `${Math.max(0, Math.min(clientY, window.innerHeight - menuHeight))}px`,
     }
   })
+}
+
+function openContextMenu(event: MouseEvent, tab: WorkspaceTab): void {
+  openContextMenuAt(tab, event.clientX, event.clientY)
+}
+
+function reloadActiveTab(): void {
+  const tab = tabsStore.activeTab
+  if (tab !== null) emit('reload', tab.id)
+}
+
+function openActiveContextMenu(event: MouseEvent): void {
+  const tab = tabsStore.activeTab
+  if (tab === null) return
+  const target = event.currentTarget as HTMLElement | null
+  const rect = target?.getBoundingClientRect()
+  openContextMenuAt(tab, rect?.left ?? event.clientX, rect?.bottom ?? event.clientY)
 }
 
 function closeContextMenu(): void {
@@ -103,38 +121,65 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <nav class="ip-pc-tabs" :aria-label="copy.tabList" role="tablist">
-    <template v-for="tab in tabsStore.tabs" :key="tab.id">
-      <div
-        class="ip-pc-tabs__item"
-        :class="{ 'ip-pc-tabs__item--active': tab.id === tabsStore.activeTabId }"
-        @contextmenu.prevent="openContextMenu($event, tab)"
-      >
-        <button
-          type="button"
-          class="ip-pc-tabs__tab"
-          role="tab"
-          :aria-selected="tab.id === tabsStore.activeTabId"
-          :aria-label="titleFor(tab)"
-          :title="titleFor(tab)"
-          @click="activate(tab)"
+  <nav class="ip-pc-tabs" :aria-label="copy.tabList">
+    <div class="ip-pc-tabs__items" role="tablist" :aria-label="copy.tabList">
+      <template v-for="tab in tabsStore.tabs" :key="tab.id">
+        <div
+          class="ip-pc-tabs__item"
+          :class="{ 'ip-pc-tabs__item--active': tab.id === tabsStore.activeTabId }"
+          @contextmenu.prevent="openContextMenu($event, tab)"
         >
-          {{ titleFor(tab) }}
-        </button>
-
-        <template v-if="tab.kind === 'business' && tab.pinned !== true">
           <button
             type="button"
-            class="ip-pc-tabs__close"
-            :aria-label="`${copy.tabClose} ${titleFor(tab)}`"
-            :title="copy.tabClose"
-            @click="close(tab.id)"
+            class="ip-pc-tabs__tab"
+            role="tab"
+            :aria-selected="tab.id === tabsStore.activeTabId"
+            :aria-label="titleFor(tab)"
+            :title="titleFor(tab)"
+            @click="activate(tab)"
           >
-            ×
+            <House v-if="tab.kind === 'fixed'" class="ip-pc-tabs__tab-icon" aria-hidden="true" />
+            <User v-else class="ip-pc-tabs__tab-icon" aria-hidden="true" />
+            <span class="ip-pc-tabs__tab-label">{{ titleFor(tab) }}</span>
           </button>
+
+          <template v-if="tab.kind === 'business' && tab.pinned !== true">
+            <button
+              type="button"
+              class="ip-pc-tabs__close"
+              :aria-label="`${copy.tabClose} ${titleFor(tab)}`"
+              :title="copy.tabClose"
+              @click="close(tab.id)"
+            >
+              <Close aria-hidden="true" />
+            </button>
           </template>
-      </div>
-    </template>
+        </div>
+      </template>
+    </div>
+    <div class="ip-pc-tabs__actions" role="group" :aria-label="copy.tabActions">
+      <button
+        type="button"
+        class="ip-pc-tabs__action"
+        data-testid="workspace-tab-reload-active"
+        :aria-label="copy.tabReload"
+        :title="copy.tabReload"
+        @click="reloadActiveTab"
+      >
+        <Refresh aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        class="ip-pc-tabs__action"
+        data-testid="workspace-tab-actions"
+        :aria-label="copy.tabActions"
+        :title="copy.tabActions"
+        :aria-expanded="contextTabId !== null"
+        @click="openActiveContextMenu"
+      >
+        <ArrowDown aria-hidden="true" />
+      </button>
+    </div>
     <div
       v-if="contextTabId !== null"
       ref="contextMenuRef"
@@ -205,12 +250,33 @@ onBeforeUnmount(() => {
   gap: var(--ip-space-1);
   box-sizing: border-box;
   height: var(--ip-shell-tabs-height);
+  min-width: 0;
   padding: 0;
-  overflow-x: auto;
+  overflow: hidden;
   overflow-y: hidden;
   white-space: nowrap;
   background: var(--ip-shell-tabs-bg);
   border-bottom: 1px solid var(--ip-color-border);
+}
+
+.ip-pc-tabs__items {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: stretch;
+  gap: var(--ip-space-1);
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.ip-pc-tabs__actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--ip-space-1);
+  height: 100%;
+  padding: 0 var(--ip-space-2);
+  border-left: 1px solid var(--ip-color-border);
 }
 
 .ip-pc-tabs__item {
@@ -234,7 +300,10 @@ onBeforeUnmount(() => {
 }
 
 .ip-pc-tabs__tab {
+  display: inline-flex;
   flex: 0 1 auto;
+  align-items: center;
+  gap: var(--ip-space-1);
   min-width: 0;
   height: 100%;
   padding: 0;
@@ -246,6 +315,20 @@ onBeforeUnmount(() => {
   font-size: var(--ip-font-size-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.ip-pc-tabs__tab-icon,
+.ip-pc-tabs__close svg,
+.ip-pc-tabs__action svg {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+}
+
+.ip-pc-tabs__tab-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .ip-pc-tabs__close {
@@ -268,8 +351,29 @@ onBeforeUnmount(() => {
   background: var(--ip-color-bg-muted);
 }
 
+.ip-pc-tabs__action {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--ip-color-text-secondary);
+  background: transparent;
+  border: 0;
+  border-radius: var(--ip-radius-sm);
+  cursor: pointer;
+}
+
+.ip-pc-tabs__action:hover {
+  color: var(--ip-color-text-primary);
+  background: var(--ip-color-bg-muted);
+}
+
 .ip-pc-tabs__tab:focus-visible,
-.ip-pc-tabs__close:focus-visible {
+.ip-pc-tabs__close:focus-visible,
+.ip-pc-tabs__action:focus-visible {
   outline: 2px solid var(--ip-focus-ring-color);
   outline-offset: 1px;
 }

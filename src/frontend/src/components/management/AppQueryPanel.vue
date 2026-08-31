@@ -4,6 +4,7 @@
  */
 
 import { computed, useId } from 'vue'
+import { Refresh, Search } from '@element-plus/icons-vue'
 import type { QueryDescriptor } from '@/querying'
 import { localeMessages } from '@/localization/i18n'
 import { usePlatformLocale } from '@/localization/localeContext'
@@ -57,6 +58,7 @@ const bodyId = useId()
       </div>
       <div v-if="showActions && !grid" class="app-query-panel__actions">
         <button type="button" data-testid="query-panel-reset" @click="emit('reset')">
+          <Refresh aria-hidden="true" />
           {{ copy.reset }}
         </button>
         <button
@@ -64,6 +66,7 @@ const bodyId = useId()
           data-testid="query-panel-submit"
           @click="emit('submit', descriptor)"
         >
+          <Search aria-hidden="true" />
           {{ copy.submit }}
         </button>
       </div>
@@ -97,6 +100,7 @@ const bodyId = useId()
           data-testid="query-panel-submit"
           @click="emit('submit', descriptor)"
         >
+          <Search aria-hidden="true" />
           {{ copy.submit }}
         </button>
         <button
@@ -106,6 +110,7 @@ const bodyId = useId()
           data-testid="query-panel-reset"
           @click="emit('reset')"
         >
+          <Refresh aria-hidden="true" />
           {{ copy.reset }}
         </button>
         <slot name="body-actions" />
@@ -185,6 +190,9 @@ const bodyId = useId()
 }
 
 .app-query-panel__actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ip-space-1);
   box-sizing: border-box;
   min-height: var(--ip-density-control-height);
   padding: 0 var(--ip-space-3);
@@ -196,6 +204,12 @@ const bodyId = useId()
   font-family: inherit;
   font-size: var(--ip-font-size-sm);
   line-height: 1.2;
+}
+
+.app-query-panel__actions button > svg {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
 }
 
 .app-query-panel__actions .app-query-panel__submit {

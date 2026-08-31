@@ -16,7 +16,7 @@ async function login(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\/pc\/home/, { timeout: 60_000 })
 }
 
-test('用户管理黄金页:共享结构、键盘路径与窄窗口', async ({ page }) => {
+test('用户管理黄金页:共享结构、键盘路径与窄窗口', async ({ page }, testInfo) => {
   await login(page)
   await page.setViewportSize({ width: 1280, height: 720 })
   await page.goto('/pc/identity/users')
@@ -43,7 +43,7 @@ test('用户管理黄金页:共享结构、键盘路径与窄窗口', async ({ p
     true,
   )
   await page.screenshot({
-    path: 'tests/e2e/screenshots/user-management-golden-1280x720.png',
+    path: testInfo.outputPath('user-management-golden-1280x720.png'),
     fullPage: true,
   })
 
@@ -54,7 +54,7 @@ test('用户管理黄金页:共享结构、键盘路径与窄窗口', async ({ p
     true,
   )
   await page.screenshot({
-    path: 'tests/e2e/screenshots/user-management-golden-1440x900.png',
+    path: testInfo.outputPath('user-management-golden-1440x900.png'),
     fullPage: true,
   })
 

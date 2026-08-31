@@ -56,7 +56,7 @@ test('四区结构:顶栏、工具轨、功能树与主内容区', async ({ page
   await login(page)
   await expect(page.locator('header.ip-topbar')).toBeVisible()
   await expect(page.getByRole('navigation', { name: '平台分组' })).toBeVisible()
-  await expect(page.getByRole('navigation', { name: '工作台' })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: '工作台', exact: true })).toBeVisible()
   await expect(page.locator('main#main-content')).toBeVisible()
   // 工作台分组授权项(首页)渲染
   await expect(page.getByRole('link', { name: '首页' })).toBeVisible()
@@ -98,7 +98,7 @@ test('功能树收起/展开:列表隐藏且 aria-expanded 翻转', async ({ pag
   await expect(page.locator('#ip-function-tree-list')).toBeVisible()
 })
 
-test('两个 PC 目标视口无横向滚动并保存外壳截图', async ({ page }) => {
+test('两个 PC 目标视口无横向滚动并保存外壳截图', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1280, height: 720 })
   await login(page)
   await expect(page.getByRole('link', { name: '首页' })).toBeVisible()
@@ -107,7 +107,7 @@ test('两个 PC 目标视口无横向滚动并保存外壳截图', async ({ page
     true,
   )
   await page.screenshot({
-    path: 'tests/e2e/screenshots/pc-shell-1280x720.png',
+    path: testInfo.outputPath('pc-shell-1280x720.png'),
     fullPage: true,
   })
 
@@ -119,7 +119,7 @@ test('两个 PC 目标视口无横向滚动并保存外壳截图', async ({ page
     true,
   )
   await page.screenshot({
-    path: 'tests/e2e/screenshots/pc-shell-1440x900.png',
+    path: testInfo.outputPath('pc-shell-1440x900.png'),
     fullPage: true,
   })
 })

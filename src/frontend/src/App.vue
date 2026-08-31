@@ -3,7 +3,11 @@
  * 根组件:路由出口 + 全局权限变化响应。
  * 会话权限被刷新/变更时,若当前页面所需权限已失去,跳转 /403(§13.2)。
  */
-import { watch } from 'vue'
+import { computed, watch, type DefineComponent } from 'vue'
+import { ElConfigProvider } from 'element-plus'
+import elementPlusEn from 'element-plus/es/locale/lang/en'
+import elementPlusZhCn from 'element-plus/es/locale/lang/zh-cn'
+import type { Language } from 'element-plus/es/locale'
 import { useRoute, useRouter } from 'vue-router'
 
 import { ROUTE_NAMES } from '@/router/routes'
@@ -16,6 +20,13 @@ const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const localization = useLocalizationStore()
+// Element Plus 的安装包装器在当前声明中暴露了原始 prop 定义;将其收窄为官方组件的公开 locale 契约。
+const PlatformConfigProvider = ElConfigProvider as unknown as DefineComponent<{
+  locale?: Language
+}>
+const elementLocale = computed(() =>
+  localization.locale === 'en-US' ? elementPlusEn : elementPlusZhCn,
+)
 
 watch(
   [() => route.name, () => localization.locale],
@@ -50,6 +61,8 @@ watch(
 </script>
 
 <template>
-  <SystemDataRuntimeStatus />
-  <RouterView />
+  <PlatformConfigProvider :locale="elementLocale">
+    <SystemDataRuntimeStatus />
+    <RouterView />
+  </PlatformConfigProvider>
 </template>

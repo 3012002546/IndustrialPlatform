@@ -20,6 +20,7 @@ import AppPage from '@/components/base/AppPage.vue'
 import AppQueryPanel from '@/components/management/AppQueryPanel.vue'
 import type { UserSummaryDto } from '@/api/identity/management'
 import IdentityUsersPage from '@/pages/pc/identity/IdentityUsersPage.vue'
+import identityUsersPageSource from '@/pages/pc/identity/IdentityUsersPage.vue?raw'
 import { useAuthStore } from '@/stores/authStore'
 import { useLocalizationStore } from '@/stores/localizationStore'
 import { buildPageStateKey, writePageState } from '@/workspace/pageState'
@@ -141,6 +142,13 @@ async function clickSave(wrapper: VueWrapper): Promise<void> {
 }
 
 describe('IdentityUsersPage — 创建用户(服务端随机临时密码)', () => {
+  it('uses existing platform icons for create and advanced-condition actions', () => {
+    expect(identityUsersPageSource).toMatch(
+      /import\s*\{[^}]*ArrowDown[^}]*Plus[^}]*\}\s*from\s*'@element-plus\/icons-vue'/s,
+    )
+    expect(identityUsersPageSource).toMatch(/<Plus\s+aria-hidden="true"\s*\/>/)
+    expect(identityUsersPageSource).toMatch(/<ArrowDown\s+aria-hidden="true"\s*\/>/)
+  })
   beforeEach(() => {
     vi.clearAllMocks()
     // 页面经 persistAuthSession 写入 Mock 会话键后 restore,显式声明 mock,不依赖产品默认(现为 http)。

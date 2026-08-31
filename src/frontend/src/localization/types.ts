@@ -197,6 +197,8 @@ export interface PlatformLocaleMessages {
       tenant: string
       searchMenu: string
       tabList: string
+      tabActions: string
+      tabReload: string
       experienceMode: string
       globalSearch: string
       expandFunctionTree: string

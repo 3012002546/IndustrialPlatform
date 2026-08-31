@@ -6,6 +6,7 @@
  * 临时密码只经一次性弹窗展示,禁止持久化。操作按钮按 PermissionGate 控制(identity.user.*)。
  */
 import { ElDropdown, ElDropdownItem, ElDropdownMenu, ElMessage, ElMessageBox } from 'element-plus'
+import { ArrowDown, Plus } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 
@@ -812,6 +813,7 @@ onBeforeUnmount(() => {
           data-testid="identity-users-create"
           @click="openCreate"
         >
+          <Plus aria-hidden="true" />
           {{ copy.create }}
         </el-button>
       </PermissionGate>
@@ -836,6 +838,7 @@ onBeforeUnmount(() => {
           @click="advancedQueryOpen = !advancedQueryOpen"
         >
           {{ copy.moreConditions }}
+          <ArrowDown aria-hidden="true" />
         </button>
       </template>
       <template v-if="tableQueryMode === 'top'">
@@ -1293,6 +1296,9 @@ onBeforeUnmount(() => {
 }
 
 .users-page__more-conditions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ip-space-1);
   min-height: var(--ip-density-control-height);
   padding: 0;
   color: var(--ip-color-primary);
@@ -1302,6 +1308,13 @@ onBeforeUnmount(() => {
   font-family: inherit;
   font-size: var(--ip-font-size-xs);
   line-height: 1.2;
+}
+
+.users-page__more-conditions > svg,
+.users-page :deep(.el-button > svg) {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
 }
 
 .users-page__count {

@@ -77,6 +77,16 @@ describe('AppQueryPanel', () => {
     expect(wrapper.emitted('reset')).toEqual([[]])
   })
 
+  it('为查询动作提供可访问的搜索与刷新图标', () => {
+    const wrapper = mount(AppQueryPanel, {
+      props: { grid: true, showActions: true },
+      slots: { default: '<label>字段</label>' },
+    })
+
+    expect(wrapper.get('[data-testid="query-panel-submit"]').find('svg').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="query-panel-reset"]').find('svg').exists()).toBe(true)
+  })
+
   it('网格查询把动作放在字段同一 surface 内并支持自定义更多条件文案', async () => {
     const wrapper = mount(AppQueryPanel, {
       props: {

@@ -208,6 +208,8 @@ export const zhCN = {
       tenant: '租户',
       searchMenu: '搜索菜单',
       tabList: '工作台标签',
+      tabActions: '标签操作',
+      tabReload: '刷新当前页',
       experienceMode: '体验模式',
       globalSearch: '全局搜索',
       expandFunctionTree: '展开功能树',

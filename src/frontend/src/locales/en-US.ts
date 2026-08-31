@@ -208,6 +208,8 @@ export const enUS = {
       tenant: 'Tenant',
       searchMenu: 'Search menu',
       tabList: 'Workspace tabs',
+      tabActions: 'Tab actions',
+      tabReload: 'Refresh current page',
       experienceMode: 'Experience mode',
       globalSearch: 'Global search',
       expandFunctionTree: 'Expand function tree',

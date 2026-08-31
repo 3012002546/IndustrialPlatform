@@ -42,13 +42,28 @@ describe('PcWorkspaceTabs', () => {
     const wrapper = mountWithTabs([0, 1])
     const nav = wrapper.get('nav.ip-pc-tabs')
     expect(nav.attributes('aria-label')).toBe('工作台标签')
-    expect(nav.attributes('role')).toBe('tablist')
+    expect(nav.get('[role="tablist"]').attributes('aria-label')).toBe('工作台标签')
     const items = nav.findAll('.ip-pc-tabs__item')
     expect(items[0]?.text()).toContain('工作台')
     // 固定工作台项不含关闭/更多按钮
     expect(items[0]?.findAll('button')).toHaveLength(1)
     // 业务标签只含标签与关闭按钮;其他操作通过右键菜单
     expect(items[1]?.findAll('button')).toHaveLength(2)
+  })
+
+  it('shows tab icons and visible refresh/actions controls for the active tab', async () => {
+    const wrapper = mountWithTabs([0])
+    const items = wrapper.findAll('.ip-pc-tabs__item')
+    expect(items[0]!.get('.ip-pc-tabs__tab').findAll('svg')).toHaveLength(1)
+    expect(items[1]!.get('.ip-pc-tabs__tab').findAll('svg')).toHaveLength(1)
+
+    const reload = wrapper.get('[data-testid="workspace-tab-reload-active"]')
+    expect(reload.findAll('svg')).toHaveLength(1)
+    await reload.trigger('click')
+    expect(wrapper.emitted('reload')).toEqual([['sandbox:0']])
+
+    await wrapper.get('[data-testid="workspace-tab-actions"]').trigger('click')
+    expect(wrapper.find('[data-testid="workspace-tab-context-menu"]').exists()).toBe(true)
   })
 
   it('不重复渲染菜单搜索;菜单搜索由二级面板与全局命令搜索承载', () => {
@@ -169,6 +184,21 @@ describe('PcWorkspaceTabs', () => {
     expect(source).toMatch(/\.ip-pc-tabs__item\s*\{[\s\S]*?height:\s*100%;/)
     expect(source).toMatch(
       /\.ip-pc-tabs__tab\s*\{[\s\S]*?font-size:\s*var\(--ip-font-size-xs\);/,
+    )
+  })
+
+  it('keeps the tab actions in a fixed non-scrolling region', async () => {
+    const loader = import.meta.glob('../../../src/components/shell/PcWorkspaceTabs.vue', {
+      query: '?raw',
+      import: 'default',
+    })
+    const source = (await loader['../../../src/components/shell/PcWorkspaceTabs.vue']!()) as string
+
+    expect(source).toMatch(
+      /\.ip-pc-tabs__items\s*\{[\s\S]*?overflow-x:\s*auto;[\s\S]*?min-width:\s*0;/,
+    )
+    expect(source).toMatch(
+      /\.ip-pc-tabs__actions\s*\{[\s\S]*?flex:\s*0\s+0\s+auto;/,
     )
   })
 })
