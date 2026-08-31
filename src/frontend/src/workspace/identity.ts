@@ -6,6 +6,31 @@
 
 import type { PersistedRouteLocation, WorkspaceTab } from './types'
 
+/**
+ * 静态 PC 工作区路由的标题资源键。
+ *
+ * 标签快照早于 titleKey 字段时无法从 Router meta 恢复资源键；这里保留
+ * 一份纯数据契约，避免 Store 依赖 Router，同时让旧快照在切换语言后仍
+ * 能即时解析为当前语言。未列出的 DEV/动态路由继续使用其 fallbackTitle。
+ */
+const STATIC_WORKSPACE_TITLE_KEYS: Readonly<Record<string, string>> = {
+  'pc-home': 'shell.navigation.workspace',
+  'identity-users': 'shell.navigation.item.identity-users',
+  'identity-user-groups': 'shell.navigation.item.identity-user-groups',
+  'identity-roles': 'shell.navigation.item.identity-roles',
+  'identity-permissions': 'shell.navigation.item.identity-permissions',
+  'identity-audits': 'shell.navigation.item.identity-audits',
+  'sso-providers': 'shell.navigation.item.identity-sso-providers',
+  'sso-clients': 'shell.navigation.item.identity-sso-clients',
+  'systemdata-organizations': 'shell.navigation.item.systemdata-organizations',
+  'systemdata-assignments': 'shell.navigation.item.systemdata-assignments',
+  'systemdata-navigation': 'shell.navigation.item.systemdata-navigation',
+  'systemdata-features': 'shell.navigation.item.systemdata-features',
+  'systemdata-services': 'shell.navigation.item.systemdata-services',
+  'systemdata-themes': 'shell.navigation.item.systemdata-themes',
+  'systemdata-service-initialization': 'shell.navigation.item.systemdata-service-initialization',
+}
+
 /** 固定工作台(id 对应 pc-home 路由名);不参与业务标签配额。 */
 export const FIXED_WORKBENCH_ID = 'pc-home'
 
@@ -62,6 +87,13 @@ export function toPersistedRoute(route: {
     query[key] = Array.isArray(value) ? value.map((v) => String(v)) : String(value)
   }
   return { name: route.name, params, query }
+}
+
+/** 为缺少资源键的历史静态标签补齐当前路由的规范化标题键。 */
+export function normalizeWorkspaceTabTitle(tab: WorkspaceTab): WorkspaceTab {
+  if (tab.titleKey !== undefined) return tab
+  const titleKey = STATIC_WORKSPACE_TITLE_KEYS[tab.route.name]
+  return titleKey === undefined ? tab : { ...tab, titleKey }
 }
 
 /** 固定工作台标签(store 恢复时保证存在,不计入业务配额)。 */

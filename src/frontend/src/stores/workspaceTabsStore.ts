@@ -10,7 +10,11 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
 import type { UserUiScope } from '@/theme/types'
-import { createFixedWorkbench, MAX_BUSINESS_TABS } from '@/workspace/identity'
+import {
+  createFixedWorkbench,
+  MAX_BUSINESS_TABS,
+  normalizeWorkspaceTabTitle,
+} from '@/workspace/identity'
 import { clearPageState } from '@/workspace/pageState'
 import { buildUserTabsKey, readTabsSnapshot, writeTabsSnapshot, type WorkspaceStorage } from '@/workspace/persistence'
 import type {
@@ -80,8 +84,13 @@ export const useWorkspaceTabsStore = defineStore('workspaceTabs', () => {
     scope.value = nextScope
     const snapshot = readTabsSnapshot(defaultStorage(), nextScope)
     const restored = snapshot === null ? [] : snapshot.tabs
-    const fixed = restored.find((t) => t.kind === 'fixed') ?? createFixedWorkbench()
-    const businesses = restored.filter((t) => t.kind === 'business').slice(0, MAX_BUSINESS_TABS)
+    const fixed = normalizeWorkspaceTabTitle(
+      restored.find((t) => t.kind === 'fixed') ?? createFixedWorkbench(),
+    )
+    const businesses = restored
+      .filter((t) => t.kind === 'business')
+      .slice(0, MAX_BUSINESS_TABS)
+      .map(normalizeWorkspaceTabTitle)
     tabs.value = [fixed, ...businesses]
     const savedActive = snapshot?.activeTabId ?? ''
     activeTabId.value = tabs.value.some((t) => t.id === savedActive) ? savedActive : fixed.id

@@ -9,6 +9,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { useWorkspaceTabsStore } from '@/stores/workspaceTabsStore'
+import { resolveLocaleMessage } from '@/localization/i18n'
 import { createFixedWorkbench, MAX_BUSINESS_TABS } from '@/workspace/identity'
 import { writeTabsSnapshot } from '@/workspace/persistence'
 import type {
@@ -87,6 +88,45 @@ describe('workspaceTabsStore — bindUser', () => {
     expect(store.tabs.map((t) => t.id)).toEqual(['pc-home', 'sandbox:3'])
     expect(store.activeTabId).toBe('sandbox:3')
     expect(store.activeTab?.reloadVersion).toBe(4)
+  })
+
+  it('恢复旧快照时为静态页面补回规范化标题键', () => {
+    writeTabsSnapshot(localStorage, SCOPE, {
+      version: 1,
+      tabs: [
+        createFixedWorkbench(),
+        {
+          id: 'identity-users',
+          title: '用户管理',
+          fallbackTitle: '用户管理',
+          kind: 'business',
+          route: { name: 'identity-users', params: {}, query: {} },
+          reloadVersion: 1,
+        },
+      ],
+      activeTabId: 'identity-users',
+      updatedAt: '2026-08-12T00:00:00.000Z',
+    })
+
+    const store = useWorkspaceTabsStore()
+    store.bindUser(SCOPE)
+
+    const restored = store.activeTab
+    expect(restored).not.toBeNull()
+    if (restored === null) throw new Error('expected the restored user tab to be active')
+
+    expect(restored).toMatchObject({
+      id: 'identity-users',
+      titleKey: 'shell.navigation.item.identity-users',
+      fallbackTitle: '用户管理',
+    })
+    expect(
+      resolveLocaleMessage(
+        'en-US',
+        restored.titleKey,
+        restored.fallbackTitle ?? restored.title,
+      ),
+    ).toBe('User management')
   })
 
   it('恢复时业务标签封顶 12', () => {
