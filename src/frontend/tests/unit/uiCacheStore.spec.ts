@@ -1,9 +1,12 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AUTH_SESSION_HTTP_STORAGE_KEY } from '@/auth/sessionStore'
 import { TERMINAL_OVERRIDE_STORAGE_KEY } from '@/device/override'
 import { LOCALE_PREFERENCES_STORAGE_KEY } from '@/localization/preferences'
-import { clearCurrentUserUiCache } from '@/stores/uiCacheStore'
+import {
+  clearCurrentUserUiCache,
+  UI_CACHE_CLEARED_EVENT,
+} from '@/stores/uiCacheStore'
 import { buildPageStateKey } from '@/workspace/pageState'
 import { buildUserTabsKey } from '@/workspace/persistence'
 import {
@@ -68,5 +71,16 @@ describe('uiCacheStore', () => {
     expect(localStorage.getItem(TERMINAL_OVERRIDE_STORAGE_KEY)).toBe('pc')
     expect(localStorage.getItem('industrial-platform.ui.preferences.v1:tenant-1:user-1')).toBe('theme')
     expect(localStorage.getItem('industrial-platform.pc.experience-mode.v1:user-1')).toBe('management')
+  })
+
+  it('publishes the current tenant/user scope for mounted UI consumers', () => {
+    const listener = vi.fn()
+    document.addEventListener(UI_CACHE_CLEARED_EVENT, listener)
+
+    clearCurrentUserUiCache(scope)
+
+    expect(listener).toHaveBeenCalledTimes(1)
+    expect((listener.mock.calls[0]?.[0] as CustomEvent).detail).toEqual({ scope })
+    document.removeEventListener(UI_CACHE_CLEARED_EVENT, listener)
   })
 })

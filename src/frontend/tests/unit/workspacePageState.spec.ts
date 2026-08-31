@@ -20,6 +20,8 @@ describe('workspace page state', () => {
   it('按 tab identity 写入当前浏览器会话,不污染长期 localStorage', () => {
     const state: WorkspacePageState = {
       query: { keyword: 'pump' },
+      queryMode: 'header',
+      headerFilters: { loginName: 'pump', createdOn: ['2026-01-01', '2026-01-31'] },
       pageIndex: 2,
       pageSize: 25,
       sort: [{ field: 'createdOn', direction: 'desc' }],

@@ -102,8 +102,11 @@ describe('PlatformTopBar', () => {
     expect(source).toContain('ResizeObserver')
     expect(source).toContain('availableStart')
     expect(source).toContain('availableEnd')
+    expect(source).toContain('const canCenter = availableStart <= center && center <= availableEnd')
     expect(source).toMatch(/ref=\"headerRef\"/)
     expect(source).toMatch(/:style=\"searchStyle\"/)
+    expect(source).not.toContain("transform: 'none'")
+    expect(source).toMatch(/\.ip-topbar__search\s*\{[\s\S]*?top:\s*0;[\s\S]*?height:\s*100%;/)
   })
 
   it('搜索使用参与布局的中间轨道,动作组贴近右侧用户区', async () => {
@@ -136,5 +139,17 @@ describe('PlatformTopBar', () => {
     const source = (await sourceModules['../../../src/components/shell/PlatformTopBar.vue']!()) as string
     expect(source).toMatch(/@media\s*\(max-width:\s*1440px\)[\s\S]*?\.ip-topbar\s*\{[\s\S]*?grid-template-columns:/)
     expect(source).toMatch(/@media\s*\(min-width:\s*1600px\)/)
+  })
+
+  it('右侧工具越过视口中心时仍保留可用搜索宽度', async () => {
+    const sourceModules = import.meta.glob('../../../src/components/shell/*.vue', {
+      query: '?raw',
+      import: 'default',
+    })
+    const source = (await sourceModules['../../../src/components/shell/PlatformTopBar.vue']!()) as string
+    expect(source).toContain(
+      '? Math.min(preferredSearchWidth(headerRect.width), availableWidth, centeredWidth)',
+    )
+    expect(source).toMatch(/\.ip-topbar__search\s*\{[\s\S]*?align-items:\s*center;/)
   })
 })

@@ -61,6 +61,55 @@ async function applyTheme(page: Page, palette: string, mode: string): Promise<vo
   await expect(page.locator('.theme-control__panel')).not.toBeVisible()
 }
 
+async function expectRealHeaderToolsUsable(page: Page): Promise<void> {
+  const viewport = page.viewportSize()
+  expect(viewport).not.toBeNull()
+  const header = page.locator('header.ip-topbar')
+  const search = page.getByTestId('command-search')
+  const searchInput = search.locator('input')
+  const actions = page.locator('.ip-topbar__actions')
+  const user = page.getByTestId('user-menu')
+  const status = page.getByTestId('platform-service-status')
+
+  for (const locator of [header, search, actions, user]) {
+    await expect(locator).toBeVisible()
+    const box = await locator.boundingBox()
+    expect(box).not.toBeNull()
+    expect(box!.x).toBeGreaterThanOrEqual(0)
+    expect(box!.x + box!.width).toBeLessThanOrEqual(viewport!.width)
+  }
+  const headerBox = await header.boundingBox()
+  const searchBox = await search.boundingBox()
+  expect(headerBox).not.toBeNull()
+  expect(searchBox).not.toBeNull()
+  expect(searchBox!.width).toBeGreaterThan(0)
+  expect(searchBox!.y).toBeGreaterThanOrEqual(headerBox!.y)
+  expect(searchBox!.y + searchBox!.height).toBeLessThanOrEqual(headerBox!.y + headerBox!.height)
+  await expect(actions).not.toHaveCSS('overflow', 'hidden')
+
+  if (await status.isVisible()) {
+    const statusBox = await status.boundingBox()
+    expect(statusBox).not.toBeNull()
+    expect(statusBox!.x + statusBox!.width).toBeLessThanOrEqual(viewport!.width)
+  }
+
+  for (const tool of await actions.locator('button').all()) {
+    if (!(await tool.isVisible())) continue
+    const toolBox = await tool.boundingBox()
+    expect(toolBox).not.toBeNull()
+    expect(toolBox!.width).toBeGreaterThan(0)
+    expect(toolBox!.height).toBeGreaterThan(0)
+    const hit = await tool.evaluate((element) => {
+      const rect = element.getBoundingClientRect()
+      const target = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)
+      return target === element || element.contains(target)
+    })
+    expect(hit).toBe(true)
+  }
+  await searchInput.click()
+  await expect(searchInput).toBeFocused()
+}
+
 test('真实登录链路:错误密码统一错误且不进入受保护壳,正确密码进入 PC 壳并绑定用户作用域', async ({
   page,
 }) => {
@@ -146,6 +195,25 @@ test('用户切换无主题串用:各用户偏好作用域隔离', async ({ page
   await login(page, E2E_LIMITED)
   await expect(page.locator('html')).toHaveAttribute('data-ip-palette', 'industrial-cyan')
   await expect(page.locator('html')).not.toHaveAttribute('data-ip-palette', 'technology-blue')
+})
+
+test('真实英文、长账号与连续窄屏下顶栏搜索和工具保持可用', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 })
+  await login(page, E2E_ADMIN)
+  await page.getByRole('button', { name: '语言' }).click()
+  await page.getByRole('option', { name: 'English' }).click()
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en-US')
+  await page.locator('[data-testid="user-menu"] .ip-pc-user__name').evaluate((element) => {
+    element.textContent = 'Long display account used for real shell layout verification'
+  })
+
+  for (const width of [1280, 1200, 1024, 900]) {
+    await page.setViewportSize({ width, height: 720 })
+    await expectRealHeaderToolsUsable(page)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+      true,
+    )
+  }
 })
 
 test('真实权限驱动 Router Guard:管理员直达管理页,受限用户菜单隐藏且直达路由 403', async ({

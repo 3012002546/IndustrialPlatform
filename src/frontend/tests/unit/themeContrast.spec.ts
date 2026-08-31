@@ -5,6 +5,8 @@
  */
 
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 import {
   contrastRatio,
@@ -73,6 +75,10 @@ const PRIMARY_PAIRS = [
 /** 工业青顶栏渐变五个停靠点对白字(非文字/大图形阈值 3:1,§7.5 已批准渐变)。 */
 const TOOLBAR_GRADIENT_STOPS = ['#006487', '#006b91', '#0077a1', '#158dac', '#087c9f']
 
+function themeSource(): string {
+  return readFileSync(resolve(process.cwd(), 'src/styles/themes.css'), 'utf8')
+}
+
 describe('主题色对比度 — 普通文字 ≥ 4.5:1', () => {
   it.each(LIGHT_TEXT_PAIRS)('%s on %s', (fg, bg) => {
     expect(isTextContrastPassing(fg, bg)).toBe(true)
@@ -90,5 +96,23 @@ describe('主题色对比度 — 普通文字 ≥ 4.5:1', () => {
 describe('主题色对比度 — 顶栏渐变停靠点(大图形 ≥ 3:1)', () => {
   it.each(TOOLBAR_GRADIENT_STOPS)('白字在 %s', (stop) => {
     expect(isNonTextContrastPassing('#ffffff', stop)).toBe(true)
+  })
+})
+
+describe('主题顶栏背景契约', () => {
+  it('保留三套既有配色渐变,不以同一静态背景覆盖 palette', () => {
+    const source = themeSource()
+
+    expect(source).toMatch(
+      /\[data-ip-palette='industrial-cyan'\][\s\S]*?--ip-shell-topbar-background:\s*linear-gradient\([\s\S]*?#006487[\s\S]*?#087c9f[\s\S]*?\);/,
+    )
+    expect(source).toMatch(
+      /\[data-ip-palette='technology-blue'\][\s\S]*?--ip-shell-topbar-background:\s*linear-gradient\([\s\S]*?#1e3a8a[\s\S]*?#3b82f6[\s\S]*?\);/,
+    )
+    expect(source).toMatch(
+      /\[data-ip-palette='neutral-gray'\][\s\S]*?--ip-shell-topbar-background:\s*linear-gradient\([\s\S]*?#1f2937[\s\S]*?#6b7280[\s\S]*?\);/,
+    )
+    expect(source.match(/--ip-shell-topbar-background:\s*#172a42/g)).toBeNull()
+    expect(source).not.toMatch(/\[data-ip-color-mode='dark'\][\s\S]*?--ip-shell-topbar-background:/)
   })
 })

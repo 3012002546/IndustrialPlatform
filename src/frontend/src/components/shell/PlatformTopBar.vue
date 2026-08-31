@@ -45,11 +45,13 @@ function updateSearchLayout(): void {
   const availableEnd = Math.min(headerRect.right - gutter, rightRect.left - gutter)
   const availableWidth = Math.max(0, availableEnd - availableStart)
   const center = headerRect.left + headerRect.width / 2
-  const centeredWidth = Math.max(
-    0,
-    2 * Math.min(center - availableStart, availableEnd - center),
-  )
-  const width = Math.min(preferredSearchWidth(headerRect.width), availableWidth, centeredWidth)
+  // Center when possible. If narrow-header tools cross the center line, keep the
+  // largest usable interval and shift the search instead of collapsing it.
+  const centeredWidth = Math.max(0, 2 * Math.min(center - availableStart, availableEnd - center))
+  const canCenter = availableStart <= center && center <= availableEnd
+  const width = canCenter
+    ? Math.min(preferredSearchWidth(headerRect.width), availableWidth, centeredWidth)
+    : Math.min(preferredSearchWidth(headerRect.width), availableWidth)
   const leftPosition = Math.max(
     availableStart,
     Math.min(center - width / 2, availableEnd - width),
@@ -58,7 +60,6 @@ function updateSearchLayout(): void {
   searchStyle.value = {
     left: `${Math.max(0, leftPosition - headerRect.left)}px`,
     width: `${Math.max(0, width)}px`,
-    transform: 'none',
   }
 }
 
@@ -148,15 +149,15 @@ onBeforeUnmount(() => {
 
 .ip-topbar__search {
   position: absolute;
-  top: 50%;
+  top: 0;
   display: flex;
   align-items: center;
   box-sizing: border-box;
+  height: 100%;
   min-width: 0;
   width: clamp(220px, 22vw, 320px);
   max-width: calc(100% - 16px);
   justify-content: center;
-  transform: translate(-50%, -50%);
 }
 
 .ip-topbar__context {
@@ -248,6 +249,18 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 1100px) {
+  /* 次要终端元数据让出中间搜索空间;能力仍由 aria-label、图标和入口保留。 */
+  .ip-topbar__left :deep(.ip-pc-terminal),
+  .ip-topbar__left :deep(.ip-environment-badge) {
+    display: none;
+  }
+
+  .ip-topbar__left :deep(.pc-experience-mode-control button) {
+    padding-right: 4px;
+    padding-left: 4px;
+    font-size: 10px;
+  }
+
   .ip-topbar__actions {
     gap: 1px;
   }

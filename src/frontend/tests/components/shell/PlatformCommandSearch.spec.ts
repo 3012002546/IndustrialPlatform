@@ -1,9 +1,23 @@
 import { mount } from '@vue/test-utils'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import PlatformCommandSearch from '@/components/shell/PlatformCommandSearch.vue'
 
 describe('PlatformCommandSearch', () => {
+  it('结果浮层使用 border-box,不会因内边距撑出视口', () => {
+    const source = readFileSync(
+      resolve(process.cwd(), 'src/components/shell/PlatformCommandSearch.vue'),
+      'utf8',
+    )
+    expect(source).toMatch(
+      /\.ip-command-search__results\s*\{[\s\S]*?box-sizing:\s*border-box;/,
+    )
+    expect(source).toContain('window.requestAnimationFrame')
+    expect(source).toContain('schedulePositionResults')
+  })
+
   it('opens with Ctrl+K and only searches supplied authorized entries', async () => {
     const wrapper = mount(PlatformCommandSearch, {
       props: {

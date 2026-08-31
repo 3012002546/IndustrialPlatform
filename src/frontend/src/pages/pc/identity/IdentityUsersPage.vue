@@ -28,6 +28,10 @@ import { useLocalizationStore } from '@/stores/localizationStore'
 import { useAuthStore } from '@/stores/authStore'
 import { readPageState, writePageState } from '@/workspace/pageState'
 import type { UserUiScope } from '@/theme/types'
+import {
+  UI_CACHE_CLEARED_EVENT,
+  type UiCacheClearedDetail,
+} from '@/stores/uiCacheStore'
 
 import TemporaryPasswordDialog from './components/TemporaryPasswordDialog.vue'
 import { formatTime, reportManagementError } from './shared'
@@ -150,6 +154,8 @@ const query = reactive({
 const pageIndex = ref(1)
 const pageSize = ref(25)
 const tableQueryMode = ref<AppDataTableQueryMode>('top')
+const persistedHeaderFilters = ref<Record<string, string | string[]>>({})
+const usersTableRef = ref<{ reload?: () => Promise<void> } | null>(null)
 const advancedQueryOpen = ref(false)
 
 const USER_ROW_SELECT = [
@@ -203,6 +209,17 @@ function restorePageState(): void {
   query.groupNId = readQueryValue(savedQuery.groupNId)
   query.roleNId = readQueryValue(savedQuery.roleNId)
   query.includeDeleted = readQueryValue(savedQuery.includeDeleted) === 'true'
+  tableQueryMode.value = saved.queryMode === 'header' ? 'header' : 'top'
+  persistedHeaderFilters.value = { ...(saved.headerFilters ?? {}) }
+  if (tableQueryMode.value === 'header') {
+    query.nId = ''
+    query.loginName = ''
+    query.name = ''
+    query.status = ''
+    query.groupNId = ''
+    query.roleNId = ''
+    query.includeDeleted = false
+  }
   if (saved.pageIndex !== undefined) pageIndex.value = saved.pageIndex
   if (saved.pageSize !== undefined) pageSize.value = saved.pageSize
 
@@ -227,6 +244,10 @@ function persistPageState(): void {
       roleNId: query.roleNId,
       includeDeleted: String(query.includeDeleted),
     },
+    queryMode: tableQueryMode.value,
+    ...(tableQueryMode.value === 'header'
+      ? { headerFilters: persistedHeaderFilters.value }
+      : {}),
     pageIndex: pageIndex.value,
     pageSize: pageSize.value,
     scrollTop: pageScrollElement()?.scrollTop ?? 0,
@@ -396,7 +417,22 @@ function resetQuery(): void {
 function onTableQuery(request: AppDataTableRequest): void {
   pageIndex.value = request.pageIndex
   pageSize.value = request.pageSize
+  persistedHeaderFilters.value =
+    request.queryMode === 'header' ? toPageStateRecord(request.filters) : {}
   persistPageState()
+}
+
+function toPageStateRecord(
+  values: Record<string, unknown>,
+): Record<string, string | string[]> {
+  const result: Record<string, string | string[]> = {}
+  Object.entries(values).forEach(([key, value]) => {
+    if (typeof value === 'string') result[key] = value
+    else if (Array.isArray(value) && value.every((item) => typeof item === 'string')) {
+      result[key] = value
+    }
+  })
+  return result
 }
 
 function onTableLoadError(error: unknown): void {
@@ -405,6 +441,7 @@ function onTableLoadError(error: unknown): void {
 
 function onTableQueryModeChange(mode: AppDataTableQueryMode): void {
   tableQueryMode.value = mode
+  if (mode === 'top') persistedHeaderFilters.value = {}
   if (mode === 'header') {
     query.nId = ''
     query.loginName = ''
@@ -837,15 +874,43 @@ const userRules: FormRules = {
 }
 
 onMounted(() => {
-  restorePageState()
-  void loadUsers()
+  if (tableQueryMode.value === 'header') {
+    void nextTick(() => usersTableRef.value?.reload?.())
+  } else {
+    void loadUsers()
+  }
   void loadAllRoles()
   void loadAllGroups()
+  document.addEventListener(UI_CACHE_CLEARED_EVENT, clearCurrentUiState)
 })
 
 onBeforeUnmount(() => {
+  document.removeEventListener(UI_CACHE_CLEARED_EVENT, clearCurrentUiState)
   persistPageState()
 })
+
+function clearCurrentUiState(event: Event): void {
+  const detail = (event as CustomEvent<UiCacheClearedDetail | undefined>).detail
+  const scope = currentPageStateScope()
+  if (detail?.scope !== undefined &&
+      (scope === null || detail.scope.tenantId !== scope.tenantId || detail.scope.userId !== scope.userId)) {
+    return
+  }
+  query.nId = ''
+  query.loginName = ''
+  query.name = ''
+  query.status = ''
+  query.groupNId = ''
+  query.roleNId = ''
+  query.includeDeleted = false
+  pageIndex.value = 1
+  pageSize.value = 25
+  tableQueryMode.value = 'top'
+  persistedHeaderFilters.value = {}
+  advancedQueryOpen.value = false
+}
+
+restorePageState()
 </script>
 
 <template>
@@ -999,12 +1064,16 @@ onBeforeUnmount(() => {
     </AppQueryPanel>
 
     <AppDataTable
+      ref="usersTableRef"
       table-key="identity-users"
       :rows="rows"
       :total="total"
       :loading="loading"
       :columns="userColumns"
+      :query-mode="tableQueryMode"
       :page-size="pageSize"
+      :initial-page-index="pageIndex"
+      :initial-header-filters="persistedHeaderFilters"
       :toolbar-title="copy.userList"
       :toolbar-labels="true"
       :loader="loadUsersTable"

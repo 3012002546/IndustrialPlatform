@@ -67,6 +67,33 @@ test('切换配色立即改写根节点属性并持久化', async ({ page }) => 
   await expect(page.locator('html')).toHaveAttribute('data-ip-palette', 'technology-blue')
 })
 
+test('顶栏背景跟随配色,明暗与刷新不覆盖既有渐变', async ({ page }) => {
+  await login(page)
+  await openTheme(page)
+  await setTheme(page, 'palette', 'industrial-cyan')
+  const cyanBackground = await page.locator('header.ip-topbar').evaluate((el) =>
+    getComputedStyle(el).backgroundImage,
+  )
+
+  await setTheme(page, 'palette', 'technology-blue')
+  const blueBackground = await page.locator('header.ip-topbar').evaluate((el) =>
+    getComputedStyle(el).backgroundImage,
+  )
+  expect(cyanBackground).toContain('linear-gradient')
+  expect(blueBackground).toContain('linear-gradient')
+  expect(blueBackground).not.toBe(cyanBackground)
+
+  await setTheme(page, 'mode', 'dark')
+  await expect(page.locator('html')).toHaveAttribute('data-ip-color-mode', 'dark')
+  await expect(page.locator('header.ip-topbar')).toHaveCSS('background-image', blueBackground)
+  await page.keyboard.press('Escape')
+  await page.reload()
+
+  await expect(page.locator('html')).toHaveAttribute('data-ip-palette', 'technology-blue')
+  await expect(page.locator('html')).toHaveAttribute('data-ip-color-mode', 'dark')
+  await expect(page.locator('header.ip-topbar')).toHaveCSS('background-image', blueBackground)
+})
+
 test('切换明暗立即生效并持久化', async ({ page }) => {
   await login(page)
   await openTheme(page)

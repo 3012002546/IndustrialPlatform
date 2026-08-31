@@ -19,6 +19,7 @@ const resultsPanel = ref<HTMLElement | null>(null)
 const resultsStyle = ref<Record<string, string>>({})
 const locale = usePlatformLocale()
 const copy = computed(() => localeMessages[locale.value].shell.commandSearch)
+let positionFrame: number | null = null
 
 const results = computed(() => {
   const value = query.value.trim().toLocaleLowerCase()
@@ -38,7 +39,7 @@ const results = computed(() => {
 function focusSearch(): void {
   open.value = true
   void input.value?.focus()
-  void nextTick(positionResults)
+  schedulePositionResults()
 }
 
 function onGlobalKeydown(event: KeyboardEvent): void {
@@ -65,6 +66,18 @@ function positionResults(): void {
   }
 }
 
+function schedulePositionResults(): void {
+  void nextTick(() => {
+    positionResults()
+    if (typeof window.requestAnimationFrame !== 'function') return
+    if (positionFrame !== null) window.cancelAnimationFrame(positionFrame)
+    positionFrame = window.requestAnimationFrame(() => {
+      positionFrame = null
+      positionResults()
+    })
+  })
+}
+
 function onDocumentPointerDown(event: PointerEvent): void {
   if (input.value?.contains(event.target as Node) || resultsPanel.value?.contains(event.target as Node)) return
   close()
@@ -77,14 +90,15 @@ function selectItem(item: PlatformCommandItem): void {
 
 onMounted(() => {
   window.addEventListener('keydown', onGlobalKeydown)
-  window.addEventListener('resize', positionResults)
-  window.addEventListener('scroll', positionResults, true)
+  window.addEventListener('resize', schedulePositionResults)
+  window.addEventListener('scroll', schedulePositionResults, true)
   document.addEventListener('pointerdown', onDocumentPointerDown)
 })
 onBeforeUnmount(() => {
+  if (positionFrame !== null) window.cancelAnimationFrame(positionFrame)
   window.removeEventListener('keydown', onGlobalKeydown)
-  window.removeEventListener('resize', positionResults)
-  window.removeEventListener('scroll', positionResults, true)
+  window.removeEventListener('resize', schedulePositionResults)
+  window.removeEventListener('scroll', schedulePositionResults, true)
   document.removeEventListener('pointerdown', onDocumentPointerDown)
 })
 </script>
@@ -100,7 +114,7 @@ onBeforeUnmount(() => {
       aria-keyshortcuts="Control+K"
       :aria-expanded="open"
       aria-controls="platform-command-search-results"
-      @focus="open = true; void nextTick(positionResults)"
+      @focus="open = true; schedulePositionResults()"
       @click="focusSearch"
       @keydown.esc="close"
     />
@@ -162,6 +176,7 @@ onBeforeUnmount(() => {
 
 .ip-command-search__results {
   position: fixed;
+  box-sizing: border-box;
   z-index: 20;
   display: flex;
   flex-direction: column;

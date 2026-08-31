@@ -33,6 +33,11 @@ import {
 import { getCurrentSession } from '@/auth/gateway'
 import { localeMessages } from '@/localization/i18n'
 import { useLocalizationStore } from '@/stores/localizationStore'
+import {
+  UI_CACHE_CLEARED_EVENT,
+  type UiCacheClearedDetail,
+} from '@/stores/uiCacheStore'
+import type { UserUiScope } from '@/theme/types'
 import type {
   AppDataTableColumn,
   AppDataTableDensity,
@@ -195,6 +200,8 @@ const props = withDefaults(
     mode?: AppDataTableMode
     rowKey?: string
     queryMode?: AppDataTableQueryMode
+    initialHeaderFilters?: Record<string, unknown>
+    initialPageIndex?: number
     pageSize?: number
     loader?: AppDataTableLoader<T>
     exporter?: (request: AppDataTableExportRequest) => Promise<void> | void
@@ -210,6 +217,7 @@ const props = withDefaults(
     mode: 'list',
     rowKey: 'id',
     queryMode: 'top',
+    initialPageIndex: 1,
     pageSize: 25,
     selection: 'none',
     toolbarLabels: false,
@@ -241,6 +249,10 @@ const routeName = (() => {
   }
 })()
 const session = getCurrentSession()
+const currentUserScope: UserUiScope | null =
+  session === null
+    ? null
+    : { tenantId: session.user.tenantId, userId: session.user.userId }
 const userName =
   props.userKey ??
   (session === null ? 'anonymous' : buildScopedAppDataTableUserKey(session.user))
@@ -258,8 +270,8 @@ const preferences = ref<AppDataTablePreferences>(readPreferences())
 const activeQueryMode = ref<AppDataTableQueryMode>(props.queryMode)
 const topQuery = ref<Record<string, unknown>>({})
 const quickSearch = ref('')
-const headerFilters = ref<Record<string, unknown>>({})
-const currentPage = ref(1)
+const headerFilters = ref<Record<string, unknown>>({ ...(props.initialHeaderFilters ?? {}) })
+const currentPage = ref(props.initialPageIndex)
 const currentPageSize = ref(props.pageSize)
 const serverRows = ref<T[]>([...props.rows])
 const serverTotal = ref(props.total)
@@ -299,6 +311,8 @@ const tallUtilityPanelHeight = 'min(550px, calc(100vh - 240px))'
 let headerObserver: MutationObserver | undefined
 let actionColumnObserver: ResizeObserver | undefined
 const mountedDateRangeFilters = new Set<HTMLElement>()
+const suppressNextCacheQueryChange = ref(false)
+const suppressNextCacheModeChange = ref(false)
 
 const exportTypeOptions = computed<readonly { value: AppDataTableExportType; label: string }[]>(
   () => [
@@ -674,9 +688,11 @@ const nativeCustomConfig = {
   confirmButtonText: localeMessages[localization.locale].common.action.confirm,
 }
 
-async function reload(): Promise<void> {
+async function reload(emitQueryChange = true): Promise<void> {
+  const shouldEmitQueryChange = emitQueryChange && !suppressNextCacheQueryChange.value
+  if (shouldEmitQueryChange === false && emitQueryChange) suppressNextCacheQueryChange.value = false
   if (props.loader === undefined) {
-    emit('query-change', request())
+    if (shouldEmitQueryChange) emit('query-change', request())
     return
   }
   loaderLoading.value = true
@@ -687,7 +703,7 @@ async function reload(): Promise<void> {
     currentPage.value = next.pageIndex
     currentPageSize.value = next.pageSize
     emit('loaded', next)
-    emit('query-change', request())
+    if (shouldEmitQueryChange) emit('query-change', request())
   } catch (error) {
     emit('load-error', error)
   } finally {
@@ -701,7 +717,9 @@ function switchQueryMode(mode: AppDataTableQueryMode): void {
   if (mode === 'top') headerFilters.value = {}
   else topQuery.value = {}
   currentPage.value = 1
-  emit('query-mode-change', mode)
+  const shouldEmitModeChange = !suppressNextCacheModeChange.value
+  suppressNextCacheModeChange.value = false
+  if (shouldEmitModeChange) emit('query-mode-change', mode)
   void reload()
 }
 
@@ -1470,14 +1488,58 @@ function onKeydown(event: KeyboardEvent): void {
   closeNativeCustom()
 }
 
-function clearUiCacheState(): void {
+function isCurrentUiCacheEvent(event: Event): boolean {
+  const detail = (event as CustomEvent<UiCacheClearedDetail | undefined>).detail
+  if (detail?.scope === undefined) return true
+  return (
+    currentUserScope !== null &&
+    detail.scope.tenantId === currentUserScope.tenantId &&
+    detail.scope.userId === currentUserScope.userId
+  )
+}
+
+function clearUiCacheState(event: Event): void {
+  if (!isCurrentUiCacheEvent(event)) return
+  suppressNextCacheQueryChange.value = true
+  suppressNextCacheModeChange.value = true
   topQuery.value = {}
   headerFilters.value = {}
   quickSearch.value = ''
+  activeQueryMode.value = props.queryMode
   currentPage.value = 1
+  currentPageSize.value = props.pageSize
   sort.value = undefined
   selectedRows.value = []
-  void reload()
+  preferences.value = defaultPreferences()
+  actionColumnWidth.value = 220
+  exportFields.value = props.columns.map((column) => column.field)
+  printFields.value = []
+  quickExportMode.value = 'current'
+  customExportQuantity.value = 10000
+  exportFilename.value = props.tableKey
+  printDataMode.value = 'current'
+  printWidthMode.value = 'current'
+  clearSelection()
+  const table = tableRef.value as
+    | (VxeTableInstance<T> & {
+        clearSort?: () => Promise<unknown> | unknown
+        resetCustom?: () => Promise<unknown> | unknown
+        recalculate?: (full?: boolean) => Promise<unknown> | unknown
+      })
+    | null
+  void table?.clearSort?.()
+  void table?.resetCustom?.()
+  void nextTick(() => {
+    void table?.recalculate?.(true)
+    syncNativeCustomPanel()
+    syncActionColumnWidth()
+    void reload(false).finally(() => {
+      if (props.queryMode === activeQueryMode.value) {
+        suppressNextCacheQueryChange.value = false
+        suppressNextCacheModeChange.value = false
+      }
+    })
+  })
 }
 
 onMounted(() => {
@@ -1512,7 +1574,7 @@ onMounted(() => {
   window.addEventListener('resize', syncToolbarTallPanelsPosition)
   document.addEventListener('mousedown', dismissPanels)
   document.addEventListener('keydown', onKeydown)
-  document.addEventListener('industrial-platform:ui-cache-cleared', clearUiCacheState)
+  document.addEventListener(UI_CACHE_CLEARED_EVENT, clearUiCacheState)
 })
 
 onUpdated(() => {
@@ -1543,7 +1605,7 @@ onBeforeUnmount(() => {
   mountedDateRangeFilters.clear()
   document.removeEventListener('mousedown', dismissPanels)
   document.removeEventListener('keydown', onKeydown)
-  document.removeEventListener('industrial-platform:ui-cache-cleared', clearUiCacheState)
+  document.removeEventListener(UI_CACHE_CLEARED_EVENT, clearUiCacheState)
 })
 
 const treeConfig = computed<Record<string, unknown> | undefined>(() => {
@@ -1617,6 +1679,8 @@ defineExpose({
   topQuery,
   headerFilters,
   activeQueryMode,
+  preferences,
+  currentPage,
   selectedRows,
   request,
   reload,
@@ -2046,7 +2110,7 @@ defineExpose({
             data-testid="app-data-table-refresh"
             :aria-label="copy.refresh"
             :title="copy.refresh"
-            @click="reload"
+            @click="() => { void reload() }"
           >
             <Refresh aria-hidden="true" />
           </button>

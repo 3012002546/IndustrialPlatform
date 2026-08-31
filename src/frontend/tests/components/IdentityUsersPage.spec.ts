@@ -24,6 +24,7 @@ import identityUsersPageSource from '@/pages/pc/identity/IdentityUsersPage.vue?r
 import { useAuthStore } from '@/stores/authStore'
 import { useLocalizationStore } from '@/stores/localizationStore'
 import { buildPageStateKey, writePageState } from '@/workspace/pageState'
+import { clearCurrentUserUiCache } from '@/stores/uiCacheStore'
 
 const { fakeApi } = vi.hoisted(() => ({
   fakeApi: {
@@ -271,6 +272,68 @@ describe('IdentityUsersPage — 创建用户(服务端随机临时密码)', () =
       expect.objectContaining({ loginName: 'e2e.admin', pageIndex: 2, pageSize: 10 }),
     )
     expect(sessionStorage.getItem(buildPageStateKey(scope, 'identity-users'))).not.toBeNull()
+  })
+
+  it('恢复列头查询模式及字段值,避免生产模式往返后退回顶部查询', async () => {
+    const scope = { tenantId: 't1', userId: 'u1' }
+    writePageState(sessionStorage, scope, 'identity-users', {
+      queryMode: 'header',
+      headerFilters: { loginName: 'e2e.admin' },
+      pageIndex: 2,
+      pageSize: 10,
+    })
+    fakeApi.listUsersOData.mockResolvedValue({ items: [], total: 0, pageIndex: 2, pageSize: 10 })
+
+    const wrapper = await mountUsersPage(['identity.user.view'])
+    const table = findDataTable(wrapper)
+
+    expect(table.props('queryMode')).toBe('header')
+    expect(table.props('initialHeaderFilters')).toEqual({ loginName: 'e2e.admin' })
+    expect(table.props('pageSize')).toBe(10)
+
+    await wrapper.get('[data-testid="app-data-table-query-toggle"]').trigger('click')
+    await flushPromises()
+    expect(table.props('queryMode')).toBe('top')
+  })
+
+  it('将共享表格的列头查询与分页写入当前用户 page-state', async () => {
+    const scope = { tenantId: 't1', userId: 'u1' }
+    const wrapper = await mountUsersPage(['identity.user.view'])
+    const table = findDataTable(wrapper)
+
+    ;(table.vm as unknown as { switchQueryMode: (mode: 'top' | 'header') => void }).switchQueryMode(
+      'header',
+    )
+    await flushPromises()
+    table.vm.$emit('query-change', {
+      pageIndex: 2,
+      pageSize: 10,
+      queryMode: 'header',
+      filters: { loginName: 'e2e.admin' },
+      columns: ['loginName'],
+    })
+    await wrapper.vm.$nextTick()
+
+    expect(JSON.parse(sessionStorage.getItem(buildPageStateKey(scope, 'identity-users'))!)).toEqual(
+      expect.objectContaining({
+        queryMode: 'header',
+        headerFilters: { loginName: 'e2e.admin' },
+        pageIndex: 2,
+        pageSize: 10,
+      }),
+    )
+  })
+
+  it('收到当前作用域清理事件后清空用户页查询,而不调用旧查询回写', async () => {
+    const scope = { tenantId: 't1', userId: 'u1' }
+    const wrapper = await mountUsersPage(['identity.user.view'])
+    const input = wrapper.get('input[aria-label="登录名"]')
+    await input.setValue('e2e.admin')
+    await clearCurrentUserUiCache(scope)
+    await wrapper.vm.$nextTick()
+
+    expect((input.element as HTMLInputElement).value).toBe('')
+    expect(findDataTable(wrapper).props('queryMode')).toBe('top')
   })
 
   it('页面标题和说明随 locale 使用稳定资源', async () => {

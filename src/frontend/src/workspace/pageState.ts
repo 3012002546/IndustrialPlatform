@@ -12,6 +12,8 @@ export interface WorkspacePageSort {
 
 export interface WorkspacePageState {
   query?: Readonly<Record<string, string | string[]>>
+  queryMode?: 'top' | 'header'
+  headerFilters?: Readonly<Record<string, string | string[]>>
   pageIndex?: number
   pageSize?: number
   sort?: readonly WorkspacePageSort[]
@@ -48,9 +50,13 @@ function isStringRecord(value: unknown): value is Record<string, string | string
 
 function isValidState(value: unknown): value is WorkspacePageState {
   if (!isRecord(value)) return false
-  const allowed = new Set(['query', 'pageIndex', 'pageSize', 'sort', 'scrollTop'])
+  const allowed = new Set(['query', 'queryMode', 'headerFilters', 'pageIndex', 'pageSize', 'sort', 'scrollTop'])
   if (Object.keys(value).some((key) => !allowed.has(key))) return false
   if (value['query'] !== undefined && !isStringRecord(value['query'])) return false
+  if (value['queryMode'] !== undefined && value['queryMode'] !== 'top' && value['queryMode'] !== 'header') {
+    return false
+  }
+  if (value['headerFilters'] !== undefined && !isStringRecord(value['headerFilters'])) return false
   if (
     value['pageIndex'] !== undefined &&
     (!Number.isInteger(value['pageIndex']) || (value['pageIndex'] as number) < 1)

@@ -3,6 +3,12 @@ import { buildPageStateKeyPrefix } from '@/workspace/pageState'
 import type { UserUiScope } from '@/theme/types'
 import { buildScopedAppDataTableUserKey } from '@/components/management/appDataTable/preferences'
 
+export const UI_CACHE_CLEARED_EVENT = 'industrial-platform:ui-cache-cleared'
+
+export interface UiCacheClearedDetail {
+  scope: UserUiScope
+}
+
 /**
  * 删除当前用户的非安全 UI 缓存。前缀是显式白名单，认证、租户、locale、theme、
  * terminal override 和 experience mode 均不匹配，绝不使用 storage.clear()。
@@ -22,7 +28,11 @@ export function clearCurrentUserUiCache(
   readKeys(globalThis.sessionStorage)
     .filter((key) => key.startsWith(`${buildPageStateKeyPrefix(scope)}:`))
     .forEach((key) => removeKey(globalThis.sessionStorage, key))
-  globalThis.dispatchEvent(new CustomEvent('industrial-platform:ui-cache-cleared'))
+  const event = new CustomEvent<UiCacheClearedDetail>(UI_CACHE_CLEARED_EVENT, {
+    detail: { scope },
+  })
+  if (typeof document !== 'undefined') document.dispatchEvent(event)
+  else globalThis.dispatchEvent(event)
 }
 
 function readKeys(storage: Storage): string[] {
