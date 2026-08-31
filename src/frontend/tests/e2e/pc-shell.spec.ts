@@ -34,13 +34,14 @@ async function expectHeaderReadable(page: Page): Promise<void> {
   const searchInput = search.locator('input')
   const right = page.locator('.ip-topbar__right')
   const user = page.getByTestId('user-menu')
+  const mode = page.getByTestId('pc-experience-mode-control')
   const theme = page.getByRole('button', { name: '主题' })
 
   await expect(page.locator('.ip-pc-brand .ip-brand__name')).toHaveCount(0)
   await expect(context).toHaveCSS('white-space', 'nowrap')
   await expect(user).toHaveCSS('white-space', 'nowrap')
 
-  for (const locator of [header, brand, context, search, right, user]) {
+  for (const locator of [header, brand, context, search, right, user, mode]) {
     const box = await locator.boundingBox()
     expect(box).not.toBeNull()
     expect(box!.x).toBeGreaterThanOrEqual(0)
@@ -50,8 +51,11 @@ async function expectHeaderReadable(page: Page): Promise<void> {
   expect(searchBox).not.toBeNull()
   expect(searchBox!.width).toBeGreaterThanOrEqual(160)
   const userBox = await user.boundingBox()
+  const modeBox = await mode.boundingBox()
   expect(userBox).not.toBeNull()
+  expect(modeBox).not.toBeNull()
   expect(userBox!.width).toBeGreaterThanOrEqual(120)
+  expect(modeBox!.x).toBeGreaterThanOrEqual(searchBox!.x + searchBox!.width)
   const headerBox = await header.boundingBox()
   const searchInputBox = await searchInput.boundingBox()
   const themeBox = await theme.boundingBox()
@@ -176,4 +180,56 @@ test('两个 PC 目标视口无横向滚动并保存外壳截图', async ({ page
     path: testInfo.outputPath('pc-shell-1440x900.png'),
     fullPage: true,
   })
+})
+
+test('宽屏搜索保持几何居中并完整提供长提示', async ({ page }) => {
+  await page.setViewportSize({ width: 2048, height: 1090 })
+  await login(page)
+  await expectHeaderReadable(page)
+  await expect(page.getByTestId('command-search').locator('input')).toHaveAttribute(
+    'placeholder',
+    '搜索已授权菜单、最近访问或快捷命令',
+  )
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  )
+})
+
+test('窗口连续缩小时搜索与账号仍避让且不产生文档横向滚动', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 })
+  await login(page)
+  await expectHeaderReadable(page)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  )
+})
+
+test('功能树筛选无结果后收起仍能访问授权入口', async ({ page }) => {
+  await login(page)
+  const treeSearch = page.locator('.ip-function-tree__search')
+  await treeSearch.fill('不存在的菜单')
+  await expect(page.locator('nav.ip-function-tree a.ip-function-tree__link')).toHaveCount(0)
+  await page.getByTestId('function-tree-toggle').click()
+  await expect(page.locator('nav.ip-function-tree')).toHaveCSS('width', '52px')
+  await expect(page.locator('nav.ip-function-tree a.ip-function-tree__link').first()).toBeVisible()
+})
+
+test('用户菜单使用紧凑的 Element Plus 面板与统一命令行高', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await login(page)
+  await page.getByTestId('user-menu').click()
+  const menu = page.locator('.ip-pc-user-popper')
+  await expect(menu).toBeVisible()
+  await expect(menu).toHaveCSS('width', '192px')
+  const items = menu.locator('.el-dropdown-menu__item')
+  await expect(items).toHaveCount(4)
+  for (const item of await items.all()) {
+    await expect(item).toHaveCSS('height', '36px')
+    await expect(item).toHaveCSS('font-size', '13px')
+    await expect(item.locator('svg')).toHaveCSS('width', '16px')
+    await expect(item.locator('svg')).toHaveCSS('height', '16px')
+  }
+  const menuBox = await menu.boundingBox()
+  expect(menuBox).not.toBeNull()
+  expect(menuBox!.x + menuBox!.width).toBeLessThanOrEqual(1440)
 })

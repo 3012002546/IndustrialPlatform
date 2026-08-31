@@ -93,38 +93,35 @@ describe('PlatformTopBar', () => {
     expect(source).toMatch(/\.ip-topbar__actions\s*\{[\s\S]*?flex:\s*0\s+1\s+auto;[\s\S]*?min-width:\s*0;[\s\S]*?margin-left:\s*auto;[\s\S]*?overflow:\s*hidden;/)
   })
 
-  it('搜索相对整个顶栏居中,动作组贴近右侧用户区', async () => {
+  it('搜索使用参与布局的中间轨道,动作组贴近右侧用户区', async () => {
     const sourceModules = import.meta.glob('../../../src/components/shell/*.vue', {
       query: '?raw',
       import: 'default',
     })
     const source = (await sourceModules['../../../src/components/shell/PlatformTopBar.vue']!()) as string
-    expect(source).toMatch(/\.ip-topbar__search\s*\{[\s\S]*?position:\s*absolute;/)
-    expect(source).toMatch(/\.ip-topbar__search\s*\{[\s\S]*?left:\s*50%;[\s\S]*?margin-left:\s*-150px;/)
-    expect(source).toMatch(/\.ip-topbar__search\s*\{[\s\S]*?top:\s*50%;[\s\S]*?margin-top:\s*-16px;/)
+    expect(source).toMatch(/\.ip-topbar\s*\{[\s\S]*?display:\s*grid;/)
+    expect(source).toMatch(/\.ip-topbar\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)\s+clamp\(/)
+    expect(source).not.toMatch(/\.ip-topbar__search\s*\{[\s\S]*?position:\s*absolute;/)
     expect(source).toMatch(/\.ip-topbar__actions\s*\{[\s\S]*?flex:\s*0\s+1\s+auto;[\s\S]*?margin-left:\s*auto;/)
   })
 
-  it('居中搜索不建立 fixed 浮层的错误定位参照', async () => {
+  it('搜索中间轨道不以固定负边距制造左右区域重叠', async () => {
     const sourceModules = import.meta.glob('../../../src/components/shell/*.vue', {
       query: '?raw',
       import: 'default',
     })
     const source = (await sourceModules['../../../src/components/shell/PlatformTopBar.vue']!()) as string
-    expect(source).toMatch(/\.ip-topbar__search\s*\{[\s\S]*?margin-left:\s*-150px;/)
-    expect(source).not.toMatch(
-      /\.ip-topbar__search\s*\{[\s\S]*?transform:\s*translate\(-50%,\s*-50%\);/,
-    )
+    expect(source).not.toMatch(/\.ip-topbar__search\s*\{[\s\S]*?margin-left:\s*-/)
+    expect(source).toMatch(/\.ip-topbar__left\s*\{[\s\S]*?min-width:\s*0;/)
   })
 
-  it('1280px 时缩短搜索占位以避让右侧模式与工具组', async () => {
+  it('窄屏按实际三段占位收缩搜索而不是覆盖右侧工具', async () => {
     const sourceModules = import.meta.glob('../../../src/components/shell/*.vue', {
       query: '?raw',
       import: 'default',
     })
     const source = (await sourceModules['../../../src/components/shell/PlatformTopBar.vue']!()) as string
-    expect(source).toMatch(
-      /@media\s*\(max-width:\s*1280px\)[\s\S]*?\.ip-topbar__search\s*\{[\s\S]*?margin-left:\s*-80px;[\s\S]*?max-width:\s*160px;/,
-    )
+    expect(source).toMatch(/@media\s*\(max-width:\s*1280px\)[\s\S]*?\.ip-topbar\s*\{[\s\S]*?grid-template-columns:/)
+    expect(source).toMatch(/@media\s*\(min-width:\s*1600px\)/)
   })
 })

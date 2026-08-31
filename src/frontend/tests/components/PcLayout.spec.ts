@@ -194,6 +194,13 @@ describe('PcLayout', () => {
     expect(wrapper.find('[data-testid="user-menu"] .ip-pc-user__name').exists()).toBe(true)
   })
 
+  it('用户菜单沿用 Element Plus 弹层并固定原型尺寸与图标间距', () => {
+    expect(pcLayoutSource).toContain('popper-class="ip-pc-user-popper"')
+    expect(pcLayoutSource).toMatch(/:global\(\.ip-pc-user-popper\)\s*\{[\s\S]*?width:\s*192px;/)
+    expect(pcLayoutSource).toMatch(/:global\(\.ip-pc-user-popper\s+\.el-dropdown-menu__item\)\s*\{[\s\S]*?height:\s*36px;[\s\S]*?font-size:\s*13px;/)
+    expect(pcLayoutSource).toMatch(/:global\(\.ip-pc-user-popper\s+\.el-dropdown-menu__item\s+svg\)\s*\{[\s\S]*?width:\s*16px;[\s\S]*?height:\s*16px;/)
+  })
+
   it('顶栏展示 Mock 模式横幅', async () => {
     const { wrapper } = await mountLayout()
     expect(wrapper.text()).toContain('开发 Mock 模式')
@@ -281,6 +288,10 @@ describe('PcLayout', () => {
     await wrapper.get('[data-testid="function-tree-toggle"]').trigger('click')
     expect(themeStore.preferences.pcFunctionTreeCollapsed).toBe(false)
     expect(wrapper.find('nav.ip-function-tree .ip-function-tree__list').exists()).toBe(true)
+    expect(pcLayoutSource).toContain('ip-pc-function-and-workspace--secondary-collapsed')
+    expect(pcLayoutSource).toMatch(
+      /\.ip-pc-function-and-workspace--secondary-collapsed\s*\{[\s\S]*?grid-template-columns:\s*var\(--ip-shell-toolrail-width-compact\)/,
+    )
   })
 
   it('无权限时功能树隐藏对应菜单(仅剩公开项)', async () => {

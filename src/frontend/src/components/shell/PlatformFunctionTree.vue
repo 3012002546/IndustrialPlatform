@@ -42,6 +42,11 @@ function sectionLabel(section: NavigationSection): string {
   return resolveLocaleMessage(locale.value, section.labelKey, section.fallbackLabel ?? section.label)
 }
 
+/** 功能树收起状态来自 ThemeStore(§7.8),不直接读写 localStorage。 */
+const collapsed = computed(
+  () => themeStore.navigationMode !== 'expanded' || themeStore.preferences.pcFunctionTreeCollapsed,
+)
+
 /** 权限过滤后的可见菜单(§13.2):未声明权限视为公开,声明但未持有则隐藏。 */
 function hasAccess(item: NavigationItem): boolean {
   return (
@@ -54,7 +59,8 @@ function hasAccess(item: NavigationItem): boolean {
 const visibleItems = computed(() =>
   props.items.filter((item) => {
     if (!hasAccess(item)) return false
-    const query = menuQuery.value.trim().toLocaleLowerCase()
+    // 收起后搜索框不可见;恢复完整图标入口,避免无结果筛选把导航变成死路。
+    const query = collapsed.value ? '' : menuQuery.value.trim().toLocaleLowerCase()
     if (query === '') return true
     return itemLabel(item).toLocaleLowerCase().includes(query)
   }),
@@ -92,11 +98,6 @@ const visibleSections = computed(() => {
       : []),
   ]
 })
-
-/** 功能树收起状态来自 ThemeStore(§7.8),不直接读写 localStorage。 */
-const collapsed = computed(
-  () => themeStore.navigationMode !== 'expanded' || themeStore.preferences.pcFunctionTreeCollapsed,
-)
 
 function toggle(): void {
   themeStore.setPcFunctionTreeCollapsed(!collapsed.value)

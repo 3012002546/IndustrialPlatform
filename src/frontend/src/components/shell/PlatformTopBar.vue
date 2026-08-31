@@ -17,12 +17,14 @@ defineSlots<{
 
 <template>
   <header class="ip-topbar">
-    <div class="ip-topbar__brand">
-      <slot name="brand" />
-    </div>
+    <div class="ip-topbar__left">
+      <div class="ip-topbar__brand">
+        <slot name="brand" />
+      </div>
 
-    <div v-if="$slots.context" class="ip-topbar__context">
-      <slot name="context" />
+      <div v-if="$slots.context" class="ip-topbar__context">
+        <slot name="context" />
+      </div>
     </div>
 
     <div v-if="$slots['global-search']" class="ip-topbar__search">
@@ -43,21 +45,30 @@ defineSlots<{
 
 <style scoped>
 .ip-topbar {
-  position: relative;
-  display: flex;
+  display: grid;
   flex: 0 0 auto;
   align-items: center;
-  gap: 20px;
+  grid-template-columns: minmax(0, 1fr) clamp(220px, 22vw, 480px) minmax(0, 1fr);
+  gap: 12px;
   height: var(--ip-shell-topbar-height);
-  padding: 0 4px 0 14px;
+  padding: 0 4px;
   overflow: visible;
   background: var(--ip-shell-topbar-background);
   color: var(--ip-shell-topbar-text);
 }
 
+.ip-topbar__left {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  overflow: hidden;
+  padding-left: 10px;
+}
+
 .ip-topbar__brand {
-  display: inline-flex;
-  flex: 0 0 auto;
+  display: flex;
+  flex: 0 1 auto;
   align-items: center;
   gap: 6px;
   min-width: 0;
@@ -65,22 +76,21 @@ defineSlots<{
 }
 
 .ip-topbar__search {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  margin-top: -16px;
-  display: inline-flex;
+  display: flex;
+  grid-column: 2;
+  align-items: center;
   min-width: 0;
-  margin-left: -150px;
-  width: min(100%, 300px);
-  max-width: 300px;
+  width: 100%;
+  max-width: none;
   justify-content: center;
 }
 
 .ip-topbar__context {
-  display: inline-flex;
+  display: flex;
+  flex: 1 1 auto;
   min-width: 0;
   max-width: 22vw;
+  overflow: hidden;
   white-space: nowrap;
 }
 
@@ -93,8 +103,7 @@ defineSlots<{
   width: auto;
   max-width: 100%;
   overflow: hidden;
-  margin-left: auto;
-  margin-right: 0;
+  justify-self: end;
 }
 
 .ip-topbar__actions {
@@ -126,8 +135,9 @@ defineSlots<{
 
 @media (max-width: 1280px) {
   .ip-topbar {
-    gap: 12px;
-    padding: 0 4px 0 14px;
+    grid-template-columns: minmax(0, 1fr) clamp(220px, 22vw, 320px) minmax(0, 1fr);
+    gap: 8px;
+    padding: 0 4px;
   }
 
   .ip-topbar__right {
@@ -137,11 +147,6 @@ defineSlots<{
   .ip-topbar__actions {
     gap: 3px;
     max-width: calc(100% - 150px);
-  }
-
-  .ip-topbar__search {
-    margin-left: -80px;
-    max-width: 160px;
   }
 
   /* Mock 仅是开发提示,保留 status 文本在无障碍树中,视觉上收为状态点。 */
@@ -161,6 +166,12 @@ defineSlots<{
   .ip-topbar__actions :deep(.mock-mode-banner > span:last-child) {
     overflow: hidden;
     white-space: nowrap;
+  }
+}
+
+@media (min-width: 1600px) {
+  .ip-topbar {
+    grid-template-columns: minmax(0, 1fr) clamp(320px, 22vw, 480px) minmax(0, 1fr);
   }
 }
 </style>

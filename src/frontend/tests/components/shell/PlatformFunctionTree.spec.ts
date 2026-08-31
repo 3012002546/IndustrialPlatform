@@ -194,6 +194,20 @@ describe('PlatformFunctionTree', () => {
     )
   })
 
+  it('筛选无结果后收起仍恢复全部图标入口,避免导航死路', async () => {
+    const { wrapper, themeStore } = await mountTree([], '/pc/home')
+    const search = wrapper.get('.ip-function-tree__search')
+    await search.setValue('不存在的菜单')
+    expect(wrapper.findAll('a.ip-function-tree__link')).toHaveLength(0)
+
+    await wrapper.get('[data-testid="function-tree-toggle"]').trigger('click')
+    await nextTick()
+
+    expect(themeStore.preferences.pcFunctionTreeCollapsed).toBe(true)
+    expect(wrapper.findAll('a.ip-function-tree__link')).toHaveLength(1)
+    expect(wrapper.get('a.ip-function-tree__link').attributes('aria-label')).toBe('公开项')
+  })
+
   it('收起时仍保留授权菜单图标并可直接点击跳转', async () => {
     const { wrapper, router, themeStore } = await mountTree(['platform.home.view'])
     themeStore.setPcFunctionTreeCollapsed(true)

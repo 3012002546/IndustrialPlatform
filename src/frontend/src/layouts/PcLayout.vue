@@ -91,6 +91,9 @@ const activeGroup = computed(
 const activeGroupItems = computed(() => activeGroup.value?.items ?? [])
 const activeGroupSections = computed(() => activeGroup.value?.sections ?? [])
 const navigationMode = computed(() => themeStore.navigationMode)
+const functionTreeCollapsed = computed(
+  () => navigationMode.value !== 'expanded' || themeStore.preferences.pcFunctionTreeCollapsed,
+)
 
 const displayName = computed(() => authStore.user?.displayName ?? '')
 const terminalLabel = computed(() => TERMINAL_LABELS[deviceStore.terminal] ?? deviceStore.terminal)
@@ -333,7 +336,7 @@ function onLimitResolve(resolution: TabLimitResolution): void {
       </template>
 
       <template #user>
-        <ElDropdown trigger="click" @command="onUserCommand">
+        <ElDropdown trigger="click" popper-class="ip-pc-user-popper" @command="onUserCommand">
           <button type="button" class="ip-pc-user" data-testid="user-menu" :aria-label="shellCopy.userMenu">
             <span class="ip-pc-user__avatar"><UserFilled aria-hidden="true" /></span>
             <span class="ip-pc-user__copy">
@@ -362,7 +365,7 @@ function onLimitResolve(resolution: TabLimitResolution): void {
               <ElDropdownItem command="profile"><UserFilled aria-hidden="true" />{{ shellCopy.profile }}</ElDropdownItem>
               <ElDropdownItem command="clear-cache"><Delete aria-hidden="true" />{{ shellCopy.clearCache }}</ElDropdownItem>
               <ElDropdownItem command="lock"><Lock aria-hidden="true" />{{ shellCopy.lock }}</ElDropdownItem>
-              <ElDropdownItem command="logout"><SwitchButton aria-hidden="true" />{{ localeMessages[locale].common.action.logout }}</ElDropdownItem>
+              <ElDropdownItem command="logout" divided class="ip-pc-user-menu__logout"><SwitchButton aria-hidden="true" />{{ localeMessages[locale].common.action.logout }}</ElDropdownItem>
             </ElDropdownMenu>
           </template>
         </ElDropdown>
@@ -377,7 +380,13 @@ function onLimitResolve(resolution: TabLimitResolution): void {
         :mode="navigationMode"
       />
 
-      <div class="ip-pc-function-and-workspace">
+      <div
+        class="ip-pc-function-and-workspace"
+        :class="{
+          'ip-pc-function-and-workspace--secondary-collapsed': functionTreeCollapsed,
+          'ip-pc-function-and-workspace--no-secondary': activeGroup === null,
+        }"
+      >
         <PlatformFunctionTree
           class="ip-pc-chrome"
           v-if="activeGroup !== null"
@@ -448,6 +457,14 @@ function onLimitResolve(resolution: TabLimitResolution): void {
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
+}
+
+.ip-pc-function-and-workspace--secondary-collapsed {
+  grid-template-columns: var(--ip-shell-toolrail-width-compact) minmax(0, 1fr);
+}
+
+.ip-pc-function-and-workspace--no-secondary {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .ip-pc-content {
@@ -634,6 +651,36 @@ function onLimitResolve(resolution: TabLimitResolution): void {
 
 .ip-pc-user__caret {
   color: var(--ip-shell-topbar-text-secondary);
+}
+
+:global(.ip-pc-user-popper) {
+  box-sizing: border-box;
+  width: 192px;
+  padding: 4px;
+}
+
+:global(.ip-pc-user-popper .el-dropdown-menu__item) {
+  display: flex;
+  box-sizing: border-box;
+  align-items: center;
+  gap: 10px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 13px;
+  line-height: 36px;
+  white-space: nowrap;
+}
+
+:global(.ip-pc-user-popper .el-dropdown-menu__item svg) {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  margin: 0;
+}
+
+:global(.ip-pc-user-popper .el-dropdown-menu__item.ip-pc-user-menu__logout) {
+  color: var(--ip-color-danger);
 }
 
 @media (max-width: 720px) {
