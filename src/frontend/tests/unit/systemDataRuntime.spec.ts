@@ -3,6 +3,7 @@ import { House } from '@element-plus/icons-vue'
 
 import {
   applyNavigationPolicy,
+  applyPermissionPolicy,
   mapRuntimeNavigation,
   themePolicyToTenantDefaults,
 } from '@/systemData/runtime/navigation'
@@ -95,6 +96,38 @@ describe('SystemData runtime navigation adapter', () => {
     expect(filtered).toEqual([
       expect.objectContaining({
         items: [expect.objectContaining({ id: 'platform-parent', children: [] })],
+      }),
+    ])
+  })
+
+  it('permission-only filtering preserves an already enabled runtime feature', () => {
+    const groups: NavigationGroup[] = [
+      {
+        id: 'system',
+        label: '系统',
+        icon: House,
+        items: [
+          {
+            id: 'enabled',
+            label: '已启用',
+            routeName: 'systemdata-services',
+            permission: 'systemdata.service-catalog.view',
+            featureNId: 'f1',
+          },
+          {
+            id: 'denied',
+            label: '无权限',
+            routeName: 'systemdata-features',
+            permission: 'systemdata.feature.view',
+            featureNId: 'f1',
+          },
+        ],
+      },
+    ]
+
+    expect(applyPermissionPolicy(groups, ['systemdata.service-catalog.view'])).toEqual([
+      expect.objectContaining({
+        items: [expect.objectContaining({ id: 'enabled', featureNId: 'f1' })],
       }),
     ])
   })

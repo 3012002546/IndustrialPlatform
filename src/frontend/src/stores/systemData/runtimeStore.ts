@@ -67,7 +67,13 @@ export const useSystemDataRuntimeStore = defineStore(
         replacePcNavigationGroups(navigationGroups.value)
         return
       }
-      const raw = mapRuntimeNavigation(snapshot.data.nodes)
+      // An unconfigured SystemData snapshot is an explicit absence of a published
+      // navigation, not an instruction to remove the real local route catalogue.
+      // Keep the catalogue as the source of actual routes and still apply the
+      // current permission/feature policy below.
+      const raw = snapshot.data.configured === false
+        ? getDefaultPcNavigationGroups()
+        : mapRuntimeNavigation(snapshot.data.nodes)
       navigationGroups.value = applyNavigationPolicy(
         raw,
         permissionNIds.value,

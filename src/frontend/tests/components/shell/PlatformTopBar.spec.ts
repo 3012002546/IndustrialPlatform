@@ -83,14 +83,27 @@ describe('PlatformTopBar', () => {
     expect(source).toMatch(/\.ip-topbar\s*\{[\s\S]*?display:\s*flex;/)
   })
 
-  it('错误态右区允许在视口内收缩而不把用户区推出顶栏', async () => {
+  it('右区按实际内容宽度布局,不以 overflow hidden 裁切可交互工具', async () => {
     const sourceModules = import.meta.glob('../../../src/components/shell/*.vue', {
       query: '?raw',
       import: 'default',
     })
     const source = (await sourceModules['../../../src/components/shell/PlatformTopBar.vue']!()) as string
-    expect(source).toMatch(/\.ip-topbar__right\s*\{[\s\S]*?width:\s*auto;[\s\S]*?max-width:\s*100%;/)
-    expect(source).toMatch(/\.ip-topbar__actions\s*\{[\s\S]*?flex:\s*0\s+1\s+auto;[\s\S]*?min-width:\s*0;[\s\S]*?margin-left:\s*auto;[\s\S]*?overflow:\s*hidden;/)
+    expect(source).toMatch(/\.ip-topbar__right\s*\{[\s\S]*?width:\s*max-content;[\s\S]*?min-width:\s*max-content;[\s\S]*?overflow:\s*visible;/)
+    expect(source).toMatch(/\.ip-topbar__actions\s*\{[\s\S]*?flex:\s*0\s+0\s+auto;[\s\S]*?min-width:\s*max-content;[\s\S]*?overflow:\s*visible;/)
+  })
+
+  it('提供基于左右实际占用测量的搜索布局,避免真实工具被搜索覆盖', async () => {
+    const sourceModules = import.meta.glob('../../../src/components/shell/*.vue', {
+      query: '?raw',
+      import: 'default',
+    })
+    const source = (await sourceModules['../../../src/components/shell/PlatformTopBar.vue']!()) as string
+    expect(source).toContain('ResizeObserver')
+    expect(source).toContain('availableStart')
+    expect(source).toContain('availableEnd')
+    expect(source).toMatch(/ref=\"headerRef\"/)
+    expect(source).toMatch(/:style=\"searchStyle\"/)
   })
 
   it('搜索使用参与布局的中间轨道,动作组贴近右侧用户区', async () => {
@@ -100,9 +113,9 @@ describe('PlatformTopBar', () => {
     })
     const source = (await sourceModules['../../../src/components/shell/PlatformTopBar.vue']!()) as string
     expect(source).toMatch(/\.ip-topbar\s*\{[\s\S]*?display:\s*grid;/)
-    expect(source).toMatch(/\.ip-topbar\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)\s+clamp\(/)
-    expect(source).not.toMatch(/\.ip-topbar__search\s*\{[\s\S]*?position:\s*absolute;/)
-    expect(source).toMatch(/\.ip-topbar__actions\s*\{[\s\S]*?flex:\s*0\s+1\s+auto;[\s\S]*?margin-left:\s*auto;/)
+    expect(source).toMatch(/\.ip-topbar\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)\s+max-content;/)
+    expect(source).toMatch(/\.ip-topbar__search\s*\{[\s\S]*?position:\s*absolute;/)
+    expect(source).toMatch(/\.ip-topbar__actions\s*\{[\s\S]*?flex:\s*0\s+0\s+auto;[\s\S]*?margin-left:\s*auto;/)
   })
 
   it('搜索中间轨道不以固定负边距制造左右区域重叠', async () => {
@@ -121,7 +134,7 @@ describe('PlatformTopBar', () => {
       import: 'default',
     })
     const source = (await sourceModules['../../../src/components/shell/PlatformTopBar.vue']!()) as string
-    expect(source).toMatch(/@media\s*\(max-width:\s*1280px\)[\s\S]*?\.ip-topbar\s*\{[\s\S]*?grid-template-columns:/)
+    expect(source).toMatch(/@media\s*\(max-width:\s*1440px\)[\s\S]*?\.ip-topbar\s*\{[\s\S]*?grid-template-columns:/)
     expect(source).toMatch(/@media\s*\(min-width:\s*1600px\)/)
   })
 })

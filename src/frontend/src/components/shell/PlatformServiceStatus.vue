@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { Refresh } from '@element-plus/icons-vue'
 
 import { localeMessages } from '@/localization/i18n'
 import { usePlatformLocale } from '@/localization/localeContext'
@@ -16,10 +17,14 @@ const copy = computed(() => localeMessages[locale.value].systemData.copy)
     class="ip-platform-service-status"
     data-testid="platform-service-status"
     role="status"
+    :aria-label="`${copy.degraded}${unavailable ? `, ${copy.snapshotUnavailable}` : ''}`"
   >
-    <span>{{ copy.degraded }}</span>
-    <span v-if="unavailable">{{ copy.snapshotUnavailable }}</span>
-    <button type="button" @click="emit('retry')">{{ copy.retry }}</button>
+    <span class="ip-platform-service-status__copy">{{ copy.degraded }}</span>
+    <span v-if="unavailable" class="ip-platform-service-status__copy">{{ copy.snapshotUnavailable }}</span>
+    <button type="button" :aria-label="copy.retry" :title="copy.retry" @click="emit('retry')">
+      <Refresh class="ip-platform-service-status__retry-icon" aria-hidden="true" />
+      <span class="ip-platform-service-status__retry-text">{{ copy.retry }}</span>
+    </button>
   </div>
 </template>
 
@@ -55,5 +60,48 @@ const copy = computed(() => localeMessages[locale.value].systemData.copy)
   border: 1px solid currentColor;
   border-radius: var(--ip-radius-sm);
   cursor: pointer;
+}
+
+.ip-platform-service-status__retry-icon {
+  display: none;
+}
+
+@media (max-width: 1440px) {
+  .ip-platform-service-status {
+    position: relative;
+    flex: 0 0 32px;
+    justify-content: center;
+    width: 32px;
+    max-width: 32px;
+    height: 32px;
+    gap: 0;
+    overflow: visible;
+  }
+
+  .ip-platform-service-status__copy,
+  .ip-platform-service-status__retry-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .ip-platform-service-status button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 0;
+  }
+
+  .ip-platform-service-status__retry-icon {
+    display: block;
+    width: 16px;
+    height: 16px;
+  }
 }
 </style>

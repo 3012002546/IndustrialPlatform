@@ -36,12 +36,16 @@ async function expectHeaderReadable(page: Page): Promise<void> {
   const user = page.getByTestId('user-menu')
   const mode = page.getByTestId('pc-experience-mode-control')
   const theme = page.getByRole('button', { name: '主题' })
+  const locale = page.locator('.ip-locale-control')
+  const fullscreen = page.getByTestId('browser-fullscreen')
+  const actions = page.locator('.ip-topbar__actions')
 
   await expect(page.locator('.ip-pc-brand .ip-brand__name')).toHaveCount(0)
   await expect(context).toHaveCSS('white-space', 'nowrap')
   await expect(user).toHaveCSS('white-space', 'nowrap')
 
-  for (const locator of [header, brand, context, search, right, user, mode]) {
+  for (const locator of [header, brand, context, search, right, user, mode, theme, locale, fullscreen]) {
+    await expect(locator).toBeVisible()
     const box = await locator.boundingBox()
     expect(box).not.toBeNull()
     expect(box!.x).toBeGreaterThanOrEqual(0)
@@ -68,6 +72,19 @@ async function expectHeaderReadable(page: Page): Promise<void> {
     ),
   ).toBeLessThanOrEqual(2)
   expect(userBox!.x - (themeBox!.x + themeBox!.width)).toBeLessThanOrEqual(12)
+  await expect(actions).not.toHaveCSS('overflow', 'hidden')
+
+  for (const tool of await actions.locator('button').all()) {
+    if (!(await tool.isVisible())) continue
+    const toolBox = await tool.boundingBox()
+    expect(toolBox).not.toBeNull()
+    const hit = await tool.evaluate((element) => {
+      const rect = element.getBoundingClientRect()
+      const target = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)
+      return target === element || element.contains(target)
+    })
+    expect(hit).toBe(true)
+  }
 }
 
 test('四区结构:顶栏、工具轨、功能树与主内容区', async ({ page }) => {
@@ -223,6 +240,9 @@ test('用户菜单使用紧凑的 Element Plus 面板与统一命令行高', asy
   await expect(menu).toHaveCSS('width', '192px')
   const items = menu.locator('.el-dropdown-menu__item')
   await expect(items).toHaveCount(4)
+  await expect(menu.locator('.ip-pc-user-menu__summary')).toContainText('Mock 演示账号')
+  await expect(menu.locator('.ip-pc-user-menu__summary')).toContainText('mock.admin')
+  await expect(menu.locator('.ip-pc-user-menu__summary')).toContainText('dev-tenant')
   for (const item of await items.all()) {
     await expect(item).toHaveCSS('height', '36px')
     await expect(item).toHaveCSS('font-size', '13px')

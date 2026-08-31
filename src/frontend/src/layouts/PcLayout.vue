@@ -41,7 +41,7 @@ import { useSystemDataRuntimeStore } from '@/stores/systemData/runtimeStore'
 import { clearCurrentUserUiCache } from '@/stores/uiCacheStore'
 import { localeMessages, resolveLocaleMessage } from '@/localization/i18n'
 import { usePlatformLocale } from '@/localization/localeContext'
-import { applyNavigationPolicy } from '@/systemData/runtime/navigation'
+import { applyPermissionPolicy } from '@/systemData/runtime/navigation'
 import { buildTabId } from '@/workspace'
 import type { NavigationItem } from '@/components/navigation/types'
 import type { TabLimitResolution, WorkspaceTab } from '@/workspace'
@@ -66,7 +66,7 @@ const browserFullscreen = ref(false)
 const locale = usePlatformLocale()
 
 const authorizedNavigationGroups = computed(() =>
-  applyNavigationPolicy(pcNavigationGroups, authStore.user?.permissions ?? [], new Set()),
+  applyPermissionPolicy(pcNavigationGroups, authStore.user?.permissions ?? []),
 )
 
 /** 当前平台分组:默认第一个;路由变化时跟随所属分组。 */
@@ -362,6 +362,10 @@ function onLimitResolve(resolution: TabLimitResolution): void {
           </button>
           <template #dropdown>
             <ElDropdownMenu>
+              <li class="ip-pc-user-menu__summary" role="presentation">
+                <strong>{{ displayName || localeMessages[locale].common.state.unauthenticated }}</strong>
+                <span>{{ authStore.user?.username ?? '' }} · {{ tenant?.name ?? shellCopy.noTenant }}</span>
+              </li>
               <ElDropdownItem command="profile"><UserFilled aria-hidden="true" />{{ shellCopy.profile }}</ElDropdownItem>
               <ElDropdownItem command="clear-cache"><Delete aria-hidden="true" />{{ shellCopy.clearCache }}</ElDropdownItem>
               <ElDropdownItem command="lock"><Lock aria-hidden="true" />{{ shellCopy.lock }}</ElDropdownItem>
@@ -657,6 +661,37 @@ function onLimitResolve(resolution: TabLimitResolution): void {
   box-sizing: border-box;
   width: 192px;
   padding: 4px;
+}
+
+:global(.ip-pc-user-popper .ip-pc-user-menu__summary) {
+  display: flex;
+  box-sizing: border-box;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  margin: 0 0 4px;
+  padding: 7px 12px 9px;
+  border-bottom: 1px solid var(--ip-color-border);
+  list-style: none;
+}
+
+:global(.ip-pc-user-popper .ip-pc-user-menu__summary strong) {
+  overflow: hidden;
+  color: var(--ip-color-text-primary);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:global(.ip-pc-user-popper .ip-pc-user-menu__summary span) {
+  overflow: hidden;
+  color: var(--ip-color-text-secondary);
+  font-size: 11px;
+  line-height: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 :global(.ip-pc-user-popper .el-dropdown-menu__item) {

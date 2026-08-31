@@ -32,5 +32,7 @@ describe('PlatformServiceStatus', () => {
     expect(source).toMatch(
       /\.ip-platform-service-status\s+span\s*\{[\s\S]*?text-overflow:\s*ellipsis;[\s\S]*?white-space:\s*nowrap;/,
     )
+    expect(source).toMatch(/@media\s*\(max-width:\s*1440px\)[\s\S]*?flex:\s*0\s+0\s+32px;/)
+    expect(source).toContain('ip-platform-service-status__retry-icon')
   })
 })

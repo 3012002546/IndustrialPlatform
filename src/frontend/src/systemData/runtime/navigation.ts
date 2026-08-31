@@ -60,7 +60,7 @@ export function mapRuntimeNavigation(
 function filterItem(
   item: NavigationItem,
   permissionNIds: ReadonlySet<string>,
-  enabledFeatures: ReadonlySet<string>,
+  enabledFeatures: ReadonlySet<string> | undefined,
 ): NavigationItem | null {
   if (item.permission !== undefined && !permissionNIds.has(item.permission)) return null
   if (
@@ -69,7 +69,7 @@ function filterItem(
   ) {
     return null
   }
-  if (item.featureNId !== undefined && !enabledFeatures.has(item.featureNId)) return null
+  if (enabledFeatures !== undefined && item.featureNId !== undefined && !enabledFeatures.has(item.featureNId)) return null
   const children = (item.children ?? [])
     .map((child) => filterItem(child, permissionNIds, enabledFeatures))
     .filter((child): child is NavigationItem => child !== null)
@@ -88,6 +88,22 @@ export function applyNavigationPolicy(
       ...group,
       items: group.items
         .map((item) => filterItem(item, permissions, enabledFeatures))
+        .filter((item): item is NavigationItem => item !== null),
+    }))
+    .filter((group) => group.items.length > 0)
+}
+
+/** Apply only permission policy to a navigation already filtered by runtime features. */
+export function applyPermissionPolicy(
+  groups: readonly NavigationGroup[],
+  permissionNIds: readonly string[],
+): NavigationGroup[] {
+  const permissions = new Set(permissionNIds)
+  return groups
+    .map((group) => ({
+      ...group,
+      items: group.items
+        .map((item) => filterItem(item, permissions, undefined))
         .filter((item): item is NavigationItem => item !== null),
     }))
     .filter((group) => group.items.length > 0)

@@ -201,6 +201,14 @@ describe('PcLayout', () => {
     expect(pcLayoutSource).toMatch(/:global\(\.ip-pc-user-popper\s+\.el-dropdown-menu__item\s+svg\)\s*\{[\s\S]*?width:\s*16px;[\s\S]*?height:\s*16px;/)
   })
 
+  it('用户菜单包含真实账号摘要,命令项仍保持四项', async () => {
+    const { wrapper } = await mountLayout()
+    expect(wrapper.find('.ip-pc-user-menu__summary').exists()).toBe(false)
+    expect(pcLayoutSource).toContain('ip-pc-user-menu__summary')
+    expect(pcLayoutSource).toContain('shellCopy.noTenant')
+    expect(pcLayoutSource).toContain('authStore.user?.username')
+  })
+
   it('顶栏展示 Mock 模式横幅', async () => {
     const { wrapper } = await mountLayout()
     expect(wrapper.text()).toContain('开发 Mock 模式')

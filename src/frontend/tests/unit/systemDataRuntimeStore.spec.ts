@@ -78,4 +78,26 @@ describe('SystemData runtime store', () => {
     expect(store.navigationGroups[0]?.items[0]?.routeName).toBe('systemdata-services')
     expect(store.degraded).toBe(false)
   })
+
+  it('keeps the real static navigation when SystemData has no published snapshot', async () => {
+    registerSystemDataRuntimeApi({
+      ...api,
+      getNavigation: async () => ({
+        kind: 'updated',
+        etag: '"nav-unconfigured"',
+        data: { revision: 2, configured: false, degraded: false, nodes: [] },
+      }),
+    })
+    const store = useSystemDataRuntimeStore()
+    store.setPermissions(['platform.home.view'])
+
+    await store.refresh('Pc')
+
+    expect(store.navigationGroups).toEqual([
+      expect.objectContaining({
+        id: 'workspace',
+        items: [expect.objectContaining({ id: 'pc-home', routeName: 'pc-home' })],
+      }),
+    ])
+  })
 })
