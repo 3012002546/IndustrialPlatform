@@ -5,7 +5,7 @@
  * 独立重置密码权限;409 并发冲突提示重载。
  * 临时密码只经一次性弹窗展示,禁止持久化。操作按钮按 PermissionGate 控制(identity.user.*)。
  */
-import { ElDropdown, ElDropdownItem, ElDropdownMenu, ElMessage, ElMessageBox } from 'element-plus'
+import { ElDropdown, ElDropdownItem, ElDropdownMenu, ElIcon, ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown, Plus } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
@@ -813,7 +813,7 @@ onBeforeUnmount(() => {
           data-testid="identity-users-create"
           @click="openCreate"
         >
-          <Plus aria-hidden="true" />
+          <ElIcon class="users-page__create-icon" aria-hidden="true"><Plus /></ElIcon>
           {{ copy.create }}
         </el-button>
       </PermissionGate>
@@ -1313,6 +1313,18 @@ onBeforeUnmount(() => {
 .users-page__more-conditions > svg,
 .users-page :deep(.el-button > svg) {
   flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+}
+
+.users-page :deep(.users-page__create-icon) {
+  display: inline-flex;
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+}
+
+.users-page :deep(.users-page__create-icon > svg) {
   width: 14px;
   height: 14px;
 }

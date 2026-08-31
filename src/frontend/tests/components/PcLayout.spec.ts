@@ -15,6 +15,7 @@ import { createMemoryHistory, createRouter, type Router, RouterView } from 'vue-
 import { writeAuthSession } from '@/auth'
 import type { AuthSession } from '@/auth/types'
 import PcLayout from '@/layouts/PcLayout.vue'
+import pcLayoutSource from '@/layouts/PcLayout.vue?raw'
 import { PERMISSIONS } from '@/permissions'
 import { routes } from '@/router/routes'
 import WorkspaceTabLimitDialog from '@/components/shell/WorkspaceTabLimitDialog.vue'
@@ -120,11 +121,28 @@ describe('PcLayout', () => {
     expect(wrapper.get('main#main-content').attributes('tabindex')).toBe('-1')
   })
 
-  it('主内容区统一使用 10px 页面边距，工作台路由复用同一边距', async () => {
+  it('主内容区统一使用 16px 页面边距，工作台路由复用同一边距', async () => {
     const { wrapper, router } = await mountLayout()
     const main = wrapper.get('main#main-content')
     expect(router.currentRoute.value.path).toBe('/pc/home')
-    expect(window.getComputedStyle(main.element).padding).toBe('10px')
+    expect(window.getComputedStyle(main.element).padding).toBe('16px')
+    expect(pcLayoutSource).toMatch(/\.ip-pc-main\s*\{[\s\S]*display:\s*flex;[\s\S]*flex-direction:\s*column;/)
+  })
+
+  it('页面专注全屏只隐藏平台 chrome，Esc 可退出且不调用浏览器 Fullscreen API', async () => {
+    const { wrapper, router } = await mountLayout()
+    const tabsStore = useWorkspaceTabsStore()
+    tabsStore.requestOpen(sandboxCandidate(1))
+    await router.push('/pc/dev/workspace-tabs?slot=1')
+    await nextTick()
+    expect(wrapper.find('[data-testid="focus-mode-toggle"]').exists()).toBe(false)
+    await wrapper.findAll('.ip-pc-tabs__item')[1]!.trigger('contextmenu')
+    await wrapper.get('[data-testid="workspace-tab-menu-focus"]').trigger('click')
+    expect(wrapper.get('.ip-pc-layout').classes()).toContain('ip-pc-layout--focus')
+    expect(wrapper.find('[data-testid="focus-mode-exit"]').exists()).toBe(true)
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await nextTick()
+    expect(wrapper.get('.ip-pc-layout').classes()).not.toContain('ip-pc-layout--focus')
   })
 
   it('锁定保留页面并显示遮罩，锁定动作不调用 Identity logout', async () => {
@@ -153,7 +171,16 @@ describe('PcLayout', () => {
     const { wrapper } = await mountLayout()
     expect(wrapper.get('.ip-pc-brand img').attributes('alt')).toBe('Industrial Platform')
     expect(wrapper.get('.ip-pc-brand').findAll('.ip-brand__name')).toHaveLength(0)
+    expect(pcLayoutSource).toMatch(/\.ip-pc-brand\s*\{[\s\S]*width:\s*184px;/)
     expect(wrapper.get('[data-testid="terminal-info"]').text()).toContain('PC')
+  })
+
+  it('标签栏与功能树同属内容工作区,不再横跨一级导航', async () => {
+    const { wrapper } = await mountLayout()
+    const workspace = wrapper.get('.ip-pc-function-and-workspace')
+    expect(workspace.find('.ip-pc-content').exists()).toBe(true)
+    expect(workspace.get('.ip-pc-content').find('nav.ip-pc-tabs').exists()).toBe(true)
+    expect(workspace.get('.ip-pc-content').find('main#main-content').exists()).toBe(true)
   })
 
   it('顶栏按左中右三段组织且租户与用户入口保持单行可读', async () => {
@@ -313,12 +340,30 @@ describe('PcLayout', () => {
     await router.push('/pc/dev/workspace-tabs?slot=1')
     await nextTick()
     const before = tabsStore.activeTab?.reloadVersion ?? 0
-    const tabDropdown = wrapper.get('nav.ip-pc-tabs').findAllComponents(ElDropdown)[0]!
-    await tabDropdown.vm.$emit('command', 'reload')
+    await wrapper.findAll('.ip-pc-tabs__item')[1]!.trigger('contextmenu')
+    await wrapper.get('[data-testid="workspace-tab-menu-reload"]').trigger('click')
     await nextTick()
     expect(tabsStore.activeTab?.reloadVersion).toBe(before + 1)
     // 标签栏未关闭;RouterView 仍在渲染(重挂载由 contentKey 派生)
     expect(wrapper.findComponent(RouterView).exists()).toBe(true)
+  })
+
+  it('右键刷新非当前标签先激活并导航目标,再递增目标 reloadVersion', async () => {
+    const { wrapper, router } = await mountLayout()
+    const tabsStore = useWorkspaceTabsStore()
+    tabsStore.requestOpen(sandboxCandidate(1))
+    tabsStore.requestOpen(sandboxCandidate(2))
+    await router.push('/pc/dev/workspace-tabs?slot=2')
+    await nextTick()
+    const before = tabsStore.tabs.find((tab) => tab.id === 'sandbox:1')?.reloadVersion ?? 0
+
+    await wrapper.findAll('.ip-pc-tabs__item')[1]!.trigger('contextmenu')
+    await wrapper.get('[data-testid="workspace-tab-menu-reload"]').trigger('click')
+    await flushPromises()
+
+    expect(tabsStore.activeTabId).toBe('sandbox:1')
+    expect(router.currentRoute.value.query.slot).toBe('1')
+    expect(tabsStore.tabs.find((tab) => tab.id === 'sandbox:1')?.reloadVersion).toBe(before + 1)
   })
 
   it('业务标签达上限:展示上限对话框,复用决议导航到复用标签', async () => {

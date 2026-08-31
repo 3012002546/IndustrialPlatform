@@ -36,6 +36,11 @@ test('双权限用户可以在管理壳与生产操作壳之间切换', async ({
   await expect(page.locator('.ip-operation-topbar .ip-brand .ip-brand__name')).toHaveCount(0)
   await expect(page.getByTestId('tenant-context')).toHaveCSS('white-space', 'nowrap')
   await expect(page.getByTestId('operation-user-menu')).toHaveCSS('white-space', 'nowrap')
+  const modeButtons = page.getByTestId('pc-experience-mode-control').locator('button')
+  await expect(modeButtons).toHaveCount(2)
+  for (const button of await modeButtons.all()) {
+    await expect(button).toHaveCSS('white-space', 'nowrap')
+  }
   const viewport = page.viewportSize()
   expect(viewport).not.toBeNull()
   await assertOperationShell(page)

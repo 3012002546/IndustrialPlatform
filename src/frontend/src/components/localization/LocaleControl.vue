@@ -14,13 +14,15 @@ const open = ref(false)
 const trigger = ref<HTMLButtonElement | null>(null)
 const menu = ref<HTMLElement | null>(null)
 const menuStyle = ref<Record<string, string>>({})
+const LOCALE_MENU_WIDTH = 144
+const LOCALE_MENU_GUTTER = 8
 
 function positionMenu(): void {
   const rect = trigger.value?.getBoundingClientRect()
   if (rect === undefined) return
   menuStyle.value = {
     top: `${Math.min(window.innerHeight - 12, rect.bottom + 6)}px`,
-    left: `${Math.max(8, Math.min(rect.right - 180, window.innerWidth - 188))}px`,
+    left: `${Math.max(LOCALE_MENU_GUTTER, Math.min(rect.right - LOCALE_MENU_WIDTH, window.innerWidth - LOCALE_MENU_WIDTH - LOCALE_MENU_GUTTER))}px`,
   }
 }
 
@@ -112,7 +114,8 @@ onBeforeUnmount(() => {
 .ip-locale-control__menu {
   position: fixed;
   z-index: 2200;
-  width: 180px;
+  box-sizing: border-box;
+  width: 144px;
   padding: var(--ip-space-1);
   color: var(--ip-color-text-primary);
   background: var(--ip-color-bg-container);
@@ -137,6 +140,7 @@ onBeforeUnmount(() => {
 .ip-locale-control__menu button:hover,
 .ip-locale-control__menu button:focus-visible,
 .ip-locale-control__menu button[aria-selected='true'] { background: var(--ip-color-primary-bg); }
+.ip-locale-control__menu button :deep(svg) { width: 16px; height: 16px; flex: 0 0 16px; }
 .ip-sr-only {
   position: absolute;
   width: 1px;

@@ -146,7 +146,9 @@ describe('IdentityUsersPage — 创建用户(服务端随机临时密码)', () =
     expect(identityUsersPageSource).toMatch(
       /import\s*\{[^}]*ArrowDown[^}]*Plus[^}]*\}\s*from\s*'@element-plus\/icons-vue'/s,
     )
-    expect(identityUsersPageSource).toMatch(/<Plus\s+aria-hidden="true"\s*\/>/)
+    expect(identityUsersPageSource).toMatch(
+      /<ElIcon\s+class="users-page__create-icon"\s+aria-hidden="true">\s*<Plus\s*\/>\s*<\/ElIcon>/s,
+    )
     expect(identityUsersPageSource).toMatch(/<ArrowDown\s+aria-hidden="true"\s*\/>/)
   })
   beforeEach(() => {

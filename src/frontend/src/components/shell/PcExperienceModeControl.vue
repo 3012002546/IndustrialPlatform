@@ -166,6 +166,7 @@ async function switchMode(mode: PcExperienceMode): Promise<void> {
   cursor: pointer;
   font: inherit;
   font-size: var(--ip-font-size-xs);
+  white-space: nowrap;
 }
 
 .pc-experience-mode-control button.is-active,

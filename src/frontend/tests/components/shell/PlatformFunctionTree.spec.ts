@@ -301,4 +301,18 @@ describe('PlatformFunctionTree', () => {
       'Organization & platform',
     ])
   })
+
+  it('长翻译标签在功能树内省略且列表不产生横向滚动', async () => {
+    const source = await import('@/components/shell/PlatformFunctionTree.vue?raw')
+
+    expect(source.default).toMatch(
+      /\.ip-function-tree__list\s*\{[\s\S]*?overflow-x:\s*hidden/,
+    )
+    expect(source.default).toMatch(
+      /\.ip-function-tree__link\s*\{[\s\S]*?min-width:\s*0/,
+    )
+    expect(source.default).toMatch(
+      /\.ip-function-tree__label\s*\{[\s\S]*?min-width:\s*0;[\s\S]*?overflow:\s*hidden;[\s\S]*?text-overflow:\s*ellipsis;[\s\S]*?white-space:\s*nowrap/,
+    )
+  })
 })

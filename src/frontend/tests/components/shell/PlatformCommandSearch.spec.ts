@@ -12,9 +12,12 @@ describe('PlatformCommandSearch', () => {
           { id: 'recent', label: '最近访问', kind: 'recent' },
         ],
       },
+      attachTo: document.body,
     })
     await window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))
     expect(wrapper.get('input').attributes('aria-expanded')).toBe('true')
+    expect(wrapper.get('input').element).toBe(document.activeElement)
+    expect(wrapper.get('[data-testid="command-search-shortcut"]').text()).toBe('Ctrl+K')
     await wrapper.get('input').setValue('用户')
     expect(wrapper.text()).toContain('用户管理')
     expect(wrapper.text()).not.toContain('工单')
@@ -30,6 +33,21 @@ describe('PlatformCommandSearch', () => {
     expect(wrapper.emitted('select')?.[0]).toEqual(['users'])
     await wrapper.get('input').trigger('keydown', { key: 'Escape' })
     expect(wrapper.get('input').attributes('aria-expanded')).toBe('false')
+  })
+
+  it('reopens from a normal click after Escape closes the existing search', async () => {
+    const wrapper = mount(PlatformCommandSearch, {
+      props: { items: [{ id: 'users', label: '用户管理', kind: 'navigation' }] },
+      attachTo: document.body,
+    })
+
+    await wrapper.get('input').trigger('click')
+    await wrapper.get('input').trigger('keydown', { key: 'Escape' })
+    expect(wrapper.get('input').attributes('aria-expanded')).toBe('false')
+
+    await wrapper.get('input').trigger('click')
+    expect(wrapper.get('input').attributes('aria-expanded')).toBe('true')
+    expect(wrapper.get('input').element).toBe(document.activeElement)
   })
 
   it('deduplicates navigation and recent entries with the same stable id', async () => {

@@ -34,7 +34,7 @@ describe('PlatformToolRail', () => {
 
   it('渲染每个分组的图标按钮,带 aria-label 名称', () => {
     const wrapper = mountRail()
-    const buttons = wrapper.findAll('button')
+    const buttons = wrapper.findAll('button.ip-toolrail__button:not(.ip-toolrail__more-button)')
     expect(buttons.length).toBe(GROUPS.length)
     expect(buttons[0]?.attributes('aria-label')).toBe('工作台')
     expect(buttons[1]?.attributes('aria-label')).toBe('系统管理')
@@ -149,6 +149,25 @@ describe('PlatformToolRail', () => {
     localization.setLocale('zh-CN', null)
     await wrapper.vm.$nextTick()
     expect(wrapper.get('[data-testid="toolrail-more-menu"]').text()).toContain('系统管理')
+  })
+
+  it('没有溢出分组时仍显示带图标的更多入口并列出现有授权分组', async () => {
+    const wrapper = mountRail()
+
+    const more = wrapper.get('[data-testid="toolrail-more"]')
+    expect(more.find('svg.ip-toolrail__more-icon').exists()).toBe(true)
+    await more.trigger('click')
+
+    expect(wrapper.get('[data-testid="toolrail-more-menu"]').text()).toContain('工作台')
+    expect(wrapper.get('[data-testid="toolrail-more-menu"]').text()).toContain('系统管理')
+  })
+
+  it('更多菜单组图标使用统一小尺寸而不受 SVG intrinsic size 撑大', async () => {
+    const source = await import('@/components/shell/PlatformToolRail.vue?raw')
+
+    expect(source.default).toMatch(
+      /\.ip-toolrail__more-menu-item\s+svg\s*\{[\s\S]*?width:\s*18px;[\s\S]*?height:\s*18px;[\s\S]*?flex:\s*0\s+0\s+18px;/,
+    )
   })
 
 })

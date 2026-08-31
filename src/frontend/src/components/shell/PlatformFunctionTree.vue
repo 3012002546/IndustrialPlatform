@@ -319,6 +319,7 @@ watch(
 .ip-function-tree__surface {
   display: flex;
   flex: 1 1 auto;
+  min-width: 0;
   min-height: 0;
   flex-direction: column;
   margin: 0;
@@ -378,14 +379,18 @@ watch(
 
 .ip-function-tree__list {
   flex: 1 1 auto;
+  min-width: 0;
   margin: 0;
   padding: 0 var(--ip-space-2) var(--ip-space-2);
+  overflow-x: hidden;
   overflow-y: auto;
   list-style: none;
 }
 
 .ip-function-tree__section {
+  max-width: 100%;
   margin: 12px var(--ip-space-3) 4px;
+  overflow: hidden;
   color: var(--ip-color-text-secondary);
   font-size: var(--ip-font-size-xs);
   font-weight: 500;
@@ -431,6 +436,7 @@ watch(
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
   min-height: 36px;
   padding: 0 var(--ip-space-3);
   border-radius: var(--ip-radius-md);
@@ -439,6 +445,13 @@ watch(
   line-height: var(--ip-line-height-normal);
   font-family: inherit;
   text-decoration: none;
+  white-space: nowrap;
+}
+
+.ip-function-tree__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -478,6 +491,7 @@ button.ip-function-tree__link {
 
 .ip-function-tree__parent {
   display: flex;
+  min-width: 0;
   flex-direction: column;
 }
 

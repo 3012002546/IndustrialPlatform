@@ -1,5 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 import LocaleControl from '@/components/localization/LocaleControl.vue'
 
@@ -36,5 +38,12 @@ describe('LocaleControl', () => {
     await trigger.trigger('click')
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
     expect(wrapper.find('[role="listbox"]').exists()).toBe(false)
+  })
+
+  it('keeps the language menu at the approved 144px surface width', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/components/localization/LocaleControl.vue'), 'utf8')
+    expect(source).toContain('const LOCALE_MENU_WIDTH = 144')
+    expect(source).toContain('window.innerWidth - LOCALE_MENU_WIDTH - LOCALE_MENU_GUTTER')
+    expect(source).toMatch(/\.ip-locale-control__menu\s*\{[\s\S]*?box-sizing:\s*border-box;[\s\S]*?width:\s*144px;/)
   })
 })

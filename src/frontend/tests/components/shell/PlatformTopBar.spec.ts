@@ -5,12 +5,15 @@
  */
 
 import { mount, type VueWrapper } from '@vue/test-utils'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import PlatformTopBar from '@/components/shell/PlatformTopBar.vue'
 
 const SLOT_CONTENT: Record<string, string> = {
   brand: '品牌区',
+  context: '上下文区',
   'global-search': '搜索区',
   'global-actions': '操作区',
   user: '用户区',
@@ -35,6 +38,7 @@ describe('PlatformTopBar', () => {
   it('四个具名槽内容渲染到对应区域', () => {
     const wrapper = mountTopBar(SLOT_CONTENT)
     expect(wrapper.get('.ip-topbar__brand').text()).toContain('品牌区')
+    expect(wrapper.get('.ip-topbar__context').text()).toContain('上下文区')
     expect(wrapper.get('.ip-topbar__search').text()).toContain('搜索区')
     expect(wrapper.get('.ip-topbar__actions').text()).toContain('操作区')
     expect(wrapper.get('.ip-topbar__user').text()).toContain('用户区')
@@ -63,5 +67,53 @@ describe('PlatformTopBar', () => {
   it('提供 user 槽时渲染用户区,无 user 槽时同样存在(区域容器固定)', () => {
     const wrapper = mountTopBar()
     expect(wrapper.find('.ip-topbar__user').exists()).toBe(true)
+  })
+
+  it('采用视觉交接约定的固定高度与三段 flex 布局', async () => {
+    const foundation = readFileSync(resolve(process.cwd(), 'src/styles/foundation.css'), 'utf8')
+    expect(foundation).toContain('--ip-shell-topbar-height: 56px')
+    expect(foundation).toContain('--ip-shell-toolrail-width: 72px')
+    expect(foundation).toContain('--ip-shell-tabs-height: 38px')
+
+    const sourceModules = import.meta.glob('../../../src/components/shell/*.vue', {
+      query: '?raw',
+      import: 'default',
+    })
+    const source = (await sourceModules['../../../src/components/shell/PlatformTopBar.vue']!()) as string
+    expect(source).toMatch(/\.ip-topbar\s*\{[\s\S]*?display:\s*flex;/)
+  })
+
+  it('错误态右区允许在视口内收缩而不把用户区推出顶栏', async () => {
+    const sourceModules = import.meta.glob('../../../src/components/shell/*.vue', {
+      query: '?raw',
+      import: 'default',
+    })
+    const source = (await sourceModules['../../../src/components/shell/PlatformTopBar.vue']!()) as string
+    expect(source).toMatch(/\.ip-topbar__right\s*\{[\s\S]*?width:\s*auto;[\s\S]*?max-width:\s*100%;/)
+    expect(source).toMatch(/\.ip-topbar__actions\s*\{[\s\S]*?flex:\s*0\s+1\s+auto;[\s\S]*?min-width:\s*0;[\s\S]*?margin-left:\s*auto;[\s\S]*?overflow:\s*hidden;/)
+  })
+
+  it('搜索相对整个顶栏居中,动作组贴近右侧用户区', async () => {
+    const sourceModules = import.meta.glob('../../../src/components/shell/*.vue', {
+      query: '?raw',
+      import: 'default',
+    })
+    const source = (await sourceModules['../../../src/components/shell/PlatformTopBar.vue']!()) as string
+    expect(source).toMatch(/\.ip-topbar__search\s*\{[\s\S]*?position:\s*absolute;/)
+    expect(source).toMatch(/\.ip-topbar__search\s*\{[\s\S]*?left:\s*50%;[\s\S]*?margin-left:\s*-150px;/)
+    expect(source).toMatch(/\.ip-topbar__search\s*\{[\s\S]*?top:\s*50%;[\s\S]*?margin-top:\s*-16px;/)
+    expect(source).toMatch(/\.ip-topbar__actions\s*\{[\s\S]*?flex:\s*0\s+1\s+auto;[\s\S]*?margin-left:\s*auto;/)
+  })
+
+  it('居中搜索不建立 fixed 浮层的错误定位参照', async () => {
+    const sourceModules = import.meta.glob('../../../src/components/shell/*.vue', {
+      query: '?raw',
+      import: 'default',
+    })
+    const source = (await sourceModules['../../../src/components/shell/PlatformTopBar.vue']!()) as string
+    expect(source).toMatch(/\.ip-topbar__search\s*\{[\s\S]*?margin-left:\s*-150px;/)
+    expect(source).not.toMatch(
+      /\.ip-topbar__search\s*\{[\s\S]*?transform:\s*translate\(-50%,\s*-50%\);/,
+    )
   })
 })

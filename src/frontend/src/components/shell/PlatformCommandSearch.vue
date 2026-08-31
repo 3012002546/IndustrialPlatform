@@ -97,11 +97,14 @@ onBeforeUnmount(() => {
       type="search"
       :placeholder="copy.placeholder"
       :aria-label="localeMessages[locale].shell.top.globalSearch"
+      aria-keyshortcuts="Control+K"
       :aria-expanded="open"
       aria-controls="platform-command-search-results"
       @focus="open = true; void nextTick(positionResults)"
+      @click="focusSearch"
       @keydown.esc="close"
     />
+    <kbd data-testid="command-search-shortcut" aria-hidden="true">Ctrl+K</kbd>
     <div
       v-if="open"
       id="platform-command-search-results"
@@ -136,11 +139,25 @@ onBeforeUnmount(() => {
   box-sizing: border-box;
   width: 100%;
   min-height: 32px;
-  padding: 0 var(--ip-space-3);
+  padding: 0 58px 0 var(--ip-space-3);
   color: inherit;
   background: rgb(255 255 255 / 0.12);
   border: 1px solid rgb(255 255 255 / 0.3);
   border-radius: var(--ip-radius-md);
+}
+
+.ip-command-search kbd {
+  position: absolute;
+  top: 50%;
+  right: var(--ip-space-2);
+  padding: 2px 5px;
+  color: rgb(255 255 255 / 0.78);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.2;
+  border: 1px solid rgb(255 255 255 / 0.28);
+  border-radius: var(--ip-radius-sm);
+  transform: translateY(-50%);
 }
 
 .ip-command-search__results {

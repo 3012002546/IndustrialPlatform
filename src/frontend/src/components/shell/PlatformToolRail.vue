@@ -7,6 +7,7 @@
 
 import type { NavigationGroup } from '@/components/navigation/types'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { MoreFilled } from '@element-plus/icons-vue'
 import { localeMessages, resolveLocaleMessage } from '@/localization/i18n'
 import { usePlatformLocale } from '@/localization/localeContext'
 
@@ -29,8 +30,8 @@ const moreButtonRef = ref<HTMLButtonElement | null>(null)
 const availableHeight = ref(0)
 let resizeObserver: ResizeObserver | undefined
 
-const ITEM_HEIGHT = 58
-const MORE_HEIGHT = 58
+const ITEM_HEIGHT = 62
+const MORE_HEIGHT = 50
 
 function groupLabel(group: NavigationGroup): string {
   return resolveLocaleMessage(locale.value, group.labelKey, group.fallbackLabel ?? group.label)
@@ -45,7 +46,8 @@ const visibleCount = computed(() => {
 
 const visibleGroups = computed(() => props.groups.slice(0, visibleCount.value))
 const moreGroups = computed(() => props.groups.slice(visibleCount.value))
-const activeInMore = computed(() => moreGroups.value.some((group) => group.id === props.activeGroupId))
+const menuGroups = computed(() => (moreGroups.value.length > 0 ? moreGroups.value : props.groups))
+const activeInMore = computed(() => menuGroups.value.some((group) => group.id === props.activeGroupId))
 
 function select(id: string): void {
   moreOpen.value = false
@@ -106,7 +108,7 @@ onBeforeUnmount(() => {
           <span v-if="props.mode !== 'compact'" class="ip-toolrail__label">{{ groupLabel(group) }}</span>
         </button>
       </li>
-      <li v-if="moreGroups.length > 0" class="ip-toolrail__item ip-toolrail__more-item">
+      <li class="ip-toolrail__item ip-toolrail__more-item">
         <button
           ref="moreButtonRef"
           type="button"
@@ -119,12 +121,12 @@ onBeforeUnmount(() => {
           data-testid="toolrail-more"
           @click="toggleMore"
         >
-          <span class="ip-toolrail__more-icon" aria-hidden="true">•••</span>
+          <MoreFilled class="ip-toolrail__more-icon" aria-hidden="true" />
           <span v-if="props.mode !== 'compact'" class="ip-toolrail__label">{{ topCopy.more }}</span>
         </button>
         <div v-if="moreOpen" class="ip-toolrail__more-menu" role="menu" data-testid="toolrail-more-menu">
           <button
-            v-for="group in moreGroups"
+            v-for="group in menuGroups"
             :key="group.id"
             type="button"
             role="menuitem"
@@ -161,12 +163,12 @@ onBeforeUnmount(() => {
   min-height: 0;
   width: 100%;
   margin: 0;
-  padding: var(--ip-space-2) 0;
+  padding: 14px 7px 10px;
   list-style: none;
 }
 
 .ip-toolrail__item {
-  padding: var(--ip-space-1) var(--ip-space-2);
+  padding: 0;
 }
 
 .ip-toolrail__more-item {
@@ -180,10 +182,10 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 50px;
-  padding: var(--ip-space-1) 0;
+  min-height: 62px;
+  padding: 0;
   flex-direction: column;
-  gap: 2px;
+  gap: 6px;
   color: var(--ip-color-text-secondary);
   background: transparent;
   border: 0;
@@ -222,8 +224,8 @@ onBeforeUnmount(() => {
 }
 
 .ip-toolrail__icon {
-  width: 20px;
-  height: 20px;
+  width: 21px;
+  height: 21px;
 }
 
 .ip-toolrail__label {
@@ -238,10 +240,12 @@ onBeforeUnmount(() => {
 }
 
 .ip-toolrail__more-icon {
-  height: 20px;
-  font-size: var(--ip-font-size-md);
-  line-height: 16px;
-  letter-spacing: 1px;
+  width: 21px;
+  height: 21px;
+}
+
+.ip-toolrail__more-button {
+  min-height: 50px;
 }
 
 .ip-toolrail__more-menu {
@@ -271,6 +275,12 @@ onBeforeUnmount(() => {
   border: 0;
   border-radius: var(--ip-radius-sm);
   cursor: pointer;
+}
+
+.ip-toolrail__more-menu-item svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
 }
 
 .ip-toolrail__more-menu-item:hover,

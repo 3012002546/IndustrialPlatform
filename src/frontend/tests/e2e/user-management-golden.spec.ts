@@ -26,7 +26,19 @@ test('用户管理黄金页:共享结构、键盘路径与窄窗口', async ({ p
   await expect(page.getByRole('heading', { level: 1, name: '用户管理' })).toBeVisible()
   await expect(page.getByTestId('identity-users-query')).toBeVisible()
   await expect(page.getByTestId('app-data-table')).toBeVisible()
+  await expect(page.locator('.vxe-table--header-wrapper .vxe-header--column').first()).toHaveCSS(
+    'height',
+    '38px',
+  )
   await expect(page.getByRole('button', { name: '新建用户' })).toBeVisible()
+  await expect(page.getByTestId('identity-users-create').locator('svg')).toHaveCSS(
+    'width',
+    '14px',
+  )
+  await expect(page.getByTestId('identity-users-create').locator('svg')).toHaveCSS(
+    'height',
+    '14px',
+  )
 
   const submit = page.getByTestId('query-panel-submit')
   await submit.focus()
@@ -50,8 +62,40 @@ test('用户管理黄金页:共享结构、键盘路径与窄窗口', async ({ p
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/pc/identity/users')
   await expect(page.getByTestId('identity-users-page')).toBeVisible({ timeout: 60_000 })
+  await expect(page.locator('.vxe-table--header-wrapper .vxe-header--column').first()).toHaveCSS(
+    'height',
+    '38px',
+  )
+  const functionTree = page.locator('.ip-function-tree__list')
+  const treeOverflow = await functionTree.evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+  }))
+  expect(treeOverflow.scrollWidth).toBeLessThanOrEqual(treeOverflow.clientWidth)
+  await expect(functionTree).toHaveCSS('overflow-x', 'hidden')
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
+  )
+  await page.getByRole('button', { name: '语言' }).click()
+  await page.getByRole('option', { name: 'English' }).click()
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en-US')
+  const englishTreeOverflow = await functionTree.evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+  }))
+  expect(englishTreeOverflow.scrollWidth).toBeLessThanOrEqual(englishTreeOverflow.clientWidth)
+  await expect(functionTree).toHaveCSS('overflow-x', 'hidden')
+  await expect(page.locator('.vxe-sort--asc-btn').first()).toHaveAttribute(
+    'title',
+    'Ascending order: lowest to highest',
+  )
+  await expect(page.locator('.vxe-sort--desc-btn').first()).toHaveAttribute(
+    'title',
+    'Descending order: highest to lowest',
+  )
+  await expect(page.locator('.vxe-table--header-wrapper .vxe-header--column').first()).toHaveCSS(
+    'height',
+    '38px',
   )
   await page.screenshot({
     path: testInfo.outputPath('user-management-golden-1440x900.png'),

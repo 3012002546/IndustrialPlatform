@@ -15,6 +15,7 @@ import { setDocumentTitle } from '@/router/guards'
 import { useLocalizationStore } from '@/stores/localizationStore'
 import { useAuthStore } from '@/stores/authStore'
 import SystemDataRuntimeStatus from '@/components/systemData/SystemDataRuntimeStatus.vue'
+import { setVxeLocale } from '@/localization/vxeLocale'
 
 const authStore = useAuthStore()
 const route = useRoute()
@@ -26,6 +27,12 @@ const PlatformConfigProvider = ElConfigProvider as unknown as DefineComponent<{
 }>
 const elementLocale = computed(() =>
   localization.locale === 'en-US' ? elementPlusEn : elementPlusZhCn,
+)
+
+watch(
+  () => localization.locale,
+  (value) => setVxeLocale(value),
+  { immediate: true },
 )
 
 watch(

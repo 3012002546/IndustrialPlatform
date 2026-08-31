@@ -203,6 +203,7 @@ const props = withDefaults(
 
 const localization = useLocalizationStore()
 const copy = computed(() => localeMessages[localization.locale].common.table)
+const emptyText = computed(() => localeMessages[localization.locale].common.state.empty)
 
 const emit = defineEmits([
   'update:rows',
@@ -1591,7 +1592,9 @@ const tableBindings = computed(() => ({
       }
     : {}),
   ...(props.selection === 'multiple' ? { checkboxConfig: checkboxConfig.value } : {}),
+  emptyText: emptyText.value,
   showOverflow: 'title' as const,
+  showHeaderOverflow: 'title' as const,
 }))
 
 watch(
@@ -2881,6 +2884,7 @@ defineExpose({
 .app-data-table__header-title {
   display: block;
   min-width: 0;
+  max-width: 100%;
   flex: 1 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2894,7 +2898,7 @@ defineExpose({
 .app-data-table :deep(.vxe-table--header-wrapper .vxe-header--row),
 .app-data-table :deep(.vxe-table--header-wrapper .vxe-header--column),
 .app-data-table :deep(.vxe-table--header-wrapper .vxe-cell) {
-  height: 38px;
+  height: 38px !important;
 }
 
 .app-data-table :deep(.vxe-table--header-wrapper .vxe-cell) {
@@ -2918,7 +2922,10 @@ defineExpose({
 }
 .app-data-table :deep(.vxe-header--column .vxe-cell--wrapper) {
   display: flex;
+  min-width: 0;
+  max-width: 100%;
   align-items: center;
+  overflow: hidden;
 }
 .app-data-table :deep(.vxe-header--column .vxe-cell--sort-vertical-layout) {
   display: inline-flex;
