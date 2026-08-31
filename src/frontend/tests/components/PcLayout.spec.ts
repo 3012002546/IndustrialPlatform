@@ -6,7 +6,7 @@
  */
 
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
-import { ElDropdown } from 'element-plus'
+import { ElDropdown, ElMessageBox } from 'element-plus'
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
@@ -108,6 +108,7 @@ describe('PcLayout', () => {
   })
 
   afterEach(() => {
+    vi.restoreAllMocks()
     vi.unstubAllGlobals()
     vi.unstubAllEnvs()
   })
@@ -339,6 +340,22 @@ describe('PcLayout', () => {
     await router.isReady()
     expect(router.currentRoute.value.name).toBe('login')
     expect(useAuthStore().isAuthenticated).toBe(false)
+  })
+
+  it('用户菜单命令清理缓存后导航到固定工作台,保持路由与标签一致', async () => {
+    const { wrapper, router } = await mountLayout()
+    const tabsStore = useWorkspaceTabsStore()
+    tabsStore.requestOpen(sandboxCandidate(1))
+    await router.push({ name: 'workspace-tabs-sandbox', query: { slot: '1' } })
+    await nextTick()
+
+    vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm' as never)
+    wrapper.findComponent(ElDropdown).vm.$emit('command', 'clear-cache')
+    await flushPromises()
+
+    expect(tabsStore.tabs).toHaveLength(1)
+    expect(tabsStore.activeTabId).toBe('pc-home')
+    expect(router.currentRoute.value.name).toBe('pc-home')
   })
 
   it('工作区标签栏:固定工作台标签存在且不可关闭', async () => {

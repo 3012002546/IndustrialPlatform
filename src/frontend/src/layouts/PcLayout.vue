@@ -186,6 +186,7 @@ async function clearCache(): Promise<void> {
   }
   clearCurrentUserUiCache({ tenantId: user.tenantId, userId: user.userId })
   tabsStore.clearUiCache()
+  navigateToActive()
   ElMessage.success(shellCopy.value.cacheCleared)
 }
 

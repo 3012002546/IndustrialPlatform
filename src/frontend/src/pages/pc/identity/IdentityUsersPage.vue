@@ -26,7 +26,11 @@ import { PERMISSIONS, PermissionGate, usePermission } from '@/permissions'
 import AppDataTable from '@/components/management/AppDataTable.vue'
 import { useLocalizationStore } from '@/stores/localizationStore'
 import { useAuthStore } from '@/stores/authStore'
-import { readPageState, writePageState } from '@/workspace/pageState'
+import {
+  readPageState,
+  writePageState,
+  type WorkspacePageStateValue,
+} from '@/workspace/pageState'
 import type { UserUiScope } from '@/theme/types'
 import {
   UI_CACHE_CLEARED_EVENT,
@@ -154,7 +158,7 @@ const query = reactive({
 const pageIndex = ref(1)
 const pageSize = ref(25)
 const tableQueryMode = ref<AppDataTableQueryMode>('top')
-const persistedHeaderFilters = ref<Record<string, string | string[]>>({})
+const persistedHeaderFilters = ref<Record<string, WorkspacePageStateValue>>({})
 const usersTableRef = ref<{ reload?: () => Promise<void> } | null>(null)
 const advancedQueryOpen = ref(false)
 
@@ -191,8 +195,9 @@ function pageScrollElement(): HTMLElement | null {
   return document.scrollingElement instanceof HTMLElement ? document.scrollingElement : null
 }
 
-function readQueryValue(value: string | string[] | undefined): string {
-  return Array.isArray(value) ? String(value[0] ?? '') : (value ?? '')
+function readQueryValue(value: WorkspacePageStateValue | undefined): string {
+  if (Array.isArray(value)) return String(value[0] ?? '')
+  return value === undefined ? '' : String(value)
 }
 
 function restorePageState(): void {
@@ -424,10 +429,11 @@ function onTableQuery(request: AppDataTableRequest): void {
 
 function toPageStateRecord(
   values: Record<string, unknown>,
-): Record<string, string | string[]> {
-  const result: Record<string, string | string[]> = {}
+): Record<string, WorkspacePageStateValue> {
+  const result: Record<string, WorkspacePageStateValue> = {}
   Object.entries(values).forEach(([key, value]) => {
     if (typeof value === 'string') result[key] = value
+    else if (typeof value === 'boolean') result[key] = value
     else if (Array.isArray(value) && value.every((item) => typeof item === 'string')) {
       result[key] = value
     }

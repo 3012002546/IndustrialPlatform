@@ -10,10 +10,14 @@ export interface WorkspacePageSort {
   direction: 'asc' | 'desc'
 }
 
+export type WorkspacePageStateValue = string | string[] | boolean
+
+export type WorkspacePageStateRecord = Readonly<Record<string, WorkspacePageStateValue>>
+
 export interface WorkspacePageState {
-  query?: Readonly<Record<string, string | string[]>>
+  query?: WorkspacePageStateRecord
   queryMode?: 'top' | 'header'
-  headerFilters?: Readonly<Record<string, string | string[]>>
+  headerFilters?: WorkspacePageStateRecord
   pageIndex?: number
   pageSize?: number
   sort?: readonly WorkspacePageSort[]
@@ -41,10 +45,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
-function isStringRecord(value: unknown): value is Record<string, string | string[]> {
+function isPageStateRecord(value: unknown): value is Record<string, WorkspacePageStateValue> {
   if (!isRecord(value)) return false
   return Object.values(value).every(
-    (item) => typeof item === 'string' || (Array.isArray(item) && item.every((entry) => typeof entry === 'string')),
+    (item) =>
+      typeof item === 'string' ||
+      typeof item === 'boolean' ||
+      (Array.isArray(item) && item.every((entry) => typeof entry === 'string')),
   )
 }
 
@@ -52,11 +59,11 @@ function isValidState(value: unknown): value is WorkspacePageState {
   if (!isRecord(value)) return false
   const allowed = new Set(['query', 'queryMode', 'headerFilters', 'pageIndex', 'pageSize', 'sort', 'scrollTop'])
   if (Object.keys(value).some((key) => !allowed.has(key))) return false
-  if (value['query'] !== undefined && !isStringRecord(value['query'])) return false
+  if (value['query'] !== undefined && !isPageStateRecord(value['query'])) return false
   if (value['queryMode'] !== undefined && value['queryMode'] !== 'top' && value['queryMode'] !== 'header') {
     return false
   }
-  if (value['headerFilters'] !== undefined && !isStringRecord(value['headerFilters'])) return false
+  if (value['headerFilters'] !== undefined && !isPageStateRecord(value['headerFilters'])) return false
   if (
     value['pageIndex'] !== undefined &&
     (!Number.isInteger(value['pageIndex']) || (value['pageIndex'] as number) < 1)

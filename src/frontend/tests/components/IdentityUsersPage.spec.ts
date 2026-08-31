@@ -278,7 +278,7 @@ describe('IdentityUsersPage — 创建用户(服务端随机临时密码)', () =
     const scope = { tenantId: 't1', userId: 'u1' }
     writePageState(sessionStorage, scope, 'identity-users', {
       queryMode: 'header',
-      headerFilters: { loginName: 'e2e.admin' },
+      headerFilters: { loginName: 'e2e.admin', mustChangePassword: true },
       pageIndex: 2,
       pageSize: 10,
     })
@@ -288,7 +288,10 @@ describe('IdentityUsersPage — 创建用户(服务端随机临时密码)', () =
     const table = findDataTable(wrapper)
 
     expect(table.props('queryMode')).toBe('header')
-    expect(table.props('initialHeaderFilters')).toEqual({ loginName: 'e2e.admin' })
+    expect(table.props('initialHeaderFilters')).toEqual({
+      loginName: 'e2e.admin',
+      mustChangePassword: true,
+    })
     expect(table.props('pageSize')).toBe(10)
 
     await wrapper.get('[data-testid="app-data-table-query-toggle"]').trigger('click')
@@ -320,6 +323,32 @@ describe('IdentityUsersPage — 创建用户(服务端随机临时密码)', () =
         headerFilters: { loginName: 'e2e.admin' },
         pageIndex: 2,
         pageSize: 10,
+      }),
+    )
+  })
+
+  it('将列头文本与布尔筛选一起写入 page-state,避免往返丢失条件', async () => {
+    const scope = { tenantId: 't1', userId: 'u1' }
+    const wrapper = await mountUsersPage(['identity.user.view'])
+    const table = findDataTable(wrapper)
+
+    ;(table.vm as unknown as { switchQueryMode: (mode: 'top' | 'header') => void }).switchQueryMode(
+      'header',
+    )
+    await flushPromises()
+    table.vm.$emit('query-change', {
+      pageIndex: 1,
+      pageSize: 25,
+      queryMode: 'header',
+      filters: { loginName: 'e2e.admin', mustChangePassword: true },
+      columns: ['loginName', 'mustChangePassword'],
+    })
+    await wrapper.vm.$nextTick()
+
+    expect(JSON.parse(sessionStorage.getItem(buildPageStateKey(scope, 'identity-users'))!)).toEqual(
+      expect.objectContaining({
+        queryMode: 'header',
+        headerFilters: { loginName: 'e2e.admin', mustChangePassword: true },
       }),
     )
   })
