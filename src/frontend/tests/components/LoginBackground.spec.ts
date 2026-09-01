@@ -74,7 +74,9 @@ describe('LoginBackground', () => {
     else Object.defineProperty(document, 'hidden', originalHidden)
     if (originalMatchMedia === undefined) delete (window as { matchMedia?: unknown }).matchMedia
     else Object.defineProperty(window, 'matchMedia', originalMatchMedia)
-    if (originalGetContext === undefined) delete HTMLCanvasElement.prototype.getContext
+    if (originalGetContext === undefined) {
+      Reflect.deleteProperty(HTMLCanvasElement.prototype, 'getContext')
+    }
     else Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', originalGetContext)
   })
 

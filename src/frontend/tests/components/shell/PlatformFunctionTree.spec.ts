@@ -287,9 +287,9 @@ describe('PlatformFunctionTree', () => {
       },
       {
         id: 'organization-platform',
-        label: '组织与平台',
+        label: '组织域平台',
         labelKey: 'shell.navigation.section.organization-platform',
-        fallbackLabel: '组织与平台',
+        fallbackLabel: '组织域平台',
       },
     ]
     const organizationItem = { ...ITEMS[1]! }
@@ -313,7 +313,7 @@ describe('PlatformFunctionTree', () => {
 
     expect(wrapper.findAll('.ip-function-tree__section').map((node) => node.text())).toEqual([
       '身份与访问',
-      '组织与平台',
+      '组织域平台',
     ])
     localization.setLocale('en-US', null)
     await nextTick()

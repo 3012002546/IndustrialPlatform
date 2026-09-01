@@ -152,7 +152,7 @@ export const zhCN = {
       group: { workspace: '工作台', system: '系统管理' },
       section: {
         'identity-access': '身份与访问',
-        'organization-platform': '组织与平台',
+        'organization-platform': '组织域平台',
       },
       item: {
         'pc-home': '首页',

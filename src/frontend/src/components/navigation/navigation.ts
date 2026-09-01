@@ -60,9 +60,9 @@ const DEFAULT_PC_NAVIGATION_GROUPS: readonly NavigationGroup[] = [
       },
       {
         id: 'organization-platform',
-        label: '组织与平台',
+        label: '组织域平台',
         labelKey: 'shell.navigation.section.organization-platform',
-        fallbackLabel: '组织与平台',
+        fallbackLabel: '组织域平台',
       },
     ],
     items: [
