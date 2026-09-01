@@ -20,7 +20,7 @@ async function fillLogin(page: Page): Promise<void> {
 async function login(page: Page): Promise<void> {
   await page.goto('/login')
   await fillLogin(page)
-  await page.getByRole('button', { name: '登录' }).click()
+  await page.getByTestId('login-submit').click()
   await expect(page).toHaveURL(/\/pc\/home/)
 }
 
@@ -29,14 +29,14 @@ test('未登录访问受保护路径 → 登录并携带安全 redirect,登录�
   await expect(page).toHaveURL(/\/login\?redirect=/)
 
   await fillLogin(page)
-  await page.getByRole('button', { name: '登录' }).click()
+  await page.getByTestId('login-submit').click()
   await expect(page).toHaveURL(/\/pc\/home/)
   await expect(page.getByRole('heading', { name: '快速开始' })).toBeVisible()
 })
 
 test('空提交显示必填错误', async ({ page }) => {
   await page.goto('/login')
-  await page.getByRole('button', { name: '登录' }).click()
+  await page.getByTestId('login-submit').click()
   await expect(page.getByText('请输入用户名')).toBeVisible()
   await expect(page.getByText('请输入密码')).toBeVisible()
 })
@@ -54,7 +54,7 @@ test('错误账号显示统一错误', async ({ page }) => {
   await page.goto('/login')
   await page.getByLabel('用户名').fill('wrong.user')
   await page.getByLabel('密码', { exact: true }).fill('wrong-password')
-  await page.getByRole('button', { name: '登录' }).click()
+  await page.getByTestId('login-submit').click()
   await expect(page.getByText('用户名或密码错误')).toBeVisible()
 })
 
@@ -106,7 +106,7 @@ test('404 页面以纯文本展示原始路径并可返回首页', async ({ page
 test('不安全的 redirect(协议相对)被拒绝,登录后落到站内', async ({ page }) => {
   await page.goto('/login?redirect=//evil.example/steal')
   await fillLogin(page)
-  await page.getByRole('button', { name: '登录' }).click()
+  await page.getByTestId('login-submit').click()
   await expect(page).not.toHaveURL(/evil\.example/)
   await expect(page).toHaveURL(/\/pc\/home/)
 })

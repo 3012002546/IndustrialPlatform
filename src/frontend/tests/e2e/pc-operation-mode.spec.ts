@@ -4,7 +4,7 @@ async function login(page: import('@playwright/test').Page): Promise<void> {
   await page.goto('/login')
   await page.getByLabel('用户名').fill('mock.admin')
   await page.getByLabel('密码', { exact: true }).fill('Mock@123456')
-  await page.getByRole('button', { name: '登录' }).click()
+  await page.getByTestId('login-submit').click()
   await expect(page).toHaveURL(/\/pc\/home/)
 }
 
