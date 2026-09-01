@@ -100,9 +100,9 @@ async function mountLayout(permissions: string[] = ALL_PC_PERMISSIONS): Promise<
 }
 
 describe('PcLayout', () => {
-  it('allows routed pages to shrink inside the scrollable main canvas', () => {
+  it('constrains the workspace grid row so routed pages fit the viewport', () => {
     expect(pcLayoutSource).toMatch(
-      /\.ip-pc-main > :deep\(\*\)\s*\{[\s\S]*?min-height:\s*0;/,
+      /\.ip-pc-function-and-workspace\s*\{[\s\S]*?grid-template-rows:\s*minmax\(0,\s*1fr\);/,
     )
   })
 
