@@ -18,6 +18,8 @@ import AppPage from '@/components/base/AppPage.vue'
 import TimeGreetingHeader from '@/components/home/TimeGreetingHeader.vue'
 import { loadRuntimeConfig } from '@/config/runtimeConfig'
 import type { TerminalType } from '@/device/types'
+import { localeMessages } from '@/localization/i18n'
+import { usePlatformLocale } from '@/localization/localeContext'
 import { PERMISSIONS } from '@/permissions'
 import { useAuthStore } from '@/stores/authStore'
 import { useDeviceStore } from '@/stores/deviceStore'
@@ -26,67 +28,59 @@ const TERMINAL_LABELS: Record<TerminalType, string> = { pc: 'PC', pda: 'PDA', mo
 const authStore = useAuthStore()
 const deviceStore = useDeviceStore()
 const runtimeConfig = loadRuntimeConfig()
+const locale = usePlatformLocale()
+const homeCopy = computed(() => localeMessages[locale.value].home)
 
 const displayName = computed(() => authStore.user?.displayName ?? '')
 const terminalLabel = computed(() => TERMINAL_LABELS[deviceStore.terminal] ?? deviceStore.terminal)
 const authModeLabel = computed(() =>
-  runtimeConfig.authMode === 'mock' ? 'Mock（演示模式）' : 'HTTP（真实服务）',
+  runtimeConfig.authMode === 'mock' ? homeCopy.value.mockMode : homeCopy.value.httpMode,
 )
 const serviceLabel = computed(() => {
-  if (runtimeConfig.authMode === 'mock') return '演示数据'
+  if (runtimeConfig.authMode === 'mock') return homeCopy.value.demoData
   try {
     return new URL(runtimeConfig.apiBaseUrl).port === '5041' ? 'UnifiedHost' : 'API Gateway'
   } catch {
-    return '统一 API'
+    return homeCopy.value.unifiedApi
   }
 })
 
 const quickActions = [
   {
-    label: '用户管理',
-    description: '管理用户账号与状态',
     route: 'identity-users',
     icon: User,
     permission: PERMISSIONS.userView,
   },
   {
-    label: '用户组管理',
-    description: '管理用户组与成员',
     route: 'identity-user-groups',
     icon: UserFilled,
     permission: PERMISSIONS.userGroupView,
   },
   {
-    label: '角色权限',
-    description: '角色分配与权限管理',
     route: 'identity-roles',
     icon: Avatar,
     permission: PERMISSIONS.roleView,
   },
   {
-    label: '权限目录',
-    description: '查看系统菜单与资源',
     route: 'identity-permissions',
     icon: FolderOpened,
     permission: PERMISSIONS.permissionView,
   },
   {
-    label: '登录审计',
-    description: '查看登录行为记录',
     route: 'identity-audits',
     icon: Tickets,
     permission: PERMISSIONS.auditLoginView,
   },
   {
-    label: '企业登录源',
-    description: '配置企业级登录源',
     route: 'sso-providers',
     icon: Lock,
     permission: PERMISSIONS.ssoView,
   },
 ] as const
 const visibleQuickActions = computed(() =>
-  quickActions.filter((action) => authStore.hasPermission(action.permission)),
+  quickActions
+    .filter((action) => authStore.hasPermission(action.permission))
+    .map((action) => ({ ...action, ...homeCopy.value.quickActions[action.route] })),
 )
 
 const audits = ref<LoginAuditItemDto[]>([])
@@ -95,7 +89,7 @@ const auditsUnavailable = ref(false)
 
 function formatOccurredOn(value: string): string {
   const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString('zh-CN', { hour12: false })
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString(locale.value, { hour12: false })
 }
 
 async function refreshHome(): Promise<void> {
@@ -124,7 +118,7 @@ onMounted(() => {
     <TimeGreetingHeader
       terminal="pc"
       :display-name="displayName"
-      description="快速访问常用管理功能并查看系统状态"
+      :description="homeCopy.description"
       :refresh-loading="auditsLoading"
       @refresh="refreshHome"
     />
@@ -133,8 +127,8 @@ onMounted(() => {
       <section class="pc-home__section" aria-labelledby="quick-start-title">
         <header class="pc-home__section-header">
           <div>
-            <h2 id="quick-start-title">快速开始</h2>
-            <p>仅展示当前账号有权访问的功能</p>
+            <h2 id="quick-start-title">{{ homeCopy.quickStart }}</h2>
+            <p>{{ homeCopy.quickStartDescription }}</p>
           </div>
         </header>
         <div v-if="visibleQuickActions.length > 0" class="pc-home__quick-grid">
@@ -149,43 +143,43 @@ onMounted(() => {
             ><span>{{ action.description }}</span>
           </RouterLink>
         </div>
-        <p v-else class="pc-home__empty">当前账号暂无其他管理入口。</p>
+        <p v-else class="pc-home__empty">{{ homeCopy.noQuickActions }}</p>
       </section>
 
       <section class="pc-home__section" aria-labelledby="environment-title">
         <header class="pc-home__section-header">
           <div>
-            <h2 id="environment-title">服务与环境</h2>
-            <p>当前系统服务及运行环境</p>
+            <h2 id="environment-title">{{ homeCopy.environment }}</h2>
+            <p>{{ homeCopy.environmentDescription }}</p>
           </div>
         </header>
         <dl class="pc-home__environment-list">
           <div>
             <ElIcon><Monitor /></ElIcon>
             <div>
-              <dt>当前终端</dt>
+              <dt>{{ homeCopy.currentTerminal }}</dt>
               <dd data-testid="terminal">{{ terminalLabel }}</dd>
             </div>
           </div>
           <div>
             <ElIcon><Lock /></ElIcon>
             <div>
-              <dt>认证模式</dt>
+              <dt>{{ homeCopy.authMode }}</dt>
               <dd data-testid="auth-mode">{{ authModeLabel }}</dd>
             </div>
           </div>
           <div>
             <ElIcon><Monitor /></ElIcon>
             <div>
-              <dt>数据宿主</dt>
-              <dd data-testid="data-source">{{ serviceLabel }} <em>已连接</em></dd>
+              <dt>{{ homeCopy.dataHost }}</dt>
+              <dd data-testid="data-source">{{ serviceLabel }} <em>{{ homeCopy.connected }}</em></dd>
             </div>
           </div>
           <div>
             <ElIcon><User /></ElIcon>
             <div>
-              <dt>登录状态</dt>
-              <dd>身份认证已完成</dd>
+              <dt>{{ homeCopy.loginStatus }}</dt>
+              <dd>{{ homeCopy.authenticated }}</dd>
             </div>
           </div>
         </dl>
@@ -195,34 +189,34 @@ onMounted(() => {
     <section class="pc-home__section pc-home__audits" aria-labelledby="audit-title">
       <header class="pc-home__section-header pc-home__section-header--row">
         <div>
-          <h2 id="audit-title">最近登录审计</h2>
-          <p>来自 Identity 服务的最新登录行为</p>
+          <h2 id="audit-title">{{ homeCopy.auditTitle }}</h2>
+          <p>{{ homeCopy.auditDescription }}</p>
         </div>
         <RouterLink
           v-if="authStore.hasPermission(PERMISSIONS.auditLoginView)"
           :to="{ name: 'identity-audits' }"
-          >查看全部</RouterLink
+          >{{ homeCopy.viewAll }}</RouterLink
         >
       </header>
       <ElTable v-if="audits.length > 0" v-loading="auditsLoading" :data="audits" size="small">
-        <ElTableColumn label="时间" min-width="170"
+        <ElTableColumn :label="homeCopy.time" min-width="170"
           ><template #default="{ row }">{{
             formatOccurredOn(row.occurredOn)
           }}</template></ElTableColumn
         >
-        <ElTableColumn prop="loginNameSnapshot" label="用户" min-width="140" />
-        <ElTableColumn label="结果" width="100"
+        <ElTableColumn prop="loginNameSnapshot" :label="homeCopy.user" min-width="140" />
+        <ElTableColumn :label="homeCopy.result" width="100"
           ><template #default="{ row }"
             ><ElTag :type="row.success ? 'success' : 'danger'" effect="plain" size="small">{{
-              row.success ? '成功' : '失败'
+              row.success ? homeCopy.success : homeCopy.failure
             }}</ElTag></template
           ></ElTableColumn
         >
-        <ElTableColumn prop="traceId" label="追踪标识" min-width="220" show-overflow-tooltip />
+        <ElTableColumn prop="traceId" :label="homeCopy.traceId" min-width="220" show-overflow-tooltip />
       </ElTable>
       <div v-else class="pc-home__audit-empty" v-loading="auditsLoading">
         {{
-          auditsUnavailable ? '暂时无法读取登录审计，请稍后重试。' : '暂无可展示的登录审计记录。'
+          auditsUnavailable ? homeCopy.auditUnavailable : homeCopy.auditEmpty
         }}
       </div>
     </section>

@@ -71,14 +71,14 @@ test('顶栏背景跟随配色,明暗与刷新不覆盖既有渐变', async ({ p
   await login(page)
   await openTheme(page)
   await setTheme(page, 'palette', 'industrial-cyan')
-  const cyanBackground = await page.locator('header.ip-topbar').evaluate((el) =>
-    getComputedStyle(el).backgroundImage,
-  )
+  const cyanBackground = await page
+    .locator('header.ip-topbar')
+    .evaluate((el) => getComputedStyle(el).backgroundImage)
 
   await setTheme(page, 'palette', 'technology-blue')
-  const blueBackground = await page.locator('header.ip-topbar').evaluate((el) =>
-    getComputedStyle(el).backgroundImage,
-  )
+  const blueBackground = await page
+    .locator('header.ip-topbar')
+    .evaluate((el) => getComputedStyle(el).backgroundImage)
   expect(cyanBackground).toContain('linear-gradient')
   expect(blueBackground).toContain('linear-gradient')
   expect(blueBackground).not.toBe(cyanBackground)
@@ -207,7 +207,7 @@ test('200% 缩放:核心操作仍可用,内容不永久遮挡', async ({ page })
   await expect(page.locator('.theme-control__panel')).not.toBeVisible()
 
   // 内容区关键标题可滚动到视图,无不可恢复遮挡
-  const heading = page.getByRole('heading', { name: '业务指标将在后续阶段接入' })
+  const heading = page.getByRole('heading', { level: 1 })
   await heading.scrollIntoViewIfNeeded()
   await expect(heading).toBeVisible()
 })

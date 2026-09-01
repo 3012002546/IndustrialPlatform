@@ -246,6 +246,62 @@ export interface PlatformLocaleMessages {
     launcherState: { available: string; comingSoon: string }
     launchers: Record<string, string>
   }
+  home: {
+    greeting: {
+      overnight: string
+      dawn: string
+      morning: string
+      midday: string
+      afternoon: string
+      evening: string
+      lateNight: string
+    }
+    description: string
+    quickStart: string
+    quickStartDescription: string
+    noQuickActions: string
+    quickActions: Record<string, { label: string; description: string }>
+    environment: string
+    environmentDescription: string
+    currentTerminal: string
+    authMode: string
+    dataHost: string
+    connected: string
+    loginStatus: string
+    authenticated: string
+    auditTitle: string
+    auditDescription: string
+    viewAll: string
+    time: string
+    user: string
+    result: string
+    traceId: string
+    success: string
+    failure: string
+    auditUnavailable: string
+    auditEmpty: string
+    mockMode: string
+    httpMode: string
+    demoData: string
+    unifiedApi: string
+  }
+  changePassword: {
+    title: string
+    subtitle: string
+    currentPassword: string
+    newPassword: string
+    confirmPassword: string
+    showCurrentPassword: string
+    hideCurrentPassword: string
+    showNewPassword: string
+    hideNewPassword: string
+    currentPasswordRequired: string
+    passwordPolicy: string
+    passwordsMismatch: string
+    submitting: string
+    submit: string
+    logout: string
+  }
   identity: {
     user: {
       title: string

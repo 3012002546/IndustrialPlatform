@@ -31,7 +31,7 @@ test('未登录访问受保护路径 → 登录并携带安全 redirect,登录�
   await fillLogin(page)
   await page.getByRole('button', { name: '登录' }).click()
   await expect(page).toHaveURL(/\/pc\/home/)
-  await expect(page.getByText('业务指标将在后续阶段接入')).toBeVisible()
+  await expect(page.getByRole('heading', { name: '快速开始' })).toBeVisible()
 })
 
 test('空提交显示必填错误', async ({ page }) => {
@@ -77,7 +77,7 @@ test('登录后刷新保持会话', async ({ page }) => {
   await login(page)
   await page.reload()
   await expect(page).toHaveURL(/\/pc\/home/)
-  await expect(page.getByText('业务指标将在后续阶段接入')).toBeVisible()
+  await expect(page.getByRole('heading', { name: '快速开始' })).toBeVisible()
 })
 
 test('退出登录回到登录页', async ({ page }) => {
@@ -114,7 +114,7 @@ test('不安全的 redirect(协议相对)被拒绝,登录后落到站内', async
 test('PC 首页在两个目标视口渲染并保存截图', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 })
   await login(page)
-  await expect(page.getByText('业务指标将在后续阶段接入')).toBeVisible()
+  await expect(page.getByRole('heading', { name: '快速开始' })).toBeVisible()
   await page.screenshot({ path: 'tests/e2e/screenshots/pc-home-1280x720.png', fullPage: true })
 
   await page.setViewportSize({ width: 1440, height: 900 })

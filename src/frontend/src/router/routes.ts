@@ -104,7 +104,12 @@ export const routes: RouteRecordRaw[] = [
     path: '/change-password',
     name: ROUTE_NAMES.changePassword,
     component: ChangePasswordPage,
-    meta: { title: '修改密码', requiresAuth: true },
+    meta: {
+      title: '修改密码',
+      titleKey: 'changePassword.title',
+      fallbackTitle: '修改密码',
+      requiresAuth: true,
+    },
   },
   {
     path: '/sso',

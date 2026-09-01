@@ -27,8 +27,8 @@ async function login(page: Page): Promise<void> {
 
 /** 每终端首页的关键内容锚点(heading),用于断言无关键遮挡/裁切。 */
 const VIEWPORTS = [
-  { name: 'pc', size: [1280, 720], path: '/pc/home', heading: '业务指标将在后续阶段接入' },
-  { name: 'pc', size: [1440, 900], path: '/pc/home', heading: '业务指标将在后续阶段接入' },
+  { name: 'pc', size: [1280, 720], path: '/pc/home', heading: '快速开始' },
+  { name: 'pc', size: [1440, 900], path: '/pc/home', heading: '快速开始' },
   { name: 'pda', size: [480, 800], path: '/pda/home', heading: '现场任务将在业务阶段接入' },
   { name: 'pda', size: [800, 480], path: '/pda/home', heading: '现场任务将在业务阶段接入' },
   { name: 'mobile', size: [360, 800], path: '/mobile/home', heading: '业务功能将在后续阶段接入' },

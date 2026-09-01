@@ -3,6 +3,9 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { Refresh } from '@element-plus/icons-vue'
 import { ElButton } from 'element-plus'
 
+import { localeMessages } from '@/localization/i18n'
+import { usePlatformLocale } from '@/localization/localeContext'
+
 type Terminal = 'pc' | 'pda' | 'mobile'
 type DayPeriod =
   'overnight' | 'dawn' | 'morning' | 'midday' | 'afternoon' | 'evening' | 'late-night'
@@ -18,6 +21,8 @@ const props = withDefaults(
 )
 
 const emit = defineEmits<{ refresh: [] }>()
+const locale = usePlatformLocale()
+const homeCopy = computed(() => localeMessages[locale.value].home)
 
 const now = ref(new Date())
 let clockTimer: ReturnType<typeof setInterval> | undefined
@@ -34,17 +39,15 @@ const dayPeriod = computed<DayPeriod>(() => {
 })
 
 const greeting = computed(() => {
-  const greetings: Record<DayPeriod, string> = {
-    overnight: '凌晨好',
-    dawn: '清晨好',
-    morning: '上午好',
-    midday: '中午好',
-    afternoon: '下午好',
-    evening: '晚上好',
-    'late-night': '夜深了',
-  }
-  return greetings[dayPeriod.value]
+  const key = dayPeriod.value === 'late-night' ? 'lateNight' : dayPeriod.value
+  return homeCopy.value.greeting[key]
 })
+
+const welcomeLabel = computed(() =>
+  locale.value === 'en-US'
+    ? `${greeting.value}, ${props.displayName}`
+    : `${greeting.value}，${props.displayName}`,
+)
 
 const periodStyle = computed<Record<string, string>>(() => {
   const palettes: Record<DayPeriod, [string, string]> = {
@@ -67,7 +70,7 @@ const periodStyle = computed<Record<string, string>>(() => {
 })
 
 const dateLabel = computed(() =>
-  now.value.toLocaleDateString('zh-CN', {
+  now.value.toLocaleDateString(locale.value, {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -110,7 +113,7 @@ onUnmounted(() => {
   >
     <div class="time-greeting-header__greeting">
       <h1 data-testid="time-greeting">
-        <span data-testid="welcome">{{ greeting }}，{{ props.displayName }}</span>
+        <span data-testid="welcome">{{ welcomeLabel }}</span>
       </h1>
       <p class="time-greeting-header__date" data-testid="welcome-description">
         <span data-testid="time-date">{{ dateLabel }}</span> · {{ props.description }}
@@ -128,7 +131,7 @@ onUnmounted(() => {
         data-testid="refresh-home"
         @click="refresh"
       >
-        刷新
+        {{ localeMessages[locale].common.action.refresh }}
       </ElButton>
     </div>
   </header>

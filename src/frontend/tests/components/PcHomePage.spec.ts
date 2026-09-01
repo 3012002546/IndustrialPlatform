@@ -11,12 +11,17 @@ import { persistAuthSession } from '../fixtures/session'
 import PcHomePage from '@/pages/pc/PcHomePage.vue'
 import { PERMISSIONS } from '@/permissions'
 import { useAuthStore } from '@/stores/authStore'
+import { useLocalizationStore } from '@/stores/localizationStore'
 
-async function mountHome(permissions: string[] = ['platform.home.view']): Promise<VueWrapper> {
+async function mountHome(
+  permissions: string[] = ['platform.home.view'],
+  locale: 'zh-CN' | 'en-US' = 'zh-CN',
+): Promise<VueWrapper> {
   const pinia = createPinia()
   setActivePinia(pinia)
   persistAuthSession(permissions)
   await useAuthStore().restore()
+  useLocalizationStore().setLocale(locale, null)
   return mount(PcHomePage, {
     global: {
       plugins: [pinia],
@@ -119,5 +124,24 @@ describe('PcHomePage', () => {
   it('页面主标题展示当前时段问候', async () => {
     const wrapper = await mountHome()
     expect(wrapper.get('h1').text()).toMatch(/凌晨好|清晨好|上午好|中午好|下午好|晚上好|夜深了/)
+  })
+
+  it('英文 locale 即时翻译首页问候、区块、审计与操作文案', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 7, 19, 9, 13, 3))
+
+    const wrapper = await mountHome(['platform.home.view'], 'en-US')
+
+    expect(wrapper.get('[data-testid="time-greeting"]').text()).toContain('Good morning')
+    expect(wrapper.get('[data-testid="welcome-description"]').text()).toContain(
+      'Access common management functions and view system status',
+    )
+    expect(wrapper.get('#quick-start-title').text()).toBe('Quick start')
+    expect(wrapper.get('#environment-title').text()).toBe('Services & environment')
+    expect(wrapper.get('#audit-title').text()).toBe('Recent login audit')
+    expect(wrapper.get('[data-testid="refresh-home"]').text()).toContain('Refresh')
+    expect(wrapper.text()).not.toContain('快速开始')
+    expect(wrapper.text()).not.toContain('服务与环境')
+    expect(wrapper.text()).not.toContain('最近登录审计')
   })
 })

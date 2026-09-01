@@ -38,7 +38,7 @@ test('登录→三端→我的→退出全程无 console error / page error / �
   // 完整关键路径:登录 → PC → UI 基线(DEV 页 + 主题切换)→ PDA → Mobile → 我的 → 退出
   await login(page)
   await page.goto('/pc/home')
-  await expect(page.getByRole('heading', { name: '业务指标将在后续阶段接入' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
 
   // DEV-only 视觉基线页:渲染全部通用组件后不应产生 console/page error
   await page.goto('/pc/ui-baseline')

@@ -58,7 +58,7 @@ for (const palette of PALETTES) {
         await login(page)
         await page.setViewportSize({ width: 1280, height: 720 })
         await page.goto('/pc/home')
-        await expect(page.getByRole('heading', { name: '业务指标将在后续阶段接入' })).toBeVisible()
+        await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
         await applyTheme(page, palette, mode, density)
         await expect(page.locator('html')).toHaveAttribute('data-ip-density', density)
         await expect(page).toHaveScreenshot(`pc-home-${palette}-${mode}-${density}-1280x720.png`, {

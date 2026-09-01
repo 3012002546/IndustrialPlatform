@@ -8,6 +8,8 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { ApiError, DEFAULT_ERROR_MESSAGES } from '@/api/errors'
+import { localeMessages } from '@/localization/i18n'
+import { usePlatformLocale } from '@/localization/localeContext'
 import { ROUTE_NAMES } from '@/router/routes'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -17,6 +19,8 @@ const CONFIRM_PASSWORD_ID = 'ip-change-confirm-password'
 
 const authStore = useAuthStore()
 const router = useRouter()
+const locale = usePlatformLocale()
+const copy = computed(() => localeMessages[locale.value].changePassword)
 
 const currentPassword = ref('')
 const newPassword = ref('')
@@ -52,9 +56,7 @@ function meetsPolicy(password: string): boolean {
   )
 }
 
-const policyHint = computed(() =>
-  newPasswordError.value ? '密码至少 12 位,须包含大小写字母、数字与特殊字符' : '',
-)
+const policyHint = computed(() => (newPasswordError.value ? copy.value.passwordPolicy : ''))
 
 function toErrorMessage(errorValue: unknown): string {
   if (errorValue instanceof ApiError) return errorValue.message
@@ -92,15 +94,17 @@ async function onLogout(): Promise<void> {
   <main class="change-password-page">
     <section class="change-password-card" aria-labelledby="change-password-title">
       <header class="change-password-card__header">
-        <h1 id="change-password-title" class="change-password-card__title">修改密码</h1>
+        <h1 id="change-password-title" class="change-password-card__title">{{ copy.title }}</h1>
         <p class="change-password-card__subtitle">
-          首次登录或管理员重置密码后必须修改密码;修改成功后需重新登录。
+          {{ copy.subtitle }}
         </p>
       </header>
 
       <form class="change-password-card__form" novalidate @submit.prevent="onSubmit">
         <div class="change-password-card__field">
-          <label class="change-password-card__label" :for="CURRENT_PASSWORD_ID">当前密码</label>
+          <label class="change-password-card__label" :for="CURRENT_PASSWORD_ID">{{
+            copy.currentPassword
+          }}</label>
           <div class="change-password-card__password">
             <input
               :id="CURRENT_PASSWORD_ID"
@@ -116,7 +120,9 @@ async function onLogout(): Promise<void> {
               type="button"
               class="change-password-card__toggle"
               :aria-pressed="currentPasswordVisible"
-              aria-label="显示当前密码"
+              :aria-label="
+                currentPasswordVisible ? copy.hideCurrentPassword : copy.showCurrentPassword
+              "
               data-testid="change-current-toggle"
               @click="currentPasswordVisible = !currentPasswordVisible"
             >
@@ -134,12 +140,14 @@ async function onLogout(): Promise<void> {
             </button>
           </div>
           <p v-if="currentPasswordError" class="change-password-card__error" role="alert">
-            请输入当前密码
+            {{ copy.currentPasswordRequired }}
           </p>
         </div>
 
         <div class="change-password-card__field">
-          <label class="change-password-card__label" :for="NEW_PASSWORD_ID">新密码</label>
+          <label class="change-password-card__label" :for="NEW_PASSWORD_ID">{{
+            copy.newPassword
+          }}</label>
           <div class="change-password-card__password">
             <input
               :id="NEW_PASSWORD_ID"
@@ -156,7 +164,7 @@ async function onLogout(): Promise<void> {
               type="button"
               class="change-password-card__toggle"
               :aria-pressed="newPasswordVisible"
-              aria-label="显示新密码"
+              :aria-label="newPasswordVisible ? copy.hideNewPassword : copy.showNewPassword"
               data-testid="change-new-toggle"
               @click="newPasswordVisible = !newPasswordVisible"
             >
@@ -184,7 +192,9 @@ async function onLogout(): Promise<void> {
         </div>
 
         <div class="change-password-card__field">
-          <label class="change-password-card__label" :for="CONFIRM_PASSWORD_ID">确认新密码</label>
+          <label class="change-password-card__label" :for="CONFIRM_PASSWORD_ID">{{
+            copy.confirmPassword
+          }}</label>
           <input
             :id="CONFIRM_PASSWORD_ID"
             v-model="confirmPassword"
@@ -196,11 +206,15 @@ async function onLogout(): Promise<void> {
             @blur="confirmPasswordTouched = true"
           />
           <p v-if="confirmPasswordError" class="change-password-card__error" role="alert">
-            两次输入的新密码不一致
+            {{ copy.passwordsMismatch }}
           </p>
         </div>
 
-        <p v-if="error" class="change-password-card__error change-password-card__error--submit" role="alert">
+        <p
+          v-if="error"
+          class="change-password-card__error change-password-card__error--submit"
+          role="alert"
+        >
           {{ error }}
         </p>
 
@@ -211,7 +225,7 @@ async function onLogout(): Promise<void> {
             data-testid="change-submit"
             :disabled="submitting"
           >
-            {{ submitting ? '提交中…' : '修改密码' }}
+            {{ submitting ? copy.submitting : copy.submit }}
           </button>
           <button
             type="button"
@@ -219,7 +233,7 @@ async function onLogout(): Promise<void> {
             data-testid="change-logout"
             @click="onLogout"
           >
-            退出登录
+            {{ copy.logout }}
           </button>
         </div>
       </form>
