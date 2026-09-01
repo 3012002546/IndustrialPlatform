@@ -1216,6 +1216,37 @@ function syncVxeDuplicateAccessibility(): void {
   markVxeDuplicateColumnsDecorative(root)
 }
 
+function hasRenderedHeaderColumns(root: HTMLElement): boolean {
+  return findVxeHeaderTables(root).some((headerTable) => {
+    const headerRow = findVxeHeaderRow(headerTable)
+    return headerRow !== null && headerRow.children.length > 0
+  })
+}
+
+async function syncVxeDomAfterRender(): Promise<void> {
+  await nextTick()
+  const table = tableRef.value as
+    | (VxeTableInstance<T> & {
+        refreshColumn?: (initSort?: boolean) => Promise<unknown> | unknown
+      })
+    | null
+  const root = (table as unknown as { $el?: HTMLElement } | null)?.$el
+  if (root === undefined) return
+
+  // VXE registers child columns asynchronously. Ask its supported lifecycle
+  // method to finish that work instead of racing it with a wall-clock timer.
+  if (activeQueryMode.value === 'header' && !hasRenderedHeaderColumns(root)) {
+    await table?.refreshColumn?.()
+    await nextTick()
+  }
+
+  syncNativeHeaderFilterRows()
+  syncVxeDuplicateAccessibility()
+  syncNativeCustomPanel()
+  syncActionColumnWidth()
+  observeActionColumn()
+}
+
 function syncNativeHeaderFilterRows(force = false): void {
   const root = (tableRef.value as unknown as { $el?: HTMLElement } | null)?.$el
   if (root === undefined) return
@@ -1551,20 +1582,7 @@ onMounted(() => {
   const table = tableRef.value
   const toolbar = toolbarRef.value
   if (table && toolbar) void table.connectToolbar(toolbar)
-  void nextTick(() => {
-    syncNativeHeaderFilterRows()
-    syncVxeDuplicateAccessibility()
-    syncNativeCustomPanel()
-    syncActionColumnWidth()
-    observeActionColumn()
-  })
-  window.setTimeout(() => {
-    syncNativeHeaderFilterRows()
-    syncVxeDuplicateAccessibility()
-    syncNativeCustomPanel()
-    syncActionColumnWidth()
-    observeActionColumn()
-  }, 0)
+  void syncVxeDomAfterRender()
   const tableRoot = (table as unknown as { $el?: HTMLElement } | null)?.$el
   if (tableRoot !== undefined && typeof MutationObserver !== 'undefined') {
     headerObserver = new MutationObserver(() => {
@@ -1583,20 +1601,7 @@ onMounted(() => {
 })
 
 onUpdated(() => {
-  void nextTick(() => {
-    syncNativeHeaderFilterRows()
-    syncVxeDuplicateAccessibility()
-    syncNativeCustomPanel()
-    syncActionColumnWidth()
-    observeActionColumn()
-  })
-  window.setTimeout(() => {
-    syncNativeHeaderFilterRows()
-    syncVxeDuplicateAccessibility()
-    syncNativeCustomPanel()
-    syncActionColumnWidth()
-    observeActionColumn()
-  }, 0)
+  void syncVxeDomAfterRender()
 })
 
 onBeforeUnmount(() => {

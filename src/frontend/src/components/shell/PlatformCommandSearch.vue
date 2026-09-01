@@ -156,6 +156,7 @@ onBeforeUnmount(() => {
   padding: 0 58px 0 var(--ip-space-3);
   color: var(--ip-shell-topbar-text);
   font: inherit;
+  font-size: 12px;
   background: rgb(255 255 255 / 0.12);
   border: 1px solid rgb(255 255 255 / 0.3);
   border-radius: var(--ip-radius-md);

@@ -13,7 +13,7 @@ describe('PlatformCommandSearch', () => {
     )
     expect(source).toMatch(/\.ip-command-search\s*\{[\s\S]*?min-width:\s*0;/)
     expect(source).toMatch(
-      /\.ip-command-search input\s*\{[\s\S]*?color:\s*var\(--ip-shell-topbar-text\);[\s\S]*?font:\s*inherit;/,
+      /\.ip-command-search input\s*\{[\s\S]*?color:\s*var\(--ip-shell-topbar-text\);[\s\S]*?font-size:\s*12px;/,
     )
     expect(source).toMatch(
       /\.ip-command-search input::placeholder\s*\{[\s\S]*?color:\s*var\(--ip-shell-topbar-text-secondary\);[\s\S]*?opacity:\s*1;/,

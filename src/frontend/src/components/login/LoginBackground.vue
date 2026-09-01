@@ -221,18 +221,11 @@ onBeforeUnmount(() => {
   inset: 0;
   overflow: hidden;
   pointer-events: none;
-  background:
-    radial-gradient(
-      circle at 12% 82%,
-      color-mix(in srgb, var(--ip-color-primary) 16%, transparent),
-      transparent 34%
-    ),
-    radial-gradient(
-      circle at 88% 14%,
-      color-mix(in srgb, var(--ip-color-primary) 10%, transparent),
-      transparent 30%
-    ),
-    var(--ip-color-bg-page);
+  background-color: var(--ip-color-bg-page);
+  background-image: url('/brand/login-background.png');
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
 .login-background__grid {

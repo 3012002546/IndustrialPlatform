@@ -61,6 +61,10 @@ function getSystemMedia(): MediaQueryList | null {
   return window.matchMedia ? window.matchMedia(query) : null
 }
 
+function sameUserScope(a: UserUiScope, b: UserUiScope): boolean {
+  return a.tenantId === b.tenantId && a.userId === b.userId
+}
+
 export const useThemeStore = defineStore('theme', () => {
   /** 当前生效偏好(含用户作用域合并结果)。 */
   const preferences = ref<UiPreferencesV1>({ ...DEFAULT_UI_PREFERENCES })
@@ -76,6 +80,7 @@ export const useThemeStore = defineStore('theme', () => {
   let systemListener: (() => void) | null = null
   let initializePromise: Promise<void> | null = null
   let bindPromise: Promise<void> | null = null
+  let boundScope: UserUiScope | null = null
 
   function systemPrefersDark(): boolean {
     return getSystemMedia()?.matches ?? false
@@ -157,6 +162,7 @@ export const useThemeStore = defineStore('theme', () => {
    * 同一 scope 幂等;旧侧栏键仅在用户无新快照时迁移一次。
    */
   async function bindUser(nextScope: UserUiScope): Promise<void> {
+    if (boundScope !== null && sameUserScope(boundScope, nextScope) && ready.value) return
     if (bindPromise !== null) return bindPromise
     bindPromise = (async () => {
       const storage = defaultStorage()
@@ -196,6 +202,7 @@ export const useThemeStore = defineStore('theme', () => {
       applyToDom()
       persistBootstrap()
       ready.value = true
+      boundScope = nextScope
     })()
     try {
       await bindPromise

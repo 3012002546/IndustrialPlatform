@@ -239,6 +239,8 @@ describe('ThemeStore — 用户绑定与持久化', () => {
     await store.initialize()
     await store.bindUser(SCOPE)
     await store.bindUser(SCOPE)
+    expect(source.load).toHaveBeenCalledTimes(1)
+    await store.bindUser({ tenantId: 't2', userId: 'u2' })
     expect(source.load).toHaveBeenCalledTimes(2)
     expect(store.preferences.palette).toBe('neutral-gray')
     expect(store.preferences.mode).toBe('light')

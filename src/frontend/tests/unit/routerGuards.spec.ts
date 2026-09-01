@@ -14,6 +14,7 @@ import { PERMISSIONS } from '@/permissions'
 import { installRouterGuards, setDocumentTitle } from '@/router/guards'
 import { routes } from '@/router/routes'
 import { useAuthStore } from '@/stores/authStore'
+import { setTenantUiDefaultsSource } from '@/stores/themeStore'
 import { useWorkspaceTabsStore } from '@/stores/workspaceTabsStore'
 import { createFixedWorkbench, MAX_BUSINESS_TABS } from '@/workspace/identity'
 import { writeTabsSnapshot } from '@/workspace/persistence'
@@ -362,6 +363,7 @@ describe('路由守卫 — 主题绑定(PF-01 §7.4)', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+    setTenantUiDefaultsSource({ load: async () => ({}) })
   })
 
   it('已登录导航后绑定用户作用域并应用根节点外观', async () => {
@@ -375,6 +377,33 @@ describe('路由守卫 — 主题绑定(PF-01 §7.4)', () => {
     // 用户偏好快照写入(作用域 u1/t1)
     expect(localStorage.getItem('industrial-platform.ui.preferences.v1:t1:u1')).not.toBeNull()
     expect(localStorage.getItem('industrial-platform.ui.bootstrap.v1')).not.toBeNull()
+  })
+
+  it('同一用户的管理页切换在热路径不重复加载租户运行时', async () => {
+    stubViewport(1280)
+    const source = { load: vi.fn(async () => ({})) }
+    setTenantUiDefaultsSource(source)
+    await login([
+      PERMISSIONS.platformHomeView,
+      PERMISSIONS.platformOperationView,
+      PERMISSIONS.userView,
+      PERMISSIONS.userGroupView,
+    ])
+    const router = buildRouter()
+    await router.push('/pc/identity/users')
+
+    const usersToGroupsStart = performance.now()
+    await router.push('/pc/identity/user-groups')
+    const usersToGroupsMs = performance.now() - usersToGroupsStart
+
+    const managementToOperationStart = performance.now()
+    await router.push('/pc/operation')
+    const managementToOperationMs = performance.now() - managementToOperationStart
+
+    expect(router.currentRoute.value.name).toBe('pc-operation')
+    expect(source.load).toHaveBeenCalledTimes(1)
+    expect(usersToGroupsMs).toBeLessThan(500)
+    expect(managementToOperationMs).toBeLessThan(500)
   })
 
   it('未登录访问公共路由也完成设备级主题初始化', async () => {

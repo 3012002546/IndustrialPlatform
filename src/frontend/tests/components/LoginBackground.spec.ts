@@ -1,5 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 import LoginBackground from '@/components/login/LoginBackground.vue'
 
@@ -89,6 +91,17 @@ describe('LoginBackground', () => {
     expect(requestAnimationFrame).toHaveBeenCalled()
 
     wrapper.unmount()
+  })
+
+  it('uses the supplied full-screen factory image as the background asset', () => {
+    const source = readFileSync(
+      resolve(process.cwd(), 'src/components/login/LoginBackground.vue'),
+      'utf8',
+    )
+
+    expect(source).toContain("url('/brand/login-background.png')")
+    expect(source).toMatch(/background-size:\s*cover/)
+    expect(source).not.toContain('industrial-platform-dynamic-login-preview.gif')
   })
 
   it('does not animate while reduced-motion or page-hidden, then resumes on visibility', () => {
