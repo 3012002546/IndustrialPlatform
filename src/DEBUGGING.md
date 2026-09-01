@@ -509,7 +509,7 @@ pnpm exec playwright test tests/e2e/login.spec.ts --debug
 pnpm exec playwright test --ui                         # 交互式 UI 模式
 ```
 
-- 两套配置:`playwright.config.ts`(mock 模式)与 `playwright.real.config.ts`(http 真实登录,`workers:1` 串行)。跑真实登录 E2E 前需后端 Gateway+Identity 已启动。
+- 两套配置:`playwright.config.ts`(mock 模式)与 `playwright.real.config.ts`(http 真实登录,`workers:1` 串行)。跑真实登录 E2E 前默认需 UnifiedHost `:5041` 已启动；独立服务模式通过 `PF03_REAL_API_BASE_URL=http://localhost:5080` 显式改用 Gateway。
 
 ### 4.7 前端常见问题
 

@@ -16,6 +16,7 @@ import { getAuthGateway } from '@/auth/gateway'
 import type { BootstrapStatus } from '@/auth/types'
 import MockModeBanner from '@/components/base/MockModeBanner.vue'
 import PlatformBrand from '@/components/brand/PlatformBrand.vue'
+import LoginBackground from '@/components/login/LoginBackground.vue'
 import LocaleControl from '@/components/localization/LocaleControl.vue'
 import { ApiError } from '@/api/errors'
 import { loadRuntimeConfig } from '@/config/runtimeConfig'
@@ -134,6 +135,7 @@ async function onSubmit(): Promise<void> {
 
 <template>
   <main class="login-page" @click="closeLoginMethodMenu()">
+    <LoginBackground />
     <section
       class="login-card"
       :class="{ 'login-card--methods-open': loginMethodMenuOpen }"
@@ -364,6 +366,7 @@ async function onSubmit(): Promise<void> {
 
 <style scoped>
 .login-page {
+  position: relative;
   box-sizing: border-box;
   display: grid;
   width: 100%;
@@ -377,6 +380,7 @@ async function onSubmit(): Promise<void> {
 
 .login-card {
   position: relative;
+  z-index: 1;
   display: flex;
   align-items: stretch;
   width: min(100%, var(--login-form-width));

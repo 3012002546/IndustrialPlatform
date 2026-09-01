@@ -70,6 +70,9 @@ describe('LoginPage', () => {
 
   it('渲染用户名/密码输入、标签与提交按钮,并展示 Mock 横幅与演示账号提示', async () => {
     const { wrapper } = await mountLogin()
+    const background = wrapper.get('[data-testid="login-background"]')
+    expect(background.attributes('aria-hidden')).toBe('true')
+    expect(background.find('canvas').exists()).toBe(true)
     expect(wrapper.get('label[for="ip-login-username"]').text()).toBe('用户名')
     expect(wrapper.get('label[for="ip-login-password"]').text()).toBe('密码')
     expect(wrapper.get('[data-testid="login-username"]').attributes('autocomplete')).toBe(
