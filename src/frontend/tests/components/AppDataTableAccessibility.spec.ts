@@ -34,6 +34,51 @@ describe('AppDataTable accessibility semantics', () => {
     expect(filters[0]?.element.closest('.vxe-table--main-wrapper')).not.toBeNull()
   })
 
+  it('clears the visible native header filter together with the descriptor and page', async () => {
+    const loader = vi.fn(async () => ({
+      items: [{ id: '1', loginName: 'e2e.limited' }],
+      total: 1,
+      pageIndex: 1,
+      pageSize: 20,
+    }))
+    const wrapper = mount(AppDataTable, {
+      props: {
+        tableKey: 'clear-header-filter',
+        routeKey: 'clear-header-filter',
+        userKey: 'operator',
+        rows: [],
+        total: 0,
+        columns: [{ field: 'loginName', title: '登录名', filter: { kind: 'text' as const } }],
+        loader,
+      },
+    })
+
+    await wrapper.get('[data-testid="app-data-table-query-toggle"]').trigger('click')
+    await flushPromises()
+    const input = wrapper.get<HTMLInputElement>(
+      '[data-testid="app-data-table-header-filter-loginName"]',
+    )
+    await input.setValue('e2e.limited')
+    await input.trigger('keyup.enter')
+    await flushPromises()
+    expect(input.element.value).toBe('e2e.limited')
+
+    await wrapper.get('[data-testid="app-data-table-clear"]').trigger('click')
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    expect(
+      wrapper.get<HTMLInputElement>('[data-testid="app-data-table-header-filter-loginName"]').element
+        .value,
+    ).toBe('')
+    expect((wrapper.vm as unknown as { headerFilters: Record<string, unknown> }).headerFilters).toEqual(
+      {},
+    )
+    expect(loader).toHaveBeenLastCalledWith(
+      expect.objectContaining({ queryMode: 'header', filters: {}, pageIndex: 1 }),
+    )
+  })
+
   it('marks a duplicate VXE subtree as hidden and unfocusable while keeping its markup', () => {
     const duplicate = document.createElement('div')
     duplicate.innerHTML = '<span>e2e.admin</span><button>详情</button><input />'

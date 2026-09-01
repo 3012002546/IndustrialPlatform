@@ -25,6 +25,8 @@ public sealed class AuthorizationEvaluationEndpointTests
             {
                 services.RemoveAll<IPermissionEvaluator>();
                 services.AddSingleton<IPermissionEvaluator>(evaluator);
+                services.RemoveAll<ISessionRevocationStore>();
+                services.AddSingleton<ISessionRevocationStore>(new AllowAllRevocationStore());
             }));
         using var client = factory.CreateClient();
         var token = factory.Services.GetRequiredService<IAccessTokenFactory>().Create(new AccessTokenDescriptor(
@@ -70,5 +72,14 @@ public sealed class AuthorizationEvaluationEndpointTests
             PermissionNId = requiredPermissionNId;
             return Task.FromResult(Result);
         }
+    }
+
+    private sealed class AllowAllRevocationStore : ISessionRevocationStore
+    {
+        public Task RevokeAsync(string sessionNId, TimeSpan ttl, CancellationToken cancellationToken)
+            => Task.CompletedTask;
+
+        public Task<bool> IsRevokedAsync(string sessionNId, CancellationToken cancellationToken)
+            => Task.FromResult(false);
     }
 }

@@ -763,6 +763,9 @@ function clearConditions(): void {
   headerFilters.value = {}
   quickSearch.value = ''
   currentPage.value = 1
+  // Header filters are native controls appended outside Vue's render tree. Rebuild the
+  // active row after clearing so the visible control and the descriptor cannot diverge.
+  void nextTick(() => syncNativeHeaderFilterRows(true))
   void reload()
 }
 
@@ -1213,11 +1216,12 @@ function syncVxeDuplicateAccessibility(): void {
   markVxeDuplicateColumnsDecorative(root)
 }
 
-function syncNativeHeaderFilterRows(): void {
+function syncNativeHeaderFilterRows(force = false): void {
   const root = (tableRef.value as unknown as { $el?: HTMLElement } | null)?.$el
   if (root === undefined) return
   const tables = findVxeHeaderTables(root)
   if (
+    !force &&
     activeQueryMode.value === 'header' &&
     tables.length > 0 &&
     tables.every((headerTable) => {
@@ -1530,6 +1534,7 @@ function clearUiCacheState(event: Event): void {
   void table?.clearSort?.()
   void table?.resetCustom?.()
   void nextTick(() => {
+    syncNativeHeaderFilterRows(true)
     void table?.recalculate?.(true)
     syncNativeCustomPanel()
     syncActionColumnWidth()
