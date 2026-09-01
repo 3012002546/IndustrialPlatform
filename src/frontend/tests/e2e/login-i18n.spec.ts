@@ -102,3 +102,31 @@ for (const viewport of VIEWPORTS) {
     })
   }
 }
+
+test('390×844 登录卡在中文与英文下保持视口中心', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/login')
+  await expect(page.locator('.login-card')).toBeVisible()
+
+  const assertCentered = async (): Promise<void> => {
+    const geometry = await page.locator('.login-card').evaluate((element) => {
+      const rect = element.getBoundingClientRect()
+      return {
+        centerX: rect.left + rect.width / 2,
+        centerY: rect.top + rect.height / 2,
+        viewportCenterX: window.innerWidth / 2,
+        viewportCenterY: window.innerHeight / 2,
+      }
+    })
+    expect(Math.abs(geometry.centerX - geometry.viewportCenterX)).toBeLessThanOrEqual(2)
+    expect(Math.abs(geometry.centerY - geometry.viewportCenterY)).toBeLessThanOrEqual(2)
+  }
+
+  await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN')
+  await assertCentered()
+
+  await page.locator('.ip-locale-control').click()
+  await page.getByRole('option', { name: 'English' }).click()
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en-US')
+  await assertCentered()
+})

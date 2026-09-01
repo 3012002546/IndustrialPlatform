@@ -811,7 +811,7 @@ async function onSubmit(): Promise<void> {
 
 @media (max-width: 520px) {
   .login-page {
-    align-items: start;
+    align-items: safe center;
     height: auto;
     min-height: 100vh;
     padding: var(--ip-space-4);
