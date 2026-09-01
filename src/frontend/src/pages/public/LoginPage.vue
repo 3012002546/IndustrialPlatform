@@ -430,6 +430,14 @@ async function onSubmit(): Promise<void> {
   background: var(--ip-color-bg-muted);
 }
 
+:global([data-ip-color-mode='dark'] .login-card__header-row .ip-brand__image) {
+  filter: brightness(0) invert(1);
+}
+
+:global([data-ip-color-mode='dark'] .login-card__locale .ip-locale-control) {
+  color: var(--ip-color-text-primary);
+}
+
 .login-card__bootstrap-pending {
   padding: var(--ip-space-2) var(--ip-space-3);
   background: var(--ip-color-warning-bg, #fdf6ec);
@@ -780,18 +788,19 @@ async function onSubmit(): Promise<void> {
 }
 
 @media (max-width: 960px) {
+  .login-card {
+    flex-direction: column;
+  }
+
   .login-card__method-panel {
-    position: absolute;
+    position: static;
     z-index: 10;
-    top: auto;
-    right: 0;
-    bottom: 0;
-    left: 0;
+    flex: 0 0 auto;
     width: 100%;
-    max-height: calc(100% - var(--ip-space-2));
-    overflow: auto;
+    max-height: none;
+    overflow: visible;
     border-top: 1px solid var(--ip-color-border);
-    border-left: 1px solid var(--ip-color-border);
+    border-left: 0;
     border-radius: 0 0 var(--ip-radius-lg) var(--ip-radius-lg);
   }
 }
@@ -799,7 +808,11 @@ async function onSubmit(): Promise<void> {
 @media (max-width: 520px) {
   .login-page {
     align-items: start;
+    height: auto;
+    min-height: 100vh;
     padding: var(--ip-space-4);
+    overflow-x: hidden;
+    overflow-y: auto;
   }
 
   .login-card {

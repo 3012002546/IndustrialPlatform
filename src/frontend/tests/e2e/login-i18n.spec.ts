@@ -35,15 +35,52 @@ for (const viewport of VIEWPORTS) {
       const geometry = await page.evaluate(() => {
         const card = document.querySelector<HTMLElement>('.login-card')
         const localeMenu = document.querySelector<HTMLElement>('.ip-locale-control__menu')
+        const panel = document.querySelector<HTMLElement>('[data-testid="login-method-panel"]')
+        const username = document.querySelector<HTMLElement>('[data-testid="login-username"]')
+        const password = document.querySelector<HTMLElement>('[data-testid="login-password"]')
+        const submit = document.querySelector<HTMLElement>('[data-testid="login-submit"]')
+        const brand = document.querySelector<HTMLElement>('.login-card__header-row .ip-brand__image')
+        const localeIcon = document.querySelector<HTMLElement>('.login-card__locale .ip-locale-control')
         const cardRect = card?.getBoundingClientRect()
         const menuRect = localeMenu?.getBoundingClientRect()
+        const panelRect = panel?.getBoundingClientRect()
+        const controlRects = [username, password, submit].map((element) => element?.getBoundingClientRect())
+        const panelOverlapsControl = controlRects.some((rect) => {
+          if (!rect || !panelRect) return false
+          return rect.left < panelRect.right && rect.right > panelRect.left && rect.top < panelRect.bottom && rect.bottom > panelRect.top
+        })
+        const parseRgb = (value: string): [number, number, number] => {
+          const channels = value.match(/\d+(?:\.\d+)?/g)?.map(Number) ?? []
+          return [channels[0] ?? 0, channels[1] ?? 0, channels[2] ?? 0]
+        }
+        const relativeLuminance = (value: string): number => {
+          const toLinear = (channel: number): number => {
+            const normalized = channel / 255
+            return normalized <= 0.03928 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4
+          }
+          const [red, green, blue] = parseRgb(value)
+          return toLinear(red) * 0.2126 + toLinear(green) * 0.7152 + toLinear(blue) * 0.0722
+        }
+        const cardBackground = card ? getComputedStyle(card).backgroundColor : 'rgb(0, 0, 0)'
+        const localeColor = localeIcon ? getComputedStyle(localeIcon).color : 'rgb(0, 0, 0)'
+        const cardLuminance = relativeLuminance(cardBackground)
+        const localeLuminance = relativeLuminance(localeColor)
         return {
           scrollWidth: document.documentElement.scrollWidth,
+          scrollHeight: document.documentElement.scrollHeight,
           innerWidth: window.innerWidth,
+          innerHeight: window.innerHeight,
           cardLeft: cardRect?.left ?? -1,
           cardRight: cardRect?.right ?? Number.MAX_SAFE_INTEGER,
           menuLeft: menuRect?.left ?? 0,
           menuRight: menuRect?.right ?? window.innerWidth,
+          panelTop: panelRect?.top ?? -1,
+          panelBottom: panelRect?.bottom ?? -1,
+          controlsBottom: Math.max(...controlRects.map((rect) => rect?.bottom ?? -1)),
+          panelOverlapsControl,
+          panelRight: panelRect?.right ?? Number.MAX_SAFE_INTEGER,
+          brandFilter: brand ? getComputedStyle(brand).filter : '',
+          localeContrast: (Math.max(cardLuminance, localeLuminance) + 0.05) / (Math.min(cardLuminance, localeLuminance) + 0.05),
         }
       })
       expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.innerWidth)
@@ -51,6 +88,17 @@ for (const viewport of VIEWPORTS) {
       expect(geometry.cardRight).toBeLessThanOrEqual(geometry.innerWidth)
       expect(geometry.menuLeft).toBeGreaterThanOrEqual(0)
       expect(geometry.menuRight).toBeLessThanOrEqual(geometry.innerWidth)
+      expect(geometry.brandFilter).toMatch(mode === 'dark' ? /invert/ : /none|brightness\(1\)/)
+      if (mode === 'dark') expect(geometry.localeContrast).toBeGreaterThanOrEqual(4.5)
+      if (viewport.width <= 520) {
+        expect(geometry.panelOverlapsControl).toBe(false)
+        expect(geometry.panelTop).toBeGreaterThanOrEqual(geometry.controlsBottom - 1)
+        expect(geometry.panelRight).toBeLessThanOrEqual(geometry.innerWidth)
+        expect(geometry.panelBottom).toBeLessThanOrEqual(geometry.scrollHeight)
+        expect(geometry.scrollHeight).toBeGreaterThanOrEqual(geometry.innerHeight)
+        await page.getByTestId('login-method-panel-close').scrollIntoViewIfNeeded()
+        await expect(page.getByTestId('login-method-panel-close')).toBeInViewport()
+      }
     })
   }
 }
