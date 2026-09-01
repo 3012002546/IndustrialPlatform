@@ -98,7 +98,11 @@ export const routes: RouteRecordRaw[] = [
     path: '/login',
     name: ROUTE_NAMES.login,
     component: LoginPage,
-    meta: { title: '登录' },
+    meta: {
+      title: '登录',
+      titleKey: 'login.title',
+      fallbackTitle: '登录',
+    },
   },
   {
     path: '/change-password',

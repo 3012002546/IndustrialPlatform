@@ -11,11 +11,14 @@ import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 
 import { AUTH_SESSION_STORAGE_KEY, createMockAuthGateway, setAuthGateway } from '@/auth'
 import type { AuthGateway } from '@/auth/types'
+import { LOCALE_PREFERENCES_STORAGE_KEY } from '@/localization/preferences'
 import LoginPage from '@/pages/public/LoginPage.vue'
 import { routes } from '@/router/routes'
 import { useAuthStore } from '@/stores/authStore'
+import { useLocalizationStore } from '@/stores/localizationStore'
 
 const VALID_LOGIN = { username: 'mock.admin', password: 'Mock@123456' }
+const LOGIN_PASSWORD_ID = 'ip-login-password'
 
 interface LoginHarness {
   wrapper: VueWrapper
@@ -252,5 +255,51 @@ describe('LoginPage', () => {
     await fillAndSubmit(wrapper, VALID_LOGIN.username, VALID_LOGIN.password)
     expect(useAuthStore().isAuthenticated).toBe(true)
     expect(useAuthStore().user?.displayName).toBe('Mock 演示账号')
+  })
+
+  it('未认证登录页切换英文时保留表单错误与登录方式面板状态', async () => {
+    const { wrapper } = await mountLogin()
+    const username = wrapper.get('[data-testid="login-username"]')
+    const password = wrapper.get('[data-testid="login-password"]')
+
+    await username.setValue('saved-user')
+    await password.trigger('blur')
+    expect(wrapper.get(`#${LOGIN_PASSWORD_ID}-error`).text()).toContain('请输入密码')
+
+    await wrapper.get('[data-testid="login-method-toggle"]').trigger('click')
+    expect(wrapper.get('[data-testid="login-method-panel"]').text()).toContain('登录方式')
+
+    await wrapper.get('.ip-locale-control').trigger('click')
+    const englishOption = document.body.querySelector<HTMLButtonElement>(
+      '.ip-locale-control__menu [role="option"][aria-selected="false"]',
+    )
+    expect(englishOption).not.toBeNull()
+    englishOption?.click()
+    await flushPromises()
+
+    expect(useLocalizationStore().locale).toBe('en-US')
+    expect(document.documentElement.lang).toBe('en-US')
+    expect(localStorage.getItem(LOCALE_PREFERENCES_STORAGE_KEY)).toContain('en-US')
+    expect((username.element as HTMLInputElement).value).toBe('saved-user')
+    expect((password.element as HTMLInputElement).value).toBe('')
+    expect(wrapper.get(`#${LOGIN_PASSWORD_ID}-error`).text()).toContain('Enter your password')
+    expect(wrapper.get('[data-testid="login-method-panel"]').text()).toContain('Sign-in method')
+    expect(wrapper.get('[data-testid="login-method-panel"]').text()).toContain('Enterprise sign-in (SSO)')
+    expect(wrapper.get('[data-testid="login-method-panel"]').text()).not.toContain('登录方式')
+    expect(wrapper.get('[data-testid="login-method-toggle"]').text()).toContain('Switch sign-in method')
+    expect(wrapper.get('[data-testid="password-toggle"]').attributes('aria-label')).toBe('Show password')
+    expect(wrapper.get('[data-testid="login-submit"]').text()).toContain('Sign in')
+    expect(wrapper.get('[data-testid="login-username"]').attributes('aria-label')).toBe('Username')
+  })
+
+  it('语言切换不改变登录方式面板焦点接缝与登录卡片固定宽度契约', async () => {
+    const { wrapper } = await mountLogin()
+
+    expect(wrapper.get('.login-card').attributes('style')).toContain('--login-form-width: 430px')
+    expect(wrapper.get('.ip-locale-control').attributes('aria-label')).toBe('语言')
+    expect(wrapper.get('.ip-locale-control').attributes('title')).toBe('语言')
+    await wrapper.get('.ip-locale-control').trigger('click')
+    expect(wrapper.find('.ip-locale-control__menu').exists()).toBe(false)
+    expect(document.body.querySelector('.ip-locale-control__menu')).not.toBeNull()
   })
 })

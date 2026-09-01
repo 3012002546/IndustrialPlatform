@@ -302,6 +302,33 @@ export interface PlatformLocaleMessages {
     submit: string
     logout: string
   }
+  login: {
+    title: string
+    subtitle: string
+    username: string
+    password: string
+    showPassword: string
+    hidePassword: string
+    usernameRequired: string
+    passwordRequired: string
+    submitting: string
+    submit: string
+    methodToggle: string
+    methodPanelTitle: string
+    methodPanelClose: string
+    methodOptionsLabel: string
+    currentAccount: string
+    usernamePassword: string
+    domain: string
+    domainDescription: string
+    sso: string
+    ssoDescription: string
+    ssoHttpDescription: string
+    mockMode: string
+    demoCredentials: string
+    bootstrapRecoveryRequired: string
+    bootstrapPending: string
+  }
   identity: {
     user: {
       title: string

@@ -16,8 +16,11 @@ import { getAuthGateway } from '@/auth/gateway'
 import type { BootstrapStatus } from '@/auth/types'
 import MockModeBanner from '@/components/base/MockModeBanner.vue'
 import PlatformBrand from '@/components/brand/PlatformBrand.vue'
-import { ApiError, DEFAULT_ERROR_MESSAGES } from '@/api/errors'
+import LocaleControl from '@/components/localization/LocaleControl.vue'
+import { ApiError } from '@/api/errors'
 import { loadRuntimeConfig } from '@/config/runtimeConfig'
+import { localeMessages } from '@/localization/i18n'
+import { usePlatformLocale } from '@/localization/localeContext'
 import { ROUTE_NAMES } from '@/router/routes'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -28,6 +31,8 @@ const LOGIN_FORM_WIDTH = 430
 const authStore = useAuthStore()
 const router = useRouter()
 const route = useRoute()
+const locale = usePlatformLocale()
+const copy = computed(() => localeMessages[locale.value].login)
 
 const username = ref('')
 const password = ref('')
@@ -103,7 +108,7 @@ function toggleLoginMethodMenu(): void {
 
 function toLoginErrorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message
-  return DEFAULT_ERROR_MESSAGES.unknown
+  return localeMessages[locale.value].common.errors.unknown
 }
 
 async function onSubmit(): Promise<void> {
@@ -136,123 +141,130 @@ async function onSubmit(): Promise<void> {
       aria-labelledby="login-title"
     >
       <div class="login-card__form-pane">
-      <header class="login-card__header">
-        <PlatformBrand variant="light" />
-        <h1 id="login-title" class="login-card__title">登录</h1>
-        <p class="login-card__subtitle">Industrial Platform · PC / PDA / Mobile</p>
-      </header>
-
-      <MockModeBanner class="login-card__banner" />
-
-      <div
-        v-if="bootstrapBlocked"
-        class="login-card__bootstrap-pending"
-        role="alert"
-        data-testid="login-bootstrap-pending"
-      >
-        {{
-          bootstrapStatus?.state === 'RecoveryRequired'
-            ? '内置管理员账号异常,需要紧急恢复后才能登录。'
-            : '系统初始化尚未完成,暂不能登录。'
-        }}
-      </div>
-
-      <form class="login-card__form" novalidate @submit.prevent="onSubmit">
-        <div class="login-card__field">
-          <div class="login-card__username-area">
-            <div class="login-card__label-row">
-              <label class="login-card__label" :for="LOGIN_USERNAME_ID">用户名</label>
+        <header class="login-card__header">
+          <div class="login-card__header-row" @click.stop>
+            <PlatformBrand variant="light" />
+            <div class="login-card__locale">
+              <LocaleControl />
             </div>
-            <input
-              :id="LOGIN_USERNAME_ID"
-              v-model="username"
-              class="login-card__input"
-              type="text"
-              autocomplete="username"
-              data-testid="login-username"
-              :aria-invalid="usernameError || undefined"
-              :aria-describedby="usernameError ? `${LOGIN_USERNAME_ID}-error` : undefined"
-              @blur="usernameTouched = true"
-            />
           </div>
-          <p
-            :id="`${LOGIN_USERNAME_ID}-error`"
-            class="login-card__error login-card__field-error"
-            :class="{ 'login-card__field-error--visible': usernameError }"
-            :aria-hidden="!usernameError"
-            role="alert"
-          >
-            {{ usernameError ? '请输入用户名' : '\u00a0' }}
-          </p>
+          <h1 id="login-title" class="login-card__title">{{ copy.title }}</h1>
+          <p class="login-card__subtitle">{{ copy.subtitle }}</p>
+        </header>
+
+        <MockModeBanner class="login-card__banner" :label="copy.mockMode" />
+
+        <div
+          v-if="bootstrapBlocked"
+          class="login-card__bootstrap-pending"
+          role="alert"
+          data-testid="login-bootstrap-pending"
+        >
+          {{
+            bootstrapStatus?.state === 'RecoveryRequired'
+              ? copy.bootstrapRecoveryRequired
+              : copy.bootstrapPending
+          }}
         </div>
 
-        <div class="login-card__field">
-          <label class="login-card__label" :for="LOGIN_PASSWORD_ID">密码</label>
-          <div class="login-card__password">
-            <input
-              :id="LOGIN_PASSWORD_ID"
-              v-model="password"
-              class="login-card__input"
-              :type="passwordVisible ? 'text' : 'password'"
-              autocomplete="current-password"
-              data-testid="login-password"
-              :aria-invalid="passwordError || undefined"
-              :aria-describedby="passwordError ? `${LOGIN_PASSWORD_ID}-error` : undefined"
-              @blur="passwordTouched = true"
-            />
-            <button
-              type="button"
-              class="login-card__toggle"
-              :aria-pressed="passwordVisible"
-              :aria-label="passwordVisible ? '隐藏密码' : '显示密码'"
-              data-testid="password-toggle"
-              @click="passwordVisible = !passwordVisible"
+        <form class="login-card__form" novalidate @submit.prevent="onSubmit">
+          <div class="login-card__field">
+            <div class="login-card__username-area">
+              <div class="login-card__label-row">
+                <label class="login-card__label" :for="LOGIN_USERNAME_ID">{{ copy.username }}</label>
+              </div>
+              <input
+                :id="LOGIN_USERNAME_ID"
+                v-model="username"
+                class="login-card__input"
+                type="text"
+                autocomplete="username"
+                data-testid="login-username"
+                :aria-label="copy.username"
+                :aria-invalid="usernameError || undefined"
+                :aria-describedby="usernameError ? `${LOGIN_USERNAME_ID}-error` : undefined"
+                @blur="usernameTouched = true"
+              />
+            </div>
+            <p
+              :id="`${LOGIN_USERNAME_ID}-error`"
+              class="login-card__error login-card__field-error"
+              :class="{ 'login-card__field-error--visible': usernameError }"
+              :aria-hidden="!usernameError"
+              role="alert"
             >
-              <View v-if="!passwordVisible" aria-hidden="true" />
-              <Hide v-else aria-hidden="true" />
-            </button>
+              {{ usernameError ? copy.usernameRequired : '\u00a0' }}
+            </p>
           </div>
-          <p
-            :id="`${LOGIN_PASSWORD_ID}-error`"
-            class="login-card__error login-card__field-error"
-            :class="{ 'login-card__field-error--visible': passwordError }"
-            :aria-hidden="!passwordError"
-            role="alert"
-          >
-            {{ passwordError ? '请输入密码' : '\u00a0' }}
+
+          <div class="login-card__field">
+            <label class="login-card__label" :for="LOGIN_PASSWORD_ID">{{ copy.password }}</label>
+            <div class="login-card__password">
+              <input
+                :id="LOGIN_PASSWORD_ID"
+                v-model="password"
+                class="login-card__input"
+                :type="passwordVisible ? 'text' : 'password'"
+                autocomplete="current-password"
+                data-testid="login-password"
+                :aria-label="copy.password"
+                :aria-invalid="passwordError || undefined"
+                :aria-describedby="passwordError ? `${LOGIN_PASSWORD_ID}-error` : undefined"
+                @blur="passwordTouched = true"
+              />
+              <button
+                type="button"
+                class="login-card__toggle"
+                :aria-pressed="passwordVisible"
+                :aria-label="passwordVisible ? copy.hidePassword : copy.showPassword"
+                data-testid="password-toggle"
+                @click="passwordVisible = !passwordVisible"
+              >
+                <View v-if="!passwordVisible" aria-hidden="true" />
+                <Hide v-else aria-hidden="true" />
+              </button>
+            </div>
+            <p
+              :id="`${LOGIN_PASSWORD_ID}-error`"
+              class="login-card__error login-card__field-error"
+              :class="{ 'login-card__field-error--visible': passwordError }"
+              :aria-hidden="!passwordError"
+              role="alert"
+            >
+              {{ passwordError ? copy.passwordRequired : '\u00a0' }}
+            </p>
+          </div>
+
+          <p v-if="loginError" class="login-card__error login-card__error--login" role="alert">
+            {{ loginError }}
           </p>
-        </div>
 
-        <p v-if="loginError" class="login-card__error login-card__error--login" role="alert">
-          {{ loginError }}
-        </p>
+          <button
+            type="submit"
+            class="login-card__submit"
+            data-testid="login-submit"
+            :disabled="submitting || bootstrapBlocked"
+          >
+            {{ submitting ? copy.submitting : copy.submit }}
+          </button>
+          <button
+            ref="loginMethodToggle"
+            type="button"
+            class="login-card__method-toggle"
+            :aria-label="copy.methodToggle"
+            aria-haspopup="dialog"
+            :aria-expanded="loginMethodMenuOpen"
+            aria-controls="login-method-panel"
+            data-testid="login-method-toggle"
+            @click.stop="toggleLoginMethodMenu"
+            @keydown.esc="closeLoginMethodMenu(true)"
+          >
+            <Switch aria-hidden="true" />
+            <span>{{ copy.methodToggle }}</span>
+          </button>
+        </form>
 
-        <button
-          type="submit"
-          class="login-card__submit"
-          data-testid="login-submit"
-          :disabled="submitting || bootstrapBlocked"
-        >
-          {{ submitting ? '登录中…' : '登录' }}
-        </button>
-        <button
-          ref="loginMethodToggle"
-          type="button"
-          class="login-card__method-toggle"
-          aria-label="切换认证方式"
-          aria-haspopup="dialog"
-          :aria-expanded="loginMethodMenuOpen"
-          aria-controls="login-method-panel"
-          data-testid="login-method-toggle"
-          @click.stop="toggleLoginMethodMenu"
-          @keydown.esc="closeLoginMethodMenu(true)"
-        >
-          <Switch aria-hidden="true" />
-          <span>切换登录方式</span>
-        </button>
-      </form>
-
-      <p v-if="!isHttpAuth" class="login-card__hint">演示账号:mock.admin / Mock@123456</p>
+        <p v-if="!isHttpAuth" class="login-card__hint">{{ copy.demoCredentials }}</p>
       </div>
 
       <Transition name="login-method-panel">
@@ -267,21 +279,21 @@ async function onSubmit(): Promise<void> {
           @keydown.esc="closeLoginMethodMenu(true)"
         >
           <div class="login-card__method-panel-header">
-            <h2 id="login-method-panel-title">登录方式</h2>
+            <h2 id="login-method-panel-title">{{ copy.methodPanelTitle }}</h2>
             <button
               type="button"
               class="login-card__method-panel-close"
               ref="loginMethodPanelClose"
               data-testid="login-method-panel-close"
-              aria-label="关闭登录方式"
-              title="关闭登录方式"
+              :aria-label="copy.methodPanelClose"
+              :title="copy.methodPanelClose"
               @click="closeLoginMethodMenu(true)"
             >
               <Close aria-hidden="true" />
             </button>
           </div>
 
-          <div class="login-card__method-list" role="menu" aria-label="登录方式选项">
+          <div class="login-card__method-list" role="menu" :aria-label="copy.methodOptionsLabel">
             <button
               type="button"
               class="login-card__method-option login-card__method-option--current"
@@ -292,8 +304,8 @@ async function onSubmit(): Promise<void> {
             >
               <User class="login-card__method-option-icon" aria-hidden="true" />
               <span class="login-card__method-option-copy">
-                <strong>当前账号登录</strong>
-                <small>用户名 / 密码</small>
+                <strong>{{ copy.currentAccount }}</strong>
+                <small>{{ copy.usernamePassword }}</small>
               </span>
               <CircleCheckFilled class="login-card__method-option-check" aria-hidden="true" />
             </button>
@@ -308,8 +320,8 @@ async function onSubmit(): Promise<void> {
             >
               <OfficeBuilding class="login-card__method-option-icon" aria-hidden="true" />
               <span class="login-card__method-option-copy">
-                <strong>域登录</strong>
-                <small>敬请期待</small>
+                <strong>{{ copy.domain }}</strong>
+                <small>{{ copy.domainDescription }}</small>
               </span>
             </button>
             <router-link
@@ -323,8 +335,8 @@ async function onSubmit(): Promise<void> {
             >
               <Stamp class="login-card__method-option-icon" aria-hidden="true" />
               <span class="login-card__method-option-copy">
-                <strong>企业登录（SSO）</strong>
-                <small>统一身份认证</small>
+                <strong>{{ copy.sso }}</strong>
+                <small>{{ copy.ssoDescription }}</small>
               </span>
             </router-link>
             <button
@@ -339,8 +351,8 @@ async function onSubmit(): Promise<void> {
             >
               <Stamp class="login-card__method-option-icon" aria-hidden="true" />
               <span class="login-card__method-option-copy">
-                <strong>企业登录（SSO）</strong>
-                <small>HTTP 模式可用</small>
+                <strong>{{ copy.sso }}</strong>
+                <small>{{ copy.ssoHttpDescription }}</small>
               </span>
             </button>
           </div>
@@ -391,6 +403,31 @@ async function onSubmit(): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: var(--ip-space-1);
+}
+
+.login-card__header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ip-space-3);
+}
+
+.login-card__header-row :deep(.ip-brand) {
+  max-width: calc(100% - 40px);
+}
+
+.login-card__locale {
+  flex: 0 0 32px;
+}
+
+.login-card__locale :deep(.ip-locale-control) {
+  color: var(--ip-color-text-secondary);
+}
+
+.login-card__locale :deep(.ip-locale-control:hover),
+.login-card__locale :deep(.ip-locale-control:focus-visible) {
+  color: var(--ip-color-text-primary);
+  background: var(--ip-color-bg-muted);
 }
 
 .login-card__bootstrap-pending {

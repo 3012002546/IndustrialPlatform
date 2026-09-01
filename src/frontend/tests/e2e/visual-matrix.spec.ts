@@ -26,7 +26,7 @@ async function fillLogin(page: Page): Promise<void> {
 async function login(page: Page): Promise<void> {
   await page.goto('/login')
   await fillLogin(page)
-  await page.getByRole('button', { name: '登录' }).click()
+  await page.getByTestId('login-submit').click()
   await expect(page).toHaveURL(/\/pc\/home/)
 }
 
