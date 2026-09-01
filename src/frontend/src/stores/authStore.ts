@@ -40,9 +40,13 @@ export const useAuthStore = defineStore('auth', () => {
 
   let restorePromise: Promise<void> | null = null
   let refreshPromise: Promise<void> | null = null
+  let restoredAccessToken: string | null = null
 
   /** 提交会话并同步令牌镜像(HTTP 层 getToken 读取点)。 */
   function commitSession(value: AuthSession | null): void {
+    if (value === null || value.accessToken !== session.value?.accessToken) {
+      restoredAccessToken = null
+    }
     session.value = value
     setCurrentSession(value)
   }
@@ -62,7 +66,15 @@ export const useAuthStore = defineStore('auth', () => {
         clearAuthSession(storage, key)
       }
       commitSession(stored)
-      if (stored !== null && loadRuntimeConfig().authMode === 'http') {
+      if (
+        stored !== null &&
+        loadRuntimeConfig().authMode === 'http' &&
+        restoredAccessToken !== stored.accessToken
+      ) {
+        // A route guard can restore the same session repeatedly. Mark this
+        // access token before the network call so a transient /auth/me failure
+        // cannot turn every SPA navigation into a network timeout.
+        restoredAccessToken = stored.accessToken
         try {
           // /auth/me is the authoritative permission snapshot. Refreshing it on
           // restore makes a bootstrap/catalog permission change visible without

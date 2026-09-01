@@ -94,6 +94,34 @@ test('顶栏背景跟随配色,明暗与刷新不覆盖既有渐变', async ({ p
   await expect(page.locator('header.ip-topbar')).toHaveCSS('background-image', blueBackground)
 })
 
+test('顶栏搜索主文字低于纯白且 placeholder 再弱一级,三配色均保留渐变背景', async ({ page }) => {
+  await login(page)
+  await expect(page.getByTestId('command-search')).toBeVisible()
+  await page.waitForLoadState('networkidle')
+  await openTheme(page)
+
+  for (const palette of ['industrial-cyan', 'technology-blue', 'neutral-gray']) {
+    await setTheme(page, 'palette', palette)
+
+    const appearance = await page.getByTestId('command-search').locator('input').evaluate((input) => {
+      const header = input.closest('header')
+      return {
+        main: getComputedStyle(input).color,
+        placeholder: getComputedStyle(input, '::placeholder').color,
+        topbar: header === null ? '' : getComputedStyle(header).color,
+        background: header === null ? '' : getComputedStyle(header).backgroundImage,
+      }
+    })
+
+    expect(appearance.main).not.toBe('rgb(255, 255, 255)')
+    expect(appearance.main).not.toBe(appearance.topbar)
+    expect(appearance.placeholder).not.toBe(appearance.main)
+    expect(appearance.background).toContain('linear-gradient')
+  }
+
+  await page.keyboard.press('Escape')
+})
+
 test('切换明暗立即生效并持久化', async ({ page }) => {
   await login(page)
   await openTheme(page)

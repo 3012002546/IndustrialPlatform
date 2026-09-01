@@ -154,7 +154,7 @@ onBeforeUnmount(() => {
   width: 100%;
   min-height: 32px;
   padding: 0 58px 0 var(--ip-space-3);
-  color: var(--ip-shell-topbar-text);
+  color: var(--ip-shell-topbar-text-secondary);
   font: inherit;
   font-size: 12px;
   background: rgb(255 255 255 / 0.12);
@@ -163,7 +163,7 @@ onBeforeUnmount(() => {
 }
 
 .ip-command-search input::placeholder {
-  color: var(--ip-shell-topbar-text-secondary);
+  color: var(--ip-shell-topbar-text-muted);
   opacity: 1;
 }
 

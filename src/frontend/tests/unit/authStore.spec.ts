@@ -164,6 +164,39 @@ describe('AuthStore — 恢复', () => {
     )
   })
 
+  it('HTTP 模式同一会话的重复路由守卫恢复不重复请求 /auth/me', async () => {
+    vi.stubEnv('VITE_AUTH_MODE', 'http')
+    const { gateway } = createFakeGateway()
+    const getCurrentUser = vi.fn(async () => makeSession().user)
+    gateway.getCurrentUser = getCurrentUser
+    setAuthGateway(gateway)
+    writeAuthSession(sessionStorage, makeSession('at-http-repeat'), AUTH_SESSION_HTTP_STORAGE_KEY)
+
+    const store = useAuthStore()
+    await store.restore()
+    await store.restore()
+
+    expect(getCurrentUser).toHaveBeenCalledTimes(1)
+  })
+
+  it('HTTP 模式 /auth/me 暂时失败后仍不在每次路由恢复中重复等待', async () => {
+    vi.stubEnv('VITE_AUTH_MODE', 'http')
+    const { gateway } = createFakeGateway()
+    const getCurrentUser = vi.fn(async () => {
+      throw new Error('profile timeout')
+    })
+    gateway.getCurrentUser = getCurrentUser
+    setAuthGateway(gateway)
+    writeAuthSession(sessionStorage, makeSession('at-http-timeout'), AUTH_SESSION_HTTP_STORAGE_KEY)
+
+    const store = useAuthStore()
+    await expect(store.restore()).resolves.toBeUndefined()
+    await expect(store.restore()).resolves.toBeUndefined()
+
+    expect(store.isAuthenticated).toBe(true)
+    expect(getCurrentUser).toHaveBeenCalledTimes(1)
+  })
+
   it('损坏或过期存储被清理且不恢复', async () => {
     sessionStorage.setItem(AUTH_SESSION_STORAGE_KEY, '{broken')
     const store = useAuthStore()
