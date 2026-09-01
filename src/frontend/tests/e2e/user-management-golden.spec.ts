@@ -69,7 +69,7 @@ test('用户管理黄金页:共享结构、键盘路径与窄窗口', async ({ p
   const submit = page.getByTestId('query-panel-submit')
   await submit.focus()
   await expect(submit).toBeFocused()
-  await page.keyboard.press('Shift+Tab')
+  await page.keyboard.press('Tab')
   await expect(page.getByTestId('query-panel-reset')).toBeFocused()
 
   await page.getByTestId('app-data-table-query-toggle').click()
