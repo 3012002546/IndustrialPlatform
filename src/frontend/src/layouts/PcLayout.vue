@@ -493,6 +493,7 @@ function onLimitResolve(resolution: TabLimitResolution): void {
 .ip-pc-main > :deep(*) {
   flex: 1 1 auto;
   min-width: 0;
+  min-height: 0;
   max-width: 100%;
 }
 

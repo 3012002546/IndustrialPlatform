@@ -100,6 +100,12 @@ async function mountLayout(permissions: string[] = ALL_PC_PERMISSIONS): Promise<
 }
 
 describe('PcLayout', () => {
+  it('allows routed pages to shrink inside the scrollable main canvas', () => {
+    expect(pcLayoutSource).toMatch(
+      /\.ip-pc-main > :deep\(\*\)\s*\{[\s\S]*?min-height:\s*0;/,
+    )
+  })
+
   beforeEach(() => {
     sessionStorage.clear()
     localStorage.clear()
