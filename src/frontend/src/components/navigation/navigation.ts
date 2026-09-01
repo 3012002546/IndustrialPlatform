@@ -19,7 +19,7 @@ import { shallowReactive } from 'vue'
 
 import { PERMISSIONS } from '@/permissions'
 
-import type { NavigationGroup, NavigationItem } from './types'
+import type { NavigationGroup, NavigationItem, NavigationSection } from './types'
 
 /**
  * 一级平台分组。PlatformToolRail 渲染此数组并管理当前分组;
@@ -193,6 +193,14 @@ function normalizeItem(item: NavigationItem): NavigationItem {
   }
 }
 
+function normalizeSection(section: NavigationSection): NavigationSection {
+  return {
+    ...section,
+    labelKey: section.labelKey ?? `shell.navigation.section.${section.id}`,
+    fallbackLabel: section.fallbackLabel ?? section.label,
+  }
+}
+
 export function normalizeNavigationGroups(
   groups: readonly NavigationGroup[],
 ): NavigationGroup[] {
@@ -200,6 +208,9 @@ export function normalizeNavigationGroups(
     ...group,
     labelKey: group.labelKey ?? `shell.navigation.group.${group.id}`,
     fallbackLabel: group.fallbackLabel ?? group.label,
+    ...(group.sections === undefined
+      ? {}
+      : { sections: group.sections.map(normalizeSection) }),
     items: group.items.map(normalizeItem),
   }))
 }

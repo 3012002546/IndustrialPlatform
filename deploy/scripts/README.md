@@ -23,11 +23,11 @@ TASK-BASE-005 交付:按依赖顺序启动基础设施、后端服务与 Gateway
 ## 冒烟测试
 
 ```powershell
-./deploy/scripts/smoke.ps1              # 构建 → 全量测试 → 启动 → 探测 → 停止,输出分步退出码/测试数/耗时
+./deploy/scripts/smoke.ps1              # 构建 → 全量测试 → 启动 UnifiedHost → 探测 → 停止,输出分步退出码/测试数/耗时
 ./deploy/scripts/smoke.ps1 -KeepRunning # 探测后不停止服务
 ```
 
-- 探测内容:三服务 `/health`、网关 `/health/live`、转发 `/identity/health`(校验响应体 `service=Identity`)、未匹配 `/unknown` 404 信封;`/health/ready` 为信息项(200/503)。
+- 默认探测只访问 UnifiedHost `http://localhost:5041`:校验 `/health`、`/health/live`、未知 API 404 及响应体 `service=UnifiedHost`;`/health/ready` 为信息项(200/503)。
 - 无 Docker 时容器状态记 `N/A`(基础设施验收留 Docker 环境),不阻塞整体 PASS。
 - 任何一步失败仍继续收集全部证据,最终退出码非 0。
 
@@ -43,7 +43,7 @@ TASK-BASE-005 交付:按依赖顺序启动基础设施、后端服务与 Gateway
 | RabbitMQ | 5672 / 15672 | AMQP / 管理台 |
 | Seq | 5341 | 日志 Web/API |
 
-健康入口:`http://localhost:5080/health`(存活)、`/health/live`、`/health/ready`(平台聚合)。
+默认 UnifiedHost 健康入口:`http://localhost:5041/health`(存活)、`/health/live`、`/health/ready`(模块聚合)。
 
 ## 进程管理方式
 

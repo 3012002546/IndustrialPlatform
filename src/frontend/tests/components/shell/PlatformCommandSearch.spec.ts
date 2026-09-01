@@ -6,6 +6,20 @@ import { describe, expect, it } from 'vitest'
 import PlatformCommandSearch from '@/components/shell/PlatformCommandSearch.vue'
 
 describe('PlatformCommandSearch', () => {
+  it('输入与 placeholder 使用顶栏主题,且窄屏允许父级收缩', () => {
+    const source = readFileSync(
+      resolve(process.cwd(), 'src/components/shell/PlatformCommandSearch.vue'),
+      'utf8',
+    )
+    expect(source).toMatch(/\.ip-command-search\s*\{[\s\S]*?min-width:\s*0;/)
+    expect(source).toMatch(
+      /\.ip-command-search input\s*\{[\s\S]*?color:\s*var\(--ip-shell-topbar-text\);[\s\S]*?font:\s*inherit;/,
+    )
+    expect(source).toMatch(
+      /\.ip-command-search input::placeholder\s*\{[\s\S]*?color:\s*var\(--ip-shell-topbar-text-secondary\);[\s\S]*?opacity:\s*1;/,
+    )
+  })
+
   it('结果浮层使用 border-box,不会因内边距撑出视口', () => {
     const source = readFileSync(
       resolve(process.cwd(), 'src/components/shell/PlatformCommandSearch.vue'),
@@ -16,6 +30,14 @@ describe('PlatformCommandSearch', () => {
     )
     expect(source).toContain('window.requestAnimationFrame')
     expect(source).toContain('schedulePositionResults')
+  })
+
+  it('快捷键提示不拦截输入框的鼠标/触摸事件', () => {
+    const source = readFileSync(
+      resolve(process.cwd(), 'src/components/shell/PlatformCommandSearch.vue'),
+      'utf8',
+    )
+    expect(source).toMatch(/\.ip-command-search kbd\s*\{[\s\S]*?pointer-events:\s*none;/)
   })
 
   it('opens with Ctrl+K and only searches supplied authorized entries', async () => {

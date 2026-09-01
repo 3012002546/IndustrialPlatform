@@ -294,9 +294,15 @@ describe('IdentityUsersPage — 创建用户(服务端随机临时密码)', () =
     })
     expect(table.props('pageSize')).toBe(10)
 
+    expect(wrapper.find('[data-testid="identity-users-query"]').exists()).toBe(false)
+
     await wrapper.get('[data-testid="app-data-table-query-toggle"]').trigger('click')
     await flushPromises()
     expect(table.props('queryMode')).toBe('top')
+    const queryPanel = wrapper.get('[data-testid="identity-users-query"]')
+    expect(queryPanel.find('[data-testid="query-panel-submit"]').exists()).toBe(true)
+    expect(queryPanel.find('[data-testid="query-panel-reset"]').exists()).toBe(true)
+    expect(queryPanel.find('[data-testid="query-panel-toggle"]').exists()).toBe(true)
   })
 
   it('将共享表格的列头查询与分页写入当前用户 page-state', async () => {

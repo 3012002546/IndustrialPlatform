@@ -146,7 +146,7 @@ onBeforeUnmount(() => {
 .ip-command-search {
   position: relative;
   width: min(480px, 100%);
-  min-width: 160px;
+  min-width: 0;
 }
 
 .ip-command-search input {
@@ -154,16 +154,23 @@ onBeforeUnmount(() => {
   width: 100%;
   min-height: 32px;
   padding: 0 58px 0 var(--ip-space-3);
-  color: inherit;
+  color: var(--ip-shell-topbar-text);
+  font: inherit;
   background: rgb(255 255 255 / 0.12);
   border: 1px solid rgb(255 255 255 / 0.3);
   border-radius: var(--ip-radius-md);
+}
+
+.ip-command-search input::placeholder {
+  color: var(--ip-shell-topbar-text-secondary);
+  opacity: 1;
 }
 
 .ip-command-search kbd {
   position: absolute;
   top: 50%;
   right: var(--ip-space-2);
+  pointer-events: none;
   padding: 2px 5px;
   color: rgb(255 255 255 / 0.78);
   font: inherit;

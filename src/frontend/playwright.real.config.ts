@@ -1,7 +1,8 @@
 /**
  * 真实 Identity 集成 E2E 配置(PF-01 §14 TASK-PF01-007)。
  * 与 Mock 基线(playwright.config.ts)分开:webServer 以 VITE_AUTH_MODE=http 启动,
- * 前置后端(Gateway 5080 → Identity 5041 → 云端 PG/Redis)已运行且测试账号已种子。
+ * 前置后端(UnifiedHost 5041,组合 Identity/SystemData/ReferenceData → 云端 PG/Redis)
+ * 已运行且测试账号已种子；独立服务模式可用 PF03_REAL_API_BASE_URL 显式覆盖为 Gateway 5080。
  * 运行:`pnpm exec playwright test -c playwright.real.config.ts`
  *
  * 默认复用 5173 上已按真实模式启动的 Vite;如无现有服务则启动相同端口。
@@ -15,7 +16,7 @@ import { join } from 'node:path'
 import { defineConfig, devices } from '@playwright/test'
 
 const realBaseUrl = process.env.PF03_REAL_BASE_URL ?? 'http://localhost:5173'
-const realApiBaseUrl = process.env.PF03_REAL_API_BASE_URL ?? 'http://localhost:5080'
+const realApiBaseUrl = process.env.PF03_REAL_API_BASE_URL ?? 'http://localhost:5041'
 const realFrontendPort = new URL(realBaseUrl).port || '5173'
 const realReportDir = process.env.PF03_REAL_REPORT_DIR ?? join(tmpdir(), 'industrial-platform-playwright-report-real')
 

@@ -69,6 +69,27 @@ describe('pcNavigationGroups', () => {
     })
   })
 
+  it('运行时替换为二级分组补齐稳定文案键和保底文案', () => {
+    const groups = normalizeNavigationGroups([
+      {
+        id: 'custom',
+        label: '自定义',
+        icon: pcNavigationGroups[0]!.icon,
+        sections: [{ id: 'custom-section', label: '自定义分组' }],
+        items: [{ id: 'custom-item', label: '自定义项', routeName: 'pc-home' }],
+      },
+    ])
+
+    expect(groups[0]!.sections).toEqual([
+      {
+        id: 'custom-section',
+        label: '自定义分组',
+        labelKey: 'shell.navigation.section.custom-section',
+        fallbackLabel: '自定义分组',
+      },
+    ])
+  })
+
   it('至少包含工作台分组,每个分组有 id/label/icon/items', () => {
     expect(pcNavigationGroups.length).toBeGreaterThan(0)
     for (const group of pcNavigationGroups) {

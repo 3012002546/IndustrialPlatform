@@ -7,6 +7,7 @@
 
 import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
+import { ArrowDown, Folder } from '@element-plus/icons-vue'
 
 import type { NavigationItem, NavigationSection } from '@/components/navigation/types'
 import { useAuthStore } from '@/stores/authStore'
@@ -31,6 +32,7 @@ const copy = computed(() => localeMessages[locale.value].shell.copy)
 const route = useRoute()
 const openMenuId = ref<string | null>(null)
 const menuQuery = ref('')
+const collapsedSectionIds = ref<ReadonlySet<string>>(new Set())
 
 const treeLabel = computed(() => resolveLocaleMessage(locale.value, props.labelKey, props.label))
 
@@ -39,7 +41,11 @@ function itemLabel(item: NavigationItem): string {
 }
 
 function sectionLabel(section: NavigationSection): string {
-  return resolveLocaleMessage(locale.value, section.labelKey, section.fallbackLabel ?? section.label)
+  return resolveLocaleMessage(
+    locale.value,
+    section.labelKey,
+    section.fallbackLabel ?? section.label,
+  )
 }
 
 /** 功能树收起状态来自 ThemeStore(§7.8),不直接读写 localStorage。 */
@@ -98,6 +104,19 @@ const visibleSections = computed(() => {
       : []),
   ]
 })
+
+function isSectionExpanded(sectionId: string): boolean {
+  return (
+    collapsed.value || menuQuery.value.trim() !== '' || !collapsedSectionIds.value.has(sectionId)
+  )
+}
+
+function toggleSection(sectionId: string): void {
+  const next = new Set(collapsedSectionIds.value)
+  if (next.has(sectionId)) next.delete(sectionId)
+  else next.add(sectionId)
+  collapsedSectionIds.value = next
+}
 
 function toggle(): void {
   themeStore.setPcFunctionTreeCollapsed(!collapsed.value)
@@ -172,102 +191,130 @@ watch(
       />
 
       <ul id="ip-function-tree-list" class="ip-function-tree__list">
-      <template v-for="section in visibleSections" :key="section.key">
-        <li v-if="section.definition !== undefined" class="ip-function-tree__section">
-          {{ sectionLabel(section.definition) }}
-        </li>
-      <li v-for="item in section.items" :key="item.id" class="ip-function-tree__item">
-        <template v-if="collapsed && visibleChildren(item).length > 0">
+        <li
+          v-for="section in visibleSections"
+          :key="section.key"
+          class="ip-function-tree__section-group"
+          :class="{ 'ip-function-tree__section-group--defined': section.definition !== undefined }"
+        >
           <button
+            v-if="section.definition !== undefined"
+            v-show="!collapsed"
             type="button"
-            class="ip-function-tree__link ip-function-tree__link--collapsed-parent"
-            :class="{ 'ip-function-tree__link--active': isItemActive(item) }"
-            :aria-label="itemLabel(item)"
-            :title="itemLabel(item)"
-            aria-haspopup="menu"
-            :aria-expanded="openMenuId === item.id"
-            :data-testid="`function-tree-parent-${item.id}`"
-            @click="toggleSubmenu(item.id)"
-            @keydown.esc="closeSubmenu"
+            class="ip-function-tree__section"
+            :aria-expanded="isSectionExpanded(section.key)"
+            :aria-controls="`function-tree-section-${section.key}`"
+            @click="toggleSection(section.key)"
           >
-            <span v-if="item.icon" class="ip-function-tree__icon" aria-hidden="true">
-              <component :is="item.icon" />
-            </span>
-            <span v-if="!collapsed" class="ip-function-tree__label">{{ itemLabel(item) }}</span>
+            <span class="ip-function-tree__section-icon" aria-hidden="true"><Folder /></span>
+            <span class="ip-function-tree__section-label">{{
+              sectionLabel(section.definition)
+            }}</span>
+            <span class="ip-function-tree__section-arrow" aria-hidden="true"><ArrowDown /></span>
           </button>
-          <div
-            v-if="openMenuId === item.id"
-            class="ip-function-tree__popover"
-            role="menu"
-            :data-testid="`function-tree-popover-${item.id}`"
+          <ul
+            v-if="isSectionExpanded(section.key)"
+            :id="`function-tree-section-${section.key}`"
+            class="ip-function-tree__section-items"
+            :data-testid="`function-tree-section-items-${section.key}`"
           >
-            <RouterLink
-              v-for="child in visibleChildren(item)"
-              :key="child.id"
-              :to="{
-                name: child.routeName,
-                ...(child.routeQuery === undefined ? {} : { query: child.routeQuery }),
-              }"
-              class="ip-function-tree__popover-link"
-              role="menuitem"
-              :aria-current="isActive(child.routeName) ? 'page' : undefined"
-              @click="closeSubmenu"
-            >
-              <span v-if="child.icon" class="ip-function-tree__icon" aria-hidden="true">
-                <component :is="child.icon" />
-              </span>
-              <span>{{ itemLabel(child) }}</span>
-            </RouterLink>
-          </div>
-        </template>
-        <template v-else-if="visibleChildren(item).length === 0">
-          <RouterLink
-            :to="{
-              name: item.routeName,
-              ...(item.routeQuery === undefined ? {} : { query: item.routeQuery }),
-            }"
-            class="ip-function-tree__link"
-            :class="{ 'ip-function-tree__link--active': isActive(item.routeName) }"
-            :aria-current="isActive(item.routeName) ? 'page' : undefined"
-            :aria-label="collapsed ? itemLabel(item) : undefined"
-            :title="collapsed ? itemLabel(item) : undefined"
-          >
-            <span v-if="item.icon" class="ip-function-tree__icon" aria-hidden="true">
-              <component :is="item.icon" />
-            </span>
-            <span v-if="!collapsed" class="ip-function-tree__label">{{ itemLabel(item) }}</span>
-          </RouterLink>
-        </template>
-        <template v-else>
-          <div class="ip-function-tree__parent">
-            <span class="ip-function-tree__link ip-function-tree__link--parent">
-              <span v-if="item.icon" class="ip-function-tree__icon" aria-hidden="true">
-                <component :is="item.icon" />
-              </span>
-              <span class="ip-function-tree__label">{{ itemLabel(item) }}</span>
-            </span>
-            <ul class="ip-function-tree__children">
-              <li v-for="child in visibleChildren(item)" :key="child.id">
+            <li v-for="item in section.items" :key="item.id" class="ip-function-tree__item">
+              <template v-if="collapsed && visibleChildren(item).length > 0">
+                <button
+                  type="button"
+                  class="ip-function-tree__link ip-function-tree__link--collapsed-parent"
+                  :class="{ 'ip-function-tree__link--active': isItemActive(item) }"
+                  :aria-label="itemLabel(item)"
+                  :title="itemLabel(item)"
+                  aria-haspopup="menu"
+                  :aria-expanded="openMenuId === item.id"
+                  :data-testid="`function-tree-parent-${item.id}`"
+                  @click="toggleSubmenu(item.id)"
+                  @keydown.esc="closeSubmenu"
+                >
+                  <span v-if="item.icon" class="ip-function-tree__icon" aria-hidden="true">
+                    <component :is="item.icon" />
+                  </span>
+                  <span v-if="!collapsed" class="ip-function-tree__label">{{
+                    itemLabel(item)
+                  }}</span>
+                </button>
+                <div
+                  v-if="openMenuId === item.id"
+                  class="ip-function-tree__popover"
+                  role="menu"
+                  :data-testid="`function-tree-popover-${item.id}`"
+                >
+                  <RouterLink
+                    v-for="child in visibleChildren(item)"
+                    :key="child.id"
+                    :to="{
+                      name: child.routeName,
+                      ...(child.routeQuery === undefined ? {} : { query: child.routeQuery }),
+                    }"
+                    class="ip-function-tree__popover-link"
+                    role="menuitem"
+                    :aria-current="isActive(child.routeName) ? 'page' : undefined"
+                    @click="closeSubmenu"
+                  >
+                    <span v-if="child.icon" class="ip-function-tree__icon" aria-hidden="true">
+                      <component :is="child.icon" />
+                    </span>
+                    <span>{{ itemLabel(child) }}</span>
+                  </RouterLink>
+                </div>
+              </template>
+              <template v-else-if="visibleChildren(item).length === 0">
                 <RouterLink
                   :to="{
-                    name: child.routeName,
-                    ...(child.routeQuery === undefined ? {} : { query: child.routeQuery }),
+                    name: item.routeName,
+                    ...(item.routeQuery === undefined ? {} : { query: item.routeQuery }),
                   }"
-                  class="ip-function-tree__link ip-function-tree__link--child"
-                  :class="{ 'ip-function-tree__link--active': isActive(child.routeName) }"
-                  :aria-current="isActive(child.routeName) ? 'page' : undefined"
+                  class="ip-function-tree__link"
+                  :class="{ 'ip-function-tree__link--active': isActive(item.routeName) }"
+                  :aria-current="isActive(item.routeName) ? 'page' : undefined"
+                  :aria-label="collapsed ? itemLabel(item) : undefined"
+                  :title="collapsed ? itemLabel(item) : undefined"
                 >
-                  <span v-if="child.icon" class="ip-function-tree__icon" aria-hidden="true">
-                    <component :is="child.icon" />
+                  <span v-if="item.icon" class="ip-function-tree__icon" aria-hidden="true">
+                    <component :is="item.icon" />
                   </span>
-                  <span class="ip-function-tree__label">{{ itemLabel(child) }}</span>
+                  <span v-if="!collapsed" class="ip-function-tree__label">{{
+                    itemLabel(item)
+                  }}</span>
                 </RouterLink>
-              </li>
-            </ul>
-          </div>
-        </template>
-      </li>
-      </template>
+              </template>
+              <template v-else>
+                <div class="ip-function-tree__parent">
+                  <span class="ip-function-tree__link ip-function-tree__link--parent">
+                    <span v-if="item.icon" class="ip-function-tree__icon" aria-hidden="true">
+                      <component :is="item.icon" />
+                    </span>
+                    <span class="ip-function-tree__label">{{ itemLabel(item) }}</span>
+                  </span>
+                  <ul class="ip-function-tree__children">
+                    <li v-for="child in visibleChildren(item)" :key="child.id">
+                      <RouterLink
+                        :to="{
+                          name: child.routeName,
+                          ...(child.routeQuery === undefined ? {} : { query: child.routeQuery }),
+                        }"
+                        class="ip-function-tree__link ip-function-tree__link--child"
+                        :class="{ 'ip-function-tree__link--active': isActive(child.routeName) }"
+                        :aria-current="isActive(child.routeName) ? 'page' : undefined"
+                      >
+                        <span v-if="child.icon" class="ip-function-tree__icon" aria-hidden="true">
+                          <component :is="child.icon" />
+                        </span>
+                        <span class="ip-function-tree__label">{{ itemLabel(child) }}</span>
+                      </RouterLink>
+                    </li>
+                  </ul>
+                </div>
+              </template>
+            </li>
+          </ul>
+        </li>
       </ul>
     </div>
   </nav>
@@ -389,18 +436,80 @@ watch(
 }
 
 .ip-function-tree__section {
-  max-width: 100%;
-  margin: 12px var(--ip-space-3) 4px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 36px;
+  padding: 0 var(--ip-space-3);
   overflow: hidden;
   color: var(--ip-color-text-secondary);
-  font-size: var(--ip-font-size-xs);
-  font-weight: 500;
-  line-height: 18px;
+  font-family: inherit;
+  font-size: var(--ip-font-size-sm);
+  font-weight: 600;
+  text-align: left;
   white-space: nowrap;
+  background: transparent;
+  border: 0;
+  border-radius: var(--ip-radius-md);
+  cursor: pointer;
 }
 
-.ip-function-tree__section:first-child {
-  margin-top: 12px;
+.ip-function-tree__section:hover,
+.ip-function-tree__section:focus-visible {
+  color: var(--ip-color-text-primary);
+  background: var(--ip-color-bg-muted);
+}
+
+.ip-function-tree__section:focus-visible {
+  outline: 2px solid var(--ip-focus-ring-color);
+  outline-offset: -1px;
+}
+
+.ip-function-tree__section-icon,
+.ip-function-tree__section-arrow {
+  display: inline-flex;
+  flex: 0 0 16px;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+}
+
+.ip-function-tree__section-icon :deep(svg),
+.ip-function-tree__section-arrow :deep(svg) {
+  width: 16px;
+  height: 16px;
+}
+
+.ip-function-tree__section-label {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ip-function-tree__section-arrow {
+  transition: transform 150ms ease;
+}
+
+.ip-function-tree__section[aria-expanded='false'] .ip-function-tree__section-arrow {
+  transform: rotate(-90deg);
+}
+
+.ip-function-tree__section-group,
+.ip-function-tree__section-items {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ip-function-tree__section-group + .ip-function-tree__section-group {
+  margin-top: var(--ip-space-2);
+}
+
+.ip-function-tree__section-group--defined .ip-function-tree__section-items .ip-function-tree__link {
+  padding-left: 28px;
 }
 
 .ip-function-tree--collapsed .ip-function-tree__list {
@@ -412,6 +521,17 @@ watch(
 
 .ip-function-tree--collapsed .ip-function-tree__section {
   display: none;
+}
+
+.ip-function-tree--collapsed .ip-function-tree__section-group + .ip-function-tree__section-group {
+  margin-top: 0;
+}
+
+.ip-function-tree--collapsed
+  .ip-function-tree__section-group--defined
+  .ip-function-tree__section-items
+  .ip-function-tree__link {
+  padding: 0;
 }
 
 .ip-function-tree--collapsed .ip-function-tree__item {

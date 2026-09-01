@@ -1,7 +1,7 @@
 /**
  * PlatformTopBar 组件测试(PF-01 §6.1):
  * 三段结构(brand/search/right)、具名槽渲染、空槽抑制、
- * 固定高度与渐变背景 Token 消费、顶栏为 flex 布局。
+ * 固定高度与渐变背景 Token 消费、顶栏为 grid 布局。
  */
 
 import { mount, type VueWrapper } from '@vue/test-utils'
@@ -69,7 +69,7 @@ describe('PlatformTopBar', () => {
     expect(wrapper.find('.ip-topbar__user').exists()).toBe(true)
   })
 
-  it('采用视觉交接约定的固定高度与三段 flex 布局', async () => {
+  it('采用视觉交接约定的固定高度与三段 grid 布局', async () => {
     const foundation = readFileSync(resolve(process.cwd(), 'src/styles/foundation.css'), 'utf8')
     expect(foundation).toContain('--ip-shell-topbar-height: 56px')
     expect(foundation).toContain('--ip-shell-toolrail-width: 72px')
@@ -80,7 +80,19 @@ describe('PlatformTopBar', () => {
       import: 'default',
     })
     const source = (await sourceModules['../../../src/components/shell/PlatformTopBar.vue']!()) as string
-    expect(source).toMatch(/\.ip-topbar\s*\{[\s\S]*?display:\s*flex;/)
+    expect(source).toMatch(/\.ip-topbar\s*\{[\s\S]*?display:\s*grid;/)
+  })
+
+  it('提高长 placeholder 的搜索目标宽度,并保留左右占位裁剪', async () => {
+    const sourceModules = import.meta.glob('../../../src/components/shell/*.vue', {
+      query: '?raw',
+      import: 'default',
+    })
+    const source = (await sourceModules['../../../src/components/shell/PlatformTopBar.vue']!()) as string
+    expect(source).toMatch(/const minimum = viewportWidth >= 1600 \? 320 : 280/)
+    expect(source).toContain('viewportWidth * 0.3')
+    expect(source).toContain('Math.min(480')
+    expect(source).toContain('availableWidth')
   })
 
   it('右区按实际内容宽度布局,不以 overflow hidden 裁切可交互工具', async () => {

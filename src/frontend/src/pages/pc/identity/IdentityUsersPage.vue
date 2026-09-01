@@ -948,6 +948,7 @@ restorePageState()
     </template>
 
     <AppQueryPanel
+      v-if="tableQueryMode === 'top'"
       data-testid="identity-users-query"
       :show-actions="true"
       :submit-label="commonCopy.search"
@@ -969,7 +970,7 @@ restorePageState()
           <ArrowDown aria-hidden="true" />
         </button>
       </template>
-      <template v-if="tableQueryMode === 'top'">
+      <template>
         <label class="users-page__field users-page__field-login">
           <span>{{ copy.loginName }}</span>
           <el-input
@@ -1064,9 +1065,6 @@ restorePageState()
           </label>
         </div>
       </template>
-      <p v-else class="users-page__query-mode-hint" role="status">
-        {{ copy.queryTitle }} · {{ copy.tableActions }}
-      </p>
     </AppQueryPanel>
 
     <AppDataTable

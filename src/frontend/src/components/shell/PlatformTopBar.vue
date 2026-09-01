@@ -24,9 +24,8 @@ const searchStyle = ref<Record<string, string>>({})
 let resizeObserver: ResizeObserver | undefined
 
 function preferredSearchWidth(viewportWidth: number): number {
-  const minimum = viewportWidth >= 1600 ? 320 : 220
-  const maximum = viewportWidth >= 1600 ? 480 : 320
-  return Math.min(maximum, Math.max(minimum, viewportWidth * 0.22))
+  const minimum = viewportWidth >= 1600 ? 320 : 280
+  return Math.min(480, Math.max(minimum, viewportWidth * 0.3))
 }
 
 /** Keep the search visually centered while reserving the measured left/right content. */
@@ -155,7 +154,7 @@ onBeforeUnmount(() => {
   box-sizing: border-box;
   height: 100%;
   min-width: 0;
-  width: clamp(220px, 22vw, 320px);
+  width: clamp(280px, 30vw, 480px);
   max-width: calc(100% - 16px);
   justify-content: center;
 }

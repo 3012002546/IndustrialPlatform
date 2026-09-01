@@ -9,10 +9,10 @@
 
       1. Build the solution (expect 0 warnings / 0 errors).
       2. Run the full test suite (report total pass count).
-      3. Start Gateway / Identity / ReferenceData via deploy/scripts/dev.ps1
+      3. Start the default UnifiedHost via deploy/scripts/dev.ps1, or the
+         explicitly requested independent services.
          (infrastructure skipped; Docker acceptance is deferred).
-      4. Probe service health, platform readiness aggregation, gateway
-         forwarding and the unified 404 envelope.
+      4. Probe UnifiedHost health, readiness and the unified 404 envelope.
       5. Report infrastructure container status (N/A when Docker is absent).
       6. Stop services (unless -KeepRunning).
 
@@ -22,13 +22,19 @@
 .PARAMETER KeepRunning
     Leave services running after the smoke test instead of stopping them.
 
+.PARAMETER IndependentServices
+    Explicitly validate the distributed Gateway + Identity + ReferenceData
+    deployment. The default remains the single UnifiedHost on port 5041.
+
 .EXAMPLE
     ./deploy/scripts/smoke.ps1
     ./deploy/scripts/smoke.ps1 -KeepRunning
+    ./deploy/scripts/smoke.ps1 -IndependentServices
 #>
 [CmdletBinding()]
 param(
-    [switch]$KeepRunning
+    [switch]$KeepRunning,
+    [switch]$IndependentServices
 )
 
 Set-StrictMode -Version 2.0
@@ -137,10 +143,19 @@ Add-StepResult 'Test' $testExit $testDetail
 # ---------------------------------------------------------------------------
 # 3. Start services (infrastructure skipped; Docker acceptance deferred)
 # ---------------------------------------------------------------------------
-Write-Step 'Start backend services (infrastructure skipped)'
-& $DevScript start -SkipInfrastructure -SkipBuild
+if ($IndependentServices) {
+    Write-Step 'Start independent services (infrastructure skipped)'
+    & $DevScript start -SkipInfrastructure -SkipBuild -IndependentServices
+} else {
+    Write-Step 'Start UnifiedHost (infrastructure skipped)'
+    & $DevScript start -SkipInfrastructure -SkipBuild
+}
 $startExit = $LASTEXITCODE
-Add-StepResult 'Start' $startExit 'dev.ps1 start -SkipInfrastructure -SkipBuild'
+Add-StepResult 'Start' $startExit $(if ($IndependentServices) {
+        'dev.ps1 start -SkipInfrastructure -SkipBuild -IndependentServices'
+    } else {
+        'dev.ps1 start -SkipInfrastructure -SkipBuild'
+    })
 if ($startExit -ne 0) {
     Write-Host 'Services failed to start; skipping endpoint probes and stopping.'
     $KeepRunning = $false
@@ -152,14 +167,22 @@ if ($startExit -ne 0) {
 if ($startExit -eq 0) {
     Write-Step 'Endpoint probes'
 
-    $probes = @(
-        [pscustomobject]@{ Name = 'Gateway /health';          Url = 'http://localhost:5080/health';            Expect = 200 }
-        [pscustomobject]@{ Name = 'Identity /health';         Url = 'http://localhost:5041/health';            Expect = 200 }
-        [pscustomobject]@{ Name = 'ReferenceData /health';    Url = 'http://localhost:62311/health';           Expect = 200 }
-        [pscustomobject]@{ Name = 'Gateway /health/live';     Url = 'http://localhost:5080/health/live';       Expect = 200 }
-        [pscustomobject]@{ Name = 'Gateway /identity/health'; Url = 'http://localhost:5080/identity/health';   Expect = 200 }
-        [pscustomobject]@{ Name = 'Gateway /unknown (404)';   Url = 'http://localhost:5080/unknown';           Expect = 404 }
-    )
+    if ($IndependentServices) {
+        $probes = @(
+            [pscustomobject]@{ Name = 'Gateway /health';          Url = 'http://localhost:5080/health';          Expect = 200 }
+            [pscustomobject]@{ Name = 'Identity /health';         Url = 'http://localhost:5041/health';          Expect = 200 }
+            [pscustomobject]@{ Name = 'ReferenceData /health';    Url = 'http://localhost:62311/health';         Expect = 200 }
+            [pscustomobject]@{ Name = 'Gateway /health/live';     Url = 'http://localhost:5080/health/live';     Expect = 200 }
+            [pscustomobject]@{ Name = 'Gateway /identity/health'; Url = 'http://localhost:5080/identity/health'; Expect = 200 }
+            [pscustomobject]@{ Name = 'Gateway unknown API (404)'; Url = 'http://localhost:5080/unknown';       Expect = 404 }
+        )
+    } else {
+        $probes = @(
+            [pscustomobject]@{ Name = 'UnifiedHost /health';           Url = 'http://localhost:5041/health';                       Expect = 200 }
+            [pscustomobject]@{ Name = 'UnifiedHost /health/live';      Url = 'http://localhost:5041/health/live';                  Expect = 200 }
+            [pscustomobject]@{ Name = 'UnifiedHost unknown API (404)'; Url = 'http://localhost:5041/api/v1/definitely-not-a-route'; Expect = 404 }
+        )
+    }
 
     foreach ($probe in $probes) {
         $status = Test-Http $probe.Url
@@ -169,27 +192,38 @@ if ($startExit -eq 0) {
         Add-StepResult ("Probe $($probe.Name)") $(if ($ok) { 0 } else { 1 }) "actual=$status, expected=$($probe.Expect)"
     }
 
-    # Readiness aggregation: expected to reflect downstream dependency state.
-    # It can take ~10s (downstream service checks time out in parallel), so probe with a longer timeout.
+    # Readiness aggregates the composed modules' dependency state.
+    # It can take ~10s (dependency checks time out in parallel), so probe with a longer timeout.
+    $readyUrl = if ($IndependentServices) { 'http://localhost:5080/health/ready' } else { 'http://localhost:5041/health/ready' }
     $readyStatus = $null
     try {
-        $readyResponse = Invoke-WebRequest -Uri 'http://localhost:5080/health/ready' -UseBasicParsing -TimeoutSec 20
+        $readyResponse = Invoke-WebRequest -Uri $readyUrl -UseBasicParsing -TimeoutSec 20
         $readyStatus = [int]$readyResponse.StatusCode
     } catch {
         if ($null -ne $_.Exception.Response) { $readyStatus = [int]$_.Exception.Response.StatusCode }
     }
-    Write-Host "  INFO  Gateway /health/ready actual=$readyStatus (200 when dependencies up, 503 when down)"
+    Write-Host "  INFO  $(if ($IndependentServices) { 'Gateway' } else { 'UnifiedHost' }) /health/ready actual=$readyStatus (200 when dependencies up, 503 when down)"
     Add-StepResult 'Probe /health/ready' 0 "actual=$readyStatus (informational)"
 
-    # Forwarding body check: /identity/health must answer as Identity.
-    $forwardBody = ''
-    try {
-        $forwardBody = (Invoke-WebRequest -Uri 'http://localhost:5080/identity/health' -UseBasicParsing -TimeoutSec 5).Content
-    } catch { }
-    $forwardOk = $forwardBody -match '"service"\s*:\s*"Identity"'
-    Write-Host ("  {0}  Gateway forwarding body mentions service=Identity" -f $(if ($forwardOk) { 'PASS' } else { 'FAIL' }))
-    Add-StepResult 'Probe gateway forwarding body' $(if ($forwardOk) { 0 } else { 1 }) $(if ($forwardOk) { 'body ok' } else { $forwardBody })
-    if (-not $forwardOk) { $OverallOk = $false }
+    if ($IndependentServices) {
+        $forwardBody = ''
+        try {
+            $forwardBody = (Invoke-WebRequest -Uri 'http://localhost:5080/identity/health' -UseBasicParsing -TimeoutSec 5).Content
+        } catch { }
+        $forwardOk = $forwardBody -match '"service"\s*:\s*"Identity"'
+        Write-Host ("  {0}  Gateway forwarding body mentions service=Identity" -f $(if ($forwardOk) { 'PASS' } else { 'FAIL' }))
+        Add-StepResult 'Probe gateway forwarding body' $(if ($forwardOk) { 0 } else { 1 }) $(if ($forwardOk) { 'body ok' } else { $forwardBody })
+        if (-not $forwardOk) { $OverallOk = $false }
+    } else {
+        $healthBody = ''
+        try {
+            $healthBody = (Invoke-WebRequest -Uri 'http://localhost:5041/health' -UseBasicParsing -TimeoutSec 5).Content
+        } catch { }
+        $hostOk = $healthBody -match '"service"\s*:\s*"UnifiedHost"'
+        Write-Host ("  {0}  UnifiedHost health body mentions service=UnifiedHost" -f $(if ($hostOk) { 'PASS' } else { 'FAIL' }))
+        Add-StepResult 'Probe UnifiedHost identity body' $(if ($hostOk) { 0 } else { 1 }) $(if ($hostOk) { 'body ok' } else { $healthBody })
+        if (-not $hostOk) { $OverallOk = $false }
+    }
 }
 
 # ---------------------------------------------------------------------------
@@ -221,9 +255,10 @@ if (Get-Command docker -ErrorAction SilentlyContinue) {
 # ---------------------------------------------------------------------------
 if (-not $KeepRunning) {
     Write-Step 'Stop services'
-    & $DevScript stop
+    if ($IndependentServices) { & $DevScript stop -IndependentServices }
+    else { & $DevScript stop }
     $stopExit = $LASTEXITCODE
-    Add-StepResult 'Stop' $stopExit 'dev.ps1 stop'
+    Add-StepResult 'Stop' $stopExit $(if ($IndependentServices) { 'dev.ps1 stop -IndependentServices' } else { 'dev.ps1 stop' })
 } else {
     Write-Host "`n[step] KeepRunning set; services left running."
 }

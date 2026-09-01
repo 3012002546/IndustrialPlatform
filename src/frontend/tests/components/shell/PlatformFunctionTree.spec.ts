@@ -8,7 +8,7 @@ import { mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
-import { defineComponent, nextTick } from 'vue'
+import { defineComponent, markRaw, nextTick } from 'vue'
 
 import { writeAuthSession } from '@/auth'
 import type { AuthSession } from '@/auth/types'
@@ -19,7 +19,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useLocalizationStore } from '@/stores/localizationStore'
 import { useThemeStore } from '@/stores/themeStore'
 
-const ItemIcon = defineComponent({ name: 'ItemIcon', template: '<span>■</span>' })
+const ItemIcon = markRaw(defineComponent({ name: 'ItemIcon', template: '<span>■</span>' }))
 
 const ITEMS: readonly NavigationItem[] = [
   { id: 'public', label: '公开项', routeName: 'pc-home', icon: ItemIcon },
@@ -302,7 +302,14 @@ describe('PlatformFunctionTree', () => {
         sectionId: 'organization-platform',
       },
     ]
-    const { wrapper, localization } = await mountTree([], '/pc/home', '系统管理', items, undefined, sections)
+    const { wrapper, localization } = await mountTree(
+      [],
+      '/pc/home',
+      '系统管理',
+      items,
+      undefined,
+      sections,
+    )
 
     expect(wrapper.findAll('.ip-function-tree__section').map((node) => node.text())).toEqual([
       '身份与访问',
@@ -316,15 +323,105 @@ describe('PlatformFunctionTree', () => {
     ])
   })
 
+  it('二级分组默认展开,带图标与箭头并可独立折叠', async () => {
+    const sections: readonly NavigationSection[] = [
+      { id: 'identity-access', label: '身份与访问' },
+      { id: 'organization-platform', label: '组织域平台' },
+    ]
+    const items: readonly NavigationItem[] = [
+      { ...ITEMS[0]!, id: 'identity', label: '用户管理', sectionId: 'identity-access' },
+      { ...ITEMS[0]!, id: 'organization', label: '行政组织', sectionId: 'organization-platform' },
+    ]
+    const { wrapper } = await mountTree([], '/pc/home', '系统管理', items, undefined, sections)
+    const sectionButtons = wrapper.findAll('button.ip-function-tree__section')
+
+    expect(sectionButtons).toHaveLength(2)
+    expect(sectionButtons.map((button) => button.attributes('aria-expanded'))).toEqual([
+      'true',
+      'true',
+    ])
+    expect(sectionButtons[0]!.find('.ip-function-tree__section-icon svg').exists()).toBe(true)
+    expect(sectionButtons[0]!.find('.ip-function-tree__section-arrow svg').exists()).toBe(true)
+
+    await sectionButtons[0]!.trigger('click')
+
+    expect(sectionButtons[0]!.attributes('aria-expanded')).toBe('false')
+    expect(sectionButtons[1]!.attributes('aria-expanded')).toBe('true')
+    expect(
+      wrapper.find('[data-testid="function-tree-section-items-identity-access"]').exists(),
+    ).toBe(false)
+    expect(
+      wrapper.find('[data-testid="function-tree-section-items-organization-platform"]').exists(),
+    ).toBe(true)
+  })
+
+  it('搜索命中临时展开已折叠分组,清空后恢复局部状态', async () => {
+    const sections: readonly NavigationSection[] = [
+      { id: 'identity-access', label: '身份与访问' },
+      { id: 'organization-platform', label: '组织域平台' },
+    ]
+    const items: readonly NavigationItem[] = [
+      { ...ITEMS[0]!, id: 'identity', label: '用户管理', sectionId: 'identity-access' },
+      { ...ITEMS[0]!, id: 'organization', label: '行政组织', sectionId: 'organization-platform' },
+    ]
+    const { wrapper } = await mountTree([], '/pc/home', '系统管理', items, undefined, sections)
+    const identitySection = wrapper.get(
+      'button[aria-controls="function-tree-section-identity-access"]',
+    )
+    const search = wrapper.get('.ip-function-tree__search')
+
+    await identitySection.trigger('click')
+    expect(identitySection.attributes('aria-expanded')).toBe('false')
+
+    await search.setValue('用户')
+    expect(identitySection.attributes('aria-expanded')).toBe('true')
+    expect(
+      wrapper.find('[data-testid="function-tree-section-items-identity-access"]').exists(),
+    ).toBe(true)
+
+    await search.setValue('')
+    expect(identitySection.attributes('aria-expanded')).toBe('false')
+    expect(
+      wrapper.find('[data-testid="function-tree-section-items-identity-access"]').exists(),
+    ).toBe(false)
+  })
+
+  it('外层收窄为图标栏时忽略分组折叠状态,保留全部授权入口', async () => {
+    const sections: readonly NavigationSection[] = [
+      { id: 'identity-access', label: '身份与访问' },
+      { id: 'organization-platform', label: '组织域平台' },
+    ]
+    const items: readonly NavigationItem[] = [
+      { ...ITEMS[0]!, id: 'identity', label: '用户管理', sectionId: 'identity-access' },
+      { ...ITEMS[0]!, id: 'organization', label: '行政组织', sectionId: 'organization-platform' },
+    ]
+    const { wrapper, themeStore } = await mountTree(
+      [],
+      '/pc/home',
+      '系统管理',
+      items,
+      undefined,
+      sections,
+    )
+    const sectionButtons = wrapper.findAll('button.ip-function-tree__section')
+    expect(sectionButtons).toHaveLength(2)
+    for (const button of sectionButtons) await button.trigger('click')
+
+    themeStore.setPcFunctionTreeCollapsed(true)
+    await nextTick()
+
+    expect(
+      wrapper.findAll('button.ip-function-tree__section').every((button) => !button.isVisible()),
+    ).toBe(true)
+    expect(wrapper.findAll('a.ip-function-tree__link')).toHaveLength(2)
+    expect(wrapper.findAll('a.ip-function-tree__link').every((link) => link.isVisible())).toBe(true)
+  })
+
   it('长翻译标签在功能树内省略且列表不产生横向滚动', async () => {
     const source = await import('@/components/shell/PlatformFunctionTree.vue?raw')
 
-    expect(source.default).toMatch(
-      /\.ip-function-tree__list\s*\{[\s\S]*?overflow-x:\s*hidden/,
-    )
-    expect(source.default).toMatch(
-      /\.ip-function-tree__link\s*\{[\s\S]*?min-width:\s*0/,
-    )
+    expect(source.default).toMatch(/\.ip-function-tree__list\s*\{[\s\S]*?overflow-x:\s*hidden/)
+    expect(source.default).toMatch(/\.ip-function-tree__link\s*\{[\s\S]*?min-width:\s*0/)
     expect(source.default).toMatch(
       /\.ip-function-tree__label\s*\{[\s\S]*?min-width:\s*0;[\s\S]*?overflow:\s*hidden;[\s\S]*?text-overflow:\s*ellipsis;[\s\S]*?white-space:\s*nowrap/,
     )
