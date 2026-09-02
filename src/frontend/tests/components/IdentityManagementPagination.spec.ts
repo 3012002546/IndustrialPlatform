@@ -126,4 +126,29 @@ describe('Identity loader page pagination contract', () => {
       expect(tableVm.currentPage).toBe(1)
     },
   )
+
+  it.each([
+    [IdentityUserGroupsPage, ['identity.user-group.view'], fakeManagement.listUserGroups],
+    [IdentityRolesPage, ['identity.role.view'], fakeManagement.listRoles],
+    [IdentityAuditsPage, ['identity.audit.view'], fakeManagement.listLoginAudits],
+  ] as const)(
+    'returns %s from page 2 to page 1 with one top-reset request',
+    async (component, permissions, list) => {
+      const wrapper = await mountPage(component, permissions)
+      const table = wrapper.findComponent(AppDataTable) as unknown as VueWrapper
+      const tableVm = table.vm as unknown as AppDataTableVm
+
+      tableVm.onPageChange(2)
+      await flushPromises()
+      expect(tableVm.currentPage).toBe(2)
+
+      const callsBeforeReset = list.mock.calls.length
+      await wrapper.get('[data-testid="query-panel-reset"]').trigger('click')
+      await flushPromises()
+
+      expect(list.mock.calls.length).toBe(callsBeforeReset + 1)
+      expect(list).toHaveBeenLastCalledWith(expect.objectContaining({ pageIndex: 1 }))
+      expect(tableVm.currentPage).toBe(1)
+    },
+  )
 })
