@@ -32,6 +32,7 @@ const copy = computed(() => localeMessages[locale.value].shell.top)
   gap: var(--ip-space-2);
   min-width: 0;
   color: inherit;
+  font-size: var(--ip-font-size-sm);
 }
 
 .ip-context-switcher--single-line {
@@ -40,6 +41,8 @@ const copy = computed(() => localeMessages[locale.value].shell.top)
 
 .ip-context-switcher strong {
   overflow: hidden;
+  font-size: var(--ip-font-size-sm);
+  font-weight: 400;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

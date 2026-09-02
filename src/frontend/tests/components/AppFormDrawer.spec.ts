@@ -12,6 +12,7 @@ import { defineComponent } from 'vue'
 
 import AppFormDrawer from '@/components/management/AppFormDrawer.vue'
 import { useDeviceStore } from '@/stores/deviceStore'
+import { useLocalizationStore } from '@/stores/localizationStore'
 
 /**
  * AppFormDrawer 用 <script setup> 直接 import ElFocusTrap,模板编译为局部绑定,
@@ -153,6 +154,17 @@ describe('AppFormDrawer', () => {
     const reopened = mountDrawer({ modelValue: true, title: '表单', storageKey: 'test-form-mode' })
     await new Promise((resolve) => setTimeout(resolve))
     expect(reopened.get('.app-form-drawer').classes()).toContain('app-form-drawer--modal')
+  })
+
+  it('随平台语言切换表单载体文案', async () => {
+    const wrapper = mountDrawer({ modelValue: true, title: 'Form' })
+    useLocalizationStore().setLocale('en-US', null)
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.get('[data-testid="form-surface-mode-toggle"]').text()).toBe('Centered dialog')
+    expect(wrapper.get('[data-testid="form-drawer-cancel"]').text()).toBe('Cancel')
+    expect(wrapper.get('[data-testid="form-drawer-submit"]').text()).toBe('Confirm')
+    expect(wrapper.get('[data-testid="form-drawer-close"]').attributes('aria-label')).toBe('Close')
   })
 
   it('PDA/Mobile 抽屉全宽(手持修饰类)', async () => {

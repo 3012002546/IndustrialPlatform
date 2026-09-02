@@ -7,7 +7,7 @@ ReferenceData 是一个 Service Host，长期包含 Dictionary、Parameter、Met
 ## 非职责
 
 - 当前不声称已实现五个模块的业务 API、页面或领域模型。
-- 五个逻辑模块不机械拆成五套 Migration、Outbox、Inbox 或初始化账本。
+- 五个逻辑模块不机械拆成五套 Migration、Outbox、Inbox、连接或初始化账本；没有真实入站消费者时不创建 Inbox/Checkpoint。
 - 不跨服务读取/写入 Identity、SystemData 或未来 MES 服务数据库。
 - 不因 Shared 物理数据库而共享 Repository、表所有权或数据库外键。
 
@@ -20,7 +20,7 @@ ReferenceData 是一个 Service Host，长期包含 Dictionary、Parameter、Met
 | Infrastructure | `IndustrialPlatform.ReferenceData.Infrastructure/DependencyInjection.cs`，SqlSugar/Redis/RabbitMQ 注册 |
 | API | `IndustrialPlatform.ReferenceData.Api/Program.cs`、`Modules/ReferenceDataModule.cs`、`Health/` |
 
-未来业务调用链仍必须是 Controller → Application 用例/端口 → Domain（需要领域规则时）→ Infrastructure Repository。五个模块通过公开契约或进程内事件协作，不直接访问彼此表。
+未来业务调用链仍必须是 Controller → Application 用例/端口 → Domain（需要领域规则时）→ Infrastructure Repository。五个模块通过进程内公开 Application 契约协作，不直接访问彼此 Repository/表，也不引入内部 HTTP 或 RabbitMQ。
 
 ## 运行入口
 
@@ -35,15 +35,15 @@ Invoke-RestMethod http://localhost:62311/health/ready
 
 - SqlSugar/PostgreSQL 或 SQLite：未来 ReferenceData 自有数据。
 - Redis：缓存；缓存不是权威事实。
-- RabbitMQ/EventBus：未来版本化 Integration Event 发布/消费。
+- RabbitMQ/EventBus：未来版本化 Integration Event 发布；出现真实入站消费者前不预建消费基础设施。
 - Seq/Serilog：日志和 TraceId。
 - `DatabaseTopology`：物理目标选择；不改变服务级数据所有权。
 
 ## 数据初始化
 
-目标边界是服务级 Migration、Outbox、Inbox 和基础设施，当前五模块共享一个初始化单元。只有某模块形成独立持久化生命周期并完成边界评审后才可拆分。
+目标边界是一个 `referencedata_db`、一个 PostgreSQL `reference_data` Schema、模块表前缀、服务级 Migration/Ledger、一个带 `ModuleKey` 的 Outbox 和共享基础设施。当前五模块共享一个初始化单元；只有某模块形成独立持久化生命周期并完成边界评审后才可拆分。
 
-工作包 4 只会增加 ReferenceData 服务级初始化与本地 readiness 骨架，使用 `reference_data_schema_migrations`、`reference_data_seed_ledger` 和单一 `reference-data-baseline-v1`；不会实现五个业务模块。
+当前骨架使用 `reference_data_schema_migrations`、`reference_data_seed_ledger` 和单一 `reference-data-baseline-v1` 占位事实，尚不是 PF-03 的正式迁移实现。TASK-RD-001 将其收敛为一个服务级迁移流；PostgreSQL 目标表为 `reference_data.schema_migrations` 与 `reference_data.seed_ledger`，SQLite 使用等价全名。
 
 ## 测试入口
 
@@ -57,11 +57,11 @@ dotnet test tests/ReferenceData/IndustrialPlatform.ReferenceData.Tests/Industria
 
 ### readiness 返回 RabbitMQ/Redis/PostgreSQL 异常
 
-- 现象 → `/health/ready` 返回 503，并显示某依赖 Unhealthy。
+- 现象 → 当前骨架的 `/health/ready` 会把 PostgreSQL、Redis、RabbitMQ、Seq 一并计入并可能返回 503；这是 PF-03 前的已知实现差距。
 - 首先检查 → 本地基础设施状态和 ReferenceData 的 Development 配置/拓扑。
 - 执行命令 → 先运行 `docker compose -f docker/docker-compose.yml ps`，再运行 `dotnet test tests/ReferenceData/IndustrialPlatform.ReferenceData.Tests/IndustrialPlatform.ReferenceData.Tests.csproj --configuration Release --filter FullyQualifiedName~HealthEndpointTests`。
-- 正常结果 → 容器 healthy，健康检查测试通过；无基础设施时 liveness 仍可用而 readiness 明确失败。
-- 异常时下一步 → 逐项检查目标地址和非敏感配置；不要关闭健康检查伪装 Ready。
+- 目标结果 → TASK-RD-001 后，数据库身份/Migration/RequiredSeed/Bootstrap 决定 core readiness；Redis、RabbitMQ、Seq 进入 capability health，能够安全回源、积压或降级时报告 Degraded 而不机械阻断 Ready。
+- 异常时下一步 → 在任务实施前只按当前行为排查；实施时通过健康检查标签/谓词收敛，不能简单删除检查或伪装 Healthy。
 相关代码入口 → `IndustrialPlatform.ReferenceData.Api/Health/`、`IndustrialPlatform.ReferenceData.Api/Modules/ReferenceDataModule.cs`、`IndustrialPlatform.ReferenceData.Infrastructure/DependencyInjection.cs`。
 
 ### 新模块设计导致五套基础设施

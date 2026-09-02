@@ -1,3 +1,4 @@
+using IndustrialPlatform.Identity.Api.Export;
 using IndustrialPlatform.Identity.Api.Authorization;
 using IndustrialPlatform.Identity.Application.Management;
 using IndustrialPlatform.Identity.Application.UserGroups;
@@ -34,11 +35,16 @@ public sealed class UserGroupsController : ManagementControllerBase
     [Authorize(Policy = PermissionPolicies.UserGroupView)]
     [HttpGet]
     public async Task<ActionResult<PageResult<UserGroupSummaryDto>>> List(
+        [FromQuery] string? nId,
         [FromQuery] string? name,
+        [FromQuery] string? description,
         [FromQuery] string? status,
+        [FromQuery] string? keyword,
         [FromQuery] bool includeDeleted = false,
         [FromQuery] int pageIndex = 1,
         [FromQuery] int pageSize = 20,
+        [FromQuery] string? sortField = null,
+        [FromQuery] string? sortOrder = null,
         CancellationToken cancellationToken = default)
     {
         if (!TryGetActorContext(out var tenantNId, out _))
@@ -66,7 +72,7 @@ public sealed class UserGroupsController : ManagementControllerBase
         {
             var page = await _service.ListAsync(
                 tenantNId,
-                new UserGroupListQuery(tenantNId, name, parsedStatus, pageIndex, pageSize, includeDeleted),
+                new UserGroupListQuery(tenantNId, name, parsedStatus, pageIndex, pageSize, includeDeleted, sortField, sortOrder, nId, description, keyword),
                 cancellationToken);
             return PageResult.Create(page.Items.Select(ToSummaryDto).ToList(), page.Total, page.PageIndex, page.PageSize);
         }
@@ -78,6 +84,54 @@ public sealed class UserGroupsController : ManagementControllerBase
         {
             return StatusCodeEnvelope(ex.StatusCode, ex.Code, ex.Message);
         }
+    }
+
+    [Authorize(Policy = PermissionPolicies.UserGroupView)]
+    [HttpGet("export")]
+    public IActionResult Export(
+        [FromQuery] string? nId,
+        [FromQuery] string? name,
+        [FromQuery] string? description,
+        [FromQuery] string? status,
+        [FromQuery] string? keyword,
+        [FromQuery] bool includeDeleted = false,
+        [FromQuery] string quantity = "10000",
+        [FromQuery] string? columns = null,
+        [FromQuery] string? sortField = null,
+        [FromQuery] string? sortOrder = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryGetActorContext(out var tenantNId, out _)) return UnauthorizedEnvelope();
+        UserGroupStatus? parsedStatus = null;
+        if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<UserGroupStatus>(status, true, out var parsed)) parsedStatus = parsed;
+        var maxRows = StreamingXlsxExport.ParseQuantity(quantity);
+        return StreamingXlsxExport.Start("user-groups.xlsx", async (output, ct) =>
+        {
+            var workbook = await StreamingXlsxWriter.CreateAsync(output, ct);
+            var selectedColumns = StreamingXlsxExport.SelectColumns(columns,
+                new StreamingXlsxExport.Column<StoredUserGroup>("groupNId", "用户组标识", group => group.NId),
+                new StreamingXlsxExport.Column<StoredUserGroup>("name", "名称", group => group.Name),
+                new StreamingXlsxExport.Column<StoredUserGroup>("description", "描述", group => group.Description),
+                new StreamingXlsxExport.Column<StoredUserGroup>("status", "状态", group => group.Status),
+                new StreamingXlsxExport.Column<StoredUserGroup>("memberCount", "成员数", group => group.MemberCount.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                new StreamingXlsxExport.Column<StoredUserGroup>("roleCount", "角色数", group => group.RoleCount.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            await workbook.WriteRowAsync(selectedColumns.Select(column => column.Title), ct);
+            var written = 0;
+            var pageIndex = 1;
+            while (written < maxRows)
+            {
+                var page = await _service.ListAsync(tenantNId, new UserGroupListQuery(tenantNId, name, parsedStatus, pageIndex, 100, includeDeleted, sortField, sortOrder, nId, description, keyword), ct);
+                if (page.Items.Count == 0) break;
+                foreach (var group in page.Items)
+                {
+                    if (written++ >= maxRows) break;
+                    await workbook.WriteRowAsync(selectedColumns.Select(column => column.Value(group)), ct);
+                }
+                if (written >= page.Total || page.Items.Count < 100) break;
+                pageIndex++;
+            }
+            await workbook.DisposeAsync();
+        }, cancellationToken);
     }
 
     /// <summary>用户组详情(§29A.5 GET /api/v1/user-groups/{id});不存在或跨租户返回 404。</summary>

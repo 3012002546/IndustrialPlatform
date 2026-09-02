@@ -5,6 +5,10 @@ export type {
   ListRolesParams,
   ListUserGroupsParams,
   ListLoginAuditsParams,
+  ExportUsersParams,
+  ExportRolesParams,
+  ExportUserGroupsParams,
+  ExportLoginAuditsParams,
 } from './managementApi'
 export type {
   PageResultDto,
@@ -32,4 +36,6 @@ export type {
   AssignRolePermissionsRequestDto,
   PermissionTreeNodeDto,
   LoginAuditItemDto,
+  IdentityActiveSessionDto,
+  IdentitySessionRevokeResultDto,
 } from './types'

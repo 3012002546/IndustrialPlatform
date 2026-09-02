@@ -6,6 +6,10 @@ bin/
 obj/
 TestResults/
 
+# Prototype dependencies and generated bundles
+/docs/prototypes/**/node_modules/
+/docs/prototypes/**/dist/
+
 # IDE and user-specific files
 .vs/
 .idea/

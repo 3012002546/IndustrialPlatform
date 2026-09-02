@@ -6,7 +6,7 @@
  * ID_GROUP_NOT_FOUND、ID_GROUP_DISABLED、ID_GROUP_ROLE_INVALID)提示并刷新列表。
  * 操作按钮按 PermissionGate 控制(identity.user-group.*);服务端执行权威授权。
  */
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElDropdown, ElDropdownItem, ElDropdownMenu, ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { computed, onMounted, reactive, ref } from 'vue'
 
@@ -18,7 +18,7 @@ import type {
   UserGroupSummaryDto,
   UserSummaryDto,
 } from '@/api/identity/management'
-import { PERMISSIONS, PermissionGate } from '@/permissions'
+import { PERMISSIONS, PermissionGate, usePermission } from '@/permissions'
 import AppPage from '@/components/base/AppPage.vue'
 import AppDataTable from '@/components/management/AppDataTable.vue'
 import AppFormDrawer from '@/components/management/AppFormDrawer.vue'
@@ -49,9 +49,87 @@ interface GroupForm {
 }
 
 const management = getManagementApi()
+const { has } = usePermission()
 const locale = usePlatformLocale()
 const copy = computed(() => localeMessages[locale.value].identity.management.userGroups)
 const commonCopy = computed(() => localeMessages[locale.value].identity.management.common)
+
+type GroupActionKey = 'edit' | 'status' | 'members' | 'roles' | 'delete' | 'restore'
+interface GroupAction {
+  key: GroupActionKey
+  permission: string
+  label: string
+  type: 'primary' | 'danger' | 'success'
+}
+
+function groupRowActions(row: UserGroupSummaryDto, availableWidth?: number) {
+  const candidates: GroupAction[] = [
+    {
+      key: 'edit',
+      permission: PERMISSIONS.userGroupUpdate,
+      label: copy.value.edit,
+      type: 'primary',
+    },
+    {
+      key: 'status',
+      permission: PERMISSIONS.userGroupStatus,
+      label: row.status === 'Active' ? copy.value.disable : copy.value.enable,
+      type: row.status === 'Active' ? 'danger' : 'success',
+    },
+    {
+      key: 'members',
+      permission: PERMISSIONS.userGroupAssignMember,
+      label: copy.value.members,
+      type: 'primary',
+    },
+    {
+      key: 'roles',
+      permission: PERMISSIONS.userGroupAssignRole,
+      label: copy.value.roles,
+      type: 'primary',
+    },
+    row.isDeleted
+      ? {
+          key: 'restore',
+          permission: PERMISSIONS.userGroupRestore,
+          label: copy.value.restore,
+          type: 'success',
+        }
+      : {
+          key: 'delete',
+          permission: PERMISSIONS.userGroupDelete,
+          label: copy.value.delete,
+          type: 'danger',
+        },
+  ]
+  const actions = candidates.filter((action) => has(action.permission))
+  // Reserve the cell's horizontal padding and More trigger; allow longer English labels too.
+  const width = Math.max(0, Math.round(availableWidth ?? 220) - 16)
+  const widths = actions.map((action) =>
+    Array.from(action.label).reduce((sum, char) => sum + (char.charCodeAt(0) > 255 ? 14 : 8), 8),
+  )
+  const totalWidth = widths.reduce((sum, value, index) => sum + value + (index === 0 ? 0 : 4), 0)
+  if (totalWidth <= width) return { direct: actions, overflow: [] }
+
+  let used = 0
+  let count = 0
+  for (const actionWidth of widths) {
+    const nextWidth = used + (count === 0 ? 0 : 4) + actionWidth
+    if (nextWidth + 4 + 52 > width) break
+    used = nextWidth
+    count += 1
+  }
+  return { direct: actions.slice(0, count), overflow: actions.slice(count) }
+}
+
+function onGroupActionCommand(row: UserGroupSummaryDto, command: string): void {
+  if (command === 'edit') openEdit(row)
+  else if (command === 'status') void toggleStatus(row)
+  else if (command === 'members') void openManageMembers(row)
+  else if (command === 'roles') void openManageRoles(row)
+  else if (command === 'delete') void deleteGroup(row)
+  else if (command === 'restore') void restoreGroup(row)
+}
 
 // ---------------------------------------------------------------------------
 // 列表与过滤
@@ -601,37 +679,51 @@ onMounted(() => {
           {{ row.status === 'Active' ? copy.enable : copy.disable }}
         </el-tag>
       </template>
-      <template #actions="{ row }">
-        <PermissionGate :permission-n-id="PERMISSIONS.userGroupUpdate">
-          <el-button link type="primary" @click="openEdit(row)">{{ copy.edit }}</el-button>
-        </PermissionGate>
-        <PermissionGate :permission-n-id="PERMISSIONS.userGroupStatus">
-          <el-button
-            link
-            :type="row.status === 'Active' ? 'danger' : 'success'"
-            @click="toggleStatus(row)"
+      <template #actions="{ row, availableWidth }">
+        <div
+          class="groups-page__row-actions"
+          :data-testid="`identity-group-actions-${row.groupNId}`"
+        >
+          <PermissionGate
+            v-for="action in groupRowActions(row, availableWidth).direct"
+            :key="action.key"
+            :permission-n-id="action.permission"
           >
-            {{ row.status === 'Active' ? copy.disable : copy.enable }}
-          </el-button>
-        </PermissionGate>
-        <PermissionGate :permission-n-id="PERMISSIONS.userGroupAssignMember">
-          <el-button link type="primary" @click="openManageMembers(row)">{{
-            copy.members
-          }}</el-button>
-        </PermissionGate>
-        <PermissionGate :permission-n-id="PERMISSIONS.userGroupAssignRole">
-          <el-button link type="primary" @click="openManageRoles(row)">{{ copy.roles }}</el-button>
-        </PermissionGate>
-        <PermissionGate :permission-n-id="PERMISSIONS.userGroupDelete">
-          <el-button v-if="!row.isDeleted" link type="danger" @click="deleteGroup(row)">
-            {{ copy.delete }}
-          </el-button>
-        </PermissionGate>
-        <PermissionGate :permission-n-id="PERMISSIONS.userGroupRestore">
-          <el-button v-if="row.isDeleted" link type="success" @click="restoreGroup(row)">
-            {{ copy.restore }}
-          </el-button>
-        </PermissionGate>
+            <el-button link :type="action.type" @click="onGroupActionCommand(row, action.key)">
+              {{ action.label }}
+            </el-button>
+          </PermissionGate>
+          <ElDropdown
+            v-if="groupRowActions(row, availableWidth).overflow.length > 0"
+            trigger="click"
+            placement="bottom-end"
+            :teleported="true"
+            popper-class="groups-page__more-popper"
+            @command="(command: string) => onGroupActionCommand(row, command)"
+          >
+            <button
+              type="button"
+              class="groups-page__more-trigger"
+              aria-haspopup="menu"
+              :data-testid="`identity-group-more-${row.groupNId}`"
+            >
+              {{ commonCopy.more }}
+            </button>
+            <template #dropdown>
+              <ElDropdownMenu>
+                <PermissionGate
+                  v-for="action in groupRowActions(row, availableWidth).overflow"
+                  :key="action.key"
+                  :permission-n-id="action.permission"
+                >
+                  <ElDropdownItem :command="action.key" :class="`is-${action.type}`">
+                    {{ action.label }}
+                  </ElDropdownItem>
+                </PermissionGate>
+              </ElDropdownMenu>
+            </template>
+          </ElDropdown>
+        </div>
       </template>
     </AppDataTable>
 
@@ -852,5 +944,59 @@ onMounted(() => {
 
 .groups-page__select {
   width: 100%;
+}
+
+.groups-page__row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ip-space-1);
+  white-space: nowrap;
+}
+
+.groups-page__row-actions :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
+
+.groups-page__more-trigger {
+  min-height: var(--ip-density-control-height);
+  padding: 0 var(--ip-space-1);
+  color: var(--ip-color-primary);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.groups-page__more-trigger:focus-visible {
+  outline: 2px solid var(--ip-color-primary);
+  outline-offset: 2px;
+}
+
+:global(.groups-page__more-popper) {
+  min-width: 148px;
+  padding: var(--ip-space-1);
+  background: var(--ip-color-bg-container);
+  border: 1px solid var(--ip-color-border);
+  border-radius: var(--ip-radius-md);
+  box-shadow: var(--ip-shadow-md);
+}
+
+:global(.groups-page__more-popper .el-dropdown-menu) {
+  padding: 0;
+  background: transparent;
+}
+
+:global(.groups-page__more-popper .el-dropdown-menu__item) {
+  min-height: var(--ip-density-control-height);
+  color: var(--ip-color-text-primary);
+  border-radius: var(--ip-radius-sm);
+}
+
+:global(.groups-page__more-popper .el-dropdown-menu__item.is-danger) {
+  color: var(--ip-color-danger);
+}
+
+:global(.groups-page__more-popper .el-dropdown-menu__item.is-success) {
+  color: var(--ip-color-success);
 }
 </style>

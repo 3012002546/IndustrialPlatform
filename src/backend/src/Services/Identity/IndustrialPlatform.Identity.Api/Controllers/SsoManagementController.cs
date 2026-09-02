@@ -1,4 +1,5 @@
 using IndustrialPlatform.Identity.Api.Authorization;
+using IndustrialPlatform.Identity.Api.Export;
 using IndustrialPlatform.Identity.Application.Management;
 using IndustrialPlatform.Identity.Application.Sso;
 using IndustrialPlatform.Identity.Contracts.Sso;
@@ -58,6 +59,45 @@ public sealed class SsoManagementController : ManagementControllerBase
         {
             return StatusCodeEnvelope(ex.StatusCode, ex.Code, ex.Message);
         }
+    }
+
+    [Authorize(Policy = PermissionPolicies.SsoView)]
+    [HttpGet("providers/export")]
+    public IActionResult ExportProviders(
+        [FromQuery] string? name,
+        [FromQuery] string? protocol,
+        [FromQuery] bool? enabled,
+        [FromQuery] string quantity = "10000",
+        [FromQuery] string? columns = null,
+        [FromQuery] string? sortField = null,
+        [FromQuery] string? sortOrder = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryGetActorContext(out var tenantNId, out _)) return UnauthorizedEnvelope();
+        var maxRows = StreamingXlsxExport.ParseQuantity(quantity);
+        return StreamingXlsxExport.Start("sso-providers.xlsx", async (output, ct) =>
+        {
+            var items = await _service.ListProvidersAsync(tenantNId, ct);
+            var filtered = items.Where(x => string.IsNullOrWhiteSpace(name) || x.Name.Contains(name, StringComparison.OrdinalIgnoreCase))
+                .Where(x => string.IsNullOrWhiteSpace(protocol) || x.Protocol.Equals(protocol, StringComparison.OrdinalIgnoreCase))
+                .Where(x => enabled is null || x.Enabled == enabled.Value);
+            filtered = string.Equals(sortField, "name", StringComparison.OrdinalIgnoreCase)
+                ? (string.Equals(sortOrder, "asc", StringComparison.OrdinalIgnoreCase) ? filtered.OrderBy(x => x.Name) : filtered.OrderByDescending(x => x.Name))
+                : filtered.OrderBy(x => x.CreatedOn);
+            var workbook = await StreamingXlsxWriter.CreateAsync(output, ct);
+            var selectedColumns = StreamingXlsxExport.SelectColumns(columns,
+                new StreamingXlsxExport.Column<ProviderSummary>("providerNId", "ProviderNId", item => item.ProviderNId),
+                new StreamingXlsxExport.Column<ProviderSummary>("name", "名称", item => item.Name),
+                new StreamingXlsxExport.Column<ProviderSummary>("protocol", "协议", item => item.Protocol),
+                new StreamingXlsxExport.Column<ProviderSummary>("authorityOrMetadataUrl", "授权/元数据地址", item => item.AuthorityOrMetadataUrl),
+                new StreamingXlsxExport.Column<ProviderSummary>("clientIdOrEntityId", "ClientId/EntityId", item => item.ClientIdOrEntityId),
+                new StreamingXlsxExport.Column<ProviderSummary>("hasSecretReference", "密钥", item => item.HasSecretReference ? "已配置" : "未配置"),
+                new StreamingXlsxExport.Column<ProviderSummary>("enabled", "状态", item => item.Enabled ? "启用" : "停用"),
+                new StreamingXlsxExport.Column<ProviderSummary>("createdOn", "创建时间", item => item.CreatedOn.ToString("O")));
+            await workbook.WriteRowAsync(selectedColumns.Select(column => column.Title), ct);
+            foreach (var item in filtered.Take(maxRows)) await workbook.WriteRowAsync(selectedColumns.Select(column => column.Value(item)), ct);
+            await workbook.DisposeAsync();
+        }, cancellationToken);
     }
 
     /// <summary>查询企业登录源详情。</summary>
@@ -258,6 +298,39 @@ public sealed class SsoManagementController : ManagementControllerBase
         }
     }
 
+    [Authorize(Policy = PermissionPolicies.SsoView)]
+    [HttpGet("providers/{providerNId}/accounts/export")]
+    public IActionResult ExportAccounts(
+        string providerNId,
+        [FromQuery] string? search,
+        [FromQuery] string quantity = "10000",
+        [FromQuery] string? columns = null,
+        [FromQuery] string? sortField = null,
+        [FromQuery] string? sortOrder = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryGetActorContext(out var tenantNId, out _)) return UnauthorizedEnvelope();
+        var maxRows = StreamingXlsxExport.ParseQuantity(quantity);
+        return StreamingXlsxExport.Start("sso-external-accounts.xlsx", async (output, ct) =>
+        {
+            var items = await _service.ListAccountsAsync(tenantNId, providerNId, ct);
+            var filtered = items.Where(x => string.IsNullOrWhiteSpace(search) || x.UserLoginName.Contains(search, StringComparison.OrdinalIgnoreCase) || x.UserName.Contains(search, StringComparison.OrdinalIgnoreCase) || (x.ExternalName?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false) || (x.ExternalEmail?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false));
+            filtered = string.Equals(sortField, "userLoginName", StringComparison.OrdinalIgnoreCase)
+                ? (string.Equals(sortOrder, "asc", StringComparison.OrdinalIgnoreCase) ? filtered.OrderBy(x => x.UserLoginName) : filtered.OrderByDescending(x => x.UserLoginName))
+                : filtered.OrderBy(x => x.UserLoginName);
+            var workbook = await StreamingXlsxWriter.CreateAsync(output, ct);
+            var selectedColumns = StreamingXlsxExport.SelectColumns(columns,
+                new StreamingXlsxExport.Column<ExternalAccountSummary>("userLoginName", "平台登录名", item => item.UserLoginName),
+                new StreamingXlsxExport.Column<ExternalAccountSummary>("userName", "姓名", item => item.UserName),
+                new StreamingXlsxExport.Column<ExternalAccountSummary>("externalName", "外部姓名", item => item.ExternalName),
+                new StreamingXlsxExport.Column<ExternalAccountSummary>("externalEmail", "外部邮箱", item => item.ExternalEmail),
+                new StreamingXlsxExport.Column<ExternalAccountSummary>("lastLoginOn", "最近登录", item => item.LastLoginOn?.ToString("O")));
+            await workbook.WriteRowAsync(selectedColumns.Select(column => column.Title), ct);
+            foreach (var item in filtered.Take(maxRows)) await workbook.WriteRowAsync(selectedColumns.Select(column => column.Value(item)), ct);
+            await workbook.DisposeAsync();
+        }, cancellationToken);
+    }
+
     /// <summary>绑定外部账号到平台用户。</summary>
     [Authorize(Policy = PermissionPolicies.SsoManage)]
     [HttpPost("providers/{providerNId}/accounts")]
@@ -343,6 +416,62 @@ public sealed class SsoManagementController : ManagementControllerBase
         {
             return StatusCodeEnvelope(ex.StatusCode, ex.Code, ex.Message);
         }
+    }
+
+    [Authorize(Policy = PermissionPolicies.SsoView)]
+    [HttpGet("clients/export")]
+    public IActionResult ExportClients(
+        [FromQuery] string? name,
+        [FromQuery] bool? enabled,
+        [FromQuery] string quantity = "10000",
+        [FromQuery] string? columns = null,
+        [FromQuery] string? sortField = null,
+        [FromQuery] string? sortOrder = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryGetActorContext(out var tenantNId, out _)) return UnauthorizedEnvelope();
+        var maxRows = StreamingXlsxExport.ParseQuantity(quantity);
+        return StreamingXlsxExport.Start("sso-clients.xlsx", async (output, ct) =>
+        {
+            var items = await _service.ListClientsAsync(tenantNId, ct);
+            var filtered = items.Where(x => string.IsNullOrWhiteSpace(name) || x.Name.Contains(name, StringComparison.OrdinalIgnoreCase))
+                .Where(x => enabled is null || x.Enabled == enabled.Value);
+            filtered = string.Equals(sortField, "name", StringComparison.OrdinalIgnoreCase)
+                ? (string.Equals(sortOrder, "asc", StringComparison.OrdinalIgnoreCase) ? filtered.OrderBy(x => x.Name) : filtered.OrderByDescending(x => x.Name))
+                : filtered.OrderBy(x => x.CreatedOn);
+            var workbook = await StreamingXlsxWriter.CreateAsync(output, ct);
+            var selectedColumns = StreamingXlsxExport.SelectColumns(columns,
+                new StreamingXlsxExport.Column<SsoClientSummary>("clientNId", "ClientNId", item => item.ClientNId),
+                new StreamingXlsxExport.Column<SsoClientSummary>("name", "名称", item => item.Name),
+                new StreamingXlsxExport.Column<SsoClientSummary>("oauthClientId", "OAuth ClientId", item => item.OAuthClientId),
+                new StreamingXlsxExport.Column<SsoClientSummary>("enabled", "状态", item => item.Enabled ? "启用" : "停用"),
+                new StreamingXlsxExport.Column<SsoClientSummary>("endpointCount", "端点数", item => item.Endpoints.Count.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                new StreamingXlsxExport.Column<SsoClientSummary>("createdOn", "创建时间", item => item.CreatedOn.ToString("O")));
+            await workbook.WriteRowAsync(selectedColumns.Select(column => column.Title), ct);
+            foreach (var item in filtered.Take(maxRows)) await workbook.WriteRowAsync(selectedColumns.Select(column => column.Value(item)), ct);
+            await workbook.DisposeAsync();
+        }, cancellationToken);
+    }
+
+    [Authorize(Policy = PermissionPolicies.SsoView)]
+    [HttpGet("clients/{clientNId}/endpoints/export")]
+    public IActionResult ExportClientEndpoints(string clientNId, [FromQuery] string quantity = "10000", [FromQuery] string? columns = null, CancellationToken cancellationToken = default)
+    {
+        if (!TryGetActorContext(out var tenantNId, out _)) return UnauthorizedEnvelope();
+        var maxRows = StreamingXlsxExport.ParseQuantity(quantity);
+        return StreamingXlsxExport.Start("sso-client-endpoints.xlsx", async (output, ct) =>
+        {
+            var client = await _service.GetClientAsync(tenantNId, clientNId, ct);
+            var workbook = await StreamingXlsxWriter.CreateAsync(output, ct);
+            var selectedColumns = StreamingXlsxExport.SelectColumns(columns,
+                new StreamingXlsxExport.Column<SsoEndpointSummary>("endpointNId", "EndpointNId", item => item.EndpointNId),
+                new StreamingXlsxExport.Column<SsoEndpointSummary>("type", "类型", item => item.Type),
+                new StreamingXlsxExport.Column<SsoEndpointSummary>("uri", "URI", item => item.Uri),
+                new StreamingXlsxExport.Column<SsoEndpointSummary>("enabled", "状态", item => item.Enabled ? "启用" : "停用"));
+            await workbook.WriteRowAsync(selectedColumns.Select(column => column.Title), ct);
+            foreach (var item in client.Endpoints.Take(maxRows)) await workbook.WriteRowAsync(selectedColumns.Select(column => column.Value(item)), ct);
+            await workbook.DisposeAsync();
+        }, cancellationToken);
     }
 
     /// <summary>查询平台 SSO Client 详情。</summary>

@@ -114,7 +114,7 @@ API/事件契约
 - 事务边界。
 - 同步 API 与异步事件的分工。
 
-当多个模块共享 Service Host 时，还必须明确独立 Schema 或表前缀、公开应用契约、权限资源和测试边界；禁止跨模块直读 Repository 或数据表，并说明未来物理拆分路径。不得因为逻辑模块数量机械拆分 Migration、Outbox、Inbox、基础设施或初始化单元。
+当多个模块共享 Service Host 时，还必须明确逻辑表命名空间（独立 Schema 或模块表前缀）、公开应用契约、权限资源和测试边界；同宿主协作优先使用进程内 Application 契约，禁止跨模块直读 Repository/数据表，并说明未来物理拆分路径。不得因为逻辑模块数量机械拆分 Migration、Outbox、Inbox、基础设施或初始化单元。
 
 PF-02 及后续新服务还必须明确 Service Initialization Pipeline：SystemData 是 Topology/Orchestration/Policy/Observation 控制面；当前服务的初始化器负责 Inspect/Plan/Apply/Verify，并拥有 Migration、Seed、Bootstrap、Ledger 与本地 readiness。必须写清 SystemData 不可用时已初始化服务仍按本地事实 Ready、同物理目标锁、checksum drift、Development/Test 自动策略、EnvironmentSample 禁入 Staging/Production、幂等和 Secret 隔离。禁止独立 Migrator/Seeder Service、业务 API 管理员建库、SystemData 直写业务 Repository、`EnsureCreated` 和向控制面传任意 SQL/路径/命令/Secret。
 
@@ -146,11 +146,11 @@ tests/...
 
 ## 6.1 统一数据建模约束
 
-- 表/实体的字段定义和“主要字段”列表只展示当前表拥有的业务字段，不逐表重复 `Entity` 生命周期字段。每张实体表仍必须包含 `Id`、`IsFrozen`、`IsLocked`、`IsDeleted`、`EntityType`、`CreatedOn`、`LastUpdatedOn`、`OptimisticVersion`、`ConcurrencyVersion`；统一类型、默认值、并发和软删除语义在本节集中定义。
+- 领域实体的字段定义和“主要字段”列表只展示当前对象拥有的业务字段，不逐表重复 `Entity` 生命周期字段。继承 `Entity` 的领域实体表必须包含 `Id`、`IsFrozen`、`IsLocked`、`IsDeleted`、`EntityType`、`CreatedOn`、`LastUpdatedOn`、`OptimisticVersion`、`ConcurrencyVersion`；统一类型、默认值、并发和软删除语义在本节集中定义。Migration/Seed Ledger、Outbox、Inbox/Checkpoint、幂等、序列和纯技术历史等技术记录只保留其用途所需字段，不机械继承 `Entity`、软删除或双版本并发。
 - 领域实体自身的稳定业务标识统一命名为 `NId`，例如 `Material(NId, Name, ...)`；其他业务表引用该业务标识时统一命名为 `{EntityName}NId`，例如 `MaterialNId`。`Code` 只允许表示规则生成的编码结果等非实体身份语义，不得作为实体稳定身份字段的通用名称。
-- 同库父子表必须以主表 `Id + IsDeleted` 建立复合外键。子表分别保存 `{ParentEntity}_Id` 和 `{ParentEntity}_IsDeleted`，例如 `MaterialProperty(Material_Id, Material_IsDeleted) → Material(Id, IsDeleted)`；子表自身仍有独立生命周期字段 `IsDeleted`，不得复用它表示主表删除状态。
-- PostgreSQL 物理列统一使用 `snake_case`：`NId → n_id`、`MaterialNId → material_n_id`、`Material_Id → material_id`、`Material_IsDeleted → material_is_deleted`。被同库子表引用的主表必须声明可引用的 `unique (id, is_deleted)`；该唯一键是复合外键所需的条件性例外，不要求所有实体表统一创建。
-- 同库父表软删除或恢复时，`ON UPDATE CASCADE` 或同一事务内的等价机制必须同步子表 `{ParentEntity}_IsDeleted`，但不得改写子表自身 `IsDeleted`。默认查询父表过滤 `is_deleted = false`；查询有效子记录同时过滤子表 `is_deleted = false` 和父引用快照 `{parent_entity}_is_deleted = false`。
+- 同库聚合内父子关系默认使用普通 `ParentId` 外键和聚合仓储维护一致性。只有领域确实要求数据库层传播父实体软删除/恢复状态，并且收益大于额外列、唯一键和级联复杂度时，才选择 `Id + IsDeleted` 复合外键；选择后，子表分别保存 `{ParentEntity}_Id` 和 `{ParentEntity}_IsDeleted`，且子表自身仍有独立生命周期字段 `IsDeleted`。技术记录不得为套用模板而引入该复合外键。
+- PostgreSQL 物理列统一使用 `snake_case`：`NId → n_id`、`MaterialNId → material_n_id`；选择复合软删除外键时，`Material_Id → material_id`、`Material_IsDeleted → material_is_deleted`，被引用主表声明条件性 `unique (id, is_deleted)`。未选择该策略时不得额外创建影子删除列或复合唯一键。
+- 选择复合软删除外键时，父表软删除或恢复由 `ON UPDATE CASCADE` 或同一事务内的等价机制同步子表 `{ParentEntity}_IsDeleted`，但不得改写子表自身 `IsDeleted`；有效子记录查询同时过滤两种删除状态。未选择时，由聚合用例和普通外键保证父子一致性，不得伪造同等语义。
 - 跨服务、跨数据库只保存对方业务标识 `{EntityName}NId` 及必要快照，通过 API/事件维护最终一致性，不建立数据库外键，也不复制对方实体生命周期字段作为本地实体生命周期。
 
 状态统一为：
@@ -195,9 +195,9 @@ tests/...
 - 乐观并发、软删除和迁移。
 - 服务初始化器、Migration/Seed/Bootstrap/Verify、服务或独立初始化单元 Ledger、SystemData OperationId、本地 readiness。
 - Standard/Advanced 策略、四类种子、Observation、DataPatch 与管理员维护数据保护边界。
-- 事务、Outbox/Inbox 和数据修复边界。
+- 事务、Outbox、存在真实入站消费者时的 Inbox/Checkpoint，以及数据修复边界。
 
-数据表字段清单只列当前表业务字段，完整建表和迁移仍须应用第 6.1 节统一生命周期字段。父子表必须区分子表自身 `is_deleted` 与父引用快照 `{parent_entity}_is_deleted`，并明确复合外键、同步方式和查询过滤；跨服务引用必须明确不建立数据库外键。
+领域实体表字段清单只列当前表业务字段，完整建表和迁移仍须按第 6.1 节判断并应用统一生命周期字段；技术记录必须显式说明其最小字段和保留策略。每个父子关系必须说明使用普通外键还是复合软删除外键；只有选择后者时才要求父引用快照、同步方式和双重查询过滤。跨服务引用必须明确不建立数据库外键。
 
 不使用数据库时，明确写明“不适用”和状态存储位置。
 
@@ -302,7 +302,7 @@ TASK-XXX-003 + TASK-XXX-004 → TASK-XXX-005
 
 # 14. 开发任务拆分
 
-每个任务必须能够独立派遣、独立测试、独立提交和独立验收。详细设计放在前置章节，任务卡引用章节，不重复整篇设计，也不得退化成一句摘要。
+阶段任务按仓库当前执行协议定义。若阶段整体派遣、内部步骤顺序执行，则步骤必须可独立验证和回写，但不得伪装成独立派遣或强制独立提交；只有明确作为独立任务管理时，才要求独立派遣、提交和验收。详细设计放在前置章节，任务卡引用章节，不重复整篇设计，也不得退化成一句摘要。
 
 ## TASK-XXX-001【任务名称】
 
@@ -322,7 +322,7 @@ TASK-XXX-003 + TASK-XXX-004 → TASK-XXX-005
 
 **结果回写：** 【状态、字段、路由、事件、偏差和回写文档】
 
-**建议提交：** `type(scope): concise description`
+**提交策略：** 【阶段整体提交、独立任务提交或不提交；必须与仓库当前执行协议一致】
 
 ---
 
@@ -377,8 +377,8 @@ API路径与DTO
 - [ ] 已区分 Service Host、Domain Module、Initialization Unit、Deployment Unit。
 - [ ] runtime readiness 只依赖本地数据库事实；SystemData 仅保存脱敏 Observation。
 - [ ] 实体稳定业务标识使用 `NId`，`Code` 未被误用为实体身份。
-- [ ] 字段列表未逐表重复生命周期字段，完整持久化设计仍应用统一生命周期约束。
-- [ ] 同库父子表复合外键、删除状态同步和双重查询过滤完整；跨服务未建立数据库外键。
+- [ ] 领域实体字段列表未逐表重复生命周期字段；技术记录未机械继承领域生命周期、软删除或双版本并发。
+- [ ] 同库父子关系已说明普通外键或复合软删除外键的选择依据；采用复合策略时删除状态同步和双重查询过滤完整；跨服务未建立数据库外键。
 - [ ] API、事件、类型和路由前后一致。
 - [ ] 每个需求都有对应任务和验收。
 - [ ] 每个任务具备统一九字段。

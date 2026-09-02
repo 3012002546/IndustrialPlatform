@@ -1,6 +1,8 @@
 using IndustrialPlatform.Security;
+using System.Globalization;
 using IndustrialPlatform.SharedKernel.Exceptions;
 using IndustrialPlatform.SystemData.Api.Authorization;
+using IndustrialPlatform.SystemData.Api.Export;
 using IndustrialPlatform.SystemData.Application.Administration;
 using IndustrialPlatform.SystemData.Application.Positions;
 using IndustrialPlatform.SystemData.Contracts.Administration;
@@ -64,6 +66,38 @@ public sealed class PositionsController : SystemDataControllerBase
         {
             return StatusCodeEnvelope(ex.StatusCode, ex.Code, ex.Message);
         }
+    }
+
+    [HttpGet("export")]
+    [Authorize(Policy = SystemDataPermissionPolicies.PositionView)]
+    public IActionResult Export([FromQuery] string? organizationNId, [FromQuery] string? status, [FromQuery] string quantity = "10000", [FromQuery] string? columns = null, [FromQuery] string? sortField = null, [FromQuery] string? sortOrder = null, CancellationToken cancellationToken = default)
+    {
+        if (!TryGetActorContext(out var tenantNId, out _)) return UnauthorizedEnvelope();
+        var maxRows = StreamingXlsxExport.ParseQuantity(quantity);
+        return StreamingXlsxExport.Start("systemdata-positions.xlsx", async (output, ct) =>
+        {
+            var all = new List<PositionV1>();
+            var pageIndex = 1;
+            while (all.Count < maxRows)
+            {
+                var page = await _service.ListAsync(tenantNId, organizationNId, status, pageIndex, 100, ct);
+                all.AddRange(page.Items);
+                if (all.Count >= page.Total || page.Items.Count < 100) break;
+                pageIndex++;
+            }
+            IEnumerable<PositionV1> items = all;
+            items = string.Equals(sortField, "name", StringComparison.OrdinalIgnoreCase) ? (string.Equals(sortOrder, "asc", StringComparison.OrdinalIgnoreCase) ? items.OrderBy(x => x.Name) : items.OrderByDescending(x => x.Name)) : items.OrderBy(x => x.DisplayOrder).ThenBy(x => x.NId);
+            var workbook = await StreamingXlsxWriter.CreateAsync(output, ct);
+            var selectedColumns = StreamingXlsxExport.SelectColumns(columns,
+                new StreamingXlsxExport.Column<PositionV1>("nId", "岗位标识", item => item.NId),
+                new StreamingXlsxExport.Column<PositionV1>("name", "岗位", item => item.Name),
+                new StreamingXlsxExport.Column<PositionV1>("organizationName", "组织", item => item.OrganizationName),
+                new StreamingXlsxExport.Column<PositionV1>("status", "状态", item => item.Status),
+                new StreamingXlsxExport.Column<PositionV1>("displayOrder", "显示顺序", item => item.DisplayOrder.ToString(CultureInfo.InvariantCulture)));
+            await workbook.WriteRowAsync(selectedColumns.Select(column => column.Title), ct);
+            foreach (var item in items.Take(maxRows)) await workbook.WriteRowAsync(selectedColumns.Select(column => column.Value(item)), ct);
+            await workbook.DisposeAsync();
+        }, cancellationToken);
     }
 
     /// <summary>创建岗位(POST /api/v1/positions)。</summary>

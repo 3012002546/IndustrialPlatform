@@ -14,6 +14,7 @@ import { VxeTable } from 'vxe-table'
 
 import { persistAuthSession } from '../fixtures/session'
 import AppDataTable from '@/components/management/AppDataTable.vue'
+import AppFormDrawer from '@/components/management/AppFormDrawer.vue'
 import type { AppDataTableColumn } from '@/components/management/AppDataTable'
 import appDataTableSource from '@/components/management/AppDataTable.vue?raw'
 import AppPage from '@/components/base/AppPage.vue'
@@ -136,9 +137,7 @@ async function openCreateDialog(wrapper: VueWrapper): Promise<void> {
 }
 
 async function clickSave(wrapper: VueWrapper): Promise<void> {
-  const saveButton = wrapper.findAll('button').find((b) => b.text() === '保存')
-  expect(saveButton).toBeDefined()
-  await saveButton!.trigger('click')
+  await wrapper.get('[data-testid="form-drawer-submit"]').trigger('click')
   await flushPromises()
 }
 
@@ -184,6 +183,21 @@ describe('IdentityUsersPage — 创建用户(服务端随机临时密码)', () =
     expect(wrapper.find('input[placeholder="显示姓名"]').exists()).toBe(true)
   })
 
+  it('结构化业务操作统一使用共享表单载体,普通确认弹窗保持独立', async () => {
+    const wrapper = await mountUsersPage(['identity.user.view', 'identity.user.create'])
+    await openCreateDialog(wrapper)
+
+    const surface = wrapper
+      .findAllComponents(AppFormDrawer)
+      .find((candidate) => candidate.props('modelValue') === true)
+    expect(surface).toBeDefined()
+    expect(surface!.props('title')).toBe('新建用户')
+    expect(wrapper.find('[data-testid="form-surface-mode-toggle"]').exists()).toBe(true)
+    expect(identityUsersPageSource).toMatch(
+      /<el-dialog\s+v-model="passwordDialogOpen"[^>]*:title="dialogCopy\.resetPassword"/,
+    )
+  })
+
   it('固定使用共享 PageHeader、QueryPanel 和 DataTable 组合', async () => {
     const wrapper = await mountUsersPage(['identity.user.view', 'identity.user.create'])
 
@@ -205,41 +219,53 @@ describe('IdentityUsersPage — 创建用户(服务端随机临时密码)', () =
     const count = wrapper.get('.users-page__count')
     expect(title.element.parentElement?.contains(count.element)).toBe(true)
     expect(count.attributes('data-testid')).toBe('identity-users-total')
-    expect(appDataTableSource).toMatch(
-      /\.app-data-table__surface\s*\{[\s\S]*?overflow:\s*hidden;/,
-    )
+    expect(appDataTableSource).toMatch(/\.app-data-table__surface\s*\{[\s\S]*?overflow:\s*hidden;/)
   })
 
-  it('五个主查询条件默认可见,低频条件单独收纳在更多条件中', async () => {
+  it('查询区宽度不足时默认收起低频条件，并可通过更多条件展开', async () => {
     const wrapper = await mountUsersPage(['identity.user.view'])
 
-    expect(wrapper.find('.users-page__field-login').text()).toContain('登录名')
-    expect(wrapper.find('.users-page__field-name').text()).toContain('姓名')
-    expect(wrapper.find('.users-page__field-status').text()).toContain('状态')
-    expect(wrapper.find('.users-page__field-group').text()).toContain('用户组')
-    expect(wrapper.find('.users-page__field-role').text()).toContain('角色')
+    expect(wrapper.find('.users-page__field-login > span').exists()).toBe(false)
+    expect(wrapper.get('input[aria-label="登录名"]').attributes('placeholder')).toBe('登录名')
+    expect(wrapper.get('input[aria-label="姓名"]').attributes('placeholder')).toBe('姓名')
+    expect(wrapper.get('[aria-label="状态"]').attributes('placeholder')).toBe('状态')
+    expect(wrapper.get('[aria-label="用户组"]').attributes('placeholder')).toBe('用户组')
+    expect(wrapper.get('[aria-label="角色"]').attributes('placeholder')).toBe('角色')
+    expect(wrapper.findComponent(AppQueryPanel).find('template').exists()).toBe(false)
+    expect(
+      wrapper.get('.users-page__field-login').element.closest('.app-query-panel__body'),
+    ).not.toBeNull()
     const toggle = wrapper.get('[data-testid="query-panel-toggle"]')
     expect(toggle.text()).toContain('更多条件')
     expect(toggle.attributes('aria-expanded')).toBe('false')
     expect(wrapper.find('.app-query-panel__header').exists()).toBe(false)
-    expect(wrapper.get('.app-query-panel__body').find('[data-testid="query-panel-toggle"]').exists()).toBe(true)
-    expect(wrapper.find('.users-page__field-business-id').exists()).toBe(false)
+    expect(
+      wrapper.get('.app-query-panel__body').find('[data-testid="query-panel-toggle"]').exists(),
+    ).toBe(true)
+    expect(wrapper.get('.users-page__advanced-fields').classes()).not.toContain(
+      'users-page__advanced-fields--open',
+    )
 
     await toggle.trigger('click')
     expect(toggle.attributes('aria-expanded')).toBe('true')
-    expect(wrapper.find('.users-page__field-business-id').exists()).toBe(true)
+    expect(wrapper.get('.users-page__advanced-fields').classes()).toContain(
+      'users-page__advanced-fields--open',
+    )
 
     const table = findDataTable(wrapper)
-    expect(table.props('toolbarTitle')).toBe('用户列表')
+    expect(table.props('toolbarTitle')).toBeUndefined()
     expect(table.props('toolbarLabels')).toBe(true)
   })
 
-  it('1280px 窄 PC 保持五个主条件与操作同一行', () => {
+  it('按查询区实际宽度自动直显全部条件或把操作换到下一行', () => {
     expect(identityUsersPageSource).toMatch(
-      /@media\s*\(min-width:\s*960px\)\s+and\s+\(max-width:\s*1280px\)[\s\S]*?\.users-page :deep\(\.app-query-panel__body--grid\)[\s\S]*?flex-wrap:\s*nowrap;/,
+      /\.users-page__query-panel\s*\{[\s\S]*?container-type:\s*inline-size;/,
     )
     expect(identityUsersPageSource).toMatch(
-      /\.users-page :deep\(\.app-query-panel__body-actions\)[\s\S]*?flex-wrap:\s*nowrap;/,
+      /\.users-page :deep\(\.app-query-panel__body-actions\)\s*\{[\s\S]*?flex:\s*1 0 100%;/,
+    )
+    expect(identityUsersPageSource).toMatch(
+      /@container\s*\(min-width:\s*1160px\)[\s\S]*?\.users-page__advanced-fields\s*\{[\s\S]*?display:\s*contents;[\s\S]*?\.users-page__more-conditions\s*\{[\s\S]*?display:\s*none;/,
     )
   })
 
@@ -396,9 +422,9 @@ describe('IdentityUsersPage — 创建用户(服务端随机临时密码)', () =
     await wrapper.get('[data-testid="app-data-table-query-toggle"]').trigger('click')
     await flushPromises()
 
-    expect(
-      wrapper.findAll('[data-testid="app-data-table-header-filter-loginName"]'),
-    ).toHaveLength(1)
+    expect(wrapper.findAll('[data-testid="app-data-table-header-filter-loginName"]')).toHaveLength(
+      1,
+    )
     expect(wrapper.find('[data-testid="app-data-table-header-filter-email"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="app-data-table-header-filter-phone"]').exists()).toBe(true)
     expect(

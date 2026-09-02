@@ -14,34 +14,34 @@
 - BuildingBlocks：基线与公共组件已完成。
 - 统一前端与 PF-01：已完成；外部真机 safe-area 项仍待验收。
 - Identity/PF-00：TASK-ID-001～023 当前范围已完成并合入；真实 PostgreSQL/Redis 联合链路保留为外部整体测试项。
-- SystemData：TASK-SD-001～013 已完成；TASK-SD-011 保留 runtime 降级前提。服务初始化实现仍归各服务。
+- SystemData：功能开发完成 / 收束验收中；TASK-SD-001～010 已完成，TASK-SD-011～012 功能开发完成待验收，TASK-SD-013 重新打开，TASK-SD-014～017 待派遣。服务初始化实现仍归各服务。
 - ReferenceData：保持服务骨架，业务功能未实施。
 - 部署入口：默认统一部署使用 UnifiedHost（组合 Identity、SystemData、ReferenceData 并托管生产 SPA）；分布式部署使用 Gateway（YARP 反向代理）。两者不互相替代。
 
 ## 进行中
 
-- 当前无已授权的新 PF；PF-03 尚未启动。
+- 当前无已授权的新 PF；PF-02 仅执行既定收束验收，PF-03 尚未启动。
 
 ## 固定工作线
 
 - PF-00：Harness，长期复用 `IndustrialPlatform-worktrees/pf-00` 和当前分支 `task/pf-00-id-019`；当前范围已合入，待工作线同步。
-- PF-02：历史工作线保留；`TASK-SD-001～013` 已完成，011 保留 runtime 降级前提。
+- PF-02：收束验收工作线；001～010 已完成，011～012 功能开发完成待验收，013 重新打开，014～017 待派遣。
 - 现有分支名称暂时保留；后续任务不因此创建新分支。
 
 ## 内部执行序列
 
-- PF-02 已完成统一表单、组织/岗位真实纵向样板、七页业务组件边界和 UnifiedHost 显式目录整改。PF-03 仅在用户明确启动后进入。
+- PF-02 已交付统一表单、组织/岗位真实纵向样板、七页业务组件边界和 UnifiedHost 显式目录整改；当前仅收束七页 UI/UX、真实业务操作、三端 runtime、Service Initialization V2/十三项门禁及证据文档闭环。PF-03 仅在 PF-02 收束关闭且用户明确启动后进入。
 
 ## 阻塞与待决策
 
 - Identity 事件命名以既有 `Identity.UserCreated.v1` 风格为当前实现；若要采用小写连字符风格，需要单独契约变更任务。
 - Identity 最后管理员守卫当前使用权威持有者计数，并对组外持有路径做精确放行。
 - 云端真实登录 E2E 需要稳定、可重复创建或重置的测试账号夹具；现有一次性 bootstrap 不适合作为持久数据库测试种子。
-- 受限沙箱曾阻止 Vite/Playwright 写临时目录；本轮已在授权环境取得 build、Mock Playwright、真实云依赖、默认 UnifiedHost 与 admin 真实七页浏览器新鲜结果。
+- 受限沙箱曾阻止 Vite/Playwright 写临时目录；现已在授权环境取得 build、Mock Playwright、真实云依赖、默认 UnifiedHost、七页可达性与真实组织/岗位 CRUD 结果。七页业务操作矩阵仍由 TASK-SD-015 收束。
 
 ## 最近验收
 
-- 2026-08-27 / PF-02 最终验收：fresh Release Build 0 警告/0 错误；后端 1298 通过、0 失败、3 跳过（总计 1301）；前端定向 Vitest 6 文件/16 测试、Lint、Typecheck、定向 Prettier 与 `git diff --check` 通过；默认 UnifiedHost 连接云 PostgreSQL/Redis/RabbitMQ 启动，真实组织/岗位 CRUD Playwright 1/1 通过。完整证据见 `docs/evidence/PF-02.md`。
+- 2026-08-27 / PF-02 阶段历史验证：fresh Release Build 0 警告/0 错误；后端 1298 通过、0 失败、3 跳过（总计 1301）；前端定向 Vitest 6 文件/16 测试、Lint、Typecheck、定向 Prettier 与 `git diff --check` 通过；默认 UnifiedHost 连接云 PostgreSQL/Redis/RabbitMQ 启动，真实组织/岗位 CRUD Playwright 1/1 通过。该证据继续有效，但不替代 TASK-SD-014～017 的收束验收。完整证据见 `docs/evidence/PF-02.md`。
 - `1427d18` / TASK-SD-007～010：资源导航、Feature、服务目录、主题策略、缓存/审计/Outbox/Identity 对账后端闭环已完成；云 PostgreSQL/Redis/RabbitMQ 3/3。2026-08-21 本地调试复验修正补录迁移版本识别后，fresh Release build 0/0、常规后端 1278/1278、UnifiedHost 云配置启动并完成 Identity → SystemData → ReferenceData 初始化。
 - WP4（本次提交）：fresh Release Build 0 警告/0 错误；静态审查修正后的常规后端 1227/1227；前端 Vitest 受限沙箱 EPERM；IntegrationTests 8/8 为未启用外部环境门控后的早退，不代表真实外部链路通过；real-login E2E 因 Playwright runner 不可用未执行。
 - `9f48d89`：PF-00 用户与用户组管理 API、前端闭环、首次改密与幂等写入。

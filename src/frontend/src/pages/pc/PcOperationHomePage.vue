@@ -110,55 +110,53 @@ function activate(id: string, state: OperationLauncher['state']): void {
 .pc-operation-home h1 {
   margin: 0;
   color: var(--ip-color-text-primary);
-  font-size: clamp(28px, 3vw, 36px);
+  font-size: clamp(24px, 2.4vw, 30px);
   line-height: 1.2;
 }
 
 .pc-operation-home__header p {
   margin: var(--ip-space-2) 0 0;
   color: var(--ip-color-text-secondary);
-  font-size: var(--ip-font-size-lg);
+  font-size: var(--ip-font-size-sm);
 }
 
 .pc-operation-home__state {
-  color: var(--ip-color-success);
-  font-size: var(--ip-font-size-lg);
+  padding: 3px 9px;
+  color: var(--ip-color-text-secondary);
+  border: 1px solid var(--ip-color-border);
+  border-radius: var(--ip-radius-full);
+  font-size: var(--ip-font-size-xs);
+  font-weight: 500;
 }
 
 .pc-operation-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--ip-space-4);
+  gap: 14px;
 }
 
 .pc-operation-card {
   display: flex;
   min-height: 176px;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
   gap: var(--ip-space-3);
-  padding: var(--ip-space-5);
-  color: var(--ip-color-on-primary);
-  background: var(--ip-color-primary);
-  border: 1px solid color-mix(in srgb, var(--ip-color-primary) 80%, black);
+  padding: var(--ip-space-4);
+  color: var(--ip-color-text-secondary);
+  background: var(--ip-color-bg-container);
+  border: 1px solid var(--ip-color-border);
   border-radius: var(--ip-radius-lg);
   cursor: pointer;
-  text-align: left;
+  text-align: center;
   transition: transform 120ms ease, filter 120ms ease;
-}
-
-.pc-operation-card:nth-child(3n + 2) {
-  background: color-mix(in srgb, var(--ip-color-primary) 82%, #111827);
-}
-
-.pc-operation-card:nth-child(3n + 3) {
-  background: color-mix(in srgb, var(--ip-color-primary) 68%, #111827);
 }
 
 .pc-operation-card:hover,
 .pc-operation-card:focus-visible {
-  filter: brightness(1.08);
+  color: var(--ip-color-primary);
+  background: var(--ip-color-bg-muted);
+  border-color: var(--ip-color-primary);
   transform: translateY(-1px);
 }
 
@@ -169,28 +167,33 @@ function activate(id: string, state: OperationLauncher['state']): void {
 
 .pc-operation-card--disabled {
   cursor: not-allowed;
-  filter: saturate(0.62);
-  opacity: 0.78;
+  opacity: 0.72;
 }
 
 .pc-operation-card--disabled:hover {
-  filter: saturate(0.62);
+  color: var(--ip-color-text-secondary);
+  background: var(--ip-color-bg-container);
+  border-color: var(--ip-color-border);
   transform: none;
 }
 
 .pc-operation-card__icon {
-  width: 64px;
-  height: 64px;
+  width: 34px;
+  height: 34px;
 }
 
 .pc-operation-card__title {
-  font-size: clamp(24px, 2.2vw, 28px);
-  font-weight: 700;
+  color: inherit;
+  font-size: var(--ip-font-size-lg);
+  font-weight: 500;
 }
 
 .pc-operation-card__status {
-  font-size: var(--ip-font-size-md);
-  font-weight: 600;
+  padding: 3px 9px;
+  color: var(--ip-color-text-tertiary);
+  border: 1px solid var(--ip-color-border);
+  border-radius: var(--ip-radius-full);
+  font-size: var(--ip-font-size-xs);
 }
 
 .pc-operation-settings {

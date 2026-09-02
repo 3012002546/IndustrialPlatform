@@ -1,3 +1,4 @@
+using IndustrialPlatform.Identity.Api.Export;
 using IndustrialPlatform.Identity.Api.Authorization;
 using IndustrialPlatform.Identity.Application.Management;
 using IndustrialPlatform.Identity.Contracts.Management;
@@ -33,9 +34,19 @@ public sealed class AuditsController : ManagementControllerBase
     [HttpGet("logins")]
     public async Task<ActionResult<PageResult<LoginAuditItem>>> Logins(
         [FromQuery] string? userNId,
+        [FromQuery] string? keyword,
+        [FromQuery] string? loginNameSnapshot,
+        [FromQuery] string? failureCode,
+        [FromQuery] string? ipAddressHash,
+        [FromQuery] string? userAgentHash,
+        [FromQuery] string? traceId,
+        [FromQuery] DateTimeOffset? occurredFrom,
+        [FromQuery] DateTimeOffset? occurredTo,
         [FromQuery] bool? success,
         [FromQuery] int pageIndex = 1,
         [FromQuery] int pageSize = 20,
+        [FromQuery] string? sortField = null,
+        [FromQuery] string? sortOrder = null,
         CancellationToken cancellationToken = default)
     {
         if (!TryGetActorContext(out var tenantNId, out _))
@@ -52,7 +63,7 @@ public sealed class AuditsController : ManagementControllerBase
         {
             var page = await _service.QueryLoginAuditsAsync(
                 tenantNId,
-                new LoginAuditFilter(tenantNId, userNId, success, pageIndex, pageSize),
+                new LoginAuditFilter(tenantNId, userNId, success, pageIndex, pageSize, sortField, sortOrder, keyword, loginNameSnapshot, failureCode, ipAddressHash, userAgentHash, traceId, occurredFrom, occurredTo),
                 cancellationToken);
             return PageResult.Create(page.Items, page.Total, page.PageIndex, page.PageSize);
         }
@@ -64,5 +75,57 @@ public sealed class AuditsController : ManagementControllerBase
         {
             return StatusCodeEnvelope(ex.StatusCode, ex.Code, ex.Message);
         }
+    }
+
+    [Authorize(Policy = PermissionPolicies.AuditLoginView)]
+    [HttpGet("logins/export")]
+    public IActionResult ExportLogins(
+        [FromQuery] string? userNId,
+        [FromQuery] string? keyword,
+        [FromQuery] string? loginNameSnapshot,
+        [FromQuery] string? failureCode,
+        [FromQuery] string? ipAddressHash,
+        [FromQuery] string? userAgentHash,
+        [FromQuery] string? traceId,
+        [FromQuery] DateTimeOffset? occurredFrom,
+        [FromQuery] DateTimeOffset? occurredTo,
+        [FromQuery] bool? success,
+        [FromQuery] string quantity = "10000",
+        [FromQuery] string? columns = null,
+        [FromQuery] string? sortField = null,
+        [FromQuery] string? sortOrder = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryGetActorContext(out var tenantNId, out _)) return UnauthorizedEnvelope();
+        var maxRows = StreamingXlsxExport.ParseQuantity(quantity);
+        return StreamingXlsxExport.Start("login-audits.xlsx", async (output, ct) =>
+        {
+            var workbook = await StreamingXlsxWriter.CreateAsync(output, ct);
+            var selectedColumns = StreamingXlsxExport.SelectColumns(columns,
+                new StreamingXlsxExport.Column<LoginAuditItem>("userNId", "用户标识", audit => audit.UserNId),
+                new StreamingXlsxExport.Column<LoginAuditItem>("loginNameSnapshot", "登录名", audit => audit.LoginNameSnapshot),
+                new StreamingXlsxExport.Column<LoginAuditItem>("success", "结果", audit => audit.Success ? "成功" : "失败"),
+                new StreamingXlsxExport.Column<LoginAuditItem>("failureCode", "失败原因", audit => audit.FailureCode),
+                new StreamingXlsxExport.Column<LoginAuditItem>("ipAddressHash", "IP 哈希", audit => audit.IpAddressHash),
+                new StreamingXlsxExport.Column<LoginAuditItem>("userAgentHash", "User-Agent 哈希", audit => audit.UserAgentHash),
+                new StreamingXlsxExport.Column<LoginAuditItem>("traceId", "TraceId", audit => audit.TraceId),
+                new StreamingXlsxExport.Column<LoginAuditItem>("occurredOn", "发生时间", audit => audit.OccurredOn.ToString("O")));
+            await workbook.WriteRowAsync(selectedColumns.Select(column => column.Title), ct);
+            var written = 0;
+            var pageIndex = 1;
+            while (written < maxRows)
+            {
+                var page = await _service.QueryLoginAuditsAsync(tenantNId, new LoginAuditFilter(tenantNId, userNId, success, pageIndex, 100, sortField, sortOrder, keyword, loginNameSnapshot, failureCode, ipAddressHash, userAgentHash, traceId, occurredFrom, occurredTo), ct);
+                if (page.Items.Count == 0) break;
+                foreach (var audit in page.Items)
+                {
+                    if (written++ >= maxRows) break;
+                    await workbook.WriteRowAsync(selectedColumns.Select(column => column.Value(audit)), ct);
+                }
+                if (written >= page.Total || page.Items.Count < 100) break;
+                pageIndex++;
+            }
+            await workbook.DisposeAsync();
+        }, cancellationToken);
     }
 }

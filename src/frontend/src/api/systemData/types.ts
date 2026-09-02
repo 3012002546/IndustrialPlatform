@@ -15,6 +15,7 @@ export interface NavigationRuntimeNodeDto {
 
 export interface NavigationRuntimeDto {
   revision: number
+  configured?: boolean
   degraded: boolean
   nodes: NavigationRuntimeNodeDto[]
 }
@@ -26,12 +27,14 @@ export interface FeatureRuntimeItemDto {
 
 export interface FeatureRuntimeDto {
   revision: number
+  configured?: boolean
   degraded: boolean
   items: FeatureRuntimeItemDto[]
 }
 
 export interface ThemePolicyDto {
   policyRevision: number
+  configured?: boolean
   degraded: boolean
   allowedPalettes: string[]
   allowedModes: string[]

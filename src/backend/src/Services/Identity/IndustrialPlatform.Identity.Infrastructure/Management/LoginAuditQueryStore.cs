@@ -39,9 +39,27 @@ public sealed class LoginAuditQueryStore : ILoginAuditQueryStore
             query = query.Where(t => t.Result == (success ? LoginAuditResult.Success : LoginAuditResult.Failure));
         }
 
+        if (!string.IsNullOrWhiteSpace(filter.Keyword))
+        {
+            var keyword = filter.Keyword.Trim();
+            query = query.Where(t => (t.UserNId != null && t.UserNId.Contains(keyword)) || t.LoginNameSnapshot.Contains(keyword) || (t.FailureReason != null && t.FailureReason.Contains(keyword)) || t.IpAddressHash.Contains(keyword) || t.UserAgentHash.Contains(keyword) || t.TraceId.Contains(keyword));
+        }
+        if (!string.IsNullOrWhiteSpace(filter.LoginNameSnapshot)) query = query.Where(t => t.LoginNameSnapshot.Contains(filter.LoginNameSnapshot.Trim()));
+        if (!string.IsNullOrWhiteSpace(filter.FailureCode)) query = query.Where(t => t.FailureReason != null && t.FailureReason.Contains(filter.FailureCode.Trim()));
+        if (!string.IsNullOrWhiteSpace(filter.IpAddressHash)) query = query.Where(t => t.IpAddressHash.Contains(filter.IpAddressHash.Trim()));
+        if (!string.IsNullOrWhiteSpace(filter.UserAgentHash)) query = query.Where(t => t.UserAgentHash.Contains(filter.UserAgentHash.Trim()));
+        if (!string.IsNullOrWhiteSpace(filter.TraceId)) query = query.Where(t => t.TraceId.Contains(filter.TraceId.Trim()));
+        if (filter.OccurredFrom is { } occurredFrom) query = query.Where(t => t.CreatedOn >= occurredFrom);
+        if (filter.OccurredTo is { } occurredTo) query = query.Where(t => t.CreatedOn <= occurredTo);
+
         var total = await query.CountAsync(cancellationToken);
-        var rows = await query
-            .OrderBy(t => t.CreatedOn, OrderByType.Desc)
+        var orderedQuery = filter.SortField?.ToLowerInvariant() switch
+        {
+            "usernid" => filter.SortOrder == "desc" ? query.OrderByDescending(t => t.UserNId) : query.OrderBy(t => t.UserNId),
+            "loginnamesnapshot" => filter.SortOrder == "desc" ? query.OrderByDescending(t => t.LoginNameSnapshot) : query.OrderBy(t => t.LoginNameSnapshot),
+            _ => query.OrderBy(t => t.CreatedOn, OrderByType.Desc),
+        };
+        var rows = await orderedQuery
             .Skip((filter.PageIndex - 1) * filter.PageSize)
             .Take(filter.PageSize)
             .ToListAsync(cancellationToken);

@@ -1,3 +1,4 @@
+using IndustrialPlatform.Identity.Api.Export;
 using IndustrialPlatform.Identity.Api.Authorization;
 using IndustrialPlatform.Identity.Application.Management;
 using IndustrialPlatform.Identity.Contracts.Management;
@@ -36,6 +37,11 @@ public sealed class RolesController : ManagementControllerBase
         [FromQuery] string? name,
         [FromQuery] int pageIndex = 1,
         [FromQuery] int pageSize = 20,
+        [FromQuery] string? sortField = null,
+        [FromQuery] string? sortOrder = null,
+        [FromQuery] string? keyword = null,
+        [FromQuery] string? description = null,
+        [FromQuery] bool? isSystem = null,
         CancellationToken cancellationToken = default)
     {
         if (!TryGetActorContext(out var tenantNId, out _))
@@ -52,7 +58,7 @@ public sealed class RolesController : ManagementControllerBase
         {
             var page = await _service.ListAsync(
                 tenantNId,
-                new RoleListFilter(tenantNId, nId, name, pageIndex, pageSize),
+                new RoleListFilter(tenantNId, nId, name, pageIndex, pageSize, sortField, sortOrder, keyword, description, isSystem),
                 cancellationToken);
             return PageResult.Create(page.Items, page.Total, page.PageIndex, page.PageSize);
         }
@@ -64,6 +70,50 @@ public sealed class RolesController : ManagementControllerBase
         {
             return StatusCodeEnvelope(ex.StatusCode, ex.Code, ex.Message);
         }
+    }
+
+    [Authorize(Policy = PermissionPolicies.RoleView)]
+    [HttpGet("export")]
+    public IActionResult Export(
+        [FromQuery] string? nId,
+        [FromQuery] string? name,
+        [FromQuery] string quantity = "10000",
+        [FromQuery] string? columns = null,
+        [FromQuery] string? sortField = null,
+        [FromQuery] string? sortOrder = null,
+        [FromQuery] string? keyword = null,
+        [FromQuery] string? description = null,
+        [FromQuery] bool? isSystem = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryGetActorContext(out var tenantNId, out _)) return UnauthorizedEnvelope();
+        var maxRows = StreamingXlsxExport.ParseQuantity(quantity);
+        return StreamingXlsxExport.Start("roles.xlsx", async (output, ct) =>
+        {
+            var workbook = await StreamingXlsxWriter.CreateAsync(output, ct);
+            var selectedColumns = StreamingXlsxExport.SelectColumns(columns,
+                new StreamingXlsxExport.Column<RoleSummary>("roleNId", "角色标识", role => role.RoleNId),
+                new StreamingXlsxExport.Column<RoleSummary>("name", "名称", role => role.Name),
+                new StreamingXlsxExport.Column<RoleSummary>("description", "描述", role => role.Description),
+                new StreamingXlsxExport.Column<RoleSummary>("isSystem", "系统角色", role => role.IsSystem ? "是" : "否"),
+                new StreamingXlsxExport.Column<RoleSummary>("permissionCount", "权限数", role => role.PermissionNIds.Count.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            await workbook.WriteRowAsync(selectedColumns.Select(column => column.Title), ct);
+            var written = 0;
+            var pageIndex = 1;
+            while (written < maxRows)
+            {
+            var page = await _service.ListAsync(tenantNId, new RoleListFilter(tenantNId, nId, name, pageIndex, 100, sortField, sortOrder, keyword, description, isSystem), ct);
+                if (page.Items.Count == 0) break;
+                foreach (var role in page.Items)
+                {
+                    if (written++ >= maxRows) break;
+                    await workbook.WriteRowAsync(selectedColumns.Select(column => column.Value(role)), ct);
+                }
+                if (written >= page.Total || page.Items.Count < 100) break;
+                pageIndex++;
+            }
+            await workbook.DisposeAsync();
+        }, cancellationToken);
     }
 
     /// <summary>角色详情(§16.2 GET /api/v1/roles/{id});不存在或跨租户返回 404。</summary>

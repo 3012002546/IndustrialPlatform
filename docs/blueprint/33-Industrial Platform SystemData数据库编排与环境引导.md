@@ -1,8 +1,8 @@
 # Industrial Platform SystemData 服务初始化编排与环境引导
 
-版本：V3.0
+版本：V3.1
 状态：已确认，平台服务初始化权威母版
-生效日期：2026-08-14
+生效日期：2026-09-02
 
 ---
 
@@ -20,7 +20,7 @@ Runtime readiness = local database fact
 
 SystemData 负责 `Where、When、Policy、Observation`，提供 registration、拓扑解析、plan、环境策略、Operation 和脱敏观察；目标服务负责 `What、How、Fact`，拥有自己的 Schema、Migration、Seed、Bootstrap、Verify、Ledger、回滚/恢复和 runtime readiness。SystemData 不理解业务表、不直写业务 Repository、不承载其他服务迁移/种子实现，也不保存业务 Secret 值。
 
-`Service Host`、`Domain Module`、`Initialization Unit`、`Deployment Unit` 是四个不同概念。逻辑模块不会自动成为初始化单元；只有具备独立持久化生命周期时才独立初始化。ReferenceData 当前是一个宿主、五个逻辑模块，并默认共享服务级 Migration、Outbox、Inbox 和基础设施。
+`Service Host`、`Domain Module`、`Initialization Unit`、`Deployment Unit` 是四个不同概念。逻辑模块不会自动成为初始化单元；只有具备独立持久化生命周期时才独立初始化。ReferenceData 当前是一个宿主、五个逻辑模块，并共享一个服务级 Migration/Ledger、一个带 `ModuleKey` 的服务级 Outbox 和基础设施；没有真实入站事件消费者时不预建 Inbox/Checkpoint。
 
 # 2. API 与操作模型
 
@@ -87,6 +87,8 @@ SystemData 解析拓扑与策略
 
 服务日常启动与 readiness 固定读取本地数据库身份、Migration Ledger、Required Seed Ledger 和 Bootstrap 状态。SystemData 不在线时，已经完成初始化且本地事实有效的服务仍可 `Ready`；本地迁移/RequiredSeed 未达期望版本、Bootstrap 缺少必需 Secret、目标错误或 ledger 不一致时必须 `NotReady`。不得回退默认密码、Mock、错误数据库或旧 Schema，也不得把 liveness 与 readiness 混为一体。
 
+readiness 只表达宿主提供核心能力的最低条件。Redis、消息代理、日志聚合或追踪后端默认进入独立 capability health：可安全回源、积压或降级时报告 `Degraded`，不阻断宿主 Ready；只有某项公开能力无法在依赖缺失时保持正确语义，且其契约明确声明为必需依赖时，才将该依赖纳入相应 readiness 门禁。
+
 拓扑变更绝不隐式复制数据；已填充的目标必须报告 drift，并要求显式迁移/import。SystemData 对 Shared 目标按服务保存脱敏 Observation；readiness 结论仍由服务本地事实产生。
 
 # 5. 职责与数据所有权
@@ -121,7 +123,7 @@ SystemData 不直接编写、推断或长期维护业务表/种子定义，不�
 
 ## 5.3 双账本与幂等
 
-每个服务或具有独立持久化生命周期的初始化单元拥有 migration/seed ledger；逻辑模块不因领域拆分机械创建独立账本。ReferenceData 当前使用服务级 `reference_data_schema_migrations` 与 `reference_data_seed_ledger`。seed ledger 至少记录：
+每个服务或具有独立持久化生命周期的初始化单元拥有 migration/seed ledger；逻辑模块不因领域拆分机械创建独立账本。ReferenceData 骨架当前遗留 `reference_data_schema_migrations` 与 `reference_data_seed_ledger` CodeFirst 占位表；PF-03 正式目标统一为 `reference_data.schema_migrations` 与 `reference_data.seed_ledger`，仍是一套服务级双账本。seed ledger 至少记录：
 
 ```text
 TenantNId / ModuleKey / SeedKey / SeedVersion / Checksum / Scope

@@ -14,6 +14,23 @@ namespace IndustrialPlatform.SystemData.Tests;
 public sealed class ControlPlaneServiceTests
 {
     [Fact]
+    public async Task Unpublished_navigation_and_unconfigured_theme_are_available_defaults_not_degraded()
+    {
+        var store = new ControlPlaneTestStore();
+        var navigation = new ResourceNavigationService(store, new TestPermissionRegistry());
+        var theme = new ThemePolicyControlService(store, new TestPermissionRegistry());
+
+        var navigationRuntime = await navigation.RuntimeAsync("tenant-a", UiTerminal.Pc, CancellationToken.None);
+        var themeRuntime = await theme.RuntimeAsync("tenant-a", CancellationToken.None);
+
+        Assert.False(navigationRuntime.Configured);
+        Assert.False(navigationRuntime.Degraded);
+        Assert.Empty(navigationRuntime.Nodes);
+        Assert.False(themeRuntime.Configured);
+        Assert.False(themeRuntime.Degraded);
+    }
+
+    [Fact]
     public async Task Module_manifest_registers_full_permission_manifest_and_trusted_declarations_idempotently()
     {
         var store = new ControlPlaneTestStore();

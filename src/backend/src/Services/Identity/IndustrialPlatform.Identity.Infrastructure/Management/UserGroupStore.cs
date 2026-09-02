@@ -55,14 +55,28 @@ public sealed class UserGroupStore : IUserGroupStore
             dbQuery = dbQuery.Where(t => t.Name.Contains(query.Name.Trim()));
         }
 
+        if (!string.IsNullOrWhiteSpace(query.NId)) dbQuery = dbQuery.Where(t => t.NId.Contains(query.NId.Trim()));
+        if (!string.IsNullOrWhiteSpace(query.Description)) dbQuery = dbQuery.Where(t => t.Description != null && t.Description.Contains(query.Description.Trim()));
+        if (!string.IsNullOrWhiteSpace(query.Keyword))
+        {
+            var keyword = query.Keyword.Trim();
+            dbQuery = dbQuery.Where(t => t.NId.Contains(keyword) || t.Name.Contains(keyword) || (t.Description != null && t.Description.Contains(keyword)));
+        }
+
         if (query.Status is { } status)
         {
             dbQuery = dbQuery.Where(t => t.Status == status);
         }
 
         var total = await dbQuery.CountAsync(cancellationToken);
-        var rows = await dbQuery
-            .OrderBy(t => t.CreatedOn, OrderByType.Desc)
+        var orderedQuery = query.SortField?.ToLowerInvariant() switch
+        {
+            "nid" => query.SortOrder == "desc" ? dbQuery.OrderByDescending(t => t.NId) : dbQuery.OrderBy(t => t.NId),
+            "name" => query.SortOrder == "desc" ? dbQuery.OrderByDescending(t => t.Name) : dbQuery.OrderBy(t => t.Name),
+            "status" => query.SortOrder == "desc" ? dbQuery.OrderByDescending(t => t.Status) : dbQuery.OrderBy(t => t.Status),
+            _ => dbQuery.OrderBy(t => t.CreatedOn, OrderByType.Desc),
+        };
+        var rows = await orderedQuery
             .Skip((query.PageIndex - 1) * query.PageSize)
             .Take(query.PageSize)
             .ToListAsync(cancellationToken);

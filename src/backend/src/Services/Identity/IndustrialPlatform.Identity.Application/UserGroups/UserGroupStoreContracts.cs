@@ -40,7 +40,12 @@ public sealed record UserGroupListQuery(
     UserGroupStatus? Status,
     int PageIndex,
     int PageSize,
-    bool IncludeDeleted = false);
+    bool IncludeDeleted = false,
+    string? SortField = null,
+    string? SortOrder = null,
+    string? NId = null,
+    string? Description = null,
+    string? Keyword = null);
 
 /// <summary>
 /// 用户组持久化端口(§29A.2/§29A.6):聚合装载、唯一性检查、原子写与授权求值辅助查询。

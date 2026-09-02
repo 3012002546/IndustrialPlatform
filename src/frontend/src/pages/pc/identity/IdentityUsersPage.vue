@@ -5,7 +5,14 @@
  * 独立重置密码权限;409 并发冲突提示重载。
  * 临时密码只经一次性弹窗展示,禁止持久化。操作按钮按 PermissionGate 控制(identity.user.*)。
  */
-import { ElDropdown, ElDropdownItem, ElDropdownMenu, ElIcon, ElMessage, ElMessageBox } from 'element-plus'
+import {
+  ElDropdown,
+  ElDropdownItem,
+  ElDropdownMenu,
+  ElIcon,
+  ElMessage,
+  ElMessageBox,
+} from 'element-plus'
 import { ArrowDown, Plus } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
@@ -20,22 +27,16 @@ import type {
 } from '@/components/management/AppDataTable'
 import type { QueryDescriptor } from '@/querying'
 import AppPage from '@/components/base/AppPage.vue'
+import AppFormDrawer from '@/components/management/AppFormDrawer.vue'
 import AppQueryPanel from '@/components/management/AppQueryPanel.vue'
 import { localeMessages } from '@/localization/i18n'
 import { PERMISSIONS, PermissionGate, usePermission } from '@/permissions'
 import AppDataTable from '@/components/management/AppDataTable.vue'
 import { useLocalizationStore } from '@/stores/localizationStore'
 import { useAuthStore } from '@/stores/authStore'
-import {
-  readPageState,
-  writePageState,
-  type WorkspacePageStateValue,
-} from '@/workspace/pageState'
+import { readPageState, writePageState, type WorkspacePageStateValue } from '@/workspace/pageState'
 import type { UserUiScope } from '@/theme/types'
-import {
-  UI_CACHE_CLEARED_EVENT,
-  type UiCacheClearedDetail,
-} from '@/stores/uiCacheStore'
+import { UI_CACHE_CLEARED_EVENT, type UiCacheClearedDetail } from '@/stores/uiCacheStore'
 
 import TemporaryPasswordDialog from './components/TemporaryPasswordDialog.vue'
 import { formatTime, reportManagementError } from './shared'
@@ -250,9 +251,7 @@ function persistPageState(): void {
       includeDeleted: String(query.includeDeleted),
     },
     queryMode: tableQueryMode.value,
-    ...(tableQueryMode.value === 'header'
-      ? { headerFilters: persistedHeaderFilters.value }
-      : {}),
+    ...(tableQueryMode.value === 'header' ? { headerFilters: persistedHeaderFilters.value } : {}),
     pageIndex: pageIndex.value,
     pageSize: pageSize.value,
     scrollTop: pageScrollElement()?.scrollTop ?? 0,
@@ -491,7 +490,9 @@ function hasLegacyOnlyTopConditions(): boolean {
   return query.groupNId.trim() !== '' || query.roleNId.trim() !== '' || query.includeDeleted
 }
 
-function buildLegacyTopQuery(request: AppDataTableRequest): Parameters<typeof management.listUsers>[0] {
+function buildLegacyTopQuery(
+  request: AppDataTableRequest,
+): Parameters<typeof management.listUsers>[0] {
   return {
     nId: query.nId.trim() || undefined,
     loginName: query.loginName.trim() || undefined,
@@ -898,8 +899,12 @@ onBeforeUnmount(() => {
 function clearCurrentUiState(event: Event): void {
   const detail = (event as CustomEvent<UiCacheClearedDetail | undefined>).detail
   const scope = currentPageStateScope()
-  if (detail?.scope !== undefined &&
-      (scope === null || detail.scope.tenantId !== scope.tenantId || detail.scope.userId !== scope.userId)) {
+  if (
+    detail?.scope !== undefined &&
+    (scope === null ||
+      detail.scope.tenantId !== scope.tenantId ||
+      detail.scope.userId !== scope.userId)
+  ) {
     return
   }
   query.nId = ''
@@ -936,11 +941,7 @@ restorePageState()
     </template>
     <template #actions>
       <PermissionGate :permission-n-id="PERMISSIONS.userCreate">
-        <el-button
-          type="primary"
-          data-testid="identity-users-create"
-          @click="openCreate"
-        >
+        <el-button type="primary" data-testid="identity-users-create" @click="openCreate">
           <ElIcon class="users-page__create-icon" aria-hidden="true"><Plus /></ElIcon>
           {{ copy.create }}
         </el-button>
@@ -949,6 +950,7 @@ restorePageState()
 
     <AppQueryPanel
       v-if="tableQueryMode === 'top'"
+      class="users-page__query-panel"
       data-testid="identity-users-query"
       :show-actions="true"
       :submit-label="commonCopy.search"
@@ -970,9 +972,8 @@ restorePageState()
           <ArrowDown aria-hidden="true" />
         </button>
       </template>
-      <template>
+      <template #default>
         <label class="users-page__field users-page__field-login">
-          <span>{{ copy.loginName }}</span>
           <el-input
             v-model="query.loginName"
             :placeholder="copy.loginName"
@@ -983,7 +984,6 @@ restorePageState()
           />
         </label>
         <label class="users-page__field users-page__field-name">
-          <span>{{ copy.name }}</span>
           <el-input
             v-model="query.name"
             :placeholder="copy.name"
@@ -994,7 +994,6 @@ restorePageState()
           />
         </label>
         <label class="users-page__field users-page__field-status">
-          <span>{{ copy.status }}</span>
           <el-select
             v-model="query.status"
             :placeholder="copy.status"
@@ -1007,7 +1006,6 @@ restorePageState()
           </el-select>
         </label>
         <label class="users-page__field users-page__field-group">
-          <span>{{ copy.group }}</span>
           <el-select
             v-model="query.groupNId"
             :placeholder="copy.group"
@@ -1025,7 +1023,6 @@ restorePageState()
           </el-select>
         </label>
         <label class="users-page__field users-page__field-role">
-          <span>{{ copy.role }}</span>
           <el-select
             v-model="query.roleNId"
             :placeholder="copy.role"
@@ -1043,12 +1040,11 @@ restorePageState()
           </el-select>
         </label>
         <div
-          v-if="advancedQueryOpen"
           id="identity-users-advanced-query"
           class="users-page__advanced-fields"
+          :class="{ 'users-page__advanced-fields--open': advancedQueryOpen }"
         >
           <label class="users-page__field users-page__field-business-id">
-            <span>{{ copy.businessId }}</span>
             <el-input
               v-model="query.nId"
               :placeholder="copy.businessId"
@@ -1059,7 +1055,11 @@ restorePageState()
             />
           </label>
           <label class="users-page__include-deleted">
-            <el-checkbox v-model="query.includeDeleted" :aria-label="copy.includeDeleted" @change="search">
+            <el-checkbox
+              v-model="query.includeDeleted"
+              :aria-label="copy.includeDeleted"
+              @change="search"
+            >
               {{ copy.includeDeleted }}
             </el-checkbox>
           </label>
@@ -1078,7 +1078,6 @@ restorePageState()
       :page-size="pageSize"
       :initial-page-index="pageIndex"
       :initial-header-filters="persistedHeaderFilters"
-      :toolbar-title="copy.userList"
       :toolbar-labels="true"
       :loader="loadUsersTable"
       :exporter="exportUsers"
@@ -1139,13 +1138,17 @@ restorePageState()
             v-if="isDirectUserAction(row, availableWidth, 'assign-role')"
             :permission-n-id="PERMISSIONS.userAssignRole"
           >
-            <el-button link type="primary" @click="openAssignRoles(row)">{{ copy.assignRole }}</el-button>
+            <el-button link type="primary" @click="openAssignRoles(row)">{{
+              copy.assignRole
+            }}</el-button>
           </PermissionGate>
           <PermissionGate
             v-if="isDirectUserAction(row, availableWidth, 'reset-password')"
             :permission-n-id="PERMISSIONS.userResetPassword"
           >
-            <el-button link type="warning" @click="openResetPassword(row)">{{ copy.resetPassword }}</el-button>
+            <el-button link type="warning" @click="openResetPassword(row)">{{
+              copy.resetPassword
+            }}</el-button>
           </PermissionGate>
           <PermissionGate
             v-if="isDirectUserAction(row, availableWidth, 'restore')"
@@ -1258,19 +1261,27 @@ restorePageState()
     </AppDataTable>
 
     <!-- 详情(含角色来源) -->
-    <el-dialog v-model="detailOpen" :title="dialogCopy.dialogDetail" width="560px">
+    <AppFormDrawer v-model="detailOpen" :title="dialogCopy.dialogDetail">
       <el-descriptions v-if="detailTarget" :column="1" border>
-        <el-descriptions-item :label="copy.loginName">{{ detailTarget.loginName }}</el-descriptions-item>
+        <el-descriptions-item :label="copy.loginName">{{
+          detailTarget.loginName
+        }}</el-descriptions-item>
         <el-descriptions-item :label="copy.name">{{ detailTarget.name }}</el-descriptions-item>
-        <el-descriptions-item :label="copy.businessId">{{ detailTarget.userNId }}</el-descriptions-item>
+        <el-descriptions-item :label="copy.businessId">{{
+          detailTarget.userNId
+        }}</el-descriptions-item>
         <el-descriptions-item :label="copy.status">
           {{ detailTarget.status === 'Active' ? copy.enabled : copy.disabled }}
         </el-descriptions-item>
         <el-descriptions-item :label="copy.mustChangePassword">
           {{ detailTarget.mustChangePassword ? dialogCopy.needsChange : dialogCopy.noChange }}
         </el-descriptions-item>
-        <el-descriptions-item :label="copy.email">{{ detailTarget.email ?? '—' }}</el-descriptions-item>
-        <el-descriptions-item :label="copy.phone">{{ detailTarget.phone ?? '—' }}</el-descriptions-item>
+        <el-descriptions-item :label="copy.email">{{
+          detailTarget.email ?? '—'
+        }}</el-descriptions-item>
+        <el-descriptions-item :label="copy.phone">{{
+          detailTarget.phone ?? '—'
+        }}</el-descriptions-item>
         <el-descriptions-item :label="copy.lastLoginOn">{{
           formatUserTime(detailTarget.lastLoginOn)
         }}</el-descriptions-item>
@@ -1290,11 +1301,17 @@ restorePageState()
       <template #footer>
         <el-button type="primary" @click="detailOpen = false">{{ dialogCopy.close }}</el-button>
       </template>
-    </el-dialog>
+    </AppFormDrawer>
 
     <!-- 新建 / 编辑(创建不再录入初始密码:服务端生成随机临时密码) -->
-    <el-dialog v-model="dialogOpen" :title="dialogTitle" width="520px" @closed="resetForm">
-      <el-form ref="formRef" :model="form" :rules="userRules" label-width="100px">
+    <AppFormDrawer
+      v-model="dialogOpen"
+      :busy="dialogSaving"
+      :title="dialogTitle"
+      @cancel="resetForm"
+      @submit="submitDialog"
+    >
+      <el-form ref="formRef" :model="form" :rules="userRules" label-width="120px">
         <el-form-item v-if="editing === null" :label="copy.businessId" prop="nId">
           <el-input v-model="form.nId" :placeholder="dialogCopy.optionalAuto" />
         </el-form-item>
@@ -1311,40 +1328,43 @@ restorePageState()
           <el-input v-model="form.phone" :placeholder="dialogCopy.optional" />
         </el-form-item>
       </el-form>
-      <template #footer>
-        <el-button @click="dialogOpen = false">{{ commonCopy.cancel }}</el-button>
-        <el-button type="primary" :loading="dialogSaving" @click="submitDialog">{{ commonCopy.save }}</el-button>
-      </template>
-    </el-dialog>
+    </AppFormDrawer>
 
     <!-- 分配角色(直接角色,最终集) -->
-    <el-dialog v-model="rolesDialogOpen" :title="dialogCopy.assignRole" width="520px">
-      <p class="users-page__dialog-tip">
-        {{
-          dialogCopy.rolesDescription
-            .replace('{loginName}', rolesTarget?.loginName ?? '')
-            .replace('{count}', String(allRoles.length))
-        }}
-      </p>
-      <el-select
-        v-model="selectedRoleNIds"
-        multiple
-        filterable
-        clearable
-        class="users-page__role-select"
-      >
-        <el-option
-          v-for="role in allRoles"
-          :key="role.roleNId"
-          :value="role.roleNId"
-          :label="role.name"
-        />
-      </el-select>
-      <template #footer>
-        <el-button @click="rolesDialogOpen = false">{{ commonCopy.cancel }}</el-button>
-        <el-button type="primary" :loading="rolesSaving" @click="submitRoles">{{ commonCopy.save }}</el-button>
-      </template>
-    </el-dialog>
+    <AppFormDrawer
+      v-model="rolesDialogOpen"
+      :busy="rolesSaving"
+      :title="dialogCopy.assignRole"
+      @submit="submitRoles"
+    >
+      <el-form label-width="120px">
+        <el-form-item :label="copy.role">
+          <div class="users-page__role-field">
+            <el-select
+              v-model="selectedRoleNIds"
+              multiple
+              filterable
+              clearable
+              class="users-page__role-select"
+            >
+              <el-option
+                v-for="role in allRoles"
+                :key="role.roleNId"
+                :value="role.roleNId"
+                :label="role.name"
+              />
+            </el-select>
+            <p class="users-page__dialog-tip">
+              {{
+                dialogCopy.rolesDescription
+                  .replace('{loginName}', rolesTarget?.loginName ?? '')
+                  .replace('{count}', String(allRoles.length))
+              }}
+            </p>
+          </div>
+        </el-form-item>
+      </el-form>
+    </AppFormDrawer>
 
     <!-- 重置密码(独立权限,服务端随机临时密码) -->
     <el-dialog v-model="passwordDialogOpen" :title="dialogCopy.resetPassword" width="480px">
@@ -1353,9 +1373,9 @@ restorePageState()
       </p>
       <template #footer>
         <el-button @click="passwordDialogOpen = false">{{ commonCopy.cancel }}</el-button>
-        <el-button type="primary" :loading="passwordSaving" @click="submitPassword"
-          >{{ dialogCopy.confirmReset }}</el-button
-        >
+        <el-button type="primary" :loading="passwordSaving" @click="submitPassword">{{
+          dialogCopy.confirmReset
+        }}</el-button>
       </template>
     </el-dialog>
 
@@ -1480,6 +1500,14 @@ restorePageState()
   outline-offset: 2px;
 }
 
+.users-page__query-panel {
+  container-type: inline-size;
+}
+
+.users-page :deep(.app-query-panel__body-actions) {
+  flex: 1 0 100%;
+}
+
 .users-page__field {
   display: flex;
   flex: 0 0 auto;
@@ -1491,24 +1519,40 @@ restorePageState()
 }
 
 .users-page__field-login,
-.users-page__field-business-id { width: 154px; }
-.users-page__field-name { width: 128px; }
-.users-page__field-status { width: 116px; }
+.users-page__field-business-id {
+  width: 154px;
+}
+.users-page__field-name {
+  width: 128px;
+}
+.users-page__field-status {
+  width: 116px;
+}
 .users-page__field-group,
-.users-page__field-role { width: 138px; }
+.users-page__field-role {
+  width: 138px;
+}
 
 @media (min-width: 960px) and (max-width: 1280px) {
   .users-page :deep(.app-query-panel__body--grid) {
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 8px;
   }
 
   .users-page__field-login,
-  .users-page__field-business-id { width: 130px; }
-  .users-page__field-name { width: 110px; }
-  .users-page__field-status { width: 100px; }
+  .users-page__field-business-id {
+    width: 130px;
+  }
+  .users-page__field-name {
+    width: 110px;
+  }
+  .users-page__field-status {
+    width: 100px;
+  }
   .users-page__field-group,
-  .users-page__field-role { width: 120px; }
+  .users-page__field-role {
+    width: 120px;
+  }
 
   .users-page :deep(.app-query-panel__body-actions) {
     flex-wrap: nowrap;
@@ -1521,7 +1565,9 @@ restorePageState()
 }
 
 .users-page__field :deep(.el-input),
-.users-page__field :deep(.el-select) { width: 100%; }
+.users-page__field :deep(.el-select) {
+  width: 100%;
+}
 
 .users-page__include-deleted {
   display: inline-flex;
@@ -1530,7 +1576,25 @@ restorePageState()
 }
 
 .users-page__advanced-fields {
+  display: none;
+}
+
+.users-page__advanced-fields--open {
   display: contents;
+}
+
+@container (min-width: 1160px) {
+  .users-page__advanced-fields {
+    display: contents;
+  }
+
+  .users-page__more-conditions {
+    display: none;
+  }
+
+  .users-page :deep(.app-query-panel__body-actions) {
+    flex: 0 0 auto;
+  }
 }
 
 .users-page__filter {
@@ -1552,9 +1616,14 @@ restorePageState()
 }
 
 .users-page__dialog-tip {
-  margin: 0 0 var(--ip-space-3);
+  margin: var(--ip-space-2) 0 0;
   font-size: var(--ip-font-size-sm);
   color: var(--ip-color-text-secondary);
+}
+
+.users-page__role-field {
+  width: 100%;
+  min-width: 0;
 }
 
 .users-page__role-select {

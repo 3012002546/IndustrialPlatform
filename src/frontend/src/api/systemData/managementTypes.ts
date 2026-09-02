@@ -392,7 +392,26 @@ export interface ManagementQuery {
   [key: string]: string | number | boolean | string[] | undefined
 }
 
+export interface SystemDataExportParams extends ManagementQuery {
+  search?: string | undefined
+  kind?: string | undefined
+  status?: string | undefined
+  organizationNId?: string | undefined
+  userNId?: string | undefined
+  quantity?: number | 'all' | undefined
+  sortField?: string | undefined
+  sortOrder?: 'asc' | 'desc' | undefined
+  columns?: string[] | undefined
+}
+
 export interface SystemDataManagementApi {
+  exportOrganizations(params: SystemDataExportParams): Promise<Blob>
+  exportPositions(params: SystemDataExportParams): Promise<Blob>
+  exportAssignments(userNId: string, params: SystemDataExportParams): Promise<Blob>
+  exportFeatures(params: SystemDataExportParams): Promise<Blob>
+  exportServices(params: SystemDataExportParams): Promise<Blob>
+  exportInitializationRegistrations(params: SystemDataExportParams): Promise<Blob>
+  exportInitializationOperations(params: SystemDataExportParams): Promise<Blob>
   listOrganizationsTree(status?: string): Promise<OrganizationNodeDto[]>
   getOrganization(nId: string): Promise<OrganizationDetailDto>
   createOrganization(request: CreateOrganizationRequest): Promise<OrganizationDetailDto>

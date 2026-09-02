@@ -24,6 +24,9 @@ describe('LocaleControl', () => {
     expect(trigger.attributes('aria-expanded')).toBe('false')
 
     await trigger.trigger('click')
+    expect(
+      Array.from(document.querySelectorAll<HTMLElement>('[role="option"]')).map((item) => item.textContent?.trim()),
+    ).toEqual(['中文', 'English'])
     const option = document.querySelector<HTMLElement>('[role="option"][aria-selected="false"]')
     expect(option).not.toBeNull()
     expect(option?.textContent).toContain('English')

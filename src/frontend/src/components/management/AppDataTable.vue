@@ -31,6 +31,7 @@ import {
 } from '@element-plus/icons-vue'
 
 import { getCurrentSession } from '@/auth/gateway'
+import AppErrorAlert from '@/components/base/AppErrorAlert.vue'
 import { localeMessages } from '@/localization/i18n'
 import { useLocalizationStore } from '@/stores/localizationStore'
 import {
@@ -276,6 +277,7 @@ const currentPageSize = ref(props.pageSize)
 const serverRows = ref<T[]>([...props.rows])
 const serverTotal = ref(props.total)
 const loaderLoading = ref(false)
+const loadError = ref<unknown | null>(null)
 const sort = ref<AppDataTableSort | undefined>()
 const settingsOpen = ref(false)
 const sortOpen = ref(false)
@@ -696,6 +698,7 @@ async function reload(emitQueryChange = true): Promise<void> {
     return
   }
   loaderLoading.value = true
+  loadError.value = null
   try {
     const next = await props.loader(request())
     serverRows.value = next.items
@@ -705,6 +708,7 @@ async function reload(emitQueryChange = true): Promise<void> {
     emit('loaded', next)
     if (shouldEmitQueryChange) emit('query-change', request())
   } catch (error) {
+    loadError.value = error
     emit('load-error', error)
   } finally {
     loaderLoading.value = false
@@ -1666,6 +1670,12 @@ const tableBindings = computed(() => ({
 }))
 
 watch(
+  () => props.initialPageIndex,
+  (value) => {
+    if (value !== currentPage.value) currentPage.value = Math.max(1, value)
+  },
+)
+watch(
   () => props.queryMode,
   (value) => switchQueryMode(value),
 )
@@ -2337,6 +2347,22 @@ defineExpose({
           <span class="app-data-table__loading-spinner" aria-hidden="true" />
           <span>{{ copy.loading }}</span>
         </div>
+        <AppErrorAlert
+          v-if="loadError !== null"
+          class="app-data-table__load-error"
+          data-testid="app-data-table-load-error"
+          :title="localeMessages[localization.locale].common.state.error"
+          :message="copy.loadError"
+        >
+          <button
+            type="button"
+            class="app-data-table__load-error-retry"
+            data-testid="app-data-table-load-retry"
+            @click="() => { void reload() }"
+          >
+            {{ localeMessages[localization.locale].common.action.retry }}
+          </button>
+        </AppErrorAlert>
       </div>
 
       <div class="app-data-table__footer">
@@ -2385,6 +2411,28 @@ defineExpose({
   padding: var(--ip-space-4);
   overflow: auto;
   background: var(--ip-color-bg-page);
+}
+
+.app-data-table__load-error {
+  margin: var(--ip-space-3);
+}
+
+.app-data-table__load-error-retry {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--ip-density-control-height);
+  padding: 0 var(--ip-space-3);
+  color: var(--ip-color-text-inverse, #fff);
+  background: var(--ip-color-primary);
+  border: 1px solid var(--ip-color-primary);
+  border-radius: var(--ip-radius-sm);
+  cursor: pointer;
+  font: inherit;
+}
+
+.app-data-table__load-error-retry:focus-visible {
+  outline: 2px solid var(--ip-focus-ring-color);
+  outline-offset: 2px;
 }
 .app-data-table__card {
   position: relative;

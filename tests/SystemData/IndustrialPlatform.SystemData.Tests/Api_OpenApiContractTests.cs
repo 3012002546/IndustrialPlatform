@@ -17,15 +17,18 @@ public sealed class OpenApiContractTests
         new(StringComparer.Ordinal)
         {
             ["/api/v1/organizations/tree"] = ["get"],
+            ["/api/v1/organizations/tree/export"] = ["get"],
             ["/api/v1/organizations/{organizationNId}"] = ["get", "put"],
             ["/api/v1/organizations"] = ["post"],
             ["/api/v1/organizations/{organizationNId}/move-preview"] = ["post"],
             ["/api/v1/organizations/{organizationNId}/move"] = ["post"],
             ["/api/v1/organizations/{organizationNId}/status"] = ["put"],
             ["/api/v1/positions"] = ["get", "post"],
+            ["/api/v1/positions/export"] = ["get"],
             ["/api/v1/positions/{positionNId}"] = ["put"],
             ["/api/v1/positions/{positionNId}/status"] = ["put"],
             ["/api/v1/users/{userNId}/assignments"] = ["get", "post"],
+            ["/api/v1/users/{userNId}/assignments/export"] = ["get"],
             ["/api/v1/assignments/{assignmentNId}"] = ["put"],
             ["/api/v1/assignments/{assignmentNId}/end"] = ["post"],
             ["/api/v1/assignments/{assignmentNId}/cancel"] = ["post"],

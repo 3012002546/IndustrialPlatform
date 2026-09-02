@@ -1,6 +1,7 @@
 using IndustrialPlatform.Security;
 using IndustrialPlatform.SharedKernel.Exceptions;
 using IndustrialPlatform.SystemData.Api.Authorization;
+using IndustrialPlatform.SystemData.Api.Export;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration;
 using IndustrialPlatform.SystemData.Contracts.DatabaseOrchestration;
 using IndustrialPlatform.Web.Results;
@@ -117,6 +118,37 @@ public sealed class ServiceInitializationController : SystemDataControllerBase
         {
             return StatusCodeEnvelope(ex.StatusCode, ex.Code, ex.Message);
         }
+    }
+
+    [HttpGet("registrations/export")]
+    [Authorize(Policy = SystemDataPermissionPolicies.ServiceInitializationView)]
+    public IActionResult ExportRegistrations([FromQuery] string? serviceKey, [FromQuery] string? moduleKey, [FromQuery] string quantity = "10000", [FromQuery] string? columns = null, CancellationToken cancellationToken = default)
+    {
+        if (!TryGetActorContext(out var tenantNId, out _)) return UnauthorizedEnvelope();
+        var maxRows = StreamingXlsxExport.ParseQuantity(quantity);
+        return StreamingXlsxExport.Start("systemdata-initialization-registrations.xlsx", async (output, ct) =>
+        {
+            var all = new List<DatabaseRegistrationSummaryV1>();
+            var pageIndex = 1;
+            while (all.Count < maxRows)
+            {
+                var page = await _registrationService.ListAsync(tenantNId, serviceKey, pageIndex, 100, ct, moduleKey);
+                all.AddRange(page.Items);
+                if (all.Count >= page.Total || page.Items.Count < 100) break;
+                pageIndex++;
+            }
+            var workbook = await StreamingXlsxWriter.CreateAsync(output, ct);
+            var selectedColumns = StreamingXlsxExport.SelectColumns(columns,
+                new StreamingXlsxExport.Column<DatabaseRegistrationSummaryV1>("serviceKey", "ServiceKey", item => item.ServiceKey),
+                new StreamingXlsxExport.Column<DatabaseRegistrationSummaryV1>("moduleKey", "ModuleKey", item => item.ModuleKey),
+                new StreamingXlsxExport.Column<DatabaseRegistrationSummaryV1>("status", "状态", item => item.Status),
+                new StreamingXlsxExport.Column<DatabaseRegistrationSummaryV1>("desiredState", "期望状态", item => item.DesiredState),
+                new StreamingXlsxExport.Column<DatabaseRegistrationSummaryV1>("migrationVersion", "迁移版本", item => item.MigrationVersion),
+                new StreamingXlsxExport.Column<DatabaseRegistrationSummaryV1>("logicalDatabaseName", "逻辑库", item => item.LogicalDatabaseName));
+            await workbook.WriteRowAsync(selectedColumns.Select(column => column.Title), ct);
+            foreach (var item in all.Take(maxRows)) await workbook.WriteRowAsync(selectedColumns.Select(column => column.Value(item)), ct);
+            await workbook.DisposeAsync();
+        }, cancellationToken);
     }
 
     /// <summary>按 (ServiceKey, ModuleKey) 查询注册清单(GET /api/v1/service-initialization/registrations/{serviceKey}/{moduleKey});不存在 404。</summary>
@@ -378,6 +410,38 @@ public sealed class ServiceInitializationController : SystemDataControllerBase
         {
             return StatusCodeEnvelope(ex.StatusCode, ex.Code, ex.Message);
         }
+    }
+
+    [HttpGet("operations/export")]
+    [Authorize(Policy = SystemDataPermissionPolicies.ServiceInitializationView)]
+    public IActionResult ExportOperations([FromQuery] string? kind, [FromQuery] string? status, [FromQuery] string quantity = "10000", [FromQuery] string? columns = null, CancellationToken cancellationToken = default)
+    {
+        if (!TryGetActorContext(out var tenantNId, out _)) return UnauthorizedEnvelope();
+        var maxRows = StreamingXlsxExport.ParseQuantity(quantity);
+        return StreamingXlsxExport.Start("systemdata-initialization-operations.xlsx", async (output, ct) =>
+        {
+            var all = new List<DatabaseOperationV1>();
+            var pageIndex = 1;
+            while (all.Count < maxRows)
+            {
+                var page = await _operationService.ListAsync(tenantNId, kind, status, pageIndex, 100, ct);
+                all.AddRange(page.Items);
+                if (all.Count >= page.Total || page.Items.Count < 100) break;
+                pageIndex++;
+            }
+            var workbook = await StreamingXlsxWriter.CreateAsync(output, ct);
+            var selectedColumns = StreamingXlsxExport.SelectColumns(columns,
+                new StreamingXlsxExport.Column<DatabaseOperationV1>("operationNId", "OperationNId", item => item.OperationNId),
+                new StreamingXlsxExport.Column<DatabaseOperationV1>("kind", "类型", item => item.Kind),
+                new StreamingXlsxExport.Column<DatabaseOperationV1>("serviceKey", "服务", item => item.ServiceKey),
+                new StreamingXlsxExport.Column<DatabaseOperationV1>("moduleKey", "模块", item => item.ModuleKey),
+                new StreamingXlsxExport.Column<DatabaseOperationV1>("status", "状态", item => item.Status),
+                new StreamingXlsxExport.Column<DatabaseOperationV1>("phase", "阶段", item => item.Phase),
+                new StreamingXlsxExport.Column<DatabaseOperationV1>("queuedOn", "入队时间", item => item.QueuedOn.ToString("O")));
+            await workbook.WriteRowAsync(selectedColumns.Select(column => column.Title), ct);
+            foreach (var item in all.Take(maxRows)) await workbook.WriteRowAsync(selectedColumns.Select(column => column.Value(item)), ct);
+            await workbook.DisposeAsync();
+        }, cancellationToken);
     }
 
     /// <summary>按操作标识查询(GET /api/v1/service-initialization/operations/{operationNId});不存在 404。</summary>

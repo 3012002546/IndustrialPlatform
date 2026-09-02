@@ -1,6 +1,7 @@
 using IndustrialPlatform.Security;
 using IndustrialPlatform.SharedKernel.Exceptions;
 using IndustrialPlatform.SystemData.Api.Authorization;
+using IndustrialPlatform.SystemData.Api.Export;
 using IndustrialPlatform.SystemData.Application.Administration;
 using IndustrialPlatform.SystemData.Application.Assignments;
 using IndustrialPlatform.SystemData.Contracts.Administration;
@@ -53,6 +54,32 @@ public sealed class AssignmentsController : SystemDataControllerBase
         {
             return StatusCodeEnvelope(ex.StatusCode, ex.Code, ex.Message);
         }
+    }
+
+    [HttpGet("users/{userNId}/assignments/export")]
+    [Authorize(Policy = SystemDataPermissionPolicies.AssignmentView)]
+    public IActionResult ExportForUser(string userNId, [FromQuery] string quantity = "10000", [FromQuery] string? columns = null, [FromQuery] string? sortField = null, [FromQuery] string? sortOrder = null, CancellationToken cancellationToken = default)
+    {
+        if (!TryGetActorContext(out var tenantNId, out _)) return UnauthorizedEnvelope();
+        var maxRows = StreamingXlsxExport.ParseQuantity(quantity);
+        return StreamingXlsxExport.Start("systemdata-assignments.xlsx", async (output, ct) =>
+        {
+            var items = await _service.ListForUserAsync(tenantNId, userNId, ct);
+            IEnumerable<AssignmentV1> ordered = string.Equals(sortField, "effectiveFrom", StringComparison.OrdinalIgnoreCase) ? (string.Equals(sortOrder, "asc", StringComparison.OrdinalIgnoreCase) ? items.OrderBy(x => x.EffectiveFrom) : items.OrderByDescending(x => x.EffectiveFrom)) : items.OrderBy(x => x.EffectiveFrom);
+            var workbook = await StreamingXlsxWriter.CreateAsync(output, ct);
+            var selectedColumns = StreamingXlsxExport.SelectColumns(columns,
+                new StreamingXlsxExport.Column<AssignmentV1>("nId", "任职标识", item => item.NId),
+                new StreamingXlsxExport.Column<AssignmentV1>("userDisplayNameSnapshot", "用户", item => item.UserDisplayNameSnapshot),
+                new StreamingXlsxExport.Column<AssignmentV1>("organizationNId", "组织", item => item.OrganizationNId),
+                new StreamingXlsxExport.Column<AssignmentV1>("positionName", "岗位", item => item.PositionName),
+                new StreamingXlsxExport.Column<AssignmentV1>("state", "状态", item => item.State),
+                new StreamingXlsxExport.Column<AssignmentV1>("isPrimary", "主任职", item => item.IsPrimary ? "是" : "否"),
+                new StreamingXlsxExport.Column<AssignmentV1>("effectiveFrom", "生效时间", item => item.EffectiveFrom.ToString("O")),
+                new StreamingXlsxExport.Column<AssignmentV1>("effectiveTo", "失效时间", item => item.EffectiveTo?.ToString("O")));
+            await workbook.WriteRowAsync(selectedColumns.Select(column => column.Title), ct);
+            foreach (var item in ordered.Take(maxRows)) await workbook.WriteRowAsync(selectedColumns.Select(column => column.Value(item)), ct);
+            await workbook.DisposeAsync();
+        }, cancellationToken);
     }
 
     /// <summary>为用户创建任职(POST /api/v1/users/{userNId}/assignments);用户目录不可用 503。</summary>

@@ -1,8 +1,8 @@
 # Industrial Platform Service Host 与内部模块边界
 
-版本：V1.1
+版本：V1.2
 状态：已确认，平台微服务母版
-生效日期：2026-08-11
+生效日期：2026-09-02
 
 ---
 
@@ -17,12 +17,12 @@
 - `Service Host`、`Domain Module`、`Initialization Unit`、`Deployment Unit` 是四个不同概念：宿主决定进程组合，领域模块决定业务所有权，初始化单元决定持久化生命周期，部署单元决定运行和扩缩容边界，四者不得互相推导。
 - 当前单租户必须完整可用；所有领域边界预留可信身份上下文提供的 `TenantNId`。
 - 阶段不等于微服务。合并只表示共用部署宿主，不表示合并领域模型或数据所有权。
-- 同一 Service Host 内的模块必须独立建模，使用独立 Schema 或表前缀、公开契约、权限资源和测试边界；模块只有具备独立持久化生命周期时才升级为独立初始化单元，不因逻辑模块数量机械拆分迁移、Outbox、Inbox 或基础设施。
-- 禁止跨模块直读或写入其他模块的 Repository 或数据表；协作使用公开应用契约、API 或事件。
+- 同一 Service Host 内的模块必须独立建模，使用明确的逻辑表命名空间（独立 Schema 或模块表前缀）、公开契约、权限资源和测试边界；默认按服务持久化生命周期共享物理 Schema、迁移流、连接和技术基础设施。模块只有具备独立持久化生命周期时才升级为独立初始化单元，不因逻辑模块数量机械拆分迁移、Outbox、Inbox 或基础设施。
+- 禁止跨模块直读或写入其他模块的 Repository 或数据表；同宿主协作优先使用进程内公开 Application 契约，跨宿主才使用 API 或事件，禁止为了模块边界引入内部 HTTP 或内部消息总线。
 - 模块间不建立数据库级跨模块外键。跨模块只保存稳定业务标识和必要快照，并按契约维护一致性。
 - 每个模块都必须能够在不改变外部语义的前提下迁移到独立进程和数据库，为未来物理拆分保留边界。
 - SystemData 只负责数据库拓扑、初始化编排、执行策略和脱敏 Observation，即 `Where + When + Policy + Observation`；每个服务负责自己的 Migration、Seed、Bootstrap、Verify 和 Ledger，即 `What + How + Fact`。SystemData 调用服务初始化器，不拥有或执行其他服务的领域迁移实现。
-- 服务日常启动与 runtime readiness 只依赖本服务数据库事实和本地 ledger；SystemData 是否在线不改变已经初始化服务的本地 Ready 结论。
+- 服务日常启动与 runtime readiness 只依赖本服务核心数据库身份、本地 ledger 和必需 bootstrap 事实；SystemData 是否在线不改变已经初始化服务的本地 Ready 结论。Redis、消息代理和日志/可观测性后端默认属于 capability health，故障时报告 `Degraded` 并按既定降级策略运行，不机械把整个宿主判为 `NotReady`；只有公开能力契约明确要求该依赖不可替代时才可成为 readiness 门禁。
 - 初始化策略分为 `Standard` 与 `Advanced`。普通功能默认采用 Standard；审批、备份证据、签名和漂移恢复只在环境或风险要求时进入 Advanced。
 
 # 3. 当前核心 Service Host
@@ -41,7 +41,7 @@
 
 Worker、Agent、Screego、TURN 和本地模型运行时是辅助部署单元，不计入七个核心 Service Host。它们不得反向拥有核心领域数据；其生命周期、密钥、网络和升级策略在对应阶段详细设计。
 
-`ReferenceData.Service` 是一个 Service Host，包含五个逻辑领域模块，但默认共享服务级 Migration、Outbox、Inbox 和基础设施。只有某个模块以后形成独立持久化生命周期并完成边界评审，才可成为独立初始化单元；这不改变五个领域模块的契约与数据所有权隔离。
+`ReferenceData.Service` 是一个 Service Host，包含 Dictionary、Parameter、Metadata、DynamicProperty、CodingRule 五个逻辑领域模块。当前固定使用一个逻辑数据库 `referencedata_db`、一个 PostgreSQL Schema `reference_data`、模块表前缀、一个服务级 Migration/Ledger、一个带 `ModuleKey` 的服务级 Outbox 和共享基础设施；只有出现真实入站事件消费者时才增加一个服务级 Inbox/Checkpoint。只有某个模块以后形成独立持久化生命周期并完成边界评审，才可成为独立初始化单元；这不改变五个领域模块的契约与数据所有权隔离。
 
 当前对外入口存在两种部署角色且不得混写：
 

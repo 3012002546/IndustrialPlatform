@@ -387,9 +387,24 @@ async function onSubmit(): Promise<void> {
   max-width: var(--login-form-width);
   overflow: visible;
   background: var(--ip-color-bg-container);
-  border: 1px solid var(--ip-color-border);
+  border: 1px solid color-mix(in srgb, var(--ip-color-border) 65%, transparent);
   border-radius: var(--ip-radius-lg);
-  box-shadow: var(--ip-shadow-md);
+  box-shadow:
+    var(--ip-shadow-md),
+    0 16px 40px rgb(15 23 42 / 12%),
+    inset 0 1px 0 rgb(255 255 255 / 24%);
+}
+
+@supports ((backdrop-filter: blur(20px)) or (-webkit-backdrop-filter: blur(20px))) {
+  .login-card {
+    background: color-mix(in srgb, var(--ip-color-bg-container) 6%, transparent);
+    -webkit-backdrop-filter: blur(3px) saturate(145%);
+    backdrop-filter: blur(3px) saturate(145%);
+  }
+
+  :global([data-ip-color-mode='dark'] .login-card) {
+    background: color-mix(in srgb, var(--ip-color-bg-container) 70%, transparent);
+  }
 }
 
 .login-card__form-pane {

@@ -126,6 +126,7 @@ public sealed record NavigationValidationErrorResponse
 public sealed record NavigationRuntimeResponse
 {
     public long Revision { get; init; }
+    public bool Configured { get; init; }
     public bool Degraded { get; init; }
     public IReadOnlyCollection<NavigationRuntimeNodeResponse> Nodes { get; init; } = [];
 }
@@ -165,6 +166,7 @@ public sealed record SetFeatureOverrideRequest
 public sealed record FeatureRuntimeResponse
 {
     public long Revision { get; init; }
+    public bool Configured { get; init; }
     public bool Degraded { get; init; }
     public IReadOnlyCollection<FeatureRuntimeItem> Items { get; init; } = [];
 }
@@ -219,6 +221,7 @@ public sealed record ServiceCatalogResponse
 public sealed record ServiceCatalogRuntimeResponse
 {
     public long Revision { get; init; }
+    public bool Configured { get; init; }
     public bool Degraded { get; init; }
     public IReadOnlyCollection<ServiceCatalogResponse> Items { get; init; } = [];
 }
@@ -238,6 +241,7 @@ public sealed record ThemePolicyRequest
 public sealed record ThemePolicyResponse
 {
     public long PolicyRevision { get; init; }
+    public bool Configured { get; init; }
     public bool Degraded { get; init; }
     public IReadOnlyCollection<string> AllowedPalettes { get; init; } = [];
     public IReadOnlyCollection<string> AllowedModes { get; init; } = [];

@@ -4,11 +4,11 @@
 
 > 当前里程碑范围：保留 `SystemData.Service` 已实现的拓扑、控制面、组织、岗位与任职范围，并按架构收敛规则将 Service Initialization Pipeline 定位为 Topology、Orchestration、Policy 与脱敏 Observation；各服务自己的初始化器负责 Migration、Seed、Bootstrap、Verify、Ledger 和本地 readiness。File、Notification、Audit、Scheduler、PlatformHealth 本阶段不设计或实现。
 
-版本：V1.2
+版本：V1.3
 
-阶段：PF-02 SystemData；前置 Identity `TASK-ID-001～023` 与 PF-01 `TASK-PF01-001～007` 已完成。`TASK-SD-001～013` 已完成，`TASK-SD-011` 保留 runtime 降级前提；不自动进入 PF-03。
+阶段：PF-02 SystemData；前置 Identity `TASK-ID-001～023` 与 PF-01 `TASK-PF01-001～007` 已完成。`TASK-SD-001～010` 已完成；`TASK-SD-011～012` 功能开发完成、收束验收中；`TASK-SD-013` 已重新打开；`TASK-SD-014～017` 待派遣。不自动进入 PF-03。
 
-阶段管理状态：已完成；前端门禁和默认 UnifiedHost 云依赖真实管理 CRUD 已通过。完整证据见 `docs/evidence/PF-02.md` 与第 16 节；当前状态以 `docs/status/CURRENT.md` 为准。
+阶段管理状态：功能开发完成 / 收束验收中。已有前端门禁、七页可达性和默认 UnifiedHost 真实组织/岗位 CRUD 证据继续有效；七页真实业务操作、Service Initialization V2 Advanced 和蓝图 33 十三项门禁证据矩阵尚未关闭。完整证据见 `docs/evidence/PF-02.md` 与第 16 节；当前状态以 `docs/status/CURRENT.md` 为准。
 
 模块或服务：
 
@@ -63,7 +63,7 @@ Identity 首个消费者案例（PF-00 已确认）：Identity 将既有 `Schema
 - `docs/implementation/04-Industrial Platform视觉主题与平台外壳开发实施方案.md`
 - `docs/implementation/TEMPLATE-开发实施方案.md`
 
-设计优先级：蓝图 33 V3.0 与架构收敛设计为当前最高优先级；现有数据库编排 API/Operation 保持兼容，但只能调用服务初始化器并保存脱敏 Observation。服务的 Migration、Seed、Bootstrap、Verify、Ledger 和 runtime readiness 不上收 SystemData。
+设计优先级：蓝图 33 V3.1 与架构收敛设计为当前最高优先级；现有数据库编排 API/Operation 保持兼容，但只能调用服务初始化器并保存脱敏 Observation。服务的 Migration、Seed、Bootstrap、Verify、Ledger 和 runtime readiness 不上收 SystemData。
 
 ---
 
@@ -87,7 +87,7 @@ Identity 首个消费者案例（PF-00 已确认）：Identity 将既有 `Schema
 - Identity 历史 `TASK-ID-001～016` 与 PF-01 `TASK-PF01-001～007` 已由提交 `48c5374` 完成；Identity 补强 `TASK-ID-017～023` 仅设计确认、尚未开发。
 - BuildingBlocks `ICurrentUser.UserNId : string?`、真实 `HttpAuthGateway`、PermissionGate 和 PF-01 平台壳已存在；本文旧有 Guid/Mock/PF-01 未实现阻塞描述不再作为当前事实。
 - `ReferenceData.Service` 只有现有四层骨架；SystemData 不接管字典、系统参数、元数据、动态属性或编码规则。
-- 蓝图 33 V3.0 已冻结控制面与执行面边界：SystemData 负责编排和 Observation，业务服务初始化器拥有 Migration、Seed、Bootstrap、Verify、Ledger 与本地 readiness。
+- 蓝图 33 V3.1 已冻结控制面与执行面边界：SystemData 负责编排和 Observation，业务服务初始化器拥有 Migration、Seed、Bootstrap、Verify、Ledger 与本地 readiness。
 - `docs/implementation/15-Industrial Platform MasterData Service开发实施方案.md` 当前已由 `a35ff32` 提交；无论其提交状态如何，PF-02 都不得修改、暂存、回退或重写该文件。
 
 本轮只编写设计文档，没有执行构建、测试或环境联调。03、04、CLAUDE.md 中的测试数字均为历史输入，不是本轮证据。
@@ -1538,10 +1538,10 @@ pnpm test:e2e
 # 13. 开发任务依赖
 
 ```text
-TASK-SD-001 服务骨架、SystemData 自身最小引导与迁移边界（961cad4 已实现，待验收）
-    → TASK-SD-002 数据库注册、Plan、审批、备份与 Operation 控制面基线（961cad4 已实现，待验收）
-        → TASK-SD-003 通用初始化 Manifest/双账本/Runner、migration/seed/bootstrap（61753dc 已有 migration-only 基线；扩展待派遣）
-            → TASK-SD-004 消费服务握手、NotReady 契约与初始化验收夹具
+TASK-SD-001 服务骨架、SystemData 自身最小引导与迁移边界（已完成）
+    → TASK-SD-002 数据库注册、Plan、审批、备份与 Operation 控制面基线（已完成）
+        → TASK-SD-003 通用初始化 Manifest/双账本/Runner、migration/seed/bootstrap（已完成）
+            → TASK-SD-004 消费服务握手、NotReady 契约与初始化验收夹具（SQLite 基线已完成，真实门禁待 TASK-SD-016 收束）
 
 TASK-SD-004
     ├→ TASK-SD-005 组织、岗位、任职领域与持久化
@@ -1562,23 +1562,32 @@ TASK-SD-002 + 003 + 006 + 007 + 008 + 009
     → TASK-SD-012 PC 管理页面（含服务初始化）
 
 TASK-SD-004 + 010 + 011 + 012
-    → TASK-SD-013 契约、E2E 与阶段验收
+    → TASK-SD-013 契约、E2E 与阶段验收（重新打开）
+
+TASK-SD-013
+    → TASK-SD-016 Service Initialization V2 与蓝图 33 十三项门禁收束
+        → TASK-SD-014 七页 UI/UX 一致性收束
+            → TASK-SD-015 七页真实 UnifiedHost 与三端 runtime 业务闭环
+
+TASK-SD-014 + 015 + 016
+    → TASK-SD-017 证据、文档单一事实源与 PF-02 阶段关闭
 ```
 
 并行与冲突规则：
 
-- 001→002→003→004 的最高优先级串行链已完成；005～010 的后端业务纵切与可靠性装配也已完成。
-- 011 与 012 已完成本轮前端交付：011 消费 007～009 的 runtime 契约，012 实现 PC 管理页面；两者未反向改写已验收的后端边界。
+- 001→002→003→004 的实现与 SQLite 验收基线已完成；005～010 的后端业务纵切与可靠性装配也已完成。跨 PostgreSQL、真实目标服务与浏览器的剩余门禁由 016 收束。
+- 011 与 012 已完成功能开发：011 消费 007～009 的 runtime 契约，012 实现 PC 管理页面；两者的真实收束验收分别纳入 014～016。
 - 003 是唯一允许使用 provision admin、调度签名 migration/seed/initializer 产物和持有目标 advisory lock 的任务；不得创建独立 Migrator/Seeder Service，SystemData 不接收业务 Secret 值。
 - 010 是唯一允许接入真实 Identity、Redis、RabbitMQ 和跨领域一致性装配的任务；前置契约未稳定时保持阻塞。
-- 013 只修复验收阻塞缺陷，不扩张业务范围。
+- 013 已重新打开，只统筹 014～017 并修复验收阻塞缺陷，不扩张业务范围。
+- 014、015、016 按依赖串行，避免同时修改 SystemData 管理页面与验收夹具；017 只在前三项完成后统一阶段状态。
 - 任何任务不得触碰实施 15、Identity/PF-01 受保护文件或其他阶段模块；跨阶段契约只做双方批准的精确增量。
 
 ---
 
 # 14. 开发任务拆分
 
-任务卡设计已经用户批准，并按当前 `develop` 校准：001～013 完成，011 保留 runtime 降级前提。完成状态不构成 PF-03 自动启动授权。
+任务卡已按收束状态校准：001～010 已完成；011～012 功能开发完成、待收束验收；013 重新打开；014～017 待派遣。该状态不构成 PF-03 自动启动授权。
 
 ## TASK-SD-001 创建服务骨架与 SystemData 自身最小引导边界
 
@@ -1586,7 +1595,7 @@ TASK-SD-004 + 010 + 011 + 012
 
 **目标：** 创建 `SystemData.Service` 五层项目和测试基线，实现受信任 topology options/resolver，冻结 PostgreSQL 18 基础设施最小引导、三类分权连接、SystemData 自有显式迁移、无循环自编排和 readiness 边界。
 
-**输入文档：** 本文第 1～7.1.1、8、9.1、11.7～11.8、12.1 节；蓝图 32、33 V2.0；提交 `961cad4`；现有 Gateway 与受保护的部署/Runner 并行状态。
+**输入文档：** 本文第 1～7.1.1、8、9.1、11.7～11.8、12.1 节；蓝图 32 V1.2、蓝图 33 V3.1；提交 `961cad4`；现有 Gateway 与受保护的部署/Runner 并行状态。
 
 **依赖：** BuildingBlocks、可运行基线历史已完成；无 PF-02 前置任务。
 
@@ -1630,7 +1639,7 @@ TASK-SD-004 + 010 + 011 + 012
 
 **目标：** 保留当前 provision/migrate/verify WIP，在 `SystemData.Service` 内扩展 InitializationManifest/SeedSets、双账本 observation、SchemaMigration、RequiredSeed、按需 SecretBootstrap、Verify 与 readiness，形成通用 Service Initialization Pipeline。
 
-**输入文档：** 本文第 4.2、6、7.1.2～7.1.7、8、9.2、9.8～9.9、11.3、11.8、12 节；蓝图 33 V2.0；TASK-SD-002 与提交 `61753dc`。
+**输入文档：** 本文第 4.2、6、7.1.2～7.1.7、8、9.2、9.8～9.9、11.3、11.8、12 节；蓝图 33 V3.1；TASK-SD-002 与提交 `61753dc`。
 
 **依赖：** TASK-SD-002；测试环境需 PostgreSQL 18、受控 Artifact Registry/fixture 和隔离 Secret Provider/Sink。
 
@@ -1652,7 +1661,7 @@ TASK-SD-004 + 010 + 011 + 012
 
 **目标：** 提供 PF-03+ 可复用的 ServiceKey/ModuleKey 注册、Operation 观察、迁移/RequiredSeed/bootstrap 校验和 NotReady 契约，并用多模块 fixture 完成 Development/Test 与 Production 初始化门禁验收。
 
-**输入文档：** 本文第 3、7.1.7、9.2、9.9、10.2、11.8、12.2～12.5 节；蓝图 33 V2.0；TASK-SD-001～003 输出。
+**输入文档：** 本文第 3、7.1.7、9.2、9.9、10.2、11.8、12.2～12.5 节；蓝图 33 V3.1；TASK-SD-001～003 输出。
 
 **依赖：** TASK-SD-003。
 
@@ -1802,7 +1811,7 @@ TASK-SD-004 + 010 + 011 + 012
 
 ## TASK-SD-011 接入前端运行导航、功能与主题适配器
 
-**状态：** 已完成（代码与本地门禁；浏览器 E2E/build 待环境复验）
+**状态：** 功能开发完成 / 收束验收中（真实三端 runtime、有效快照与降级恢复由 TASK-SD-015 收束）
 
 **目标：** 在 PF-01 和真实 AuthUser 稳定后，实现候选导航权限求交集、功能快照、TenantUiDefaultsSource、ETag 重验证和降级状态，使三端外壳消费真实 SystemData。
 
@@ -1824,7 +1833,7 @@ TASK-SD-004 + 010 + 011 + 012
 
 ## TASK-SD-012 实现 SystemData PC 管理页面
 
-**状态：** 已完成
+**状态：** 功能开发完成 / 收束验收中（七页 UI/UX、真实业务操作和服务初始化闭环由 TASK-SD-014～016 收束）
 
 **目标：** 使用 PF-01 平台壳与通用管理组件交付服务初始化、组织岗位、任职、导航、功能、服务和主题七个 PC 管理页面，连接真实 API 并覆盖权限、门禁、并发和降级。
 
@@ -1846,7 +1855,7 @@ TASK-SD-004 + 010 + 011 + 012
 
 ## TASK-SD-013 完成 PF-02 契约、E2E 与阶段验收
 
-**状态：** 已完成
+**状态：** 重新打开（阶段验收统筹；不新增业务功能）
 
 **目标：** 从 PostgreSQL 18 新环境验证 SystemData 自举、Service Initialization Pipeline、真实 Identity/PF-01 集成、三端运行策略、PC 管理路径、缓存、事件和故障降级，并形成 PF-03+ 稳定输入契约。
 
@@ -1863,6 +1872,94 @@ TASK-SD-004 + 010 + 011 + 012
 **结果回写：** 更新本文第 16、17、18 节、实施索引和总 TodoList；记录所有任务状态、提交、最终契约、测试证据、已知偏差和 PF-03/PF-04 输入。
 
 **建议提交：** `feat(systemdata): complete pf02 administration flow`
+
+---
+
+## TASK-SD-014 收束 SystemData 七页 UI/UX 一致性
+
+**状态：** 待派遣
+
+**目标：** 在不改变既有业务边界的前提下，统一七个 PC 管理页的页面层级、查询语义、状态反馈、危险操作、响应式和键盘/ARIA 行为，使“功能存在”达到“页面可用且风格一致”。
+
+**输入文档：** PF-01 页面规范；本文第 10、12、15 节；TASK-SD-012 输出；`docs/evidence/PF-02.md`；2026-09-02 PF-02 十步页面审计结论。
+
+**依赖：** TASK-SD-012 功能开发完成；TASK-SD-013 重新打开；TASK-SD-016 先稳定服务初始化 V2 字段、状态和操作契约。
+
+**允许修改范围：** SystemData PC 页面、共享管理组件的精确增量、SystemData 管理 store/API 展示适配、样式及 unit/component/E2E。禁止修改 PDA/Mobile 管理页、Identity 页面、PF-01 shell 内部或后端业务规则。
+
+**预期输出：** 去除无字段的查询/重置区和重复说明；导航采用树+详情；状态使用统一标签/中文映射；发布、回滚、停用、任职结束/取消、Apply/Cancel 提供影响摘要与确认；初始化使用语义 tab/step；补齐 loading/empty/403/409/503/success 状态和行动入口。
+
+**验证与证据：** 七页分别验证 1280×720、1440×900、200% 缩放及无页面级横向滚动；覆盖键盘 Tab/Enter/Escape、焦点返回、tablist 方向键、busy 防重和危险操作取消不发请求；保存有数据与关键空/错/高风险状态截图矩阵。
+
+**结果回写：** 更新本文第 16、18 节、`docs/evidence/PF-02.md` 的页面矩阵、截图/报告索引及已知限制。
+
+**提交策略：** 阶段整体提交；建议消息 `feat(frontend): converge systemdata administration ux`。
+
+---
+
+## TASK-SD-015 完成七页真实 UnifiedHost 与三端 runtime 业务闭环
+
+**状态：** 待派遣
+
+**目标：** 使用真实账号、真实 UnifiedHost/API 和可重复夹具验证七页管理操作的成功/失败路径，以及 PC/PDA/Mobile 对 navigation、feature、theme-policy 的真实快照、权限变化、ETag 和降级恢复行为。
+
+**输入文档：** 本文第 10～12、15 节；TASK-SD-011、012、014、016 输出；`docs/evidence/PF-02.md` 当前真实验收矩阵。
+
+**依赖：** TASK-SD-011～012 功能开发完成；TASK-SD-014、016 完成；TASK-SD-013 重新打开。
+
+**允许修改范围：** PF-02 Playwright/验收夹具、SystemData 前端测试和仅限阻断验收的精确缺陷修复；不得以 Mock 服务替代真实联合完成，不得扩张到 PF-03。
+
+**预期输出：** 七行真实 E2E 矩阵：组织/岗位、用户任职、导航、Feature、服务目录、主题策略、服务初始化；三端 runtime 矩阵覆盖有效快照、无快照 503、五分钟 degraded、权限/终端切换和恢复重验证。
+
+**验证与证据：** 每行至少包含一个成功闭环和一个权限/校验/冲突/降级路径；断言请求只发送一次、服务端最终状态、页面可见反馈和无 console/page error；保存命令、退出码、trace、video、截图、环境/profile、测试账号夹具与限制。
+
+**结果回写：** 更新 `docs/evidence/PF-02.md` 真实验收矩阵、本文第 16、18 节和 `docs/status/CURRENT.md`；明确 TASK-SD-011 runtime 降级前提是否解除。
+
+**提交策略：** 阶段整体提交；建议消息 `test(systemdata): verify real administration flows`。
+
+---
+
+## TASK-SD-016 收束 Service Initialization V2 与蓝图 33 十三项门禁
+
+**状态：** 待派遣
+
+**目标：** 将 V2 `/api/v1/service-initialization/**` 收束为唯一新增/PC 管理写路径，补齐 Advanced `plan → approval → backup captured → backup verified → apply`、注册详情/SeedSets、有效环境策略、计划前置条件、Operation 状态与幂等重试，并逐项验证蓝图 33 §12 十三项门禁。
+
+**输入文档：** 蓝图 33 V3.1 第 2、4、7、8、12 节；本文第 9～12、15 节；TASK-SD-002～004、010、012 输出；`docs/evidence/PF-02.md`。
+
+**依赖：** TASK-SD-002～004、010 已完成；TASK-SD-012 功能开发完成；TASK-SD-013 重新打开。
+
+**允许修改范围：** SystemData Service Initialization V2 API/Application/Infrastructure、V1/V2 兼容标记与测试、对应前端 API/types/store/page、Runner/目标服务验收夹具和证据；禁止把服务自有 Migration、Seed、Bootstrap、Verify、Ledger 或 Secret 所有权上收 SystemData。
+
+**预期输出：** V2 backup evidence verify、registration detail/SeedSets、脱敏 topology、effective environment policy、plan steps/risk/expiry/required policies、审批/备份刷新、Operation 轮询/错误/TraceId/Cancel；同一提交会话复用 Idempotency-Key；V1 明确 legacy/deprecation、调用方和权限收束，禁止新增前端 V1 调用。
+
+**验证与证据：** V2 API/contract/component 测试覆盖授权、register/detail/list、幂等重放与同 key 不同请求 409、approval、backup create+verify、Production 未审批/未 Verified backup 拒绝 apply、cancel/readiness；十三项矩阵逐项记录生产代码、测试名、SQLite、PostgreSQL、真实依赖/目标服务、HTTP/浏览器、命令、环境、exit、skip 和限制。Gate 03、05、07、10～13 不得仅以 SQLite fixture 判定通过。
+
+**结果回写：** 更新本文第 16、18 节和 `docs/evidence/PF-02.md` 十三项门禁矩阵；未执行或证据等级不足的项必须保持待验收。
+
+**提交策略：** 阶段整体提交；建议消息 `feat(systemdata): close v2 initialization gates`。
+
+---
+
+## TASK-SD-017 建立 PF-02 证据与文档单一事实源并关闭阶段
+
+**状态：** 待派遣
+
+**目标：** 汇总 TASK-SD-014～016 结果，消除 PF-02 状态、蓝图版本、执行记录、页面矩阵与门禁证据冲突，并按总 Todo 完成标准决定 PF-02 是否可以关闭。
+
+**输入文档：** 蓝图 09、蓝图 33 V3.1、本文、`docs/evidence/PF-02.md`、`docs/status/CURRENT.md`、实施 README、启动实施方案和 PF-02 archive。
+
+**依赖：** TASK-SD-013～016。
+
+**允许修改范围：** PF-02 状态、evidence、实施方案、实施索引、启动期历史说明、总 Todo 和 archive；只允许修复引用/路径/报告生成脚本，不修改业务代码，不启动 PF-03。
+
+**预期输出：** 一个权威阶段状态；七页真实 E2E、三端 runtime 和十三项门禁矩阵；命令/退出码/覆盖率/trace/video/截图/报告路径索引；V1/V2 决策、残余限制和 PF-03+ 输入契约。
+
+**验证与证据：** 全仓检查 TASK-SD 编号、状态、旧版/V3.1、已完成/待验收措辞、证据路径和执行记录一致性；运行 Markdown 链接/引用、任务九字段和 `git diff --check`。任何 P0 验收未关闭时，PF-02 必须保持“收束验收中”。
+
+**结果回写：** 更新本文第 16～18 节、蓝图 09、PF-02 archive/evidence、CURRENT、implementation README 与启动实施方案历史说明。
+
+**提交策略：** 阶段整体提交；建议消息 `docs(systemdata): close pf02 acceptance evidence`。
 
 ---
 
@@ -1919,20 +2016,24 @@ TASK-SD-004 + 010 + 011 + 012
 | TASK-SD-001 | 已完成 | Claude Code / PF-02 | `961cad4` | 五层骨架、Gateway、拓扑、自迁移与测试资产已纳入整体构建测试 | 已合入 `develop` |
 | TASK-SD-002 | 已完成 | Claude Code / PF-02 | `961cad4` | registration/plan/approval/backup/Operation 控制面已纳入整体构建测试 | 已合入 `develop` |
 | TASK-SD-003 | 已完成 | Claude Code / PF-02 | `61753dc` | Runner、PG/SQLite adapter、RequiredSeed/SecretBootstrap 与双账本扩展已完成 | 已合入 `develop` |
-| TASK-SD-004 | 已完成 | Claude Code / PF-02 | `05fe591` | 13 项门禁测试；PostgreSQL 种子账本云端 Docker 3/3 | 已合入 `develop` |
+| TASK-SD-004 | SQLite 验收基线完成 | Claude Code / PF-02 | `05fe591` | 13 项命名测试与 PostgreSQL 种子账本云端 Docker 3/3；完整 PG/真实目标服务/HTTP/浏览器证据待 TASK-SD-016 | 已合入 `develop`；不单独作为十三项真实门禁完成结论 |
 | TASK-SD-005 | 已完成 | Claude Code / PF-02 | `69c49b7` | 组织、岗位、时间化任职领域、持久化及测试已完成 | 已合入 `develop` |
 | TASK-SD-006 | 已完成 | Claude Code / PF-02 | `1b72c6b` | Debug/Release build 0/0；SystemData 五层 492/492；OpenAPI 17 端点 | 见 `docs/evidence/TASK-SD-006.md` |
 | TASK-SD-007 | 已完成 | Codex / `SystemData TASK-SD-001 至 010 实施` | `1427d18` | 清单/资源、权限回执、导航草稿/发布/回滚、三终端 runtime 与持久化测试通过 | 前端消费明确归 TASK-SD-011，管理页面归 TASK-SD-012 |
 | TASK-SD-008 | 已完成 | Codex / `SystemData TASK-SD-001 至 010 实施` | `1427d18` | Feature 定义/覆盖/revision、环境强制关闭、runtime/ETag 与审计事件测试通过 | 不含角色/用户定向和前端页面 |
 | TASK-SD-009 | 已完成 | Codex / `SystemData TASK-SD-001 至 010 实施` | `1427d18` | 服务目录 Owner 校验/快照、HTTPS/SSRF、平台字段保护、主题策略与持久化测试通过 | 不含 PlatformHealth 探测和前端页面 |
 | TASK-SD-010 | 已完成 | Codex / `SystemData TASK-SD-001 至 010 实施` | `1427d18` | Release build 0/0；后端常规测试全绿；云 PostgreSQL/Redis/RabbitMQ 3/3；UnifiedHost 云配置启动通过 | SQL 原子审计/Outbox、Redis 降级、Identity 适配/对账、健康与指标已接入 |
-| TASK-SD-011 | 已完成 | Codex / 当前任务 | 未提交 | Vitest 全量 59 文件 473/473；变更范围 Prettier、ESLint、vue-tsc、Vite build 通过；Mock Playwright 2/2 与 admin 真实运行页面通过 | `docs/evidence/PF-02.md`；未进入 PF-03 |
-| TASK-SD-012 | 已完成 | Codex / 当前任务 | 未提交 | 统一表单、组织/岗位真实纵向样板与七页业务组件边界完成；默认 UnifiedHost 云依赖真实组织/岗位 CRUD 1/1 通过 | `docs/evidence/PF-02.md`；未新增 PDA/Mobile 管理页 |
-| TASK-SD-013 | 已完成 | Codex / 当前任务 | 未提交 | fresh Release 0/0；后端 1298 通过、3 跳过（总计 1301）；前端门禁通过；UnifiedHost 显式模块目录与真实 CRUD 已验收 | `docs/evidence/PF-02.md`；不自动启动 PF-03 |
+| TASK-SD-011 | 功能开发完成 / 收束验收中 | Codex / 当前任务 | 未提交 | Vitest 全量 59 文件 473/473；变更范围 Prettier、ESLint、vue-tsc、Vite build 通过；真实三端 runtime/降级待 TASK-SD-015 | `docs/evidence/PF-02.md`；未进入 PF-03 |
+| TASK-SD-012 | 功能开发完成 / 收束验收中 | Codex / 当前任务 | 未提交 | 统一表单、组织/岗位真实纵向样板与七页业务组件边界完成；真实组织/岗位 CRUD 1/1 通过；其余页面待 014～016 | `docs/evidence/PF-02.md`；未新增 PDA/Mobile 管理页 |
+| TASK-SD-013 | 重新打开 | Codex / 当前任务 | 未提交 | 保留 fresh Release、后端 1298/3 skip、前端门禁、七页可达性和真实组织/岗位 CRUD 证据；统筹 014～017 | `docs/evidence/PF-02.md`；不自动启动 PF-03 |
+| TASK-SD-014 | 待派遣 | - | - | 七页 UI/UX、危险操作、状态、响应式、键盘/ARIA 与截图矩阵待执行 | 完成后回写 evidence/本文 |
+| TASK-SD-015 | 待派遣 | - | - | 七页真实业务操作与三端 runtime/降级矩阵待执行 | 完成后回写 evidence/CURRENT |
+| TASK-SD-016 | 待派遣 | - | - | Service Initialization V2 Advanced 与蓝图 33 十三项门禁矩阵待执行 | 完成后回写 evidence/本文 |
+| TASK-SD-017 | 待派遣 | - | - | 证据、状态、版本、报告路径与阶段关闭一致性待执行 | 最终决定 PF-02 是否关闭 |
 
 本表只记录实际派遣、提交和新鲜验证；设计完成不等于开发完成。
 
-本轮 TASK-SD-011～013 与阶段联合验收均已完成，不再重复派遣。
+现有功能开发与历史门禁证据保留；TASK-SD-013 已重新打开，后续仅派遣 TASK-SD-014～017 的收束工作，不重复实现 TASK-SD-001～012。
 
 ---
 
@@ -2012,16 +2113,16 @@ UI 与权限
 - [x] PF-02 只设计 SystemData，未越界到 PF-04/PF-07 或其他并行模块。
 - [x] 已确认的组织、岗位、任职和菜单权限决策均已写入不变量。
 - [x] 表字段未逐表重复 Entity 生命周期；NId、复合外键和跨服务引用一致。
-- [x] 蓝图 33 V2.0 已将数据库编排兼容升级为 Service Initialization Pipeline，并同步总 Todo、模板、实施索引和微服务母版。
+- [x] 蓝图 33 V3.1 是当前 Service Initialization Pipeline 权威来源；实施索引和本方案状态已按 V3.1 校准。
 - [x] ModuleKey、InitializationManifest/SeedSets、四类种子、双账本、受控 initializer、DataPatch、Secret/锁/幂等/NotReady 与生产门禁均有稳定边界。
 - [x] API、权限、事件、页面、错误、缓存、审计、迁移和测试均有稳定边界。
-- [x] 十三张任务卡均且只包含统一九字段。
+- [x] 十七张任务卡均且只包含统一九字段。
 - [x] 任务依赖、任务卡和执行记录编号一致。
-- [x] 文档明确“设计完成不等于开发完成”；本轮 011～013 已实际执行，后续真实联合验收仍单独保留。
+- [x] 文档明确“设计完成不等于开发完成”；011～012 已完成功能开发，013 已重新打开，014～017 承担真实收束验收与阶段关闭。
 - [x] 实施 15、Identity、PF-01 和其他并行改动未触碰。
-- [x] 用户已批准本轮通用初始化调整；001～013 已完成，011 保留 runtime 降级前提。
+- [x] 用户已批准 PF-02 收束；001～010 已完成，011～012 功能开发完成待验收，013 重新打开，014～017 待派遣。
 - [x] 已明确未经用户主动要求不得进入 PF-03 或扩展其他阶段。
-- [x] 本轮整改范围、测试结果、外部限制和未提交状态已回写至第 16 节及 `docs/evidence/PF-02.md`。
-- [x] 真实云依赖、fresh Release、默认 UnifiedHost 新二进制与 admin 真实 CRUD 证据已补齐。
-- [x] 真实 Identity/SystemData 组织与岗位 CRUD 管理纵向样板已完成复验；其余页面由契约、组件及入口矩阵覆盖。
+- [ ] TASK-SD-014～016 的七页可用性、真实业务操作、三端 runtime、V2 Advanced 与十三项门禁矩阵尚未回写。
+- [x] 真实云依赖、fresh Release、默认 UnifiedHost 新二进制与真实组织/岗位 CRUD 历史证据已补齐并保留。
+- [ ] 其余页面目前仅有契约、组件、Mock E2E 和可达性证据，尚不能作为真实业务闭环完成结论。
 - [ ] 提交前运行引用、占位、契约一致性、九字段和 `git diff --check` 自审。

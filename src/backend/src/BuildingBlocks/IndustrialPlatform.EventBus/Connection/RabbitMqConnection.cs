@@ -16,7 +16,7 @@ public sealed partial class RabbitMqConnection : IRabbitMqConnection, IAsyncDisp
     private readonly SemaphoreSlim _syncRoot = new(1, 1);
 
     private IConnection? _connection;
-    private bool _disposed;
+    private int _disposed;
 
     /// <summary>
     /// 创建连接。
@@ -40,6 +40,8 @@ public sealed partial class RabbitMqConnection : IRabbitMqConnection, IAsyncDisp
 
     private async Task<IConnection> GetConnectionAsync(CancellationToken cancellationToken)
     {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+
         if (_connection is { IsOpen: true })
         {
             return _connection;
@@ -48,6 +50,8 @@ public sealed partial class RabbitMqConnection : IRabbitMqConnection, IAsyncDisp
         await _syncRoot.WaitAsync(cancellationToken);
         try
         {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+
             if (_connection is { IsOpen: true })
             {
                 return _connection;
@@ -84,26 +88,46 @@ public sealed partial class RabbitMqConnection : IRabbitMqConnection, IAsyncDisp
     private Task OnConnectionShutdownAsync(object? sender, ShutdownEventArgs args)
     {
         LogConnectionShutdown(args.ReplyText);
-        _connection = null;
+        if (sender is IConnection connection)
+        {
+            Interlocked.CompareExchange(ref _connection, null, connection);
+        }
+        else
+        {
+            Interlocked.Exchange(ref _connection, null);
+        }
         return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
     public async ValueTask DisposeAsync()
     {
-        if (_disposed)
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
         {
             return;
         }
 
-        _disposed = true;
-        if (_connection is not null)
+        await _syncRoot.WaitAsync();
+        try
         {
-            await _connection.CloseAsync();
-            _connection.Dispose();
+            var connection = Interlocked.Exchange(ref _connection, null);
+            if (connection is not null)
+            {
+                try
+                {
+                    await connection.CloseAsync();
+                }
+                finally
+                {
+                    connection.Dispose();
+                }
+            }
         }
-
-        _syncRoot.Dispose();
+        finally
+        {
+            _syncRoot.Release();
+            _syncRoot.Dispose();
+        }
     }
 
     [LoggerMessage(EventId = 1, Level = LogLevel.Information, Message = "RabbitMQ 连接已建立:{Host}:{Port}/{VirtualHost}")]

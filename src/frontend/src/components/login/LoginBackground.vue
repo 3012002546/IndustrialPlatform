@@ -28,13 +28,13 @@ function readThemeColor(): void {
 }
 
 function seedNodes(): void {
-  const count = cssWidth < 720 ? 16 : 34
+  const count = cssWidth < 720 ? 20 : 50
   nodes.length = 0
   for (let index = 0; index < count; index += 1) {
     nodes.push({
       x: Math.random(),
       y: Math.random(),
-      vx: 0.00003 + Math.random() * 0.00005,
+      vx: 0.00002 + Math.random() * 0.000035,
       vy: (Math.random() - 0.5) * 0.000025,
       phase: Math.random() * Math.PI * 2,
     })
@@ -100,16 +100,33 @@ function drawFlowLanes(ctx: CanvasRenderingContext2D, time: number): void {
     ctx.stroke()
   }
 
-  for (let index = 0; index < 9; index += 1) {
+  for (let index = 0; index < 18; index += 1) {
     const lane = lanes[index % lanes.length]!
-    const progress = (time * 0.000055 + index * 0.19) % 1
+    const progress = (time * 0.000065 + index * 0.19) % 1
     const point = quadraticPoint(lane[0], lane[1], center, progress)
-    ctx.globalAlpha = 0.2 + progress * 0.55
+    const tail = quadraticPoint(lane[0], lane[1], center, Math.max(0, progress - 0.02))
+    ctx.globalAlpha = 0.15 + progress * 0.17
+    ctx.lineWidth = 1
     ctx.beginPath()
-    ctx.arc(point[0], point[1], 1.5 + progress * 1.4, 0, Math.PI * 2)
+    ctx.moveTo(tail[0], tail[1])
+    ctx.lineTo(point[0], point[1])
+    ctx.stroke()
+
+    ctx.globalAlpha = 0.38 + progress * 0.22
+    ctx.shadowColor = primaryColor
+    ctx.shadowBlur = 5
+    ctx.beginPath()
+    ctx.arc(point[0], point[1], 1.5 + progress * 0.7, 0, Math.PI * 2)
     ctx.fillStyle = primaryColor
     ctx.fill()
+    ctx.shadowBlur = 0
+    ctx.globalAlpha = 0.7
+    ctx.beginPath()
+    ctx.arc(point[0], point[1], 0.6 + progress * 0.25, 0, Math.PI * 2)
+    ctx.fillStyle = '#fff'
+    ctx.fill()
   }
+  ctx.lineWidth = 1
 }
 
 function draw(time: number, advance: boolean): void {
@@ -136,17 +153,27 @@ function draw(time: number, advance: boolean): void {
       const deltaY = peerY - y
       const distanceSquared = deltaX * deltaX + deltaY * deltaY
       if (distanceSquared > connectionDistanceSquared) continue
-      ctx.globalAlpha = 0.07 * (1 - distanceSquared / connectionDistanceSquared)
+      ctx.globalAlpha = 0.12 * (1 - distanceSquared / connectionDistanceSquared)
       ctx.strokeStyle = primaryColor
       ctx.beginPath()
       ctx.moveTo(x, y)
       ctx.lineTo(peerX, peerY)
       ctx.stroke()
     }
-    ctx.globalAlpha = 0.16 + (Math.sin(time * 0.0012 + node.phase) + 1) * 0.09
+    const pulse = (Math.sin(time * 0.0012 + node.phase) + 1) / 2
     ctx.fillStyle = primaryColor
+    ctx.globalAlpha = 0.05 + pulse * 0.04
     ctx.beginPath()
-    ctx.arc(x, y, 1.4, 0, Math.PI * 2)
+    ctx.arc(x, y, 3 + pulse, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.globalAlpha = 0.3 + pulse * 0.2
+    ctx.beginPath()
+    ctx.arc(x, y, 1.4 + pulse * 0.4, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.globalAlpha = 0.65
+    ctx.fillStyle = '#fff'
+    ctx.beginPath()
+    ctx.arc(x, y, 0.55, 0, Math.PI * 2)
     ctx.fill()
   }
   ctx.globalAlpha = 1

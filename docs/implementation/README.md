@@ -6,7 +6,7 @@
 
 所有 PF 阶段还必须读取 `docs/blueprint/32-Industrial Platform Service Host与内部模块边界.md`。阶段编号不等于 Service Host；后续阶段可以向前一阶段创建的宿主增加独立模块，但不得合并 Schema/表前缀、契约、权限或测试，也不得跨模块直读 Repository。
 
-PF-02 及其后的新服务必须以 `docs/blueprint/07-PostgreSQL数据库规范及分库设计.md` 与蓝图 33 V2.0 为权威初始化来源，并以实施 05 为 PF-02 控制面计划。SystemData 提供通用 Service Initialization Pipeline；后续服务/模块必须交付 ServiceKey/ModuleKey、InitializationManifest/SeedSets、服务自有 migration/seed/initializer 产物、schema/seed 双账本、启动握手/readiness、最小角色、备份登记和可观测 `OperationId`。不得自行持有管理员凭据建库、向 SystemData 传 Secret、使用 `EnsureCreated`，或让共享宿主使用模糊初始化大包。
+PF-02 及其后的新服务必须以 `docs/blueprint/07-PostgreSQL数据库规范及分库设计.md` 与蓝图 33 V3.1 为权威初始化来源，并以实施 05 为 PF-02 控制面计划。SystemData 提供通用 Service Initialization Pipeline；后续服务/模块必须交付 ServiceKey/ModuleKey、InitializationManifest/SeedSets、服务自有 migration/seed/initializer 产物、schema/seed 双账本、启动握手/readiness、最小角色、备份登记和可观测 `OperationId`。不得自行持有管理员凭据建库、向 SystemData 传 Secret、使用 `EnsureCreated`，或让共享宿主使用模糊初始化大包。
 
 ## 协作边界
 
@@ -14,7 +14,7 @@ PF-02 及其后的新服务必须以 `docs/blueprint/07-PostgreSQL数据库规�
 
 所有新增或重构的实施方案必须从 [`TEMPLATE-开发实施方案.md`](TEMPLATE-开发实施方案.md) 开始，并保持“详细设计正文 → 任务依赖 → 九字段任务卡 → 完成标准 → 执行记录 → 下一阶段输入契约”的顺序。每个 PF 阶段只保留一个阶段管理会话；该会话负责详细设计、任务派遣、跟踪、验收和结果回写，实际编码由被派遣任务执行。
 
-每个可派遣任务统一包含：状态、目标、输入文档、依赖、允许修改范围、预期输出、验证与证据、结果回写、建议提交。不得只写实现摘要或笼统的“测试通过”。
+每个可派遣任务或阶段内步骤统一包含：状态、目标、输入文档、依赖、允许修改范围、预期输出、验证与证据、结果回写、提交策略。提交策略服从仓库当前执行协议；阶段整体派遣时，内部步骤只需独立验证和回写，不机械拆成独立派遣或提交。不得只写实现摘要或笼统的“测试通过”。
 
 ## 时间类型约束
 
@@ -32,7 +32,7 @@ PF-02 及其后的新服务必须以 `docs/blueprint/07-PostgreSQL数据库规�
 | 02B | [统一前端第一批开发 TODO](02B-Industrial%20Platform统一前端第一批开发实施方案.md) | `TASK-FE-001～010` 已完成 |
 | 03 | [Identity Service实施方案](03-Industrial%20Platform%20Identity%20Service开发实施方案.md) | `TASK-ID-001～023` 当前范围已完成并合入；真实 PostgreSQL/Redis 联合登录链路保留为外部验收项 |
 | 04 | [PF-01 视觉主题与平台外壳实施方案](04-Industrial%20Platform视觉主题与平台外壳开发实施方案.md) | `TASK-PF01-001～007` 已完成；真实 Identity 联合验收 real E2E 19/19；外部真机 safe-area 待验收 |
-| 05 | [PF-02 SystemData实施方案](05-Industrial%20Platform%20SystemData开发实施方案.md) | 已完成；001～013 全部完成，011 保留 runtime 降级前提；PF-03 未启动 |
+| 05 | [PF-02 SystemData实施方案](05-Industrial%20Platform%20SystemData开发实施方案.md) | 功能开发完成 / 收束验收中；001～010 已完成，011～012 功能开发完成待验收，013 重新打开，014～017 待派遣；PF-03 未启动 |
 | 06 | [PF-03 ReferenceData实施方案](06-Industrial%20Platform%20ReferenceData%20Service开发实施方案.md) | 代码仅骨架；现有详细设计和任务卡由 PF-03 会话复核 |
 | 07 | PF-04 File / Notification / Audit实施方案（待 PF-04 会话创建） | 三个模块分开建模，在同一阶段管理会话协调和派遣 |
 | 08 | PF-05 Collaboration实施方案（待 PF-05 会话创建） | 待阶段管理会话设计和派遣 |

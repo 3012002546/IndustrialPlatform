@@ -84,10 +84,10 @@ onBeforeUnmount(() => {
   <Teleport to="body">
     <div v-if="open" ref="menu" class="ip-locale-control__menu" role="listbox" :style="menuStyle" :aria-label="copy.label">
       <button type="button" role="option" :aria-selected="localization.locale === 'zh-CN'" @click="choose('zh-CN')">
-        <span>{{ copy.zhCN }}</span><Check v-if="localization.locale === 'zh-CN'" aria-hidden="true" />
+        <span>中文</span><Check v-if="localization.locale === 'zh-CN'" aria-hidden="true" />
       </button>
       <button type="button" role="option" :aria-selected="localization.locale === 'en-US'" @click="choose('en-US')">
-        <span>{{ copy.enUS }}</span><Check v-if="localization.locale === 'en-US'" aria-hidden="true" />
+        <span>English</span><Check v-if="localization.locale === 'en-US'" aria-hidden="true" />
       </button>
     </div>
   </Teleport>

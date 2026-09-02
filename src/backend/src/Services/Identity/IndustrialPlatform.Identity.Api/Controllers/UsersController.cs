@@ -1,4 +1,6 @@
 using IndustrialPlatform.Identity.Api.Authorization;
+using System.IO.Pipelines;
+using IndustrialPlatform.Identity.Api.Export;
 using IndustrialPlatform.Identity.Application.Management;
 using IndustrialPlatform.Identity.Contracts.Management;
 using IndustrialPlatform.Identity.Domain.Users;
@@ -42,6 +44,16 @@ public sealed class UsersController : ManagementControllerBase
         [FromQuery] bool includeDeleted = false,
         [FromQuery] int pageIndex = 1,
         [FromQuery] int pageSize = 20,
+        [FromQuery] string? sortField = null,
+        [FromQuery] string? sortOrder = null,
+        [FromQuery] string? keyword = null,
+        [FromQuery] string? email = null,
+        [FromQuery] string? phone = null,
+        [FromQuery] bool? mustChangePassword = null,
+        [FromQuery] DateTimeOffset? lastLoginFrom = null,
+        [FromQuery] DateTimeOffset? lastLoginTo = null,
+        [FromQuery] DateTimeOffset? createdFrom = null,
+        [FromQuery] DateTimeOffset? createdTo = null,
         CancellationToken cancellationToken = default)
     {
         if (!TryGetActorContext(out var tenantNId, out _))
@@ -69,7 +81,7 @@ public sealed class UsersController : ManagementControllerBase
         {
             var page = await _service.ListAsync(
                 tenantNId,
-                new UserListFilter(tenantNId, nId, loginName, name, parsedStatus, pageIndex, pageSize, includeDeleted, groupNId, roleNId),
+                new UserListFilter(tenantNId, nId, loginName, name, parsedStatus, pageIndex, pageSize, includeDeleted, groupNId, roleNId, sortField, sortOrder, keyword, email, phone, mustChangePassword, lastLoginFrom, lastLoginTo, createdFrom, createdTo),
                 cancellationToken);
             return PageResult.Create(page.Items, page.Total, page.PageIndex, page.PageSize);
         }
@@ -80,6 +92,125 @@ public sealed class UsersController : ManagementControllerBase
         catch (ManagementException ex)
         {
             return StatusCodeEnvelope(ex.StatusCode, ex.Code, ex.Message);
+        }
+    }
+
+    /// <summary>服务端流式导出用户为真实 xlsx；默认最多 10000 行，quantity=all 才导出全量。</summary>
+    [Authorize(Policy = PermissionPolicies.UserView)]
+    [HttpGet("export")]
+    public async Task<IActionResult> Export(
+        [FromQuery] string? nId,
+        [FromQuery] string? loginName,
+        [FromQuery] string? name,
+        [FromQuery] string? status,
+        [FromQuery] string? groupNId,
+        [FromQuery] string? roleNId,
+        [FromQuery] string? keyword,
+        [FromQuery] string? email,
+        [FromQuery] string? phone,
+        [FromQuery] bool? mustChangePassword,
+        [FromQuery] DateTimeOffset? lastLoginFrom,
+        [FromQuery] DateTimeOffset? lastLoginTo,
+        [FromQuery] DateTimeOffset? createdFrom,
+        [FromQuery] DateTimeOffset? createdTo,
+        [FromQuery] bool includeDeleted = false,
+        [FromQuery] string quantity = "10000",
+        [FromQuery] string? columns = null,
+        [FromQuery] string? sortField = null,
+        [FromQuery] string? sortOrder = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryGetActorContext(out var tenantNId, out _))
+        {
+            return UnauthorizedEnvelope();
+        }
+
+        var maxRows = string.Equals(quantity, "all", StringComparison.OrdinalIgnoreCase)
+            ? int.MaxValue
+            : int.TryParse(quantity, out var requested) && requested > 0 ? requested : 10000;
+        UserStatus? parsedStatus = null;
+        if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<UserStatus>(status, true, out var parsed))
+        {
+            parsedStatus = parsed;
+        }
+
+        // 分页读取业务数据并通过有界管道写出真实 xlsx；浏览器和服务端都不加载完整数据集。
+        var pipe = new Pipe(new PipeOptions(pauseWriterThreshold: 1024 * 1024, resumeWriterThreshold: 512 * 1024));
+        _ = ProduceExportAsync(pipe.Writer, tenantNId, nId, loginName, name, parsedStatus, groupNId, roleNId, includeDeleted, maxRows, columns, sortField, sortOrder, keyword, email, phone, mustChangePassword, lastLoginFrom, lastLoginTo, createdFrom, createdTo, cancellationToken);
+        return File(
+            pipe.Reader.AsStream(leaveOpen: false),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "users.xlsx");
+    }
+
+    private async Task ProduceExportAsync(
+        PipeWriter pipeWriter,
+        string tenantNId,
+        string? nId,
+        string? loginName,
+        string? name,
+        UserStatus? parsedStatus,
+        string? groupNId,
+        string? roleNId,
+        bool includeDeleted,
+        int maxRows,
+        string? requestedColumns,
+        string? sortField,
+        string? sortOrder,
+        string? keyword,
+        string? email,
+        string? phone,
+        bool? mustChangePassword,
+        DateTimeOffset? lastLoginFrom,
+        DateTimeOffset? lastLoginTo,
+        DateTimeOffset? createdFrom,
+        DateTimeOffset? createdTo,
+        CancellationToken cancellationToken)
+    {
+        Exception? failure = null;
+        try
+        {
+            await using var output = pipeWriter.AsStream(leaveOpen: true);
+            var workbook = await StreamingXlsxWriter.CreateAsync(output, cancellationToken);
+            var selectedColumns = StreamingXlsxExport.SelectColumns(requestedColumns,
+                new StreamingXlsxExport.Column<UserSummary>("userNId", "用户标识", user => user.UserNId),
+                new StreamingXlsxExport.Column<UserSummary>("loginName", "登录名", user => user.LoginName),
+                new StreamingXlsxExport.Column<UserSummary>("name", "姓名", user => user.Name),
+                new StreamingXlsxExport.Column<UserSummary>("email", "邮箱", user => user.Email),
+                new StreamingXlsxExport.Column<UserSummary>("phone", "手机号", user => user.Phone),
+                new StreamingXlsxExport.Column<UserSummary>("status", "状态", user => user.Status.ToString()),
+                new StreamingXlsxExport.Column<UserSummary>("createdOn", "创建时间", user => user.CreatedOn.ToString("O")),
+                new StreamingXlsxExport.Column<UserSummary>("lastLoginOn", "最近登录", user => user.LastLoginOn?.ToString("O")),
+                new StreamingXlsxExport.Column<UserSummary>("mustChangePassword", "需改密", user => user.MustChangePassword ? "是" : "否"));
+            await workbook.WriteRowAsync(selectedColumns.Select(column => column.Title), cancellationToken);
+
+            var written = 0;
+            var pageIndex = 1;
+            while (written < maxRows)
+            {
+                var page = await _service.ListAsync(
+                    tenantNId,
+                    new UserListFilter(tenantNId, nId, loginName, name, parsedStatus, pageIndex, 100, includeDeleted, groupNId, roleNId, sortField, sortOrder, keyword, email, phone, mustChangePassword, lastLoginFrom, lastLoginTo, createdFrom, createdTo),
+                    cancellationToken);
+                if (page.Items.Count == 0) break;
+                foreach (var user in page.Items)
+                {
+                    if (written >= maxRows) break;
+                    await workbook.WriteRowAsync(selectedColumns.Select(column => column.Value(user)), cancellationToken);
+                    written++;
+                }
+                if (written >= page.Total || page.Items.Count < 100) break;
+                pageIndex++;
+            }
+            await workbook.DisposeAsync();
+        }
+        catch (Exception ex)
+        {
+            failure = ex;
+        }
+        finally
+        {
+            await pipeWriter.CompleteAsync(failure);
         }
     }
 

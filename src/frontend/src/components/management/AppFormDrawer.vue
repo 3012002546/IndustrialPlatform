@@ -10,7 +10,9 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useId } from 'vue'
 import { ElFocusTrap } from 'element-plus/es/components/focus-trap/index'
 
+import { localeMessages } from '@/localization/i18n'
 import { useDeviceStore } from '@/stores/deviceStore'
+import { useLocalizationStore } from '@/stores/localizationStore'
 
 const props = withDefaults(
   defineProps<{
@@ -38,6 +40,9 @@ const emit = defineEmits<{
 }>()
 
 const deviceStore = useDeviceStore()
+const localization = useLocalizationStore()
+const actionCopy = computed(() => localeMessages[localization.locale].common.action)
+const surfaceCopy = computed(() => localeMessages[localization.locale].common.formSurface)
 const titleId = useId()
 const surfaceMode = ref<'drawer' | 'modal'>(props.mode)
 
@@ -132,16 +137,22 @@ function onSubmit(): void {
                 type="button"
                 class="app-form-drawer__mode-toggle"
                 data-testid="form-surface-mode-toggle"
-                :aria-label="effectiveMode === 'drawer' ? '切换为居中弹窗' : '切换为右侧抽屉'"
+                :aria-label="
+                  effectiveMode === 'drawer'
+                    ? surfaceCopy.switchToCenteredModal
+                    : surfaceCopy.switchToRightDrawer
+                "
                 @click="toggleMode"
               >
-                {{ effectiveMode === 'drawer' ? '居中弹窗' : '右侧抽屉' }}
+                {{
+                  effectiveMode === 'drawer' ? surfaceCopy.centeredModal : surfaceCopy.rightDrawer
+                }}
               </button>
               <button
                 type="button"
                 class="app-form-drawer__close"
                 data-testid="form-drawer-close"
-                aria-label="关闭"
+                :aria-label="actionCopy.close"
                 @click="close('cancel')"
               >
                 <span aria-hidden="true">✕</span>
@@ -159,7 +170,7 @@ function onSubmit(): void {
                 data-testid="form-drawer-cancel"
                 @click="close('cancel')"
               >
-                取消
+                {{ actionCopy.cancel }}
               </button>
               <button
                 type="button"
@@ -168,7 +179,7 @@ function onSubmit(): void {
                 :disabled="busy"
                 @click="onSubmit"
               >
-                {{ busy ? '提交中…' : '确定' }}
+                {{ busy ? surfaceCopy.submitting : actionCopy.confirm }}
               </button>
             </slot>
           </footer>

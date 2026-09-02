@@ -14,12 +14,13 @@ defineProps<{ environment: DeploymentEnvironment }>()
 .ip-environment-badge {
   display: inline-flex;
   align-items: center;
-  min-height: 22px;
-  padding: 0 var(--ip-space-2);
+  min-height: 19px;
+  padding: 2px 5px;
   border: 1px solid currentColor;
-  border-radius: 999px;
-  font-size: var(--ip-font-size-xs);
-  font-weight: 700;
+  border-radius: var(--ip-radius-sm);
+  font-size: 10px;
+  font-weight: 500;
   letter-spacing: 0.04em;
+  line-height: 15px;
 }
 </style>

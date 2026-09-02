@@ -16,10 +16,12 @@ import AppLoadingState from '@/components/base/AppLoadingState.vue'
 import AppPage from '@/components/base/AppPage.vue'
 import AppPermissionState from '@/components/base/AppPermissionState.vue'
 import AppFormDrawer from '@/components/management/AppFormDrawer.vue'
+import AppDataTable from '@/components/management/AppDataTable.vue'
 import AppQueryPanel from '@/components/management/AppQueryPanel.vue'
 import AppTreeTableLayout from '@/components/management/AppTreeTableLayout.vue'
 
 const drawerOpen = ref(false)
+const demoExporter = () => undefined
 
 /** 静态样例数据:仅用于展示控件状态,不含生产业务名与数值。 */
 const TREE = [
@@ -32,6 +34,22 @@ const TABLE_ROWS = [
   { code: 'SAMPLE-0002', name: '样例记录二', status: '停用' },
   { code: 'SAMPLE-0003', name: '样例记录三', status: '启用' },
 ] as const
+
+const DATA_TABLE_COLUMNS = [
+  { field: 'code', title: '编号', sortable: true, filter: { kind: 'text' as const } },
+  { field: 'name', title: '名称', filter: { kind: 'text' as const } },
+  {
+    field: 'status',
+    title: '状态',
+    filter: {
+      kind: 'select' as const,
+      options: [
+        { label: '启用', value: '启用' },
+        { label: '停用', value: '停用' },
+      ],
+    },
+  },
+]
 </script>
 
 <template>
@@ -117,6 +135,18 @@ const TABLE_ROWS = [
         <button type="button" class="ip-baseline__btn" disabled>下一页</button>
       </template>
     </AppTreeTableLayout>
+
+    <!-- 高级表格隔离验证:业务页面只依赖 AppDataTable 平台契约。 -->
+    <AppDataTable
+      table-key="vxe-isolation"
+      route-key="ui-baseline"
+      user-key="dev"
+      :rows="TABLE_ROWS"
+      :total="TABLE_ROWS.length"
+      :columns="DATA_TABLE_COLUMNS"
+      selection="multiple"
+      :exporter="demoExporter"
+    />
 
     <!-- 表单抽屉触发 -->
     <div class="ip-baseline__section">

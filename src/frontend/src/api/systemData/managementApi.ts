@@ -58,6 +58,41 @@ const id = (value: string): string => encodeURIComponent(value)
 
 export function createSystemDataManagementApi(client: HttpClient): SystemDataManagementApi {
   return {
+    exportOrganizations: (params) => {
+      if (client.getBlob === undefined)
+        return Promise.reject(new Error('当前 HTTP 客户端不支持文件下载'))
+      return client.getBlob(`${BASE}/organizations/tree/export${query(params)}`)
+    },
+    exportPositions: (params) => {
+      if (client.getBlob === undefined)
+        return Promise.reject(new Error('当前 HTTP 客户端不支持文件下载'))
+      return client.getBlob(`${BASE}/positions/export${query(params)}`)
+    },
+    exportAssignments: (userNId, params) => {
+      if (client.getBlob === undefined)
+        return Promise.reject(new Error('当前 HTTP 客户端不支持文件下载'))
+      return client.getBlob(`${BASE}/users/${id(userNId)}/assignments/export${query(params)}`)
+    },
+    exportFeatures: (params) => {
+      if (client.getBlob === undefined)
+        return Promise.reject(new Error('当前 HTTP 客户端不支持文件下载'))
+      return client.getBlob(`${BASE}/features/export${query(params)}`)
+    },
+    exportServices: (params) => {
+      if (client.getBlob === undefined)
+        return Promise.reject(new Error('当前 HTTP 客户端不支持文件下载'))
+      return client.getBlob(`${BASE}/service-catalog/export${query(params)}`)
+    },
+    exportInitializationRegistrations: (params) => {
+      if (client.getBlob === undefined)
+        return Promise.reject(new Error('当前 HTTP 客户端不支持文件下载'))
+      return client.getBlob(`${BASE}/service-initialization/registrations/export${query(params)}`)
+    },
+    exportInitializationOperations: (params) => {
+      if (client.getBlob === undefined)
+        return Promise.reject(new Error('当前 HTTP 客户端不支持文件下载'))
+      return client.getBlob(`${BASE}/service-initialization/operations/export${query(params)}`)
+    },
     listOrganizationsTree: (status) =>
       client.get<OrganizationNodeDto[]>(`${BASE}/organizations/tree${query({ status })}`),
     getOrganization: (nId) => client.get<OrganizationDetailDto>(`${BASE}/organizations/${id(nId)}`),

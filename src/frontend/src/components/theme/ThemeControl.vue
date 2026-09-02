@@ -6,6 +6,7 @@
  */
 
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { Moon } from '@element-plus/icons-vue'
 
 import { localeMessages } from '@/localization/i18n'
 import { usePlatformLocale } from '@/localization/localeContext'
@@ -116,6 +117,7 @@ onBeforeUnmount(() => {
         :class="`theme-control__swatch--${currentPalette}`"
         aria-hidden="true"
       />
+      <Moon class="theme-control__icon" aria-hidden="true" />
       <span class="theme-control__trigger-text">{{ copy.label }}</span>
     </button>
 
@@ -200,6 +202,24 @@ onBeforeUnmount(() => {
   border-radius: var(--ip-radius-md);
   cursor: pointer;
   font-size: var(--ip-font-size-md);
+}
+
+.theme-control__icon {
+  display: none;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+}
+
+.theme-control--pc .theme-control__icon { display: block; }
+.theme-control--pc .theme-control__swatch { display: none; }
+.theme-control--pc .theme-control__trigger-text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .theme-control--pda .theme-control__trigger {

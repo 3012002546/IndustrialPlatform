@@ -19,8 +19,9 @@ class FakeCanvasRenderingContext2D {
   lineTo = vi.fn()
   quadraticCurveTo = vi.fn()
   stroke = vi.fn()
-  arc = vi.fn()
-  fill = vi.fn()
+  arc = vi.fn<CanvasRenderingContext2D['arc']>()
+  fillAlphas: number[] = []
+  fill = vi.fn(() => this.fillAlphas.push(this.globalAlpha))
   strokeStyle = ''
   fillStyle = ''
   lineWidth = 1
@@ -102,6 +103,29 @@ describe('LoginBackground', () => {
     expect(source).toContain("url('/brand/login-background.png')")
     expect(source).toMatch(/background-size:\s*cover/)
     expect(source).not.toContain('industrial-platform-dynamic-login-preview.gif')
+  })
+
+  it('keeps particles compact and soft with bounded density, then advances the flow', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getBoundingClientRect').mockReturnValue(
+      new DOMRect(0, 0, 1280, 720),
+    )
+    const wrapper = mount(LoginBackground)
+
+    expect(context.fillAlphas.some((alpha) => alpha >= 0.3)).toBe(true)
+    expect(Math.max(...context.fillAlphas)).toBeLessThanOrEqual(0.7)
+    const radii = context.arc.mock.calls.map((call) => call[2])
+    expect(Math.max(...radii)).toBeGreaterThanOrEqual(3)
+    expect(Math.max(...radii)).toBeLessThanOrEqual(4)
+    expect(context.arc.mock.calls.length).toBeGreaterThan(100)
+    expect(context.arc.mock.calls.length).toBeLessThan(250)
+    const firstPoint = context.arc.mock.calls[0]
+    context.arc.mockClear()
+    const tick = vi.mocked(requestAnimationFrame).mock.calls[0]![0]
+    tick(performance.now() + 1000)
+    expect(context.arc.mock.calls[0]).not.toEqual(firstPoint)
+    expect(requestAnimationFrame).toHaveBeenCalledTimes(2)
+
+    wrapper.unmount()
   })
 
   it('does not animate while reduced-motion or page-hidden, then resumes on visibility', () => {

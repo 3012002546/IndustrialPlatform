@@ -88,14 +88,15 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFullscr
         <PlatformBrand variant="dark" />
       </div>
       <div class="ip-operation-topbar__context">
+        <span class="ip-operation-terminal">{{ copy.shell.top.terminal }} PC</span>
         <PlatformContextSwitcher :tenant="tenant" />
         <PlatformEnvironmentBadge :environment="runtimeConfig.deploymentEnvironment" />
       </div>
       <div class="ip-operation-topbar__right">
         <div class="ip-operation-topbar__actions">
-          <LocaleControl />
-          <PlatformSessionControls />
           <PcExperienceModeControl mode="operation" />
+          <PlatformSessionControls />
+          <LocaleControl />
           <button
             type="button"
             class="ip-operation-action"
@@ -111,10 +112,14 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFullscr
         </div>
         <ElDropdown trigger="click" @command="onUserCommand">
           <button type="button" class="ip-operation-user" data-testid="operation-user-menu" :aria-label="copy.shell.top.userMenu">
-            <UserFilled width="18" height="18" aria-hidden="true" />
-            <span class="ip-operation-user__name">{{
-              displayName || copy.common.state.unauthenticated
-            }}</span>
+            <span class="ip-operation-user__avatar"><UserFilled width="18" height="18" aria-hidden="true" /></span>
+            <span class="ip-operation-user__copy">
+              <strong class="ip-operation-user__name">{{ displayName || copy.common.state.unauthenticated }}</strong>
+              <small>{{ authStore.user?.username ?? '' }}</small>
+            </span>
+            <svg class="ip-operation-user__caret" width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false">
+              <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
           </button>
           <template #dropdown>
             <ElDropdownMenu
@@ -142,9 +147,10 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFullscr
 }
 
 .ip-operation-topbar {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--ip-space-3);
+  gap: 20px;
   min-height: var(--ip-shell-topbar-height);
   padding: 0 4px;
   overflow: visible;
@@ -154,10 +160,19 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFullscr
 
 .ip-operation-topbar__brand {
   display: inline-flex;
-  flex: 0 1 auto;
+  flex: 0 0 184px;
   align-items: center;
+  width: 184px;
   min-width: 0;
   margin-right: 4px;
+}
+
+.ip-operation-topbar__brand :deep(.ip-brand__image) {
+  width: 184px;
+  height: 30px;
+  max-width: none;
+  max-height: none;
+  object-fit: contain;
 }
 
 .ip-operation-topbar__context {
@@ -167,6 +182,13 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFullscr
   gap: var(--ip-space-3);
   min-width: 0;
   overflow: hidden;
+}
+
+.ip-operation-terminal {
+  flex: 0 0 auto;
+  color: var(--ip-shell-topbar-text-secondary);
+  font-size: var(--ip-font-size-xs);
+  white-space: nowrap;
 }
 
 .ip-operation-topbar__right,
@@ -179,7 +201,7 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFullscr
 
 .ip-operation-topbar__right {
   flex: 0 0 auto;
-  gap: var(--ip-space-2);
+  gap: 4px;
   margin-left: auto;
 }
 
@@ -188,7 +210,7 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFullscr
   display: inline-flex;
   box-sizing: border-box;
   align-items: center;
-  gap: var(--ip-space-2);
+  gap: 9px;
   min-height: 32px;
   padding: 0 var(--ip-space-2);
   color: var(--ip-shell-topbar-text);
@@ -200,7 +222,7 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFullscr
 }
 
 .ip-operation-user {
-  width: clamp(120px, 14vw, 220px);
+  width: 190px;
   min-width: 144px;
   overflow: hidden;
   text-align: left;
@@ -208,10 +230,30 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFullscr
 }
 
 .ip-operation-action > :deep(svg),
-.ip-operation-user > :deep(svg) {
+.ip-operation-user__avatar > :deep(svg) {
   flex: 0 0 auto;
   width: 18px;
   height: 18px;
+}
+
+.ip-operation-user__avatar {
+  display: inline-flex;
+  flex: 0 0 28px;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: #35728e;
+  background: #d9e9f2;
+  border-radius: 50%;
+}
+
+.ip-operation-user__copy {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 1px;
 }
 
 .ip-operation-user > * {
@@ -226,6 +268,20 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFullscr
   white-space: nowrap;
 }
 
+.ip-operation-user__copy small {
+  overflow: hidden;
+  color: var(--ip-shell-topbar-text-secondary);
+  font-size: 11px;
+  line-height: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ip-operation-user__caret {
+  flex: 0 0 11px;
+  color: var(--ip-shell-topbar-text-secondary);
+}
+
 .ip-operation-action:focus-visible,
 .ip-operation-user:focus-visible {
   outline: 2px solid currentColor;
@@ -237,7 +293,7 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFullscr
   max-width: 1600px;
   min-height: calc(100vh - var(--ip-shell-topbar-height));
   margin: 0 auto;
-  padding: var(--ip-space-6);
+  padding: 16px;
 }
 
 @media (max-width: 899px) {

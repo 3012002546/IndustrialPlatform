@@ -29,6 +29,7 @@ const IDENTITY_SSO_MANAGEMENT_PREFIX = '/identity/api/v1/sso-management'
 export interface IdentitySsoManagementApi {
   // 企业登录源(§26.8)
   listProviders(): Promise<ProviderSummaryDto[]>
+  exportProviders(params: SsoExportParams): Promise<Blob>
   getProvider(providerNId: string): Promise<ProviderSummaryDto>
   createProvider(request: CreateSsoProviderRequestDto): Promise<ProviderSummaryDto>
   updateProvider(
@@ -47,6 +48,7 @@ export interface IdentitySsoManagementApi {
 
   // 外部账号(§26.3/§26.8)
   listAccounts(providerNId: string): Promise<ExternalAccountSummaryDto[]>
+  exportAccounts(providerNId: string, params: SsoExportParams): Promise<Blob>
   bindAccount(
     providerNId: string,
     request: BindSsoAccountRequestDto,
@@ -55,6 +57,8 @@ export interface IdentitySsoManagementApi {
 
   // 平台 SSO Client(§26.7)
   listClients(): Promise<SsoClientSummaryDto[]>
+  exportClients(params: SsoExportParams): Promise<Blob>
+  exportClientEndpoints(clientNId: string, params: SsoExportParams): Promise<Blob>
   getClient(clientNId: string): Promise<SsoClientSummaryDto>
   createClient(request: CreateSsoClientRequestDto): Promise<SsoClientSummaryDto>
   updateClient(clientNId: string, request: UpdateSsoClientRequestDto): Promise<SsoClientSummaryDto>
@@ -79,12 +83,35 @@ export interface IdentitySsoManagementApi {
   ): Promise<void>
 }
 
+export interface SsoExportParams {
+  search?: string | undefined
+  name?: string | undefined
+  protocol?: string | undefined
+  enabled?: boolean | undefined
+  quantity?: number | 'all' | undefined
+  sortField?: string | undefined
+  sortOrder?: 'asc' | 'desc' | undefined
+  columns?: string[] | undefined
+}
+
+function query(params: SsoExportParams): string {
+  const entries = Object.entries(params).filter(([, value]) => value !== undefined && value !== '')
+  return entries.length === 0
+    ? ''
+    : `?${entries.map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(Array.isArray(value) ? value.join(',') : String(value))}`).join('&')}`
+}
+
 export function createIdentitySsoManagementApi(client: HttpClient): IdentitySsoManagementApi {
   const base = IDENTITY_SSO_MANAGEMENT_PREFIX
 
   return {
     // 企业登录源
     listProviders: () => client.get<ProviderSummaryDto[]>(`${base}/providers`),
+    exportProviders: (params) => {
+      if (client.getBlob === undefined)
+        return Promise.reject(new Error('当前 HTTP 客户端不支持文件下载'))
+      return client.getBlob(`${base}/providers/export${query(params)}`)
+    },
     getProvider: (providerNId) =>
       client.get<ProviderSummaryDto>(`${base}/providers/${encodeURIComponent(providerNId)}`),
     createProvider: (request) => client.post<ProviderSummaryDto>(`${base}/providers`, request),
@@ -113,6 +140,13 @@ export function createIdentitySsoManagementApi(client: HttpClient): IdentitySsoM
       client.get<ExternalAccountSummaryDto[]>(
         `${base}/providers/${encodeURIComponent(providerNId)}/accounts`,
       ),
+    exportAccounts: (providerNId, params) => {
+      if (client.getBlob === undefined)
+        return Promise.reject(new Error('当前 HTTP 客户端不支持文件下载'))
+      return client.getBlob(
+        `${base}/providers/${encodeURIComponent(providerNId)}/accounts/export${query(params)}`,
+      )
+    },
     bindAccount: (providerNId, request) =>
       client.post<ExternalAccountSummaryDto>(
         `${base}/providers/${encodeURIComponent(providerNId)}/accounts`,
@@ -125,6 +159,18 @@ export function createIdentitySsoManagementApi(client: HttpClient): IdentitySsoM
 
     // 平台 SSO Client
     listClients: () => client.get<SsoClientSummaryDto[]>(`${base}/clients`),
+    exportClients: (params) => {
+      if (client.getBlob === undefined)
+        return Promise.reject(new Error('当前 HTTP 客户端不支持文件下载'))
+      return client.getBlob(`${base}/clients/export${query(params)}`)
+    },
+    exportClientEndpoints: (clientNId, params) => {
+      if (client.getBlob === undefined)
+        return Promise.reject(new Error('当前 HTTP 客户端不支持文件下载'))
+      return client.getBlob(
+        `${base}/clients/${encodeURIComponent(clientNId)}/endpoints/export${query(params)}`,
+      )
+    },
     getClient: (clientNId) =>
       client.get<SsoClientSummaryDto>(`${base}/clients/${encodeURIComponent(clientNId)}`),
     createClient: (request) => client.post<SsoClientSummaryDto>(`${base}/clients`, request),

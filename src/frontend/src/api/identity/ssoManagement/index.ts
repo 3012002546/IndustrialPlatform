@@ -2,6 +2,7 @@
 
 export { createIdentitySsoManagementApi } from './ssoManagementApi'
 export type { IdentitySsoManagementApi } from './ssoManagementApi'
+export type { SsoExportParams } from './ssoManagementApi'
 export { getSsoManagementApi, registerSsoManagementApi } from './ssoManagementRegistry'
 export type {
   AddSsoEndpointRequestDto,

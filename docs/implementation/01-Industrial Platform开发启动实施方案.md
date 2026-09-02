@@ -2,6 +2,8 @@
 
 # Industrial Platform开发启动实施方案
 
+> 本文保留启动期设计与历史快照；当前阶段状态统一以 `docs/blueprint/09-Industrial Platform开发总TodoList.md`、各 PF 实施方案执行记录、`docs/evidence/**` 和 `docs/status/CURRENT.md` 为准。PF-02 SystemData 当前为“功能开发完成 / 收束验收中”，PF-03 未启动。
+
 版本：V1.1
 阶段：Development Implementation Phase
 项目类型：工业数字化执行平台
@@ -138,7 +140,7 @@ PF-01 已完成开发详细设计、任务依赖和七张九字段任务卡，�
 → 跟踪、阶段验收和总 TodoList 回写
 ```
 
-阶段不等于微服务。平台基础层当前固定为七个核心 Service Host：`Identity.Service`、`SystemData.Service`、`ReferenceData.Service`、`Collaboration.Service`、`PlatformStudio.Service`、`OperationsCenter.Service`、`IoTCollector.Service`。Worker、Agent、Screego、TURN、本地模型运行时和数据库编排 Runner 是辅助部署单元，不计入核心宿主数量。同宿主模块仍必须独立建模、独立 Schema 或表前缀、独立契约/权限/迁移/测试，禁止跨模块直读 Repository。
+阶段不等于微服务。平台基础层当前固定为七个核心 Service Host：`Identity.Service`、`SystemData.Service`、`ReferenceData.Service`、`Collaboration.Service`、`PlatformStudio.Service`、`OperationsCenter.Service`、`IoTCollector.Service`。Worker、Agent、Screego、TURN、本地模型运行时和数据库编排 Runner 是辅助部署单元，不计入核心宿主数量。同宿主模块仍必须独立建模，具有明确的 Schema/模块表前缀逻辑命名空间以及独立契约、权限和测试边界；迁移执行单元按真实持久化生命周期划分，禁止因模块数量机械复制，禁止跨模块直读 Repository。
 
 PF-02 的最高优先级是 `SystemData.Service` 数据库编排/环境引导控制面：先完成拓扑解析与 bootstrap、服务 registration/plan、provision/migrate/drift、消费者握手/readiness，再开始组织、导航、主题等后续 SystemData 工作。后续服务拥有自己的领域 Schema 和迁移产物；SystemData 负责编排数据库、最小角色/授权与迁移执行。SystemData 自身数据库由 PostgreSQL 18 基础设施最小引导，不创建独立 Migrator Service，不允许业务 API 使用管理员凭据自行建库，也不得使用 `EnsureCreated` 代替版本化迁移。
 
@@ -841,7 +843,7 @@ Commit
 
 # 16. Codex任务模板
 
-每个任务以任务编号为标题，正文固定包含九个字段：状态、目标、输入文档、依赖、允许修改范围、预期输出、验证与证据、结果回写、建议提交。
+每个任务或阶段内步骤以任务编号为标题，正文固定包含九个字段：状态、目标、输入文档、依赖、允许修改范围、预期输出、验证与证据、结果回写、提交策略。提交策略必须服从仓库当前执行协议；阶段整体派遣时，内部步骤不得机械拆成独立派遣或独立提交。
 
 涉及路径、脚本、文件名大小写或换行符的任务，还必须在“要求/验收”中写明：目标 Runner 为 `ubuntu-latest`、路径分隔符兼容策略、Linux 大小写敏感约束、相应跨平台回归用例，以及 Release CI 命令和 GitHub Actions 运行证据。不得只填写“本地测试通过”。
 
@@ -859,7 +861,7 @@ PF-02 及后续新服务任务还必须读取蓝图 33，明确 registration/man
 预期输出：【代码、契约、迁移、页面或报告】
 验证与证据：【具体命令、场景、通过数量和外部待验收项】
 结果回写：【实施文档章节、执行记录和总 Todo 状态】
-建议提交：【Conventional Commit 信息】
+提交策略：【阶段整体提交/独立任务提交/不提交及理由】
 ```
 
 ---

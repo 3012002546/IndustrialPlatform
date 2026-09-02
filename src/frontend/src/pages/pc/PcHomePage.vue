@@ -227,7 +227,6 @@ onMounted(() => {
 .pc-home {
   box-sizing: border-box;
   gap: var(--ip-space-5);
-  padding: var(--ip-space-5) var(--ip-space-6) var(--ip-space-6);
 }
 
 .pc-home :deep(.app-page__body) {
@@ -411,10 +410,6 @@ onMounted(() => {
   }
 }
 @media (max-width: 760px) {
-  .pc-home {
-    padding: var(--ip-space-4);
-  }
-
   .pc-home__quick-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

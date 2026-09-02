@@ -658,3 +658,25 @@ git commit -m "test: record PF03 pre-convergence self-verification"
 ## Completion Contract
 
 开发任务只有同时满足以下条件才可声明可验收：Task 1～14 的生产/测试/文档完成且对应定向验证通过；Task 15 的 fresh 后端与前端门禁执行；目标 Playwright 和视觉证据可审查；真实路径通过或有可复现的外部阻塞证据；没有范围外代码、生成物、`DSH.md`/原型修改或远端 push。独立验收任务会不信任本报告并重新执行验收。
+
+## 用户第二轮复核强制整改（2026-08-30）
+
+本节优先于前文中冲突的视觉细节，作为继续开发的下一工作包。完成后必须重新执行受影响门禁并单独提交。
+
+- [ ] 品牌：以 `C:\Users\DONG\Downloads\ChatGPT Image 2026年8月30日 13_57_09.png` 为唯一母版，确定性裁掉透明空白；输出横向浅/深色呈现和左侧图形标，不重新绘制几何。Header、登录和浏览器 favicon 使用新资产，route document title 为“当前页 · Industrial Platform”。
+- [ ] 顶栏三区：修复 `PlatformTopBar.vue` 的浮层裁切；左区 PC→DEV 间距 4px；中区搜索结果完整；右区最多保留 4px 边距且在 1280/1440 不换行、不截断。主题/语言弹层必须在 viewport 内完整显示。
+- [ ] 语言控件：把原生 select 改为与 FullScreen/Lock 一致的 32px 图标按钮 + teleported dropdown，具备 Tooltip、aria-label、选中态和键盘/Escape/焦点回收。
+- [ ] 消息入口：顶栏新增 Bell 图标和真实空态，不显示假 badge，不创建 PF-04 Notification 后端或业务模型；文案明确通知能力尚未接入。
+- [ ] 在线用户抽屉：在消息通知旁新增 32px 图标按钮（不放用户菜单），仅 `identity.session.view` 可见；点击打开右侧响应式抽屉，以统一表格加载有效 refresh session（`!deleted && !revoked && !used && expiresOn > now`），展示序号、账号、姓名、登录/最近刷新/过期时间、当前会话标记和操作，提供刷新、加载、空态、失败重试。不得显示或新增持久化 token、IP、UserAgent 原值/哈希。
+- [ ] 会话操作：新增 `identity.session.revoke` 并实现租户内单会话强制退出，二次确认、重复撤销幂等、当前会话撤销后本地退出；参考图“发送消息”本轮只渲染禁用 icon + “待实现/PF-04 未接入”，无 API、无假成功。补齐服务端契约、权限、租户越权和前端交互测试。
+- [ ] 用户菜单：移除顶栏独立锁定按钮，菜单改为带图标的“个人中心、清理缓存、锁定工作区、退出登录”。新增 `/pc/profile` 真实页面，复用认证 Store/`/auth/me` 显示账号、姓名、租户、角色并链接现有修改密码；清理缓存必须白名单删除当前用户 Tabs、page-state、table-preferences 等 UI 缓存并同步重置内存 Store，保留 auth、locale、theme、terminal override、experience mode，确认后给出成功反馈且不得调用后端缓存；锁定/退出复用现有实现。
+- [ ] 一级菜单：按钮改为 icon 上/文字下；根据容器高度计算可见项，溢出时底部固定“更多”按钮和可键盘操作的授权菜单弹层。活动一级域处于更多中时仍有明确选中状态。
+- [ ] 二级菜单：搜索和列表收进同一 surface/card；二级整体收起时二者一起隐藏。顶部全局搜索与二级“筛选当前菜单”职责/placeholder 分开；删除 `PcWorkspaceTabs` 中重复的菜单搜索，不减少既有 tab 操作。
+- [ ] 导航 i18n：`PlatformToolRail`、`PlatformFunctionTree`、动态 navigation adapter、全局/更多搜索结果和 tab title 全部解析资源键；zh-CN/en-US 切换无需刷新。为静态菜单补齐资源键，动态缺键才 fallback。
+- [ ] 用户管理：顶部查询改为与用户组管理相同的紧凑行式视觉，仍复用公共 `AppQueryPanel`/QueryDescriptor；复现列头查询点击报错，先保存 console stack/失败测试，再修复切换/点击/输入/清空/分页/导出链路。
+- [ ] 真实双模式入口：当前 `http://localhost:5173/pc/identity/users` 的系统管理员页面未渲染 `PcExperienceModeControl`。定位 `platform.operation.view` 在既有数据库种子、系统管理员权限补齐、当前认证会话/权限刷新链路中的缺口；修复后用真实登录会话证明按钮可见、可进入 `/pc/operation`、可返回原管理页面且状态不丢失。不得通过移除权限门禁或写死管理员名称解决。
+- [ ] 真实列头查询：当前页面点击“切换列头查询”后无 JS exception，但用户列表请求失败并显示“加载用户列表失败”。捕获失败请求的 URL、查询参数、状态码、响应体和必要服务端日志，新增能复现该 QueryDescriptor/OData 契约的回归测试后修复；页面 alert、console、pageerror 和失败网络请求均须清零。
+- [ ] 终端预览：移除重复外层 padding，和首页共用页面边距/卡片 gap token；独立检查 preview 内部卡片间距不被压扁。
+- [ ] 新增或扩展测试：`PlatformTopBar.spec.ts`、`LocaleControl.spec.ts`、在线用户抽屉/用户菜单/个人中心/缓存白名单、`PlatformToolRail.spec.ts`、`PlatformFunctionTree.spec.ts`、`PcWorkspaceTabs.spec.ts`、`IdentityUsersPage.spec.ts`、`AppDataTable.spec.ts`、`TerminalPreviewPage.spec.ts`、Identity session query/revoke API/permission/tenant/idempotency tests，以及 `pc-shell.spec.ts`/`identity-pages.spec.ts`/terminal preview E2E。
+- [ ] 保存 1280×720、1440×900 的 Header/左侧菜单/用户管理/终端预览中文与英文截图，人工检查浮层边界、三区对齐、4px 间距、更多菜单、查询样式和卡片间距；不得只更新快照。
+- [ ] 运行受影响定向测试后，再执行 frontend lint/typecheck/unit/build、fresh backend Release build/full tests、目标 Mock/Real Playwright；将命令、退出码和测试数写入开发证据。

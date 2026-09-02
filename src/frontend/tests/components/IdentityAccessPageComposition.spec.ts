@@ -58,6 +58,37 @@ describe('Identity access page composition', () => {
     expect(source).toContain('<el-tree')
   })
 
+  it('keeps role actions on one line and moves overflow into More as the column narrows', () => {
+    const source = pageSource('IdentityRolesPage.vue')
+
+    expect(source).toContain('<template #actions="{ row, availableWidth }">')
+    expect(source).toContain('identity-role-more-${row.roleNId}')
+    expect(source).toContain('<ElDropdown')
+    expect(source).toMatch(
+      /\.roles-page__row-actions\s*\{[\s\S]*?display:\s*inline-flex;[\s\S]*?white-space:\s*nowrap;/,
+    )
+  })
+
+  it('keeps audit success filtering consistent and localizes the rendered outcome', () => {
+    const source = pageSource('IdentityAuditsPage.vue')
+
+    expect(source).toContain('function auditSuccessFilter(value: unknown): boolean | undefined')
+    expect(source.match(/success: auditSuccessFilter\(filters\.success\)/g)).toHaveLength(2)
+    expect(source).toContain("success: auditSuccessFilter(query.success)")
+    expect(source).toContain("{{ row.success ? copy.success : copy.failed }}")
+    expect(source).not.toContain("{{ row.success ? '成功' : '失败' }}")
+  })
+
+  it('keeps the selected provider and client names in SSO child-drawer titles', () => {
+    const providers = pageSource('sso/SsoProvidersPage.vue')
+    const clients = pageSource('sso/SsoClientsPage.vue')
+
+    expect(providers).toContain('const accountsDrawerTitle = computed(')
+    expect(providers).toContain(':title="accountsDrawerTitle"')
+    expect(clients).toContain('const endpointsDrawerTitle = computed(')
+    expect(clients).toContain(':title="endpointsDrawerTitle"')
+  })
+
   it('provides page copy for both supported locales', () => {
     for (const locale of ['zh-CN', 'en-US'] as const) {
       const management = localeMessages[locale].identity.management

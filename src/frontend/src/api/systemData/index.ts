@@ -2,7 +2,11 @@ export { createSystemDataRuntimeApi, type SystemDataRuntimeApi } from './runtime
 export { getSystemDataRuntimeApi, registerSystemDataRuntimeApi } from './runtimeRegistry'
 export { createSystemDataManagementApi } from './managementApi'
 export { getSystemDataManagementApi, registerSystemDataManagementApi } from './managementRegistry'
-export type { FeatureDefinitionDto, SystemDataManagementApi } from './managementTypes'
+export type {
+  FeatureDefinitionDto,
+  SystemDataExportParams,
+  SystemDataManagementApi,
+} from './managementTypes'
 export type {
   FeatureRuntimeDto,
   FeatureRuntimeItemDto,
