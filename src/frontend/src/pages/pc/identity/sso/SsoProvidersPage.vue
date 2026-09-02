@@ -88,7 +88,7 @@ async function loadProviders(): Promise<void> {
   try {
     rows.value = await ssoManagement.listProviders()
   } catch (error) {
-    reportManagementError(error, '加载登录源列表失败')
+    reportManagementError(error, copy.value.feedback.loadFailed)
   } finally {
     loading.value = false
   }
@@ -221,7 +221,7 @@ async function submitDialog(): Promise<void> {
         allowedEmailDomains: form.allowedEmailDomains,
         jitDefaultRoleNIds: form.jitDefaultRoleNIds,
       })
-      ElMessage.success('登录源创建成功')
+      ElMessage.success(copy.value.feedback.createSuccess)
     } else {
       await ssoManagement.updateProvider(editing.value.providerNId, {
         name: form.name.trim(),
@@ -237,12 +237,12 @@ async function submitDialog(): Promise<void> {
         expectedOptimisticVersion: editing.value.optimisticVersion,
         expectedConcurrencyVersion: editing.value.concurrencyVersion,
       })
-      ElMessage.success('登录源已更新')
+      ElMessage.success(copy.value.feedback.updateSuccess)
     }
     dialogOpen.value = false
     await loadProviders()
   } catch (error) {
-    reportManagementError(error, '保存登录源失败')
+    reportManagementError(error, copy.value.feedback.saveFailed)
   } finally {
     dialogSaving.value = false
   }
@@ -276,11 +276,11 @@ async function submitSecret(): Promise<void> {
       expectedOptimisticVersion: target.optimisticVersion,
       expectedConcurrencyVersion: target.concurrencyVersion,
     })
-    ElMessage.success('密钥引用已更新(只写,不回显)')
+    ElMessage.success(copy.value.feedback.secretUpdated)
     secretDialogOpen.value = false
     await loadProviders()
   } catch (error) {
-    reportManagementError(error, '保存密钥引用失败')
+    reportManagementError(error, copy.value.feedback.secretSaveFailed)
   } finally {
     secretSaving.value = false
   }
@@ -295,10 +295,14 @@ async function toggleEnabled(row: ProviderSummaryDto): Promise<void> {
   try {
     await ElMessageBox.confirm(
       enabling
-        ? `确定启用登录源「${row.name}」?启用后用户可在登录页选择该源。`
-        : `确定停用登录源「${row.name}」?停用后该源立即不可用。`,
-      `${enabling ? '启用' : '停用'}确认`,
-      { type: 'warning', confirmButtonText: enabling ? '启用' : '停用', cancelButtonText: '取消' },
+        ? copy.value.feedback.statusEnableConfirm.replace('{name}', row.name)
+        : copy.value.feedback.statusDisableConfirm.replace('{name}', row.name),
+      copy.value.feedback.statusConfirmTitle,
+      {
+        type: 'warning',
+        confirmButtonText: enabling ? copy.value.enabled : copy.value.disabled,
+        cancelButtonText: commonCopy.value.cancel,
+      },
     )
   } catch {
     return // 用户取消
@@ -309,10 +313,10 @@ async function toggleEnabled(row: ProviderSummaryDto): Promise<void> {
       expectedOptimisticVersion: row.optimisticVersion,
       expectedConcurrencyVersion: row.concurrencyVersion,
     })
-    ElMessage.success(`登录源已${enabling ? '启用' : '停用'}`)
+    ElMessage.success(copy.value.feedback.statusUpdated)
     await loadProviders()
   } catch (error) {
-    reportManagementError(error, `登录源${enabling ? '启用' : '停用'}失败`)
+    reportManagementError(error, copy.value.feedback.statusFailed)
   }
 }
 
@@ -327,12 +331,16 @@ async function testProvider(row: ProviderSummaryDto): Promise<void> {
   testing.value = true
   try {
     const result = await ssoManagement.testProvider(row.providerNId)
-    void ElMessageBox.alert(result.message, result.reachable ? '连接测试成功' : '连接测试失败', {
-      type: result.reachable ? 'success' : 'error',
-      confirmButtonText: '确定',
-    })
+    void ElMessageBox.alert(
+      result.message,
+      result.reachable ? copy.value.feedback.testSuccessTitle : copy.value.feedback.testFailedTitle,
+      {
+        type: result.reachable ? 'success' : 'error',
+        confirmButtonText: copy.value.feedback.testConfirm,
+      },
+    )
   } catch (error) {
-    reportManagementError(error, '连接测试失败')
+    reportManagementError(error, copy.value.feedback.testFailed)
   } finally {
     testing.value = false
   }
@@ -344,6 +352,11 @@ async function testProvider(row: ProviderSummaryDto): Promise<void> {
 
 const accountsDrawerOpen = ref(false)
 const accountsProvider = ref<ProviderSummaryDto | null>(null)
+const accountsDrawerTitle = computed(() =>
+  accountsProvider.value === null
+    ? copy.value.accountTitle
+    : `${copy.value.accountTitle} · ${accountsProvider.value.name}`,
+)
 const accountsLoading = ref(false)
 const accounts = ref<ExternalAccountSummaryDto[]>([])
 const bindFormRef = ref<FormInstance>()
@@ -357,7 +370,7 @@ async function loadAccounts(): Promise<void> {
   try {
     accounts.value = await ssoManagement.listAccounts(provider.providerNId)
   } catch (error) {
-    reportManagementError(error, '加载绑定账号失败')
+    reportManagementError(error, copy.value.feedback.accountsLoadFailed)
   } finally {
     accountsLoading.value = false
   }
@@ -387,14 +400,14 @@ async function submitBind(): Promise<void> {
       externalName: emptyToUndefined(bindForm.externalName),
       externalEmail: emptyToUndefined(bindForm.externalEmail),
     })
-    ElMessage.success('外部账号已绑定')
+    ElMessage.success(copy.value.feedback.bindSuccess)
     bindForm.userNId = ''
     bindForm.externalSubject = ''
     bindForm.externalName = ''
     bindForm.externalEmail = ''
     await loadAccounts()
   } catch (error) {
-    reportManagementError(error, '绑定外部账号失败')
+    reportManagementError(error, copy.value.feedback.bindFailed)
   } finally {
     bindSaving.value = false
   }
@@ -405,19 +418,23 @@ async function unbindAccount(row: ExternalAccountSummaryDto): Promise<void> {
   if (provider === null) return
   try {
     await ElMessageBox.confirm(
-      `确定解绑「${row.userLoginName}」与该登录源的绑定?解绑后该用户需重新经 IdP 登录或重新绑定。`,
-      '解绑确认',
-      { type: 'warning', confirmButtonText: '解绑', cancelButtonText: '取消' },
+      copy.value.feedback.unbindConfirm.replace('{name}', row.userLoginName),
+      copy.value.feedback.unbindConfirmTitle,
+      {
+        type: 'warning',
+        confirmButtonText: copy.value.unbind,
+        cancelButtonText: commonCopy.value.cancel,
+      },
     )
   } catch {
     return
   }
   try {
     await ssoManagement.unbindAccount(provider.providerNId, row.userNId)
-    ElMessage.success('外部账号已解绑')
+    ElMessage.success(copy.value.feedback.unbindSuccess)
     await loadAccounts()
   } catch (error) {
-    reportManagementError(error, '解绑外部账号失败')
+    reportManagementError(error, copy.value.feedback.unbindFailed)
   }
 }
 
@@ -425,32 +442,34 @@ async function unbindAccount(row: ExternalAccountSummaryDto): Promise<void> {
 // 表单校验规则
 // ---------------------------------------------------------------------------
 
-const providerRules: FormRules = {
-  name: [{ required: true, message: '请输入登录源名称', trigger: 'blur' }],
+const providerRules = computed<FormRules>(() => ({
+  name: [{ required: true, message: copy.value.feedback.nameRequired, trigger: 'blur' }],
   authorityOrMetadataUrl: [
     {
       pattern: /^https?:\/\/.+$/,
-      message: '授权/元数据地址须为合法 http(s) URL',
+      message: copy.value.feedback.authorityInvalid,
       trigger: 'blur',
     },
   ],
-}
+}))
 
-const secretRules: FormRules = {
+const secretRules = computed<FormRules>(() => ({
   reference: [
     {
       required: true,
-      message: '请输入密钥引用(配置节键名,不含明文)',
+      message: copy.value.feedback.secretRequired,
       trigger: 'blur',
     },
   ],
-}
+}))
 
-const bindRules: FormRules = {
-  userNId: [{ required: true, message: '请输入平台用户业务标识', trigger: 'blur' }],
-  externalSubject: [{ required: true, message: '请输入 IdP 主体标识', trigger: 'blur' }],
-  externalEmail: [{ type: 'email', message: '邮箱格式不正确', trigger: 'blur' }],
-}
+const bindRules = computed<FormRules>(() => ({
+  userNId: [{ required: true, message: copy.value.feedback.userNIdRequired, trigger: 'blur' }],
+  externalSubject: [
+    { required: true, message: copy.value.feedback.externalSubjectRequired, trigger: 'blur' },
+  ],
+  externalEmail: [{ type: 'email', message: copy.value.feedback.emailInvalid, trigger: 'blur' }],
+}))
 
 onMounted(() => {
   void loadProviders()
@@ -513,7 +532,9 @@ onMounted(() => {
       <template #actions="{ row }">
         <PermissionGate :permission-n-id="PERMISSIONS.ssoManage">
           <el-button link type="primary" @click="openEdit(row)">{{ copy.edit }}</el-button>
-          <el-button link type="warning" @click="openSecret(row)">{{ copy.secretAction }}</el-button>
+          <el-button link type="warning" @click="openSecret(row)">{{
+            copy.secretAction
+          }}</el-button>
           <el-button link :type="row.enabled ? 'danger' : 'success'" @click="toggleEnabled(row)">
             {{ row.enabled ? copy.disabled : copy.enabled }}
           </el-button>
@@ -556,16 +577,10 @@ onMounted(() => {
           <el-input v-model="form.authorityOrMetadataUrl" placeholder="https://…" />
         </el-form-item>
         <el-form-item :label="copy.clientId" prop="clientIdOrEntityId">
-          <el-input
-            v-model="form.clientIdOrEntityId"
-            :placeholder="copy.clientIdPlaceholder"
-          />
+          <el-input v-model="form.clientIdOrEntityId" :placeholder="copy.clientIdPlaceholder" />
         </el-form-item>
         <el-form-item :label="copy.callbackPath" prop="callbackPath">
-          <el-input
-            v-model="form.callbackPath"
-            :placeholder="copy.callbackPlaceholder"
-          />
+          <el-input v-model="form.callbackPath" :placeholder="copy.callbackPlaceholder" />
         </el-form-item>
         <el-form-item :label="copy.autoRedirect">
           <el-switch v-model="form.autoRedirect" />
@@ -622,7 +637,9 @@ onMounted(() => {
       </el-form>
       <template #footer>
         <el-button @click="dialogOpen = false">{{ commonCopy.cancel }}</el-button>
-        <el-button type="primary" :loading="dialogSaving" @click="submitDialog">{{ commonCopy.save }}</el-button>
+        <el-button type="primary" :loading="dialogSaving" @click="submitDialog">{{
+          commonCopy.save
+        }}</el-button>
       </template>
     </AppFormDrawer>
 
@@ -642,14 +659,16 @@ onMounted(() => {
       </el-form>
       <template #footer>
         <el-button @click="secretDialogOpen = false">{{ commonCopy.cancel }}</el-button>
-        <el-button type="primary" :loading="secretSaving" @click="submitSecret">{{ commonCopy.save }}</el-button>
+        <el-button type="primary" :loading="secretSaving" @click="submitSecret">{{
+          commonCopy.save
+        }}</el-button>
       </template>
     </AppFormDrawer>
 
     <!-- 绑定账号 -->
     <AppFormDrawer
       v-model="accountsDrawerOpen"
-      :title="copy.accountTitle"
+      :title="accountsDrawerTitle"
       size="wide"
       :allow-mode-switch="false"
     >
@@ -658,7 +677,10 @@ onMounted(() => {
           <el-input v-model="bindForm.userNId" :placeholder="copy.userNIdPlaceholder" />
         </el-form-item>
         <el-form-item :label="copy.externalSubject" prop="externalSubject">
-          <el-input v-model="bindForm.externalSubject" :placeholder="copy.externalSubjectPlaceholder" />
+          <el-input
+            v-model="bindForm.externalSubject"
+            :placeholder="copy.externalSubjectPlaceholder"
+          />
         </el-form-item>
         <el-form-item :label="copy.externalName">
           <el-input v-model="bindForm.externalName" :placeholder="commonCopy.optional" />
@@ -668,7 +690,9 @@ onMounted(() => {
         </el-form-item>
         <el-form-item>
           <PermissionGate :permission-n-id="PERMISSIONS.ssoManage">
-            <el-button type="primary" :loading="bindSaving" @click="submitBind">{{ copy.bind }}</el-button>
+            <el-button type="primary" :loading="bindSaving" @click="submitBind">{{
+              copy.bind
+            }}</el-button>
           </PermissionGate>
         </el-form-item>
       </el-form>

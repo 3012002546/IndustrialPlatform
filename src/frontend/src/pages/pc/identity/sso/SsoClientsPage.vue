@@ -76,7 +76,7 @@ async function loadClients(): Promise<void> {
   try {
     rows.value = await ssoManagement.listClients()
   } catch (error) {
-    reportManagementError(error, '加载 Client 列表失败')
+    reportManagementError(error, copy.value.feedback.loadFailed)
   } finally {
     loading.value = false
   }
@@ -130,7 +130,7 @@ async function submitDialog(): Promise<void> {
         name: form.name.trim(),
         oauthClientId: form.oauthClientId.trim() || undefined,
       })
-      ElMessage.success('Client 创建成功')
+      ElMessage.success(copy.value.feedback.createSuccess)
     } else {
       await ssoManagement.updateClient(editing.value.clientNId, {
         name: form.name.trim(),
@@ -138,12 +138,12 @@ async function submitDialog(): Promise<void> {
         expectedOptimisticVersion: editing.value.optimisticVersion,
         expectedConcurrencyVersion: editing.value.concurrencyVersion,
       })
-      ElMessage.success('Client 已更新')
+      ElMessage.success(copy.value.feedback.updateSuccess)
     }
     dialogOpen.value = false
     await loadClients()
   } catch (error) {
-    reportManagementError(error, '保存 Client 失败')
+    reportManagementError(error, copy.value.feedback.saveFailed)
   } finally {
     dialogSaving.value = false
   }
@@ -158,10 +158,14 @@ async function toggleEnabled(row: SsoClientSummaryDto): Promise<void> {
   try {
     await ElMessageBox.confirm(
       enabling
-        ? `确定启用 Client「${row.name}」?`
-        : `确定停用 Client「${row.name}」?停用后其回调校验立即失效。`,
-      `${enabling ? '启用' : '停用'}确认`,
-      { type: 'warning', confirmButtonText: enabling ? '启用' : '停用', cancelButtonText: '取消' },
+        ? copy.value.feedback.statusEnableConfirm.replace('{name}', row.name)
+        : copy.value.feedback.statusDisableConfirm.replace('{name}', row.name),
+      copy.value.feedback.statusConfirmTitle,
+      {
+        type: 'warning',
+        confirmButtonText: enabling ? copy.value.enabled : copy.value.disabled,
+        cancelButtonText: commonCopy.value.cancel,
+      },
     )
   } catch {
     return // 用户取消
@@ -172,10 +176,10 @@ async function toggleEnabled(row: SsoClientSummaryDto): Promise<void> {
       expectedOptimisticVersion: row.optimisticVersion,
       expectedConcurrencyVersion: row.concurrencyVersion,
     })
-    ElMessage.success(`Client 已${enabling ? '启用' : '停用'}`)
+    ElMessage.success(copy.value.feedback.statusUpdated)
     await loadClients()
   } catch (error) {
-    reportManagementError(error, `Client ${enabling ? '启用' : '停用'}失败`)
+    reportManagementError(error, copy.value.feedback.statusFailed)
   }
 }
 
@@ -191,6 +195,11 @@ const endpointTypeOptions = computed(() => [
 
 const endpointsDrawerOpen = ref(false)
 const endpointsClient = ref<SsoClientSummaryDto | null>(null)
+const endpointsDrawerTitle = computed(() =>
+  endpointsClient.value === null
+    ? copy.value.endpointTitle
+    : `${copy.value.endpointTitle} · ${endpointsClient.value.name}`,
+)
 const endpointFormRef = ref<FormInstance>()
 const endpointSaving = ref(false)
 const endpointForm = reactive({ nId: '', type: 'Redirect', uri: '' })
@@ -217,14 +226,14 @@ async function submitEndpoint(): Promise<void> {
       expectedOptimisticVersion: client.optimisticVersion,
       expectedConcurrencyVersion: client.concurrencyVersion,
     })
-    ElMessage.success('端点已登记')
+    ElMessage.success(copy.value.feedback.endpointRegistered)
     endpointsClient.value = updated
     endpointForm.nId = ''
     endpointForm.type = 'Redirect'
     endpointForm.uri = ''
     await loadClients()
   } catch (error) {
-    reportManagementError(error, '登记端点失败')
+    reportManagementError(error, copy.value.feedback.endpointRegisterFailed)
   } finally {
     endpointSaving.value = false
   }
@@ -243,11 +252,11 @@ async function toggleEndpointEnabled(endpoint: SsoEndpointSummaryDto): Promise<v
         expectedConcurrencyVersion: client.concurrencyVersion,
       },
     )
-    ElMessage.success(`端点已${endpoint.enabled ? '停用' : '启用'}`)
+    ElMessage.success(copy.value.feedback.endpointStatusUpdated)
     endpointsClient.value = updated
     await loadClients()
   } catch (error) {
-    reportManagementError(error, '更新端点状态失败')
+    reportManagementError(error, copy.value.feedback.endpointStatusFailed)
   }
 }
 
@@ -256,9 +265,16 @@ async function removeEndpoint(endpoint: SsoEndpointSummaryDto): Promise<void> {
   if (client === null) return
   try {
     await ElMessageBox.confirm(
-      `确定移除端点「${endpoint.type} ${endpoint.uri}」?`,
-      '移除端点确认',
-      { type: 'warning', confirmButtonText: '移除', cancelButtonText: '取消' },
+      copy.value.feedback.endpointRemoveConfirm.replace(
+        '{name}',
+        `${endpoint.type} ${endpoint.uri}`,
+      ),
+      copy.value.feedback.endpointRemoveConfirmTitle,
+      {
+        type: 'warning',
+        confirmButtonText: copy.value.remove,
+        cancelButtonText: commonCopy.value.cancel,
+      },
     )
   } catch {
     return
@@ -270,13 +286,13 @@ async function removeEndpoint(endpoint: SsoEndpointSummaryDto): Promise<void> {
       client.optimisticVersion,
       client.concurrencyVersion,
     )
-    ElMessage.success('端点已移除')
+    ElMessage.success(copy.value.feedback.endpointRemoved)
     await loadClients()
     // 重新读取当前 Client 详情(移除端点可能推进版本)。
     const fresh = await ssoManagement.getClient(client.clientNId)
     endpointsClient.value = fresh
   } catch (error) {
-    reportManagementError(error, '移除端点失败')
+    reportManagementError(error, copy.value.feedback.endpointRemoveFailed)
   }
 }
 
@@ -284,28 +300,28 @@ async function removeEndpoint(endpoint: SsoEndpointSummaryDto): Promise<void> {
 // 校验规则
 // ---------------------------------------------------------------------------
 
-const clientRules: FormRules = {
-  name: [{ required: true, message: '请输入 Client 名称', trigger: 'blur' }],
+const clientRules = computed<FormRules>(() => ({
+  name: [{ required: true, message: copy.value.feedback.nameRequired, trigger: 'blur' }],
   oauthClientId: [
     {
       pattern: /^[a-zA-Z0-9._-]{2,128}$/,
-      message: 'OAuth ClientId 仅含字母/数字/._-,长度 2-128',
+      message: copy.value.feedback.clientIdInvalid,
       trigger: 'blur',
     },
   ],
-}
+}))
 
-const endpointRules: FormRules = {
-  type: [{ required: true, message: '请选择端点类型', trigger: 'change' }],
+const endpointRules = computed<FormRules>(() => ({
+  type: [{ required: true, message: copy.value.feedback.typeRequired, trigger: 'change' }],
   uri: [
-    { required: true, message: '请输入端点地址', trigger: 'blur' },
+    { required: true, message: copy.value.feedback.uriRequired, trigger: 'blur' },
     {
       pattern: /^https?:\/\/.+$/,
-      message: '端点须为合法 http(s) URL',
+      message: copy.value.feedback.uriInvalid,
       trigger: 'blur',
     },
   ],
-}
+}))
 
 onMounted(() => {
   void loadClients()
@@ -353,7 +369,9 @@ onMounted(() => {
       <template #actions="{ row }">
         <PermissionGate :permission-n-id="PERMISSIONS.ssoManage">
           <el-button link type="primary" @click="openEdit(row)">{{ copy.edit }}</el-button>
-          <el-button link type="primary" @click="openEndpoints(row)">{{ copy.endpoints }}</el-button>
+          <el-button link type="primary" @click="openEndpoints(row)">{{
+            copy.endpoints
+          }}</el-button>
           <el-button link :type="row.enabled ? 'danger' : 'success'" @click="toggleEnabled(row)">
             {{ row.enabled ? copy.disabled : copy.enabled }}
           </el-button>
@@ -380,14 +398,16 @@ onMounted(() => {
       </el-form>
       <template #footer>
         <el-button @click="dialogOpen = false">{{ commonCopy.cancel }}</el-button>
-        <el-button type="primary" :loading="dialogSaving" @click="submitDialog">{{ commonCopy.save }}</el-button>
+        <el-button type="primary" :loading="dialogSaving" @click="submitDialog">{{
+          commonCopy.save
+        }}</el-button>
       </template>
     </AppFormDrawer>
 
     <!-- 端点管理 -->
     <AppFormDrawer
       v-model="endpointsDrawerOpen"
-      :title="copy.endpointTitle"
+      :title="endpointsDrawerTitle"
       size="wide"
       :allow-mode-switch="false"
     >

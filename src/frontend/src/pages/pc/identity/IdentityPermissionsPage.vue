@@ -66,7 +66,7 @@ async function loadTree(): Promise<void> {
     tree.value = rawTree.value
     countNodes(rawTree.value)
   } catch (error) {
-    reportManagementError(error, '加载权限目录失败')
+    reportManagementError(error, copy.value.feedback.loadFailed)
   } finally {
     loading.value = false
   }

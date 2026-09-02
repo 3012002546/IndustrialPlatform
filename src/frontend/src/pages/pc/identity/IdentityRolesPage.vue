@@ -3,13 +3,13 @@
  * 角色管理页(TASK-ID-012,§16.3):列表分页过滤、新建/编辑表单校验、
  * 分配权限(权限目录树);系统角色不可编辑/分配;409 并发冲突提示重载。
  */
-import { ElMessage } from 'element-plus'
+import { ElDropdown, ElDropdownItem, ElDropdownMenu, ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { computed, onMounted, reactive, ref } from 'vue'
 
 import type { PermissionTreeNodeDto, RoleSummaryDto } from '@/api/identity/management'
 import { getManagementApi } from '@/api/identity/managementRegistry'
-import { PERMISSIONS, PermissionGate } from '@/permissions'
+import { PERMISSIONS, PermissionGate, usePermission } from '@/permissions'
 import AppPage from '@/components/base/AppPage.vue'
 import AppDataTable from '@/components/management/AppDataTable.vue'
 import AppFormDrawer from '@/components/management/AppFormDrawer.vue'
@@ -26,9 +26,66 @@ import { localeMessages } from '@/localization/i18n'
 import { usePlatformLocale } from '@/localization/localeContext'
 
 const management = getManagementApi()
+const { has } = usePermission()
 const locale = usePlatformLocale()
 const copy = computed(() => localeMessages[locale.value].identity.management.roles)
 const commonCopy = computed(() => localeMessages[locale.value].identity.management.common)
+
+type RoleAction = 'edit' | 'assign-permission'
+
+const ROLE_ACTION_WIDTHS: Record<RoleAction, number> = {
+  edit: 42,
+  'assign-permission': 70,
+}
+
+const ROLE_ACTION_GAP = 4
+const ROLE_MORE_WIDTH = 52
+const ROLE_ACTION_HORIZONTAL_INSET = 16
+
+function roleActionCandidates(): RoleAction[] {
+  const actions: RoleAction[] = []
+  if (has(PERMISSIONS.roleUpdate)) actions.push('edit')
+  if (has(PERMISSIONS.roleAssignPermission)) actions.push('assign-permission')
+  return actions
+}
+
+function directRoleActions(availableWidth?: number): RoleAction[] {
+  const actions = roleActionCandidates()
+  const width = Math.max(
+    ROLE_MORE_WIDTH,
+    Math.round(availableWidth ?? 180) - ROLE_ACTION_HORIZONTAL_INSET,
+  )
+  const totalWidth = actions.reduce(
+    (total, action, index) =>
+      total + ROLE_ACTION_WIDTHS[action] + (index === 0 ? 0 : ROLE_ACTION_GAP),
+    0,
+  )
+  if (totalWidth <= width) return actions
+
+  const direct: RoleAction[] = []
+  let used = 0
+  for (const action of actions) {
+    const gap = direct.length === 0 ? 0 : ROLE_ACTION_GAP
+    if (used + gap + ROLE_ACTION_WIDTHS[action] + ROLE_ACTION_GAP + ROLE_MORE_WIDTH > width) break
+    direct.push(action)
+    used += gap + ROLE_ACTION_WIDTHS[action]
+  }
+  return direct
+}
+
+function isDirectRoleAction(availableWidth: number | undefined, action: RoleAction): boolean {
+  return directRoleActions(availableWidth).includes(action)
+}
+
+function hasMoreRoleActions(availableWidth?: number): boolean {
+  const direct = directRoleActions(availableWidth)
+  return roleActionCandidates().some((action) => !direct.includes(action))
+}
+
+function onRoleActionCommand(row: RoleSummaryDto, command: string): void {
+  if (command === 'edit') openEdit(row)
+  else if (command === 'assign-permission') openAssignPermissions(row)
+}
 
 // ---------------------------------------------------------------------------
 // 列表与过滤
@@ -45,7 +102,12 @@ const tableQueryMode = ref<AppDataTableQueryMode>('top')
 const roleColumns = computed<readonly AppDataTableColumn[]>(() => [
   { field: 'name', title: copy.value.roleName, minWidth: 140, filter: { kind: 'text' as const } },
   { field: 'roleNId', title: copy.value.roleNId, minWidth: 180, filter: { kind: 'text' as const } },
-  { field: 'description', title: copy.value.descriptionColumn, minWidth: 220, filter: { kind: 'text' as const } },
+  {
+    field: 'description',
+    title: copy.value.descriptionColumn,
+    minWidth: 220,
+    filter: { kind: 'text' as const },
+  },
   {
     field: 'isSystem',
     title: copy.value.systemRole,
@@ -73,7 +135,7 @@ async function loadRoles(): Promise<void> {
     rows.value = result.items
     total.value = result.total
   } catch (error) {
-    reportManagementError(error, '加载角色列表失败')
+    reportManagementError(error, copy.value.feedback.loadFailed)
   } finally {
     loading.value = false
   }
@@ -114,7 +176,10 @@ async function loadRolesTable(request: AppDataTableRequest) {
     nId: String(nId ?? '').trim() || undefined,
     name: String(name ?? '').trim() || undefined,
     description: String(filters.description ?? '').trim() || undefined,
-    isSystem: filters.isSystem === undefined || filters.isSystem === '' ? undefined : filters.isSystem === true || filters.isSystem === 'true',
+    isSystem:
+      filters.isSystem === undefined || filters.isSystem === ''
+        ? undefined
+        : filters.isSystem === true || filters.isSystem === 'true',
     pageIndex: request.pageIndex,
     pageSize: request.pageSize,
     sortField: request.sort?.field,
@@ -135,7 +200,10 @@ async function exportRoles(request: AppDataTableExportRequest): Promise<void> {
     name: String(name ?? '').trim() || undefined,
     keyword: String(filters.keyword ?? '').trim() || undefined,
     description: String(filters.description ?? '').trim() || undefined,
-    isSystem: filters.isSystem === undefined || filters.isSystem === '' ? undefined : filters.isSystem === true || filters.isSystem === 'true',
+    isSystem:
+      filters.isSystem === undefined || filters.isSystem === ''
+        ? undefined
+        : filters.isSystem === true || filters.isSystem === 'true',
     quantity: request.quantity,
     columns: request.columns,
     sortField: request.sort?.field,
@@ -185,7 +253,7 @@ async function submitDialog(): Promise<void> {
         name: form.name.trim(),
         description: form.description.trim() || undefined,
       })
-      ElMessage.success('角色创建成功')
+      ElMessage.success(copy.value.feedback.createSuccess)
     } else {
       await management.updateRole(editing.value.roleNId, {
         name: form.name.trim(),
@@ -193,12 +261,12 @@ async function submitDialog(): Promise<void> {
         expectedOptimisticVersion: editing.value.optimisticVersion,
         expectedConcurrencyVersion: editing.value.concurrencyVersion,
       })
-      ElMessage.success('角色已更新')
+      ElMessage.success(copy.value.feedback.updateSuccess)
     }
     dialogOpen.value = false
     await loadRoles()
   } catch (error) {
-    reportManagementError(error, '保存角色失败')
+    reportManagementError(error, copy.value.feedback.saveFailed)
   } finally {
     dialogSaving.value = false
   }
@@ -236,7 +304,7 @@ async function loadPermissionTree(): Promise<void> {
   try {
     permissionTree.value = toTreeData(await management.getPermissionTree())
   } catch (error) {
-    reportManagementError(error, '加载权限目录失败')
+    reportManagementError(error, copy.value.feedback.permissionLoadFailed)
     permissionTree.value = []
   } finally {
     treeLoading.value = false
@@ -270,11 +338,11 @@ async function submitPermissions(): Promise<void> {
       expectedOptimisticVersion: target.optimisticVersion,
       expectedConcurrencyVersion: target.concurrencyVersion,
     })
-    ElMessage.success('权限已更新')
+    ElMessage.success(copy.value.feedback.permissionUpdated)
     permissionDialogOpen.value = false
     await loadRoles()
   } catch (error) {
-    reportManagementError(error, '保存权限分配失败')
+    reportManagementError(error, copy.value.feedback.permissionSaveFailed)
   } finally {
     permissionSaving.value = false
   }
@@ -284,19 +352,19 @@ async function submitPermissions(): Promise<void> {
 // 校验规则
 // ---------------------------------------------------------------------------
 
-const roleRules: FormRules = {
+const roleRules = computed<FormRules>(() => ({
   nId: [
     {
       pattern: /^[a-z][a-z0-9-]{2,63}$/,
-      message: '业务标识须以小写字母开头,仅含小写字母/数字/连字符',
+      message: copy.value.feedback.businessIdRule,
       trigger: 'blur',
     },
   ],
   name: [
-    { required: true, message: '请输入角色名称', trigger: 'blur' },
-    { min: 2, max: 32, message: '角色名称长度 2-32 个字符', trigger: 'blur' },
+    { required: true, message: copy.value.feedback.nameRequired, trigger: 'blur' },
+    { min: 2, max: 32, message: copy.value.feedback.nameLength, trigger: 'blur' },
   ],
-}
+}))
 
 onMounted(() => {
   void loadRoles()
@@ -335,22 +403,22 @@ onMounted(() => {
       @submit="search"
       @reset="resetQuery"
     >
-        <el-input
-          v-model="query.nId"
-          :placeholder="copy.roleNId"
-          :aria-label="copy.roleNId"
-          clearable
-          class="roles-page__filter"
-          @keyup.enter="search"
-        />
-        <el-input
-          v-model="query.name"
-          :placeholder="copy.roleName"
-          :aria-label="copy.roleName"
-          clearable
-          class="roles-page__filter"
-          @keyup.enter="search"
-        />
+      <el-input
+        v-model="query.nId"
+        :placeholder="copy.roleNId"
+        :aria-label="copy.roleNId"
+        clearable
+        class="roles-page__filter"
+        @keyup.enter="search"
+      />
+      <el-input
+        v-model="query.name"
+        :placeholder="copy.roleName"
+        :aria-label="copy.roleName"
+        clearable
+        class="roles-page__filter"
+        @keyup.enter="search"
+      />
     </AppQueryPanel>
 
     <AppDataTable
@@ -361,6 +429,7 @@ onMounted(() => {
       :total="total"
       :loading="loading"
       :columns="roleColumns"
+      :initial-page-index="pageIndex"
       :page-size="pageSize"
       :loader="loadRolesTable"
       :exporter="exportRoles"
@@ -372,21 +441,66 @@ onMounted(() => {
         <span v-else>—</span>
       </template>
       <template #cell-permissionCount="{ row }">{{ row.permissionNIds.length }}</template>
-      <template #actions="{ row }">
-        <PermissionGate :permission-n-id="PERMISSIONS.roleUpdate">
-          <el-button link type="primary" :disabled="row.isSystem" @click="openEdit(row)"
-            >{{ copy.edit }}</el-button
+      <template #actions="{ row, availableWidth }">
+        <div class="roles-page__row-actions" :data-testid="`identity-role-actions-${row.roleNId}`">
+          <PermissionGate
+            v-if="isDirectRoleAction(availableWidth, 'edit')"
+            :permission-n-id="PERMISSIONS.roleUpdate"
           >
-        </PermissionGate>
-        <PermissionGate :permission-n-id="PERMISSIONS.roleAssignPermission">
-          <el-button
-            link
-            type="primary"
-            :disabled="row.isSystem"
-            @click="openAssignPermissions(row)"
-            >{{ copy.assignPermissions }}</el-button
+            <el-button link type="primary" :disabled="row.isSystem" @click="openEdit(row)">{{
+              copy.edit
+            }}</el-button>
+          </PermissionGate>
+          <PermissionGate
+            v-if="isDirectRoleAction(availableWidth, 'assign-permission')"
+            :permission-n-id="PERMISSIONS.roleAssignPermission"
           >
-        </PermissionGate>
+            <el-button
+              link
+              type="primary"
+              :disabled="row.isSystem"
+              @click="openAssignPermissions(row)"
+              >{{ copy.assignPermissions }}</el-button
+            >
+          </PermissionGate>
+          <ElDropdown
+            v-if="hasMoreRoleActions(availableWidth)"
+            trigger="click"
+            placement="bottom-end"
+            :teleported="true"
+            popper-class="roles-page__more-popper"
+            @command="onRoleActionCommand(row, $event)"
+          >
+            <button
+              type="button"
+              class="roles-page__more-trigger"
+              :data-testid="`identity-role-more-${row.roleNId}`"
+              aria-haspopup="menu"
+            >
+              {{ commonCopy.more }}
+            </button>
+            <template #dropdown>
+              <ElDropdownMenu :data-testid="`identity-role-more-menu-${row.roleNId}`" role="menu">
+                <PermissionGate
+                  v-if="!isDirectRoleAction(availableWidth, 'edit')"
+                  :permission-n-id="PERMISSIONS.roleUpdate"
+                >
+                  <ElDropdownItem command="edit" :disabled="row.isSystem">{{
+                    copy.edit
+                  }}</ElDropdownItem>
+                </PermissionGate>
+                <PermissionGate
+                  v-if="!isDirectRoleAction(availableWidth, 'assign-permission')"
+                  :permission-n-id="PERMISSIONS.roleAssignPermission"
+                >
+                  <ElDropdownItem command="assign-permission" :disabled="row.isSystem">{{
+                    copy.assignPermissions
+                  }}</ElDropdownItem>
+                </PermissionGate>
+              </ElDropdownMenu>
+            </template>
+          </ElDropdown>
+        </div>
       </template>
     </AppDataTable>
 
@@ -406,12 +520,19 @@ onMounted(() => {
           <el-input v-model="form.name" :placeholder="copy.roleName" />
         </el-form-item>
         <el-form-item :label="commonCopy.description" prop="description">
-          <el-input v-model="form.description" type="textarea" :rows="3" :placeholder="commonCopy.optional" />
+          <el-input
+            v-model="form.description"
+            type="textarea"
+            :rows="3"
+            :placeholder="commonCopy.optional"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogOpen = false">{{ commonCopy.cancel }}</el-button>
-        <el-button type="primary" :loading="dialogSaving" @click="submitDialog">{{ commonCopy.save }}</el-button>
+        <el-button type="primary" :loading="dialogSaving" @click="submitDialog">{{
+          commonCopy.save
+        }}</el-button>
       </template>
     </AppFormDrawer>
 
@@ -437,7 +558,9 @@ onMounted(() => {
       </div>
       <template #footer>
         <el-button @click="permissionDialogOpen = false">{{ commonCopy.cancel }}</el-button>
-        <el-button type="primary" :loading="permissionSaving" @click="submitPermissions">{{ commonCopy.save }}</el-button>
+        <el-button type="primary" :loading="permissionSaving" @click="submitPermissions">{{
+          commonCopy.save
+        }}</el-button>
       </template>
     </AppFormDrawer>
   </AppPage>
@@ -507,6 +630,49 @@ onMounted(() => {
 
 .roles-page__filter {
   width: 200px;
+}
+
+.roles-page__row-actions {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ip-space-1);
+  white-space: nowrap;
+}
+
+.roles-page__more-trigger {
+  min-height: var(--ip-density-control-height);
+  padding: 0 var(--ip-space-1);
+  color: var(--ip-color-primary);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.roles-page__more-trigger:focus-visible {
+  outline: 2px solid var(--ip-color-primary);
+  outline-offset: 2px;
+}
+
+:global(.roles-page__more-popper) {
+  min-width: 148px;
+  padding: var(--ip-space-1);
+  background: var(--ip-color-bg-container);
+  border: 1px solid var(--ip-color-border);
+  border-radius: var(--ip-radius-md);
+  box-shadow: var(--ip-shadow-md);
+}
+
+:global(.roles-page__more-popper .el-dropdown-menu) {
+  padding: 0;
+  background: transparent;
+}
+
+:global(.roles-page__more-popper .el-dropdown-menu__item) {
+  min-height: var(--ip-density-control-height);
+  color: var(--ip-color-text-primary);
+  border-radius: var(--ip-radius-sm);
 }
 
 .roles-page__spacer {

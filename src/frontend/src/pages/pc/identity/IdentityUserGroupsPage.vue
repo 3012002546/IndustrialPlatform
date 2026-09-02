@@ -67,8 +67,18 @@ const tableQueryMode = ref<AppDataTableQueryMode>('top')
 
 const groupColumns = computed<readonly AppDataTableColumn[]>(() => [
   { field: 'name', title: copy.value.name, minWidth: 150, filter: { kind: 'text' as const } },
-  { field: 'groupNId', title: copy.value.groupNId, minWidth: 180, filter: { kind: 'text' as const } },
-  { field: 'description', title: copy.value.descriptionColumn, minWidth: 200, filter: { kind: 'text' as const } },
+  {
+    field: 'groupNId',
+    title: copy.value.groupNId,
+    minWidth: 180,
+    filter: { kind: 'text' as const },
+  },
+  {
+    field: 'description',
+    title: copy.value.descriptionColumn,
+    minWidth: 200,
+    filter: { kind: 'text' as const },
+  },
   {
     field: 'status',
     title: commonCopy.value.status,
@@ -98,7 +108,7 @@ async function loadGroups(): Promise<void> {
     rows.value = result.items
     total.value = result.total
   } catch (error) {
-    reportManagementError(error, '加载用户组列表失败')
+    reportManagementError(error, copy.value.feedback.loadFailed)
   } finally {
     loading.value = false
   }
@@ -281,7 +291,7 @@ async function submitDialog(): Promise<void> {
           createMemberUserNIds.value.length > 0 ? [...createMemberUserNIds.value] : undefined,
         roleNIds: createRoleNIds.value.length > 0 ? [...createRoleNIds.value] : undefined,
       })
-      ElMessage.success('用户组创建成功')
+      ElMessage.success(copy.value.feedback.createSuccess)
     } else {
       await management.updateUserGroup(editing.value.groupNId, {
         name: form.name.trim(),
@@ -289,12 +299,12 @@ async function submitDialog(): Promise<void> {
         expectedOptimisticVersion: editing.value.optimisticVersion,
         expectedConcurrencyVersion: editing.value.concurrencyVersion,
       })
-      ElMessage.success('用户组已更新')
+      ElMessage.success(copy.value.feedback.updateSuccess)
     }
     dialogOpen.value = false
     await loadGroups()
   } catch (error) {
-    reportGroupError(error, '保存用户组失败')
+    reportGroupError(error, copy.value.feedback.saveFailed)
   } finally {
     dialogSaving.value = false
   }
@@ -306,14 +316,17 @@ async function submitDialog(): Promise<void> {
 
 async function toggleStatus(row: UserGroupSummaryDto): Promise<void> {
   const isActive = row.status === 'Active'
-  const action = isActive ? '禁用' : '启用'
   try {
     await ElMessageBox.confirm(
       isActive
-        ? `确定禁用用户组「${row.name}」?禁用后该组不再贡献任何角色,成员与角色配置保留。`
-        : `确定启用用户组「${row.name}」?启用后组角色重新生效。`,
-      `${action}确认`,
-      { type: 'warning', confirmButtonText: `${action}`, cancelButtonText: '取消' },
+        ? copy.value.feedback.statusDisableConfirm.replace('{name}', row.name)
+        : copy.value.feedback.statusEnableConfirm.replace('{name}', row.name),
+      copy.value.feedback.statusConfirmTitle,
+      {
+        type: 'warning',
+        confirmButtonText: isActive ? copy.value.disable : copy.value.enable,
+        cancelButtonText: commonCopy.value.cancel,
+      },
     )
   } catch {
     return // 用户取消
@@ -324,10 +337,10 @@ async function toggleStatus(row: UserGroupSummaryDto): Promise<void> {
       expectedOptimisticVersion: row.optimisticVersion,
       expectedConcurrencyVersion: row.concurrencyVersion,
     })
-    ElMessage.success(`用户组已${action}`)
+    ElMessage.success(copy.value.feedback.statusUpdated)
     await loadGroups()
   } catch (error) {
-    reportGroupError(error, `${action}用户组失败`)
+    reportGroupError(error, copy.value.feedback.statusFailed)
   }
 }
 
@@ -354,7 +367,7 @@ async function openManageMembers(row: UserGroupSummaryDto): Promise<void> {
     selectedMemberUserNIds.value = [...detail.memberUserNIds]
   } catch (error) {
     membersDialogOpen.value = false
-    reportGroupError(error, '加载用户组成员失败')
+    reportGroupError(error, copy.value.feedback.membersLoadFailed)
   } finally {
     membersLoading.value = false
   }
@@ -371,11 +384,11 @@ async function submitMembers(): Promise<void> {
       expectedOptimisticVersion: detail.optimisticVersion,
       expectedConcurrencyVersion: detail.concurrencyVersion,
     })
-    ElMessage.success('成员已更新')
+    ElMessage.success(copy.value.feedback.membersUpdated)
     membersDialogOpen.value = false
     await loadGroups()
   } catch (error) {
-    reportGroupError(error, '保存成员失败')
+    reportGroupError(error, copy.value.feedback.membersSaveFailed)
   } finally {
     membersSaving.value = false
   }
@@ -404,7 +417,7 @@ async function openManageRoles(row: UserGroupSummaryDto): Promise<void> {
     selectedRoleNIds.value = [...detail.roleNIds]
   } catch (error) {
     rolesDialogOpen.value = false
-    reportGroupError(error, '加载用户组角色失败')
+    reportGroupError(error, copy.value.feedback.rolesLoadFailed)
   } finally {
     rolesLoading.value = false
   }
@@ -421,11 +434,11 @@ async function submitRoles(): Promise<void> {
       expectedOptimisticVersion: detail.optimisticVersion,
       expectedConcurrencyVersion: detail.concurrencyVersion,
     })
-    ElMessage.success('角色已更新')
+    ElMessage.success(copy.value.feedback.rolesUpdated)
     rolesDialogOpen.value = false
     await loadGroups()
   } catch (error) {
-    reportGroupError(error, '保存角色失败')
+    reportGroupError(error, copy.value.feedback.rolesSaveFailed)
   } finally {
     rolesSaving.value = false
   }
@@ -438,13 +451,13 @@ async function submitRoles(): Promise<void> {
 async function deleteGroup(row: UserGroupSummaryDto): Promise<void> {
   try {
     const { value: reason } = await ElMessageBox.prompt(
-      `确定删除用户组「${row.name}」?删除为墓碑删除:有效成员与组角色关系将被解除,成员将失去该组继承的角色。`,
-      '删除用户组',
+      copy.value.feedback.deleteConfirm.replace('{name}', row.name),
+      copy.value.feedback.deleteTitle,
       {
         type: 'warning',
-        confirmButtonText: '删除',
-        cancelButtonText: '取消',
-        inputPlaceholder: '删除原因(可选)',
+        confirmButtonText: copy.value.feedback.deleteButton,
+        cancelButtonText: commonCopy.value.cancel,
+        inputPlaceholder: copy.value.feedback.deleteReasonPlaceholder,
         inputValidator: () => true,
       },
     )
@@ -453,24 +466,24 @@ async function deleteGroup(row: UserGroupSummaryDto): Promise<void> {
       expectedOptimisticVersion: row.optimisticVersion,
       expectedConcurrencyVersion: row.concurrencyVersion,
     })
-    ElMessage.success('用户组已删除')
+    ElMessage.success(copy.value.feedback.deletedSuccess)
     await loadGroups()
   } catch (error) {
     if (error === 'cancel' || error === 'close') return // 用户取消
-    reportGroupError(error, '删除用户组失败')
+    reportGroupError(error, copy.value.feedback.deleteFailed)
   }
 }
 
 async function restoreGroup(row: UserGroupSummaryDto): Promise<void> {
   try {
     const { value: reason } = await ElMessageBox.prompt(
-      `确定恢复用户组「${row.name}」?仅已删除(墓碑)用户组可恢复;恢复后状态为禁用,不自动恢复成员/角色关系。`,
-      '恢复用户组',
+      copy.value.feedback.restoreConfirm.replace('{name}', row.name),
+      copy.value.feedback.restoreTitle,
       {
         type: 'warning',
-        confirmButtonText: '恢复',
-        cancelButtonText: '取消',
-        inputPlaceholder: '恢复原因(可选)',
+        confirmButtonText: copy.value.feedback.restoreButton,
+        cancelButtonText: commonCopy.value.cancel,
+        inputPlaceholder: copy.value.feedback.restoreReasonPlaceholder,
         inputValidator: () => true,
       },
     )
@@ -479,11 +492,11 @@ async function restoreGroup(row: UserGroupSummaryDto): Promise<void> {
       expectedOptimisticVersion: row.optimisticVersion,
       expectedConcurrencyVersion: row.concurrencyVersion,
     })
-    ElMessage.success('用户组已恢复')
+    ElMessage.success(copy.value.feedback.restoredSuccess)
     await loadGroups()
   } catch (error) {
     if (error === 'cancel' || error === 'close') return // 用户取消
-    reportGroupError(error, '恢复用户组失败')
+    reportGroupError(error, copy.value.feedback.restoreFailed)
   }
 }
 
@@ -491,19 +504,19 @@ async function restoreGroup(row: UserGroupSummaryDto): Promise<void> {
 // 校验规则
 // ---------------------------------------------------------------------------
 
-const groupRules: FormRules = {
+const groupRules = computed<FormRules>(() => ({
   nId: [
     {
       pattern: /^[a-z][a-z0-9-]{2,63}$/,
-      message: '业务标识须以小写字母开头,仅含小写字母/数字/连字符',
+      message: copy.value.feedback.businessIdRule,
       trigger: 'blur',
     },
   ],
   name: [
-    { required: true, message: '请输入用户组名称', trigger: 'blur' },
-    { min: 2, max: 32, message: '用户组名称长度 2-32 个字符', trigger: 'blur' },
+    { required: true, message: copy.value.feedback.nameRequired, trigger: 'blur' },
+    { min: 2, max: 32, message: copy.value.feedback.nameLength, trigger: 'blur' },
   ],
-}
+}))
 
 onMounted(() => {
   void loadGroups()
@@ -544,26 +557,28 @@ onMounted(() => {
       @submit="search"
       @reset="resetQuery"
     >
-        <el-input
-          v-model="query.name"
-          :placeholder="copy.name"
-          :aria-label="copy.name"
-          clearable
-          class="groups-page__filter"
-          data-testid="user-groups-search"
-          @keyup.enter="search"
-        />
-        <el-select
-          v-model="query.status"
-          :placeholder="commonCopy.status"
-          :aria-label="commonCopy.status"
-          clearable
-          class="groups-page__filter groups-page__filter--status"
-        >
-          <el-option :label="copy.enable" value="Active" />
-          <el-option :label="copy.disable" value="Disabled" />
-        </el-select>
-        <el-checkbox v-model="query.includeDeleted" @change="search">{{ copy.includeDeleted }}</el-checkbox>
+      <el-input
+        v-model="query.name"
+        :placeholder="copy.name"
+        :aria-label="copy.name"
+        clearable
+        class="groups-page__filter"
+        data-testid="user-groups-search"
+        @keyup.enter="search"
+      />
+      <el-select
+        v-model="query.status"
+        :placeholder="commonCopy.status"
+        :aria-label="commonCopy.status"
+        clearable
+        class="groups-page__filter groups-page__filter--status"
+      >
+        <el-option :label="copy.enable" value="Active" />
+        <el-option :label="copy.disable" value="Disabled" />
+      </el-select>
+      <el-checkbox v-model="query.includeDeleted" @change="search">{{
+        copy.includeDeleted
+      }}</el-checkbox>
     </AppQueryPanel>
 
     <AppDataTable
@@ -574,6 +589,7 @@ onMounted(() => {
       :total="total"
       :loading="loading"
       :columns="groupColumns"
+      :initial-page-index="pageIndex"
       :page-size="pageSize"
       :loader="loadGroupsTable"
       :exporter="exportGroups"
@@ -599,7 +615,9 @@ onMounted(() => {
           </el-button>
         </PermissionGate>
         <PermissionGate :permission-n-id="PERMISSIONS.userGroupAssignMember">
-          <el-button link type="primary" @click="openManageMembers(row)">{{ copy.members }}</el-button>
+          <el-button link type="primary" @click="openManageMembers(row)">{{
+            copy.members
+          }}</el-button>
         </PermissionGate>
         <PermissionGate :permission-n-id="PERMISSIONS.userGroupAssignRole">
           <el-button link type="primary" @click="openManageRoles(row)">{{ copy.roles }}</el-button>
@@ -634,7 +652,12 @@ onMounted(() => {
           <el-input v-model="form.name" :placeholder="copy.name" />
         </el-form-item>
         <el-form-item :label="commonCopy.description" prop="description">
-          <el-input v-model="form.description" type="textarea" :rows="3" :placeholder="commonCopy.optional" />
+          <el-input
+            v-model="form.description"
+            type="textarea"
+            :rows="3"
+            :placeholder="commonCopy.optional"
+          />
         </el-form-item>
         <template v-if="editing === null">
           <el-form-item :label="copy.initialMembers">
@@ -675,7 +698,9 @@ onMounted(() => {
       </el-form>
       <template #footer>
         <el-button @click="dialogOpen = false">{{ commonCopy.cancel }}</el-button>
-        <el-button type="primary" :loading="dialogSaving" @click="submitDialog">{{ commonCopy.save }}</el-button>
+        <el-button type="primary" :loading="dialogSaving" @click="submitDialog">{{
+          commonCopy.save
+        }}</el-button>
       </template>
     </AppFormDrawer>
 
@@ -703,7 +728,9 @@ onMounted(() => {
       </div>
       <template #footer>
         <el-button @click="membersDialogOpen = false">{{ commonCopy.cancel }}</el-button>
-        <el-button type="primary" :loading="membersSaving" @click="submitMembers">{{ commonCopy.save }}</el-button>
+        <el-button type="primary" :loading="membersSaving" @click="submitMembers">{{
+          commonCopy.save
+        }}</el-button>
       </template>
     </AppFormDrawer>
 
@@ -731,7 +758,9 @@ onMounted(() => {
       </div>
       <template #footer>
         <el-button @click="rolesDialogOpen = false">{{ commonCopy.cancel }}</el-button>
-        <el-button type="primary" :loading="rolesSaving" @click="submitRoles">{{ commonCopy.save }}</el-button>
+        <el-button type="primary" :loading="rolesSaving" @click="submitRoles">{{
+          commonCopy.save
+        }}</el-button>
       </template>
     </AppFormDrawer>
   </AppPage>

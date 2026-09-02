@@ -24,46 +24,263 @@ export interface IdentityManagementCommonCopy {
   operation: string
   yes: string
   no: string
+  more: string
   pagePath: string
 }
 
 export interface IdentityManagementMessages {
   common: IdentityManagementCommonCopy
   userGroups: {
-    title: string; description: string; breadcrumb: string; countSuffix: string; name: string; groupNId: string
-    descriptionColumn: string; memberCount: string; roleCount: string; includeDeleted: string; create: string; edit: string
-    members: string; roles: string; delete: string; restore: string; enable: string; disable: string; createTitle: string
-    editTitle: string; memberTitle: string; roleTitle: string; selectUser: string; selectRole: string
-    initialMembers: string; initialRoles: string; memberDescription: string; roleDescription: string
+    title: string
+    description: string
+    breadcrumb: string
+    countSuffix: string
+    name: string
+    groupNId: string
+    descriptionColumn: string
+    memberCount: string
+    roleCount: string
+    includeDeleted: string
+    create: string
+    edit: string
+    members: string
+    roles: string
+    delete: string
+    restore: string
+    enable: string
+    disable: string
+    createTitle: string
+    editTitle: string
+    memberTitle: string
+    roleTitle: string
+    selectUser: string
+    selectRole: string
+    initialMembers: string
+    initialRoles: string
+    memberDescription: string
+    roleDescription: string
+    feedback: {
+      loadFailed: string
+      createSuccess: string
+      updateSuccess: string
+      saveFailed: string
+      statusConfirmTitle: string
+      statusEnableConfirm: string
+      statusDisableConfirm: string
+      statusUpdated: string
+      statusFailed: string
+      membersLoadFailed: string
+      membersUpdated: string
+      membersSaveFailed: string
+      rolesLoadFailed: string
+      rolesUpdated: string
+      rolesSaveFailed: string
+      deleteConfirm: string
+      deleteTitle: string
+      deleteButton: string
+      deleteReasonPlaceholder: string
+      deletedSuccess: string
+      deleteFailed: string
+      restoreConfirm: string
+      restoreTitle: string
+      restoreButton: string
+      restoreReasonPlaceholder: string
+      restoredSuccess: string
+      restoreFailed: string
+      businessIdRule: string
+      nameRequired: string
+      nameLength: string
+    }
   }
   roles: {
-    title: string; description: string; breadcrumb: string; countSuffix: string; roleName: string; roleNId: string
-    descriptionColumn: string; systemRole: string; permissionCount: string; create: string; edit: string
-    assignPermissions: string; createTitle: string; editTitle: string; permissionDescription: string
+    title: string
+    description: string
+    breadcrumb: string
+    countSuffix: string
+    roleName: string
+    roleNId: string
+    descriptionColumn: string
+    systemRole: string
+    permissionCount: string
+    create: string
+    edit: string
+    assignPermissions: string
+    createTitle: string
+    editTitle: string
+    permissionDescription: string
+    feedback: {
+      loadFailed: string
+      createSuccess: string
+      updateSuccess: string
+      saveFailed: string
+      permissionLoadFailed: string
+      permissionUpdated: string
+      permissionSaveFailed: string
+      businessIdRule: string
+      nameRequired: string
+      nameLength: string
+    }
   }
   permissions: {
-    title: string; description: string; breadcrumb: string; countSuffix: string; filter: string; page: string; operation: string
+    title: string
+    description: string
+    breadcrumb: string
+    countSuffix: string
+    filter: string
+    page: string
+    operation: string
+    feedback: { loadFailed: string }
   }
   audits: {
-    title: string; description: string; breadcrumb: string; countSuffix: string; userNId: string; result: string
-    success: string; failed: string; time: string; loginName: string; failureCode: string; ipHash: string; uaHash: string
-    traceId: string; hint: string
+    title: string
+    description: string
+    breadcrumb: string
+    countSuffix: string
+    userNId: string
+    result: string
+    success: string
+    failed: string
+    time: string
+    loginName: string
+    failureCode: string
+    ipHash: string
+    uaHash: string
+    traceId: string
+    hint: string
+    feedback: { loadFailed: string }
   }
   ssoProviders: {
-    title: string; description: string; breadcrumb: string; countSuffix: string; create: string; name: string; protocol: string
-    authority: string; clientId: string; secret: string; autoRedirect: string; status: string; createdOn: string
-    configured: string; notConfigured: string; enabled: string; disabled: string; edit: string; secretAction: string
-    accounts: string; test: string; createTitle: string; editTitle: string; secretTitle: string; accountTitle: string
-    callbackPath: string; provisioningMode: string; logoutMode: string; allowedEmailDomains: string; defaultRole: string
-    secretReference: string; bindUser: string; externalSubject: string; externalName: string; externalEmail: string; lastLoginOn: string; bind: string; unbind: string
-    manualProvisioning: string; jitProvisioning: string; localLogout: string; federatedLogout: string
-    clientIdPlaceholder: string; callbackPlaceholder: string; autoRedirectHint: string; allowedEmailDomainsPlaceholder: string; defaultRolePlaceholder: string; secretDescription: string; secretReferencePlaceholder: string; userNIdPlaceholder: string; externalSubjectPlaceholder: string
+    title: string
+    description: string
+    breadcrumb: string
+    countSuffix: string
+    create: string
+    name: string
+    protocol: string
+    authority: string
+    clientId: string
+    secret: string
+    autoRedirect: string
+    status: string
+    createdOn: string
+    configured: string
+    notConfigured: string
+    enabled: string
+    disabled: string
+    edit: string
+    secretAction: string
+    accounts: string
+    test: string
+    createTitle: string
+    editTitle: string
+    secretTitle: string
+    accountTitle: string
+    callbackPath: string
+    provisioningMode: string
+    logoutMode: string
+    allowedEmailDomains: string
+    defaultRole: string
+    secretReference: string
+    bindUser: string
+    externalSubject: string
+    externalName: string
+    externalEmail: string
+    lastLoginOn: string
+    bind: string
+    unbind: string
+    manualProvisioning: string
+    jitProvisioning: string
+    localLogout: string
+    federatedLogout: string
+    clientIdPlaceholder: string
+    callbackPlaceholder: string
+    autoRedirectHint: string
+    allowedEmailDomainsPlaceholder: string
+    defaultRolePlaceholder: string
+    secretDescription: string
+    secretReferencePlaceholder: string
+    userNIdPlaceholder: string
+    externalSubjectPlaceholder: string
+    feedback: {
+      loadFailed: string
+      createSuccess: string
+      updateSuccess: string
+      saveFailed: string
+      secretUpdated: string
+      secretSaveFailed: string
+      statusConfirmTitle: string
+      statusEnableConfirm: string
+      statusDisableConfirm: string
+      statusUpdated: string
+      statusFailed: string
+      testSuccessTitle: string
+      testFailedTitle: string
+      testConfirm: string
+      testFailed: string
+      accountsLoadFailed: string
+      bindSuccess: string
+      bindFailed: string
+      unbindConfirmTitle: string
+      unbindConfirm: string
+      unbindSuccess: string
+      unbindFailed: string
+      nameRequired: string
+      authorityInvalid: string
+      secretRequired: string
+      userNIdRequired: string
+      externalSubjectRequired: string
+      emailInvalid: string
+    }
   }
   ssoClients: {
-    title: string; description: string; breadcrumb: string; countSuffix: string; create: string; name: string; clientId: string
-    endpointCount: string; status: string; createdOn: string; enabled: string; disabled: string; edit: string; endpoints: string
-    endpointTitle: string; createTitle: string; editTitle: string; type: string; uri: string; register: string; remove: string
-    redirect: string; postLogoutRedirect: string; origin: string
+    title: string
+    description: string
+    breadcrumb: string
+    countSuffix: string
+    create: string
+    name: string
+    clientId: string
+    endpointCount: string
+    status: string
+    createdOn: string
+    enabled: string
+    disabled: string
+    edit: string
+    endpoints: string
+    endpointTitle: string
+    createTitle: string
+    editTitle: string
+    type: string
+    uri: string
+    register: string
+    remove: string
+    redirect: string
+    postLogoutRedirect: string
+    origin: string
+    feedback: {
+      loadFailed: string
+      createSuccess: string
+      updateSuccess: string
+      saveFailed: string
+      statusConfirmTitle: string
+      statusEnableConfirm: string
+      statusDisableConfirm: string
+      statusUpdated: string
+      statusFailed: string
+      endpointRegistered: string
+      endpointRegisterFailed: string
+      endpointStatusUpdated: string
+      endpointStatusFailed: string
+      endpointRemoveConfirmTitle: string
+      endpointRemoveConfirm: string
+      endpointRemoved: string
+      endpointRemoveFailed: string
+      nameRequired: string
+      clientIdInvalid: string
+      typeRequired: string
+      uriRequired: string
+      uriInvalid: string
+    }
   }
 }
 
@@ -213,6 +430,7 @@ export interface PlatformLocaleMessages {
       select: string
       actions: string
       loading: string
+      loadError: string
       selectionSummary: string
       clearSelection: string
       fullscreen: string

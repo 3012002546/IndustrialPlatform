@@ -34,9 +34,26 @@ const pageIndex = ref(1)
 const pageSize = ref(25)
 const tableQueryMode = ref<AppDataTableQueryMode>('top')
 
+function auditSuccessFilter(value: unknown): boolean | undefined {
+  if (value === true || value === 'true' || value === 'success') return true
+  if (value === false || value === 'false' || value === 'failed') return false
+  return undefined
+}
+
 const auditColumns = computed<readonly AppDataTableColumn[]>(() => [
-  { field: 'occurredOn', title: copy.value.time, width: 175, sortable: true, filter: { kind: 'date-range' as const } },
-  { field: 'loginNameSnapshot', title: copy.value.loginName, minWidth: 140, filter: { kind: 'text' as const } },
+  {
+    field: 'occurredOn',
+    title: copy.value.time,
+    width: 175,
+    sortable: true,
+    filter: { kind: 'date-range' as const },
+  },
+  {
+    field: 'loginNameSnapshot',
+    title: copy.value.loginName,
+    minWidth: 140,
+    filter: { kind: 'text' as const },
+  },
   {
     field: 'success',
     title: copy.value.result,
@@ -49,9 +66,24 @@ const auditColumns = computed<readonly AppDataTableColumn[]>(() => [
       ],
     },
   },
-  { field: 'failureCode', title: copy.value.failureCode, minWidth: 140, filter: { kind: 'text' as const } },
-  { field: 'ipAddressHash', title: copy.value.ipHash, minWidth: 150, filter: { kind: 'text' as const } },
-  { field: 'userAgentHash', title: copy.value.uaHash, minWidth: 160, filter: { kind: 'text' as const } },
+  {
+    field: 'failureCode',
+    title: copy.value.failureCode,
+    minWidth: 140,
+    filter: { kind: 'text' as const },
+  },
+  {
+    field: 'ipAddressHash',
+    title: copy.value.ipHash,
+    minWidth: 150,
+    filter: { kind: 'text' as const },
+  },
+  {
+    field: 'userAgentHash',
+    title: copy.value.uaHash,
+    minWidth: 160,
+    filter: { kind: 'text' as const },
+  },
   { field: 'traceId', title: copy.value.traceId, minWidth: 200, filter: { kind: 'text' as const } },
 ])
 
@@ -60,14 +92,14 @@ async function loadAudits(): Promise<void> {
   try {
     const result = await management.listLoginAudits({
       userNId: query.userNId.trim() || undefined,
-      success: query.success === '' ? undefined : query.success === 'success',
+      success: auditSuccessFilter(query.success),
       pageIndex: pageIndex.value,
       pageSize: pageSize.value,
     })
     rows.value = result.items
     total.value = result.total
   } catch (error) {
-    reportManagementError(error, '加载登录审计失败')
+    reportManagementError(error, copy.value.feedback.loadFailed)
   } finally {
     loading.value = false
   }
@@ -101,7 +133,6 @@ function onTableQueryModeChange(mode: AppDataTableQueryMode): void {
 
 async function loadAuditsTable(request: AppDataTableRequest) {
   const filters = request.queryMode === 'top' ? { ...query, ...request.filters } : request.filters
-  const success = filters.success
   const result = await management.listLoginAudits({
     keyword: String(filters.keyword ?? '').trim() || undefined,
     userNId: String(filters.userNId ?? '').trim() || undefined,
@@ -110,10 +141,13 @@ async function loadAuditsTable(request: AppDataTableRequest) {
     ipAddressHash: String(filters.ipAddressHash ?? '').trim() || undefined,
     userAgentHash: String(filters.userAgentHash ?? '').trim() || undefined,
     traceId: String(filters.traceId ?? '').trim() || undefined,
-    occurredFrom: Array.isArray(filters.occurredOn) ? String(filters.occurredOn[0] ?? '') || undefined : undefined,
-    occurredTo: Array.isArray(filters.occurredOn) ? String(filters.occurredOn[1] ?? '') || undefined : undefined,
-    success:
-      success === '' || success === undefined ? undefined : success === true || success === 'true',
+    occurredFrom: Array.isArray(filters.occurredOn)
+      ? String(filters.occurredOn[0] ?? '') || undefined
+      : undefined,
+    occurredTo: Array.isArray(filters.occurredOn)
+      ? String(filters.occurredOn[1] ?? '') || undefined
+      : undefined,
+    success: auditSuccessFilter(filters.success),
     pageIndex: request.pageIndex,
     pageSize: request.pageSize,
     sortField: request.sort?.field,
@@ -127,7 +161,6 @@ async function loadAuditsTable(request: AppDataTableRequest) {
 async function exportAudits(request: AppDataTableExportRequest): Promise<void> {
   if (management.exportLoginAudits === undefined) return
   const filters = request.queryMode === 'top' ? { ...query, ...request.filters } : request.filters
-  const success = filters.success
   const blob = await management.exportLoginAudits({
     keyword: String(filters.keyword ?? '').trim() || undefined,
     userNId: String(filters.userNId ?? '').trim() || undefined,
@@ -136,10 +169,13 @@ async function exportAudits(request: AppDataTableExportRequest): Promise<void> {
     ipAddressHash: String(filters.ipAddressHash ?? '').trim() || undefined,
     userAgentHash: String(filters.userAgentHash ?? '').trim() || undefined,
     traceId: String(filters.traceId ?? '').trim() || undefined,
-    occurredFrom: Array.isArray(filters.occurredOn) ? String(filters.occurredOn[0] ?? '') || undefined : undefined,
-    occurredTo: Array.isArray(filters.occurredOn) ? String(filters.occurredOn[1] ?? '') || undefined : undefined,
-    success:
-      success === '' || success === undefined ? undefined : success === true || success === 'true',
+    occurredFrom: Array.isArray(filters.occurredOn)
+      ? String(filters.occurredOn[0] ?? '') || undefined
+      : undefined,
+    occurredTo: Array.isArray(filters.occurredOn)
+      ? String(filters.occurredOn[1] ?? '') || undefined
+      : undefined,
+    success: auditSuccessFilter(filters.success),
     quantity: request.quantity,
     columns: request.columns,
     sortField: request.sort?.field,
@@ -183,24 +219,24 @@ onMounted(() => {
       @submit="search"
       @reset="resetQuery"
     >
-        <el-input
-          v-model="query.userNId"
-          :placeholder="copy.userNId"
-          :aria-label="copy.userNId"
-          clearable
-          class="audits-page__filter"
-          @keyup.enter="search"
-        />
-        <el-select
-          v-model="query.success"
-          :placeholder="copy.result"
-          :aria-label="copy.result"
-          clearable
-          class="audits-page__filter audits-page__filter--status"
-        >
-          <el-option :label="copy.success" value="success" />
-          <el-option :label="copy.failed" value="failed" />
-        </el-select>
+      <el-input
+        v-model="query.userNId"
+        :placeholder="copy.userNId"
+        :aria-label="copy.userNId"
+        clearable
+        class="audits-page__filter"
+        @keyup.enter="search"
+      />
+      <el-select
+        v-model="query.success"
+        :placeholder="copy.result"
+        :aria-label="copy.result"
+        clearable
+        class="audits-page__filter audits-page__filter--status"
+      >
+        <el-option :label="copy.success" value="success" />
+        <el-option :label="copy.failed" value="failed" />
+      </el-select>
     </AppQueryPanel>
 
     <AppDataTable
@@ -211,6 +247,7 @@ onMounted(() => {
       :total="total"
       :loading="loading"
       :columns="auditColumns"
+      :initial-page-index="pageIndex"
       :page-size="pageSize"
       :loader="loadAuditsTable"
       :exporter="exportAudits"
@@ -220,7 +257,7 @@ onMounted(() => {
       <template #cell-occurredOn="{ row }">{{ formatTime(row.occurredOn) }}</template>
       <template #cell-success="{ row }">
         <el-tag :type="row.success ? 'success' : 'danger'" effect="light">
-          {{ row.success ? '成功' : '失败' }}
+          {{ row.success ? copy.success : copy.failed }}
         </el-tag>
       </template>
       <template #cell-failureCode="{ row }">{{ row.failureCode ?? '—' }}</template>
