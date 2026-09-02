@@ -6,7 +6,7 @@
  */
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 
 import {
   getSsoManagementApi,
@@ -14,10 +14,19 @@ import {
   type SsoEndpointSummaryDto,
 } from '@/api/identity/ssoManagement'
 import { PERMISSIONS, PermissionGate } from '@/permissions'
+import AppPage from '@/components/base/AppPage.vue'
+import AppDataTable from '@/components/management/AppDataTable.vue'
+import AppFormDrawer from '@/components/management/AppFormDrawer.vue'
+import type { AppDataTableExportRequest } from '@/components/management/AppDataTable'
+import { localeMessages } from '@/localization/i18n'
+import { usePlatformLocale } from '@/localization/localeContext'
 
-import { formatTime, reportManagementError } from '../shared'
+import { downloadBlob, formatTime, reportManagementError } from '../shared'
 
 const ssoManagement = getSsoManagementApi()
+const locale = usePlatformLocale()
+const copy = computed(() => localeMessages[locale.value].identity.management.ssoClients)
+const commonCopy = computed(() => localeMessages[locale.value].identity.management.common)
 
 // ---------------------------------------------------------------------------
 // 列表
@@ -25,6 +34,42 @@ const ssoManagement = getSsoManagementApi()
 
 const loading = ref(false)
 const rows = ref<SsoClientSummaryDto[]>([])
+
+const clientColumns = computed(() => [
+  { field: 'name', title: copy.value.name, minWidth: 150, filter: { kind: 'text' as const } },
+  { field: 'oauthClientId', title: copy.value.clientId, minWidth: 180 },
+  { field: 'endpointCount', title: copy.value.endpointCount, width: 90 },
+  { field: 'enabled', title: copy.value.status, width: 80 },
+  { field: 'createdOn', title: copy.value.createdOn, width: 170, sortable: true },
+])
+
+const endpointColumns = computed(() => [
+  { field: 'type', title: copy.value.type, width: 180 },
+  { field: 'uri', title: copy.value.uri, minWidth: 220 },
+  { field: 'enabled', title: copy.value.status, width: 70 },
+])
+
+async function exportClients(request: AppDataTableExportRequest): Promise<void> {
+  const filters = request.filters
+  const blob = await ssoManagement.exportClients({
+    name: typeof filters.name === 'string' ? filters.name : undefined,
+    quantity: request.quantity,
+    columns: request.columns,
+    sortField: request.sort?.field,
+    sortOrder: request.sort?.order,
+  })
+  downloadBlob(blob, `${request.filename}.xlsx`)
+}
+
+async function exportEndpoints(request: AppDataTableExportRequest): Promise<void> {
+  const client = endpointsClient.value
+  if (client === null) return
+  const blob = await ssoManagement.exportClientEndpoints(client.clientNId, {
+    quantity: request.quantity,
+    columns: request.columns,
+  })
+  downloadBlob(blob, `${request.filename}.xlsx`)
+}
 
 async function loadClients(): Promise<void> {
   loading.value = true
@@ -47,8 +92,10 @@ interface ClientForm {
 }
 
 const dialogOpen = ref(false)
-const dialogTitle = ref('新建 Client')
 const editing = ref<SsoClientSummaryDto | null>(null)
+const dialogTitle = computed(() =>
+  editing.value === null ? copy.value.createTitle : copy.value.editTitle,
+)
 const formRef = ref<FormInstance>()
 const dialogSaving = ref(false)
 const form = reactive<ClientForm>({ name: '', oauthClientId: '' })
@@ -60,14 +107,12 @@ function resetForm(): void {
 
 function openCreate(): void {
   editing.value = null
-  dialogTitle.value = '新建 Client'
   resetForm()
   dialogOpen.value = true
 }
 
 function openEdit(row: SsoClientSummaryDto): void {
   editing.value = row
-  dialogTitle.value = '编辑 Client'
   resetForm()
   form.name = row.name
   form.oauthClientId = row.oauthClientId
@@ -138,11 +183,11 @@ async function toggleEnabled(row: SsoClientSummaryDto): Promise<void> {
 // 端点管理
 // ---------------------------------------------------------------------------
 
-const ENDPOINT_TYPE_OPTIONS = [
-  { label: '回调 Redirect', value: 'Redirect' },
-  { label: '登出回跳 PostLogoutRedirect', value: 'PostLogoutRedirect' },
-  { label: '来源 Origin', value: 'Origin' },
-]
+const endpointTypeOptions = computed(() => [
+  { label: copy.value.redirect, value: 'Redirect' },
+  { label: copy.value.postLogoutRedirect, value: 'PostLogoutRedirect' },
+  { label: copy.value.origin, value: 'Origin' },
+])
 
 const endpointsDrawerOpen = ref(false)
 const endpointsClient = ref<SsoClientSummaryDto | null>(null)
@@ -268,69 +313,83 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="sso-clients-page">
-    <div class="sso-clients-page__toolbar">
-      <span class="sso-clients-page__tip">
-        平台 SSO Client 用于校验回调与登出回跳地址,端点须显式登记。
-      </span>
-      <div class="sso-clients-page__spacer" />
+  <AppPage
+    class="sso-clients-page"
+    data-testid="identity-sso-clients-page"
+    :title="copy.title"
+    :description="copy.description"
+  >
+    <template #breadcrumb>
+      <nav :aria-label="commonCopy.pagePath">{{ copy.breadcrumb }}</nav>
+    </template>
+    <template #heading-meta>
+      <span class="sso-clients-page__count">{{ rows.length }} {{ copy.countSuffix }}</span>
+    </template>
+    <template #actions>
       <PermissionGate :permission-n-id="PERMISSIONS.ssoManage">
-        <el-button type="primary" plain data-testid="sso-client-create" @click="openCreate">
-          新建 Client
+        <el-button type="primary" data-testid="sso-client-create" @click="openCreate">
+          {{ copy.create }}
         </el-button>
       </PermissionGate>
-    </div>
+    </template>
 
-    <el-table :data="rows" v-loading="loading" row-key="clientNId" border stripe>
-      <el-table-column prop="name" label="名称" min-width="150" />
-      <el-table-column prop="oauthClientId" label="OAuth ClientId" min-width="180" />
-      <el-table-column label="端点数" width="90" align="center">
-        <template #default="{ row }">{{ row.endpoints.length }}</template>
-      </el-table-column>
-      <el-table-column label="状态" width="80" align="center">
-        <template #default="{ row }">
-          <el-tag :type="row.enabled ? 'success' : 'danger'" effect="light">
-            {{ row.enabled ? '启用' : '停用' }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="创建时间" width="170">
-        <template #default="{ row }">{{ formatTime(row.createdOn) }}</template>
-      </el-table-column>
-      <el-table-column label="操作" width="220" fixed="right">
-        <template #default="{ row }">
-          <PermissionGate :permission-n-id="PERMISSIONS.ssoManage">
-            <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
-            <el-button link type="primary" @click="openEndpoints(row)">端点</el-button>
-            <el-button link :type="row.enabled ? 'danger' : 'success'" @click="toggleEnabled(row)">
-              {{ row.enabled ? '停用' : '启用' }}
-            </el-button>
-          </PermissionGate>
-        </template>
-      </el-table-column>
-    </el-table>
+    <AppDataTable
+      table-key="identity-sso-clients"
+      route-key="identity-sso-clients"
+      row-key="clientNId"
+      :rows="rows"
+      :total="rows.length"
+      :loading="loading"
+      :columns="clientColumns"
+      :exporter="exportClients"
+    >
+      <template #cell-endpointCount="{ row }">{{ row.endpoints.length }}</template>
+      <template #cell-enabled="{ row }">
+        <el-tag :type="row.enabled ? 'success' : 'danger'" effect="light">
+          {{ row.enabled ? copy.enabled : copy.disabled }}
+        </el-tag>
+      </template>
+      <template #cell-createdOn="{ row }">{{ formatTime(row.createdOn) }}</template>
+      <template #actions="{ row }">
+        <PermissionGate :permission-n-id="PERMISSIONS.ssoManage">
+          <el-button link type="primary" @click="openEdit(row)">{{ copy.edit }}</el-button>
+          <el-button link type="primary" @click="openEndpoints(row)">{{ copy.endpoints }}</el-button>
+          <el-button link :type="row.enabled ? 'danger' : 'success'" @click="toggleEnabled(row)">
+            {{ row.enabled ? copy.disabled : copy.enabled }}
+          </el-button>
+        </PermissionGate>
+      </template>
+    </AppDataTable>
 
     <!-- 新建 / 编辑 -->
-    <el-dialog v-model="dialogOpen" :title="dialogTitle" width="480px" @closed="resetForm">
+    <AppFormDrawer
+      v-model="dialogOpen"
+      :title="dialogTitle"
+      :busy="dialogSaving"
+      size="medium"
+      @cancel="resetForm"
+      @submit="submitDialog"
+    >
       <el-form ref="formRef" :model="form" :rules="clientRules" label-width="120px">
-        <el-form-item label="名称" prop="name">
-          <el-input v-model="form.name" placeholder="Client 显示名称" />
+        <el-form-item :label="copy.name" prop="name">
+          <el-input v-model="form.name" :placeholder="copy.name" />
         </el-form-item>
         <el-form-item label="OAuth ClientId" prop="oauthClientId">
-          <el-input v-model="form.oauthClientId" placeholder="第三方系统持有" />
+          <el-input v-model="form.oauthClientId" :placeholder="copy.clientId" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogOpen = false">取消</el-button>
-        <el-button type="primary" :loading="dialogSaving" @click="submitDialog">保存</el-button>
+        <el-button @click="dialogOpen = false">{{ commonCopy.cancel }}</el-button>
+        <el-button type="primary" :loading="dialogSaving" @click="submitDialog">{{ commonCopy.save }}</el-button>
       </template>
-    </el-dialog>
+    </AppFormDrawer>
 
     <!-- 端点管理 -->
-    <el-drawer
+    <AppFormDrawer
       v-model="endpointsDrawerOpen"
-      :title="`端点管理 · ${endpointsClient?.name ?? ''}`"
-      size="600px"
+      :title="copy.endpointTitle"
+      size="wide"
+      :allow-mode-switch="false"
     >
       <el-form
         ref="endpointFormRef"
@@ -338,85 +397,124 @@ onMounted(() => {
         :rules="endpointRules"
         label-width="110px"
       >
-        <el-form-item label="类型" prop="type">
+        <el-form-item :label="copy.type" prop="type">
           <el-select v-model="endpointForm.type" class="sso-clients-page__full">
             <el-option
-              v-for="option in ENDPOINT_TYPE_OPTIONS"
+              v-for="option in endpointTypeOptions"
               :key="option.value"
               :label="option.label"
               :value="option.value"
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="地址" prop="uri">
+        <el-form-item :label="copy.uri" prop="uri">
           <el-input v-model="endpointForm.uri" placeholder="https://…" />
         </el-form-item>
-        <el-form-item label="业务标识">
-          <el-input v-model="endpointForm.nId" placeholder="可选,默认自动生成" />
+        <el-form-item :label="commonCopy.businessId">
+          <el-input v-model="endpointForm.nId" :placeholder="commonCopy.optional" />
         </el-form-item>
         <el-form-item>
           <PermissionGate :permission-n-id="PERMISSIONS.ssoManage">
             <el-button type="primary" :loading="endpointSaving" @click="submitEndpoint">
-              登记端点
+              {{ copy.register }}
             </el-button>
           </PermissionGate>
         </el-form-item>
       </el-form>
 
-      <el-table
-        :data="endpointsClient?.endpoints ?? []"
+      <h3 class="sso-clients-page__section-title">{{ copy.endpoints }}</h3>
+      <AppDataTable
+        table-key="identity-sso-client-endpoints"
+        route-key="identity-sso-client-endpoints"
         row-key="endpointNId"
-        border
-        stripe
-        size="small"
+        :rows="endpointsClient?.endpoints ?? []"
+        :total="endpointsClient?.endpoints.length ?? 0"
+        :columns="endpointColumns"
+        :exporter="exportEndpoints"
       >
-        <el-table-column label="类型" width="180">
-          <template #default="{ row }">
-            <el-tag effect="light">
-              {{
-                row.type === 'Redirect'
-                  ? '回调'
-                  : row.type === 'PostLogoutRedirect'
-                    ? '登出回跳'
-                    : row.type === 'Origin'
-                      ? '来源'
-                      : row.type
-              }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="uri" label="地址" min-width="220" show-overflow-tooltip />
-        <el-table-column label="状态" width="70" align="center">
-          <template #default="{ row }">
-            <el-tag :type="row.enabled ? 'success' : 'info'" effect="light">
-              {{ row.enabled ? '启用' : '停用' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="140" align="center">
-          <template #default="{ row }">
-            <PermissionGate :permission-n-id="PERMISSIONS.ssoManage">
-              <el-button
-                link
-                :type="row.enabled ? 'danger' : 'success'"
-                @click="toggleEndpointEnabled(row)"
-              >
-                {{ row.enabled ? '停用' : '启用' }}
-              </el-button>
-              <el-button link type="danger" @click="removeEndpoint(row)"> 移除 </el-button>
-            </PermissionGate>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-drawer>
-  </section>
+        <template #cell-type="{ row }">
+          <el-tag effect="light">
+            {{
+              row.type === 'Redirect'
+                ? copy.redirect
+                : row.type === 'PostLogoutRedirect'
+                  ? copy.postLogoutRedirect
+                  : row.type === 'Origin'
+                    ? copy.origin
+                    : row.type
+            }}
+          </el-tag>
+        </template>
+        <template #cell-enabled="{ row }">
+          <el-tag :type="row.enabled ? 'success' : 'info'" effect="light">
+            {{ row.enabled ? copy.enabled : copy.disabled }}
+          </el-tag>
+        </template>
+        <template #actions="{ row }">
+          <PermissionGate :permission-n-id="PERMISSIONS.ssoManage">
+            <el-button
+              link
+              :type="row.enabled ? 'danger' : 'success'"
+              @click="toggleEndpointEnabled(row)"
+            >
+              {{ row.enabled ? copy.disabled : copy.enabled }}
+            </el-button>
+            <el-button link type="danger" @click="removeEndpoint(row)">{{ copy.remove }}</el-button>
+          </PermissionGate>
+        </template>
+      </AppDataTable>
+      <template #footer>
+        <el-button @click="endpointsDrawerOpen = false">{{ commonCopy.cancel }}</el-button>
+      </template>
+    </AppFormDrawer>
+  </AppPage>
 </template>
 
 <style scoped>
 .sso-clients-page {
   display: flex;
   flex-direction: column;
-  gap: var(--ip-space-4);
+  gap: 0;
+  overflow: hidden;
+  background: var(--ip-color-bg-container);
+  border: 1px solid var(--ip-color-border);
+  border-radius: var(--ip-radius-lg);
+  min-width: 0;
+}
+
+.sso-clients-page :deep(.app-page__header) {
+  padding: 18px 20px 17px;
+  border-bottom: 1px solid var(--ip-color-border);
+}
+
+.sso-clients-page :deep(.app-page__body) {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.sso-clients-page :deep(.app-data-table) {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.sso-clients-page :deep(.app-data-table__card) {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.sso-clients-page__count {
+  color: var(--ip-color-text-secondary);
+  font-size: var(--ip-font-size-sm);
+}
+
+.sso-clients-page__section-title {
+  margin: var(--ip-space-5) 0 var(--ip-space-3);
+  font-size: var(--ip-font-size-md);
+  color: var(--ip-color-text-primary);
 }
 
 .sso-clients-page__toolbar {

@@ -5,15 +5,30 @@
  */
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 
 import type { PermissionTreeNodeDto, RoleSummaryDto } from '@/api/identity/management'
 import { getManagementApi } from '@/api/identity/managementRegistry'
 import { PERMISSIONS, PermissionGate } from '@/permissions'
+import AppPage from '@/components/base/AppPage.vue'
+import AppDataTable from '@/components/management/AppDataTable.vue'
+import AppFormDrawer from '@/components/management/AppFormDrawer.vue'
+import AppQueryPanel from '@/components/management/AppQueryPanel.vue'
+import type {
+  AppDataTableColumn,
+  AppDataTableExportRequest,
+  AppDataTableQueryMode,
+  AppDataTableRequest,
+} from '@/components/management/AppDataTable'
 
-import { reportManagementError } from './shared'
+import { downloadBlob, reportManagementError } from './shared'
+import { localeMessages } from '@/localization/i18n'
+import { usePlatformLocale } from '@/localization/localeContext'
 
 const management = getManagementApi()
+const locale = usePlatformLocale()
+const copy = computed(() => localeMessages[locale.value].identity.management.roles)
+const commonCopy = computed(() => localeMessages[locale.value].identity.management.common)
 
 // ---------------------------------------------------------------------------
 // 列表与过滤
@@ -24,7 +39,27 @@ const rows = ref<RoleSummaryDto[]>([])
 const total = ref(0)
 const query = reactive({ nId: '', name: '' })
 const pageIndex = ref(1)
-const pageSize = ref(20)
+const pageSize = ref(25)
+const tableQueryMode = ref<AppDataTableQueryMode>('top')
+
+const roleColumns = computed<readonly AppDataTableColumn[]>(() => [
+  { field: 'name', title: copy.value.roleName, minWidth: 140, filter: { kind: 'text' as const } },
+  { field: 'roleNId', title: copy.value.roleNId, minWidth: 180, filter: { kind: 'text' as const } },
+  { field: 'description', title: copy.value.descriptionColumn, minWidth: 220, filter: { kind: 'text' as const } },
+  {
+    field: 'isSystem',
+    title: copy.value.systemRole,
+    width: 100,
+    filter: {
+      kind: 'select' as const,
+      options: [
+        { label: commonCopy.value.yes, value: true },
+        { label: commonCopy.value.no, value: false },
+      ],
+    },
+  },
+  { field: 'permissionCount', title: copy.value.permissionCount, width: 90, filter: false },
+])
 
 async function loadRoles(): Promise<void> {
   loading.value = true
@@ -56,20 +91,74 @@ function resetQuery(): void {
   void loadRoles()
 }
 
+function onTableQueryModeChange(mode: AppDataTableQueryMode): void {
+  tableQueryMode.value = mode
+  if (mode === 'header') {
+    query.nId = ''
+    query.name = ''
+  }
+  pageIndex.value = 1
+}
+
+function onTableQuery(request: AppDataTableRequest): void {
+  pageIndex.value = request.pageIndex
+  pageSize.value = request.pageSize
+}
+
+async function loadRolesTable(request: AppDataTableRequest) {
+  const nId = request.queryMode === 'top' ? query.nId : request.filters.roleNId
+  const name = request.queryMode === 'top' ? query.name : request.filters.name
+  const filters = request.queryMode === 'top' ? { ...query, ...request.filters } : request.filters
+  const result = await management.listRoles({
+    keyword: String(filters.keyword ?? '').trim() || undefined,
+    nId: String(nId ?? '').trim() || undefined,
+    name: String(name ?? '').trim() || undefined,
+    description: String(filters.description ?? '').trim() || undefined,
+    isSystem: filters.isSystem === undefined || filters.isSystem === '' ? undefined : filters.isSystem === true || filters.isSystem === 'true',
+    pageIndex: request.pageIndex,
+    pageSize: request.pageSize,
+    sortField: request.sort?.field,
+    sortOrder: request.sort?.order,
+  })
+  rows.value = result.items
+  total.value = result.total
+  return result
+}
+
+async function exportRoles(request: AppDataTableExportRequest): Promise<void> {
+  if (management.exportRoles === undefined) return
+  const nId = request.queryMode === 'top' ? query.nId : request.filters.roleNId
+  const name = request.queryMode === 'top' ? query.name : request.filters.name
+  const filters = request.queryMode === 'top' ? { ...query, ...request.filters } : request.filters
+  const blob = await management.exportRoles({
+    nId: String(nId ?? '').trim() || undefined,
+    name: String(name ?? '').trim() || undefined,
+    keyword: String(filters.keyword ?? '').trim() || undefined,
+    description: String(filters.description ?? '').trim() || undefined,
+    isSystem: filters.isSystem === undefined || filters.isSystem === '' ? undefined : filters.isSystem === true || filters.isSystem === 'true',
+    quantity: request.quantity,
+    columns: request.columns,
+    sortField: request.sort?.field,
+    sortOrder: request.sort?.order,
+  })
+  downloadBlob(blob, `${request.filename}.xlsx`)
+}
+
 // ---------------------------------------------------------------------------
 // 新建 / 编辑
 // ---------------------------------------------------------------------------
 
 const dialogOpen = ref(false)
-const dialogTitle = ref('新建角色')
 const editing = ref<RoleSummaryDto | null>(null)
+const dialogTitle = computed(() =>
+  editing.value === null ? copy.value.createTitle : copy.value.editTitle,
+)
 const formRef = ref<FormInstance>()
 const dialogSaving = ref(false)
 const form = reactive({ nId: '', name: '', description: '' })
 
 function openCreate(): void {
   editing.value = null
-  dialogTitle.value = '新建角色'
   form.nId = ''
   form.name = ''
   form.description = ''
@@ -78,7 +167,6 @@ function openCreate(): void {
 
 function openEdit(row: RoleSummaryDto): void {
   editing.value = row
-  dialogTitle.value = '编辑角色'
   form.nId = row.roleNId
   form.name = row.name
   form.description = row.description ?? ''
@@ -216,108 +304,126 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="roles-page">
-    <div class="roles-page__toolbar">
-      <el-input
-        v-model="query.nId"
-        placeholder="业务标识"
-        clearable
-        class="roles-page__filter"
-        @keyup.enter="search"
-      />
-      <el-input
-        v-model="query.name"
-        placeholder="角色名称"
-        clearable
-        class="roles-page__filter"
-        @keyup.enter="search"
-      />
-      <el-button type="primary" @click="search">查询</el-button>
-      <el-button @click="resetQuery">重置</el-button>
-      <div class="roles-page__spacer" />
+  <AppPage
+    class="roles-page"
+    data-testid="identity-roles-page"
+    :title="copy.title"
+    :description="copy.description"
+  >
+    <template #breadcrumb>
+      <nav :aria-label="commonCopy.pagePath">{{ copy.breadcrumb }}</nav>
+    </template>
+    <template #heading-meta>
+      <span class="roles-page__count">{{ total }} {{ copy.countSuffix }}</span>
+    </template>
+    <template #actions>
       <PermissionGate :permission-n-id="PERMISSIONS.roleCreate">
-        <el-button type="primary" plain @click="openCreate">新建角色</el-button>
+        <el-button type="primary" data-testid="roles-create" @click="openCreate">
+          {{ copy.create }}
+        </el-button>
       </PermissionGate>
-    </div>
+    </template>
 
-    <el-table :data="rows" v-loading="loading" row-key="roleNId" border stripe>
-      <el-table-column prop="name" label="角色名称" min-width="140" />
-      <el-table-column prop="roleNId" label="业务标识" min-width="180" />
-      <el-table-column prop="description" label="描述" min-width="220" show-overflow-tooltip />
-      <el-table-column label="系统角色" width="100" align="center">
-        <template #default="{ row }">
-          <el-tag v-if="row.isSystem" type="info" effect="plain">系统</el-tag>
-          <span v-else>—</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="权限数" width="90" align="center">
-        <template #default="{ row }">{{ row.permissionNIds.length }}</template>
-      </el-table-column>
-      <el-table-column label="操作" width="170" fixed="right">
-        <template #default="{ row }">
-          <PermissionGate :permission-n-id="PERMISSIONS.roleUpdate">
-            <el-button link type="primary" :disabled="row.isSystem" @click="openEdit(row)"
-              >编辑</el-button
-            >
-          </PermissionGate>
-          <PermissionGate :permission-n-id="PERMISSIONS.roleAssignPermission">
-            <el-button
-              link
-              type="primary"
-              :disabled="row.isSystem"
-              @click="openAssignPermissions(row)"
-              >分配权限</el-button
-            >
-          </PermissionGate>
-        </template>
-      </el-table-column>
-    </el-table>
+    <AppQueryPanel
+      v-if="tableQueryMode === 'top'"
+      class="roles-page__query-panel"
+      :title="commonCopy.queryTitle"
+      :show-actions="true"
+      :submit-label="commonCopy.search"
+      :reset-label="commonCopy.reset"
+      :grid="true"
+      @submit="search"
+      @reset="resetQuery"
+    >
+        <el-input
+          v-model="query.nId"
+          :placeholder="copy.roleNId"
+          :aria-label="copy.roleNId"
+          clearable
+          class="roles-page__filter"
+          @keyup.enter="search"
+        />
+        <el-input
+          v-model="query.name"
+          :placeholder="copy.roleName"
+          :aria-label="copy.roleName"
+          clearable
+          class="roles-page__filter"
+          @keyup.enter="search"
+        />
+    </AppQueryPanel>
 
-    <el-pagination
-      class="roles-page__pagination"
-      layout="total, sizes, prev, pager, next, jumper"
+    <AppDataTable
+      table-key="identity-roles"
+      route-key="identity-roles"
+      row-key="roleNId"
+      :rows="rows"
       :total="total"
+      :loading="loading"
+      :columns="roleColumns"
       :page-size="pageSize"
-      :page-sizes="[10, 20, 50, 100]"
-      :current-page="pageIndex"
-      @current-change="
-        (page: number) => {
-          pageIndex = page
-          void loadRoles()
-        }
-      "
-      @size-change="
-        (size: number) => {
-          pageSize = size
-          pageIndex = 1
-          void loadRoles()
-        }
-      "
-    />
+      :loader="loadRolesTable"
+      :exporter="exportRoles"
+      @query-mode-change="onTableQueryModeChange"
+      @query-change="onTableQuery"
+    >
+      <template #cell-isSystem="{ row }">
+        <el-tag v-if="row.isSystem" type="info" effect="plain">{{ copy.systemRole }}</el-tag>
+        <span v-else>—</span>
+      </template>
+      <template #cell-permissionCount="{ row }">{{ row.permissionNIds.length }}</template>
+      <template #actions="{ row }">
+        <PermissionGate :permission-n-id="PERMISSIONS.roleUpdate">
+          <el-button link type="primary" :disabled="row.isSystem" @click="openEdit(row)"
+            >{{ copy.edit }}</el-button
+          >
+        </PermissionGate>
+        <PermissionGate :permission-n-id="PERMISSIONS.roleAssignPermission">
+          <el-button
+            link
+            type="primary"
+            :disabled="row.isSystem"
+            @click="openAssignPermissions(row)"
+            >{{ copy.assignPermissions }}</el-button
+          >
+        </PermissionGate>
+      </template>
+    </AppDataTable>
 
     <!-- 新建 / 编辑 -->
-    <el-dialog v-model="dialogOpen" :title="dialogTitle" width="480px">
+    <AppFormDrawer
+      v-model="dialogOpen"
+      :title="dialogTitle"
+      :busy="dialogSaving"
+      size="medium"
+      @submit="submitDialog"
+    >
       <el-form ref="formRef" :model="form" :rules="roleRules" label-width="90px">
-        <el-form-item v-if="editing === null" label="业务标识" prop="nId">
-          <el-input v-model="form.nId" placeholder="可选,默认自动生成" />
+        <el-form-item v-if="editing === null" :label="commonCopy.businessId" prop="nId">
+          <el-input v-model="form.nId" :placeholder="commonCopy.optional" />
         </el-form-item>
-        <el-form-item label="角色名称" prop="name">
-          <el-input v-model="form.name" placeholder="如:仓库管理员" />
+        <el-form-item :label="copy.roleName" prop="name">
+          <el-input v-model="form.name" :placeholder="copy.roleName" />
         </el-form-item>
-        <el-form-item label="描述" prop="description">
-          <el-input v-model="form.description" type="textarea" :rows="3" placeholder="可选" />
+        <el-form-item :label="commonCopy.description" prop="description">
+          <el-input v-model="form.description" type="textarea" :rows="3" :placeholder="commonCopy.optional" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogOpen = false">取消</el-button>
-        <el-button type="primary" :loading="dialogSaving" @click="submitDialog">保存</el-button>
+        <el-button @click="dialogOpen = false">{{ commonCopy.cancel }}</el-button>
+        <el-button type="primary" :loading="dialogSaving" @click="submitDialog">{{ commonCopy.save }}</el-button>
       </template>
-    </el-dialog>
+    </AppFormDrawer>
 
     <!-- 分配权限 -->
-    <el-dialog v-model="permissionDialogOpen" title="分配权限" width="520px">
+    <AppFormDrawer
+      v-model="permissionDialogOpen"
+      :title="copy.assignPermissions"
+      :busy="permissionSaving"
+      size="medium"
+    >
       <p class="roles-page__dialog-tip">
-        为「{{ permissionTarget?.name ?? '' }}」勾选权限:叶子为操作,父节点为页面(自动级联)。
+        {{ copy.permissionDescription.replace('{name}', permissionTarget?.name ?? '') }}
       </p>
       <div class="roles-page__tree" v-loading="treeLoading">
         <el-tree
@@ -330,20 +436,66 @@ onMounted(() => {
         />
       </div>
       <template #footer>
-        <el-button @click="permissionDialogOpen = false">取消</el-button>
-        <el-button type="primary" :loading="permissionSaving" @click="submitPermissions"
-          >保存</el-button
-        >
+        <el-button @click="permissionDialogOpen = false">{{ commonCopy.cancel }}</el-button>
+        <el-button type="primary" :loading="permissionSaving" @click="submitPermissions">{{ commonCopy.save }}</el-button>
       </template>
-    </el-dialog>
-  </section>
+    </AppFormDrawer>
+  </AppPage>
 </template>
 
 <style scoped>
 .roles-page {
   display: flex;
   flex-direction: column;
-  gap: var(--ip-space-4);
+  gap: 0;
+  overflow: hidden;
+  background: var(--ip-color-bg-container);
+  border: 1px solid var(--ip-color-border);
+  border-radius: var(--ip-radius-lg);
+  min-width: 0;
+}
+
+.roles-page :deep(.app-page__header) {
+  padding: 18px 20px 17px;
+  border-bottom: 1px solid var(--ip-color-border);
+}
+
+.roles-page :deep(.app-page__body) {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.roles-page :deep(.app-data-table) {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.roles-page :deep(.app-data-table__card) {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.roles-page :deep(.app-query-panel) {
+  gap: 0;
+  padding: 14px 20px 16px;
+  border-bottom: 1px solid var(--ip-color-border);
+}
+
+.roles-page :deep(.app-query-panel__header) {
+  margin-bottom: var(--ip-space-3);
+}
+
+.roles-page :deep(.app-query-panel__body) {
+  gap: 12px;
+}
+
+.roles-page__count {
+  color: var(--ip-color-text-secondary);
+  font-size: var(--ip-font-size-sm);
 }
 
 .roles-page__toolbar {

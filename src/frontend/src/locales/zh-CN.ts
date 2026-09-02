@@ -19,6 +19,13 @@ export const zhCN = {
       logout: '退出登录',
       retry: '重试',
     },
+    formSurface: {
+      centeredModal: '居中弹窗',
+      rightDrawer: '右侧抽屉',
+      switchToCenteredModal: '切换为居中弹窗',
+      switchToRightDrawer: '切换为右侧抽屉',
+      submitting: '提交中…',
+    },
     state: {
       loading: '加载中',
       empty: '暂无数据',
@@ -447,6 +454,39 @@ export const zhCN = {
         loginLength: '登录名长度 3-64 个字符',
         nameRequired: '请输入姓名',
         emailInvalid: '邮箱格式不正确',
+      },
+    },
+    management: {
+      common: {
+        queryTitle: '查询条件', search: '查询', reset: '重置', refresh: '刷新', expandAll: '展开全部', collapseAll: '折叠全部',
+        totalSuffix: '项', actions: '操作', create: '新建', edit: '编辑', save: '保存', cancel: '取消', enabled: '启用', disabled: '禁用',
+        status: '状态', name: '名称', description: '描述', businessId: '业务标识', optional: '可选', page: '页面', operation: '操作', yes: '是', no: '否', pagePath: '页面路径',
+      },
+      userGroups: {
+        title: '用户组管理', description: '管理用户组、成员与继承角色', breadcrumb: '平台管理 / 身份与访问 / 用户组管理', countSuffix: '组',
+        name: '用户组名称', groupNId: '业务标识', descriptionColumn: '描述', memberCount: '成员数', roleCount: '角色数', includeDeleted: '包含已删除',
+        create: '新建用户组', edit: '编辑用户组', members: '成员', roles: '角色', delete: '删除', restore: '恢复', enable: '启用', disable: '禁用',
+        createTitle: '新建用户组', editTitle: '编辑用户组', memberTitle: '成员管理', roleTitle: '角色管理', selectUser: '选择用户', selectRole: '选择角色', initialMembers: '初始成员', initialRoles: '初始角色', memberDescription: '设置「{name}」的最终成员集，未勾选的现有成员将被移出。', roleDescription: '设置「{name}」的最终角色集，组角色将对全部成员生效。',
+      },
+      roles: {
+        title: '角色权限', description: '管理角色及其权限分配', breadcrumb: '平台管理 / 身份与访问 / 角色权限', countSuffix: '个角色',
+        roleName: '角色名称', roleNId: '业务标识', descriptionColumn: '描述', systemRole: '系统角色', permissionCount: '权限数',
+        create: '新建角色', edit: '编辑角色', assignPermissions: '分配权限', createTitle: '新建角色', editTitle: '编辑角色', permissionDescription: '为「{name}」选择权限，叶子节点为操作，父节点为页面并自动级联。',
+      },
+      permissions: {
+        title: '权限目录', description: '查看只读的平台权限目录树', breadcrumb: '平台管理 / 身份与访问 / 权限目录', countSuffix: '项权限', filter: '按名称 / 业务标识过滤', page: '页面', operation: '操作',
+      },
+      audits: {
+        title: '登录审计', description: '查看登录行为与安全结果', breadcrumb: '平台管理 / 身份与访问 / 登录审计', countSuffix: '条记录', userNId: '用户业务标识', result: '结果', success: '成功', failed: '失败', time: '时间', loginName: '登录名',
+        failureCode: '失败原因', ipHash: 'IP(哈希)', uaHash: 'UA(哈希)', traceId: '追踪标识', hint: '出于安全考虑，仅展示 IP / User-Agent 哈希摘要，不存储原始值。',
+      },
+      ssoProviders: {
+        title: '企业登录源', description: '配置企业身份提供方，不暴露密钥内容', breadcrumb: '平台管理 / 身份与访问 / 企业登录源', countSuffix: '个登录源', create: '新建登录源',
+        name: '名称', protocol: '协议', authority: '授权/元数据地址', clientId: 'ClientId/EntityId', secret: '密钥', autoRedirect: '自动跳转', status: '状态', createdOn: '创建时间', configured: '已配置', notConfigured: '未配置',
+        enabled: '启用', disabled: '停用', edit: '编辑', secretAction: '密钥', accounts: '绑定账号', test: '连接测试', createTitle: '新建登录源', editTitle: '编辑登录源', secretTitle: '更新密钥引用', accountTitle: '绑定账号', callbackPath: '回调路径', provisioningMode: '供给模式', logoutMode: '注销模式', allowedEmailDomains: '允许邮箱域', defaultRole: 'JIT 默认角色', secretReference: '密钥引用', bindUser: '平台用户标识', externalSubject: 'IdP 主体标识', externalName: '外部姓名', externalEmail: '外部邮箱', lastLoginOn: '最近登录', bind: '绑定', unbind: '解绑', manualProvisioning: '手动绑定', jitProvisioning: 'JIT 自动供给', localLogout: '本地注销', federatedLogout: '联邦注销', clientIdPlaceholder: 'OIDC ClientId 或 SAML EntityId', callbackPlaceholder: '默认：/identity/api/v1/sso/callback/…', autoRedirectHint: '仅有一个启用登录源时，登录页直接跳转 IdP', allowedEmailDomainsPlaceholder: 'JIT 允许的邮箱域，回车添加', defaultRolePlaceholder: 'JIT 新用户默认角色', secretDescription: '仅填写配置节键名，例如 Identity:Sso:Secrets:my-oidc。服务端按引用读取密钥，明文不会展示。', secretReferencePlaceholder: '配置节键名，留空清除', userNIdPlaceholder: '用户业务标识', externalSubjectPlaceholder: '外部主体标识，不回显',
+      },
+      ssoClients: {
+        title: 'SSO Client', description: '登记回调与登出回跳地址', breadcrumb: '平台管理 / 身份与访问 / SSO Client', countSuffix: '个 Client', create: '新建 Client', name: '名称', clientId: 'OAuth ClientId', endpointCount: '端点数', status: '状态', createdOn: '创建时间', enabled: '启用', disabled: '停用', edit: '编辑', endpoints: '端点', endpointTitle: '端点管理', createTitle: '新建 Client', editTitle: '编辑 Client', type: '类型', uri: '地址', register: '登记端点', remove: '移除', redirect: '回调', postLogoutRedirect: '登出回跳', origin: '来源',
       },
     },
     status: { enabled: '启用', disabled: '禁用', deleted: '已删除' },

@@ -7,7 +7,7 @@
  */
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 
 import type { RoleSummaryDto } from '@/api/identity/management'
 import { getManagementApi } from '@/api/identity/managementRegistry'
@@ -18,11 +18,20 @@ import {
   type ProviderSummaryDto,
 } from '@/api/identity/ssoManagement'
 import { PERMISSIONS, PermissionGate } from '@/permissions'
+import AppPage from '@/components/base/AppPage.vue'
+import AppDataTable from '@/components/management/AppDataTable.vue'
+import AppFormDrawer from '@/components/management/AppFormDrawer.vue'
+import type { AppDataTableExportRequest } from '@/components/management/AppDataTable'
+import { localeMessages } from '@/localization/i18n'
+import { usePlatformLocale } from '@/localization/localeContext'
 
-import { formatTime, reportManagementError } from '../shared'
+import { downloadBlob, formatTime, reportManagementError } from '../shared'
 
 const ssoManagement = getSsoManagementApi()
 const management = getManagementApi()
+const locale = usePlatformLocale()
+const copy = computed(() => localeMessages[locale.value].identity.management.ssoProviders)
+const commonCopy = computed(() => localeMessages[locale.value].identity.management.common)
 
 // ---------------------------------------------------------------------------
 // 列表
@@ -30,6 +39,49 @@ const management = getManagementApi()
 
 const loading = ref(false)
 const rows = ref<ProviderSummaryDto[]>([])
+
+const providerColumns = computed(() => [
+  { field: 'name', title: copy.value.name, minWidth: 140, filter: { kind: 'text' as const } },
+  { field: 'protocol', title: copy.value.protocol, width: 90 },
+  { field: 'authorityOrMetadataUrl', title: copy.value.authority, minWidth: 200 },
+  { field: 'clientIdOrEntityId', title: copy.value.clientId, minWidth: 150 },
+  { field: 'hasSecretReference', title: copy.value.secret, width: 80 },
+  { field: 'autoRedirect', title: copy.value.autoRedirect, width: 90 },
+  { field: 'enabled', title: copy.value.status, width: 80 },
+  { field: 'createdOn', title: copy.value.createdOn, width: 170 },
+])
+
+const accountColumns = computed(() => [
+  { field: 'userLoginName', title: copy.value.bindUser, minWidth: 120 },
+  { field: 'userName', title: commonCopy.value.name, minWidth: 100 },
+  { field: 'externalName', title: copy.value.externalName, minWidth: 100 },
+  { field: 'externalEmail', title: copy.value.externalEmail, minWidth: 140 },
+  { field: 'lastLoginOn', title: copy.value.lastLoginOn, width: 170 },
+])
+
+async function exportProviders(request: AppDataTableExportRequest): Promise<void> {
+  const filters = request.filters
+  const blob = await ssoManagement.exportProviders({
+    name: typeof filters.name === 'string' ? filters.name : undefined,
+    quantity: request.quantity,
+    columns: request.columns,
+    sortField: request.sort?.field,
+    sortOrder: request.sort?.order,
+  })
+  downloadBlob(blob, `${request.filename}.xlsx`)
+}
+
+async function exportAccounts(request: AppDataTableExportRequest): Promise<void> {
+  const provider = accountsProvider.value
+  if (provider === null) return
+  const blob = await ssoManagement.exportAccounts(provider.providerNId, {
+    quantity: request.quantity,
+    columns: request.columns,
+    sortField: request.sort?.field,
+    sortOrder: request.sort?.order,
+  })
+  downloadBlob(blob, `${request.filename}.xlsx`)
+}
 
 async function loadProviders(): Promise<void> {
   loading.value = true
@@ -50,14 +102,14 @@ const PROTOCOL_OPTIONS = [
   { label: 'OIDC', value: 'Oidc' },
   { label: 'SAML 2.0', value: 'Saml2' },
 ]
-const PROVISIONING_OPTIONS = [
-  { label: '手动绑定', value: 'Manual' },
-  { label: 'JIT 自动供给', value: 'JustInTime' },
-]
-const LOGOUT_OPTIONS = [
-  { label: '本地注销', value: 'Local' },
-  { label: '联邦注销', value: 'Federated' },
-]
+const provisioningOptions = computed(() => [
+  { label: copy.value.manualProvisioning, value: 'Manual' },
+  { label: copy.value.jitProvisioning, value: 'JustInTime' },
+])
+const logoutOptions = computed(() => [
+  { label: copy.value.localLogout, value: 'Local' },
+  { label: copy.value.federatedLogout, value: 'Federated' },
+])
 
 interface ProviderForm {
   name: string
@@ -73,8 +125,10 @@ interface ProviderForm {
 }
 
 const dialogOpen = ref(false)
-const dialogTitle = ref('新建登录源')
 const editing = ref<ProviderSummaryDto | null>(null)
+const dialogTitle = computed(() =>
+  editing.value === null ? copy.value.createTitle : copy.value.editTitle,
+)
 const formRef = ref<FormInstance>()
 const dialogSaving = ref(false)
 const form = reactive<ProviderForm>({
@@ -124,14 +178,12 @@ function resetForm(): void {
 
 function openCreate(): void {
   editing.value = null
-  dialogTitle.value = '新建登录源'
   resetForm()
   dialogOpen.value = true
 }
 
 function openEdit(row: ProviderSummaryDto): void {
   editing.value = row
-  dialogTitle.value = '编辑登录源'
   resetForm()
   form.name = row.name
   form.protocol = row.protocol
@@ -407,87 +459,90 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="sso-providers-page">
-    <div class="sso-providers-page__toolbar">
-      <span class="sso-providers-page__tip">
-        企业登录源配置。密钥只写配置节引用,不在界面回显明文。
-      </span>
-      <div class="sso-providers-page__spacer" />
+  <AppPage
+    class="sso-providers-page"
+    data-testid="identity-sso-providers-page"
+    :title="copy.title"
+    :description="copy.description"
+  >
+    <template #breadcrumb>
+      <nav :aria-label="commonCopy.pagePath">{{ copy.breadcrumb }}</nav>
+    </template>
+    <template #heading-meta>
+      <span class="sso-providers-page__count">{{ rows.length }} {{ copy.countSuffix }}</span>
+    </template>
+    <template #actions>
       <PermissionGate :permission-n-id="PERMISSIONS.ssoManage">
-        <el-button type="primary" plain data-testid="sso-provider-create" @click="openCreate">
-          新建登录源
+        <el-button type="primary" data-testid="sso-provider-create" @click="openCreate">
+          {{ copy.create }}
         </el-button>
       </PermissionGate>
-    </div>
+    </template>
 
-    <el-table :data="rows" v-loading="loading" row-key="providerNId" border stripe>
-      <el-table-column prop="name" label="名称" min-width="140" />
-      <el-table-column label="协议" width="90" align="center">
-        <template #default="{ row }">
-          {{
-            row.protocol === 'Oidc' ? 'OIDC' : row.protocol === 'Saml2' ? 'SAML 2.0' : row.protocol
-          }}
-        </template>
-      </el-table-column>
-      <el-table-column
-        prop="authorityOrMetadataUrl"
-        label="授权/元数据地址"
-        min-width="200"
-        show-overflow-tooltip
-      />
-      <el-table-column prop="clientIdOrEntityId" label="ClientId/EntityId" min-width="150" />
-      <el-table-column label="密钥" width="80" align="center">
-        <template #default="{ row }">
-          <el-tag :type="row.hasSecretReference ? 'success' : 'info'" effect="light">
-            {{ row.hasSecretReference ? '已配置' : '未配置' }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="自动跳转" width="90" align="center">
-        <template #default="{ row }">
-          <el-tag :type="row.autoRedirect ? 'warning' : 'info'" effect="light">
-            {{ row.autoRedirect ? '是' : '否' }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="状态" width="80" align="center">
-        <template #default="{ row }">
-          <el-tag :type="row.enabled ? 'success' : 'danger'" effect="light">
-            {{ row.enabled ? '启用' : '停用' }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="创建时间" width="170">
-        <template #default="{ row }">{{ formatTime(row.createdOn) }}</template>
-      </el-table-column>
-      <el-table-column label="操作" width="280" fixed="right">
-        <template #default="{ row }">
-          <PermissionGate :permission-n-id="PERMISSIONS.ssoManage">
-            <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
-            <el-button link type="warning" @click="openSecret(row)">密钥</el-button>
-            <el-button link :type="row.enabled ? 'danger' : 'success'" @click="toggleEnabled(row)">
-              {{ row.enabled ? '停用' : '启用' }}
-            </el-button>
-          </PermissionGate>
-          <PermissionGate :permission-n-id="PERMISSIONS.ssoManage">
-            <el-button link type="primary" @click="openAccounts(row)">绑定账号</el-button>
-          </PermissionGate>
-          <PermissionGate :permission-n-id="PERMISSIONS.ssoTest">
-            <el-button link type="primary" :disabled="testing" @click="testProvider(row)">
-              连接测试
-            </el-button>
-          </PermissionGate>
-        </template>
-      </el-table-column>
-    </el-table>
+    <AppDataTable
+      table-key="identity-sso-providers"
+      route-key="identity-sso-providers"
+      row-key="providerNId"
+      :rows="rows"
+      :total="rows.length"
+      :loading="loading"
+      :columns="providerColumns"
+      :exporter="exportProviders"
+    >
+      <template #cell-protocol="{ row }">
+        {{
+          row.protocol === 'Oidc' ? 'OIDC' : row.protocol === 'Saml2' ? 'SAML 2.0' : row.protocol
+        }}
+      </template>
+      <template #cell-hasSecretReference="{ row }">
+        <el-tag :type="row.hasSecretReference ? 'success' : 'info'" effect="light">
+          {{ row.hasSecretReference ? copy.configured : copy.notConfigured }}
+        </el-tag>
+      </template>
+      <template #cell-autoRedirect="{ row }">
+        <el-tag :type="row.autoRedirect ? 'warning' : 'info'" effect="light">
+          {{ row.autoRedirect ? commonCopy.yes : commonCopy.no }}
+        </el-tag>
+      </template>
+      <template #cell-enabled="{ row }">
+        <el-tag :type="row.enabled ? 'success' : 'danger'" effect="light">
+          {{ row.enabled ? copy.enabled : copy.disabled }}
+        </el-tag>
+      </template>
+      <template #cell-createdOn="{ row }">{{ formatTime(row.createdOn) }}</template>
+      <template #actions="{ row }">
+        <PermissionGate :permission-n-id="PERMISSIONS.ssoManage">
+          <el-button link type="primary" @click="openEdit(row)">{{ copy.edit }}</el-button>
+          <el-button link type="warning" @click="openSecret(row)">{{ copy.secretAction }}</el-button>
+          <el-button link :type="row.enabled ? 'danger' : 'success'" @click="toggleEnabled(row)">
+            {{ row.enabled ? copy.disabled : copy.enabled }}
+          </el-button>
+        </PermissionGate>
+        <PermissionGate :permission-n-id="PERMISSIONS.ssoManage">
+          <el-button link type="primary" @click="openAccounts(row)">{{ copy.accounts }}</el-button>
+        </PermissionGate>
+        <PermissionGate :permission-n-id="PERMISSIONS.ssoTest">
+          <el-button link type="primary" :disabled="testing" @click="testProvider(row)">
+            {{ copy.test }}
+          </el-button>
+        </PermissionGate>
+      </template>
+    </AppDataTable>
 
     <!-- 新建 / 编辑 -->
-    <el-dialog v-model="dialogOpen" :title="dialogTitle" width="560px" @closed="resetForm">
+    <AppFormDrawer
+      v-model="dialogOpen"
+      :title="dialogTitle"
+      :busy="dialogSaving"
+      size="wide"
+      @cancel="resetForm"
+      @submit="submitDialog"
+    >
       <el-form ref="formRef" :model="form" :rules="providerRules" label-width="130px">
-        <el-form-item label="名称" prop="name">
-          <el-input v-model="form.name" placeholder="登录源显示名称" />
+        <el-form-item :label="copy.name" prop="name">
+          <el-input v-model="form.name" :placeholder="copy.name" />
         </el-form-item>
-        <el-form-item label="协议" prop="protocol">
+        <el-form-item :label="copy.protocol" prop="protocol">
           <el-select v-model="form.protocol" class="sso-providers-page__full">
             <el-option
               v-for="option in PROTOCOL_OPTIONS"
@@ -497,63 +552,63 @@ onMounted(() => {
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="授权/元数据地址" prop="authorityOrMetadataUrl">
+        <el-form-item :label="copy.authority" prop="authorityOrMetadataUrl">
           <el-input v-model="form.authorityOrMetadataUrl" placeholder="https://…" />
         </el-form-item>
-        <el-form-item label="ClientId/EntityId" prop="clientIdOrEntityId">
+        <el-form-item :label="copy.clientId" prop="clientIdOrEntityId">
           <el-input
             v-model="form.clientIdOrEntityId"
-            placeholder="OIDC ClientId 或 SAML EntityId"
+            :placeholder="copy.clientIdPlaceholder"
           />
         </el-form-item>
-        <el-form-item label="回调路径" prop="callbackPath">
+        <el-form-item :label="copy.callbackPath" prop="callbackPath">
           <el-input
             v-model="form.callbackPath"
-            placeholder="默认 /identity/api/v1/sso/callback/…"
+            :placeholder="copy.callbackPlaceholder"
           />
         </el-form-item>
-        <el-form-item label="自动跳转">
+        <el-form-item :label="copy.autoRedirect">
           <el-switch v-model="form.autoRedirect" />
-          <span class="sso-providers-page__switch-tip">唯一启用源时登录页直接跳转 IdP</span>
+          <span class="sso-providers-page__switch-tip">{{ copy.autoRedirectHint }}</span>
         </el-form-item>
-        <el-form-item label="供给模式">
+        <el-form-item :label="copy.provisioningMode">
           <el-select v-model="form.provisioningMode" class="sso-providers-page__full">
             <el-option
-              v-for="option in PROVISIONING_OPTIONS"
+              v-for="option in provisioningOptions"
               :key="option.value"
               :label="option.label"
               :value="option.value"
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="注销模式">
+        <el-form-item :label="copy.logoutMode">
           <el-select v-model="form.logoutMode" class="sso-providers-page__full">
             <el-option
-              v-for="option in LOGOUT_OPTIONS"
+              v-for="option in logoutOptions"
               :key="option.value"
               :label="option.label"
               :value="option.value"
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="允许邮箱域">
+        <el-form-item :label="copy.allowedEmailDomains">
           <el-select
             v-model="form.allowedEmailDomains"
             multiple
             filterable
             allow-create
             default-first-option
-            placeholder="JIT 允许的邮箱域,回车添加"
+            :placeholder="copy.allowedEmailDomainsPlaceholder"
             class="sso-providers-page__full"
           />
         </el-form-item>
-        <el-form-item v-if="form.provisioningMode === 'JustInTime'" label="JIT 默认角色">
+        <el-form-item v-if="form.provisioningMode === 'JustInTime'" :label="copy.defaultRole">
           <el-select
             v-model="form.jitDefaultRoleNIds"
             multiple
             filterable
             clearable
-            placeholder="JIT 新用户默认角色"
+            :placeholder="copy.defaultRolePlaceholder"
             class="sso-providers-page__full"
           >
             <el-option
@@ -566,84 +621,128 @@ onMounted(() => {
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogOpen = false">取消</el-button>
-        <el-button type="primary" :loading="dialogSaving" @click="submitDialog">保存</el-button>
+        <el-button @click="dialogOpen = false">{{ commonCopy.cancel }}</el-button>
+        <el-button type="primary" :loading="dialogSaving" @click="submitDialog">{{ commonCopy.save }}</el-button>
       </template>
-    </el-dialog>
+    </AppFormDrawer>
 
     <!-- 密钥引用(只写) -->
-    <el-dialog v-model="secretDialogOpen" title="更新密钥引用" width="480px">
-      <p class="sso-providers-page__dialog-tip">
-        为「{{ secretTarget?.name ?? '' }}」配置密钥引用:仅填写配置节键名(如
-        <code>Identity:Sso:Secrets:my-oidc</code>),服务端按引用读取密钥,明文与键名均不回显。
-      </p>
+    <AppFormDrawer
+      v-model="secretDialogOpen"
+      :title="copy.secretTitle"
+      :busy="secretSaving"
+      size="medium"
+      @submit="submitSecret"
+    >
+      <p class="sso-providers-page__dialog-tip">{{ copy.secretDescription }}</p>
       <el-form ref="secretFormRef" :model="secretForm" :rules="secretRules" label-width="90px">
-        <el-form-item label="密钥引用" prop="reference">
-          <el-input v-model="secretForm.reference" placeholder="配置节键名,留空清除" />
+        <el-form-item :label="copy.secretReference" prop="reference">
+          <el-input v-model="secretForm.reference" :placeholder="copy.secretReferencePlaceholder" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="secretDialogOpen = false">取消</el-button>
-        <el-button type="primary" :loading="secretSaving" @click="submitSecret">保存</el-button>
+        <el-button @click="secretDialogOpen = false">{{ commonCopy.cancel }}</el-button>
+        <el-button type="primary" :loading="secretSaving" @click="submitSecret">{{ commonCopy.save }}</el-button>
       </template>
-    </el-dialog>
+    </AppFormDrawer>
 
     <!-- 绑定账号 -->
-    <el-drawer
+    <AppFormDrawer
       v-model="accountsDrawerOpen"
-      :title="`绑定账号 · ${accountsProvider?.name ?? ''}`"
-      size="560px"
+      :title="copy.accountTitle"
+      size="wide"
+      :allow-mode-switch="false"
     >
       <el-form ref="bindFormRef" :model="bindForm" :rules="bindRules" label-width="110px">
-        <el-form-item label="平台用户标识" prop="userNId">
-          <el-input v-model="bindForm.userNId" placeholder="用户业务标识(NId)" />
+        <el-form-item :label="copy.bindUser" prop="userNId">
+          <el-input v-model="bindForm.userNId" :placeholder="copy.userNIdPlaceholder" />
         </el-form-item>
-        <el-form-item label="IdP 主体标识" prop="externalSubject">
-          <el-input v-model="bindForm.externalSubject" placeholder="external subject,不回显" />
+        <el-form-item :label="copy.externalSubject" prop="externalSubject">
+          <el-input v-model="bindForm.externalSubject" :placeholder="copy.externalSubjectPlaceholder" />
         </el-form-item>
-        <el-form-item label="外部姓名">
-          <el-input v-model="bindForm.externalName" placeholder="可选" />
+        <el-form-item :label="copy.externalName">
+          <el-input v-model="bindForm.externalName" :placeholder="commonCopy.optional" />
         </el-form-item>
-        <el-form-item label="外部邮箱">
-          <el-input v-model="bindForm.externalEmail" placeholder="可选" />
+        <el-form-item :label="copy.externalEmail">
+          <el-input v-model="bindForm.externalEmail" :placeholder="commonCopy.optional" />
         </el-form-item>
         <el-form-item>
           <PermissionGate :permission-n-id="PERMISSIONS.ssoManage">
-            <el-button type="primary" :loading="bindSaving" @click="submitBind">绑定</el-button>
+            <el-button type="primary" :loading="bindSaving" @click="submitBind">{{ copy.bind }}</el-button>
           </PermissionGate>
         </el-form-item>
       </el-form>
 
-      <el-table :data="accounts" v-loading="accountsLoading" row-key="accountNId" border stripe>
-        <el-table-column prop="userLoginName" label="平台登录名" min-width="120" />
-        <el-table-column prop="userName" label="姓名" min-width="100" />
-        <el-table-column prop="externalName" label="外部姓名" min-width="100" />
-        <el-table-column
-          prop="externalEmail"
-          label="外部邮箱"
-          min-width="140"
-          show-overflow-tooltip
-        />
-        <el-table-column label="最近登录" width="170">
-          <template #default="{ row }">{{ formatTime(row.lastLoginOn) }}</template>
-        </el-table-column>
-        <el-table-column label="操作" width="80" align="center">
-          <template #default="{ row }">
-            <PermissionGate :permission-n-id="PERMISSIONS.ssoManage">
-              <el-button link type="danger" @click="unbindAccount(row)">解绑</el-button>
-            </PermissionGate>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-drawer>
-  </section>
+      <h3 class="sso-providers-page__section-title">{{ copy.accounts }}</h3>
+      <AppDataTable
+        table-key="identity-sso-provider-accounts"
+        route-key="identity-sso-provider-accounts"
+        row-key="accountNId"
+        :rows="accounts"
+        :total="accounts.length"
+        :loading="accountsLoading"
+        :columns="accountColumns"
+        :exporter="exportAccounts"
+      >
+        <template #cell-lastLoginOn="{ row }">{{ formatTime(row.lastLoginOn) }}</template>
+        <template #actions="{ row }">
+          <PermissionGate :permission-n-id="PERMISSIONS.ssoManage">
+            <el-button link type="danger" @click="unbindAccount(row)">{{ copy.unbind }}</el-button>
+          </PermissionGate>
+        </template>
+      </AppDataTable>
+      <template #footer>
+        <el-button @click="accountsDrawerOpen = false">{{ commonCopy.cancel }}</el-button>
+      </template>
+    </AppFormDrawer>
+  </AppPage>
 </template>
 
 <style scoped>
 .sso-providers-page {
   display: flex;
   flex-direction: column;
-  gap: var(--ip-space-4);
+  gap: 0;
+  overflow: hidden;
+  background: var(--ip-color-bg-container);
+  border: 1px solid var(--ip-color-border);
+  border-radius: var(--ip-radius-lg);
+  min-width: 0;
+}
+
+.sso-providers-page :deep(.app-page__header) {
+  padding: 18px 20px 17px;
+  border-bottom: 1px solid var(--ip-color-border);
+}
+
+.sso-providers-page :deep(.app-page__body) {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.sso-providers-page :deep(.app-data-table) {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.sso-providers-page :deep(.app-data-table__card) {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.sso-providers-page__count {
+  color: var(--ip-color-text-secondary);
+  font-size: var(--ip-font-size-sm);
+}
+
+.sso-providers-page__section-title {
+  margin: var(--ip-space-5) 0 var(--ip-space-3);
+  font-size: var(--ip-font-size-md);
+  color: var(--ip-color-text-primary);
 }
 
 .sso-providers-page__toolbar {

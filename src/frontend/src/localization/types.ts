@@ -1,5 +1,72 @@
 export type SupportedLocale = 'zh-CN' | 'en-US'
 
+export interface IdentityManagementCommonCopy {
+  queryTitle: string
+  search: string
+  reset: string
+  refresh: string
+  expandAll: string
+  collapseAll: string
+  totalSuffix: string
+  actions: string
+  create: string
+  edit: string
+  save: string
+  cancel: string
+  enabled: string
+  disabled: string
+  status: string
+  name: string
+  description: string
+  businessId: string
+  optional: string
+  page: string
+  operation: string
+  yes: string
+  no: string
+  pagePath: string
+}
+
+export interface IdentityManagementMessages {
+  common: IdentityManagementCommonCopy
+  userGroups: {
+    title: string; description: string; breadcrumb: string; countSuffix: string; name: string; groupNId: string
+    descriptionColumn: string; memberCount: string; roleCount: string; includeDeleted: string; create: string; edit: string
+    members: string; roles: string; delete: string; restore: string; enable: string; disable: string; createTitle: string
+    editTitle: string; memberTitle: string; roleTitle: string; selectUser: string; selectRole: string
+    initialMembers: string; initialRoles: string; memberDescription: string; roleDescription: string
+  }
+  roles: {
+    title: string; description: string; breadcrumb: string; countSuffix: string; roleName: string; roleNId: string
+    descriptionColumn: string; systemRole: string; permissionCount: string; create: string; edit: string
+    assignPermissions: string; createTitle: string; editTitle: string; permissionDescription: string
+  }
+  permissions: {
+    title: string; description: string; breadcrumb: string; countSuffix: string; filter: string; page: string; operation: string
+  }
+  audits: {
+    title: string; description: string; breadcrumb: string; countSuffix: string; userNId: string; result: string
+    success: string; failed: string; time: string; loginName: string; failureCode: string; ipHash: string; uaHash: string
+    traceId: string; hint: string
+  }
+  ssoProviders: {
+    title: string; description: string; breadcrumb: string; countSuffix: string; create: string; name: string; protocol: string
+    authority: string; clientId: string; secret: string; autoRedirect: string; status: string; createdOn: string
+    configured: string; notConfigured: string; enabled: string; disabled: string; edit: string; secretAction: string
+    accounts: string; test: string; createTitle: string; editTitle: string; secretTitle: string; accountTitle: string
+    callbackPath: string; provisioningMode: string; logoutMode: string; allowedEmailDomains: string; defaultRole: string
+    secretReference: string; bindUser: string; externalSubject: string; externalName: string; externalEmail: string; lastLoginOn: string; bind: string; unbind: string
+    manualProvisioning: string; jitProvisioning: string; localLogout: string; federatedLogout: string
+    clientIdPlaceholder: string; callbackPlaceholder: string; autoRedirectHint: string; allowedEmailDomainsPlaceholder: string; defaultRolePlaceholder: string; secretDescription: string; secretReferencePlaceholder: string; userNIdPlaceholder: string; externalSubjectPlaceholder: string
+  }
+  ssoClients: {
+    title: string; description: string; breadcrumb: string; countSuffix: string; create: string; name: string; clientId: string
+    endpointCount: string; status: string; createdOn: string; enabled: string; disabled: string; edit: string; endpoints: string
+    endpointTitle: string; createTitle: string; editTitle: string; type: string; uri: string; register: string; remove: string
+    redirect: string; postLogoutRedirect: string; origin: string
+  }
+}
+
 export interface LocalePreferences {
   locale: SupportedLocale
   timeZone: string
@@ -26,6 +93,13 @@ export interface PlatformLocaleMessages {
       exitFocusMode: string
       logout: string
       retry: string
+    }
+    formSurface: {
+      centeredModal: string
+      rightDrawer: string
+      switchToCenteredModal: string
+      switchToRightDrawer: string
+      submitting: string
     }
     state: {
       loading: string
@@ -416,6 +490,7 @@ export interface PlatformLocaleMessages {
         emailInvalid: string
       }
     }
+    management: IdentityManagementMessages
     status: { enabled: string; disabled: string; deleted: string }
   }
   systemData: {

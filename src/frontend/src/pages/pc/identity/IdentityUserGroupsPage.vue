@@ -8,7 +8,7 @@
  */
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 
 import { ApiError } from '@/api/errors'
 import { getManagementApi } from '@/api/identity/managementRegistry'
@@ -19,8 +19,20 @@ import type {
   UserSummaryDto,
 } from '@/api/identity/management'
 import { PERMISSIONS, PermissionGate } from '@/permissions'
+import AppPage from '@/components/base/AppPage.vue'
+import AppDataTable from '@/components/management/AppDataTable.vue'
+import AppFormDrawer from '@/components/management/AppFormDrawer.vue'
+import AppQueryPanel from '@/components/management/AppQueryPanel.vue'
+import type {
+  AppDataTableColumn,
+  AppDataTableExportRequest,
+  AppDataTableQueryMode,
+  AppDataTableRequest,
+} from '@/components/management/AppDataTable'
 
-import { reportManagementError } from './shared'
+import { downloadBlob, reportManagementError } from './shared'
+import { localeMessages } from '@/localization/i18n'
+import { usePlatformLocale } from '@/localization/localeContext'
 
 /** 组相关异常码:展示后端文案并刷新列表(不整页重载)。 */
 const RELOAD_ERROR_CODES = new Set([
@@ -37,6 +49,9 @@ interface GroupForm {
 }
 
 const management = getManagementApi()
+const locale = usePlatformLocale()
+const copy = computed(() => localeMessages[locale.value].identity.management.userGroups)
+const commonCopy = computed(() => localeMessages[locale.value].identity.management.common)
 
 // ---------------------------------------------------------------------------
 // 列表与过滤
@@ -47,7 +62,28 @@ const rows = ref<UserGroupSummaryDto[]>([])
 const total = ref(0)
 const query = reactive({ name: '', status: '', includeDeleted: false })
 const pageIndex = ref(1)
-const pageSize = ref(20)
+const pageSize = ref(25)
+const tableQueryMode = ref<AppDataTableQueryMode>('top')
+
+const groupColumns = computed<readonly AppDataTableColumn[]>(() => [
+  { field: 'name', title: copy.value.name, minWidth: 150, filter: { kind: 'text' as const } },
+  { field: 'groupNId', title: copy.value.groupNId, minWidth: 180, filter: { kind: 'text' as const } },
+  { field: 'description', title: copy.value.descriptionColumn, minWidth: 200, filter: { kind: 'text' as const } },
+  {
+    field: 'status',
+    title: commonCopy.value.status,
+    width: 90,
+    filter: {
+      kind: 'select' as const,
+      options: [
+        { label: copy.value.enable, value: 'Active' },
+        { label: copy.value.disable, value: 'Disabled' },
+      ],
+    },
+  },
+  { field: 'memberCount', title: copy.value.memberCount, width: 90, filter: false },
+  { field: 'roleCount', title: copy.value.roleCount, width: 90, filter: false },
+])
 
 async function loadGroups(): Promise<void> {
   loading.value = true
@@ -79,6 +115,58 @@ function resetQuery(): void {
   query.includeDeleted = false
   pageIndex.value = 1
   void loadGroups()
+}
+
+function onTableQuery(request: AppDataTableRequest): void {
+  pageIndex.value = request.pageIndex
+  pageSize.value = request.pageSize
+}
+
+function onTableQueryModeChange(mode: AppDataTableQueryMode): void {
+  tableQueryMode.value = mode
+  if (mode === 'header') {
+    query.name = ''
+    query.status = ''
+    query.includeDeleted = false
+  }
+  pageIndex.value = 1
+}
+
+async function loadGroupsTable(request: AppDataTableRequest) {
+  const filters = request.queryMode === 'top' ? { ...query, ...request.filters } : request.filters
+  const result = await management.listUserGroups({
+    nId: String(filters.groupNId ?? '').trim() || undefined,
+    name: String(filters.name ?? '').trim() || undefined,
+    description: String(filters.description ?? '').trim() || undefined,
+    keyword: String(filters.keyword ?? '').trim() || undefined,
+    status: String(filters.status ?? '') || undefined,
+    includeDeleted: filters.includeDeleted === true || filters.includeDeleted === 'true',
+    pageIndex: request.pageIndex,
+    pageSize: request.pageSize,
+    sortField: request.sort?.field,
+    sortOrder: request.sort?.order,
+  })
+  rows.value = result.items
+  total.value = result.total
+  return result
+}
+
+async function exportGroups(request: AppDataTableExportRequest): Promise<void> {
+  if (management.exportUserGroups === undefined) return
+  const filters = request.queryMode === 'top' ? { ...query, ...request.filters } : request.filters
+  const blob = await management.exportUserGroups({
+    nId: String(filters.groupNId ?? '').trim() || undefined,
+    name: String(filters.name ?? '').trim() || undefined,
+    description: String(filters.description ?? '').trim() || undefined,
+    keyword: String(filters.keyword ?? '').trim() || undefined,
+    status: String(filters.status ?? '') || undefined,
+    includeDeleted: filters.includeDeleted === true || filters.includeDeleted === 'true',
+    quantity: request.quantity,
+    columns: request.columns,
+    sortField: request.sort?.field,
+    sortOrder: request.sort?.order,
+  })
+  downloadBlob(blob, `${request.filename}.xlsx`)
 }
 
 /** 组异常统一呈现:组相关错误码展示文案并刷新列表;其余走通用错误处理。 */
@@ -145,8 +233,10 @@ function userName(userNId: string): string {
 // ---------------------------------------------------------------------------
 
 const dialogOpen = ref(false)
-const dialogTitle = ref('新建用户组')
 const editing = ref<UserGroupSummaryDto | null>(null)
+const dialogTitle = computed(() =>
+  editing.value === null ? copy.value.createTitle : copy.value.editTitle,
+)
 const formRef = ref<FormInstance>()
 const dialogSaving = ref(false)
 const form = reactive<GroupForm>({ nId: '', name: '', description: '' })
@@ -164,14 +254,12 @@ function resetForm(): void {
 
 function openCreate(): void {
   editing.value = null
-  dialogTitle.value = '新建用户组'
   resetForm()
   dialogOpen.value = true
 }
 
 function openEdit(row: UserGroupSummaryDto): void {
   editing.value = row
-  dialogTitle.value = '编辑用户组'
   resetForm()
   form.name = row.name
   form.description = row.description ?? ''
@@ -425,133 +513,138 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="groups-page">
-    <div class="groups-page__toolbar">
-      <el-input
-        v-model="query.name"
-        placeholder="用户组名称"
-        clearable
-        class="groups-page__filter"
-        data-testid="user-groups-search"
-        @keyup.enter="search"
-      />
-      <el-select
-        v-model="query.status"
-        placeholder="状态"
-        clearable
-        class="groups-page__filter groups-page__filter--status"
-      >
-        <el-option label="启用" value="Active" />
-        <el-option label="禁用" value="Disabled" />
-      </el-select>
-      <el-checkbox v-model="query.includeDeleted" @change="search">包含已删除</el-checkbox>
-      <el-button type="primary" @click="search">查询</el-button>
-      <el-button @click="resetQuery">重置</el-button>
-      <div class="groups-page__spacer" />
+  <AppPage
+    class="groups-page"
+    data-testid="identity-user-groups-page"
+    :title="copy.title"
+    :description="copy.description"
+  >
+    <template #breadcrumb>
+      <nav :aria-label="commonCopy.pagePath">{{ copy.breadcrumb }}</nav>
+    </template>
+    <template #heading-meta>
+      <span class="groups-page__count">{{ total }} {{ copy.countSuffix }}</span>
+    </template>
+    <template #actions>
       <PermissionGate :permission-n-id="PERMISSIONS.userGroupCreate">
-        <el-button type="primary" plain @click="openCreate">新建用户组</el-button>
+        <el-button type="primary" data-testid="user-groups-create" @click="openCreate">
+          {{ copy.create }}
+        </el-button>
       </PermissionGate>
-    </div>
+    </template>
 
-    <el-table :data="rows" v-loading="loading" row-key="groupNId" border stripe>
-      <el-table-column prop="name" label="用户组名称" min-width="150" />
-      <el-table-column prop="groupNId" label="业务标识" min-width="180" />
-      <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
-      <el-table-column label="状态" width="90" align="center">
-        <template #default="{ row }">
-          <el-tag :type="row.status === 'Active' ? 'success' : 'danger'" effect="light">
-            {{ row.status === 'Active' ? '启用' : '禁用' }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="成员数" width="90" align="center">
-        <template #default="{ row }">{{ row.memberCount }}</template>
-      </el-table-column>
-      <el-table-column label="角色数" width="90" align="center">
-        <template #default="{ row }">{{ row.roleCount }}</template>
-      </el-table-column>
-      <el-table-column label="操作" width="360" fixed="right">
-        <template #default="{ row }">
-          <PermissionGate :permission-n-id="PERMISSIONS.userGroupUpdate">
-            <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
-          </PermissionGate>
-          <PermissionGate :permission-n-id="PERMISSIONS.userGroupStatus">
-            <el-button
-              link
-              :type="row.status === 'Active' ? 'danger' : 'success'"
-              @click="toggleStatus(row)"
-            >
-              {{ row.status === 'Active' ? '禁用' : '启用' }}
-            </el-button>
-          </PermissionGate>
-          <PermissionGate :permission-n-id="PERMISSIONS.userGroupAssignMember">
-            <el-button link type="primary" @click="openManageMembers(row)">成员</el-button>
-          </PermissionGate>
-          <PermissionGate :permission-n-id="PERMISSIONS.userGroupAssignRole">
-            <el-button link type="primary" @click="openManageRoles(row)">角色</el-button>
-          </PermissionGate>
-          <PermissionGate :permission-n-id="PERMISSIONS.userGroupDelete">
-            <el-button
-              v-if="!row.isDeleted"
-              link
-              type="danger"
-              @click="deleteGroup(row)"
-            >
-              删除
-            </el-button>
-          </PermissionGate>
-          <PermissionGate :permission-n-id="PERMISSIONS.userGroupRestore">
-            <el-button v-if="row.isDeleted" link type="success" @click="restoreGroup(row)">
-              恢复
-            </el-button>
-          </PermissionGate>
-        </template>
-      </el-table-column>
-    </el-table>
+    <AppQueryPanel
+      v-if="tableQueryMode === 'top'"
+      class="groups-page__query-panel"
+      :title="commonCopy.queryTitle"
+      :show-actions="true"
+      :submit-label="commonCopy.search"
+      :reset-label="commonCopy.reset"
+      :grid="true"
+      @submit="search"
+      @reset="resetQuery"
+    >
+        <el-input
+          v-model="query.name"
+          :placeholder="copy.name"
+          :aria-label="copy.name"
+          clearable
+          class="groups-page__filter"
+          data-testid="user-groups-search"
+          @keyup.enter="search"
+        />
+        <el-select
+          v-model="query.status"
+          :placeholder="commonCopy.status"
+          :aria-label="commonCopy.status"
+          clearable
+          class="groups-page__filter groups-page__filter--status"
+        >
+          <el-option :label="copy.enable" value="Active" />
+          <el-option :label="copy.disable" value="Disabled" />
+        </el-select>
+        <el-checkbox v-model="query.includeDeleted" @change="search">{{ copy.includeDeleted }}</el-checkbox>
+    </AppQueryPanel>
 
-    <el-pagination
-      class="groups-page__pagination"
-      layout="total, sizes, prev, pager, next, jumper"
+    <AppDataTable
+      table-key="identity-user-groups"
+      route-key="identity-user-groups"
+      row-key="groupNId"
+      :rows="rows"
       :total="total"
+      :loading="loading"
+      :columns="groupColumns"
       :page-size="pageSize"
-      :page-sizes="[10, 20, 50, 100]"
-      :current-page="pageIndex"
-      @current-change="
-        (page: number) => {
-          pageIndex = page
-          void loadGroups()
-        }
-      "
-      @size-change="
-        (size: number) => {
-          pageSize = size
-          pageIndex = 1
-          void loadGroups()
-        }
-      "
-    />
+      :loader="loadGroupsTable"
+      :exporter="exportGroups"
+      @query-mode-change="onTableQueryModeChange"
+      @query-change="onTableQuery"
+    >
+      <template #cell-status="{ row }">
+        <el-tag :type="row.status === 'Active' ? 'success' : 'danger'" effect="light">
+          {{ row.status === 'Active' ? copy.enable : copy.disable }}
+        </el-tag>
+      </template>
+      <template #actions="{ row }">
+        <PermissionGate :permission-n-id="PERMISSIONS.userGroupUpdate">
+          <el-button link type="primary" @click="openEdit(row)">{{ copy.edit }}</el-button>
+        </PermissionGate>
+        <PermissionGate :permission-n-id="PERMISSIONS.userGroupStatus">
+          <el-button
+            link
+            :type="row.status === 'Active' ? 'danger' : 'success'"
+            @click="toggleStatus(row)"
+          >
+            {{ row.status === 'Active' ? copy.disable : copy.enable }}
+          </el-button>
+        </PermissionGate>
+        <PermissionGate :permission-n-id="PERMISSIONS.userGroupAssignMember">
+          <el-button link type="primary" @click="openManageMembers(row)">{{ copy.members }}</el-button>
+        </PermissionGate>
+        <PermissionGate :permission-n-id="PERMISSIONS.userGroupAssignRole">
+          <el-button link type="primary" @click="openManageRoles(row)">{{ copy.roles }}</el-button>
+        </PermissionGate>
+        <PermissionGate :permission-n-id="PERMISSIONS.userGroupDelete">
+          <el-button v-if="!row.isDeleted" link type="danger" @click="deleteGroup(row)">
+            {{ copy.delete }}
+          </el-button>
+        </PermissionGate>
+        <PermissionGate :permission-n-id="PERMISSIONS.userGroupRestore">
+          <el-button v-if="row.isDeleted" link type="success" @click="restoreGroup(row)">
+            {{ copy.restore }}
+          </el-button>
+        </PermissionGate>
+      </template>
+    </AppDataTable>
 
     <!-- 新建 / 编辑 -->
-    <el-dialog v-model="dialogOpen" :title="dialogTitle" width="560px" @closed="resetForm">
+    <AppFormDrawer
+      v-model="dialogOpen"
+      :title="dialogTitle"
+      :busy="dialogSaving"
+      size="medium"
+      @cancel="resetForm"
+      @submit="submitDialog"
+    >
       <el-form ref="formRef" :model="form" :rules="groupRules" label-width="100px">
-        <el-form-item v-if="editing === null" label="业务标识" prop="nId">
-          <el-input v-model="form.nId" placeholder="可选,默认自动生成" />
+        <el-form-item v-if="editing === null" :label="commonCopy.businessId" prop="nId">
+          <el-input v-model="form.nId" :placeholder="commonCopy.optional" />
         </el-form-item>
-        <el-form-item label="名称" prop="name">
-          <el-input v-model="form.name" placeholder="如:仓库作业组" />
+        <el-form-item :label="commonCopy.name" prop="name">
+          <el-input v-model="form.name" :placeholder="copy.name" />
         </el-form-item>
-        <el-form-item label="描述" prop="description">
-          <el-input v-model="form.description" type="textarea" :rows="3" placeholder="可选" />
+        <el-form-item :label="commonCopy.description" prop="description">
+          <el-input v-model="form.description" type="textarea" :rows="3" :placeholder="commonCopy.optional" />
         </el-form-item>
         <template v-if="editing === null">
-          <el-form-item label="初始成员">
+          <el-form-item :label="copy.initialMembers">
             <el-select
               v-model="createMemberUserNIds"
               multiple
               filterable
               clearable
               class="groups-page__select"
-              placeholder="可选,创建后可在成员管理中调整"
+              :placeholder="copy.selectUser"
             >
               <el-option
                 v-for="user in allUsers"
@@ -561,14 +654,14 @@ onMounted(() => {
               />
             </el-select>
           </el-form-item>
-          <el-form-item label="初始角色">
+          <el-form-item :label="copy.initialRoles">
             <el-select
               v-model="createRoleNIds"
               multiple
               filterable
               clearable
               class="groups-page__select"
-              placeholder="可选,创建后可在角色管理中调整"
+              :placeholder="copy.selectRole"
             >
               <el-option
                 v-for="role in allRoles"
@@ -581,16 +674,16 @@ onMounted(() => {
         </template>
       </el-form>
       <template #footer>
-        <el-button @click="dialogOpen = false">取消</el-button>
-        <el-button type="primary" :loading="dialogSaving" @click="submitDialog">保存</el-button>
+        <el-button @click="dialogOpen = false">{{ commonCopy.cancel }}</el-button>
+        <el-button type="primary" :loading="dialogSaving" @click="submitDialog">{{ commonCopy.save }}</el-button>
       </template>
-    </el-dialog>
+    </AppFormDrawer>
 
     <!-- 成员管理(最终成员集) -->
-    <el-dialog v-model="membersDialogOpen" title="成员管理" width="560px">
+    <AppFormDrawer v-model="membersDialogOpen" :title="copy.memberTitle" :busy="membersSaving">
       <div v-loading="membersLoading">
         <p class="groups-page__dialog-tip">
-          设置「{{ membersTarget?.name ?? '' }}」的成员:勾选为最终成员集,未勾选的现有成员将被移出。
+          {{ copy.memberDescription.replace('{name}', membersTarget?.name ?? '') }}
         </p>
         <el-select
           v-model="selectedMemberUserNIds"
@@ -598,7 +691,7 @@ onMounted(() => {
           filterable
           clearable
           class="groups-page__select"
-          placeholder="选择用户(共 {{ allUsers.length }} 个可用用户)"
+          :placeholder="copy.selectUser"
         >
           <el-option
             v-for="user in allUsers"
@@ -609,16 +702,16 @@ onMounted(() => {
         </el-select>
       </div>
       <template #footer>
-        <el-button @click="membersDialogOpen = false">取消</el-button>
-        <el-button type="primary" :loading="membersSaving" @click="submitMembers">保存</el-button>
+        <el-button @click="membersDialogOpen = false">{{ commonCopy.cancel }}</el-button>
+        <el-button type="primary" :loading="membersSaving" @click="submitMembers">{{ commonCopy.save }}</el-button>
       </template>
-    </el-dialog>
+    </AppFormDrawer>
 
     <!-- 角色管理(最终角色集) -->
-    <el-dialog v-model="rolesDialogOpen" title="角色管理" width="560px">
+    <AppFormDrawer v-model="rolesDialogOpen" :title="copy.roleTitle" :busy="rolesSaving">
       <div v-loading="rolesLoading">
         <p class="groups-page__dialog-tip">
-          设置「{{ rolesTarget?.name ?? '' }}」的角色:勾选为最终角色集,未勾选的现有角色将被移除;组角色即时贡献给全部成员。
+          {{ copy.roleDescription.replace('{name}', rolesTarget?.name ?? '') }}
         </p>
         <el-select
           v-model="selectedRoleNIds"
@@ -626,7 +719,7 @@ onMounted(() => {
           filterable
           clearable
           class="groups-page__select"
-          placeholder="选择角色(共 {{ allRoles.length }} 个可用角色)"
+          :placeholder="copy.selectRole"
         >
           <el-option
             v-for="role in allRoles"
@@ -637,18 +730,66 @@ onMounted(() => {
         </el-select>
       </div>
       <template #footer>
-        <el-button @click="rolesDialogOpen = false">取消</el-button>
-        <el-button type="primary" :loading="rolesSaving" @click="submitRoles">保存</el-button>
+        <el-button @click="rolesDialogOpen = false">{{ commonCopy.cancel }}</el-button>
+        <el-button type="primary" :loading="rolesSaving" @click="submitRoles">{{ commonCopy.save }}</el-button>
       </template>
-    </el-dialog>
-  </section>
+    </AppFormDrawer>
+  </AppPage>
 </template>
 
 <style scoped>
 .groups-page {
   display: flex;
   flex-direction: column;
-  gap: var(--ip-space-4);
+  gap: 0;
+  overflow: hidden;
+  background: var(--ip-color-bg-container);
+  border: 1px solid var(--ip-color-border);
+  border-radius: var(--ip-radius-lg);
+  min-width: 0;
+}
+
+.groups-page :deep(.app-page__header) {
+  padding: 18px 20px 17px;
+  border-bottom: 1px solid var(--ip-color-border);
+}
+
+.groups-page :deep(.app-page__body) {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.groups-page :deep(.app-data-table) {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.groups-page :deep(.app-data-table__card) {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.groups-page :deep(.app-query-panel) {
+  gap: 0;
+  padding: 14px 20px 16px;
+  border-bottom: 1px solid var(--ip-color-border);
+}
+
+.groups-page :deep(.app-query-panel__header) {
+  margin-bottom: var(--ip-space-3);
+}
+
+.groups-page :deep(.app-query-panel__body) {
+  gap: 12px;
+}
+
+.groups-page__count {
+  color: var(--ip-color-text-secondary);
+  font-size: var(--ip-font-size-sm);
 }
 
 .groups-page__toolbar {

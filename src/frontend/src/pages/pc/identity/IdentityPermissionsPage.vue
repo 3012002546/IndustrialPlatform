@@ -3,14 +3,21 @@
  * 权限目录页(TASK-ID-012,§16.3):只读展示权限目录树(identity.permission.view)。
  * 权限类型标注:Page=页面 / Action=操作(后端 PermissionType 枚举名)。
  */
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
 import type { PermissionTreeNodeDto } from '@/api/identity/management'
 import { getManagementApi } from '@/api/identity/managementRegistry'
+import AppPage from '@/components/base/AppPage.vue'
+import AppQueryPanel from '@/components/management/AppQueryPanel.vue'
+import { localeMessages } from '@/localization/i18n'
+import { usePlatformLocale } from '@/localization/localeContext'
 
 import { reportManagementError } from './shared'
 
 const management = getManagementApi()
+const locale = usePlatformLocale()
+const copy = computed(() => localeMessages[locale.value].identity.management.permissions)
+const commonCopy = computed(() => localeMessages[locale.value].identity.management.common)
 
 const loading = ref(false)
 const tree = ref<PermissionTreeNodeDto[]>([])
@@ -71,24 +78,38 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="permissions-page">
-    <div class="permissions-page__toolbar">
+  <AppPage
+    class="permissions-page"
+    data-testid="identity-permissions-page"
+    :title="copy.title"
+    :description="copy.description"
+  >
+    <template #breadcrumb>
+      <nav :aria-label="commonCopy.pagePath">{{ copy.breadcrumb }}</nav>
+    </template>
+    <template #heading-meta>
+      <span class="permissions-page__stats">
+        {{ stats.total }} {{ copy.countSuffix }} · {{ copy.page }} {{ stats.pages }} ·
+        {{ copy.operation }} {{ stats.actions }}
+      </span>
+    </template>
+
+    <AppQueryPanel class="permissions-page__query-panel" :title="commonCopy.queryTitle">
       <el-input
-        placeholder="按名称 / 业务标识过滤"
+        :placeholder="copy.filter"
+        :aria-label="copy.filter"
         clearable
         class="permissions-page__filter"
         @input="applyFilter"
         @clear="applyFilter('')"
       />
-      <span class="permissions-page__stats">
-        共 {{ stats.total }} 项 · 页面 {{ stats.pages }} · 操作 {{ stats.actions }}
-      </span>
-      <div class="permissions-page__spacer" />
-      <el-button @click="expandAll = !expandAll">{{
-        expandAll ? '折叠全部' : '展开全部'
-      }}</el-button>
-      <el-button @click="loadTree">刷新</el-button>
-    </div>
+      <template #actions>
+        <el-button @click="expandAll = !expandAll">{{
+          expandAll ? commonCopy.collapseAll : commonCopy.expandAll
+        }}</el-button>
+        <el-button @click="loadTree">{{ commonCopy.refresh }}</el-button>
+      </template>
+    </AppQueryPanel>
 
     <div class="permissions-page__tree" v-loading="loading">
       <el-tree
@@ -107,7 +128,7 @@ onMounted(() => {
               :type="data.type === 'Page' ? 'primary' : 'success'"
               effect="plain"
             >
-              {{ data.type === 'Page' ? '页面' : '操作' }}
+              {{ data.type === 'Page' ? copy.page : copy.operation }}
             </el-tag>
             <span class="permissions-page__node-nid">{{ data.permissionNId }}</span>
             <span v-if="data.description" class="permissions-page__node-desc">{{
@@ -117,14 +138,42 @@ onMounted(() => {
         </template>
       </el-tree>
     </div>
-  </section>
+  </AppPage>
 </template>
 
 <style scoped>
 .permissions-page {
   display: flex;
   flex-direction: column;
-  gap: var(--ip-space-4);
+  gap: 0;
+  overflow: hidden;
+  background: var(--ip-color-bg-container);
+  border: 1px solid var(--ip-color-border);
+  border-radius: var(--ip-radius-lg);
+  min-width: 0;
+}
+
+.permissions-page :deep(.app-page__header) {
+  padding: 18px 20px 17px;
+  border-bottom: 1px solid var(--ip-color-border);
+}
+
+.permissions-page :deep(.app-page__body) {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.permissions-page :deep(.app-query-panel) {
+  gap: 0;
+  padding: 14px 20px 16px;
+  border-bottom: 1px solid var(--ip-color-border);
+}
+
+.permissions-page :deep(.app-query-panel__header) {
+  justify-content: space-between;
+  margin-bottom: var(--ip-space-3);
 }
 
 .permissions-page__toolbar {
