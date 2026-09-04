@@ -17,4 +17,4 @@ jobs:
           global-json-file: global.json
       - run: dotnet restore src/backend/IndustrialPlatform.slnx
       - run: dotnet build src/backend/IndustrialPlatform.slnx --configuration Release --no-restore
-      - run: dotnet test src/backend/IndustrialPlatform.slnx --configuration Release --no-build --logger trx
+      - run: dotnet test src/backend/IndustrialPlatform.slnx --configuration Release --no-build --logger trx --logger "console;verbosity=detailed"
