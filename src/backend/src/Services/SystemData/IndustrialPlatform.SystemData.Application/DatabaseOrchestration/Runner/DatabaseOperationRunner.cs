@@ -1,6 +1,9 @@
+using IndustrialPlatform.Application.Abstractions.Initialization;
 using IndustrialPlatform.SharedKernel.Exceptions;
+using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Initialization;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Internal;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Options;
+using IndustrialPlatform.SystemData.Application.IdentityDirectory;
 using IndustrialPlatform.SystemData.Domain.DatabaseOrchestration;
 using IndustrialPlatform.SharedKernel.Topology;
 using IndustrialPlatform.SystemData.Domain.Topology;
@@ -34,6 +37,8 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
     private readonly ISeedArtifactVerifier _seedArtifactVerifier;
     private readonly IReadOnlyList<ISeedExecutor> _seedExecutors;
     private readonly ISeedSecretResolver _seedSecretResolver;
+    private readonly IServiceInitializationInvoker? _serviceInitializationInvoker;
+    private readonly IIdentityUserDirectory? _identityUserDirectory;
 
     private ActiveOperation? _active;
     private IDisposable? _lockHandle;
@@ -60,7 +65,9 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
         ISeedArtifactStore seedArtifactStore,
         ISeedArtifactVerifier seedArtifactVerifier,
         IEnumerable<ISeedExecutor> seedExecutors,
-        ISeedSecretResolver seedSecretResolver)
+        ISeedSecretResolver seedSecretResolver,
+        IServiceInitializationInvoker? serviceInitializationInvoker = null,
+        IIdentityUserDirectory? identityUserDirectory = null)
     {
         _store = store;
         _topologyProvider = topologyProvider;
@@ -80,6 +87,8 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
         _seedArtifactVerifier = seedArtifactVerifier;
         _seedExecutors = (seedExecutors ?? []).ToList();
         _seedSecretResolver = seedSecretResolver;
+        _serviceInitializationInvoker = serviceInitializationInvoker;
+        _identityUserDirectory = identityUserDirectory;
     }
 
     /// <inheritdoc />
@@ -207,7 +216,10 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
                 operation.AdvanceToNextPhase(now);
                 await SaveOperationAsync(operation, cancellationToken);
 
-                if (_lockHandle is null && operation.Kind == OperationKind.Apply && operation.Phase > OperationPhase.Inspect)
+                if (_lockHandle is null
+                    && operation.Kind == OperationKind.Apply
+                    && operation.Phase > OperationPhase.Inspect
+                    && !IsServiceOwned(context))
                 {
                     if (!await AcquireTargetLockAsync(context, operation, now, cancellationToken))
                     {
@@ -263,14 +275,35 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
     {
         try
         {
+            if (operation.Kind == OperationKind.Apply)
+            {
+                // Apply 的授权必须发生在 Inspect/Provision 之前,否则目标库可能已被写入。
+                await EnsureCurrentOperatorIsSystemAdminAsync(operation, cancellationToken);
+            }
+
             var registration = await GetRegistrationAsync(context, operation, cancellationToken);
             if (operation.Kind == OperationKind.Plan)
             {
-                // 预检迁移产物可解析(真实 inspect 在 Inspect 阶段)。
-                _ = await _artifactStore.ResolveAsync(registration.MigrationArtifactId, cancellationToken);
+                // 服务初始化器由服务自身提供计划;legacy 才预检 SQL 迁移产物。
+                if (registration.UsesServiceInitializer)
+                {
+                    if (_serviceInitializationInvoker is null)
+                    {
+                        return FatalFailure(DatabaseOrchestrationRunnerErrors.InternalFailure, "服务初始化器不可用。");
+                    }
+                }
+                else
+                {
+                    _ = await _artifactStore.ResolveAsync(registration.MigrationArtifactId, cancellationToken);
+                }
             }
             else
             {
+                if (registration.UsesServiceInitializer && _serviceInitializationInvoker is null)
+                {
+                    return FatalFailure(DatabaseOrchestrationRunnerErrors.InternalFailure, "服务初始化器不可用。");
+                }
+
                 await RevalidateApplyGateAsync(context, operation, registration, cancellationToken);
             }
 
@@ -301,6 +334,71 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
                 ParseProvider(registration.Provider),
                 registration.LogicalDatabaseName);
             context.Target = target;
+
+            if (registration.UsesServiceInitializer)
+            {
+                if (_serviceInitializationInvoker is null)
+                {
+                    return FatalFailure(DatabaseOrchestrationRunnerErrors.InternalFailure, "服务初始化器不可用。");
+                }
+
+                context.Credentials = null;
+                var serviceContext = CreateServiceInitializationContext(context, operation);
+                var serviceInspection = await _serviceInitializationInvoker.InspectAsync(
+                    serviceContext,
+                    cancellationToken);
+                context.ServiceInitializationInspection = serviceInspection;
+                context.Inspection = new DatabaseTargetInspection(
+                    DatabaseExists: true,
+                    serviceInspection.ObservedVersion,
+                    null,
+                    []);
+
+                if (operation.Kind == OperationKind.Plan)
+                {
+                    var servicePlan = await _serviceInitializationInvoker.PlanAsync(
+                        serviceContext,
+                        serviceInspection,
+                        cancellationToken);
+                    context.ServiceInitializationPlan = servicePlan;
+                    await BuildServicePlanAsync(context, operation, registration, servicePlan, cancellationToken);
+                }
+                else
+                {
+                    if (string.IsNullOrWhiteSpace(operation.PlanNId))
+                    {
+                        throw new NotFoundException();
+                    }
+
+                    var plan = await _store.GetPlanAsync(operation.TenantNId, operation.PlanNId, cancellationToken)
+                        ?? throw new NotFoundException();
+                    var currentFingerprint = ComputeTargetStateFingerprint(registration, plan, context.Policy!);
+                    if (!plan.MatchesTargetStateFingerprint(currentFingerprint))
+                    {
+                        throw new PlanDriftException();
+                    }
+
+                    if (serviceInspection.ObservedVersion is not null
+                        && !string.Equals(serviceInspection.ObservedVersion, plan.CurrentMigrationVersion, StringComparison.Ordinal))
+                    {
+                        throw new TargetMismatchException("服务初始化器返回的当前版本与计划生成时不一致,拒绝 apply。");
+                    }
+
+                    var currentServicePlan = await _serviceInitializationInvoker.PlanAsync(
+                        serviceContext,
+                        serviceInspection,
+                        cancellationToken);
+                    if (!MatchesFrozenServicePlan(plan, currentServicePlan))
+                    {
+                        throw new PlanDriftException();
+                    }
+
+                    context.Plan = plan;
+                    context.ServiceInitializationPlan = currentServicePlan;
+                }
+
+                return Success();
+            }
 
             var credentials = await _credentialResolver.ResolveAsync(
                 target,
@@ -358,6 +456,16 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
     {
         try
         {
+            if (context.Registration?.UsesServiceInitializer == true)
+            {
+                if (_serviceInitializationInvoker is null)
+                {
+                    return FatalFailure(DatabaseOrchestrationRunnerErrors.InternalFailure, "服务初始化器不可用。");
+                }
+
+                return Success();
+            }
+
             if (context.Inspection is null)
             {
                 return FatalFailure(DatabaseOrchestrationRunnerErrors.InternalFailure, "缺少目标检查结果。");
@@ -407,6 +515,16 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
     {
         try
         {
+            if (context.Registration?.UsesServiceInitializer == true)
+            {
+                if (_serviceInitializationInvoker is null)
+                {
+                    return FatalFailure(DatabaseOrchestrationRunnerErrors.InternalFailure, "服务初始化器不可用。");
+                }
+
+                return Success();
+            }
+
             if (context.Credentials?.Admin is null)
             {
                 return FatalFailure(DatabaseOrchestrationRunnerErrors.SecretUnavailable, "缺少 provision admin 凭据。");
@@ -435,6 +553,16 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
     {
         try
         {
+            if (context.Registration?.UsesServiceInitializer == true)
+            {
+                if (_serviceInitializationInvoker is null)
+                {
+                    return FatalFailure(DatabaseOrchestrationRunnerErrors.InternalFailure, "服务初始化器不可用。");
+                }
+
+                return Success();
+            }
+
             if (context.Policy!.BackupRequired
                 && !await _backupService.IsVerifiedForAsync(operation.TenantNId, context.Plan!, cancellationToken))
             {
@@ -461,6 +589,30 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
         try
         {
             var registration = context.Registration!;
+            if (registration.UsesServiceInitializer)
+            {
+                if (_serviceInitializationInvoker is null)
+                {
+                    return FatalFailure(DatabaseOrchestrationRunnerErrors.InternalFailure, "服务初始化器不可用。");
+                }
+
+                var state = await ExecuteServiceInitializerAsync(context, operation, cancellationToken);
+                context.ServiceInitializationState = state;
+                context.Inspection = new DatabaseTargetInspection(
+                    DatabaseExists: true,
+                    state.ObservedVersion ?? operation.RequestedVersion,
+                    context.Inspection?.DatabaseIdentityFingerprint,
+                    []);
+                if (!state.Ready)
+                {
+                    return FatalFailure(
+                        DatabaseOrchestrationRunnerErrors.SeedFailed,
+                        state.Reason ?? "服务初始化未达到 Ready。");
+                }
+
+                return Success();
+            }
+
             var artifact = await _artifactStore.ResolveAsync(registration.MigrationArtifactId, cancellationToken);
             var verified = await _artifactVerifier.VerifyAsync(
                 artifact,
@@ -512,6 +664,38 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
         try
         {
             var registration = context.Registration!;
+            if (registration.UsesServiceInitializer && context.ServiceInitializationState is null)
+            {
+                return FatalFailure(DatabaseOrchestrationRunnerErrors.InternalFailure, "服务初始化状态缺失,拒绝回退到 SQL Runner。");
+            }
+
+            if (context.ServiceInitializationState is not null)
+            {
+                var state = context.ServiceInitializationState;
+                if (!state.Ready
+                    || !string.Equals(state.ObservedVersion, operation.RequestedVersion, StringComparison.Ordinal))
+                {
+                    throw new TargetMismatchException("服务初始化器返回的状态与期望版本不一致。");
+                }
+
+                await RecordServiceSeedObservationsAsync(context, operation, state, cancellationToken);
+
+                var serviceIdentityFingerprint = ComputeDatabaseIdentityFingerprint(registration);
+                var serviceObservation = DatabaseMigrationObservation.Record(
+                    operation.TenantNId,
+                    operation.EnvironmentNId,
+                    operation.ServiceKey,
+                    serviceIdentityFingerprint,
+                    state.ObservedVersion!,
+                    registration.ArtifactChecksum,
+                    DateTimeOffset.UtcNow,
+                    operation.OperationNId,
+                    VerificationStatus.Verified,
+                    operation.ModuleKey);
+                await _store.AddObservationAsync(serviceObservation, cancellationToken);
+                return Success();
+            }
+
             var inspection = await _inspector.InspectAsync(
                 context.Target!,
                 context.Credentials!,
@@ -535,7 +719,8 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
                 registration.ArtifactChecksum,
                 DateTimeOffset.UtcNow,
                 operation.OperationNId,
-                VerificationStatus.Verified);
+                VerificationStatus.Verified,
+                operation.ModuleKey);
             await _store.AddObservationAsync(observation, cancellationToken);
             return Success();
         }
@@ -551,6 +736,258 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
         }
     }
 
+    private static bool IsServiceOwned(RunContext context) =>
+        context.Registration?.UsesServiceInitializer == true;
+
+    private async Task<ServiceInitializationState> ExecuteServiceInitializerAsync(
+        RunContext context,
+        DatabaseProvisionOperation operation,
+        CancellationToken cancellationToken)
+    {
+        _ = context.Target ?? throw new InvalidOperationException("服务初始化前必须先解析目标。");
+        _ = context.Policy ?? throw new InvalidOperationException("服务初始化前必须先解析环境策略。");
+        var invoker = _serviceInitializationInvoker
+            ?? throw new InvalidOperationException("服务初始化器不可用。");
+        var serviceContext = CreateServiceInitializationContext(context, operation);
+        var inspection = context.ServiceInitializationInspection
+            ?? await invoker.InspectAsync(serviceContext, cancellationToken);
+        var plan = context.ServiceInitializationPlan
+            ?? await invoker.PlanAsync(serviceContext, inspection, cancellationToken);
+        context.ServiceInitializationInspection = inspection;
+        context.ServiceInitializationPlan = plan;
+        if (plan.RequiresApply)
+        {
+            var applied = await invoker.ApplyAsync(serviceContext, plan, cancellationToken);
+            if (!applied.Ready)
+            {
+                return applied;
+            }
+        }
+
+        return await invoker.VerifyAsync(serviceContext, cancellationToken);
+    }
+
+    private static ServiceInitializationContext CreateServiceInitializationContext(
+        RunContext context,
+        DatabaseProvisionOperation operation)
+    {
+        var target = context.Target ?? throw new InvalidOperationException("服务初始化前必须先解析目标。");
+        var policy = context.Policy ?? throw new InvalidOperationException("服务初始化前必须先解析环境策略。");
+        return new ServiceInitializationContext(
+            operation.EnvironmentNId,
+            operation.TenantNId,
+            operation.OperationNId,
+            operation.ServiceKey,
+            operation.ModuleKey,
+            target,
+            operation.RequestedVersion,
+            policy.InitializationPolicy,
+            operation.TraceId);
+    }
+
+    private async Task BuildServicePlanAsync(
+        RunContext context,
+        DatabaseProvisionOperation operation,
+        DatabaseRegistration registration,
+        ServiceInitializationPlan servicePlan,
+        CancellationToken cancellationToken)
+    {
+        var currentVersion = servicePlan.CurrentVersion ?? "0.0.0";
+        var fingerprint = ComputeTargetStateFingerprint(
+            registration,
+            operation.RequestedVersion,
+            context.Policy!);
+        var steps = BuildServicePlanSteps(servicePlan);
+        var riskLevel = steps.Max(step => step.RiskLevel);
+        var destructiveChangeDetected = ServicePlanHasDestructiveStep(servicePlan);
+        var plan = DatabaseProvisionPlan.Create(
+            operation.TenantNId,
+            DatabaseOrchestrationInput.NewNId("PLAN"),
+            operation.EnvironmentNId,
+            operation.ServiceKey,
+            operation.RequestedVersion,
+            currentVersion,
+            fingerprint,
+            riskLevel,
+            destructiveChangeDetected,
+            BuildRequiredPolicies(context.Policy!),
+            DateTimeOffset.UtcNow.AddSeconds(context.Policy!.PlanTtlSeconds),
+            operation.CreatedByUserNId,
+            steps,
+            moduleKey: operation.ModuleKey,
+            serviceRequiresApply: servicePlan.RequiresApply);
+        plan.ClearDomainEvents();
+        await _store.AddPlanAsync(plan, cancellationToken);
+        context.Plan = plan;
+    }
+
+    private async Task EnsureCurrentOperatorIsSystemAdminAsync(
+        DatabaseProvisionOperation operation,
+        CancellationToken cancellationToken)
+    {
+        if (_identityUserDirectory is null)
+        {
+            // 任何无法完成当前操作者权威校验的路径都必须拒绝 Apply。
+            throw new OperatorNotAuthorizedException();
+        }
+
+        var actor = await _identityUserDirectory.GetAsync(
+            operation.TenantNId,
+            operation.CreatedByUserNId,
+            cancellationToken);
+        if (actor is null
+            || !string.Equals(actor.TenantNId, operation.TenantNId, StringComparison.Ordinal)
+            || !string.Equals(actor.UserNId, operation.CreatedByUserNId, StringComparison.Ordinal)
+            || !string.Equals(actor.Status, "Active", StringComparison.OrdinalIgnoreCase)
+            || !actor.IsSystemAdmin)
+        {
+            throw new OperatorNotAuthorizedException();
+        }
+    }
+
+    private static bool MatchesFrozenServicePlan(
+        DatabaseProvisionPlan frozenPlan,
+        ServiceInitializationPlan currentServicePlan)
+    {
+        if (!string.Equals(frozenPlan.ServiceKey, currentServicePlan.ServiceKey, StringComparison.Ordinal)
+            || !string.Equals(frozenPlan.ModuleKey, currentServicePlan.ModuleKey, StringComparison.Ordinal)
+            || !string.Equals(frozenPlan.RequestedMigrationVersion, currentServicePlan.DesiredVersion, StringComparison.Ordinal)
+            || !string.Equals(
+                frozenPlan.CurrentMigrationVersion,
+                currentServicePlan.CurrentVersion ?? "0.0.0",
+                StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (frozenPlan.ServiceRequiresApply is not bool frozenRequiresApply
+            || frozenRequiresApply != currentServicePlan.RequiresApply)
+        {
+            return false;
+        }
+
+        var currentSteps = BuildServicePlanSteps(currentServicePlan);
+        if (frozenPlan.RiskLevel != currentSteps.Max(step => step.RiskLevel)
+            || frozenPlan.DestructiveChangeDetected != ServicePlanHasDestructiveStep(currentServicePlan)
+            || frozenPlan.Steps.Count != currentSteps.Count)
+        {
+            return false;
+        }
+
+        return frozenPlan.Steps
+            .OrderBy(step => step.Sequence)
+            .Zip(currentSteps.OrderBy(step => step.Sequence))
+            .All(pair => string.Equals(
+                pair.First.StepKind,
+                pair.Second.StepKind,
+                StringComparison.Ordinal)
+                && string.Equals(pair.First.InputSummary, pair.Second.InputSummary, StringComparison.Ordinal)
+                && string.Equals(pair.First.PreconditionSummary, pair.Second.PreconditionSummary, StringComparison.Ordinal)
+                && string.Equals(pair.First.PostconditionSummary, pair.Second.PostconditionSummary, StringComparison.Ordinal)
+                && pair.First.RiskLevel == pair.Second.RiskLevel);
+    }
+
+    private static List<DatabasePlanStep> BuildServicePlanSteps(ServiceInitializationPlan servicePlan)
+    {
+        var stepNames = servicePlan.Steps.Count == 0
+            ? ["verify"]
+            : servicePlan.Steps.ToList();
+        var details = servicePlan.StepDetails;
+        if (details is not null && details.Count > 0 && details.Count != stepNames.Count)
+        {
+            throw new PlanDriftException();
+        }
+
+        return stepNames
+            .Select((stepName, index) =>
+            {
+                var detail = details is { Count: > 0 } ? details[index] : null;
+                if (detail is not null
+                    && !string.Equals(detail.StepKey, stepName, StringComparison.Ordinal))
+                {
+                    throw new PlanDriftException();
+                }
+
+                var riskLevel = ParseServiceRiskLevel(detail?.RiskLevel);
+                if (detail?.Destructive == true)
+                {
+                    riskLevel = RiskLevel.Critical;
+                }
+
+                var stepKind = detail?.StepKey ?? $"service-initialization-{index + 1}";
+                return new DatabasePlanStep(
+                    index + 1,
+                    stepKind,
+                    detail?.InputSummary ?? stepName,
+                    detail?.PreconditionSummary ?? "服务初始化器已检查当前状态。",
+                    detail?.PostconditionSummary ?? $"服务初始化器达到 {servicePlan.DesiredVersion}。",
+                    riskLevel);
+            })
+            .ToList();
+    }
+
+    private static RiskLevel ParseServiceRiskLevel(string? value) =>
+        Enum.TryParse<RiskLevel>(value, ignoreCase: true, out var riskLevel)
+            ? riskLevel
+            : RiskLevel.Medium;
+
+    private static bool ServicePlanHasDestructiveStep(ServiceInitializationPlan servicePlan) =>
+        servicePlan.StepDetails?.Any(step => step.Destructive) == true;
+
+    private static DatabasePlanRequiredPolicies BuildRequiredPolicies(ResolvedPolicy policy)
+    {
+        var requiredPolicies = DatabasePlanRequiredPolicies.None;
+        if (policy.ApprovalRequired) requiredPolicies |= DatabasePlanRequiredPolicies.Approval;
+        if (policy.BackupRequired) requiredPolicies |= DatabasePlanRequiredPolicies.Backup;
+        return requiredPolicies;
+    }
+
+    private async Task RecordServiceSeedObservationsAsync(
+        RunContext context,
+        DatabaseProvisionOperation operation,
+        ServiceInitializationState state,
+        CancellationToken cancellationToken)
+    {
+        var registration = context.Registration!;
+        var facts = state.Seeds ?? [];
+        foreach (var seed in registration.SeedSets)
+        {
+            var fact = facts.FirstOrDefault(item => string.Equals(item.SeedKey, seed.SeedKey, StringComparison.Ordinal));
+            if (fact is null)
+            {
+                throw new TargetMismatchException($"服务初始化器未返回种子 {seed.SeedKey} 的事实。");
+            }
+
+            if (!string.Equals(fact.SeedVersion, seed.SeedVersion, StringComparison.Ordinal)
+                || !string.Equals(fact.Checksum, seed.SeedChecksum, StringComparison.Ordinal)
+                || !Enum.TryParse<SeedScope>(fact.Scope, ignoreCase: true, out var factScope)
+                || factScope != seed.Scope
+                || !Enum.TryParse<SeedStatus>(fact.Status, ignoreCase: true, out var status)
+                || status != SeedStatus.Applied
+                && !(seed.SeedClass == SeedClass.SecretBootstrap
+                     && seed.BootstrapPolicy == BootstrapPolicy.SkipWhenMissing
+                     && status == SeedStatus.Skipped))
+            {
+                throw new TargetMismatchException($"服务初始化器返回的种子 {seed.SeedKey} 事实未达到期望版本。");
+            }
+
+            var observation = DatabaseSeedObservation.Record(
+                operation.TenantNId,
+                operation.EnvironmentNId,
+                operation.ServiceKey,
+                operation.ModuleKey,
+                seed.SeedKey,
+                seed.SeedVersion,
+                seed.SeedChecksum,
+                seed.Scope,
+                status,
+                fact.AppliedOn,
+                operation.OperationNId,
+                VerificationStatus.Verified);
+            await _store.AddSeedObservationAsync(observation, cancellationToken);
+        }
+    }
+
     // ===== 种子阶段(TASK-SD-004)=====
 
     /// <summary>RequiredSeed:按依赖顺序执行全部 RequiredForReadiness 种子;无则跳过。</summary>
@@ -561,6 +998,11 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
     {
         try
         {
+            if (context.ServiceInitializationState is not null)
+            {
+                return Success();
+            }
+
             var registration = context.Registration!;
             var requiredSeeds = registration.SeedSets.Where(seed => seed.RequiredForReadiness).ToList();
             if (requiredSeeds.Count == 0)
@@ -599,6 +1041,11 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
     {
         try
         {
+            if (context.ServiceInitializationState is not null)
+            {
+                return Success();
+            }
+
             var registration = context.Registration!;
             var bootstrapSeeds = registration.SeedSets.Where(seed => seed.SeedClass == SeedClass.SecretBootstrap).ToList();
             if (bootstrapSeeds.Count == 0)
@@ -625,21 +1072,32 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
                     throw new SeedChecksumDriftException(seed.SeedKey);
                 }
 
-                var secret = await _seedSecretResolver.TryResolveAsync(
-                    seed.SeedKey,
-                    operation.EnvironmentNId,
-                    operation.ServiceKey,
-                    operation.ModuleKey,
-                    cancellationToken);
-                if (secret is null)
+                var executor = GetSeedExecutor(artifact.ExecutorKind);
+                string? secret = null;
+                if (executor.AcceptsSecretValue)
                 {
-                    if (seed.BootstrapPolicy == BootstrapPolicy.SkipWhenMissing)
+                    secret = await _seedSecretResolver.TryResolveAsync(
+                        seed.SeedKey,
+                        operation.EnvironmentNId,
+                        operation.ServiceKey,
+                        operation.ModuleKey,
+                        cancellationToken);
+                    if (secret is null)
                     {
-                        // 记账 Skipped,不阻塞 readiness。
-                        return Success();
-                    }
+                        if (seed.BootstrapPolicy == BootstrapPolicy.SkipWhenMissing)
+                        {
+                            // 记账 Skipped,不阻塞 readiness。
+                            await RecordSeedObservationAsync(
+                                context,
+                                operation,
+                                seed,
+                                new SeedExecutionResult(true, SeedStatus.Skipped, null, null, "缺少可选 bootstrap 输入,按策略跳过。"),
+                                cancellationToken);
+                            continue;
+                        }
 
-                    throw new BootstrapSecretMissingException(seed.SeedKey);
+                        throw new BootstrapSecretMissingException(seed.SeedKey);
+                    }
                 }
 
                 var connection = context.Credentials?.Migrator ?? context.Credentials?.Admin;
@@ -648,7 +1106,6 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
                     return FatalFailure(DatabaseOrchestrationRunnerErrors.SecretUnavailable, "缺少目标凭据。");
                 }
 
-                var executor = GetSeedExecutor(artifact.ExecutorKind);
                 var request = new SeedExecutionRequest(
                     seed,
                     artifact,
@@ -659,7 +1116,9 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
                     operation.EnvironmentNId,
                     secret,
                     operation.OperationNId,
-                    operation.TraceId);
+                    operation.TraceId,
+                    context.Policy!.InitializationPolicy,
+                    operation.RequestedVersion);
                 var result = await executor.ExecuteAsync(request, cancellationToken);
                 if (!result.Succeeded)
                 {
@@ -746,7 +1205,9 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
             operation.EnvironmentNId,
             SecretValue: null,
             operation.OperationNId,
-            operation.TraceId);
+            operation.TraceId,
+            context.Policy!.InitializationPolicy,
+            operation.RequestedVersion);
         var result = await executor.ExecuteAsync(request, cancellationToken);
         if (result.Succeeded && result.Status == SeedStatus.Applied)
         {
@@ -790,7 +1251,10 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
                     operation.OperationNId,
                     operation.TraceId,
                     context.Target!,
-                    connection),
+                    connection,
+                    context.Policy!.InitializationPolicy,
+                    operation.RequestedVersion,
+                    seed.SeedChecksum),
                 cancellationToken);
             if (entry is null
                 || entry.Status != SeedStatus.Applied
@@ -1107,6 +1571,26 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
             registration.ModuleKey,
             SeedCanonicals(registration));
 
+    private static string ComputeTargetStateFingerprint(
+        DatabaseRegistration registration,
+        string requestedVersion,
+        ResolvedPolicy policy) =>
+        DatabaseTopologyFingerprint.ComputeTargetStateFingerprint(
+            registration.EnvironmentNId,
+            registration.ServiceKey,
+            registration.Provider,
+            registration.LogicalDatabaseName,
+            registration.PhysicalDatabaseName,
+            registration.TopologyMode,
+            registration.TopologyRevision,
+            registration.ArtifactChecksum,
+            requestedVersion,
+            registration.DesiredState.ToString(),
+            policy.ApprovalRequired,
+            policy.BackupRequired,
+            registration.ModuleKey,
+            SeedCanonicals(registration));
+
     /// <summary>注册清单种子声明的规范化文本列表(指纹纳入种子集合)。</summary>
     private static List<string> SeedCanonicals(DatabaseRegistration registration) =>
         registration.SeedSets.Select(seed => seed.ToChecksumCanonical()).ToList();
@@ -1164,6 +1648,15 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
         public DatabaseProvisionPlan? Plan { get; set; }
 
         public ResolvedPolicy? Policy { get; set; }
+
+        /// <summary>V2 服务初始化器已完成自己的完整生命周期。</summary>
+        public ServiceInitializationState? ServiceInitializationState { get; set; }
+
+        /// <summary>Inspect 阶段返回的服务本地事实,供 Apply 复用且不重新读取控制面目标。</summary>
+        public ServiceInitializationState? ServiceInitializationInspection { get; set; }
+
+        /// <summary>服务初始化器生成的计划,Plan 与 Apply 使用同一语义。</summary>
+        public ServiceInitializationPlan? ServiceInitializationPlan { get; set; }
 
         public DatabaseMigrationArtifact? Artifact { get; set; }
 

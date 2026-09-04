@@ -1,8 +1,10 @@
 # Industrial Platform SystemData 服务初始化编排与环境引导
 
-版本：V3.1
+版本：V3.2
 状态：已确认，平台服务初始化权威母版
-生效日期：2026-09-02
+生效日期：2026-09-04
+
+V3.2 仅同步 ReferenceData 七模块及其共享初始化单元摘要；V3.1 的控制面/执行面、API、Migration/Seed、readiness 协议保持不变，PF-02 现有 V3.1 引用和执行基线不因此重派遣或改变范围。
 
 ---
 
@@ -20,7 +22,7 @@ Runtime readiness = local database fact
 
 SystemData 负责 `Where、When、Policy、Observation`，提供 registration、拓扑解析、plan、环境策略、Operation 和脱敏观察；目标服务负责 `What、How、Fact`，拥有自己的 Schema、Migration、Seed、Bootstrap、Verify、Ledger、回滚/恢复和 runtime readiness。SystemData 不理解业务表、不直写业务 Repository、不承载其他服务迁移/种子实现，也不保存业务 Secret 值。
 
-`Service Host`、`Domain Module`、`Initialization Unit`、`Deployment Unit` 是四个不同概念。逻辑模块不会自动成为初始化单元；只有具备独立持久化生命周期时才独立初始化。ReferenceData 当前是一个宿主、五个逻辑模块，并共享一个服务级 Migration/Ledger、一个带 `ModuleKey` 的服务级 Outbox 和基础设施；没有真实入站事件消费者时不预建 Inbox/Checkpoint。
+`Service Host`、`Domain Module`、`Initialization Unit`、`Deployment Unit` 是四个不同概念。逻辑模块不会自动成为初始化单元；只有具备独立持久化生命周期时才独立初始化。ReferenceData 当前是一个宿主、七个逻辑模块（Dictionary、Parameter、DynamicProperty、Metadata、CodingRule、StateMachine、UnitOfMeasure），并共享一个服务级 Migration/Ledger、一个带 `ModuleKey` 的服务级 Outbox 和基础设施；没有真实入站事件消费者时不创建 Inbox/Checkpoint。
 
 # 2. API 与操作模型
 
@@ -123,7 +125,7 @@ SystemData 不直接编写、推断或长期维护业务表/种子定义，不�
 
 ## 5.3 双账本与幂等
 
-每个服务或具有独立持久化生命周期的初始化单元拥有 migration/seed ledger；逻辑模块不因领域拆分机械创建独立账本。ReferenceData 骨架当前遗留 `reference_data_schema_migrations` 与 `reference_data_seed_ledger` CodeFirst 占位表；PF-03 正式目标统一为 `reference_data.schema_migrations` 与 `reference_data.seed_ledger`，仍是一套服务级双账本。seed ledger 至少记录：
+每个服务或具有独立持久化生命周期的初始化单元拥有 migration/seed ledger；逻辑模块不因领域拆分机械创建独立账本。ReferenceData 的七个模块共享一个 `referencedata_db`、`reference_data` Schema 及服务级双账本；骨架当前遗留 `reference_data_schema_migrations` 与 `reference_data_seed_ledger` CodeFirst 占位表，PF-03 正式目标统一为 `reference_data.schema_migrations` 与 `reference_data.seed_ledger`。seed ledger 至少记录：
 
 ```text
 TenantNId / ModuleKey / SeedKey / SeedVersion / Checksum / Scope

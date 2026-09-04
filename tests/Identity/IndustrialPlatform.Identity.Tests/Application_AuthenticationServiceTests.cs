@@ -78,6 +78,42 @@ public class AuthenticationServiceTests
     }
 
     [Fact]
+    public async Task LoginAsync_FiltersProtectedInitializationPermissionsForOrdinaryRole()
+    {
+        var user = User.Create(Tenant, "user.alice", "alice", "Alice", null, null, "hash-1");
+        var store = new FakeStore();
+        store.ByLoginName[(Tenant, "ALICE")] = new AuthenticatedUser(user, [RoleId], [RoleNId]);
+        store.Permissions =
+        [
+            Permission.Create("perm.view", "查看", PermissionType.Menu, null, null),
+            Permission.Create("systemdata.database-orchestration.apply", "编排", PermissionType.Action, null, null),
+        ];
+        var service = CreateService(store, new FakeHasher(Password), new FakeTokenFactory(), new FakeRefreshStore(), new FakeRateLimiter(), new FakeAuditSink());
+
+        var result = await service.LoginAsync(new LoginRequest("alice", Password), null, null, CancellationToken.None);
+
+        Assert.Equal(["perm.view"], result.User.PermissionNIds);
+    }
+
+    [Fact]
+    public async Task LoginAsync_PreservesProtectedInitializationPermissionsForSystemAdmin()
+    {
+        var user = User.Create(Tenant, "user.admin", "admin", "Admin", null, null, "hash-1");
+        var store = new FakeStore();
+        store.ByLoginName[(Tenant, "ADMIN")] = new AuthenticatedUser(user, [RoleId], ["SYSTEM_ADMIN"], IsSystemAdmin: true);
+        store.Permissions =
+        [
+            Permission.Create("perm.view", "查看", PermissionType.Menu, null, null),
+            Permission.Create("systemdata.database-orchestration.apply", "编排", PermissionType.Action, null, null),
+        ];
+        var service = CreateService(store, new FakeHasher(Password), new FakeTokenFactory(), new FakeRefreshStore(), new FakeRateLimiter(), new FakeAuditSink());
+
+        var result = await service.LoginAsync(new LoginRequest("admin", Password), null, null, CancellationToken.None);
+
+        Assert.Equal(["perm.view", "systemdata.database-orchestration.apply"], result.User.PermissionNIds);
+    }
+
+    [Fact]
     public async Task LoginAsync_WithValidCredentials_PassesOriginalDoubleVersionToUpdate()
     {
         // Arrange

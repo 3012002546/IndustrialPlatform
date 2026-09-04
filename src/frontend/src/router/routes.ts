@@ -42,39 +42,9 @@ import PdaHomePage from '@/pages/pda/PdaHomePage.vue'
 import MobileHomePage from '@/pages/mobile/MobileHomePage.vue'
 import MobileMyPage from '@/pages/mobile/MobileMyPage.vue'
 import { PERMISSIONS } from '@/permissions'
+import { ROUTE_NAMES } from './routeNames'
 
-export const ROUTE_NAMES = {
-  root: 'root',
-  login: 'login',
-  changePassword: 'change-password',
-  ssoLogin: 'sso-login',
-  ssoCallback: 'sso-callback',
-  forbidden: 'forbidden',
-  pcHome: 'pc-home',
-  pcOperation: 'pc-operation',
-  profile: 'profile',
-  terminalPreview: 'terminal-preview',
-  identityUsers: 'identity-users',
-  identityUserGroups: 'identity-user-groups',
-  identityRoles: 'identity-roles',
-  identityPermissions: 'identity-permissions',
-  identityAudits: 'identity-audits',
-  ssoProviders: 'sso-providers',
-  ssoClients: 'sso-clients',
-  systemDataOrganizations: 'systemdata-organizations',
-  systemDataAssignments: 'systemdata-assignments',
-  systemDataNavigation: 'systemdata-navigation',
-  systemDataFeatures: 'systemdata-features',
-  systemDataServices: 'systemdata-services',
-  systemDataThemes: 'systemdata-themes',
-  systemDataServiceInitialization: 'systemdata-service-initialization',
-  workspaceTabsSandbox: 'workspace-tabs-sandbox',
-  uiBaseline: 'ui-baseline',
-  pdaHome: 'pda-home',
-  mobileHome: 'mobile-home',
-  mobileMy: 'mobile-my',
-  notFound: 'not-found',
-} as const
+export { ROUTE_NAMES } from './routeNames'
 
 /**
  * 根路由占位:守卫对 root 总是按生效终端分流(§12.3),组件不会实际渲染;
@@ -336,9 +306,9 @@ export const routes: RouteRecordRaw[] = [
         name: ROUTE_NAMES.systemDataNavigation,
         component: NavigationPage,
         meta: {
-          title: '导航与资源发布',
+          title: '菜单管理',
           titleKey: 'shell.navigation.item.systemdata-navigation',
-          fallbackTitle: '导航与资源发布',
+          fallbackTitle: '菜单管理',
           requiresAuth: true,
           permission: PERMISSIONS.systemDataNavigationView,
           terminal: 'pc',

@@ -70,8 +70,8 @@ public static class RequestHasher
     {
         ArgumentNullException.ThrowIfNull(manifest);
 
-        var canonical = string.Join("|",
-        [
+        var canonicalParts = new List<string>
+        {
             manifest.ServiceKey ?? string.Empty,
             manifest.ModuleKey ?? string.Empty,
             manifest.LogicalDatabaseName ?? string.Empty,
@@ -86,8 +86,16 @@ public static class RequestHasher
             manifest.AutoMigrate?.ToString() ?? string.Empty,
             manifest.OwnerNId ?? string.Empty,
             manifest.ManifestVersion ?? string.Empty,
-            HashSeedSets(manifest.SeedSets),
-        ]);
+        };
+        // Keep omitted (old V2) manifests hash-compatible so they can be promoted;
+        // an explicit false is the opt-out for legacy SQL Runner compatibility.
+        if (manifest.UsesServiceInitializer == false)
+        {
+            canonicalParts.Add("legacy-sql-runner");
+        }
+
+        canonicalParts.Add(HashSeedSets(manifest.SeedSets));
+        var canonical = string.Join("|", canonicalParts);
 
         return Sha256Hex(canonical);
     }

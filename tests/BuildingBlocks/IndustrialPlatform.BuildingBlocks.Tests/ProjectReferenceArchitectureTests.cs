@@ -58,8 +58,11 @@ public sealed class ProjectReferenceArchitectureTests
     private static readonly string[] ApprovedSystemDataTestingReferences =
     [
         "IndustrialPlatform.Application.Abstractions",
+        "IndustrialPlatform.Identity.Application",
         "IndustrialPlatform.Identity.Contracts",
+        "IndustrialPlatform.Identity.Infrastructure",
         "IndustrialPlatform.Infrastructure",
+        "IndustrialPlatform.ReferenceData.Infrastructure",
         "IndustrialPlatform.SystemData.Application",
         "IndustrialPlatform.SystemData.Contracts",
         "IndustrialPlatform.SystemData.Domain",
@@ -92,7 +95,8 @@ public sealed class ProjectReferenceArchitectureTests
     [Fact]
     public void SystemDataTestingFixtureReferencesOnlyApprovedProjects()
     {
-        // 合并后的 SystemData 测试 fixture 只允许引用四层应用项目,禁止引用其他测试项目或服务组件。
+        // SystemData V2 Runner 的跨服务初始化回归允许引用初始化器应用/基础设施,
+        // 仍禁止引用其他测试项目或服务 API/Host 组件。
         var repositoryRoot = FindRepositoryRoot();
         const string fixtureProjectPath =
             "tests/SystemData/IndustrialPlatform.SystemData.Tests/IndustrialPlatform.SystemData.Tests.csproj";

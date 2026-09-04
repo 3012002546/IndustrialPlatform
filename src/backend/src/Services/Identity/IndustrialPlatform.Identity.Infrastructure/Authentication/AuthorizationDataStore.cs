@@ -47,8 +47,17 @@ public sealed class AuthorizationDataStore : IAuthorizationDataStore
 
         // 权限集与登录/刷新返回的 AuthUser.PermissionNIds 一致(同一仓储方法、同样序去重)。
         var permissions = await _roles.GetActivePermissionsForRolesAsync(roleIds, cancellationToken);
+        var roles = await Task.WhenAll(roleIds.Select(roleId => _roles.GetByIdAsync(roleId, cancellationToken)));
+        var isSystemAdmin = roles.Where(role => role is not null).Select(role => role!).Any(role =>
+            !role.IsDeleted
+            && role.IsSystem
+            && string.Equals(role.NId, "SYSTEM_ADMIN", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(role.TenantNId, tenantNId, StringComparison.Ordinal));
         var permissionNIds = permissions
             .Select(p => p.NId)
+            // 初始化与数据库编排权限不是普通角色可继承的有效输出；其唯一资格
+            // 由 SYSTEM_ADMIN 事实在 PermissionEvaluator 中动态判定。
+            .Where(p => !AuthorizationPermissionPolicy.IsProtectedInitializationPermission(p))
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
             .ToList();
@@ -58,6 +67,7 @@ public sealed class AuthorizationDataStore : IAuthorizationDataStore
             user.NId,
             user.Status,
             user.AuthVersion,
-            permissionNIds);
+            permissionNIds,
+            isSystemAdmin);
     }
 }

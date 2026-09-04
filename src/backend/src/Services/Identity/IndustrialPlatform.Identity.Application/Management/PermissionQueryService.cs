@@ -56,6 +56,11 @@ public sealed class PermissionQueryService : IPermissionQueryService
             children
                 .OrderBy(c => c.NormalizedNId, StringComparer.Ordinal)
                 .Select(c => ToNode(c, childrenByParent))
-                .ToList());
+                .ToList(),
+            IsProtectedPermission(permission.NId));
     }
+
+    private static bool IsProtectedPermission(string permissionNId) =>
+        permissionNId.StartsWith("systemdata.service-initialization.", StringComparison.OrdinalIgnoreCase)
+        || permissionNId.StartsWith("systemdata.database-orchestration.", StringComparison.OrdinalIgnoreCase);
 }

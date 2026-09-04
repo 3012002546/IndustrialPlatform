@@ -77,9 +77,9 @@ public sealed class SsoProviderTable : ISsoLifecycleRow
     [SugarColumn(ColumnName = "logout_mode")]
     public SsoLogoutMode LogoutMode { get; set; }
 
-    [SugarColumn(ColumnName = "allowed_email_domains")]
+    [SugarColumn(ColumnName = "allowed_email_domains_json")]
     public string AllowedEmailDomainsJson { get; set; } = "[]";
 
-    [SugarColumn(ColumnName = "jit_default_role_n_ids")]
+    [SugarColumn(ColumnName = "jit_default_role_n_ids_json")]
     public string JitDefaultRoleNIdsJson { get; set; } = "[]";
 }

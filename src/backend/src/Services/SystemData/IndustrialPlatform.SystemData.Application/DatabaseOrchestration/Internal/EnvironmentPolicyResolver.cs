@@ -27,17 +27,23 @@ internal static class EnvironmentPolicyResolver
         var stored = await store.GetEnvironmentPolicyAsync(tenantNId, environmentNId, cancellationToken);
         if (stored is not null)
         {
+            // Production 的安全门禁由可信拓扑强制,不能被控制面中一条较弱的旧策略关闭。
+            var storedProduction = environmentKind == DatabaseEnvironmentKind.Production;
             return new ResolvedPolicy(
-                stored.ApprovalRequired,
-                stored.BackupRequired,
+                storedProduction || stored.ApprovalRequired,
+                storedProduction || stored.BackupRequired,
                 stored.PlanTtlSeconds,
                 stored.PlanTimeoutSeconds,
                 stored.ApplyTimeoutSeconds,
                 stored.MaxPreMigrationRetries,
-                stored.EnvironmentKind);
+                environmentKind)
+            {
+                IsExplicit = true,
+                PolicyRevision = stored.PolicyRevision,
+            };
         }
 
-        var production = string.Equals(topology.EnvironmentName, "Production", StringComparison.Ordinal);
+        var production = environmentKind == DatabaseEnvironmentKind.Production;
         return new ResolvedPolicy(
             production,
             production,
@@ -45,7 +51,11 @@ internal static class EnvironmentPolicyResolver
             options.PlanTimeoutSeconds,
             options.ApplyTimeoutSeconds,
             options.MaxPreMigrationRetries,
-            environmentKind);
+            environmentKind)
+        {
+            IsExplicit = false,
+            PolicyRevision = 0,
+        };
     }
 
     /// <summary>由受信任拓扑环境名解析环境种类;未知环境回退 Development(开发基线)。</summary>

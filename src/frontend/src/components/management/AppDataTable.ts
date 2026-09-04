@@ -73,6 +73,27 @@ export interface AppDataTableTreeOptions<T extends object> {
   loadChildren?: (row: T) => Promise<readonly T[]>
 }
 
+/** Keep matching descendants visible while retaining their ancestor rows. */
+export function filterAppDataTableTreeRows<T extends object>(
+  rows: readonly T[],
+  childrenField: string,
+  matches: (row: T) => boolean,
+): T[] {
+  return rows.flatMap((row) => {
+    const children = (row as Record<string, unknown>)[childrenField]
+    const filteredChildren = Array.isArray(children)
+      ? filterAppDataTableTreeRows(children as T[], childrenField, matches)
+      : []
+    if (!matches(row) && filteredChildren.length === 0) return []
+    const childrenUnchanged =
+      Array.isArray(children) &&
+      filteredChildren.length === children.length &&
+      filteredChildren.every((child, index) => child === children[index])
+    if (!Array.isArray(children) || childrenUnchanged) return [row]
+    return [{ ...row, [childrenField]: filteredChildren } as T]
+  })
+}
+
 export type AppDataTableLoader<T extends object> = (
   request: AppDataTableRequest,
 ) => Promise<AppDataTablePage<T>>

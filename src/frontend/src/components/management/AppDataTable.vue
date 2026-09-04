@@ -34,10 +34,7 @@ import { getCurrentSession } from '@/auth/gateway'
 import AppErrorAlert from '@/components/base/AppErrorAlert.vue'
 import { localeMessages } from '@/localization/i18n'
 import { useLocalizationStore } from '@/stores/localizationStore'
-import {
-  UI_CACHE_CLEARED_EVENT,
-  type UiCacheClearedDetail,
-} from '@/stores/uiCacheStore'
+import { UI_CACHE_CLEARED_EVENT, type UiCacheClearedDetail } from '@/stores/uiCacheStore'
 import type { UserUiScope } from '@/theme/types'
 import type {
   AppDataTableColumn,
@@ -52,6 +49,7 @@ import type {
   AppDataTableSort,
   AppDataTableTreeOptions,
 } from './AppDataTable'
+import { filterAppDataTableTreeRows } from './AppDataTable'
 import {
   buildAppDataTablePreferenceKey,
   buildScopedAppDataTableUserKey,
@@ -61,6 +59,7 @@ import {
   type AppDataTablePreferences,
 } from './appDataTable/preferences'
 import { buildAppDataTableExportRequest } from './appDataTable/exporting'
+import { findAppDataTableRowByKey } from './appDataTable/selection'
 import {
   findAppDataTableActionColumns,
   findAppDataTableCustomHeaderTools,
@@ -208,6 +207,8 @@ const props = withDefaults(
     exporter?: (request: AppDataTableExportRequest) => Promise<void> | void
     tree?: AppDataTableTreeOptions<T>
     selection?: 'none' | 'single' | 'multiple'
+    selectedRowKey?: string | null
+    toolbarProfile?: 'full' | 'compact' | 'hidden'
     toolbarTitle?: string
     toolbarLabels?: boolean
   }>(),
@@ -221,6 +222,7 @@ const props = withDefaults(
     initialPageIndex: 1,
     pageSize: 25,
     selection: 'none',
+    toolbarProfile: 'full',
     toolbarLabels: false,
   },
 )
@@ -251,12 +253,9 @@ const routeName = (() => {
 })()
 const session = getCurrentSession()
 const currentUserScope: UserUiScope | null =
-  session === null
-    ? null
-    : { tenantId: session.user.tenantId, userId: session.user.userId }
+  session === null ? null : { tenantId: session.user.tenantId, userId: session.user.userId }
 const userName =
-  props.userKey ??
-  (session === null ? 'anonymous' : buildScopedAppDataTableUserKey(session.user))
+  props.userKey ?? (session === null ? 'anonymous' : buildScopedAppDataTableUserKey(session.user))
 const preferenceKey = buildAppDataTablePreferenceKey(userName, routeName, props.tableKey)
 
 function defaultPreferences(): AppDataTablePreferences {
@@ -318,9 +317,7 @@ const suppressNextCacheModeChange = ref(false)
 
 const exportTypeOptions = computed<readonly { value: AppDataTableExportType; label: string }[]>(
   () => [
-    ...(props.exporter === undefined
-      ? []
-      : [{ value: 'xlsx' as const, label: copy.value.excel }]),
+    ...(props.exporter === undefined ? [] : [{ value: 'xlsx' as const, label: copy.value.excel }]),
     { value: 'csv', label: copy.value.csv },
     { value: 'html', label: copy.value.html },
     { value: 'xml', label: copy.value.xml },
@@ -419,49 +416,55 @@ function localRowsForRequest(): T[] {
   const filters = activeQueryMode.value === 'top' ? topQuery.value : headerFilters.value
   const quickSearchValue =
     activeQueryMode.value === 'top' ? quickSearch.value.trim().toLowerCase() : ''
-  const filtered = (props.rows as T[]).filter(
-    (row) =>
-      (quickSearchValue === '' ||
-        props.columns.some((column) =>
-          String(cellValue(row, column.field) ?? '')
-            .toLowerCase()
-            .includes(quickSearchValue),
-        )) &&
-      Object.entries(filters).every(([field, value]) => {
-        if (field === 'keyword') return true
-        if (!hasFilterValue(value)) return true
-        const rowValue = cellValue(row, field)
-        const filterKind = columnFilter(
-          props.columns.find((column) => column.field === field) ?? {
-            field,
-            title: field,
-          },
-        )?.kind
-        if (filterKind === 'date-range') {
-          const [from = '', to = ''] = Array.isArray(value) ? value.map(String) : []
-          const candidate = String(rowValue ?? '')
-          return (!from || candidate >= from) && (!to || candidate <= to)
-        }
-        if (filterKind === 'select') {
-          if (typeof value === 'boolean') return rowValue === value
-          if (typeof value === 'number') {
-            return typeof rowValue === 'number'
-              ? rowValue === value
-              : String(rowValue ?? '') === String(value)
-          }
-          return String(rowValue ?? '') === String(value)
-        }
+  const matches = (row: T): boolean =>
+    (quickSearchValue === '' ||
+      props.columns.some((column) =>
+        String(cellValue(row, column.field) ?? '')
+          .toLowerCase()
+          .includes(quickSearchValue),
+      )) &&
+    Object.entries(filters).every(([field, value]) => {
+      if (field === 'keyword') return true
+      if (!hasFilterValue(value)) return true
+      const rowValue = cellValue(row, field)
+      const filterKind = columnFilter(
+        props.columns.find((column) => column.field === field) ?? {
+          field,
+          title: field,
+        },
+      )?.kind
+      if (filterKind === 'date-range') {
+        const [from = '', to = ''] = Array.isArray(value) ? value.map(String) : []
+        const candidate = String(rowValue ?? '')
+        return (!from || candidate >= from) && (!to || candidate <= to)
+      }
+      if (filterKind === 'select') {
         if (typeof value === 'boolean') return rowValue === value
         if (typeof value === 'number') {
           return typeof rowValue === 'number'
             ? rowValue === value
             : String(rowValue ?? '') === String(value)
         }
-        return String(rowValue ?? '')
-          .toLowerCase()
-          .includes(String(value).toLowerCase())
-      }),
-  )
+        return String(rowValue ?? '') === String(value)
+      }
+      if (typeof value === 'boolean') return rowValue === value
+      if (typeof value === 'number') {
+        return typeof rowValue === 'number'
+          ? rowValue === value
+          : String(rowValue ?? '') === String(value)
+      }
+      return String(rowValue ?? '')
+        .toLowerCase()
+        .includes(String(value).toLowerCase())
+    })
+  const filtered =
+    props.mode === 'tree'
+      ? filterAppDataTableTreeRows(
+          props.rows as T[],
+          props.tree?.childrenField ?? 'children',
+          matches,
+        )
+      : (props.rows as T[]).filter(matches)
   if (sort.value === undefined) return filtered
   const direction = sort.value.order === 'asc' ? 1 : -1
   return [...filtered].sort((left, right) => {
@@ -625,7 +628,9 @@ function buildQueryDescriptor(columns: string[]): QueryDescriptor {
       return !(Array.isArray(value) && value.every((item) => item === ''))
     })
     .map(([field, value]) => {
-      const filter = columnFilter(props.columns.find((column) => column.field === field) ?? { field, title: field })
+      const filter = columnFilter(
+        props.columns.find((column) => column.field === field) ?? { field, title: field },
+      )
       return {
         field,
         operator: Array.isArray(value)
@@ -639,9 +644,7 @@ function buildQueryDescriptor(columns: string[]): QueryDescriptor {
   return {
     filters,
     orderBy:
-      sort.value === undefined
-        ? []
-        : [{ field: sort.value.field, direction: sort.value.order }],
+      sort.value === undefined ? [] : [{ field: sort.value.field, direction: sort.value.order }],
     select: [...columns],
     pageIndex: currentPage.value,
     pageSize: currentPageSize.value,
@@ -1636,6 +1639,20 @@ const treeConfig = computed<Record<string, unknown> | undefined>(() => {
         }),
   }
 })
+const treeColumnField = computed(
+  () => visibleColumns.value.find((column) => column.visible !== false)?.field,
+)
+
+async function setAllTreeExpanded(expanded: boolean): Promise<void> {
+  if (props.mode !== 'tree') return
+  const table = tableRef.value as
+    | (VxeTableInstance<T> & {
+        setAllTreeExpand?: (expanded: boolean) => Promise<unknown> | unknown
+      })
+    | null
+  await table?.setAllTreeExpand?.(expanded)
+}
+
 const checkboxConfig = computed(() => ({
   reserve: true,
   checkStrictly: props.tree?.checkStrictly ?? false,
@@ -1695,6 +1712,39 @@ watch(
   },
 )
 
+async function syncExternalSelection(): Promise<void> {
+  if (props.selection !== 'single' || props.selectedRowKey === undefined) return
+  await nextTick()
+  const table = tableRef.value as
+    | (VxeTableInstance<T> & {
+        setRadioRow?: (row: T) => Promise<unknown> | unknown
+        clearRadioRow?: () => Promise<unknown> | unknown
+      })
+    | null
+  if (props.selectedRowKey === null) {
+    await table?.clearRadioRow?.()
+    selectedRows.value = []
+    return
+  }
+  const row = findAppDataTableRowByKey(
+    tableRows.value,
+    props.rowKey,
+    props.selectedRowKey,
+    props.tree?.childrenField,
+  )
+  if (row === undefined) return
+  await table?.setRadioRow?.(row)
+  selectedRows.value = [row]
+}
+
+watch(
+  [() => props.selectedRowKey, tableRows],
+  () => {
+    void syncExternalSelection()
+  },
+  { deep: true, immediate: true },
+)
+
 defineExpose({
   topQuery,
   headerFilters,
@@ -1721,7 +1771,10 @@ defineExpose({
     :class="[
       densityClass,
       'app-data-table--compact-stack',
-      { 'app-data-table--fullscreen': tableFullscreen },
+      {
+        'app-data-table--fullscreen': tableFullscreen,
+        'app-data-table--toolbar-compact': toolbarProfile === 'compact',
+      },
     ]"
     data-testid="app-data-table"
     :data-column-settings-title="copy.columnSettings"
@@ -1741,9 +1794,39 @@ defineExpose({
         <slot name="toolbar-actions" />
       </div>
 
-      <div class="app-data-table__toolbar">
+      <div v-if="toolbarProfile !== 'hidden'" class="app-data-table__toolbar">
         <div class="app-data-table__toolbar-left" role="group" :aria-label="copy.primaryTools">
-          <strong v-if="toolbarTitle" class="app-data-table__toolbar-title">{{ toolbarTitle }}</strong>
+          <strong v-if="toolbarTitle" class="app-data-table__toolbar-title">{{
+            toolbarTitle
+          }}</strong>
+          <template v-if="mode === 'tree'">
+            <button
+              type="button"
+              class="app-data-table__icon-button app-data-table__tree-control"
+              data-testid="app-data-table-tree-expand-all"
+              :aria-label="copy.expandAll"
+              :title="copy.expandAll"
+              @click="setAllTreeExpanded(true)"
+            >
+              <span aria-hidden="true">＋</span>
+              <span v-if="toolbarLabels" class="app-data-table__toolbar-label">{{
+                copy.expandAll
+              }}</span>
+            </button>
+            <button
+              type="button"
+              class="app-data-table__icon-button app-data-table__tree-control"
+              data-testid="app-data-table-tree-collapse-all"
+              :aria-label="copy.collapseAll"
+              :title="copy.collapseAll"
+              @click="setAllTreeExpanded(false)"
+            >
+              <span aria-hidden="true">－</span>
+              <span v-if="toolbarLabels" class="app-data-table__toolbar-label">{{
+                copy.collapseAll
+              }}</span>
+            </button>
+          </template>
           <button
             type="button"
             class="app-data-table__icon-button"
@@ -1771,7 +1854,9 @@ defineExpose({
               @click="toggleSortPanel"
             >
               <SortUp aria-hidden="true" />
-              <span v-if="toolbarLabels" class="app-data-table__toolbar-label">{{ copy.sort }}</span>
+              <span v-if="toolbarLabels" class="app-data-table__toolbar-label">{{
+                copy.sort
+              }}</span>
             </button>
             <div
               v-if="sortOpen"
@@ -1846,7 +1931,9 @@ defineExpose({
               @click="toggleGroupPanel"
             >
               <Connection aria-hidden="true" />
-              <span v-if="toolbarLabels" class="app-data-table__toolbar-label">{{ copy.group }}</span>
+              <span v-if="toolbarLabels" class="app-data-table__toolbar-label">{{
+                copy.group
+              }}</span>
             </button>
             <div
               v-if="groupOpen"
@@ -1961,9 +2048,9 @@ defineExpose({
                         data-testid="app-data-table-export-scope"
                         @change="onExportScopeChange"
                       >
-                      <option value="current">{{ copy.currentPage }}</option>
-                      <option value="selected" :disabled="selectedRows.length === 0">
-                        {{ copy.selectedRows }}（{{ selectedRows.length }}）
+                        <option value="current">{{ copy.currentPage }}</option>
+                        <option value="selected" :disabled="selectedRows.length === 0">
+                          {{ copy.selectedRows }}（{{ selectedRows.length }}）
                         </option>
                         <option value="all" :disabled="props.exporter === undefined">
                           {{ copy.allData }}
@@ -2130,7 +2217,11 @@ defineExpose({
             data-testid="app-data-table-refresh"
             :aria-label="copy.refresh"
             :title="copy.refresh"
-            @click="() => { void reload() }"
+            @click="
+              () => {
+                void reload()
+              }
+            "
           >
             <Refresh aria-hidden="true" />
           </button>
@@ -2271,6 +2362,7 @@ defineExpose({
           <VxeColumn
             v-for="column in visibleColumns"
             :key="column.field"
+            :tree-node="mode === 'tree' && column.field === treeColumnField"
             v-bind="{
               field: column.field,
               title: column.title,
@@ -2358,7 +2450,11 @@ defineExpose({
             type="button"
             class="app-data-table__load-error-retry"
             data-testid="app-data-table-load-retry"
-            @click="() => { void reload() }"
+            @click="
+              () => {
+                void reload()
+              }
+            "
           >
             {{ localeMessages[localization.locale].common.action.retry }}
           </button>
@@ -2504,6 +2600,16 @@ defineExpose({
   display: flex;
   align-items: center;
   gap: var(--ip-space-2);
+}
+.app-data-table--toolbar-compact .app-data-table__toolbar-left,
+.app-data-table--toolbar-compact
+  .app-data-table__toolbar-right
+  > [data-testid='app-data-table-fullscreen'],
+.app-data-table--toolbar-compact
+  .app-data-table__toolbar-right
+  > [data-testid='app-data-table-column-settings'],
+.app-data-table--toolbar-compact .app-data-table__toolbar-right > .app-data-table__toolbar-popover {
+  display: none;
 }
 .app-data-table__toolbar-title {
   margin-right: var(--ip-space-2);

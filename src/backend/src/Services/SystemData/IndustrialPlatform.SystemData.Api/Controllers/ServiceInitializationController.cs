@@ -64,8 +64,6 @@ public sealed class ServiceInitializationController : SystemDataControllerBase
         ServiceInitializationManifestV2 manifest,
         CancellationToken cancellationToken)
     {
-        _ = serviceKey;
-        _ = moduleKey;
         if (!TryGetActorContext(out var tenantNId, out var actorUserNId))
         {
             return UnauthorizedEnvelope();
@@ -73,7 +71,19 @@ public sealed class ServiceInitializationController : SystemDataControllerBase
 
         try
         {
-            return await _registrationService.RegisterModuleAsync(tenantNId, actorUserNId, manifest, cancellationToken);
+            if ((!string.IsNullOrWhiteSpace(manifest.ServiceKey)
+                    && !string.Equals(manifest.ServiceKey.Trim(), serviceKey, StringComparison.Ordinal))
+                || (!string.IsNullOrWhiteSpace(manifest.ModuleKey)
+                    && !string.Equals(manifest.ModuleKey.Trim(), moduleKey, StringComparison.Ordinal)))
+            {
+                return BadRequestEnvelope("SD_VALIDATION_FAILED", "路由中的服务/模块标识必须与请求清单一致。");
+            }
+
+            return await _registrationService.RegisterModuleAsync(
+                tenantNId,
+                actorUserNId,
+                manifest with { ServiceKey = serviceKey, ModuleKey = moduleKey },
+                cancellationToken);
         }
         catch (ValidationException ex)
         {
@@ -109,6 +119,30 @@ public sealed class ServiceInitializationController : SystemDataControllerBase
         {
             var page = await _registrationService.ListAsync(tenantNId, serviceKey, pageIndex, pageSize, cancellationToken, moduleKey);
             return PageResult.Create(page.Items, page.Total, page.PageIndex, page.PageSize);
+        }
+        catch (ValidationException ex)
+        {
+            return BadRequestEnvelope("SD_VALIDATION_FAILED", ex.Message);
+        }
+        catch (DatabaseOrchestrationException ex)
+        {
+            return StatusCodeEnvelope(ex.StatusCode, ex.Code, ex.Message);
+        }
+    }
+
+    /// <summary>读取与 plan/apply 同源的当前有效环境策略(只返回非敏感门禁和时序参数)。</summary>
+    [HttpGet("environment-policy")]
+    [Authorize(Policy = SystemDataPermissionPolicies.ServiceInitializationView)]
+    public async Task<ActionResult<EnvironmentPolicyV1>> GetEnvironmentPolicy(CancellationToken cancellationToken)
+    {
+        if (!TryGetActorContext(out var tenantNId, out _))
+        {
+            return UnauthorizedEnvelope();
+        }
+
+        try
+        {
+            return await _planService.GetEffectivePolicyAsync(tenantNId, cancellationToken);
         }
         catch (ValidationException ex)
         {
@@ -307,6 +341,28 @@ public sealed class ServiceInitializationController : SystemDataControllerBase
         }
     }
 
+    /// <summary>读取计划审批记录(GET /api/v1/service-initialization/plans/{planNId}/approvals)。</summary>
+    [HttpGet("plans/{planNId}/approvals")]
+    [Authorize(Policy = SystemDataPermissionPolicies.ServiceInitializationView)]
+    public async Task<ActionResult<IReadOnlyList<DatabaseApprovalV1>>> ListApprovals(
+        string planNId,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetActorContext(out var tenantNId, out _)) return UnauthorizedEnvelope();
+        try
+        {
+            return Ok(await _approvalService.ListForPlanAsync(tenantNId, planNId, cancellationToken));
+        }
+        catch (ValidationException ex)
+        {
+            return BadRequestEnvelope("SD_VALIDATION_FAILED", ex.Message);
+        }
+        catch (DatabaseOrchestrationException ex)
+        {
+            return StatusCodeEnvelope(ex.StatusCode, ex.Code, ex.Message);
+        }
+    }
+
     // ===== 备份证据 =====
 
     /// <summary>为计划登记备份证据(POST /api/v1/service-initialization/plans/{planNId}/backup-evidence);创建为 Captured。</summary>
@@ -325,6 +381,28 @@ public sealed class ServiceInitializationController : SystemDataControllerBase
         try
         {
             return await _backupService.CreateAsync(tenantNId, actorUserNId, planNId, request, cancellationToken);
+        }
+        catch (ValidationException ex)
+        {
+            return BadRequestEnvelope("SD_VALIDATION_FAILED", ex.Message);
+        }
+        catch (DatabaseOrchestrationException ex)
+        {
+            return StatusCodeEnvelope(ex.StatusCode, ex.Code, ex.Message);
+        }
+    }
+
+    /// <summary>读取计划最近一条备份证据(GET /api/v1/service-initialization/plans/{planNId}/backup-evidence)。</summary>
+    [HttpGet("plans/{planNId}/backup-evidence")]
+    [Authorize(Policy = SystemDataPermissionPolicies.ServiceInitializationView)]
+    public async Task<ActionResult<DatabaseBackupEvidenceV1?>> GetBackupEvidence(
+        string planNId,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetActorContext(out var tenantNId, out _)) return UnauthorizedEnvelope();
+        try
+        {
+            return Ok(await _backupService.GetLatestForPlanAsync(tenantNId, planNId, cancellationToken));
         }
         catch (ValidationException ex)
         {
@@ -401,6 +479,32 @@ public sealed class ServiceInitializationController : SystemDataControllerBase
         {
             var page = await _operationService.ListAsync(tenantNId, kind, status, pageIndex, pageSize, cancellationToken);
             return PageResult.Create(page.Items, page.Total, page.PageIndex, page.PageSize);
+        }
+        catch (ValidationException ex)
+        {
+            return BadRequestEnvelope("SD_VALIDATION_FAILED", ex.Message);
+        }
+        catch (DatabaseOrchestrationException ex)
+        {
+            return StatusCodeEnvelope(ex.StatusCode, ex.Code, ex.Message);
+        }
+    }
+
+    /// <summary>验证 V2 备份证据(POST /api/v1/service-initialization/backup-evidence/{evidenceNId}/verify)。</summary>
+    [HttpPost("backup-evidence/{evidenceNId}/verify")]
+    [Authorize(Policy = SystemDataPermissionPolicies.ServiceInitializationBackup)]
+    public async Task<ActionResult<DatabaseBackupEvidenceV1>> VerifyBackupEvidence(
+        string evidenceNId,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetActorContext(out var tenantNId, out var actorUserNId))
+        {
+            return UnauthorizedEnvelope();
+        }
+
+        try
+        {
+            return await _backupService.VerifyAsync(tenantNId, actorUserNId, evidenceNId, cancellationToken);
         }
         catch (ValidationException ex)
         {

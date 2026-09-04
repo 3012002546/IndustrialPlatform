@@ -46,6 +46,9 @@ public sealed class DatabaseMigrationObservationTable
     [SugarColumn(ColumnName = "service_key")]
     public string ServiceKey { get; set; } = string.Empty;
 
+    [SugarColumn(ColumnName = "module_key")]
+    public string? ModuleKey { get; set; }
+
     [SugarColumn(ColumnName = "database_identity_fingerprint")]
     public string DatabaseIdentityFingerprint { get; set; } = string.Empty;
 

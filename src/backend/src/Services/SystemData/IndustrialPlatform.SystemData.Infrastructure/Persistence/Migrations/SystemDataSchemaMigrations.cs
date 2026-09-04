@@ -32,6 +32,9 @@ public static class SystemDataSchemaMigrations
             SystemDataMigrationHelpers.CreateRawStep("SDM-004-01", "alter registration module scope", RegistrationModuleScopeAlterDdl),
             SystemDataMigrationHelpers.CreateTableStep("SDM-004-02", "system_data_seed_observation", SeedObservationDdl),
             SystemDataMigrationHelpers.CreateTableStep("SDM-004-03", "system_data_organization", OrganizationDdl),
+            SystemDataMigrationHelpers.CreateRawStep("SDM-004-04", "alter migration observation module scope", MigrationObservationModuleScopeAlterDdl),
+            SystemDataMigrationHelpers.CreateRawStep("SDM-004-05", "mark service-owned initialization registrations", ServiceInitializerRegistrationAlterDdl),
+            SystemDataMigrationHelpers.CreateRawStep("SDM-004-06", "persist service initialization plan semantics", ServicePlanSemanticsAlterDdl),
             SystemDataMigrationHelpers.CreateTableStep("SDM-005-01", "system_data_position", PositionDdl),
             SystemDataMigrationHelpers.CreateTableStep("SDM-006-01", "system_data_user_assignment", UserAssignmentDdl),
             SystemDataMigrationHelpers.CreateTableStep("SDM-007-01", "system_data_module_manifest", ModuleManifestDdl),
@@ -58,6 +61,7 @@ public static class SystemDataSchemaMigrations
             SystemDataMigrationHelpers.CreateRawStep("SDM-014-01", "SystemData feature baseline seed", BaselineSeedNoopDdl),
             SystemDataMigrationHelpers.CreateRawStep("SDM-015-01", "SystemData service catalog baseline seed", BaselineSeedNoopDdl),
             SystemDataMigrationHelpers.CreateRawStep("SDM-016-01", "SystemData theme policy baseline seed", BaselineSeedNoopDdl),
+            SystemDataMigrationHelpers.CreateRawStep("SDM-017-01", "SystemData navigation action resource associations", NavigationActionResourcesDdl),
         ];
     }
 
@@ -95,6 +99,9 @@ public static class SystemDataSchemaMigrations
         return ControlPlaneTable(dbType, "system_data_navigation_set", $"navigation_set_n_id TEXT NOT NULL, draft_revision {big} NOT NULL, active_snapshot_revision {big} NULL, previous_snapshot_revision {big} NULL");
     }
     private static string NavigationDdl(DbType dbType) => ControlPlaneTable(dbType, "system_data_navigation", "node_n_id TEXT NOT NULL, navigation_set_n_id TEXT NOT NULL, parent_node_n_id TEXT NULL, kind TEXT NOT NULL, label TEXT NOT NULL, icon_key TEXT NULL, resource_n_id TEXT NULL, feature_n_id TEXT NULL, display_order INTEGER NOT NULL, visible_terminals_json TEXT NOT NULL, status TEXT NOT NULL");
+    private static string NavigationActionResourcesDdl(DbType dbType) => dbType == DbType.PostgreSQL
+        ? "ALTER TABLE system_data_navigation ADD COLUMN IF NOT EXISTS action_resource_n_ids_json TEXT NOT NULL DEFAULT '[]';"
+        : "ALTER TABLE system_data_navigation ADD COLUMN action_resource_n_ids_json TEXT NOT NULL DEFAULT '[]';";
     private static string NavigationSnapshotDdl(DbType dbType)
     {
         var (_, t, _, big, _) = SystemDataMigrationHelpers.TypeWords(dbType);
@@ -475,6 +482,33 @@ public static class SystemDataSchemaMigrations
             ALTER TABLE system_data_database_operation ADD COLUMN{ifNotExists} module_key TEXT NULL;
             UPDATE system_data_database_operation SET module_key = service_key WHERE module_key IS NULL;
             """;
+    }
+
+    /// <summary>SDM-004-04:迁移观察按初始化单元补齐 module_key,旧记录回填为 service_key。</summary>
+    private static string MigrationObservationModuleScopeAlterDdl(DbType dbType)
+    {
+        var ifNotExists = dbType == DbType.PostgreSQL ? " IF NOT EXISTS" : string.Empty;
+        return $"""
+            ALTER TABLE system_data_database_migration_observation ADD COLUMN{ifNotExists} module_key TEXT NULL;
+            UPDATE system_data_database_migration_observation SET module_key = service_key WHERE module_key IS NULL;
+            CREATE INDEX IF NOT EXISTS ix_migration_observation_module_target ON system_data_database_migration_observation (tenant_n_id, environment_n_id, service_key, module_key, observed_on);
+            """;
+    }
+
+    /// <summary>SDM-004-05:显式记录 V2 服务初始化器所有权;旧注册默认为 legacy SQL Runner。</summary>
+    private static string ServiceInitializerRegistrationAlterDdl(DbType dbType)
+    {
+        var (_, _, b, _, f) = SystemDataMigrationHelpers.TypeWords(dbType);
+        var ifNotExists = dbType == DbType.PostgreSQL ? " IF NOT EXISTS" : string.Empty;
+        return $"ALTER TABLE system_data_database_registration ADD COLUMN{ifNotExists} uses_service_initializer {b} NOT NULL DEFAULT {f};";
+    }
+
+    /// <summary>SDM-004-06:固化服务初始化器首次计划的 RequiresApply;旧 SQL Runner 计划为空。</summary>
+    private static string ServicePlanSemanticsAlterDdl(DbType dbType)
+    {
+        var (_, _, b, _, _) = SystemDataMigrationHelpers.TypeWords(dbType);
+        var ifNotExists = dbType == DbType.PostgreSQL ? " IF NOT EXISTS" : string.Empty;
+        return $"ALTER TABLE system_data_database_plan ADD COLUMN{ifNotExists} service_requires_apply {b} NULL;";
     }
 
     /// <summary>SDM-004-02:脱敏种子观察表(只追加;索引按 (tenant_n_id, environment_n_id, service_key, module_key, seed_key))。</summary>

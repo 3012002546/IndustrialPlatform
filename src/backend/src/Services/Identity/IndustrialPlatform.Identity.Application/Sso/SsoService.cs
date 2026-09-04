@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Security.Cryptography;
 using IndustrialPlatform.Identity.Application.Authentication;
+using IndustrialPlatform.Identity.Application.Authorization;
 using IndustrialPlatform.Identity.Application.Management;
 using IndustrialPlatform.Identity.Contracts.Authentication;
 using IndustrialPlatform.Identity.Contracts.Sso;
@@ -636,6 +637,7 @@ public sealed partial class SsoService : ISsoService
         var permissions = await _authStore.GetPermissionsForRolesAsync(account.RoleIds, cancellationToken);
         var permissionNIds = permissions
             .Select(p => p.NId)
+            .Where(p => account.IsSystemAdmin || !AuthorizationPermissionPolicy.IsProtectedInitializationPermission(p))
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
             .ToList();

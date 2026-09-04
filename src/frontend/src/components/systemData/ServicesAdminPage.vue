@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
+import { ElIcon, ElMessageBox } from 'element-plus'
+import { Plus } from '@element-plus/icons-vue'
 import AppEmptyState from '@/components/base/AppEmptyState.vue'
 import AppFormDrawer from '@/components/management/AppFormDrawer.vue'
 import AppDataTable from '@/components/management/AppDataTable.vue'
@@ -11,25 +13,43 @@ import { PERMISSIONS } from '@/permissions'
 import type { ServiceCatalogDto } from '@/api/systemData/managementTypes'
 import { useSystemDataManagementStore } from '@/stores/systemData/managementStore'
 import { getSystemDataManagementApi } from '@/api/systemData/managementRegistry'
+import { localeMessages } from '@/localization/i18n'
+import { interpolate, systemDataEnumLabel, systemDataPageCopy } from '@/localization/systemData'
+import { useLocalizationStore } from '@/stores/localizationStore'
 const props = withDefaults(
   defineProps<{ title?: string; description?: string; permission?: string }>(),
   {
-    title: '服务目录',
-    description:
-      '维护服务目录和状态；External 入口必须是 HTTPS，Platform 路径和健康地址由服务端维护。',
+    title: '',
+    description: '',
     permission: PERMISSIONS.systemDataServiceCatalogView,
   },
 )
 const store = useSystemDataManagementStore()
+const localization = useLocalizationStore()
+const copy = computed(() => systemDataPageCopy(localization.locale, 'services'))
+const commonCopy = computed(() => localeMessages[localization.locale].systemData.copy)
+const pageTitle = computed(() => props.title || copy.value.title)
+const pageDescription = computed(() => props.description || copy.value.description)
 const open = ref(false)
 const editing = ref('')
+const formError = ref('')
 const form = reactive({ name: '', entryPoint: 'https://', owner: '' })
-const SERVICE_COLUMNS = [
-  { field: 'name', title: '名称', minWidth: 160, filter: { kind: 'text' as const } },
-  { field: 'entryPoint', title: '入口', minWidth: 220, filter: { kind: 'text' as const } },
-  { field: 'healthPath', title: '健康声明', minWidth: 180, filter: { kind: 'text' as const } },
-  { field: 'status', title: '状态', width: 100, filter: { kind: 'text' as const } },
-]
+const serviceColumns = computed(() => [
+  { field: 'name', title: copy.value.name, minWidth: 160, filter: { kind: 'text' as const } },
+  {
+    field: 'entryPoint',
+    title: copy.value.entryPoint,
+    minWidth: 220,
+    filter: { kind: 'text' as const },
+  },
+  {
+    field: 'healthPath',
+    title: copy.value.healthPath,
+    minWidth: 180,
+    filter: { kind: 'text' as const },
+  },
+  { field: 'status', title: copy.value.status, width: 100, filter: { kind: 'text' as const } },
+])
 const groups = computed(() => ({
   Platform: store.services.filter((item) => item.kind === 'Platform'),
   External: store.services.filter((item) => item.kind !== 'Platform'),
@@ -52,6 +72,7 @@ async function exportServices(
 }
 function edit(item: ServiceCatalogDto): void {
   editing.value = item.serviceNId
+  formError.value = ''
   Object.assign(form, {
     name: item.name,
     entryPoint: item.entryPoint,
@@ -61,35 +82,69 @@ function edit(item: ServiceCatalogDto): void {
 }
 function create(): void {
   editing.value = ''
+  formError.value = ''
   Object.assign(form, { name: '', entryPoint: 'https://', owner: '' })
   open.value = true
 }
 async function submit(): Promise<void> {
-  if (!form.name.trim() || !form.entryPoint.startsWith('https://')) return
+  formError.value = ''
+  const name = form.name.trim()
+  const entryPoint = form.entryPoint.trim()
+  if (!name) {
+    formError.value = copy.value.invalidName
+    return
+  }
+  if (!entryPoint.startsWith('https://')) {
+    formError.value = copy.value.invalidHttps
+    return
+  }
   if (editing.value)
     await store.updateService(editing.value, {
-      name: form.name.trim(),
-      entryPoint: form.entryPoint.trim(),
+      name,
+      entryPoint,
       ...(form.owner ? { ownerOrganizationNId: form.owner } : {}),
     })
-  else await store.createService(form.name.trim(), form.entryPoint.trim(), form.owner || undefined)
+  else await store.createService(name, entryPoint, form.owner || undefined)
   if (!store.error) open.value = false
+}
+async function toggleStatus(item: ServiceCatalogDto): Promise<void> {
+  const status = item.status === 'Active' ? 'Inactive' : 'Active'
+  try {
+    await ElMessageBox.confirm(
+      interpolate(copy.value.statusConfirmBody, {
+        name: item.name,
+        status: systemDataEnumLabel(localization.locale, status),
+      }),
+      copy.value.statusConfirmTitle,
+      {
+        type: 'warning',
+        confirmButtonText: commonCopy.value.confirm,
+        cancelButtonText: commonCopy.value.cancel,
+      },
+    )
+  } catch {
+    return
+  }
+  await store.setServiceStatus(item.serviceNId, { status })
 }
 </script>
 <template>
   <SystemDataAdminFrame
     kind="services"
-    :title="props.title"
-    :description="props.description"
+    :title="pageTitle"
+    :description="pageDescription"
     :permission="props.permission"
     ><template #toolbar
       ><PermissionGate :permission-n-id="PERMISSIONS.systemDataServiceCatalogManage"
-        ><button type="button" @click="create">新建 External</button></PermissionGate
+        ><el-button type="primary" @click="create">
+          <ElIcon class="systemdata-page-action-icon" aria-hidden="true"><Plus /></ElIcon>
+          {{ copy.createExternal }}
+        </el-button></PermissionGate
       ></template
     >
-    <div v-for="(items, group) in groups" :key="group">
-      <h2>{{ group }}</h2>
-      <AppEmptyState v-if="!items.length" :title="group + ' 服务为空'" />
+    <div v-for="(items, group) in groups" :key="group" class="systemdata-service-group">
+      <h2>{{ group === 'Platform' ? copy.platform : copy.external }}</h2>
+      <AppEmptyState v-if="!items.length" :title="copy.emptyGroup" />
       <AppDataTable
         v-else
         :table-key="`systemdata-services-${group}`"
@@ -97,49 +152,66 @@ async function submit(): Promise<void> {
         row-key="serviceNId"
         :rows="items"
         :total="items.length"
-        :columns="SERVICE_COLUMNS"
+        :columns="serviceColumns"
         :exporter="(request) => exportServices(group, request)"
       >
-        <template #cell-healthPath="{ row }">{{
-          row.healthPath ?? '由 PlatformHealth 提供'
+        <template #cell-healthPath="{ row }">{{ row.healthPath ?? copy.platformHealth }}</template>
+        <template #cell-status="{ row }">{{
+          systemDataEnumLabel(localization.locale, row.status)
         }}</template>
         <template #actions="{ row }">
           <PermissionGate :permission-n-id="PERMISSIONS.systemDataServiceCatalogManage"
-            ><button v-if="row.kind === 'External'" type="button" @click="edit(row)">编辑</button
-            ><button
-            type="button"
-            @click="
-              store.setServiceStatus(row.serviceNId, {
-                status: row.status === 'Active' ? 'Inactive' : 'Active',
-              })
-            "
+            ><el-button v-if="row.kind === 'External'" link type="primary" @click="edit(row)">
+              {{ commonCopy.edit }}</el-button
+            ><el-button
+              link
+              :type="row.status === 'Active' ? 'danger' : 'success'"
+              @click="toggleStatus(row)"
+            >
+              {{ row.status === 'Active' ? commonCopy.disabled : commonCopy.enabled }}
+            </el-button></PermissionGate
           >
-            {{ row.status === 'Active' ? '停用' : '启用' }}
-          </button></PermissionGate>
         </template>
       </AppDataTable>
     </div></SystemDataAdminFrame
   ><AppFormDrawer
     v-model="open"
     :busy="store.loading"
-    :title="editing ? '编辑 External 服务' : '新建 External 服务'"
+    :title="editing ? copy.editExternal : copy.createExternal"
     @submit="submit"
     ><el-form label-width="120px"
-      ><el-form-item label="名称"
-        ><el-input v-model="form.name" aria-label="服务名称" /></el-form-item
-      ><el-form-item label="External HTTPS 入口"
-        ><el-input v-model="form.entryPoint" aria-label="External HTTPS 入口" /></el-form-item
-      ><el-form-item label="所有者组织"
+      ><p v-if="formError" role="alert">{{ formError }}</p>
+      <el-form-item :label="copy.name"
+        ><el-input v-model="form.name" :aria-label="copy.name" /></el-form-item
+      ><el-form-item :label="copy.entryPoint"
+        ><el-input v-model="form.entryPoint" :aria-label="copy.entryPoint" /></el-form-item
+      ><el-form-item :label="copy.owner"
         ><el-select v-model="form.owner" clearable
           ><el-option
             v-for="item in store.organizationTree"
             :key="item.nId"
-            :label="item.name + '（' + item.nId + '）'"
+            :label="item.name + ' (' + item.nId + ')'"
             :value="item.nId" /></el-select
       ></el-form-item>
       <p>
-        External 入口只接受 HTTPS；Platform 的 GatewayPathPrefix/HealthPath 由服务端只读维护。
+        {{ copy.httpsHint }}
       </p></el-form
     ></AppFormDrawer
   >
 </template>
+
+<style scoped>
+.systemdata-service-group {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--ip-space-3);
+}
+
+.systemdata-service-group h2 {
+  margin: 0;
+  color: var(--ip-color-text-primary);
+  font-size: var(--ip-font-size-lg);
+  line-height: var(--ip-line-height-tight);
+}
+</style>

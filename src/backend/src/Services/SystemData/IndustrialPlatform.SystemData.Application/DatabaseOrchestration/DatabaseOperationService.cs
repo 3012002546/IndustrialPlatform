@@ -136,7 +136,9 @@ public sealed class DatabaseOperationService : IOperationService
             plan.RequestedMigrationVersion,
             registration.DesiredState.ToString(),
             policy.ApprovalRequired,
-            policy.BackupRequired);
+            policy.BackupRequired,
+            registration.ModuleKey,
+            registration.SeedSets.Select(seed => seed.ToChecksumCanonical()).ToList());
         if (!plan.MatchesTargetStateFingerprint(currentFingerprint))
         {
             throw new PlanDriftException();
@@ -302,7 +304,7 @@ public sealed class DatabaseOperationService : IOperationService
     public async Task<DatabaseOperationV1> GetAsync(string tenantNId, string operationNId, CancellationToken cancellationToken)
     {
         var operation = await GetRequiredOperationAsync(tenantNId, operationNId, cancellationToken);
-        return ToOperationV1(operation);
+        return await ToOperationV1Async(operation, cancellationToken);
     }
 
     /// <inheritdoc />
@@ -321,8 +323,9 @@ public sealed class DatabaseOperationService : IOperationService
             pageIndex,
             pageSize);
         var page = await _store.QueryOperationsAsync(filter, cancellationToken);
+        var operations = await Task.WhenAll(page.Items.Select(operation => ToOperationV1Async(operation, cancellationToken)));
         return new DatabaseOrchestrationPageResult<DatabaseOperationV1>(
-            page.Items.Select(ToOperationV1).ToList(),
+            operations,
             page.Total,
             page.PageIndex,
             page.PageSize);
@@ -481,23 +484,63 @@ public sealed class DatabaseOperationService : IOperationService
             return NotReadyV2(serviceKeyTrimmed, moduleKeyTrimmed, "服务数据库尚未注册。", traceId);
         }
 
-        var observation = await _store.GetLatestObservationAsync(tenantNId, environmentNId, serviceKeyTrimmed, cancellationToken);
+        var databaseIdentityFingerprint = DatabaseTopologyFingerprint.ComputeDatabaseIdentityFingerprint(
+            environmentNId,
+            serviceKeyTrimmed,
+            registration.Provider,
+            registration.LogicalDatabaseName,
+            registration.PhysicalDatabaseName,
+            registration.TopologyRevision);
+        var observation = await _store.GetLatestObservationAsync(
+            tenantNId,
+            environmentNId,
+            serviceKeyTrimmed,
+            registration.ModuleKey,
+            cancellationToken);
+        var migrationObservationMatches = observation is not null
+                                          && observation.VerificationStatus == VerificationStatus.Verified
+                                          && string.Equals(observation.DatabaseIdentityFingerprint, databaseIdentityFingerprint, StringComparison.Ordinal)
+                                          && string.Equals(observation.ArtifactChecksum, registration.ArtifactChecksum, StringComparison.Ordinal);
+        var currentObservation = migrationObservationMatches ? observation : null;
         var migrationReady = registration.Status == RegistrationStatus.Registered
-                             && observation is not null
-                             && string.Equals(observation.ObservedVersion, registration.MigrationVersion, StringComparison.Ordinal);
+                             && currentObservation is not null
+                             && string.Equals(currentObservation.ObservedVersion, registration.MigrationVersion, StringComparison.Ordinal);
 
         var seedStates = new List<SeedReadinessV2>();
         var requiredSeedReady = true;
         var bootstrapReady = true;
+        var bootstrapObserved = false;
+        var bootstrapPending = false;
+        var bootstrapRecoveryRequired = false;
         string? reason = null;
+
+        if (registration.Status != RegistrationStatus.Registered)
+        {
+            reason = "注册清单标记为未就绪。";
+        }
+        else if (observation is null)
+        {
+            reason = "尚未观察到当前初始化单元的目标数据库迁移状态。";
+        }
+        else if (!migrationObservationMatches)
+        {
+            reason = "迁移观察与当前数据库身份或产物不一致。";
+        }
+        else if (!string.Equals(observation.ObservedVersion, registration.MigrationVersion, StringComparison.Ordinal))
+        {
+            reason = "观察版本与期望版本不一致。";
+        }
 
         foreach (var seed in registration.SeedSets.OrderBy(seed => seed.SeedKey, StringComparer.Ordinal))
         {
             var latest = await _store.GetLatestSeedObservationAsync(
                 tenantNId, environmentNId, serviceKeyTrimmed, moduleKeyTrimmed, seed.SeedKey, cancellationToken);
             var applied = latest is not null
+                          && latest.VerificationStatus == VerificationStatus.Verified
                           && latest.Status == SeedStatus.Applied
-                          && string.Equals(latest.SeedVersion, seed.SeedVersion, StringComparison.Ordinal);
+                          && string.Equals(latest.SeedVersion, seed.SeedVersion, StringComparison.Ordinal)
+                          && string.Equals(latest.Checksum, seed.SeedChecksum, StringComparison.Ordinal)
+                          && latest.Scope == seed.Scope;
             seedStates.Add(new SeedReadinessV2
             {
                 SeedKey = seed.SeedKey,
@@ -508,14 +551,28 @@ public sealed class DatabaseOperationService : IOperationService
 
             if (seed.SeedClass == SeedClass.SecretBootstrap)
             {
+                bootstrapObserved = true;
                 // bootstrap 完成 = 已应用,或按 SkipWhenMissing 策略记账 Skipped(不阻塞 readiness)。
                 var skippedByPolicy = latest is not null
+                                      && latest.VerificationStatus == VerificationStatus.Verified
                                       && latest.Status == SeedStatus.Skipped
-                                      && string.Equals(latest.SeedVersion, seed.SeedVersion, StringComparison.Ordinal);
+                                      && seed.BootstrapPolicy == BootstrapPolicy.SkipWhenMissing
+                                      && string.Equals(latest.SeedVersion, seed.SeedVersion, StringComparison.Ordinal)
+                                      && string.Equals(latest.Checksum, seed.SeedChecksum, StringComparison.Ordinal)
+                                      && latest.Scope == seed.Scope;
                 if (!applied && !skippedByPolicy)
                 {
                     bootstrapReady = false;
-                    reason ??= $"SecretBootstrap 种子 {seed.SeedKey} 尚未完成。";
+                    if (latest?.Status == SeedStatus.Failed)
+                    {
+                        bootstrapRecoveryRequired = true;
+                        reason ??= $"SecretBootstrap 种子 {seed.SeedKey} 需要恢复处理。";
+                    }
+                    else
+                    {
+                        bootstrapPending = true;
+                        reason ??= $"SecretBootstrap 种子 {seed.SeedKey} 尚未完成。";
+                    }
                 }
             }
             else if (seed.RequiredForReadiness && !applied)
@@ -526,32 +583,34 @@ public sealed class DatabaseOperationService : IOperationService
         }
 
         var ready = migrationReady && requiredSeedReady && bootstrapReady;
+        var bootstrapStatus = !bootstrapObserved
+            ? null
+            : bootstrapRecoveryRequired
+                ? "RecoveryRequired"
+                : bootstrapPending
+                    ? "Pending"
+                    : "Ready";
         return new ServiceInitializationReadinessV2
         {
             ServiceKey = serviceKeyTrimmed,
             ModuleKey = moduleKeyTrimmed,
             LogicalDatabaseName = registration.LogicalDatabaseName,
             PhysicalDatabaseTarget = Mask(registration.PhysicalDatabaseName),
-            DatabaseIdentityFingerprint = DatabaseTopologyFingerprint.ComputeDatabaseIdentityFingerprint(
-                environmentNId,
-                serviceKeyTrimmed,
-                registration.Provider,
-                registration.LogicalDatabaseName,
-                registration.PhysicalDatabaseName,
-                registration.TopologyRevision),
+            DatabaseIdentityFingerprint = databaseIdentityFingerprint,
             ArtifactChecksum = registration.ArtifactChecksum,
             DesiredMigrationVersion = registration.MigrationVersion,
-            ObservedMigrationVersion = observation?.ObservedVersion,
-            ObservedOn = observation?.ObservedOn,
+            ObservedMigrationVersion = currentObservation?.ObservedVersion,
+            ObservedOn = currentObservation?.ObservedOn,
             TopologyRevision = registration.TopologyRevision,
             MigrationReady = migrationReady,
             RequiredSeedReady = requiredSeedReady,
             BootstrapReady = bootstrapReady,
+            BootstrapStatus = bootstrapStatus,
             Seeds = seedStates,
             Ready = ready,
             Status = ready ? "Ready" : "NotReady",
             Reason = ready ? null : reason ?? BuildNotReadyReason(migrationReady),
-            OperationNId = observation?.OperationNId,
+            OperationNId = currentObservation?.OperationNId,
             TraceId = traceId,
         };
     }
@@ -574,6 +633,7 @@ public sealed class DatabaseOperationService : IOperationService
         MigrationReady = false,
         RequiredSeedReady = false,
         BootstrapReady = false,
+        BootstrapStatus = null,
         Seeds = null,
         Ready = false,
         Status = "NotReady",
@@ -623,7 +683,35 @@ public sealed class DatabaseOperationService : IOperationService
         TraceId = traceId,
     };
 
-    private static DatabaseOperationV1 ToOperationV1(DatabaseProvisionOperation operation) => new()
+    private async Task<DatabaseOperationV1> ToOperationV1Async(
+        DatabaseProvisionOperation operation,
+        CancellationToken cancellationToken)
+    {
+        var registration = await _store.GetRegistrationAsync(
+            operation.TenantNId,
+            operation.EnvironmentNId,
+            operation.ServiceKey,
+            operation.ModuleKey,
+            cancellationToken);
+        var observations = registration?.SeedSets.Count > 0
+            ? (await Task.WhenAll(registration.SeedSets.Select(async seed =>
+            {
+                var observation = await _store.GetLatestSeedObservationAsync(
+                    operation.TenantNId,
+                    operation.EnvironmentNId,
+                    operation.ServiceKey,
+                    operation.ModuleKey,
+                    seed.SeedKey,
+                    cancellationToken);
+                return observation is null ? null : ToSeedObservationV1(observation);
+            }))).Where(observation => observation is not null).Cast<SeedObservationV1>().ToList()
+            : null;
+        return ToOperationV1(operation, observations);
+    }
+
+    private static DatabaseOperationV1 ToOperationV1(
+        DatabaseProvisionOperation operation,
+        IReadOnlyCollection<SeedObservationV1>? seedObservations = null) => new()
     {
         TenantNId = operation.TenantNId,
         OperationNId = operation.OperationNId,
@@ -647,6 +735,23 @@ public sealed class DatabaseOperationService : IOperationService
         TraceId = operation.TraceId,
         CreatedByUserNId = operation.CreatedByUserNId,
         Steps = operation.Steps.Select(ToStepV1).ToList(),
+        SeedObservations = seedObservations,
+    };
+
+    private static SeedObservationV1 ToSeedObservationV1(DatabaseSeedObservation observation) => new()
+    {
+        TenantNId = observation.TenantNId,
+        EnvironmentNId = observation.EnvironmentNId,
+        ServiceKey = observation.ServiceKey,
+        ModuleKey = observation.ModuleKey,
+        SeedKey = observation.SeedKey,
+        SeedVersion = observation.SeedVersion,
+        Checksum = observation.Checksum,
+        Scope = observation.Scope.ToString(),
+        Status = observation.Status.ToString(),
+        AppliedOn = observation.AppliedOn,
+        OperationNId = observation.OperationNId,
+        VerificationStatus = observation.VerificationStatus.ToString(),
     };
 
     /// <summary>v1 线兼容:SchemaMigration 阶段在 v1 契约中映射为 <c>Migrate</c>。</summary>

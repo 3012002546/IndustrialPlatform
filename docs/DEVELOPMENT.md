@@ -11,7 +11,7 @@
 3. 是简单查询/CRUD，还是需要聚合、不变量和领域事件的复杂行为。
 4. 是否需要权限、菜单、页面、Migration、RequiredSeed 或跨服务契约。
 
-`Service Host != Domain Module != Initialization Unit != Deployment Unit`。Shared 物理数据库也不允许跨服务 Repository、外键或直接写表。ReferenceData 默认仍是一个 Host、五个逻辑模块、服务级基础设施。
+`Service Host != Domain Module != Initialization Unit != Deployment Unit`。Shared 物理数据库也不允许跨服务 Repository、外键或直接写表。ReferenceData 默认仍是一个 Host、七个逻辑模块、服务级基础设施；新增状态机定义与通用计量单位，不接管业务实例状态、事务或物料专属换算。
 
 ## 2. 一项前后端完整功能的固定路径
 

@@ -601,6 +601,25 @@ public sealed class DatabaseOrchestrationStore : IDatabaseOrchestrationStore
     }
 
     /// <inheritdoc />
+    public async Task<DatabaseMigrationObservation?> GetLatestObservationAsync(
+        string tenantNId,
+        string environmentNId,
+        string serviceKey,
+        string moduleKey,
+        CancellationToken cancellationToken)
+    {
+        var row = await _dbContext.SqlSugar.Queryable<DatabaseMigrationObservationTable>()
+            .Where(t => t.TenantNId == tenantNId
+                && t.EnvironmentNId == environmentNId
+                && t.ServiceKey == serviceKey
+                && t.ModuleKey == moduleKey
+                && !t.IsDeleted)
+            .OrderBy(t => t.ObservedOn, OrderByType.Desc)
+            .FirstAsync(cancellationToken);
+        return row is null ? null : TableMapper.ToObservation(row);
+    }
+
+    /// <inheritdoc />
     public async Task AddObservationAsync(
         DatabaseMigrationObservation observation,
         CancellationToken cancellationToken)

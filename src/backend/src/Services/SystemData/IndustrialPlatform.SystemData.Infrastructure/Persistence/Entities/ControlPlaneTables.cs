@@ -67,6 +67,7 @@ public sealed class SystemDataNavigationTable : ControlPlaneEntityTable
     [SugarColumn(ColumnName = "feature_n_id")] public string? FeatureNId { get; set; }
     [SugarColumn(ColumnName = "display_order")] public int DisplayOrder { get; set; }
     [SugarColumn(ColumnName = "visible_terminals_json")] public string VisibleTerminalsJson { get; set; } = "[]";
+    [SugarColumn(ColumnName = "action_resource_n_ids_json")] public string ActionResourceNIdsJson { get; set; } = "[]";
     [SugarColumn(ColumnName = "status")] public string Status { get; set; } = string.Empty;
 }
 

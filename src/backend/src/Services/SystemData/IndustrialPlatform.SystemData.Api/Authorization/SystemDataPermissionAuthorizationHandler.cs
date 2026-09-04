@@ -28,7 +28,8 @@ public sealed class SystemDataPermissionAuthorizationHandler : AuthorizationHand
         AuthorizationHandlerContext context,
         SystemDataPermissionRequirement requirement)
     {
-        var granted = context.User
+        var protectedInitializationPermission = IsInitializationPermission(requirement.PermissionNId);
+        var granted = !protectedInitializationPermission && context.User
             .FindAll(SystemDataClaimTypes.PermissionNId)
             .SelectMany(ExpandPermissionClaim)
             .Contains(requirement.PermissionNId, StringComparer.Ordinal);
@@ -92,4 +93,8 @@ public sealed class SystemDataPermissionAuthorizationHandler : AuthorizationHand
     /// <summary>展开单条声明值(空格分隔的权限 NId 列表)。</summary>
     private static IEnumerable<string> ExpandPermissionClaim(Claim claim) =>
         claim.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    private static bool IsInitializationPermission(string permissionNId) =>
+        permissionNId.StartsWith("systemdata.service-initialization.", StringComparison.OrdinalIgnoreCase)
+        || permissionNId.StartsWith("systemdata.database-orchestration.", StringComparison.OrdinalIgnoreCase);
 }

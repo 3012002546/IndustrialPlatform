@@ -8,6 +8,7 @@ export default defineConfig({
     '**/real-login.spec.ts',
     '**/identity-pages.spec.ts',
     '**/user-management-golden.spec.ts',
+    '**/systemdata-admin-visual.spec.ts',
   ],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
@@ -30,7 +31,7 @@ export default defineConfig({
   // Mock 基线仅用于测试;生产构建禁止 mock(loadRuntimeConfig 抛错),故 E2E 跑 Vite dev
   // server(非生产模式),并显式声明 VITE_AUTH_MODE=mock(产品默认已是 http,不得依赖默认值)。
   webServer: {
-    command: 'pnpm dev --port 4173 --strictPort',
+    command: 'pnpm dev --port 4173 --strictPort --configLoader runner',
     url: 'http://localhost:4173',
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,

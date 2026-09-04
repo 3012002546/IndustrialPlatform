@@ -112,11 +112,12 @@ public static class DatabaseTopologyFingerprint
         bool destructiveChangeDetected,
         string requiredPolicies,
         IReadOnlyCollection<string> stepCanonicals,
-        string? moduleKey = null)
+        string? moduleKey = null,
+        bool? serviceRequiresApply = null)
     {
         var steps = string.Join(";", stepCanonicals ?? []);
-        var canonical = string.Join("|",
-        [
+        var canonicalParts = new List<string>
+        {
             planNId,
             tenantNId,
             environmentNId,
@@ -128,8 +129,15 @@ public static class DatabaseTopologyFingerprint
             riskLevel,
             destructiveChangeDetected ? "1" : "0",
             requiredPolicies,
-            steps,
-        ]);
+        };
+        // Null preserves the checksum format of legacy SQL Runner plans.
+        if (serviceRequiresApply.HasValue)
+        {
+            canonicalParts.Add(serviceRequiresApply.Value ? "1" : "0");
+        }
+
+        canonicalParts.Add(steps);
+        var canonical = string.Join("|", canonicalParts);
 
         return Sha256Hex(canonical);
     }

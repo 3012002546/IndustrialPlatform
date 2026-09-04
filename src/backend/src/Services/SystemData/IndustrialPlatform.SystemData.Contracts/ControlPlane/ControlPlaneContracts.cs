@@ -79,14 +79,22 @@ public sealed record CreateNavigationNodeRequest
     public string? FeatureNId { get; init; }
     public string? IconKey { get; init; }
     public IReadOnlyCollection<string>? VisibleTerminals { get; init; }
+    public IReadOnlyCollection<string>? ActionResourceNIds { get; init; }
     public int? DisplayOrder { get; init; }
+    public long? ExpectedDraftRevision { get; init; }
 }
 
 public sealed record UpdateNavigationNodeRequest
 {
     public string? Label { get; init; }
+    public string? ParentNodeNId { get; init; }
+    public string? ResourceNId { get; init; }
+    public string? FeatureNId { get; init; }
     public string? IconKey { get; init; }
+    public IReadOnlyCollection<string>? VisibleTerminals { get; init; }
+    public IReadOnlyCollection<string>? ActionResourceNIds { get; init; }
     public int? DisplayOrder { get; init; }
+    public long? ExpectedDraftRevision { get; init; }
 }
 
 public sealed record NavigationNodeResponse
@@ -101,6 +109,7 @@ public sealed record NavigationNodeResponse
     public int DisplayOrder { get; init; }
     public IReadOnlyCollection<string> VisibleTerminals { get; init; } = [];
     public string Status { get; init; } = string.Empty;
+    public IReadOnlyCollection<string> ActionResourceNIds { get; init; } = [];
     public IReadOnlyCollection<NavigationNodeResponse> Children { get; init; } = [];
 }
 
@@ -110,8 +119,31 @@ public sealed record NavigationDraftResponse
     public IReadOnlyCollection<NavigationNodeResponse> Nodes { get; init; } = [];
 }
 
+public sealed record NavigationDefaultImportPreviewResponse
+{
+    public long DraftRevision { get; init; }
+    public IReadOnlyCollection<NavigationDefaultImportItemResponse> Items { get; init; } = [];
+}
+
+public sealed record NavigationDefaultImportItemResponse
+{
+    public string NodeNId { get; init; } = string.Empty;
+    public string Label { get; init; } = string.Empty;
+    public string? ParentNodeNId { get; init; }
+    public string Kind { get; init; } = string.Empty;
+    public int Level { get; init; }
+    public string Action { get; init; } = string.Empty;
+    public string Reason { get; init; } = string.Empty;
+}
+
+public sealed record ImportNavigationDefaultsRequest
+{
+    public long? ExpectedDraftRevision { get; init; }
+}
+
 public sealed record NavigationValidationResponse
 {
+    public long DraftRevision { get; init; }
     public bool IsValid { get; init; }
     public IReadOnlyCollection<NavigationValidationErrorResponse> Errors { get; init; } = [];
 }
@@ -121,6 +153,25 @@ public sealed record NavigationValidationErrorResponse
     public string Code { get; init; } = string.Empty;
     public string Message { get; init; } = string.Empty;
     public string? NodeNId { get; init; }
+    public string? ResourceNId { get; init; }
+    public string? ModuleNId { get; init; }
+    public string? ManifestVersion { get; init; }
+    public string? ManifestChecksum { get; init; }
+    public string? TrustedReceiptVersion { get; init; }
+    public string? TrustedReceiptChecksum { get; init; }
+    public bool? TrustedReceiptVerified { get; init; }
+    public IReadOnlyCollection<NavigationValidationReceiptDetail> ReceiptDetails { get; init; } = [];
+}
+
+public sealed record NavigationValidationReceiptDetail
+{
+    public string ResourceNId { get; init; } = string.Empty;
+    public string ModuleNId { get; init; } = string.Empty;
+    public string? ManifestVersion { get; init; }
+    public string? ManifestChecksum { get; init; }
+    public string? TrustedReceiptVersion { get; init; }
+    public string? TrustedReceiptChecksum { get; init; }
+    public bool TrustedReceiptVerified { get; init; }
 }
 
 public sealed record NavigationRuntimeResponse
@@ -230,6 +281,7 @@ public sealed record SetCatalogStatusRequest { public string? Status { get; init
 
 public sealed record ThemePolicyRequest
 {
+    public long? ExpectedPolicyRevision { get; init; }
     public IReadOnlyCollection<string>? AllowedPalettes { get; init; }
     public IReadOnlyCollection<string>? AllowedModes { get; init; }
     public IReadOnlyCollection<string>? AllowedPcDensities { get; init; }

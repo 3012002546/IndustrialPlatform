@@ -1,8 +1,8 @@
 # Industrial Platform Service Host 与内部模块边界
 
-版本：V1.2
+版本：V1.3
 状态：已确认，平台微服务母版
-生效日期：2026-09-02
+生效日期：2026-09-04
 
 ---
 
@@ -33,7 +33,7 @@
 | --- | --- |
 | `Identity.Service` | Identity |
 | `SystemData.Service` | SystemData、File、Notification、Audit、Scheduler、PlatformHealth |
-| `ReferenceData.Service` | Dictionary、Parameter、Metadata、DynamicProperty、CodingRule |
+| `ReferenceData.Service` | Dictionary、Parameter、DynamicProperty、Metadata、CodingRule、StateMachine、UnitOfMeasure |
 | `Collaboration.Service` | Messaging、Presence、AttachmentIntegration、RemoteAssistance |
 | `PlatformStudio.Service` | DataSource、Dataset、LowCode、Dashboard、Report、Publishing |
 | `OperationsCenter.Service` | ServerMonitor、ProjectWorkspace、KnowledgeBase、IssueTracking、KnowledgeAssistant、DataAssistant、ModelGateway |
@@ -41,7 +41,9 @@
 
 Worker、Agent、Screego、TURN 和本地模型运行时是辅助部署单元，不计入七个核心 Service Host。它们不得反向拥有核心领域数据；其生命周期、密钥、网络和升级策略在对应阶段详细设计。
 
-`ReferenceData.Service` 是一个 Service Host，包含 Dictionary、Parameter、Metadata、DynamicProperty、CodingRule 五个逻辑领域模块。当前固定使用一个逻辑数据库 `referencedata_db`、一个 PostgreSQL Schema `reference_data`、模块表前缀、一个服务级 Migration/Ledger、一个带 `ModuleKey` 的服务级 Outbox 和共享基础设施；只有出现真实入站事件消费者时才增加一个服务级 Inbox/Checkpoint。只有某个模块以后形成独立持久化生命周期并完成边界评审，才可成为独立初始化单元；这不改变五个领域模块的契约与数据所有权隔离。
+`ReferenceData.Service` 是一个 Service Host，包含 Dictionary、Parameter、DynamicProperty、Metadata、CodingRule、StateMachine、UnitOfMeasure 七个逻辑领域模块。当前固定使用一个逻辑数据库 `referencedata_db`、一个 PostgreSQL Schema `reference_data`、模块表前缀、一个服务级 Migration/Ledger、一个带 `ModuleKey` 的服务级 Outbox 和共享基础设施；没有真实入站事件消费者，不创建 Inbox/Checkpoint。只有某个模块以后形成独立持久化生命周期并完成边界评审，才可成为独立初始化单元；这不改变七个领域模块的契约与数据所有权隔离。
+
+StateMachine 管理 `StateMachineDefinition`、其 `StateNode` 和 `StateTransition` 的版本化定义，只提供定义读取和转换合法性判断；业务服务拥有实例当前状态、权限、业务前置条件、事务和状态历史，不建立通用 `SetStatus`。UnitOfMeasure 管理 `UnitDimension` 的整份 Revision 快照及其 `UnitDefinition` 子项；物料专属包装比例等依赖具体物料的换算仍归 MasterData。
 
 当前对外入口存在两种部署角色且不得混写：
 
@@ -63,7 +65,7 @@ Worker、Agent、Screego、TURN 和本地模型运行时是辅助部署单元，
 | --- | --- | --- | --- |
 | 03 / PF-00 | Identity | 正在开发 `Identity.Service` | Identity |
 | 05 / PF-02 | SystemData | 创建 `SystemData.Service` | SystemData；包含数据库编排/环境引导能力 |
-| 06 / PF-03 | ReferenceData | 继续利用现有 `ReferenceData.Service` 骨架 | Dictionary、Parameter、Metadata、DynamicProperty、CodingRule |
+| 06 / PF-03 | ReferenceData | 继续利用现有 `ReferenceData.Service` 骨架 | Dictionary、Parameter、DynamicProperty、Metadata、CodingRule、StateMachine、UnitOfMeasure |
 | 07 / PF-04 | File / Notification / Audit | 加入 `SystemData.Service` | File、Notification、Audit |
 | 08 / PF-05 | Collaboration | 创建 `Collaboration.Service` | Messaging、Presence、AttachmentIntegration |
 | 09 / PF-06 | RemoteAssistance | 加入 `Collaboration.Service` | RemoteAssistance |

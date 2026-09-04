@@ -13,6 +13,9 @@ import type {
   CreatePositionRequest,
   CreateServiceCatalogRequest,
   FeatureDefinitionDto,
+  InitializationApprovalDto,
+  InitializationBackupEvidenceDto,
+  InitializationEnvironmentPolicyDto,
   InitializationOperationDto,
   InitializationPlanDto,
   InitializationRegistrationDto,
@@ -21,6 +24,7 @@ import type {
   ManagementQuery,
   MoveOrganizationRequest,
   NavigationDraftDto,
+  NavigationDefaultImportPreviewDto,
   NavigationNodeDto,
   NavigationValidationDto,
   OrganizationDetailDto,
@@ -37,6 +41,7 @@ import type {
   ServiceCatalogDto,
   SystemDataManagementApi,
   ThemePolicyDto,
+  ThemePolicyUpdateRequest,
   UpdateNavigationNodeRequest,
   UpdatePositionRequest,
   UpdateScheduledAssignmentRequest,
@@ -129,14 +134,31 @@ export function createSystemDataManagementApi(client: HttpClient): SystemDataMan
       client.post<AssignmentDto[]>(`${BASE}/users/${id(userNId)}/primary-assignment`, request),
     listResources: () => client.get<UiResourceDto[]>(`${BASE}/resources`),
     getNavigationDraft: () => client.get<NavigationDraftDto>(`${BASE}/navigation/draft`),
+    previewNavigationDefaults: () =>
+      client.get<NavigationDefaultImportPreviewDto>(`${BASE}/navigation/defaults/preview`),
+    importNavigationDefaults: (request) =>
+      client.post<NavigationDefaultImportPreviewDto>(`${BASE}/navigation/defaults/import`, request),
     addNavigationNode: (request: CreateNavigationNodeRequest) =>
       client.post<NavigationNodeDto>(`${BASE}/navigation/draft/nodes`, request),
     updateNavigationNode: (nId, request: UpdateNavigationNodeRequest) =>
       client.put<NavigationNodeDto>(`${BASE}/navigation/draft/nodes/${id(nId)}`, request),
-    deleteNavigationNode: (nId) => client.delete<void>(`${BASE}/navigation/draft/nodes/${id(nId)}`),
+    deleteNavigationNode: (nId, expectedDraftRevision) =>
+      client.delete<void>(
+        `${BASE}/navigation/draft/nodes/${id(nId)}${query({ expectedDraftRevision })}`,
+      ),
+    restoreNavigationNode: (nId, expectedDraftRevision) =>
+      client.post<NavigationNodeDto>(
+        `${BASE}/navigation/draft/nodes/${id(nId)}/restore${query({ expectedDraftRevision })}`,
+      ),
     validateNavigation: () => client.post<NavigationValidationDto>(`${BASE}/navigation/validate`),
-    publishNavigation: () => client.post<{ revision: number }>(`${BASE}/navigation/publish`),
-    rollbackNavigation: () => client.post<{ revision: number }>(`${BASE}/navigation/rollback`),
+    publishNavigation: (expectedDraftRevision) =>
+      client.post<{ revision: number }>(
+        `${BASE}/navigation/publish${query({ expectedDraftRevision })}`,
+      ),
+    rollbackNavigation: (expectedDraftRevision) =>
+      client.post<{ revision: number }>(
+        `${BASE}/navigation/rollback${query({ expectedDraftRevision })}`,
+      ),
     listFeatures: () => client.get<FeatureDefinitionDto[]>(`${BASE}/features`),
     setFeatureOverride: (featureNId, request: SetFeatureOverrideRequest) =>
       client.put(`${BASE}/features/${id(featureNId)}/override`, request),
@@ -148,7 +170,8 @@ export function createSystemDataManagementApi(client: HttpClient): SystemDataMan
     setServiceCatalogStatus: (nId, request: SetServiceCatalogStatusRequest) =>
       client.put<ServiceCatalogDto>(`${BASE}/service-catalog/${id(nId)}/status`, request),
     getThemePolicy: () => client.get<ThemePolicyDto>(`${BASE}/theme-policy`),
-    updateThemePolicy: (request) => client.put<ThemePolicyDto>(`${BASE}/theme-policy`, request),
+    updateThemePolicy: (request: ThemePolicyUpdateRequest) =>
+      client.put<ThemePolicyDto>(`${BASE}/theme-policy`, request),
     listInitializationRegistrations: () =>
       client.get<PageResultDto<InitializationRegistrationSummaryDto>>(
         `${BASE}/service-initialization/registrations`,
@@ -158,6 +181,14 @@ export function createSystemDataManagementApi(client: HttpClient): SystemDataMan
     listInitializationOperations: () =>
       client.get<PageResultDto<InitializationOperationDto>>(
         `${BASE}/service-initialization/operations`,
+      ),
+    getInitializationRegistration: (serviceKey, moduleKey) =>
+      client.get<InitializationRegistrationDto>(
+        `${BASE}/service-initialization/registrations/${id(serviceKey)}/${id(moduleKey)}`,
+      ),
+    getInitializationPolicy: () =>
+      client.get<InitializationEnvironmentPolicyDto>(
+        `${BASE}/service-initialization/environment-policy`,
       ),
     registerInitialization: (request: RegisterServiceInitializationRequest) =>
       client.put<InitializationRegistrationDto>(
@@ -172,10 +203,28 @@ export function createSystemDataManagementApi(client: HttpClient): SystemDataMan
       ),
     getInitializationPlan: (planNId) =>
       client.get<InitializationPlanDto>(`${BASE}/service-initialization/plans/${id(planNId)}`),
+    listInitializationApprovals: (planNId) =>
+      client.get<InitializationApprovalDto[]>(
+        `${BASE}/service-initialization/plans/${id(planNId)}/approvals`,
+      ),
+    listInitializationBackupEvidence: (planNId) =>
+      client.get<InitializationBackupEvidenceDto | null>(
+        `${BASE}/service-initialization/plans/${id(planNId)}/backup-evidence`,
+      ),
     createApproval: (planNId, request: CreateApprovalRequest) =>
-      client.post(`${BASE}/service-initialization/plans/${id(planNId)}/approvals`, request),
+      client.post<InitializationApprovalDto>(
+        `${BASE}/service-initialization/plans/${id(planNId)}/approvals`,
+        request,
+      ),
     createBackupEvidence: (planNId, request: CreateBackupEvidenceRequest) =>
-      client.post(`${BASE}/service-initialization/plans/${id(planNId)}/backup-evidence`, request),
+      client.post<InitializationBackupEvidenceDto>(
+        `${BASE}/service-initialization/plans/${id(planNId)}/backup-evidence`,
+        request,
+      ),
+    verifyBackupEvidence: (evidenceNId) =>
+      client.post<InitializationBackupEvidenceDto>(
+        `${BASE}/service-initialization/backup-evidence/${id(evidenceNId)}/verify`,
+      ),
     applyInitialization: (request: ApplyInitializationRequest, idempotencyKey: string) =>
       client.post<EnqueueInitializationOperationDto>(
         `${BASE}/service-initialization/operations/apply`,

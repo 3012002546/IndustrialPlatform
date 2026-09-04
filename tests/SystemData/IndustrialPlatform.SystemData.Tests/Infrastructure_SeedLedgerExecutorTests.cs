@@ -181,6 +181,33 @@ public sealed class SeedLedgerExecutorTests
         Assert.NotEqual(invoker.Context.EnvironmentName, invoker.Context.TenantNId);
     }
 
+    [Fact]
+    public async Task Initializer_production_path_uses_advanced_policy_without_target_ledger()
+    {
+        using var scope = new TestFixtureScope();
+        var module = TestInitializableService.ModuleBSpec;
+        var seed = module.Seeds[0];
+        var artifact = TestArtifactWriter.BuildSeedArtifact(module, seed);
+        var request = scope.Database.BuildSeedRequest(
+            module,
+            seed,
+            artifact,
+            secretValue: "must-not-cross-port",
+            operationNId: "OP-production",
+            traceId: "trace-production") with
+        {
+            EnvironmentNId = "Production",
+        };
+        var invoker = new CapturingInitializationInvoker();
+
+        var result = await new ServiceInitializerExecutor(invoker).ExecuteAsync(request, Ct);
+
+        Assert.True(result.Succeeded);
+        Assert.NotNull(invoker.Context);
+        Assert.Equal(ServiceInitializationPolicy.Advanced, invoker.Context!.Policy);
+        Assert.Equal(0, await scope.Database.SeedLedgerRowCountAsync(module.ModuleKey, Ct));
+    }
+
     private sealed class CapturingInitializationInvoker : IServiceInitializationInvoker
     {
         public ServiceInitializationContext? Context { get; private set; }

@@ -1,119 +1,179 @@
 # Industrial Platform
 
-.NET 10 工业/MES 平台，采用 Clean Architecture，并按业务复杂度选择 DDD。当前 BuildingBlocks、统一前端、Identity 当前范围和 SystemData `TASK-SD-001～006` 已完成；ReferenceData 仍为服务骨架。
+面向制造企业的工业数字化执行平台，以 **.NET 10 + Vue 3** 为技术基础，覆盖统一管理端、生产操作端、工业数据与 MES 业务扩展。
 
-当前支持两种严格区分的部署入口：
+平台采用 Clean Architecture，按业务复杂度使用 DDD，通过明确的模块契约、数据所有权和部署边界，兼顾统一部署的简洁性与后续独立部署的扩展能力。
 
-- **统一部署（默认开发路径）**：Browser → `UnifiedHost`（`:5041`）→ 进程内 Identity、SystemData、ReferenceData 模块。UnifiedHost 组合模块、统一中间件、协调模块自己的启动迁移并托管生产 SPA；不运行 YARP，也不代理下游。
-- **分布式部署（边界验证与未来部署路径）**：Browser → `Gateway`（`:5080`）→ 独立 API Host。Gateway 只负责 YARP 路由、服务前缀、CORS、下游健康聚合和代理错误；不加载业务模块、不托管前端、不执行迁移。
+## 整体架构
 
-## 前置软件版本
+### 统一前端与两种部署入口
 
-| 软件 | 版本 | 用途 |
-| --- | --- | --- |
-| .NET SDK | 10.0.302 | 构建与运行后端 |
-| PowerShell | 5.1 及以上(Windows) | 一键脚本(另提供跨平台手工命令) |
-| Docker Desktop / Engine | 任意近期版本 | 本地基础设施(PostgreSQL/Redis/RabbitMQ/Seq);**无 Docker 可跳过,依赖降级为 Unhealthy** |
-| 前端 | Node.js 18+、pnpm | 统一前端（Vue 3）开发、测试与构建 |
-
-> 校验:`dotnet --version`、`powershell -NoProfile -Command '$PSVersionTable.PSVersion'`、`docker compose version`。
-
-## 最短启动路径
-
-```powershell
-# 1. 设置本地 CLI home(Windows 必需,否则 NuGet 恢复异常)
-$env:DOTNET_CLI_HOME = (Join-Path (git rev-parse --show-toplevel) '.dotnet_cli_home')
-
-# 2. 构建
-dotnet build src/backend/IndustrialPlatform.slnx
-
-# 3. 启动（默认 UnifiedHost；按需切换分布式入口）
-./deploy/scripts/dev.ps1 start          # 有 Docker
-./deploy/scripts/dev.ps1 start -SkipInfrastructure   # 无 Docker
-./deploy/scripts/dev.ps1 start -IndependentServices  # Gateway + 独立 API Host
-
-# 4. 验证
-./deploy/scripts/dev.ps1 status
-Invoke-RestMethod http://localhost:5041/health/ready  # 默认 UnifiedHost
+```text
+统一前端：PC 管理模式 / PC 生产操作模式 / PDA / Mobile
+                         │
+             相同的外部 API 契约与服务前缀
+                         │
+            ┌────────────┴────────────┐
+            │                         │
+     统一进程部署（默认）          分布式部署
+     UnifiedHost :5041           Gateway :5080
+            │                    YARP 反向代理
+            │                         │
+       进程内模块组合              独立 API Host
+            │                         │
+            └────────────┬────────────┘
+                         │
+          Identity / SystemData / ReferenceData
+                         │
+       BuildingBlocks：查询、数据访问、安全、事件、日志
+                         │
+           PostgreSQL / Redis / RabbitMQ / Seq
 ```
 
-一键脚本详解见 [`deploy/scripts/README.md`](deploy/scripts/README.md)。
+两种入口是并列部署方式，不串联使用；组合部署不改变模块的数据所有权。
 
-## 端口表
-
-| 组件 | 端口 | 说明 |
+| 部署角色 | 主要职责 | 边界 |
 | --- | --- | --- |
-| **UnifiedHost** | **5041** | **默认统一进程入口，组合当前三个模块并托管生产 SPA** |
-| **Gateway** | **5080** | **分布式入口，YARP 转发到独立 API Host** |
-| Identity | 5041 | 独立 API Host 模式；与 UnifiedHost 端口相同，不同时启动 |
-| ReferenceData | 62311 | 直接访问(绕过网关) |
-| PostgreSQL | 5432 | Docker Compose |
-| Redis | 6379 | Docker Compose |
-| RabbitMQ | 5672 / 15672 | AMQP / 管理台 |
-| Seq | 5341 | 日志 Web/API |
+| UnifiedHost | 在单一 ASP.NET Core 进程中组合模块，统一中间件，协调模块自有初始化，托管生产 SPA | 不运行 YARP，不代理下游，不拥有模块业务规则和迁移实现 |
+| Gateway | YARP 路由、服务前缀处理、CORS、下游健康聚合与代理错误处理 | 不加载业务模块，不托管 SPA，不执行迁移，也不是服务间业务总线 |
 
-## 健康检查表
+前端通过 `/identity/**`、`/systemdata/**`、`/referencedata/**` 访问对应能力。默认 API 入口为 `http://localhost:5041`；分布式部署使用 `http://localhost:5080`，前端不绑定业务服务内部端口。
 
-| 端点 | 语义 | 成功 |
-| --- | --- | --- |
-| `GET /health` | 进程存活(静态) | 200 `{status,service}` |
-| `GET /health/live` | liveness,不含依赖检查 | 200 |
-| `GET /health/ready` | readiness；服务/模块按自己的数据库事实判断，入口再聚合 | 200（全绿）/ 503（任一失败） |
-| 下游逐项 | 仅 Gateway 经 `/health/ready` 聚合独立 API Host（响应不含凭据） | 各下游本地 readiness |
+### 分层与模块边界
 
-- 每个服务自检 Postgres/Redis/Seq(ReferenceData 另含 RabbitMQ),超时 3s;响应仅 `status + checks`。
-- Gateway 对每个独立 API Host 的 `GET /health/ready` 聚合；UnifiedHost 聚合进程内模块的本地 readiness。已初始化服务的日常 readiness 不依赖 SystemData 在线。
-- 无 Docker 时依赖检查报 Unhealthy 属**预期**,`/health`、`/health/live` 不受影响。
-
-## 常见故障诊断
-
-| 现象 | 排查 |
+| 层次 | 职责 |
 | --- | --- |
-| 启动报端口冲突 | `dev.ps1 start` 已预检并打印占用者 PID/进程名;`netstat -ano \| findstr :<port>` 复核 |
-| 服务启动后秒退 | 看 `.run/<name>.stderr.log` |
-| `/health/ready` 503 | 看具体 `checks[].description`(如 `PostgreSQL 不可访问`);先 `docker compose ps` 确认依赖 healthy |
-| 依赖连不上但已起容器 | `.env` 凭据与 `appsettings.Development.json` 不一致;改凭据后需 `docker compose down` 重建 |
-| 构建 NuGet 恢复异常 | Windows 未设 `DOTNET_CLI_HOME`(见最短启动路径第 1 步) |
-| 日志无 TraceId | 确认 Seq 可达且 `Serilog:Seq:Enabled=true`;经网关请求头不传 TraceId 时由网关生成 |
-| 无 Docker 环境 | 全程 `-SkipInfrastructure`,依赖降级 Unhealthy,后端与网关正常 |
+| API | HTTP 入口、身份与权限校验、请求和响应适配 |
+| Application | 应用用例、业务流程协调与访问端口 |
+| Domain | 领域模型、业务规则与不变量；简单管理功能不强制复杂聚合 |
+| Infrastructure | SqlSugar 持久化、缓存、事件发布及外部系统适配 |
+| Contracts | 模块对外公开的数据和交互契约 |
+| BuildingBlocks | 可复用的技术基础能力，不承载具体业务领域规则 |
 
-## 前端 API 入口
+- 依赖向内收敛，Domain 不反向依赖 Web、数据库或消息实现。
+- 同宿主模块通过公开应用契约协作；跨宿主通过 API 或事件协作，不跨模块直读、直写 Repository 和数据表。
+- **Service Host、领域模块、初始化单元、部署单元不是同一个概念**。共用宿主不等于合并领域，也不要求每个模块都独立部署。
+- SystemData 负责拓扑、编排、策略与观测；各服务负责自己的 Migration、Seed、Bootstrap、Verify 和 Ledger。
+- 以单租户完整可用为基础，保留可信身份上下文中的租户边界；部署拓扑不替代数据隔离规则。
 
-默认开发 API Base URL 是 `http://localhost:5041`（UnifiedHost）；验证分布式拓扑时改为 `http://localhost:5080`（Gateway）。两种入口保持相同外部服务前缀，前端不直连业务服务内部端口。
+详细边界见 [Service Host 与内部模块设计](docs/blueprint/32-Industrial%20Platform%20Service%20Host与内部模块边界.md)。
 
-- **路由前缀**：`/identity/**`、`/systemdata/**`、`/referencedata/**`。Gateway 转发时剥离服务前缀；UnifiedHost 直接映射内置模块并保持相同外部路径。
-- **CORS**:允许 `http://localhost:5173`(Vue3 dev)、`http://localhost:4173`(preview),任意方法/头;预检在网关短路处理。
-- **统一响应信封**(`ApiResult`):
+## 中间件与基础设施
 
-```json
-{ "success": true, "code": "200", "message": "success", "data": null }
+以下为仓库本地 Docker Compose 中配置的基础组件，运行时也可连接已配置的云端开发环境。
+
+| 组件 | 本地镜像基线 | 用途 |
+| --- | --- | --- |
+| PostgreSQL | 18 | 业务关系数据、模块持久化与初始化账本 |
+| Redis | 7.4 | 缓存、会话相关状态与分布式锁等共享能力 |
+| RabbitMQ | 4 | 跨服务集成事件与异步消息传递 |
+| Seq | 2025 | 汇集 Serilog 结构化日志，辅助关联请求与排障 |
+| Docker Compose | 按环境安装 | 基础设施编排、数据卷和运行环境管理 |
+
+业务事实归属数据库，缓存和消息通道不替代领域数据所有权。对象存储、时序数据、检索及模型运行时等扩展基础设施，随对应模块设计确定，不作为上述基础环境的默认组成。
+
+配置与连接方式见 [本地基础设施](docker/README.md) 和 [云端开发环境](deploy/cloud-dev/README.md)。真实连接凭据使用本地私有配置或环境变量，不写入仓库文档。
+
+## 所用技术
+
+| 领域 | 技术与组件 | 使用方向 |
+| --- | --- | --- |
+| 后端框架 | C#、.NET 10、ASP.NET Core | API、模块组合与后台服务 |
+| 数据访问 | SqlSugar、Npgsql | PostgreSQL 数据访问、仓储与工作单元 |
+| 身份与安全 | JWT Bearer、BCrypt、权限策略 | 身份认证、密码保护、权限与会话控制 |
+| 查询与接口 | ASP.NET Core OData、QueryDescriptor、OpenAPI | 受控查询适配、统一查询契约与接口描述 |
+| 缓存与消息 | StackExchange.Redis、RabbitMQ.Client | 缓存和分布式锁适配、集成事件总线 |
+| 日志与 Web 管线 | Serilog、ASP.NET Core Middleware | 结构化日志、TraceId、统一异常和 ApiResult 响应 |
+| 分布式入口 | YARP | 独立服务部署时的反向代理 |
+| 前端框架 | Vue 3、TypeScript、Vite | PC、PDA、Mobile 单包前端工程 |
+| 前端交互 | Element Plus、vxe-table | 统一表格、查询、表单、弹窗和抽屉 |
+| 前端基础 | Vue Router、Pinia、Axios、vue-i18n | 路由、状态、请求封装与多语言 |
+| 后端测试 | xUnit、ASP.NET Core MVC Testing、Coverlet | 单元、API、集成验证与覆盖率采集 |
+| 前端测试 | Vitest、Vue Test Utils、MSW、Playwright | 单元、组件、接口模拟与端到端验证 |
+| 工程工具 | pnpm、ESLint、Prettier、PowerShell | 依赖管理、代码检查、格式化与开发脚本 |
+
+前端沿用统一主题与设计 Token，管理页面复用查询、表格和业务操作组件；PC 生产操作模式以简洁、大触控目标和少层级为设计方向，不复制管理端的复杂导航。
+
+版本以工程配置为准：后端依赖见 [Directory.Packages.props](Directory.Packages.props)，前端依赖见 [package.json](src/frontend/package.json)。工具链由 [global.json](global.json) 与 [.mise.toml](.mise.toml) 固定为 .NET SDK `10.0.302`、Node.js `24.18.0`、pnpm `11.16.0`。
+
+## 参照项目
+
+参考成熟项目的交互与能力设计，优先复用适合本项目的组件，不整体迁入其他项目的架构和领域模型。
+
+### 产品与交互参考
+
+| 项目 | 本平台的参考方向 |
+| --- | --- |
+| [MalusAdmin](https://gitee.com/Pridejoy/MalusAdmin) | 后台视觉、导航布局与多终端适配思路 |
+| [mes-TMom](https://gitee.com/thgao/tmom) | 工业管理场景、低代码元数据、表单与页面编排思路 |
+| [Admin.NET](https://gitee.com/zuohuaijun/Admin.NET) | 后台基础功能覆盖、权限管理与通用管理交互 |
+
+参考不代表依赖、代码移植或功能等同；实际选型以本仓库实现为准，复用代码和资源前需核对相应许可证。
+
+### 表格与多语言方案
+
+以下不仅是设计参考，也是前端实际采用的基础依赖，由平台统一封装和接入。
+
+| 成熟方案 | 本平台的使用方式 |
+| --- | --- |
+| [vxe-table](https://github.com/x-extends/vxe-table) | 统一表格 `AppDataTable` 的底层表格引擎；在其基础上封装查询、列配置、行选择和操作区等平台交互，业务页面复用统一组件，不直接绑定第三方实例 |
+| [Vue I18n](https://github.com/intlify/vue-i18n) | 多语言运行时，复用语言资源、语言切换与回退机制；统一接入平台外壳、导航、页签、页面及表格公共文案 |
+
+表格以用户管理黄金样板页为统一交互基准；多语言使用稳定资源键，并与组件库语言保持一致。平台专属的权限、查询语义与业务行为仍由本项目维护。
+
+## 整体规划
+
+建设顺序遵循 **先收束平台基础能力至 PF-11，再进入 MES 业务开发**。以下描述产品方向与模块归属，不作为已交付能力清单或开发进度表。
+
+### 平台基础层
+
+平台宿主规划采用七个核心 Service Host；PF-01 的统一外壳属于前端。阶段编号不等于独立微服务数量。
+
+| 规划阶段 | 宿主或工程归属 | 能力方向 |
+| --- | --- | --- |
+| PF-00 | Identity.Service | 用户、用户组、角色权限、登录与会话、企业身份接入 |
+| PF-01 | 统一前端 | 品牌与主题、多语言、导航、管理和生产操作布局、统一页面规范 |
+| PF-02、PF-04、PF-07 | SystemData.Service | 行政组织与岗位、导航与功能配置、服务目录、数据库初始化编排；文件、通知、审计、调度和平台健康模块 |
+| PF-03 | ReferenceData.Service | 字典、参数、元数据、动态属性与编码规则 |
+| PF-05、PF-06 | Collaboration.Service | 消息、在线状态、附件集成与远程协助 |
+| PF-08、PF-09 | PlatformStudio.Service | 数据源、数据集、低代码、看板、报表与发布 |
+| PF-10、PF-10A | OperationsCenter.Service | 服务器监控、项目知识空间、问题与知识管理、知识助手、数据助手与模型接入 |
+| PF-11 | IoTCollector.Service | 驱动、设备连接、采集点、采集任务与边缘管理 |
+
+File、Notification、Audit 及之后的能力在各阶段实施前重新确认范围和设计。Worker、Agent、远程协助组件与模型运行时属于辅助部署单元，不额外计入七个核心宿主。
+
+### MES 业务层
+
+在平台基础层之上，按业务边界构建制造执行闭环：
+
+- **MasterData**：物料、设备、制造组织、仓库、库位与 BOM 等稳定主数据。
+- **OperationalData**：库存批次、余额、预留、收发退及仓储业务单据。
+- **生产与质量执行**：工单、生产执行、称量、追溯和批记录，并与设备采集、看板及报表衔接。
+
+SystemData 的行政组织与平台配置、ReferenceData 的参考数据、MasterData 的业务主数据和 OperationalData 的业务运行数据保持独立，避免将所有基础数据集中到同一个模块。
+
+## 工程目录
+
+```text
+IndustrialPlatform/
+├── src/backend/src/
+│   ├── BuildingBlocks/      # 共享技术基础组件
+│   ├── Hosts/               # UnifiedHost 统一进程入口
+│   ├── Gateway/             # 分布式反向代理入口
+│   ├── Services/            # 领域服务及分层项目
+│   └── Tools/               # 后端工具
+├── src/frontend/            # Vue 3 统一前端与前端测试
+├── tests/                   # 后端及跨模块测试
+├── docker/                  # 本地基础设施编排
+├── deploy/                  # 应用部署、云开发与运行脚本
+└── docs/                    # 架构、设计与工程文档
 ```
 
-- **错误码**:`400`(业务/校验)、`401`(未授权)、`404`(资源或路由不存在)、`500`(未预期)、`503`(下游服务不可用)、`504`(网关转发超时);业务码 `模块_编号`(如 `WO_001`)后续阶段引入。
-- **健康端点**:`/health`、`/health/live`、`/health/ready`。
-- Identity 登录、令牌、权限和管理当前范围已实现；ReferenceData 业务接口仍待 PF-03，限流、灰度和生产 HTTPS 由后续部署范围处理。
+## 开发与文档入口
 
-## 当前里程碑范围
+- 开发环境：[开发指南](docs/DEVELOPMENT.md)、[前端说明](src/frontend/README.md)、[VS 与 VS Code 调试](src/DEBUGGING.md)。
+- 运行部署：[UnifiedHost](src/backend/src/Hosts/IndustrialPlatform.UnifiedHost/README.md)、[Gateway](src/backend/src/Gateway/README.md)、[应用容器部署](deploy/application/README.md)、[开发脚本](deploy/scripts/README.md)。
+- 模块说明：[BuildingBlocks](src/backend/src/BuildingBlocks/README.md)、[Identity](src/backend/src/Services/Identity/README.md)、[SystemData](src/backend/src/Services/SystemData/README.md)、[ReferenceData](src/backend/src/Services/ReferenceData/README.md)。
+- 架构设计：[总体架构](docs/blueprint/01-Industrial%20Platform%20总体架构设计%20V1.0.md)、[数据库编排与环境引导](docs/blueprint/33-Industrial%20Platform%20SystemData数据库编排与环境引导.md)、[架构蓝图索引](docs/blueprint/README.md)。
 
-已交付：BuildingBlocks 组件、统一前端与 PF-01 平台外壳、Identity 当前范围、SystemData `TASK-SD-001～006`、ReferenceData 服务骨架、Gateway 分布式入口、UnifiedHost 统一入口、本地基础设施编排与启动脚本。
-
-后续：先完成架构收敛整改工作包 2～4，再从 PF-03 ReferenceData 继续；MasterData、OperationalData 及后续 MES 服务不在当前范围。
-
-## 文档
-
-- [开发与接手指南](docs/DEVELOPMENT.md)
-- [BuildingBlocks 组件说明](src/backend/src/BuildingBlocks/README.md)
-- [Identity 服务说明](src/backend/src/Services/Identity/README.md)
-- [SystemData 服务说明](src/backend/src/Services/SystemData/README.md)
-- [ReferenceData 服务说明](src/backend/src/Services/ReferenceData/README.md)
-- [Gateway 分布式入口说明](src/backend/src/Gateway/README.md)
-- [UnifiedHost 统一进程入口说明](src/backend/src/Hosts/IndustrialPlatform.UnifiedHost/README.md)
-- [架构蓝图](docs/blueprint/README.md)
-- [实施文档索引](docs/implementation/README.md)
-- [当前状态](docs/status/CURRENT.md)
-- [架构收敛整改设计](docs/superpowers/specs/2026-08-20-industrial-platform-architecture-consolidation-design.md)
-- [可运行基线开发 TODO](docs/implementation/02A-Industrial%20Platform可运行基线开发实施方案.md)
-- [统一前端开发 TODO](docs/implementation/02B-Industrial%20Platform统一前端第一批开发实施方案.md)
-- [本地基础设施 Compose 说明](docker/README.md)
-- [一键脚本与冒烟说明](deploy/scripts/README.md)
-- [本地调试指南(后端 VS2026 / 前端 VS Code,无 Docker 环境)](src/DEBUGGING.md)
+默认开发模式使用 UnifiedHost 单入口；已有 VS、VS Code 或云端调试环境时，按现有配置连接，不重复启动另一套服务。

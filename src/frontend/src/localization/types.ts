@@ -105,6 +105,7 @@ export interface IdentityManagementMessages {
     create: string
     edit: string
     assignPermissions: string
+    protectedPermission: string
     createTitle: string
     editTitle: string
     permissionDescription: string
@@ -375,6 +376,8 @@ export interface PlatformLocaleMessages {
       queryTop: string
       queryHeaderLabel: string
       queryTopLabel: string
+      expandAll: string
+      collapseAll: string
       sort: string
       sortSettings: string
       sortHint: string
@@ -723,6 +726,30 @@ export interface PlatformLocaleMessages {
       degraded: string
       snapshotUnavailable: string
       conflict: string
+      records: string
+      noSelection: string
+      selectFirst: string
+      confirm: string
+      cancel: string
+      close: string
+      edit: string
+      search: string
+      reset: string
+      loading: string
+      noData: string
+      validationFailed: string
+      operationSucceeded: string
+      operationCancelled: string
+      status: string
+      enabled: string
+      disabled: string
+      current: string
+      pending: string
+      failed: string
+      success: string
+      unknown: string
     }
+    enums: Record<string, string>
+    pages: Record<string, Record<string, string>>
   }
 }

@@ -230,6 +230,7 @@ export interface PermissionTreeNodeDto {
   description: string | null
   status: string
   children: PermissionTreeNodeDto[]
+  isProtected?: boolean
 }
 
 // ---------------------------------------------------------------------------

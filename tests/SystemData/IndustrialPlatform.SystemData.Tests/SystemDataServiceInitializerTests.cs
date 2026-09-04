@@ -90,7 +90,7 @@ public sealed class SystemDataServiceInitializerTests : IDisposable
     }
 
     [Fact]
-    public async Task Inspect_uses_schema_order_when_an_older_numbered_patch_was_applied_later()
+    public async Task Inspect_rejects_a_partial_ledger_even_when_latest_id_is_present()
     {
         _dbContext.SqlSugar.CodeFirst.InitTables<SchemaMigrationRecord>();
         await _dbContext.SqlSugar.Insertable(new[]
@@ -113,7 +113,7 @@ public sealed class SystemDataServiceInitializerTests : IDisposable
             CreateContext("SDM-016-01"),
             CancellationToken.None);
 
-        Assert.True(state.Ready);
+        Assert.False(state.Ready);
         Assert.Equal("SDM-016-01", state.ObservedVersion);
     }
 
@@ -161,13 +161,16 @@ public sealed class SystemDataServiceInitializerTests : IDisposable
                 return;
             }
 
-            var latest = SystemDataSchemaMigrations.All[^1];
-            await dbContext.SqlSugar.Insertable(new SchemaMigrationRecord
+            foreach (var step in SystemDataSchemaMigrations.All)
             {
-                MigrationId = latest.Id,
-                Description = latest.Description,
-                AppliedOn = DateTimeOffset.UtcNow,
-            }).ExecuteCommandAsync(cancellationToken);
+                await step.Apply(dbContext.SqlSugar, cancellationToken);
+                await dbContext.SqlSugar.Insertable(new SchemaMigrationRecord
+                {
+                    MigrationId = step.Id,
+                    Description = step.Description,
+                    AppliedOn = DateTimeOffset.UtcNow,
+                }).ExecuteCommandAsync(cancellationToken);
+            }
         }
     }
 }

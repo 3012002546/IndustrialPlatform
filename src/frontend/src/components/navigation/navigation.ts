@@ -59,10 +59,22 @@ const DEFAULT_PC_NAVIGATION_GROUPS: readonly NavigationGroup[] = [
         fallbackLabel: '身份与访问',
       },
       {
-        id: 'organization-platform',
-        label: '组织域平台',
-        labelKey: 'shell.navigation.section.organization-platform',
-        fallbackLabel: '组织域平台',
+        id: 'organization-people',
+        label: '组织与人员',
+        labelKey: 'shell.navigation.section.organization-people',
+        fallbackLabel: '组织与人员',
+      },
+      {
+        id: 'menu-platform',
+        label: '菜单与平台配置',
+        labelKey: 'shell.navigation.section.menu-platform',
+        fallbackLabel: '菜单与平台配置',
+      },
+      {
+        id: 'service-operations',
+        label: '服务与运维',
+        labelKey: 'shell.navigation.section.service-operations',
+        fallbackLabel: '服务与运维',
       },
     ],
     items: [
@@ -125,7 +137,7 @@ const DEFAULT_PC_NAVIGATION_GROUPS: readonly NavigationGroup[] = [
       {
         id: 'systemdata-organizations',
         label: '行政组织与岗位',
-        sectionId: 'organization-platform',
+        sectionId: 'organization-people',
         routeName: 'systemdata-organizations',
         icon: User,
         permission: PERMISSIONS.systemDataOrganizationView,
@@ -133,15 +145,15 @@ const DEFAULT_PC_NAVIGATION_GROUPS: readonly NavigationGroup[] = [
       {
         id: 'systemdata-assignments',
         label: '用户任职',
-        sectionId: 'organization-platform',
+        sectionId: 'organization-people',
         routeName: 'systemdata-assignments',
         icon: UserFilled,
         permission: PERMISSIONS.systemDataAssignmentView,
       },
       {
         id: 'systemdata-navigation',
-        label: '导航与资源发布',
-        sectionId: 'organization-platform',
+        label: '菜单管理',
+        sectionId: 'menu-platform',
         routeName: 'systemdata-navigation',
         icon: Tickets,
         permission: PERMISSIONS.systemDataNavigationView,
@@ -149,7 +161,7 @@ const DEFAULT_PC_NAVIGATION_GROUPS: readonly NavigationGroup[] = [
       {
         id: 'systemdata-features',
         label: '功能开关',
-        sectionId: 'organization-platform',
+        sectionId: 'menu-platform',
         routeName: 'systemdata-features',
         icon: Setting,
         permission: PERMISSIONS.systemDataFeatureView,
@@ -157,7 +169,7 @@ const DEFAULT_PC_NAVIGATION_GROUPS: readonly NavigationGroup[] = [
       {
         id: 'systemdata-services',
         label: '服务目录',
-        sectionId: 'organization-platform',
+        sectionId: 'service-operations',
         routeName: 'systemdata-services',
         icon: Monitor,
         permission: PERMISSIONS.systemDataServiceCatalogView,
@@ -165,7 +177,7 @@ const DEFAULT_PC_NAVIGATION_GROUPS: readonly NavigationGroup[] = [
       {
         id: 'systemdata-themes',
         label: '租户主题策略',
-        sectionId: 'organization-platform',
+        sectionId: 'menu-platform',
         routeName: 'systemdata-themes',
         icon: Setting,
         permission: PERMISSIONS.systemDataThemePolicyView,
@@ -173,7 +185,7 @@ const DEFAULT_PC_NAVIGATION_GROUPS: readonly NavigationGroup[] = [
       {
         id: 'systemdata-service-initialization',
         label: '服务初始化编排',
-        sectionId: 'organization-platform',
+        sectionId: 'service-operations',
         routeName: 'systemdata-service-initialization',
         icon: Monitor,
         permission: PERMISSIONS.systemDataServiceInitializationView,
@@ -187,9 +199,7 @@ function normalizeItem(item: NavigationItem): NavigationItem {
     ...item,
     labelKey: item.labelKey ?? `shell.navigation.item.${item.id}`,
     fallbackLabel: item.fallbackLabel ?? item.label,
-    ...(item.children === undefined
-      ? {}
-      : { children: item.children.map(normalizeItem) }),
+    ...(item.children === undefined ? {} : { children: item.children.map(normalizeItem) }),
   }
 }
 
@@ -201,16 +211,12 @@ function normalizeSection(section: NavigationSection): NavigationSection {
   }
 }
 
-export function normalizeNavigationGroups(
-  groups: readonly NavigationGroup[],
-): NavigationGroup[] {
+export function normalizeNavigationGroups(groups: readonly NavigationGroup[]): NavigationGroup[] {
   return groups.map((group) => ({
     ...group,
     labelKey: group.labelKey ?? `shell.navigation.group.${group.id}`,
     fallbackLabel: group.fallbackLabel ?? group.label,
-    ...(group.sections === undefined
-      ? {}
-      : { sections: group.sections.map(normalizeSection) }),
+    ...(group.sections === undefined ? {} : { sections: group.sections.map(normalizeSection) }),
     items: group.items.map(normalizeItem),
   }))
 }

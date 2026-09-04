@@ -1,4 +1,5 @@
 using IndustrialPlatform.Identity.Application.Authentication;
+using IndustrialPlatform.Identity.Application.Authorization;
 using IndustrialPlatform.Identity.Domain.Users;
 using IndustrialPlatform.Identity.Infrastructure.Persistence.Repositories;
 
@@ -77,6 +78,9 @@ public sealed class AuthenticationStore : IAuthenticationStore
         var roleNIdByRoleId = await _roles.GetNIdsAsync(roleIds, cancellationToken);
         var activeRoleIds = roleIds.Where(roleNIdByRoleId.ContainsKey).ToList();
         var activeRoleNIds = activeRoleIds.Select(id => roleNIdByRoleId[id]).ToList();
-        return new AuthenticatedUser(user, activeRoleIds, activeRoleNIds);
+        var isSystemAdmin = !user.IsDeleted
+            && user.Status == UserStatus.Active
+            && activeRoleNIds.Any(roleNId => string.Equals(roleNId, "SYSTEM_ADMIN", StringComparison.OrdinalIgnoreCase));
+        return new AuthenticatedUser(user, activeRoleIds, activeRoleNIds, isSystemAdmin);
     }
 }

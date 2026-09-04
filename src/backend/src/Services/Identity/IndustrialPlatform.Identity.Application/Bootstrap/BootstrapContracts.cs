@@ -33,7 +33,13 @@ public enum BootstrapDeliveryState
 }
 
 /// <summary>单个种子的账本状态(§29A.4)。</summary>
-public sealed record SeedVersionStatus(string SeedKey, string SeedVersion, string Status);
+public sealed record SeedVersionStatus(
+    string SeedKey,
+    string SeedVersion,
+    string Status,
+    string? Checksum = null,
+    string? Scope = null,
+    DateTimeOffset? AppliedOn = null);
 
 /// <summary>
 /// bootstrap 凭据交付记录(应用层视图)。只含引用哈希与状态,绝不含明文密码。

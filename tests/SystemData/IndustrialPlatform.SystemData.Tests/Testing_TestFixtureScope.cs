@@ -65,6 +65,7 @@ public sealed class TestFixtureScope : IDisposable
         DesiredState = "SourceOfTruth",
         AutoProvision = true,
         AutoMigrate = true,
+        UsesServiceInitializer = false,
         SeedSets = bundle.Seeds
             .Select(seedArtifact =>
             {

@@ -61,7 +61,8 @@ public static class DependencyInjection
         services.AddSingleton<ISystemDataPermissionEvaluator>(sp => sp.GetRequiredService<HttpIdentityDirectoryClient>());
         services.AddHostedService<ControlPlaneOutboxDispatcher>();
         services.AddHostedService<ControlPlaneReconciliationHostedService>();
-        services.AddHostedService<SystemDataBaselineSeedRunner>();
+        services.AddSingleton<SystemDataBaselineSeedRunner>();
+        services.AddHostedService(sp => sp.GetRequiredService<SystemDataBaselineSeedRunner>());
         services.AddSingleton<IControlPlaneOutbox, SqlControlPlaneOutbox>();
         services.AddSingleton<ILocalAuditCommand, SqlLocalAuditCommand>();
 

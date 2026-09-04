@@ -16,6 +16,9 @@ public interface IBackupService
     /// <summary>验证备份证据(Captured → Verified);已 Verified 幂等返回。</summary>
     Task<DatabaseBackupEvidenceV1> VerifyAsync(string tenantNId, string actorUserNId, string evidenceNId, CancellationToken cancellationToken);
 
+    /// <summary>读取计划最近一条备份证据,供管理端在刷新后恢复门禁状态。</summary>
+    Task<DatabaseBackupEvidenceV1?> GetLatestForPlanAsync(string tenantNId, string planNId, CancellationToken cancellationToken);
+
     /// <summary>计划当前是否有有效备份证据(Verified + 未过保留期 + 校验和/指纹匹配)。</summary>
     Task<bool> IsVerifiedForAsync(string tenantNId, DatabaseProvisionPlan plan, CancellationToken cancellationToken);
 }
@@ -106,6 +109,20 @@ public sealed class DatabaseBackupService : IBackupService
         var evidences = await _store.GetBackupEvidenceForPlanAsync(tenantNId, plan.PlanNId, cancellationToken);
         var now = DateTimeOffset.UtcNow;
         return evidences.Any(evidence => evidence.IsValidFor(plan.PlanChecksum, plan.TargetStateFingerprint, now));
+    }
+
+    /// <inheritdoc />
+    public async Task<DatabaseBackupEvidenceV1?> GetLatestForPlanAsync(
+        string tenantNId,
+        string planNId,
+        CancellationToken cancellationToken)
+    {
+        var plan = await _store.GetPlanAsync(tenantNId, DatabaseOrchestrationInput.Require(planNId, "计划标识不能为空。"), cancellationToken)
+            ?? throw new NotFoundException();
+        var evidence = (await _store.GetBackupEvidenceForPlanAsync(tenantNId, plan.PlanNId, cancellationToken))
+            .OrderByDescending(item => item.CapturedOn)
+            .FirstOrDefault();
+        return evidence is null ? null : ToEvidenceV1(evidence);
     }
 
     private static DatabaseBackupEvidenceV1 ToEvidenceV1(DatabaseBackupEvidence evidence) => new()

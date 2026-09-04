@@ -7,6 +7,10 @@ public sealed class ReferenceDataServiceInitializer : IServiceInitializer
 {
     public const string BaselineVersion = "reference-data-baseline-v1";
     public const string BaselineSeedKey = "reference-data.baseline";
+    public static readonly string BaselineChecksum =
+        System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes($"{BaselineSeedKey}|{BaselineVersion}|System|reference-data-baseline"))
+        .Aggregate(string.Empty, (current, value) => current + value.ToString("x2", System.Globalization.CultureInfo.InvariantCulture));
 
     private readonly ReferenceDataInitializationLedger _ledger;
 
@@ -26,7 +30,9 @@ public sealed class ReferenceDataServiceInitializer : IServiceInitializer
             var migration = await _ledger.GetMigrationAsync(cancellationToken);
             var seed = await _ledger.GetSeedAsync(BaselineSeedKey, BaselineVersion, cancellationToken);
             var migrationReady = migration?.MigrationId == BaselineVersion;
-            var seedReady = seed is not null;
+            var seedReady = seed is not null
+                            && string.Equals(seed.Checksum, BaselineChecksum, StringComparison.Ordinal)
+                            && string.Equals(seed.Scope, "System", StringComparison.OrdinalIgnoreCase);
             return new ServiceInitializationState(
                 ServiceKey,
                 ModuleKey,
@@ -35,7 +41,16 @@ public sealed class ReferenceDataServiceInitializer : IServiceInitializer
                 seedReady,
                 true,
                 migrationReady && seedReady,
-                migrationReady && seedReady ? null : "ReferenceData 服务级 baseline 尚未完成。");
+                migrationReady && seedReady ? null : "ReferenceData 服务级 baseline 尚未完成。",
+                seed is null
+                    ? []
+                    : [new ServiceInitializationSeedState(
+                        BaselineSeedKey,
+                        BaselineVersion,
+                        "Applied",
+                        seed.AppliedOn,
+                        seed.Checksum,
+                        seed.Scope)]);
         }
         catch (Exception exception) when (IsMissingLocalTable(exception))
         {
@@ -56,15 +71,27 @@ public sealed class ReferenceDataServiceInitializer : IServiceInitializer
 
     public async Task<ServiceInitializationState> ApplyAsync(ServiceInitializationContext context, ServiceInitializationPlan plan, CancellationToken cancellationToken)
     {
-        _ledger.EnsureTables();
+        await _ledger.EnsureTablesAsync(cancellationToken);
         if (await _ledger.GetMigrationAsync(cancellationToken) is null)
         {
             await _ledger.RecordMigrationAsync(BaselineVersion, cancellationToken);
         }
 
-        if (await _ledger.GetSeedAsync(BaselineSeedKey, BaselineVersion, cancellationToken) is null)
+        var seed = await _ledger.GetSeedAsync(BaselineSeedKey, BaselineVersion, cancellationToken);
+        if (seed is null)
         {
             await _ledger.RecordSeedAsync(BaselineSeedKey, BaselineVersion, context.OperationNId, context.TraceId, cancellationToken);
+        }
+        else if (string.Equals(seed.Checksum, BaselineVersion, StringComparison.Ordinal)
+                 || (string.Equals(seed.Checksum, BaselineChecksum, StringComparison.Ordinal)
+                     && string.IsNullOrWhiteSpace(seed.Scope)))
+        {
+            await _ledger.NormalizeLegacySeedAsync(
+                BaselineSeedKey,
+                BaselineVersion,
+                BaselineChecksum,
+                "System",
+                cancellationToken);
         }
 
         return await InspectAsync(context, cancellationToken);

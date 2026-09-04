@@ -424,7 +424,7 @@ public sealed class IdentitySeedRunner
         return rows
             .GroupBy(r => r.SeedNId, StringComparer.Ordinal)
             .Select(g => g.First())
-            .Select(r => new SeedVersionStatus(r.SeedNId, r.SeedVersion, r.Status))
+            .Select(r => new SeedVersionStatus(r.SeedNId, r.SeedVersion, r.Status, r.Checksum, r.Scope, r.AppliedOn))
             .OrderBy(s => s.SeedKey, StringComparer.Ordinal)
             .ToList();
     }

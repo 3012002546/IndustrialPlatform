@@ -57,10 +57,175 @@ public sealed class ControlPlaneServiceTests
     }
 
     [Fact]
+    public async Task Module_manifest_upgrade_rebinds_existing_resources_and_adds_new_declarations()
+    {
+        var store = new ControlPlaneTestStore();
+        var service = new ResourceNavigationService(store, new TestPermissionRegistry());
+        var first = new RegisterModuleManifestRequest
+        {
+            ModuleNId = "module-upgrade",
+            ManifestVersion = "1",
+            Checksum = "checksum-v1",
+            Permissions = [new PermissionDeclarationRequest { PermissionNId = "module.view", Name = "View", ResourceType = "Page" }],
+            Resources = [new RegisterUiResourceRequest
+            {
+                ResourceNId = "module.page",
+                OwnerModuleNId = "module-upgrade",
+                ManifestVersion = "1",
+                Type = "Page",
+                Name = "旧页面",
+                RouteName = "module-page",
+                RequiredPermissionNId = "module.view",
+                SupportedTerminals = ["Pc"],
+            }],
+        };
+        await service.RegisterManifestAsync("tenant-a", first, CancellationToken.None);
+
+        var second = first with
+        {
+            ManifestVersion = "2",
+            Checksum = "checksum-v2",
+            Resources = [
+                first.Resources!.Single(),
+                new RegisterUiResourceRequest
+                {
+                    ResourceNId = "module-new-page",
+                    OwnerModuleNId = "module-upgrade",
+                    ManifestVersion = "2",
+                    Type = "Page",
+                    Name = "新页面",
+                    RouteName = "module-new-page",
+                    RequiredPermissionNId = "module.view",
+                    SupportedTerminals = ["Pc"],
+                },
+            ],
+        };
+
+        await service.RegisterManifestAsync("tenant-a", second, CancellationToken.None);
+        var resources = await service.ListResourcesAsync("tenant-a", CancellationToken.None);
+
+        Assert.Equal(2, resources.Count);
+        Assert.Equal("2", resources.Single(resource => resource.ResourceNId == "module.page").ManifestVersion);
+        Assert.Equal("2", resources.Single(resource => resource.ResourceNId == "module-new-page").ManifestVersion);
+        await service.RegisterManifestAsync("tenant-a", second, CancellationToken.None);
+        Assert.Equal(2, (await service.ListResourcesAsync("tenant-a", CancellationToken.None)).Count);
+    }
+
+    [Fact]
+    public async Task Module_manifest_upgrade_rejects_omitting_a_resource_still_used_by_navigation()
+    {
+        var store = new ControlPlaneTestStore();
+        var service = new ResourceNavigationService(store, new TestPermissionRegistry());
+        var request = new RegisterModuleManifestRequest
+        {
+            ModuleNId = "module-used",
+            ManifestVersion = "1",
+            Checksum = "checksum-v1",
+            Permissions = [new PermissionDeclarationRequest { PermissionNId = "module.view", Name = "View", ResourceType = "Page" }],
+            Resources = [new RegisterUiResourceRequest
+            {
+                ResourceNId = "module.used-page",
+                OwnerModuleNId = "module-used",
+                ManifestVersion = "1",
+                Type = "Page",
+                Name = "页面",
+                RouteName = "module-used-page",
+                RequiredPermissionNId = "module.view",
+                SupportedTerminals = ["Pc"],
+            }],
+        };
+        await service.RegisterManifestAsync("tenant-a", request, CancellationToken.None);
+        await service.AddNodeAsync("tenant-a", new CreateNavigationNodeRequest
+        {
+            NodeNId = "module.used-node",
+            Kind = "Link",
+            Label = "页面",
+            ResourceNId = "module.used-page",
+            VisibleTerminals = ["Pc"],
+            ExpectedDraftRevision = 1,
+        }, CancellationToken.None);
+
+        var upgrade = request with { ManifestVersion = "2", Checksum = "checksum-v2", Resources = [] };
+
+        var exception = await Assert.ThrowsAsync<ValidationException>(() =>
+            service.RegisterManifestAsync("tenant-a", upgrade, CancellationToken.None));
+
+        Assert.Contains("used", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Module_manifest_rejects_cross_module_resource_collisions()
+    {
+        var service = new ResourceNavigationService(new ControlPlaneTestStore(), new TestPermissionRegistry());
+        await service.RegisterManifestAsync("tenant-a", new RegisterModuleManifestRequest
+        {
+            ModuleNId = "module-owner",
+            ManifestVersion = "1",
+            Checksum = "checksum-owner",
+            PermissionNIds = ["owner.view"],
+            Resources = [new RegisterUiResourceRequest
+            {
+                ResourceNId = "shared.resource",
+                OwnerModuleNId = "module-owner",
+                ManifestVersion = "1",
+                Type = "Page",
+                Name = "Owner",
+                RouteName = "owner",
+                RequiredPermissionNId = "owner.view",
+                SupportedTerminals = ["Pc"],
+            }],
+        }, CancellationToken.None);
+
+        var exception = await Assert.ThrowsAsync<ValidationException>(() => service.RegisterManifestAsync("tenant-a", new RegisterModuleManifestRequest
+        {
+            ModuleNId = "module-collision",
+            ManifestVersion = "1",
+            Checksum = "checksum-collision",
+            PermissionNIds = ["collision.view"],
+            Resources = [new RegisterUiResourceRequest
+            {
+                ResourceNId = "shared.resource",
+                OwnerModuleNId = "module-collision",
+                ManifestVersion = "1",
+                Type = "Page",
+                Name = "Collision",
+                RouteName = "collision",
+                RequiredPermissionNId = "collision.view",
+                SupportedTerminals = ["Pc"],
+            }],
+        }, CancellationToken.None));
+
+        Assert.Contains("collision", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Module_manifest_upgrade_rejects_permission_identity_changes()
+    {
+        var service = new ResourceNavigationService(new ControlPlaneTestStore(), new TestPermissionRegistry());
+        var first = new RegisterModuleManifestRequest
+        {
+            ModuleNId = "module-permission-change",
+            ManifestVersion = "1",
+            Checksum = "checksum-permission-v1",
+            Permissions = [new PermissionDeclarationRequest { PermissionNId = "module.view", Name = "View", ResourceType = "Page" }],
+        };
+        await service.RegisterManifestAsync("tenant-a", first, CancellationToken.None);
+
+        var exception = await Assert.ThrowsAsync<ValidationException>(() => service.RegisterManifestAsync("tenant-a", first with
+        {
+            ManifestVersion = "2",
+            Checksum = "checksum-permission-v2",
+            Permissions = [new PermissionDeclarationRequest { PermissionNId = "module.view", Name = "Changed", ResourceType = "Page" }],
+        }, CancellationToken.None));
+
+        Assert.Contains("identity", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Navigation_contract_preserves_icon_key()
     {
         var service = new ResourceNavigationService(new ControlPlaneTestStore(), new TestPermissionRegistry());
-        var node = await service.AddNodeAsync("tenant-a", new CreateNavigationNodeRequest { NodeNId = "group-a", Kind = "Group", Label = "Group", IconKey = "factory", VisibleTerminals = ["Pc"] }, CancellationToken.None);
+        var node = await service.AddNodeAsync("tenant-a", new CreateNavigationNodeRequest { NodeNId = "group-a", Kind = "Group", Label = "Group", IconKey = "factory", VisibleTerminals = ["Pc"], ExpectedDraftRevision = 0 }, CancellationToken.None);
         Assert.Equal("factory", node.IconKey);
     }
 
@@ -81,9 +246,9 @@ public sealed class ControlPlaneServiceTests
         var catalog = new ServiceCatalogControlService(store, new TestPermissionRegistry(), new FakeAdministrativeOrganizationStore(), new FakeIdentityUserDirectory());
         var theme = new ThemePolicyControlService(store, new TestPermissionRegistry());
         await catalog.CreateExternalAsync("tenant-a", new CreateExternalServiceCatalogRequest { ServiceNId = "external-a", Name = "外部", EntryPoint = "https://example.test/app", SupportedTerminals = ["Pc"] }, CancellationToken.None);
-        await theme.UpdateAsync("tenant-a", new ThemePolicyRequest { AllowedPalettes = ["IndustrialCyan"], AllowedModes = ["Light"], AllowedPcDensities = ["Compact"], DefaultPalette = "IndustrialCyan", DefaultMode = "Light", DefaultPcDensity = "Compact" }, CancellationToken.None);
+        await theme.UpdateAsync("tenant-a", new ThemePolicyRequest { AllowedPalettes = ["IndustrialCyan"], AllowedModes = ["Light"], AllowedPcDensities = ["Compact"], DefaultPalette = "IndustrialCyan", DefaultMode = "Light", DefaultPcDensity = "Compact", ExpectedPolicyRevision = 0 }, CancellationToken.None);
         Assert.Equal("External", (await catalog.RuntimeAsync("tenant-a", CancellationToken.None)).Items.Single().Kind);
-        Assert.Equal("IndustrialCyan", (await theme.GetAsync("tenant-a", CancellationToken.None)).DefaultPalette);
+        Assert.Equal("industrial-cyan", (await theme.GetAsync("tenant-a", CancellationToken.None)).DefaultPalette);
     }
 
     [Fact]

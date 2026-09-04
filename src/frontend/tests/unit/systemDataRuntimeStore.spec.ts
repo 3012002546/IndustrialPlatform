@@ -1,5 +1,5 @@
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { registerSystemDataRuntimeApi } from '@/api/systemData/runtimeRegistry'
 import type { SystemDataRuntimeApi } from '@/api/systemData/runtimeApi'
@@ -99,5 +99,44 @@ describe('SystemData runtime store', () => {
         items: [expect.objectContaining({ id: 'pc-home', routeName: 'pc-home' })],
       }),
     ])
+  })
+
+  it('waits for the server revision returned after publish before accepting runtime navigation', async () => {
+    let releaseFirst!: () => void
+    const firstResponse = new Promise<{
+      kind: 'updated'
+      etag: string
+      data: { revision: number; degraded: boolean; nodes: [] }
+    }>((resolve) => {
+      releaseFirst = () =>
+        resolve({
+          kind: 'updated',
+          etag: '"nav-1"',
+          data: { revision: 1, degraded: false, nodes: [] },
+        })
+    })
+    let navigationCalls = 0
+    registerSystemDataRuntimeApi({
+      ...api,
+      getNavigation: vi.fn(() => {
+        navigationCalls += 1
+        return navigationCalls === 1
+          ? firstResponse
+          : Promise.resolve({
+              kind: 'updated' as const,
+              etag: '"nav-3"',
+              data: { revision: 3, degraded: false, nodes: [] },
+            })
+      }),
+    })
+    const store = useSystemDataRuntimeStore()
+
+    const firstRefresh = store.refresh('Pc')
+    const targetRefresh = store.refresh('Pc', 3)
+    releaseFirst()
+    expect(await firstRefresh).toBe(true)
+    expect(await targetRefresh).toBe(true)
+    expect(navigationCalls).toBe(2)
+    expect(store.navigationRevision).toBe(3)
   })
 })

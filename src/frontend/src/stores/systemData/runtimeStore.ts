@@ -29,12 +29,13 @@ interface CacheEntry<T> {
 export interface SystemDataRuntimeStoreState {
   navigationGroups: Ref<NavigationGroup[]>
   themePolicy: Ref<ThemePolicyDto | null>
+  navigationRevision: Ref<number | null>
   degraded: Ref<boolean>
   unavailable: Ref<boolean>
   lastVerifiedAt: Ref<number | null>
   clear(): void
   setPermissions(next: readonly string[]): void
-  refresh(terminal?: 'Pc' | 'Pda' | 'Mobile'): Promise<void>
+  refresh(terminal?: 'Pc' | 'Pda' | 'Mobile', minimumNavigationRevision?: number): Promise<boolean>
 }
 
 function isFresh(entry: CacheEntry<unknown>, now: number): boolean {
@@ -48,13 +49,14 @@ export const useSystemDataRuntimeStore = defineStore(
     const featureCache = ref<CacheEntry<FeatureRuntimeDto> | null>(null)
     const themeCache = ref<CacheEntry<ThemePolicyDto> | null>(null)
     const themePolicy = ref<ThemePolicyDto | null>(null)
+    const navigationRevision = ref<number | null>(null)
     const permissionNIds = ref<string[]>([])
     const navigationGroups = ref<NavigationGroup[]>([])
     const degraded = ref(false)
     const unavailable = ref(false)
     const lastVerifiedAt = ref<number | null>(null)
 
-    let refreshPromise: Promise<void> | null = null
+    let refreshPromise: Promise<boolean> | null = null
 
     function recomputeNavigation(): void {
       const snapshot = navigationCache.value
@@ -67,13 +69,12 @@ export const useSystemDataRuntimeStore = defineStore(
         replacePcNavigationGroups(navigationGroups.value)
         return
       }
-      // An unconfigured SystemData snapshot is an explicit absence of a published
-      // navigation, not an instruction to remove the real local route catalogue.
-      // Keep the catalogue as the source of actual routes and still apply the
-      // current permission/feature policy below.
-      const raw = snapshot.data.configured === false
-        ? getDefaultPcNavigationGroups()
-        : mapRuntimeNavigation(snapshot.data.nodes)
+      // A configured empty snapshot is intentional (for example all nodes may be
+      // terminal/permission filtered). Do not silently resurrect static defaults.
+      const raw =
+        snapshot.data.configured === false
+          ? getDefaultPcNavigationGroups()
+          : mapRuntimeNavigation(snapshot.data.nodes)
       navigationGroups.value = applyNavigationPolicy(
         raw,
         permissionNIds.value,
@@ -92,6 +93,7 @@ export const useSystemDataRuntimeStore = defineStore(
       featureCache.value = null
       themeCache.value = null
       themePolicy.value = null
+      navigationRevision.value = null
       permissionNIds.value = []
       navigationGroups.value = []
       degraded.value = false
@@ -100,10 +102,24 @@ export const useSystemDataRuntimeStore = defineStore(
       replacePcNavigationGroups([])
     }
 
-    async function refresh(terminal: 'Pc' | 'Pda' | 'Mobile' = 'Pc'): Promise<void> {
-      if (refreshPromise !== null) return refreshPromise
+    async function refresh(
+      terminal: 'Pc' | 'Pda' | 'Mobile' = 'Pc',
+      minimumNavigationRevision?: number,
+      attempt = 0,
+    ): Promise<boolean> {
+      if (refreshPromise !== null) {
+        const pending = refreshPromise
+        const result = await pending
+        if (
+          minimumNavigationRevision !== undefined &&
+          (navigationRevision.value ?? -1) < minimumNavigationRevision
+        ) {
+          return attempt >= 2 ? false : refresh(terminal, minimumNavigationRevision, attempt + 1)
+        }
+        return result
+      }
       const api = getSystemDataRuntimeApi()
-      if (api === null) return
+      if (api === null) return false
       refreshPromise = (async () => {
         const now = Date.now()
         const results = await Promise.allSettled([
@@ -117,10 +133,16 @@ export const useSystemDataRuntimeStore = defineStore(
 
         if (navigationResult.status === 'fulfilled') {
           if (navigationResult.value.kind === 'updated') {
-            navigationCache.value = {
-              data: navigationResult.value.data,
-              etag: navigationResult.value.etag,
-              verifiedAt: now,
+            if (
+              navigationRevision.value === null ||
+              navigationResult.value.data.revision >= navigationRevision.value
+            ) {
+              navigationCache.value = {
+                data: navigationResult.value.data,
+                etag: navigationResult.value.etag,
+                verifiedAt: now,
+              }
+              navigationRevision.value = navigationResult.value.data.revision
             }
             hasDegradedResponse ||= navigationResult.value.data.degraded
           } else if (navigationCache.value !== null) {
@@ -180,17 +202,28 @@ export const useSystemDataRuntimeStore = defineStore(
           hasExpiredFailure ||
           results.some((result) => result.status === 'rejected')
         unavailable.value = hasExpiredFailure
+        return !results.some((result) => result.status === 'rejected')
       })()
+      const currentRefresh = refreshPromise
       try {
-        await refreshPromise
+        const result = await currentRefresh
+        if (
+          result &&
+          minimumNavigationRevision !== undefined &&
+          (navigationRevision.value ?? -1) < minimumNavigationRevision
+        ) {
+          return attempt >= 2 ? false : refresh(terminal, minimumNavigationRevision, attempt + 1)
+        }
+        return result
       } finally {
-        refreshPromise = null
+        if (refreshPromise === currentRefresh) refreshPromise = null
       }
     }
 
     return {
       navigationGroups,
       themePolicy,
+      navigationRevision,
       degraded,
       unavailable,
       lastVerifiedAt,

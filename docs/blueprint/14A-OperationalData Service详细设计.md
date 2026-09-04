@@ -57,8 +57,9 @@ WorkOrder / Weighting
 
 | 领域 | 负责 | 不负责 |
 | --- | --- | --- |
-| MasterData | 物料、单位、BOM、工厂、车间、仓库、库位、批次策略等定义 | 库存余额、库存批次实例、收发退单据 |
-| OperationalData | 库存事实、库存批次、预留、仓储单据、库存流水、WMS 适配 | 物料/BOM 定义、工单执行、生产批记录 |
+| ReferenceData | 通用 UnitOfMeasure/换算和状态机定义 | 库存数量、单据过账、库存状态和业务执行历史 |
+| MasterData | 物料、BOM、工厂、车间、仓库、库位、批次策略与物料专属单位规则 | 库存余额、库存批次实例、收发退单据 |
+| OperationalData | 库存事实、库存批次、预留、仓储单据、库存流水、WMS 适配与业务执行状态 | 通用单位/换算、物料/BOM 定义、工单执行、生产批记录 |
 | WorkOrder | 工单、执行 BOM、工序任务、领退料和产出需求 | 库存余额与库存批次修改 |
 | Weighting | 称量任务、过程和结果 | 库存权威与仓储单据过账 |
 | Trace | 批次谱系、去向和影响范围投影 | 库存权威与单据执行 |
@@ -149,6 +150,8 @@ decimal FrozenQuantity;
 decimal InTransitQuantity;
 ```
 
+余额以物料发布的库存单位累计，并保存该单位的 `UnitDimensionNId`、`UnitNId`、`unitRevision`（整份 `UnitDimension.Revision`）、`sourceScope`、`sourceTenantNId`；精度、舍入和需要的同维度换算在过账时快照。`sourceTenantNId` 是定义来源而非业务对象自身 `TenantNId`：Platform 来源为空，Tenant 来源等于可信当前租户；通用换算仅允许同来源、同维度、同修订。任何输入数量先经 ReferenceData UnitOfMeasure 契约和物料已发布专属规则校验，跨物理维度不得由通用换算直接通过。
+
 约束：
 
 - `AvailableQuantity = OnHandQuantity - ReservedQuantity - FrozenQuantity`
@@ -170,7 +173,7 @@ string? SupplierLotNumber;
 string? ProductionBatchNumber;
 DateTimeOffset? ManufactureTime;
 DateTimeOffset? ExpireTime;
-InventoryLotStatus Status;
+InventoryLotStatus Status; // OperationalData 自有业务状态
 ```
 
 支持：
@@ -250,6 +253,7 @@ Draft/Confirmed → Cancelled
 - `Posted` 已生成库存流水，不可直接编辑。
 - `Rejected` 保存拒绝原因，可修正后重新确认或取消。
 - 已过账单据只能使用冲销或反向单据纠错。
+- 此状态机是 OperationalData 业务执行规则；ReferenceData StateMachine 定义不能替代单据的库存校验、过账事务、状态写入或历史。
 
 ---
 
@@ -269,6 +273,15 @@ Guid? ToLocationId;
 decimal Quantity;
 decimal QuantityBefore;
 decimal QuantityAfter;
+string UnitDimensionNId;
+string UnitNId;
+int UnitRevision;
+string SourceScope;
+string? SourceTenantNId;
+decimal? ConversionFactorSnapshot;
+decimal? OffsetSnapshot;
+int DecimalPlacesSnapshot;
+string RoundingModeSnapshot;
 DateTimeOffset BusinessTime;
 DateTimeOffset ReceivedTime;
 string IdempotencyKey;
@@ -460,7 +473,7 @@ InventoryLotCreated
 InventoryLotStatusChanged
 ```
 
-事件至少包含：租户、工厂、仓库、物料、库存批次、业务单据、数量、业务时间和幂等标识。
+事件至少包含：业务租户、工厂、仓库、物料、库存批次、业务单据、数量、`UnitDimensionNId`、`UnitNId`、`unitRevision`、`sourceScope`、`sourceTenantNId`、业务时间和幂等标识；必要时还携带过账换算与舍入快照。ReferenceData 定义后续停用或修订不影响历史事件解释。
 
 ---
 

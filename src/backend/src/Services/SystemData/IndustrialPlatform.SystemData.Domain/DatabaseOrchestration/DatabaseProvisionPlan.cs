@@ -48,6 +48,9 @@ public sealed class DatabaseProvisionPlan : AggregateRoot
     /// <summary>是否检测到破坏性变更。</summary>
     public bool DestructiveChangeDetected { get; private set; }
 
+    /// <summary>服务初始化器首次计划声明的 RequiresApply；legacy SQL Runner 计划为空。</summary>
+    public bool? ServiceRequiresApply { get; private set; }
+
     /// <summary>计划要求的环境门禁组合(审批/备份)。</summary>
     public DatabasePlanRequiredPolicies RequiredPolicies { get; private set; }
 
@@ -87,6 +90,7 @@ public sealed class DatabaseProvisionPlan : AggregateRoot
         string targetStateFingerprint,
         RiskLevel riskLevel,
         bool destructiveChangeDetected,
+        bool? serviceRequiresApply,
         DatabasePlanRequiredPolicies requiredPolicies,
         DateTimeOffset expiresOn,
         string createdByUserNId,
@@ -108,6 +112,7 @@ public sealed class DatabaseProvisionPlan : AggregateRoot
         TargetStateFingerprint = DatabaseOrchestrationGuard.RequireSha256Hex(targetStateFingerprint, "目标状态指纹不能为空。");
         RiskLevel = riskLevel;
         DestructiveChangeDetected = destructiveChangeDetected;
+        ServiceRequiresApply = serviceRequiresApply;
         RequiredPolicies = requiredPolicies;
         ExpiresOn = expiresOn;
         CreatedByUserNId = DatabaseOrchestrationGuard.RequireNId(createdByUserNId, "创建人标识不能为空。");
@@ -139,7 +144,8 @@ public sealed class DatabaseProvisionPlan : AggregateRoot
             destructiveChangeDetected,
             requiredPolicies.ToString(),
             _steps.Select(step => step.ToChecksumCanonical()).ToList(),
-            moduleKey);
+            moduleKey,
+            serviceRequiresApply);
         IsFrozen = true;
     }
 
@@ -157,6 +163,7 @@ public sealed class DatabaseProvisionPlan : AggregateRoot
         string planChecksum,
         RiskLevel riskLevel,
         bool destructiveChangeDetected,
+        bool? serviceRequiresApply,
         DatabasePlanRequiredPolicies requiredPolicies,
         DateTimeOffset expiresOn,
         string createdByUserNId,
@@ -183,6 +190,7 @@ public sealed class DatabaseProvisionPlan : AggregateRoot
         PlanChecksum = planChecksum;
         RiskLevel = riskLevel;
         DestructiveChangeDetected = destructiveChangeDetected;
+        ServiceRequiresApply = serviceRequiresApply;
         RequiredPolicies = requiredPolicies;
         ExpiresOn = expiresOn;
         CreatedByUserNId = createdByUserNId;
@@ -212,7 +220,8 @@ public sealed class DatabaseProvisionPlan : AggregateRoot
         DateTimeOffset expiresOn,
         string createdByUserNId,
         IReadOnlyCollection<DatabasePlanStep> steps,
-        string? moduleKey = null)
+        string? moduleKey = null,
+        bool? serviceRequiresApply = null)
         => new(
             tenantNId,
             planNId,
@@ -224,6 +233,7 @@ public sealed class DatabaseProvisionPlan : AggregateRoot
             targetStateFingerprint,
             riskLevel,
             destructiveChangeDetected,
+            serviceRequiresApply,
             requiredPolicies,
             expiresOn,
             createdByUserNId,

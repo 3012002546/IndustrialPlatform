@@ -6,6 +6,7 @@ using IndustrialPlatform.SystemData.Api.Authorization;
 using IndustrialPlatform.UnifiedHost;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Initialization;
 using IndustrialPlatform.SystemData.Application.Authorization;
+using IndustrialPlatform.SystemData.Application.Reliability;
 using IndustrialPlatform.SystemData.Infrastructure.DatabaseOrchestration.Initialization;
 using IndustrialPlatform.Web.Configuration;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -25,13 +26,14 @@ builder.UseIndustrialSerilog();
 // 完成后宿主才继续启动其余托管服务(Outbox 派发、数据库编排 Runner 等)。
 // 因此 Identity/SystemData 的独立 SchemaMigrationBackgroundService 不在此注册(传 false),
 // 避免两套迁移后台服务并行迁移同一 Shared 物理库。
+builder.Services.AddHostedService<ModuleMigrationCoordinatorHostedService>();
 foreach (var module in UnifiedHostModuleCatalog.Modules)
 {
     module.RegisterServices(builder.Services, builder.Configuration);
 }
-builder.Services.AddHostedService<ModuleMigrationCoordinatorHostedService>();
 // UnifiedHost 不经 HTTP 回调自身；SystemData 权限直接复用 Identity 的权威评估器。
 builder.Services.AddSingleton<ISystemDataPermissionEvaluator, InProcessSystemDataPermissionEvaluator>();
+builder.Services.AddSingleton<IIdentityPermissionRegistry, InProcessIdentityPermissionRegistry>();
 // Identity 与 SystemData 使用相同的 permission:* 策略名；组合宿主明确让 SystemData 路由
 // 使用 SystemData requirement，防止首次注册的 Identity 策略遮蔽其专用适配器。
 builder.Services.PostConfigure<AuthorizationOptions>(SystemDataPermissionPolicies.AddPermissionPolicies);

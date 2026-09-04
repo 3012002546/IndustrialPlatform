@@ -24,6 +24,15 @@ public sealed record ServiceInitializationContext(
     string TraceId);
 
 /// <summary>服务本地初始化事实，供 readiness 和控制面观察使用。</summary>
+public sealed record ServiceInitializationSeedState(
+    string SeedKey,
+    string SeedVersion,
+    string Status,
+    DateTimeOffset? AppliedOn = null,
+    string? Checksum = null,
+    string? Scope = null);
+
+/// <summary>服务本地初始化事实，供 readiness 和控制面观察使用。</summary>
 public sealed record ServiceInitializationState(
     string ServiceKey,
     string ModuleKey,
@@ -32,7 +41,17 @@ public sealed record ServiceInitializationState(
     bool RequiredSeedReady,
     bool BootstrapReady,
     bool Ready,
-    string? Reason);
+    string? Reason,
+    IReadOnlyList<ServiceInitializationSeedState>? Seeds = null);
+
+/// <summary>服务本地初始化计划步骤，只描述脱敏元数据，不携带执行内容。</summary>
+public sealed record ServiceInitializationPlanStep(
+    string StepKey,
+    string? InputSummary = null,
+    string? PreconditionSummary = null,
+    string? PostconditionSummary = null,
+    string? RiskLevel = null,
+    bool Destructive = false);
 
 /// <summary>服务本地初始化计划，只描述步骤，不携带执行内容。</summary>
 public sealed record ServiceInitializationPlan(
@@ -41,7 +60,8 @@ public sealed record ServiceInitializationPlan(
     string? CurrentVersion,
     string DesiredVersion,
     bool RequiresApply,
-    IReadOnlyList<string> Steps);
+    IReadOnlyList<string> Steps,
+    IReadOnlyList<ServiceInitializationPlanStep>? StepDetails = null);
 
 /// <summary>服务拥有的 Migration、Seed、Bootstrap、Verify 和 Ledger 统一入口。</summary>
 public interface IServiceInitializer

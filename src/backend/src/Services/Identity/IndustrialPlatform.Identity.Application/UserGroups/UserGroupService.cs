@@ -29,6 +29,7 @@ public sealed partial class UserGroupService : IUserGroupService
     private readonly IRefreshSessionStore _refreshStore;
     private readonly IPermissionCache _permissionCache;
     private readonly IOperationAuditSink _auditSink;
+    private readonly ISystemAdminAuthorization _systemAdminAuthorization;
     private readonly ILogger<UserGroupService> _logger;
 
     /// <summary>初始化用户组管理用例。</summary>
@@ -38,6 +39,7 @@ public sealed partial class UserGroupService : IUserGroupService
         IRefreshSessionStore refreshStore,
         IPermissionCache permissionCache,
         IOperationAuditSink auditSink,
+        ISystemAdminAuthorization systemAdminAuthorization,
         ILogger<UserGroupService> logger)
     {
         ArgumentNullException.ThrowIfNull(groupStore);
@@ -50,6 +52,7 @@ public sealed partial class UserGroupService : IUserGroupService
         _refreshStore = refreshStore;
         _permissionCache = permissionCache;
         _auditSink = auditSink;
+        _systemAdminAuthorization = systemAdminAuthorization;
         _logger = logger;
     }
 
@@ -104,6 +107,11 @@ public sealed partial class UserGroupService : IUserGroupService
             if (roles.Count != roleNIds.Length || roles.Any(r => r.TenantNId != tenantNId))
             {
                 throw new BusinessRuleViolationException("存在无效或不可用的角色。");
+            }
+
+            if (roles.Any(IsSystemAdminRole))
+            {
+                await _systemAdminAuthorization.EnsureSystemAdminAsync(tenantNId, actorUserNId, cancellationToken);
             }
 
             foreach (var role in roles)
@@ -184,6 +192,12 @@ public sealed partial class UserGroupService : IUserGroupService
     {
         var group = await RequireGroupAsync(tenantNId, groupNId, cancellationToken);
         var before = BuildGroupSummaryText(group);
+        // 启用同样会恢复组继承的 SYSTEM_ADMIN，不能只在禁用路径校验操作者资格。
+        var systemRoles = await LoadSystemRolesAsync(group, tenantNId, cancellationToken);
+        if (systemRoles.Count > 0)
+        {
+            await _systemAdminAuthorization.EnsureSystemAdminAsync(tenantNId, actorUserNId, cancellationToken);
+        }
 
         if (enabled)
         {
@@ -202,7 +216,6 @@ public sealed partial class UserGroupService : IUserGroupService
         else
         {
             // 禁用守卫:组内每个系统角色都不得使任何成员成为租户最后一名系统管理员。
-            var systemRoles = await LoadSystemRolesAsync(group, tenantNId, cancellationToken);
             await ExecuteWriteAsync(async () =>
             {
                 foreach (var role in systemRoles)
@@ -261,6 +274,12 @@ public sealed partial class UserGroupService : IUserGroupService
             .Where(u => !string.IsNullOrWhiteSpace(u))
             .Distinct(StringComparer.Ordinal)
             .ToArray();
+        var currentMemberNIds = await _groupStore.GetMemberUserNIdsAsync(group.Id, tenantNId, cancellationToken);
+        var currentGroupRoles = await LoadSystemRolesAsync(group, tenantNId, cancellationToken);
+        if (currentGroupRoles.Count > 0 && !requestedNIds.ToHashSet(StringComparer.Ordinal).SetEquals(currentMemberNIds))
+        {
+            await _systemAdminAuthorization.EnsureSystemAdminAsync(tenantNId, actorUserNId, cancellationToken);
+        }
         var members = requestedNIds.Length == 0 ? [] : await _groupStore.GetUsersByNIdsAsync(requestedNIds, cancellationToken);
         if (members.Count != requestedNIds.Length || members.Any(u => u.TenantNId != tenantNId))
         {
@@ -346,11 +365,19 @@ public sealed partial class UserGroupService : IUserGroupService
         {
             throw new BusinessRuleViolationException("存在无效或不可用的角色。");
         }
+        if (roles.Any(IsSystemAdminRole))
+        {
+            await _systemAdminAuthorization.EnsureSystemAdminAsync(tenantNId, actorUserNId, cancellationToken);
+        }
 
         var requestedRoleIds = roles.Select(r => r.Id).ToHashSet();
         var currentActive = group.Roles.Where(r => !r.IsDeleted && !r.RoleIsDeleted).ToArray();
         var removalRoleIds = currentActive.Select(r => r.RoleId).Where(id => !requestedRoleIds.Contains(id)).ToArray();
         var removalRoles = removalRoleIds.Length == 0 ? [] : await _store.GetRolesByIdsAsync(removalRoleIds, cancellationToken);
+        if (removalRoles.Any(IsSystemAdminRole))
+        {
+            await _systemAdminAuthorization.EnsureSystemAdminAsync(tenantNId, actorUserNId, cancellationToken);
+        }
 
         await ExecuteWriteAsync(async () =>
         {
@@ -418,6 +445,10 @@ public sealed partial class UserGroupService : IUserGroupService
 
         // 删除守卫:组内每个系统角色都不得使任何成员成为租户最后一名系统管理员(§29A.3)。
         var systemRoles = await LoadSystemRolesAsync(group, tenantNId, cancellationToken);
+        if (systemRoles.Count > 0)
+        {
+            await _systemAdminAuthorization.EnsureSystemAdminAsync(tenantNId, actorUserNId, cancellationToken);
+        }
         await ExecuteWriteAsync(async () =>
         {
             foreach (var role in systemRoles)
@@ -619,6 +650,9 @@ public sealed partial class UserGroupService : IUserGroupService
             throw new BusinessRuleViolationException("不能移除最后一名系统管理员,除非经过独立恢复流程。");
         }
     }
+
+    private static bool IsSystemAdminRole(Role role) =>
+        role.IsSystem && string.Equals(role.NId, "SYSTEM_ADMIN", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// 受影响用户授权失效(§29A.2):逐个推进授权版本(旧 Access Token 的 ver 声明失效)、

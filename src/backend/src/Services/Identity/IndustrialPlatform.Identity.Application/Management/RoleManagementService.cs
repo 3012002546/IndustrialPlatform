@@ -59,6 +59,8 @@ public sealed partial class RoleManagementService : IRoleManagementService
         var role = Role.Create(tenantNId, nId.Value, name, request.Description, isSystem: false);
 
         var permissionNIds = (request.PermissionNIds ?? []).Where(p => !string.IsNullOrWhiteSpace(p)).Distinct(StringComparer.Ordinal).ToArray();
+        if (permissionNIds.Any(IsProtectedInitializationPermission))
+            throw new BusinessRuleViolationException("初始化与数据库编排权限只能由内置 SYSTEM_ADMIN 角色持有。");
         if (permissionNIds.Length > 0)
         {
             var permissions = await _store.GetPermissionsByNIdsAsync(permissionNIds, cancellationToken);
@@ -145,6 +147,8 @@ public sealed partial class RoleManagementService : IRoleManagementService
         var before = BuildRoleSummaryText(role);
 
         var requestedNIds = (request.PermissionNIds ?? []).Where(p => !string.IsNullOrWhiteSpace(p)).Distinct(StringComparer.Ordinal).ToArray();
+        if (requestedNIds.Any(IsProtectedInitializationPermission))
+            throw new BusinessRuleViolationException("初始化与数据库编排权限只能由内置 SYSTEM_ADMIN 角色持有。");
         var permissionsByNId = requestedNIds.Length == 0
             ? new Dictionary<string, Permission>(StringComparer.Ordinal)
             : (await _store.GetPermissionsByNIdsAsync(requestedNIds, cancellationToken)).ToDictionary(p => p.NId, StringComparer.Ordinal);
@@ -246,6 +250,10 @@ public sealed partial class RoleManagementService : IRoleManagementService
         r.PermissionNIds,
         r.OptimisticVersion,
         r.ConcurrencyVersion);
+
+    private static bool IsProtectedInitializationPermission(string permissionNId) =>
+        permissionNId.StartsWith("systemdata.service-initialization.", StringComparison.OrdinalIgnoreCase)
+        || permissionNId.StartsWith("systemdata.database-orchestration.", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>审计摘要:仅非敏感资料字段与权限数量;绝不包含密码、Token、内部哈希或数据库主键。</summary>
     private static string BuildRoleSummaryText(Role role) =>

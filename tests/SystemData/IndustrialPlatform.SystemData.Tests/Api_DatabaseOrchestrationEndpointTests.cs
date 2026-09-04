@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using IndustrialPlatform.Security;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration;
+using IndustrialPlatform.SystemData.Application.Authorization;
 using IndustrialPlatform.SystemData.Domain.DatabaseOrchestration;
 using IndustrialPlatform.SharedKernel.Topology;
 using IndustrialPlatform.SystemData.Domain.Topology;
@@ -380,6 +381,8 @@ public sealed class DatabaseOrchestrationEndpointTests
                 services.AddSingleton<IDatabaseTopologyProvider>(new FakeTopologyProvider(topology));
                 services.RemoveAll<ICurrentUser>();
                 services.AddScoped<ICurrentUser>(_ => new FakeCurrentUser(Tenant, Actor));
+                services.RemoveAll<ISystemDataPermissionEvaluator>();
+                services.AddSingleton<ISystemDataPermissionEvaluator, TestSystemDataPermissionEvaluator>();
 
                 // SD-006 已为控制面端点接入 [Authorize] 权限策略(§9.6):
                 // 以测试方案替换 JwtBearer,注入全部编排/初始化权限,actor 仍由 FakeCurrentUser 提供。
@@ -412,6 +415,16 @@ public sealed class DatabaseOrchestrationEndpointTests
             "systemdata.service-initialization.cancel",
         ],
     };
+
+    private sealed class TestSystemDataPermissionEvaluator : ISystemDataPermissionEvaluator
+    {
+        public Task<SystemDataPermissionDecision> EvaluateAsync(SystemDataPermissionRequest request, CancellationToken cancellationToken) =>
+            Task.FromResult(new SystemDataPermissionDecision(
+                request.TenantNId == Tenant && request.UserNId == Actor,
+                request.TenantNId == Tenant && request.UserNId == Actor
+                    ? SystemDataPermissionDenialReason.None
+                    : SystemDataPermissionDenialReason.MissingPermission));
+    }
 
     private static async Task<HttpResponseMessage> SendAsync(
         HttpClient client,

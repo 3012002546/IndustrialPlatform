@@ -72,11 +72,14 @@ public sealed class HttpIdentityDirectoryClient : IIdentityPermissionRegistry, I
             var root = FindObjectWith(document.RootElement, "userNId") ?? document.RootElement;
             return new IdentityUserDirectoryEntryV1
             {
+                TenantNId = ReadString(root, "tenantNId") ?? tenantNId,
                 UserNId = ReadString(root, "userNId") ?? userNId,
                 LoginName = ReadString(root, "loginName") ?? string.Empty,
                 Name = ReadString(root, "name") ?? string.Empty,
                 Status = ReadString(root, "status") ?? string.Empty,
-                AuthVersion = ReadString(root, "authVersion")
+                AuthVersion = ReadString(root, "authVersion"),
+                IsSystemAdmin = root.TryGetProperty("isSystemAdmin", out var isSystemAdmin)
+                    && isSystemAdmin.ValueKind == JsonValueKind.True
             };
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or JsonException)

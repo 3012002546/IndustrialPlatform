@@ -6,7 +6,7 @@
 
 所有 PF 阶段还必须读取 `docs/blueprint/32-Industrial Platform Service Host与内部模块边界.md`。阶段编号不等于 Service Host；后续阶段可以向前一阶段创建的宿主增加独立模块，但不得合并 Schema/表前缀、契约、权限或测试，也不得跨模块直读 Repository。
 
-PF-02 及其后的新服务必须以 `docs/blueprint/07-PostgreSQL数据库规范及分库设计.md` 与蓝图 33 V3.1 为权威初始化来源，并以实施 05 为 PF-02 控制面计划。SystemData 提供通用 Service Initialization Pipeline；后续服务/模块必须交付 ServiceKey/ModuleKey、InitializationManifest/SeedSets、服务自有 migration/seed/initializer 产物、schema/seed 双账本、启动握手/readiness、最小角色、备份登记和可观测 `OperationId`。不得自行持有管理员凭据建库、向 SystemData 传 Secret、使用 `EnsureCreated`，或让共享宿主使用模糊初始化大包。
+PF-02 及其后的新服务必须以 `docs/blueprint/07-PostgreSQL数据库规范及分库设计.md` 与蓝图 33 V3.2 为权威初始化来源，并以实施 05 为 PF-02 控制面计划。V3.2 只增补 PF-03 七模块摘要，V3.1 的初始化协议不变。SystemData 提供通用 Service Initialization Pipeline；后续服务/模块必须交付 ServiceKey/ModuleKey、InitializationManifest/SeedSets、服务自有 migration/seed/initializer 产物、schema/seed 双账本、启动握手/readiness、最小角色、备份登记和可观测 `OperationId`。不得自行持有管理员凭据建库、向 SystemData 传 Secret、使用 `EnsureCreated`，或让共享宿主使用模糊初始化大包。
 
 ## 协作边界
 
@@ -32,8 +32,8 @@ PF-02 及其后的新服务必须以 `docs/blueprint/07-PostgreSQL数据库规�
 | 02B | [统一前端第一批开发 TODO](02B-Industrial%20Platform统一前端第一批开发实施方案.md) | `TASK-FE-001～010` 已完成 |
 | 03 | [Identity Service实施方案](03-Industrial%20Platform%20Identity%20Service开发实施方案.md) | `TASK-ID-001～023` 当前范围已完成并合入；真实 PostgreSQL/Redis 联合登录链路保留为外部验收项 |
 | 04 | [PF-01 视觉主题与平台外壳实施方案](04-Industrial%20Platform视觉主题与平台外壳开发实施方案.md) | `TASK-PF01-001～007` 已完成；真实 Identity 联合验收 real E2E 19/19；外部真机 safe-area 待验收 |
-| 05 | [PF-02 SystemData实施方案](05-Industrial%20Platform%20SystemData开发实施方案.md) | 功能开发完成 / 收束验收中；001～010 已完成，011～012 功能开发完成待验收，013 重新打开，014～017 待派遣；PF-03 未启动 |
-| 06 | [PF-03 ReferenceData实施方案](06-Industrial%20Platform%20ReferenceData%20Service开发实施方案.md) | 代码仅骨架；现有详细设计和任务卡由 PF-03 会话复核 |
+| 05 | [PF-02 SystemData实施方案](05-Industrial%20Platform%20SystemData开发实施方案.md) | 2026-09-04：已知整改缺陷复验关闭，26项分层证据与017状态回写完成；014完整UI/真正200%、015真实链及016外部门禁仍待验收，013/PF-02保持active；PF-03未启动 |
+| 06 | [PF-03 ReferenceData实施方案](06-Industrial%20Platform%20ReferenceData%20Service开发实施方案.md) | V2.7 七模块文档已收敛，含状态机定义/计量单位与十个内部步骤；代码仅骨架，PF-03 未启动 |
 | 07 | PF-04 File / Notification / Audit实施方案（待 PF-04 会话创建） | 三个模块分开建模，在同一阶段管理会话协调和派遣 |
 | 08 | PF-05 Collaboration实施方案（待 PF-05 会话创建） | 待阶段管理会话设计和派遣 |
 | 09 | [PF-06 RemoteAssistance实施方案](09-Industrial%20Platform%20RemoteAssistance开发实施方案.md) | 详细设计已确认；`TASK-PF06-001` 双 PoC/现场网络/许可门禁待另行派遣，002～008 保持门禁阻塞；未开发、未测试 |

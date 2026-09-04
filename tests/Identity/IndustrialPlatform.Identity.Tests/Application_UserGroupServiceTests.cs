@@ -344,6 +344,43 @@ public sealed class UserGroupServiceTests
     }
 
     [Fact]
+    public async Task SetStatusAsync_Enable_SystemAdminGroup_RequiresCurrentSystemAdmin()
+    {
+        var store = new FakeGroupAndManagementStore();
+        var sysAdmin = CreateRole("SYSTEM_ADMIN", isSystem: true);
+        var alice = CreateUser("alice.user", "alice");
+        var group = UserGroup.Create(Tenant, "group.ops", "运维组", null);
+        group.AssignMember(alice);
+        group.AssignRole(sysAdmin);
+        group.Disable();
+        store.Seed(sysAdmin);
+        store.Seed(alice);
+        store.Seed(group);
+
+        var service = new UserGroupService(
+            store,
+            store,
+            store.Refresh,
+            store.Cache,
+            store.Audit,
+            new DenySystemAdminAuthorization(),
+            NullLogger<UserGroupService>.Instance);
+
+        var ex = await Assert.ThrowsAsync<BusinessRuleViolationException>(() =>
+            service.SetStatusAsync(
+                Tenant,
+                Actor,
+                group.NId,
+                enabled: true,
+                group.OptimisticVersion,
+                group.ConcurrencyVersion,
+                CancellationToken.None));
+
+        Assert.Contains("SYSTEM_ADMIN", ex.Message);
+        Assert.Equal("Disabled", store.GetGroup(group.NId)!.Status.ToString());
+    }
+
+    [Fact]
     public async Task GetAsync_CrossTenant_ThrowsResourceNotFound()
     {
         var store = new FakeGroupAndManagementStore();
@@ -453,7 +490,22 @@ public sealed class UserGroupServiceTests
     }
 
     private static UserGroupService CreateService(FakeGroupAndManagementStore store)
-        => new(store, store, store.Refresh, store.Cache, store.Audit, NullLogger<UserGroupService>.Instance);
+        => new(store, store, store.Refresh, store.Cache, store.Audit, new AllowSystemAdminAuthorization(), NullLogger<UserGroupService>.Instance);
+
+    private sealed class AllowSystemAdminAuthorization : ISystemAdminAuthorization
+    {
+        public Task<bool> IsSystemAdminAsync(string tenantNId, string userNId, CancellationToken cancellationToken) => Task.FromResult(true);
+
+        public Task EnsureSystemAdminAsync(string tenantNId, string userNId, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class DenySystemAdminAuthorization : ISystemAdminAuthorization
+    {
+        public Task<bool> IsSystemAdminAsync(string tenantNId, string userNId, CancellationToken cancellationToken) => Task.FromResult(false);
+
+        public Task EnsureSystemAdminAsync(string tenantNId, string userNId, CancellationToken cancellationToken) =>
+            throw new BusinessRuleViolationException("只有当前租户的有效 SYSTEM_ADMIN 才能维护系统管理员。");
+    }
 
     /// <summary>组合替身:同时实现 IUserGroupStore 与 IManagementStore,共享内存状态(组+用户+角色)。</summary>
     private sealed class FakeGroupAndManagementStore : IUserGroupStore, IManagementStore

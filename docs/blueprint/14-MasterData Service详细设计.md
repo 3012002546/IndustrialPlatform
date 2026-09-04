@@ -27,7 +27,7 @@ MasterData Service（主数据服务）是 Industrial Platform 的基础业务�
 
 MES、称量、追溯、批记录、LIMS、设备平台全部依赖主数据。
 
-> 边界说明：ReferenceData 管理字典、配置、元数据与编码规则；MasterData 管理物料、设备、组织、仓库、库位与 BOM 等业务主数据；OperationalData 管理库存批次、余额、预留和仓储业务单据。MasterData 仅消费必要的 ReferenceData 能力，不承载 ReferenceData 或 OperationalData 职责。
+> 边界说明：ReferenceData 管理字典、配置、元数据、编码规则、状态机定义及通用 UnitOfMeasure/换算；MasterData 管理物料、设备、组织、仓库、库位与 BOM 等业务主数据，并只选择和快照通用单位；物料专属箱/件和密度规则归 MasterData。OperationalData 管理库存批次、余额、预留和仓储业务单据。MasterData 不承载 ReferenceData 或 OperationalData 职责。
 
 整体关系：
 
@@ -68,7 +68,7 @@ MES、称量、追溯、批记录、LIMS、设备平台全部依赖主数据。
 | ----- | ----------------- |
 | 物料    | Material          |
 | 物料分类  | Material Category |
-| 单位    | Unit              |
+| 单位选用与物料专属规则 | 消费 ReferenceData UnitOfMeasure；物料基础/采购/库存单位及箱/件、密度规则 |
 | 工厂    | Factory           |
 | 车间    | Workshop          |
 | 产线    | Production Line   |
@@ -309,7 +309,7 @@ Material
  |
  |-- Type
  |
- |-- Unit
+ |-- UnitReference（来自 ReferenceData：UnitDimensionNId、UnitNId、unitRevision、sourceScope、sourceTenantNId）
  |
  |-- Status
  |
@@ -479,66 +479,23 @@ change_reason
 
 ---
 
-# 10. 单位管理
+# 10. 单位引用与物料专属规则
 
-支持：
+通用 `UnitOfMeasure`、维度、精度、舍入和同维度换算由 ReferenceData 维护，MasterData 不创建 Unit 或 UnitConversion 聚合、表和 CRUD。物料版本只保存/快照 `UnitDimensionNId`、`UnitNId`、`unitRevision`（整份 `UnitDimension.Revision`）、`sourceScope`、`sourceTenantNId`，分别选用基础、采购和库存单位。`sourceTenantNId` 是定义来源，不与业务对象自身 `TenantNId` 混同：Platform 来源为空，Tenant 来源等于可信当前租户；通用换算仅可在同来源、同维度、同修订的单位间进行。
 
-```
-kg
-
-g
-
-L
-
-ml
-
-pcs
-
-box
-
-```
-
-模型：
-
-```
-Unit
-
-```
-
-支持换算：
-
-例如：
-
-```
-1 KG
-
-=
-
-1000 G
-
-```
+箱/件比例与质量/体积互换不是全局单位换算：前者作为物料包装规则，后者必须使用物料专属密度等明确规则并随物料版本发布。不同物理维度不得由通用换算直接转换；历史 BOM、物料版本和下游执行使用发布时的单位、精度、舍入与必要换算快照。
 
 ---
 
-# 11. Unit模型
+# 11. UnitReference模型
 
 ```csharp
-public class Unit
-{
-
-Guid Id;
-
-
-string Code;
-
-
-string Name;
-
-
-decimal ConversionFactor;
-
-
-}
+public sealed record UnitReference(
+    string UnitDimensionNId,
+    string UnitNId,
+    int UnitRevision,
+    string SourceScope,
+    string? SourceTenantNId);
 ```
 
 ---
@@ -930,9 +887,6 @@ md_material
 md_material_version
 
 
-md_unit
-
-
 md_factory
 
 
@@ -1312,7 +1266,7 @@ BOM
 
 ## 基础
 
-√ 单位
+√ ReferenceData UnitOfMeasure 契约消费与物料单位选用/专属规则
 
 √ 字典
 

@@ -279,6 +279,22 @@ public sealed class FakeDatabaseOrchestrationStore : IDatabaseOrchestrationStore
             .FirstOrDefault());
 
     /// <inheritdoc />
+    public Task<DatabaseMigrationObservation?> GetLatestObservationAsync(
+        string tenantNId,
+        string environmentNId,
+        string serviceKey,
+        string moduleKey,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(_observations
+            .Where(observation =>
+                observation.TenantNId == tenantNId
+                && observation.EnvironmentNId == environmentNId
+                && observation.ServiceKey == serviceKey
+                && observation.ModuleKey == moduleKey)
+            .OrderByDescending(observation => observation.ObservedOn)
+            .FirstOrDefault());
+
+    /// <inheritdoc />
     public Task AddObservationAsync(DatabaseMigrationObservation observation, CancellationToken cancellationToken)
     {
         _observations.Add(observation);

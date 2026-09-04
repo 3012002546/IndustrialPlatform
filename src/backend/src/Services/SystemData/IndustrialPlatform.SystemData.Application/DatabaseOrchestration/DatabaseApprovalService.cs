@@ -10,6 +10,9 @@ public interface IApprovalService
     /// <summary>为计划登记审批(校验计划存在且未过期)。</summary>
     Task<DatabaseApprovalV1> CreateAsync(string tenantNId, string actorUserNId, string planNId, DatabaseApprovalRequestV1 request, CancellationToken cancellationToken);
 
+    /// <summary>读取计划审批记录,供管理端在刷新后恢复门禁状态。</summary>
+    Task<IReadOnlyList<DatabaseApprovalV1>> ListForPlanAsync(string tenantNId, string planNId, CancellationToken cancellationToken);
+
     /// <summary>计划当前是否有有效审批(Approved + 未过期 + 校验和/指纹匹配)。</summary>
     Task<bool> IsApprovedForAsync(string tenantNId, DatabaseProvisionPlan plan, CancellationToken cancellationToken);
 }
@@ -66,6 +69,18 @@ public sealed class DatabaseApprovalService : IApprovalService
         var approvals = await _store.GetApprovalsForPlanAsync(tenantNId, plan.PlanNId, cancellationToken);
         var now = DateTimeOffset.UtcNow;
         return approvals.Any(approval => approval.IsValidFor(plan.PlanChecksum, plan.TargetStateFingerprint, now));
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<DatabaseApprovalV1>> ListForPlanAsync(
+        string tenantNId,
+        string planNId,
+        CancellationToken cancellationToken)
+    {
+        var plan = await _store.GetPlanAsync(tenantNId, DatabaseOrchestrationInput.Require(planNId, "计划标识不能为空。"), cancellationToken)
+            ?? throw new NotFoundException();
+        var approvals = await _store.GetApprovalsForPlanAsync(tenantNId, plan.PlanNId, cancellationToken);
+        return approvals.Select(ToApprovalV1).ToList();
     }
 
     private static DatabaseApprovalV1 ToApprovalV1(DatabaseApproval approval) => new()

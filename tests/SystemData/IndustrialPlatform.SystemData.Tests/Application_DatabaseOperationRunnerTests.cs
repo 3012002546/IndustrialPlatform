@@ -1,11 +1,26 @@
+using IndustrialPlatform.Application.Abstractions.Initialization;
+using IndustrialPlatform.Identity.Application.Bootstrap;
+using IndustrialPlatform.Identity.Infrastructure.Bootstrap;
+using IndustrialPlatform.Identity.Infrastructure.Passwords;
+using IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations;
+using IndustrialPlatform.Identity.Infrastructure.Persistence.Repositories;
+using IndustrialPlatform.Identity.Infrastructure.Persistence.Seeds;
+using IndustrialPlatform.SystemData.Application.IdentityDirectory;
+using IndustrialPlatform.SystemData.Contracts.Administration;
+using IndustrialPlatform.ReferenceData.Infrastructure.Initialization;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration;
+using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Initialization;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Options;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Runner;
 using IndustrialPlatform.SystemData.Contracts.DatabaseOrchestration;
 using IndustrialPlatform.SystemData.Domain.DatabaseOrchestration;
 using IndustrialPlatform.SharedKernel.Topology;
 using IndustrialPlatform.SystemData.Domain.Topology;
+using IndustrialPlatform.SystemData.Infrastructure.DatabaseOrchestration.Initialization;
+using Microsoft.Extensions.Logging.Abstractions;
+using IndustrialPlatform.Infrastructure.Database;
 using Microsoft.Extensions.Options;
+using SqlSugar;
 using NotFoundException = IndustrialPlatform.SystemData.Application.DatabaseOrchestration.NotFoundException;
 
 namespace IndustrialPlatform.SystemData.Application.Tests;
@@ -60,6 +75,366 @@ public sealed class DatabaseOperationRunnerTests
         Assert.False(string.IsNullOrWhiteSpace(plan.TargetStateFingerprint));
     }
 
+    [Fact]
+    public async Task RunOnceAsync_ServiceOwnedRegistration_UsesInvokerForPlanAndApplyOnly()
+    {
+        var store = new FakeDatabaseOrchestrationStore();
+        var adapter = new FakeTargetAdapter();
+        var invoker = new CountingServiceInitializationInvoker();
+        var runner = CreateRunner(store, adapter, DevelopmentTopology, serviceInitializationInvoker: invoker);
+        var registration = await SeedRegistrationAsync(
+            store,
+            DevelopmentTopology,
+            version: "9.9.9",
+            moduleKey: "systemdata",
+            usesServiceInitializer: true);
+        await SeedOperationAsync(store, "OP-SERVICE-PLAN", OperationKind.Plan, null, "9.9.9", "systemdata");
+
+        Assert.Equal(1, await runner.RunOnceAsync(CancellationToken.None));
+
+        var plan = store.Plans.Single();
+        Assert.Equal(OperationStatus.Succeeded, store.Operations.Single().Status);
+        Assert.Equal(1, invoker.InspectCount);
+        Assert.Equal(1, invoker.PlanCount);
+        Assert.Equal(0, invoker.ApplyCount);
+        Assert.Equal(0, adapter.MigrationApplyCount);
+
+        await SeedOperationAsync(store, "OP-SERVICE-APPLY", OperationKind.Apply, plan.PlanNId, "9.9.9", "systemdata");
+        Assert.Equal(1, await runner.RunOnceAsync(CancellationToken.None));
+
+        Assert.Equal(OperationStatus.Succeeded, store.Operations.Single(item => item.OperationNId == "OP-SERVICE-APPLY").Status);
+        Assert.Equal(2, invoker.InspectCount);
+        Assert.Equal(2, invoker.PlanCount);
+        Assert.Equal(1, invoker.ApplyCount);
+        Assert.Equal(0, adapter.MigrationApplyCount);
+    }
+
+    [Fact]
+    public async Task RunOnceAsync_ServiceOwnedApply_RejectsChangedServicePlanBeforeApply()
+    {
+        var store = new FakeDatabaseOrchestrationStore();
+        var invoker = new CountingServiceInitializationInvoker(
+            planSteps: planCall => planCall == 1 ? ["approved-step"] : ["changed-unapproved-step"]);
+        var runner = CreateRunner(store, new FakeTargetAdapter(), DevelopmentTopology, serviceInitializationInvoker: invoker);
+        var registration = await SeedRegistrationWithSeedsAsync(
+            store,
+            DevelopmentTopology,
+            version: "9.9.9",
+            moduleKey: "systemdata",
+            usesServiceInitializer: true);
+        await SeedOperationAsync(store, "OP-SERVICE-DRIFT-PLAN", OperationKind.Plan, null, "9.9.9", "systemdata");
+        await runner.RunOnceAsync(CancellationToken.None);
+        var plan = store.Plans.Single();
+
+        await SeedOperationAsync(store, "OP-SERVICE-DRIFT-APPLY", OperationKind.Apply, plan.PlanNId, "9.9.9", "systemdata");
+        await runner.RunOnceAsync(CancellationToken.None);
+
+        var operation = store.Operations.Single(item => item.OperationNId == "OP-SERVICE-DRIFT-APPLY");
+        Assert.Equal(OperationStatus.Failed, operation.Status);
+        Assert.Equal(DatabaseOrchestrationRunnerErrors.PlanDrift, operation.SanitizedErrorCode);
+        Assert.Equal(0, invoker.ApplyCount);
+        Assert.NotNull(registration);
+    }
+
+    [Fact]
+    public async Task RunOnceAsync_ServiceOwnedVerify_RejectsMissingSeedFact()
+    {
+        var store = new FakeDatabaseOrchestrationStore();
+        var seed = CreateServiceSeed();
+        var invoker = new CountingServiceInitializationInvoker(verificationSeeds: []);
+        var runner = CreateRunner(store, new FakeTargetAdapter(), DevelopmentTopology, serviceInitializationInvoker: invoker);
+        var registration = await SeedRegistrationWithSeedsAsync(
+            store,
+            DevelopmentTopology,
+            version: "9.9.9",
+            moduleKey: "systemdata",
+            usesServiceInitializer: true,
+            seedSets: [seed]);
+        await SeedOperationAsync(store, "OP-SERVICE-SEED-MISSING-PLAN", OperationKind.Plan, null, "9.9.9", "systemdata");
+        await runner.RunOnceAsync(CancellationToken.None);
+        var plan = store.Plans.Single();
+
+        await SeedOperationAsync(store, "OP-SERVICE-SEED-MISSING-APPLY", OperationKind.Apply, plan.PlanNId, "9.9.9", "systemdata");
+        await runner.RunOnceAsync(CancellationToken.None);
+
+        var operation = store.Operations.Single(item => item.OperationNId == "OP-SERVICE-SEED-MISSING-APPLY");
+        Assert.Equal(OperationStatus.Failed, operation.Status);
+        Assert.Equal(DatabaseOrchestrationRunnerErrors.TargetMismatch, operation.SanitizedErrorCode);
+        Assert.Null(await store.GetLatestSeedObservationAsync(
+            Tenant, registration.EnvironmentNId, registration.ServiceKey, registration.ModuleKey, seed.SeedKey, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task RunOnceAsync_ServiceOwnedVerify_RejectsSeedChecksumDriftAndRequiredSkipped()
+    {
+        foreach (var (suffix, status, checksum) in new[]
+        {
+            ("CHECKSUM", "Applied", Sha("wrong-service-seed")),
+            ("SKIPPED", "Skipped", Sha("service-seed")),
+        })
+        {
+            var store = new FakeDatabaseOrchestrationStore();
+            var seed = CreateServiceSeed();
+            var invoker = new CountingServiceInitializationInvoker(
+                verificationSeeds:
+                [new ServiceInitializationSeedState(
+                    seed.SeedKey,
+                    seed.SeedVersion,
+                    status,
+                    DateTimeOffset.UtcNow,
+                    checksum,
+                    seed.Scope.ToString())]);
+            var runner = CreateRunner(store, new FakeTargetAdapter(), DevelopmentTopology, serviceInitializationInvoker: invoker);
+            var registration = await SeedRegistrationWithSeedsAsync(
+                store,
+                DevelopmentTopology,
+                version: "9.9.9",
+                moduleKey: "systemdata",
+                usesServiceInitializer: true,
+                seedSets: [seed]);
+            await SeedOperationAsync(store, $"OP-SERVICE-SEED-{suffix}-PLAN", OperationKind.Plan, null, "9.9.9", "systemdata");
+            await runner.RunOnceAsync(CancellationToken.None);
+            var plan = store.Plans.Single();
+
+            await SeedOperationAsync(store, $"OP-SERVICE-SEED-{suffix}-APPLY", OperationKind.Apply, plan.PlanNId, "9.9.9", "systemdata");
+            await runner.RunOnceAsync(CancellationToken.None);
+
+            var operation = store.Operations.Single(item => item.OperationNId == $"OP-SERVICE-SEED-{suffix}-APPLY");
+            Assert.Equal(OperationStatus.Failed, operation.Status);
+            Assert.Equal(DatabaseOrchestrationRunnerErrors.TargetMismatch, operation.SanitizedErrorCode);
+            Assert.Null(await store.GetLatestSeedObservationAsync(
+                Tenant, registration.EnvironmentNId, registration.ServiceKey, registration.ModuleKey, seed.SeedKey, CancellationToken.None));
+        }
+    }
+
+    [Fact]
+    public async Task RunOnceAsync_ServiceOwnedRegistrationWithoutInvoker_FailsClosed()
+    {
+        var store = new FakeDatabaseOrchestrationStore();
+        var runner = CreateRunner(store, new FakeTargetAdapter(), DevelopmentTopology);
+        await SeedRegistrationAsync(
+            store,
+            DevelopmentTopology,
+            version: "9.9.9",
+            moduleKey: "systemdata",
+            usesServiceInitializer: true);
+        await SeedOperationAsync(store, "OP-SERVICE-NO-INVOKER", OperationKind.Plan, null, "9.9.9", "systemdata");
+
+        await runner.RunOnceAsync(CancellationToken.None);
+
+        var operation = store.Operations.Single();
+        Assert.Equal(OperationStatus.Failed, operation.Status);
+        Assert.Equal(DatabaseOrchestrationRunnerErrors.InternalFailure, operation.SanitizedErrorCode);
+    }
+
+    [Fact]
+    public async Task RunOnceAsync_ServiceOwnedReferenceData_UsesRealInitializerAndReadiness()
+    {
+        var dbPath = Path.Combine(Path.GetTempPath(), $"industrial-platform-runner-referencedata-{Guid.NewGuid():N}.db");
+        try
+        {
+            using var dbContext = new IndustrialPlatform.Infrastructure.Database.SqlSugarDbContext(Options.Create(new SqlSugarOptions
+            {
+                ConnectionString = $"Data Source={dbPath}",
+                DbType = DbType.Sqlite,
+            }));
+            var initializer = new ReferenceDataServiceInitializer(new ReferenceDataInitializationLedger(dbContext));
+            var invoker = new InProcessServiceInitializationInvoker([initializer]);
+            var store = new FakeDatabaseOrchestrationStore();
+            var runner = CreateRunner(store, new FakeTargetAdapter(), DevelopmentTopology, serviceInitializationInvoker: invoker);
+            var seed = new SeedSet(
+                ReferenceDataServiceInitializer.BaselineSeedKey,
+                ReferenceDataServiceInitializer.BaselineVersion,
+                SeedClass.SystemBaseline,
+                SeedScope.System,
+                "reference-data-baseline",
+                ReferenceDataServiceInitializer.BaselineChecksum,
+                "sig-ref",
+                requiredForReadiness: true,
+                allowedEnvironments: string.Empty,
+                dependsOnMigrationVersion: ReferenceDataServiceInitializer.BaselineVersion,
+                dependsOnSeedKeys: null,
+                BootstrapPolicy.FailClosed);
+            var registration = await SeedServiceRegistrationAsync(
+                store,
+                DevelopmentTopology,
+                "referencedata",
+                "referencedata",
+                ReferenceDataServiceInitializer.BaselineVersion,
+                [seed]);
+
+            await SeedServiceOperationAsync(
+                store,
+                DevelopmentTopology,
+                "OP-REAL-REFERENCEDATA-PLAN",
+                OperationKind.Plan,
+                "referencedata",
+                "referencedata",
+                null,
+                ReferenceDataServiceInitializer.BaselineVersion);
+            Assert.Equal(1, await runner.RunOnceAsync(CancellationToken.None));
+            var plan = store.Plans.Single();
+            Assert.True(plan.ServiceRequiresApply);
+
+            await SeedServiceOperationAsync(
+                store,
+                DevelopmentTopology,
+                "OP-REAL-REFERENCEDATA-APPLY",
+                OperationKind.Apply,
+                "referencedata",
+                "referencedata",
+                plan.PlanNId,
+                ReferenceDataServiceInitializer.BaselineVersion);
+            Assert.Equal(1, await runner.RunOnceAsync(CancellationToken.None));
+
+            var apply = store.Operations.Single(item => item.OperationNId == "OP-REAL-REFERENCEDATA-APPLY");
+            Assert.Equal(OperationStatus.Succeeded, apply.Status);
+            var observation = await store.GetLatestSeedObservationAsync(
+                Tenant,
+                registration.EnvironmentNId,
+                registration.ServiceKey,
+                registration.ModuleKey,
+                seed.SeedKey,
+                CancellationToken.None);
+            Assert.NotNull(observation);
+            Assert.Equal(seed.SeedChecksum, observation!.Checksum);
+            Assert.Equal(seed.Scope, observation.Scope);
+
+            var readiness = await CreateOperationService(store).GetReadinessV2Async(
+                Tenant,
+                "referencedata",
+                "referencedata",
+                "trace-real-referencedata",
+                CancellationToken.None);
+            Assert.True(readiness.Ready);
+            Assert.True(readiness.RequiredSeedReady);
+        }
+        finally
+        {
+            TryDeleteTempFile(dbPath);
+        }
+    }
+
+    [Fact]
+    public async Task RunOnceAsync_ServiceOwnedIdentity_UsesRealInitializerSeedFactsAndReadiness()
+    {
+        var dbPath = Path.Combine(Path.GetTempPath(), $"industrial-platform-runner-identity-{Guid.NewGuid():N}.db");
+        try
+        {
+            using var dbContext = new SqlSugarDbContext(Options.Create(new SqlSugarOptions
+            {
+                ConnectionString = $"Data Source={dbPath};Foreign Keys=True;Default Timeout=30",
+                DbType = DbType.Sqlite,
+            }));
+            var bootstrapStore = new BootstrapStore(dbContext, new UserRepository(dbContext));
+            var initialization = new IdentityInitializationService(
+                new SchemaMigrationRunner(dbContext, IdentitySchemaMigrations.All, NullLogger<SchemaMigrationRunner>.Instance),
+                new IdentitySeedRunner(dbContext, new BcryptPasswordHasher(), new BootstrapCredentialStore(dbContext)),
+                bootstrapStore);
+            var initializer = new IdentityServiceInitializer(
+                initialization,
+                new BootstrapService(
+                    bootstrapStore,
+                    new BootstrapCredentialStore(dbContext),
+                    new TemporaryPasswordGenerator(),
+                    new BcryptPasswordHasher()));
+            var invoker = new InProcessServiceInitializationInvoker([initializer]);
+            var store = new FakeDatabaseOrchestrationStore();
+            var runner = CreateRunner(store, new FakeTargetAdapter(), DevelopmentTopology, serviceInitializationInvoker: invoker);
+            var systemChecksum = BootstrapSeedCatalog.Checksum(BootstrapSeedCatalog.SystemCatalogContent());
+            var tenantChecksum = BootstrapSeedCatalog.Checksum(BootstrapSeedCatalog.TenantSecurityContent(Tenant));
+            var seeds = new SeedSet[]
+            {
+                new(
+                    BootstrapSeedCatalog.SystemCatalogSeedKey,
+                    BootstrapSeedCatalog.SeedVersion,
+                    SeedClass.SystemBaseline,
+                    SeedScope.System,
+                    "identity-system-catalog",
+                    systemChecksum,
+                    "sig-identity",
+                    requiredForReadiness: true,
+                    allowedEnvironments: string.Empty,
+                    dependsOnMigrationVersion: IdentitySchemaMigrations.All[^1].Id,
+                    dependsOnSeedKeys: null,
+                    BootstrapPolicy.FailClosed),
+                new(
+                    BootstrapSeedCatalog.TenantSecuritySeedKey,
+                    BootstrapSeedCatalog.SeedVersion,
+                    SeedClass.TenantBaseline,
+                    SeedScope.Tenant,
+                    "identity-tenant-security",
+                    tenantChecksum,
+                    "sig-identity",
+                    requiredForReadiness: true,
+                    allowedEnvironments: string.Empty,
+                    dependsOnMigrationVersion: IdentitySchemaMigrations.All[^1].Id,
+                    dependsOnSeedKeys: null,
+                    BootstrapPolicy.FailClosed),
+            };
+            var registration = await SeedServiceRegistrationAsync(
+                store,
+                DevelopmentTopology,
+                "identity",
+                "identity",
+                IdentitySchemaMigrations.All[^1].Id,
+                seeds);
+
+            await SeedServiceOperationAsync(
+                store,
+                DevelopmentTopology,
+                "OP-REAL-IDENTITY-PLAN",
+                OperationKind.Plan,
+                "identity",
+                "identity",
+                null,
+                IdentitySchemaMigrations.All[^1].Id);
+            Assert.Equal(1, await runner.RunOnceAsync(CancellationToken.None));
+            var plan = store.Plans.Single();
+            Assert.True(plan.ServiceRequiresApply);
+
+            await SeedServiceOperationAsync(
+                store,
+                DevelopmentTopology,
+                "OP-REAL-IDENTITY-APPLY",
+                OperationKind.Apply,
+                "identity",
+                "identity",
+                plan.PlanNId,
+                IdentitySchemaMigrations.All[^1].Id);
+            Assert.Equal(1, await runner.RunOnceAsync(CancellationToken.None));
+
+            var apply = store.Operations.Single(item => item.OperationNId == "OP-REAL-IDENTITY-APPLY");
+            Assert.Equal(OperationStatus.Succeeded, apply.Status);
+            foreach (var seed in seeds)
+            {
+                var observation = await store.GetLatestSeedObservationAsync(
+                    Tenant,
+                    registration.EnvironmentNId,
+                    registration.ServiceKey,
+                    registration.ModuleKey,
+                    seed.SeedKey,
+                    CancellationToken.None);
+                Assert.NotNull(observation);
+                Assert.Equal(seed.SeedChecksum, observation!.Checksum);
+                Assert.Equal(seed.Scope, observation.Scope);
+            }
+
+            var finalReadiness = await CreateOperationService(store).GetReadinessV2Async(
+                Tenant,
+                "identity",
+                "identity",
+                "trace-real-identity",
+                CancellationToken.None);
+            Assert.True(finalReadiness.Ready);
+            Assert.True(finalReadiness.RequiredSeedReady);
+        }
+        finally
+        {
+            TryDeleteTempFile(dbPath);
+        }
+    }
+
     // ===== Apply 全链路 =====
 
     [Fact]
@@ -88,6 +463,26 @@ public sealed class DatabaseOperationRunnerTests
         Assert.NotNull(observation);
         Assert.Equal("9.9.9", observation!.ObservedVersion);
         Assert.Equal(2, adapter.InspectCallCount);
+    }
+
+    [Fact]
+    public async Task RunOnceAsync_ApplyWithRevokedOperator_FailsBeforeTargetInspection()
+    {
+        var store = new FakeDatabaseOrchestrationStore();
+        var adapter = new FakeTargetAdapter(
+            inspections: [new DatabaseTargetInspection(true, "0.9.0", null, [])]);
+        var directory = new FakeRunnerIdentityUserDirectory(Tenant, Actor, isSystemAdmin: false);
+        var runner = CreateRunner(store, adapter, DevelopmentTopology, identityUserDirectory: directory);
+        var registration = await SeedRegistrationAsync(store, DevelopmentTopology, version: "9.9.9");
+        var plan = await SeedPlanAsync(store, DevelopmentTopology, registration, requestedVersion: "9.9.9");
+        await SeedOperationAsync(store, "OP-REVOKED", OperationKind.Apply, plan.PlanNId, "9.9.9");
+
+        Assert.Equal(1, await runner.RunOnceAsync(CancellationToken.None));
+
+        var operation = store.Operations.Single();
+        Assert.Equal(OperationStatus.Failed, operation.Status);
+        Assert.Equal("SD_DB_OPERATOR_NOT_AUTHORIZED", operation.SanitizedErrorCode);
+        Assert.Equal(0, adapter.InspectCallCount);
     }
 
     [Fact]
@@ -178,6 +573,8 @@ public sealed class DatabaseOperationRunnerTests
 
         public int InspectCallCount { get; private set; }
 
+        public int MigrationApplyCount { get; private set; }
+
         public Task<DatabaseTargetInspection> InspectAsync(
             ResolvedDatabaseTarget target,
             DatabaseTargetCredentials credentials,
@@ -217,6 +614,7 @@ public sealed class DatabaseOperationRunnerTests
             string moduleKey,
             CancellationToken cancellationToken)
         {
+            MigrationApplyCount++;
             if (_executeFailure is not null)
             {
                 throw _executeFailure;
@@ -318,6 +716,87 @@ public sealed class DatabaseOperationRunnerTests
             Task.FromResult<string?>("resolved-secret");
     }
 
+    private sealed class CountingServiceInitializationInvoker : IServiceInitializationInvoker
+    {
+        private readonly Func<int, IReadOnlyList<string>> _planSteps;
+        private readonly IReadOnlyList<ServiceInitializationSeedState>? _verificationSeeds;
+
+        public CountingServiceInitializationInvoker(
+            Func<int, IReadOnlyList<string>>? planSteps = null,
+            IReadOnlyList<ServiceInitializationSeedState>? verificationSeeds = null)
+        {
+            _planSteps = planSteps ?? (_ => ["service-owned migration"]);
+            _verificationSeeds = verificationSeeds;
+        }
+
+        public int InspectCount { get; private set; }
+        public int PlanCount { get; private set; }
+        public int ApplyCount { get; private set; }
+
+        public Task<ServiceInitializationState> InspectAsync(
+            ServiceInitializationContext context,
+            CancellationToken cancellationToken)
+        {
+            InspectCount++;
+            return Task.FromResult(new ServiceInitializationState(
+                context.ServiceKey,
+                context.ModuleKey,
+                "0.9.0",
+                false,
+                true,
+                true,
+                false,
+                "service needs apply"));
+        }
+
+        public Task<ServiceInitializationPlan> PlanAsync(
+            ServiceInitializationContext context,
+            ServiceInitializationState inspection,
+            CancellationToken cancellationToken)
+        {
+            PlanCount++;
+            return Task.FromResult(new ServiceInitializationPlan(
+                context.ServiceKey,
+                context.ModuleKey,
+                inspection.ObservedVersion,
+                context.DesiredVersion,
+                true,
+                _planSteps(PlanCount)));
+        }
+
+        public Task<ServiceInitializationState> ApplyAsync(
+            ServiceInitializationContext context,
+            ServiceInitializationPlan plan,
+            CancellationToken cancellationToken)
+        {
+            ApplyCount++;
+            return Task.FromResult(new ServiceInitializationState(
+                context.ServiceKey,
+                context.ModuleKey,
+                context.DesiredVersion,
+                true,
+                true,
+                true,
+                true,
+                null,
+                _verificationSeeds));
+        }
+
+        public Task<ServiceInitializationState> VerifyAsync(
+            ServiceInitializationContext context,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new ServiceInitializationState(
+                context.ServiceKey,
+                context.ModuleKey,
+                context.DesiredVersion,
+                true,
+                true,
+                true,
+                true,
+                null,
+                _verificationSeeds));
+    }
+
     private sealed class FakeAdvisoryLock : ITargetDatabaseAdvisoryLock
     {
         private readonly IDisposable? _handle;
@@ -350,7 +829,9 @@ public sealed class DatabaseOperationRunnerTests
         FakeDatabaseOrchestrationStore store,
         FakeTargetAdapter adapter,
         DatabaseTopology topology,
-        FakeAdvisoryLock? lockPort = null)
+        FakeAdvisoryLock? lockPort = null,
+        IServiceInitializationInvoker? serviceInitializationInvoker = null,
+        IIdentityUserDirectory? identityUserDirectory = null)
     {
         var options = Options.Create(new DatabaseOrchestrationOptions());
         var runnerOptions = Options.Create(new DatabaseOperationRunnerOptions
@@ -376,7 +857,123 @@ public sealed class DatabaseOperationRunnerTests
             new FakeSeedArtifactStore(),
             new FakeSeedArtifactVerifier(),
             [new FakeSeedExecutor()],
-            new FakeSeedSecretResolver());
+            new FakeSeedSecretResolver(),
+            serviceInitializationInvoker,
+            identityUserDirectory ?? new FakeRunnerIdentityUserDirectory(Tenant, Actor, isSystemAdmin: true));
+    }
+
+    private sealed class FakeRunnerIdentityUserDirectory : IIdentityUserDirectory
+    {
+        private readonly string _tenantNId;
+        private readonly IdentityUserDirectoryEntryV1? _entry;
+
+        public FakeRunnerIdentityUserDirectory(string tenantNId, string userNId, bool isSystemAdmin)
+        {
+            _tenantNId = tenantNId;
+            _entry = new IdentityUserDirectoryEntryV1
+            {
+                TenantNId = tenantNId,
+                UserNId = userNId,
+                LoginName = userNId,
+                Name = userNId,
+                Status = "Active",
+                IsSystemAdmin = isSystemAdmin,
+            };
+        }
+
+        public Task<IdentityUserDirectoryEntryV1?> GetAsync(
+            string tenantNId,
+            string userNId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(
+                string.Equals(tenantNId, _tenantNId, StringComparison.Ordinal)
+                    ? _entry
+                    : null);
+    }
+
+    private static DatabaseOperationService CreateOperationService(FakeDatabaseOrchestrationStore store) =>
+        new(
+            store,
+            new FakeTopologyProvider(DevelopmentTopology),
+            new DatabaseApprovalService(store),
+            new DatabaseBackupService(store, Options.Create(new DatabaseOrchestrationOptions())),
+            Options.Create(new DatabaseOrchestrationOptions()));
+
+    private static async Task<DatabaseRegistration> SeedServiceRegistrationAsync(
+        FakeDatabaseOrchestrationStore store,
+        DatabaseTopology topology,
+        string serviceKey,
+        string moduleKey,
+        string version,
+        IReadOnlyCollection<SeedSet> seedSets)
+    {
+        var registration = DatabaseRegistration.Register(
+            Tenant,
+            topology.EnvironmentName,
+            serviceKey,
+            "Sqlite",
+            $"{serviceKey}_db",
+            topology.SharedSqliteFile ?? "industrial-platform.db",
+            isSharedPhysicalDatabase: true,
+            DatabaseTopologyMode.Shared.ToString(),
+            RegistrationNIdAsTopologyRevision(topology),
+            $"{serviceKey}-initializer",
+            version,
+            Sha($"{serviceKey}-artifact"),
+            "sig-ref",
+            Actor,
+            DesiredState.SourceOfTruth,
+            autoProvision: true,
+            autoMigrate: true,
+            "1",
+            Sha($"{serviceKey}-manifest"),
+            seedSets,
+            moduleKey,
+            usesServiceInitializer: true);
+        await store.AddRegistrationAsync(registration, CancellationToken.None);
+        return registration;
+    }
+
+    private static async Task SeedServiceOperationAsync(
+        FakeDatabaseOrchestrationStore store,
+        DatabaseTopology topology,
+        string operationNId,
+        OperationKind kind,
+        string serviceKey,
+        string moduleKey,
+        string? planNId,
+        string requestedVersion)
+    {
+        var operation = DatabaseProvisionOperation.Enqueue(
+            Tenant,
+            operationNId,
+            kind,
+            topology.EnvironmentName,
+            serviceKey,
+            planNId,
+            requestedVersion,
+            $"idem-{operationNId}",
+            Sha($"request-{operationNId}"),
+            DateTimeOffset.UtcNow.AddMinutes(30),
+            $"trace-{operationNId}",
+            Actor,
+            moduleKey: moduleKey);
+        await store.AddOperationAsync(operation, CancellationToken.None);
+    }
+
+    private static void TryDeleteTempFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch (IOException)
+        {
+            // SQLite 连接池可能短暂占用文件句柄,清理失败不影响断言。
+        }
     }
 
     private static DatabaseRegistrationManifestV1 CreateManifest(string version = "9.9.9") => new()
@@ -388,10 +985,21 @@ public sealed class DatabaseOperationRunnerTests
         ArtifactSignature = "sig-ref",
     };
 
-    private static async Task<DatabaseRegistration> SeedRegistrationAsync(
+    private static Task<DatabaseRegistration> SeedRegistrationAsync(
         FakeDatabaseOrchestrationStore store,
         DatabaseTopology topology,
-        string version = "9.9.9")
+        string version = "9.9.9",
+        string? moduleKey = null,
+        bool usesServiceInitializer = false) =>
+        SeedRegistrationWithSeedsAsync(store, topology, version, moduleKey, usesServiceInitializer, null);
+
+    private static async Task<DatabaseRegistration> SeedRegistrationWithSeedsAsync(
+        FakeDatabaseOrchestrationStore store,
+        DatabaseTopology topology,
+        string version = "9.9.9",
+        string? moduleKey = null,
+        bool usesServiceInitializer = false,
+        IReadOnlyCollection<SeedSet>? seedSets = null)
     {
         var registration = DatabaseRegistration.Register(
             Tenant,
@@ -412,7 +1020,10 @@ public sealed class DatabaseOperationRunnerTests
             autoProvision: true,
             autoMigrate: false,
             "1",
-            Sha("manifest"));
+            Sha("manifest"),
+            seedSets: seedSets,
+            moduleKey: moduleKey,
+            usesServiceInitializer: usesServiceInitializer);
         await store.AddRegistrationAsync(registration, CancellationToken.None);
         return registration;
     }
@@ -463,7 +1074,8 @@ public sealed class DatabaseOperationRunnerTests
         string operationNId,
         OperationKind kind,
         string? planNId,
-        string requestedVersion)
+        string requestedVersion,
+        string moduleKey = "systemdata")
     {
         var operation = DatabaseProvisionOperation.Enqueue(
             Tenant,
@@ -477,12 +1089,27 @@ public sealed class DatabaseOperationRunnerTests
             Sha($"req-{operationNId}"),
             DateTimeOffset.UtcNow.AddMinutes(30),
             "trace-001",
-            Actor);
+            Actor,
+            moduleKey: moduleKey);
         await store.AddOperationAsync(operation, CancellationToken.None);
     }
 
     private static string RegistrationNIdAsTopologyRevision(DatabaseTopology topology) =>
         DatabaseTopologyFingerprint.ComputeTopologyRevision(topology);
+
+    private static SeedSet CreateServiceSeed() => new(
+        "service-seed",
+        "1",
+        SeedClass.SystemBaseline,
+        SeedScope.System,
+        "service-seed-artifact",
+        Sha("service-seed"),
+        "sig-ref",
+        requiredForReadiness: true,
+        allowedEnvironments: string.Empty,
+        dependsOnMigrationVersion: "9.9.9",
+        dependsOnSeedKeys: null,
+        BootstrapPolicy.FailClosed);
 
     private static string Sha(string value) => DatabaseTopologyFingerprint.Sha256Hex(value);
 }

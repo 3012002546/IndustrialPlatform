@@ -152,6 +152,7 @@ export interface NavigationNodeDto {
   displayOrder: number
   visibleTerminals: string[]
   status: string
+  actionResourceNIds: string[]
   children: NavigationNodeDto[]
 }
 
@@ -160,28 +161,86 @@ export interface NavigationDraftDto {
   nodes: NavigationNodeDto[]
 }
 
+export interface NavigationDefaultImportItemDto {
+  nodeNId: string
+  label: string
+  parentNodeNId: string | null
+  kind: string
+  level: number
+  action: string
+  reason: string
+}
+
+export interface NavigationDefaultImportPreviewDto {
+  draftRevision: number
+  items: NavigationDefaultImportItemDto[]
+}
+
+export interface ImportNavigationDefaultsRequest {
+  expectedDraftRevision: number
+}
+
 export interface CreateNavigationNodeRequest {
-  nodeNId?: string
-  kind?: string
-  label?: string
-  parentNodeNId?: string
-  navigationSetNId?: string
-  resourceNId?: string
-  featureNId?: string
-  iconKey?: string
-  visibleTerminals?: string[]
-  displayOrder?: number
+  nodeNId: string
+  kind: string
+  label: string
+  parentNodeNId: string | null
+  navigationSetNId: string
+  resourceNId: string | null
+  featureNId: string | null
+  iconKey: string | null
+  visibleTerminals: string[]
+  actionResourceNIds: string[]
+  displayOrder: number
+  expectedDraftRevision: number
 }
 
 export interface UpdateNavigationNodeRequest {
-  label?: string
-  iconKey?: string
-  displayOrder?: number
+  label: string
+  parentNodeNId: string | null
+  resourceNId: string | null
+  featureNId: string | null
+  iconKey: string | null
+  visibleTerminals: string[]
+  actionResourceNIds: string[]
+  displayOrder: number
+  expectedDraftRevision: number
 }
 
 export interface NavigationValidationDto {
+  draftRevision: number
   isValid: boolean
-  errors: Array<{ code: string; message: string; nodeNId: string | null }>
+  errors: Array<{
+    code: string
+    message: string
+    nodeNId: string | null
+    resourceNId?: string | null
+    moduleNId?: string | null
+    manifestVersion?: string | null
+    manifestChecksum?: string | null
+    trustedReceiptVersion?: string | null
+    trustedReceiptChecksum?: string | null
+    trustedReceiptVerified?: boolean | null
+    receiptDetails?: Array<{
+      resourceNId: string
+      moduleNId: string
+      manifestVersion?: string | null
+      manifestChecksum?: string | null
+      trustedReceiptVersion?: string | null
+      trustedReceiptChecksum?: string | null
+      trustedReceiptVerified: boolean
+    }>
+  }>
+}
+
+export interface ThemePolicyUpdateRequest {
+  expectedPolicyRevision: number
+  allowedPalettes: string[]
+  allowedModes: string[]
+  allowedPcDensities: string[]
+  defaultPalette: string
+  defaultMode: string
+  defaultPcDensity: string
 }
 
 export interface FeatureDefinitionDto {
@@ -245,6 +304,7 @@ export interface SetServiceCatalogStatusRequest {
 export interface InitializationRegistrationSummaryDto {
   serviceKey: string
   moduleKey: string
+  usesServiceInitializer?: boolean
   logicalDatabaseName: string
   provider: string
   migrationVersion: string
@@ -253,6 +313,21 @@ export interface InitializationRegistrationSummaryDto {
   topologyRevision: string
   registeredOn: string
   lastUpdatedOn: string
+}
+
+export interface InitializationSeedSetDto {
+  seedKey: string
+  seedVersion: string
+  seedClass: string
+  scope: string
+  seedArtifactId: string
+  seedChecksum: string
+  seedSignature: string | null
+  requiredForReadiness: boolean
+  allowedEnvironments: string[] | string
+  dependsOnMigrationVersion: string | null
+  dependsOnSeedKeys: string[] | string
+  bootstrapPolicy: string | null
 }
 
 export interface InitializationRegistrationDto extends InitializationRegistrationSummaryDto {
@@ -268,7 +343,51 @@ export interface InitializationRegistrationDto extends InitializationRegistratio
   autoProvision: boolean
   autoMigrate: boolean
   manifestVersion: string
-  seedSets: Array<Record<string, unknown>> | null
+  seedSets: InitializationSeedSetDto[] | null
+  usesServiceInitializer?: boolean
+}
+
+export interface InitializationEnvironmentPolicyDto {
+  tenantNId: string
+  environmentNId: string
+  environmentKind: string
+  approvalRequired: boolean
+  backupRequired: boolean
+  planTtlSeconds: number
+  planTimeoutSeconds: number
+  applyTimeoutSeconds: number
+  maxPreMigrationRetries: number
+  policyRevision: number
+  initializationPolicy: string
+  isExplicit: boolean
+}
+
+export interface InitializationBackupEvidenceDto {
+  tenantNId: string
+  evidenceNId: string
+  planNId: string
+  planChecksum: string
+  targetStateFingerprint: string
+  backupProvider: string
+  backupReference: string
+  capturedOn: string
+  verifiedOn: string | null
+  retentionUntil: string
+  verifiedByUserNId: string | null
+  status: string
+}
+
+export interface InitializationApprovalDto {
+  tenantNId: string
+  approvalNId: string
+  planNId: string
+  planChecksum: string
+  targetStateFingerprint: string
+  approvedByUserNId: string
+  reason: string | null
+  approvedOn: string
+  expiresOn: string
+  status: string
 }
 
 export interface InitializationPlanDto {
@@ -443,15 +562,20 @@ export interface SystemDataManagementApi {
   ): Promise<AssignmentDto[]>
   listResources(): Promise<UiResourceDto[]>
   getNavigationDraft(): Promise<NavigationDraftDto>
+  previewNavigationDefaults(): Promise<NavigationDefaultImportPreviewDto>
+  importNavigationDefaults(
+    request: ImportNavigationDefaultsRequest,
+  ): Promise<NavigationDefaultImportPreviewDto>
   addNavigationNode(request: CreateNavigationNodeRequest): Promise<NavigationNodeDto>
   updateNavigationNode(
     nId: string,
     request: UpdateNavigationNodeRequest,
   ): Promise<NavigationNodeDto>
-  deleteNavigationNode(nId: string): Promise<void>
+  deleteNavigationNode(nId: string, expectedDraftRevision: number): Promise<void>
+  restoreNavigationNode(nId: string, expectedDraftRevision: number): Promise<NavigationNodeDto>
   validateNavigation(): Promise<NavigationValidationDto>
-  publishNavigation(): Promise<{ revision: number }>
-  rollbackNavigation(): Promise<{ revision: number }>
+  publishNavigation(expectedDraftRevision: number): Promise<{ revision: number }>
+  rollbackNavigation(expectedDraftRevision: number): Promise<{ revision: number }>
   listFeatures(): Promise<FeatureDefinitionDto[]>
   setFeatureOverride(
     featureNId: string,
@@ -468,10 +592,15 @@ export interface SystemDataManagementApi {
     request: SetServiceCatalogStatusRequest,
   ): Promise<ServiceCatalogDto>
   getThemePolicy(): Promise<ThemePolicyDto>
-  updateThemePolicy(request: ManagementQuery): Promise<ThemePolicyDto>
+  updateThemePolicy(request: ThemePolicyUpdateRequest): Promise<ThemePolicyDto>
   listInitializationRegistrations(): Promise<PageResultDto<InitializationRegistrationSummaryDto>>
   listInitializationPlans(): Promise<PageResultDto<InitializationPlanDto>>
   listInitializationOperations(): Promise<PageResultDto<InitializationOperationDto>>
+  getInitializationRegistration(
+    serviceKey: string,
+    moduleKey: string,
+  ): Promise<InitializationRegistrationDto>
+  getInitializationPolicy(): Promise<InitializationEnvironmentPolicyDto>
   registerInitialization(
     request: RegisterServiceInitializationRequest,
   ): Promise<InitializationRegistrationDto>
@@ -480,8 +609,17 @@ export interface SystemDataManagementApi {
     idempotencyKey: string,
   ): Promise<EnqueueInitializationOperationDto>
   getInitializationPlan(planNId: string): Promise<InitializationPlanDto>
-  createApproval(planNId: string, request: CreateApprovalRequest): Promise<unknown>
-  createBackupEvidence(planNId: string, request: CreateBackupEvidenceRequest): Promise<unknown>
+  listInitializationApprovals(planNId: string): Promise<InitializationApprovalDto[]>
+  listInitializationBackupEvidence(planNId: string): Promise<InitializationBackupEvidenceDto | null>
+  createApproval(
+    planNId: string,
+    request: CreateApprovalRequest,
+  ): Promise<InitializationApprovalDto>
+  createBackupEvidence(
+    planNId: string,
+    request: CreateBackupEvidenceRequest,
+  ): Promise<InitializationBackupEvidenceDto>
+  verifyBackupEvidence(evidenceNId: string): Promise<InitializationBackupEvidenceDto>
   applyInitialization(
     request: ApplyInitializationRequest,
     idempotencyKey: string,

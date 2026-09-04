@@ -8,6 +8,7 @@ using ContractsEvents = IndustrialPlatform.Identity.Contracts.Events;
 using IndustrialPlatform.Identity.Contracts.Management;
 using Identities = IndustrialPlatform.Identity.Domain.Identities;
 using IndustrialPlatform.Identity.Domain.Passwords;
+using IndustrialPlatform.Identity.Domain.Roles;
 using IndustrialPlatform.Identity.Domain.Users;
 using IndustrialPlatform.SharedKernel.Exceptions;
 using IndustrialPlatform.SharedKernel.Events;
@@ -35,6 +36,7 @@ public sealed partial class UserManagementService : IUserManagementService
     private readonly IRefreshSessionStore _refreshStore;
     private readonly IPermissionCache _permissionCache;
     private readonly IOperationAuditSink _auditSink;
+    private readonly ISystemAdminAuthorization _systemAdminAuthorization;
     private readonly ILogger<UserManagementService> _logger;
 
     public UserManagementService(
@@ -45,6 +47,7 @@ public sealed partial class UserManagementService : IUserManagementService
         IRefreshSessionStore refreshStore,
         IPermissionCache permissionCache,
         IOperationAuditSink auditSink,
+        ISystemAdminAuthorization systemAdminAuthorization,
         ILogger<UserManagementService> logger)
     {
         ArgumentNullException.ThrowIfNull(store);
@@ -58,6 +61,7 @@ public sealed partial class UserManagementService : IUserManagementService
         _refreshStore = refreshStore;
         _permissionCache = permissionCache;
         _auditSink = auditSink;
+        _systemAdminAuthorization = systemAdminAuthorization;
         _logger = logger;
     }
 
@@ -121,6 +125,11 @@ public sealed partial class UserManagementService : IUserManagementService
             if (roles.Count != roleNIds.Length || roles.Any(r => r.TenantNId != tenantNId))
             {
                 throw new BusinessRuleViolationException("存在无效或不可用的角色。");
+            }
+
+            if (roles.Any(IsSystemAdminRole))
+            {
+                await _systemAdminAuthorization.EnsureSystemAdminAsync(tenantNId, actorUserNId, cancellationToken);
             }
 
             foreach (var role in roles)
@@ -231,6 +240,11 @@ public sealed partial class UserManagementService : IUserManagementService
                 throw new BusinessRuleViolationException("不能禁用当前登录用户。");
             }
 
+            if (await _systemAdminAuthorization.IsSystemAdminAsync(tenantNId, user.NId, cancellationToken))
+            {
+                await _systemAdminAuthorization.EnsureSystemAdminAsync(tenantNId, actorUserNId, cancellationToken);
+            }
+
             await EnsureNotLastSystemAdminAsync(user, tenantNId, cancellationToken);
             user.Disable();
         }
@@ -285,6 +299,10 @@ public sealed partial class UserManagementService : IUserManagementService
         {
             throw new BusinessRuleViolationException("存在无效或不可用的角色。");
         }
+        if (roles.Any(IsSystemAdminRole))
+        {
+            await _systemAdminAuthorization.EnsureSystemAdminAsync(tenantNId, actorUserNId, cancellationToken);
+        }
 
         var requestedRoleIds = roles.Select(r => r.Id).ToHashSet();
         var currentActive = user.UserRoles.Where(ur => !ur.IsDeleted && !ur.RoleIsDeleted).ToArray();
@@ -292,6 +310,10 @@ public sealed partial class UserManagementService : IUserManagementService
         // 差量解除:仅保留在新集合中的活动关系;最后系统管理员保护由领域层校验。
         var removalRoleIds = currentActive.Select(ur => ur.RoleId).Where(id => !requestedRoleIds.Contains(id)).ToArray();
         var removalRoles = removalRoleIds.Length == 0 ? [] : await _store.GetRolesByIdsAsync(removalRoleIds, cancellationToken);
+        if (removalRoles.Any(IsSystemAdminRole))
+        {
+            await _systemAdminAuthorization.EnsureSystemAdminAsync(tenantNId, actorUserNId, cancellationToken);
+        }
 
         // 领域变更(可能抛 BusinessException)与持久化写入处于同一映射边界,
         // 保证业务规则违例统一映射为 BusinessRuleViolationException。
@@ -414,6 +436,11 @@ public sealed partial class UserManagementService : IUserManagementService
         if (string.Equals(user.NId, ReservedAdminUserNId, StringComparison.Ordinal))
         {
             throw new BusinessRuleViolationException("内置 ADMIN 用户禁止删除。");
+        }
+
+        if (await _systemAdminAuthorization.IsSystemAdminAsync(tenantNId, user.NId, cancellationToken))
+        {
+            await _systemAdminAuthorization.EnsureSystemAdminAsync(tenantNId, actorUserNId, cancellationToken);
         }
 
         await EnsureNotLastSystemAdminOnDeleteAsync(user, tenantNId, cancellationToken);
@@ -604,6 +631,9 @@ public sealed partial class UserManagementService : IUserManagementService
         }
     }
 
+    private static bool IsSystemAdminRole(Role role) =>
+        role.IsSystem && string.Equals(role.NId, "SYSTEM_ADMIN", StringComparison.OrdinalIgnoreCase);
+
     private static UserSummary ToSummary(StoredUser u) => new(
         u.NId,
         u.LoginName,
@@ -620,7 +650,8 @@ public sealed partial class UserManagementService : IUserManagementService
         u.EffectiveRoleNIds,
         u.OptimisticVersion,
         u.ConcurrencyVersion,
-        u.IsDeleted);
+        u.IsDeleted,
+        u.EffectiveRoleNIds.Contains("SYSTEM_ADMIN", StringComparer.OrdinalIgnoreCase));
 
     /// <summary>审计摘要:仅非敏感资料字段;绝不包含密码、Token 或内部哈希。</summary>
     private static string BuildUserSummaryText(User user) =>

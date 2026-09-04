@@ -1,3 +1,4 @@
+using IndustrialPlatform.Application.Abstractions.Initialization;
 using IndustrialPlatform.SystemData.Domain.DatabaseOrchestration;
 
 namespace IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Internal;
@@ -14,4 +15,17 @@ internal sealed record ResolvedPolicy(
     int PlanTimeoutSeconds,
     int ApplyTimeoutSeconds,
     int MaxPreMigrationRetries,
-    DatabaseEnvironmentKind EnvironmentKind);
+    DatabaseEnvironmentKind EnvironmentKind)
+{
+    /// <summary>生产环境始终使用 Advanced;其他环境只要存在人工门禁也使用 Advanced。</summary>
+    public ServiceInitializationPolicy InitializationPolicy =>
+        EnvironmentKind == DatabaseEnvironmentKind.Production || ApprovalRequired || BackupRequired
+            ? ServiceInitializationPolicy.Advanced
+            : ServiceInitializationPolicy.Standard;
+
+    /// <summary>显式策略是否存在;用于管理端说明默认值还是租户覆盖。</summary>
+    public bool IsExplicit { get; init; }
+
+    /// <summary>持久化策略修订号,默认策略为 0。</summary>
+    public int PolicyRevision { get; init; }
+}

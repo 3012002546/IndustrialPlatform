@@ -7,7 +7,11 @@ namespace IndustrialPlatform.Identity.Application.Authentication;
 /// 认证查询快照:用户聚合(含活动角色关系)与其活动角色的标识。
 /// 版本号用于登录状态变更后的乐观并发更新。
 /// </summary>
-public sealed record AuthenticatedUser(User User, IReadOnlyList<Guid> RoleIds, IReadOnlyList<string> RoleNIds);
+public sealed record AuthenticatedUser(
+    User User,
+    IReadOnlyList<Guid> RoleIds,
+    IReadOnlyList<string> RoleNIds,
+    bool IsSystemAdmin = false);
 
 /// <summary>
 /// 认证用例的持久化端口:用户查询、双版本更新与角色权限查询。

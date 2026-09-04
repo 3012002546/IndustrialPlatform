@@ -76,6 +76,54 @@ public sealed class DatabaseOrchestrationServiceTests
     }
 
     [Fact]
+    public async Task RegisterModuleAsync_OldV2SameManifest_PromotesServiceInitializerMarker()
+    {
+        var store = new FakeDatabaseOrchestrationStore();
+        var service = CreateRegistrationService(store, DevelopmentTopology);
+        var manifest = new ServiceInitializationManifestV2
+        {
+            ServiceKey = "systemdata",
+            ModuleKey = "systemdata",
+            LogicalDatabaseName = "systemdata_db",
+            Provider = "Sqlite",
+            TopologyMode = "Shared",
+            MigrationArtifactId = "artifact-1",
+            RequestedVersion = "1.0.0",
+            ArtifactChecksum = Sha("artifact"),
+            ArtifactSignature = "sig-ref",
+        };
+        var oldV2 = DatabaseRegistration.Register(
+            Tenant,
+            DevelopmentTopology.EnvironmentName,
+            "systemdata",
+            "Sqlite",
+            "systemdata_db",
+            "industrial-platform.db",
+            isSharedPhysicalDatabase: true,
+            "Shared",
+            RegistrationNIdAsTopologyRevision(DevelopmentTopology),
+            "artifact-1",
+            "1.0.0",
+            Sha("artifact"),
+            "sig-ref",
+            Actor,
+            DesiredState.SourceOfTruth,
+            autoProvision: false,
+            autoMigrate: false,
+            "1",
+            RequestHasher.HashManifestV2(manifest),
+            moduleKey: "systemdata",
+            usesServiceInitializer: false);
+        await store.AddRegistrationAsync(oldV2, CancellationToken.None);
+
+        var result = await service.RegisterModuleAsync(Tenant, Actor, manifest, CancellationToken.None);
+
+        Assert.True(result.UsesServiceInitializer);
+        Assert.True((await store.GetRegistrationAsync(
+            Tenant, DevelopmentTopology.EnvironmentName, "systemdata", "systemdata", CancellationToken.None))!.UsesServiceInitializer);
+    }
+
+    [Fact]
     public async Task RegisterAsync_NewVersion_UpdatesExisting()
     {
         var store = new FakeDatabaseOrchestrationStore();
@@ -257,6 +305,33 @@ public sealed class DatabaseOrchestrationServiceTests
             service.EnqueuePlanAsync(Tenant, Actor, "idem-plan-1", CreatePlanRequest(version: "2.0.0"), "trace-001", CancellationToken.None));
 
         Assert.Equal("SD_DB_OPERATION_CONFLICT", ex.Code);
+    }
+
+    [Fact]
+    public async Task GetEffectivePolicyAsync_ProductionTopologyCannotBeWeakenedByStoredPolicy()
+    {
+        var store = new FakeDatabaseOrchestrationStore();
+        var service = CreatePlanService(store, ProductionTopology);
+        var stored = DatabaseEnvironmentPolicy.Create(
+            Tenant,
+            ProductionTopology.EnvironmentName,
+            DatabaseEnvironmentKind.Development,
+            approvalRequired: false,
+            backupRequired: false,
+            planTtlSeconds: 60,
+            planTimeoutSeconds: 60,
+            applyTimeoutSeconds: 60,
+            maxPreMigrationRetries: 0);
+        await store.AddEnvironmentPolicyAsync(stored, CancellationToken.None);
+
+        var result = await service.GetEffectivePolicyAsync(Tenant, CancellationToken.None);
+
+        Assert.Equal("Production", result.EnvironmentKind);
+        Assert.True(result.ApprovalRequired);
+        Assert.True(result.BackupRequired);
+        Assert.Equal("Advanced", result.InitializationPolicy);
+        Assert.True(result.IsExplicit);
+        Assert.Equal(stored.PolicyRevision, result.PolicyRevision);
     }
 
     [Fact]

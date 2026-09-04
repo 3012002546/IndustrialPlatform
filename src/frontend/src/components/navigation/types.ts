@@ -58,4 +58,5 @@ export interface NavigationSection {
   label: string
   labelKey?: string
   fallbackLabel?: string
+  displayOrder?: number
 }

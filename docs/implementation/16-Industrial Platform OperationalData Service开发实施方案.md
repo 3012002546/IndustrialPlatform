@@ -8,7 +8,7 @@
 
 ## 1. 目标与边界
 
-OperationalData 是一个独立部署、内部模块化的微服务，负责运行期库存事实、库存批次实例、预留、仓储单据、库存流水和外部 WMS 防腐层。MasterData 继续拥有物料、单位、仓库、库位和批次策略定义；WorkOrder 只发出业务需求；Trace 和 BatchRecord 只消费事实并建立投影。
+OperationalData 是一个独立部署、内部模块化的微服务，负责运行期库存事实、库存批次实例、预留、仓储单据、库存流水和外部 WMS 防腐层。MasterData 继续拥有物料、仓库、库位和批次策略定义；ReferenceData 拥有通用单位/换算与状态机定义；WorkOrder 只发出业务需求；Trace 和 BatchRecord 只消费事实并建立投影。
 
 当前执行前置：可运行基线、统一前端第一批、Identity、ReferenceData 和 MasterData 服务 + 页面阶段全部完成。OperationalData 必须在同一阶段交付库存查询、批次、收发退、调拨和盘点页面。
 
@@ -26,6 +26,8 @@ MasterData → OperationalData → WorkOrder / Weighting / Trace / BatchRecord
 - 单个仓库只能有 `Internal` 或 `ExternalWms` 一个库存权威源。
 - API、事件、WMS 命令和回执均使用幂等键；单据、流水、余额和 Outbox 在同一事务提交。
 - 跨服务只使用 API、Contracts 和事件；禁止引用其他服务 Infrastructure 或数据库上下文。
+- 每项业务数量都保存 `UnitDimensionNId`、`UnitNId`、`unitRevision`（整份 `UnitDimension.Revision`）、`sourceScope`、`sourceTenantNId` 和过账时的精度/舍入、必要换算快照；`sourceTenantNId` 是定义来源而非业务对象 `TenantNId`，Platform 来源为空，Tenant 来源等于可信当前租户。通用换算仅允许同来源、同维度、同修订；通用定义只从 ReferenceData 公开契约读取，库存事实不因单位停用或后续修订而失去可解释性。
+- InventoryLot、库存与单据的业务执行状态由 OperationalData 自己的聚合和事务管理；ReferenceData StateMachine 仅提供可消费的定义契约，不能接管过账、库存校验、状态写入或历史。
 - 每项任务先写失败测试，再实现最小代码，并保留命令、退出码与测试数量作为证据。
 - 状态流转：`可派遣 → 已派遣 → 开发中 → 待验收 → 已完成`；发现蓝图冲突时改为 `设计待确认`。
 
@@ -61,17 +63,17 @@ OD-001 → OD-002 → OD-003 → OD-004 → OD-005 → OD-006 → OD-007 → OD-
 
 **目标：** 实现 InventoryLot、InventoryContainer、批次状态、供应商/生产批次关联及拆分、合并、换容器规则。
 
-**输入文档：** 蓝图 14A 第 7 节；TASK-MD-002、003、005 发布的物料、单位、批次策略、仓库和库位契约。
+**输入文档：** 蓝图 14A 第 7 节；ReferenceData UnitOfMeasure 公开契约及 TASK-MD-002、003、005 发布的物料、批次策略、仓库和库位契约。
 
 **依赖：** TASK-OD-001、TASK-MD-002、TASK-MD-003、TASK-MD-005。
 
-**允许修改范围：** OperationalData Lots 模块、MasterData 客户端适配、持久化和对应测试。
+**允许修改范围：** OperationalData Lots 模块、MasterData/ReferenceData 客户端适配、持久化和对应测试。
 
-**预期输出：** 批次/容器聚合、状态机、唯一键、并发版本、MasterData 引用快照和数据库迁移。
+**预期输出：** 批次/容器聚合、状态机、唯一键、并发版本、MasterData 引用和 ReferenceData UnitReference 快照、数据库迁移。
 
 **验证与证据：** 提供批次唯一性、冻结/解冻、拆分/合并、换容器、失效主数据、跨仓库库位和并发冲突测试结果。
 
-**结果回写：** 回写实体、状态、唯一键和 MasterData 快照字段；设计变化同步蓝图 14A、26。
+**结果回写：** 回写实体、状态、唯一键、MasterData 快照与 ReferenceData UnitReference/换算快照字段；设计变化同步蓝图 14A、26。
 
 **建议提交：** `feat(operational-data): add inventory lots and containers`
 
@@ -87,7 +89,7 @@ OD-001 → OD-002 → OD-003 → OD-004 → OD-005 → OD-006 → OD-007 → OD-
 
 **允许修改范围：** OperationalData Inventory 模块、数据库映射、迁移和测试。
 
-**预期输出：** 在手、预留、可用、冻结和在途数量；唯一余额维度、乐观并发、不可变流水和余额重建能力。
+**预期输出：** 在手、预留、可用、冻结和在途数量及其 UnitReference/精度快照；唯一余额维度、乐观并发、不可变流水和余额重建能力。
 
 **验证与证据：** 提供余额公式、负库存限制、流水不可修改、流水重放、并发冲突和事务回滚测试结果。
 
@@ -141,7 +143,7 @@ OD-001 → OD-002 → OD-003 → OD-004 → OD-005 → OD-006 → OD-007 → OD-
 
 **目标：** 实现 Receipt、MaterialReturn、ProductionReceipt 的校验、库存批次创建/关联与过账。
 
-**输入文档：** 蓝图 14A 第 12、14、15 节；MasterData 物料、单位、仓库、库位与批次策略契约。
+**输入文档：** 蓝图 14A 第 12、14、15 节；MasterData 物料、仓库、库位与批次策略契约，以及 ReferenceData UnitOfMeasure 契约。
 
 **依赖：** TASK-OD-004、TASK-OD-005。
 
@@ -220,7 +222,7 @@ OD-001 → OD-002 → OD-003 → OD-004 → OD-005 → OD-006 → OD-007 → OD-
 - 无 WMS 时可完成收、发、退、调、盘、调整和生产入库闭环。
 - 有 WMS 时单据等待明确回执后更新本地投影，超时不推断成功。
 - 所有库存变化均可追溯到单据、不可变流水、操作者和业务时间。
-- MasterData、WorkOrder、Weighting、Trace、BatchRecord 均不成为库存权威。
+- MasterData、ReferenceData、WorkOrder、Weighting、Trace、BatchRecord 均不成为库存权威；ReferenceData 只提供单位/状态定义，不接管业务执行。
 - 对应 OperationalData 页面已连接真实 API，权限、契约和关键路径 E2E 全部通过。
 - 领域、应用、基础设施、API、并发、幂等、契约和双模式测试全部通过。
 

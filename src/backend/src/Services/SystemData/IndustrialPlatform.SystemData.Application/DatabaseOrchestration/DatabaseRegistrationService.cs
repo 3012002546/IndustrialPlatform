@@ -185,13 +185,28 @@ public sealed class DatabaseRegistrationService : IRegistrationService
         var migrationArtifactId = string.IsNullOrWhiteSpace(manifest.MigrationArtifactId)
             ? $"default-{serviceKey}"
             : manifest.MigrationArtifactId.Trim();
+        var usesServiceInitializer = manifest.UsesServiceInitializer ?? true;
 
         var existing = await _store.GetRegistrationAsync(tenantNId, environmentNId, serviceKey, moduleKey, cancellationToken);
         if (existing is not null)
         {
             if (string.Equals(existing.ManifestChecksum, manifestChecksum, StringComparison.Ordinal))
             {
-                return ToRegistrationV1(existing);
+                if (usesServiceInitializer && !existing.UsesServiceInitializer)
+                {
+                    var promoteExpectedOptimisticVersion = existing.OptimisticVersion;
+                    var promoteExpectedConcurrencyVersion = existing.ConcurrencyVersion;
+                    existing.EnableServiceInitializer();
+                    existing.ClearDomainEvents();
+                    await WriteGuard.ExecuteAsync(
+                        () => _store.UpdateRegistrationAsync(
+                            existing,
+                            promoteExpectedOptimisticVersion,
+                            promoteExpectedConcurrencyVersion,
+                            cancellationToken));
+                }
+
+                return ToRegistrationV1(existing, redactPhysicalTarget: true);
             }
 
             if (string.Equals(existing.MigrationVersion, requestedVersion, StringComparison.Ordinal)
@@ -220,11 +235,12 @@ public sealed class DatabaseRegistrationService : IRegistrationService
                 autoMigrate,
                 manifestVersion,
                 manifestChecksum,
-                seedSets);
+                seedSets,
+                usesServiceInitializer: existing.UsesServiceInitializer || usesServiceInitializer);
             existing.ClearDomainEvents();
             await WriteGuard.ExecuteAsync(
                 () => _store.UpdateRegistrationAsync(existing, expectedOptimisticVersion, expectedConcurrencyVersion, cancellationToken));
-            return ToRegistrationV1(existing);
+            return ToRegistrationV1(existing, redactPhysicalTarget: true);
         }
 
         var registration = DatabaseRegistration.Register(
@@ -248,11 +264,12 @@ public sealed class DatabaseRegistrationService : IRegistrationService
             manifestVersion,
             manifestChecksum,
             seedSets,
-            moduleKey);
+            moduleKey,
+            usesServiceInitializer: usesServiceInitializer);
         registration.ClearDomainEvents();
         await WriteGuard.ExecuteAsync(
             () => _store.AddRegistrationAsync(registration, cancellationToken));
-        return ToRegistrationV1(registration);
+        return ToRegistrationV1(registration, redactPhysicalTarget: true);
     }
 
     /// <inheritdoc />
@@ -277,7 +294,7 @@ public sealed class DatabaseRegistrationService : IRegistrationService
             tenantNId, topology.EnvironmentName, serviceKey, moduleKey, cancellationToken);
         return registration is null
             ? throw new RegistrationNotFoundException()
-            : ToRegistrationV1(registration);
+            : ToRegistrationV1(registration, redactPhysicalTarget: true);
     }
 
     /// <inheritdoc />
@@ -328,6 +345,7 @@ public sealed class DatabaseRegistrationService : IRegistrationService
     {
         ServiceKey = registration.ServiceKey,
         ModuleKey = registration.ModuleKey,
+        UsesServiceInitializer = registration.UsesServiceInitializer,
         LogicalDatabaseName = registration.LogicalDatabaseName,
         Provider = registration.Provider,
         MigrationVersion = registration.MigrationVersion,
@@ -338,15 +356,19 @@ public sealed class DatabaseRegistrationService : IRegistrationService
         LastUpdatedOn = registration.LastUpdatedOn,
     };
 
-    private static DatabaseRegistrationV1 ToRegistrationV1(DatabaseRegistration registration) => new()
+    private static DatabaseRegistrationV1 ToRegistrationV1(
+        DatabaseRegistration registration,
+        bool redactPhysicalTarget = false) => new()
     {
         TenantNId = registration.TenantNId,
         EnvironmentNId = registration.EnvironmentNId,
         ServiceKey = registration.ServiceKey,
         ModuleKey = registration.ModuleKey,
+        UsesServiceInitializer = registration.UsesServiceInitializer,
         Provider = registration.Provider,
         LogicalDatabaseName = registration.LogicalDatabaseName,
-        PhysicalDatabaseName = registration.PhysicalDatabaseName,
+        PhysicalDatabaseName = redactPhysicalTarget ? Mask(registration.PhysicalDatabaseName) : registration.PhysicalDatabaseName,
+        PhysicalDatabaseTarget = Mask(registration.PhysicalDatabaseName),
         IsSharedPhysicalDatabase = registration.IsSharedPhysicalDatabase,
         TopologyMode = registration.TopologyMode,
         TopologyRevision = registration.TopologyRevision,
@@ -509,4 +531,11 @@ public sealed class DatabaseRegistrationService : IRegistrationService
         string.IsNullOrWhiteSpace(value)
             ? DesiredState.SourceOfTruth
             : DatabaseOrchestrationInput.ParseEnum<DesiredState>(value, nameof(DesiredState));
+
+    private static string Mask(string physicalDatabaseName) =>
+        string.IsNullOrWhiteSpace(physicalDatabaseName)
+            ? "***"
+            : physicalDatabaseName.Length <= 8
+                ? "***"
+                : $"{physicalDatabaseName[..3]}***{physicalDatabaseName[^2..]}";
 }

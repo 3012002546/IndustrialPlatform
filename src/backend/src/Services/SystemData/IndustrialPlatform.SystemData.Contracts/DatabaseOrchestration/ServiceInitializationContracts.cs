@@ -54,6 +54,12 @@ public sealed record ServiceInitializationManifestV2
     /// <summary>是否允许自动迁移,缺省 false。</summary>
     public bool? AutoMigrate { get; init; }
 
+    /// <summary>
+    /// 是否由服务初始化器拥有 Migration/Seed/Bootstrap 生命周期。
+    /// 缺省为 true；显式 false 仅用于保留旧 V2 SQL Runner 兼容路径。
+    /// </summary>
+    public bool? UsesServiceInitializer { get; init; }
+
     /// <summary>所有者业务标识,缺省为当前操作人。</summary>
     public string? OwnerNId { get; init; }
 

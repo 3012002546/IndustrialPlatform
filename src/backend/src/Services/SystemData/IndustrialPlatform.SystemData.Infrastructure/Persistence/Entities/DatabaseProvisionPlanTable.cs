@@ -70,6 +70,9 @@ public sealed class DatabaseProvisionPlanTable
     [SugarColumn(ColumnName = "destructive_change_detected")]
     public bool DestructiveChangeDetected { get; set; }
 
+    [SugarColumn(ColumnName = "service_requires_apply", IsNullable = true)]
+    public bool? ServiceRequiresApply { get; set; }
+
     [SugarColumn(ColumnName = "required_policies")]
     public DatabasePlanRequiredPolicies RequiredPolicies { get; set; }
 

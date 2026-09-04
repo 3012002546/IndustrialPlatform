@@ -1,3 +1,4 @@
+using IndustrialPlatform.Application.Abstractions.Initialization;
 using IndustrialPlatform.SystemData.Domain.DatabaseOrchestration;
 using IndustrialPlatform.SharedKernel.Topology;
 
@@ -32,7 +33,10 @@ public sealed record SeedArtifact(
 /// <summary>种子产物步骤(单条 SQL 或 initializer 指令;不含 Secret 值)。</summary>
 public sealed record SeedArtifactStep(int Sequence, string StepId, string Sql, string? RollbackSql);
 
-/// <summary>种子执行请求(仅内存传递;SecretValue 不持久化,Artifact 为已解析并校验的签名产物)。</summary>
+/// <summary>
+/// 种子执行请求(仅内存传递)。生产 ServiceInitializer 只接收非敏感初始化上下文;
+/// <see cref="SecretValue"/> 仅由无端口 legacy 兼容适配器使用,不得进入控制面或服务初始化端口。
+/// </summary>
 public sealed record SeedExecutionRequest(
     SeedSet Seed,
     SeedArtifact Artifact,
@@ -43,7 +47,9 @@ public sealed record SeedExecutionRequest(
     string EnvironmentNId,
     string? SecretValue,
     string OperationNId,
-    string TraceId);
+    string TraceId,
+    ServiceInitializationPolicy InitializationPolicy = ServiceInitializationPolicy.Standard,
+    string? DesiredVersion = null);
 
 /// <summary>种子执行结果。</summary>
 public sealed record SeedExecutionResult(
@@ -68,7 +74,10 @@ public sealed record SeedLedgerQuery(
     string OperationNId,
     string TraceId,
     ResolvedDatabaseTarget Target,
-    TargetDatabaseConnection Connection);
+    TargetDatabaseConnection Connection,
+    ServiceInitializationPolicy InitializationPolicy = ServiceInitializationPolicy.Standard,
+    string? DesiredVersion = null,
+    string? SeedChecksum = null);
 
 /// <summary>种子账本条目。</summary>
 public sealed record SeedLedgerEntry(
@@ -102,6 +111,12 @@ public interface ISeedExecutor
 {
     /// <summary>执行方式(SqlBundle/ServiceInitializer),供 Runner 按产物选择。</summary>
     SeedExecutorKind Kind { get; }
+
+    /// <summary>
+    /// 是否需要由 SystemData 解析并以内存值传给 legacy 执行器。
+    /// 默认 false;生产服务初始化器由目标服务自行解析其 Secret Provider。
+    /// </summary>
+    bool AcceptsSecretValue => false;
 
     /// <summary>读取目标库种子账本条目;不存在返回 <c>null</c>。</summary>
     Task<SeedLedgerEntry?> ReadLedgerAsync(SeedLedgerQuery query, CancellationToken cancellationToken);

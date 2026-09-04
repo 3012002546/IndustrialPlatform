@@ -12,4 +12,5 @@ public sealed record AuthorizationSnapshot(
     string UserNId,
     UserStatus Status,
     int AuthVersion,
-    IReadOnlyList<string> PermissionNIds);
+    IReadOnlyList<string> PermissionNIds,
+    bool IsSystemAdmin = false);

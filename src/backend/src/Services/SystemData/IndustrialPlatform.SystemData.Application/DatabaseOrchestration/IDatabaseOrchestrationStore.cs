@@ -104,6 +104,14 @@ public interface IDatabaseOrchestrationStore
     /// <summary>查询某数据库身份最近一次观察;不存在返回 <c>null</c>。</summary>
     Task<DatabaseMigrationObservation?> GetLatestObservationAsync(string tenantNId, string environmentNId, string serviceKey, CancellationToken cancellationToken);
 
+    /// <summary>按初始化单元查询最近一次迁移观察;v1 观察缺省以 ServiceKey 作为 ModuleKey。</summary>
+    Task<DatabaseMigrationObservation?> GetLatestObservationAsync(
+        string tenantNId,
+        string environmentNId,
+        string serviceKey,
+        string moduleKey,
+        CancellationToken cancellationToken);
+
     /// <summary>新增迁移观察(只追加)。</summary>
     Task AddObservationAsync(DatabaseMigrationObservation observation, CancellationToken cancellationToken);
 

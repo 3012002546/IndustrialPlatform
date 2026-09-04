@@ -103,4 +103,5 @@ public sealed record UserSummary(
     IReadOnlyList<string> EffectiveRoleNIds,
     long OptimisticVersion,
     Guid ConcurrencyVersion,
-    bool IsDeleted);
+    bool IsDeleted,
+    bool IsSystemAdmin = false);

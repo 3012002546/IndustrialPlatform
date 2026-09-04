@@ -11,6 +11,8 @@ namespace IndustrialPlatform.SystemData.Contracts.Administration;
 /// <summary>身份目录条目(与 Identity UserSummary 对齐的最小稳定视图)。</summary>
 public sealed record IdentityUserDirectoryEntryV1
 {
+    /// <summary>租户业务标识。</summary>
+    public string TenantNId { get; init; } = string.Empty;
     /// <summary>用户业务标识(与任职 UserNId 一致)。</summary>
     public string UserNId { get; init; } = string.Empty;
 
@@ -25,4 +27,7 @@ public sealed record IdentityUserDirectoryEntryV1
 
     /// <summary>身份目录认证/缓存版本(用于失效判断,可空)。</summary>
     public string? AuthVersion { get; init; }
+
+    /// <summary>当前权威快照是否持有 SYSTEM_ADMIN 角色。</summary>
+    public bool IsSystemAdmin { get; init; }
 }

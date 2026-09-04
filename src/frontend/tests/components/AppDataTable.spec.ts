@@ -134,9 +134,46 @@ describe('AppDataTable', () => {
     ).toBe('暂无数据')
   })
 
+  it('uses native VXE tree expansion and keeps ancestors when searching descendants', async () => {
+    const wrapper = mount(AppDataTable, {
+      props: {
+        tableKey: 'navigation-tree',
+        mode: 'tree',
+        rowKey: 'id',
+        tree: { childrenField: 'children' },
+        rows: [
+          {
+            id: 'root',
+            label: 'Root',
+            children: [{ id: 'child', label: 'Target', children: [] }],
+          },
+        ],
+        columns: [
+          { field: 'label', title: '名称' },
+          { field: 'id', title: '标识' },
+        ],
+      },
+    })
+
+    const columns = wrapper.findAllComponents(VxeColumn)
+    expect(columns[0]?.props('treeNode')).toBe(true)
+    expect(columns[1]?.props('treeNode')).toBe(false)
+    expect(wrapper.find('[data-testid="app-data-table-tree-expand-all"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="app-data-table-tree-collapse-all"]').exists()).toBe(true)
+
+    await wrapper.get('[data-testid="app-data-table-quick-search"]').setValue('Target')
+    await flushPromises()
+    const data = wrapper.findComponent(VxeTable).props('data') as Array<Record<string, unknown>>
+    expect(data).toHaveLength(1)
+    expect(data[0]?.id).toBe('root')
+    expect(data[0]?.children).toEqual([{ id: 'child', label: 'Target', children: [] }])
+  })
+
   it('keeps the platform header height at the approved 38px despite VXE inline sizing', async () => {
     const source = await import('@/components/management/AppDataTable.vue?raw')
-    expect(source.default).toMatch(/\.vxe-table--header-wrapper \.vxe-header--column[\s\S]*height:\s*38px !important/)
+    expect(source.default).toMatch(
+      /\.vxe-table--header-wrapper \.vxe-header--column[\s\S]*height:\s*38px !important/,
+    )
   })
 
   it('uses a platform loading overlay without passing loading to VxeTable', () => {

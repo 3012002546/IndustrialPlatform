@@ -230,6 +230,14 @@ alter table material_property
 
 ---
 
+## 5.1 ReferenceData 数据模型边界
+
+`referencedata_db` 使用 `reference_data` Schema。Dictionary、Parameter、DynamicProperty、Metadata、CodingRule、StateMachine、UnitOfMeasure 七个逻辑模块共享服务级 `schema_migrations`、`seed_ledger`、带 `module_key` 的 `outbox_message` 和基础设施；没有实际入站事件消费者，不建立 Inbox/Checkpoint。
+
+模块表前缀固定为 `dictionary_*`、`parameter_*`、`dynamic_property_*`、`metadata_*`、`coding_rule_*`、`state_machine_*`、`unit_of_measure_*`。`StateMachineDefinition` 是状态机根，`StateNode`、`StateTransition` 仅能随根写入；它管理版本化定义与转换合法性判断，业务服务自行在本地事务内执行实例状态、权限、业务前置条件和历史，不提供通用 `SetStatus`。`UnitDimension` 是单位根，Revision 表示包含 `UnitDefinition` 子项的整份快照；每个单位保存 `FactorToBase`、`OffsetToBase`、`DecimalPlaces`、`RoundingMode`，不另建两两换算图或独立 Factor 表。物料专属比例属于 MasterData。
+
+---
+
 # 6. Identity数据库设计
 
 数据库：

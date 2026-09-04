@@ -67,13 +67,25 @@ public sealed class NavigationController : SystemDataControllerBase
     [Authorize(Policy = SystemDataPermissionPolicies.NavigationManage)]
     public async Task<ActionResult<NavigationNodeResponse>> Add(CreateNavigationNodeRequest request, CancellationToken cancellationToken) => await Execute(async tenant => await _service.AddNodeAsync(tenant, request, cancellationToken));
 
+    [HttpGet("defaults/preview")]
+    [Authorize(Policy = SystemDataPermissionPolicies.NavigationManage)]
+    public async Task<ActionResult<NavigationDefaultImportPreviewResponse>> PreviewDefaults(CancellationToken cancellationToken) => await Execute(tenant => _service.PreviewDefaultImportAsync(tenant, cancellationToken));
+
+    [HttpPost("defaults/import")]
+    [Authorize(Policy = SystemDataPermissionPolicies.NavigationManage)]
+    public async Task<ActionResult<NavigationDefaultImportPreviewResponse>> ImportDefaults(ImportNavigationDefaultsRequest request, CancellationToken cancellationToken) => await Execute(tenant => _service.ImportDefaultsAsync(tenant, request, cancellationToken));
+
     [HttpPut("draft/nodes/{nodeNId}")]
     [Authorize(Policy = SystemDataPermissionPolicies.NavigationManage)]
     public async Task<ActionResult<NavigationNodeResponse>> Update(string nodeNId, UpdateNavigationNodeRequest request, CancellationToken cancellationToken) => await Execute(async tenant => await _service.UpdateNodeAsync(tenant, nodeNId, request, cancellationToken));
 
     [HttpDelete("draft/nodes/{nodeNId}")]
     [Authorize(Policy = SystemDataPermissionPolicies.NavigationManage)]
-    public async Task<ActionResult> Delete(string nodeNId, CancellationToken cancellationToken) { if (!TryGetActorContext(out var tenant, out _)) return UnauthorizedEnvelope(); try { await _service.DeleteNodeAsync(tenant, nodeNId, cancellationToken); return NoContent(); } catch (ValidationException ex) { return StatusCodeEnvelope(409, "SD_NAVIGATION_DELETE_BLOCKED", ex.Message); } }
+    public async Task<ActionResult> Delete(string nodeNId, [FromQuery] long? expectedDraftRevision, CancellationToken cancellationToken) { if (!TryGetActorContext(out var tenant, out _)) return UnauthorizedEnvelope(); try { await _service.DeleteNodeAsync(tenant, nodeNId, expectedDraftRevision, cancellationToken); return NoContent(); } catch (ConcurrencyException ex) { return StatusCodeEnvelope(409, "SD_NAVIGATION_CONFLICT", ex.Message); } catch (ValidationException ex) { return StatusCodeEnvelope(409, "SD_NAVIGATION_DELETE_BLOCKED", ex.Message); } }
+
+    [HttpPost("draft/nodes/{nodeNId}/restore")]
+    [Authorize(Policy = SystemDataPermissionPolicies.NavigationManage)]
+    public async Task<ActionResult<NavigationNodeResponse>> Restore(string nodeNId, [FromQuery] long? expectedDraftRevision, CancellationToken cancellationToken) => await Execute(async tenant => await _service.RestoreNodeAsync(tenant, nodeNId, expectedDraftRevision, cancellationToken));
 
     [HttpPost("validate")]
     [Authorize(Policy = SystemDataPermissionPolicies.NavigationManage)]
@@ -81,11 +93,11 @@ public sealed class NavigationController : SystemDataControllerBase
 
     [HttpPost("publish")]
     [Authorize(Policy = SystemDataPermissionPolicies.NavigationPublish)]
-    public async Task<ActionResult<object>> Publish(CancellationToken cancellationToken) => await Execute(async tenant => new { Revision = await _service.PublishAsync(tenant, Actor(), cancellationToken) });
+    public async Task<ActionResult<object>> Publish([FromQuery] long? expectedDraftRevision, CancellationToken cancellationToken) => await Execute(async tenant => new { Revision = await _service.PublishAsync(tenant, Actor(), expectedDraftRevision, cancellationToken) });
 
     [HttpPost("rollback")]
     [Authorize(Policy = SystemDataPermissionPolicies.NavigationRollback)]
-    public async Task<ActionResult<object>> Rollback(CancellationToken cancellationToken) => await Execute(async tenant => new { Revision = await _service.RollbackAsync(tenant, Actor(), cancellationToken) });
+    public async Task<ActionResult<object>> Rollback([FromQuery] long? expectedDraftRevision, CancellationToken cancellationToken) => await Execute(async tenant => new { Revision = await _service.RollbackAsync(tenant, Actor(), expectedDraftRevision, cancellationToken) });
 
     [HttpGet("/runtime/navigation")]
     [Authorize]
@@ -101,6 +113,7 @@ public sealed class NavigationController : SystemDataControllerBase
     {
         if (!TryGetActorContext(out var tenant, out _)) return UnauthorizedEnvelope();
         try { return Ok(await action(tenant)); }
+        catch (ConcurrencyException ex) { return StatusCodeEnvelope(409, "SD_NAVIGATION_CONFLICT", ex.Message); }
         catch (ValidationException ex) { return StatusCodeEnvelope(409, "SD_NAVIGATION_INVALID", ex.Message); }
         catch (ArgumentException ex) { return BadRequestEnvelope("SD_VALIDATION_FAILED", ex.Message); }
     }
@@ -152,7 +165,7 @@ public sealed class FeaturesController : SystemDataControllerBase
         if (!TryGetActorContext(out var tenant, out _)) return UnauthorizedEnvelope();
         try { var result = await _service.RuntimeAsync(tenant, cancellationToken); if (IsNotModified(result.Revision)) return StatusCode(StatusCodes.Status304NotModified); return Ok(result); } catch (ValidationException ex) { return StatusCodeEnvelope(503, "SD_FEATURES_NOT_READY", ex.Message); }
     }
-    private async Task<ActionResult<T>> Execute<T>(Func<string, Task<T>> action) { if (!TryGetActorContext(out var t, out _)) return UnauthorizedEnvelope(); try { return Ok(await action(t)); } catch (ValidationException ex) { return BadRequestEnvelope("SD_VALIDATION_FAILED", ex.Message); } }
+    private async Task<ActionResult<T>> Execute<T>(Func<string, Task<T>> action) { if (!TryGetActorContext(out var t, out _)) return UnauthorizedEnvelope(); try { return Ok(await action(t)); } catch (ConcurrencyException ex) { return StatusCodeEnvelope(409, "SD_THEME_POLICY_CONFLICT", ex.Message); } catch (ValidationException ex) { return BadRequestEnvelope("SD_VALIDATION_FAILED", ex.Message); } }
 }
 
 [ApiController]
@@ -227,5 +240,5 @@ public sealed class ThemePolicyController : SystemDataControllerBase
         if (!TryGetActorContext(out var tenant, out _)) return UnauthorizedEnvelope();
         try { var result = await _service.RuntimeAsync(tenant, cancellationToken); if (IsNotModified(result.PolicyRevision)) return StatusCode(StatusCodes.Status304NotModified); return Ok(result); } catch (ValidationException ex) { return StatusCodeEnvelope(503, "SD_THEME_POLICY_NOT_READY", ex.Message); }
     }
-    private async Task<ActionResult<T>> Execute<T>(Func<string, Task<T>> action) { if (!TryGetActorContext(out var t, out _)) return UnauthorizedEnvelope(); try { return Ok(await action(t)); } catch (ValidationException ex) { return BadRequestEnvelope("SD_VALIDATION_FAILED", ex.Message); } }
+    private async Task<ActionResult<T>> Execute<T>(Func<string, Task<T>> action) { if (!TryGetActorContext(out var t, out _)) return UnauthorizedEnvelope(); try { return Ok(await action(t)); } catch (ConcurrencyException ex) { return StatusCodeEnvelope(409, "SD_THEME_POLICY_CONFLICT", ex.Message); } catch (ValidationException ex) { return BadRequestEnvelope("SD_VALIDATION_FAILED", ex.Message); } catch (ArgumentException ex) { return BadRequestEnvelope("SD_VALIDATION_FAILED", ex.Message); } }
 }

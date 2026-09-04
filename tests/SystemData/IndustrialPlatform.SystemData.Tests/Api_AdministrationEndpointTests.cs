@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using IndustrialPlatform.SystemData.Application.Assignments;
 using IndustrialPlatform.SystemData.Application.Auditing;
+using IndustrialPlatform.SystemData.Application.Authorization;
 using IndustrialPlatform.SystemData.Application.IdentityDirectory;
 using IndustrialPlatform.SystemData.Application.Organizations;
 using IndustrialPlatform.SystemData.Application.Positions;
@@ -928,6 +929,8 @@ public sealed class AdministrationEndpointTests
                 services.AddSingleton<IUserAssignmentAdvisoryLock>(new FakeUserAssignmentAdvisoryLock());
                 services.RemoveAll<ILocalAuditCommand>();
                 services.AddSingleton<ILocalAuditCommand>(audit ?? new RecordingLocalAuditCommand());
+                services.RemoveAll<ISystemDataPermissionEvaluator>();
+                services.AddSingleton<ISystemDataPermissionEvaluator, DenySystemDataPermissionEvaluator>();
 
                 // 以测试方案替换 JwtBearer:按用例注入身份;401/403 信封形状与生产一致。
                 services.AddAuthentication(TestAuthDefaults.Scheme)
@@ -935,6 +938,14 @@ public sealed class AdministrationEndpointTests
                         TestAuthDefaults.Scheme,
                         options => options.PrincipalFactory = _ => user is null ? null : TestAuthHandler.BuildPrincipal(user));
             }));
+
+    private sealed class DenySystemDataPermissionEvaluator : ISystemDataPermissionEvaluator
+    {
+        public Task<SystemDataPermissionDecision> EvaluateAsync(
+            SystemDataPermissionRequest request,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new SystemDataPermissionDecision(false, SystemDataPermissionDenialReason.MissingPermission));
+    }
 
     private static async Task<HttpResponseMessage> SendJsonAsync(HttpClient client, HttpMethod method, string url, string json)
     {

@@ -41,6 +41,17 @@ public sealed class ControlPlaneSchemaTests
         Assert.Contains("event_created_time TEXT", outbox, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void Navigation_action_resource_association_is_an_additive_migration()
+    {
+        var initial = Ddl("NavigationDdl", DbType.Sqlite);
+        var migration = Ddl("NavigationActionResourcesDdl", DbType.Sqlite);
+
+        Assert.DoesNotContain("action_resource_n_ids_json", initial, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("ADD COLUMN action_resource_n_ids_json TEXT NOT NULL DEFAULT '[]'", migration, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("SDM-017-01", SystemDataSchemaMigrations.All[^1].Id);
+    }
+
     private static string Ddl(string methodName, DbType dbType) =>
         (string)typeof(SystemDataSchemaMigrations)
             .GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static)!

@@ -7,6 +7,7 @@ using IndustrialPlatform.Identity.Api.Commands;
 using IndustrialPlatform.Identity.Application.Authentication;
 using IndustrialPlatform.Identity.Application.Authorization;
 using IndustrialPlatform.SystemData.Api.Authorization;
+using IndustrialPlatform.SystemData.Infrastructure.Persistence.Entities;
 using IndustrialPlatform.Infrastructure.Database;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Authorization;
@@ -65,6 +66,7 @@ public sealed class UnifiedHostTests : IDisposable
     private WebApplicationFactory<IndustrialPlatform.UnifiedHost.Program> CreateFactory()
         => new WebApplicationFactory<IndustrialPlatform.UnifiedHost.Program>()
             .WithWebHostBuilder(builder => builder
+                .UseSetting("IndustrialPlatform:DevelopmentInfrastructureMode", "Sqlite")
                 .UseSetting("SqlSugar:ConnectionString", $"Data Source={_dbPath};Foreign Keys=True")
                 .UseSetting("SqlSugar:DbType", "Sqlite")
                 .ConfigureTestServices(services =>
@@ -112,7 +114,8 @@ public sealed class UnifiedHostTests : IDisposable
             .GetServices<IHostedService>()
             .Select(service => service.GetType())
             .ToList();
-        Assert.Contains(hostedTypes, type => type == typeof(ModuleMigrationCoordinatorHostedService));
+        // 初始化必须先于模块后台写入者，否则启动对账可能抢先递增控制面 revision。
+        Assert.Equal(typeof(ModuleMigrationCoordinatorHostedService), hostedTypes[0]);
         Assert.DoesNotContain(hostedTypes, type => type.Name == "SchemaMigrationBackgroundService");
 
         // 迁移账本:Identity 迁移 + 系统目录种子已应用,SystemData 迁移已应用
@@ -122,6 +125,44 @@ public sealed class UnifiedHostTests : IDisposable
         Assert.True(await CountAsync("SELECT COUNT(*) FROM identity_seed_ledger") >= 2);
         // 协调器不含 SecretBootstrap:admin 只由显式初始化创建(无 bootstrap-admin 种子账本)
         Assert.Equal(0, await CountAsync("SELECT COUNT(*) FROM identity_seed_ledger WHERE seed_n_id = 'identity.bootstrap-admin'"));
+    }
+
+    [Fact]
+    public async Task RealHostedServices_UpgradeExistingBaselineBeforeStartingBackgroundWriters()
+    {
+        using (var factory = CreateFactory())
+        using (var client = factory.CreateClient())
+        using (var health = await client.GetAsync("/health"))
+        {
+            Assert.Equal(HttpStatusCode.OK, health.StatusCode);
+        }
+
+        // 仅将本测试的临时 SQLite 恢复到旧 SDM-017 已完成、资源仍为 v1 的状态。
+        using (var db = CreateReadContext())
+        {
+            Assert.True(await db.SqlSugar.Updateable<SystemDataUiResourceTable>()
+                .SetColumns(row => row.ManifestVersion == "1")
+                .Where(row => row.OwnerModuleNId == "systemdata")
+                .ExecuteCommandAsync() > 0);
+            Assert.Equal(1, await db.SqlSugar.Deleteable<SystemDataSeedLedgerTable>()
+                .Where(row => row.SeedKey == "SDM-018")
+                .ExecuteCommandAsync());
+        }
+
+        // 保留真实托管服务与同一数据库，升级和重复启动都不得留下缺失的修复账本。
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            using var factory = CreateFactory();
+            using var client = factory.CreateClient();
+            using var health = await client.GetAsync("/health");
+            Assert.Equal(HttpStatusCode.OK, health.StatusCode);
+            using var db = CreateReadContext();
+            Assert.False(await db.SqlSugar.Queryable<SystemDataUiResourceTable>()
+                .AnyAsync(row => row.OwnerModuleNId == "systemdata" && row.ManifestVersion != "2"));
+            Assert.Equal(1, await db.SqlSugar.Queryable<SystemDataSeedLedgerTable>()
+                .Where(row => row.SeedKey == "SDM-018")
+                .CountAsync());
+        }
     }
 
     [Fact]

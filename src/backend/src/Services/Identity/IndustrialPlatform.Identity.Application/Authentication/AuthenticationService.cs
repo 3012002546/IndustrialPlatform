@@ -383,6 +383,7 @@ public sealed partial class AuthenticationService : IAuthenticationService
         var permissions = await _store.GetPermissionsForRolesAsync(account.RoleIds, cancellationToken);
         var permissionNIds = permissions
             .Select(p => p.NId)
+            .Where(p => account.IsSystemAdmin || !AuthorizationPermissionPolicy.IsProtectedInitializationPermission(p))
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
             .ToList();

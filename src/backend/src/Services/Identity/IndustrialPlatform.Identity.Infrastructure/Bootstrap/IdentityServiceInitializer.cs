@@ -45,7 +45,16 @@ public sealed class IdentityServiceInitializer : IServiceInitializer
                 requiredSeedReady,
                 bootstrapReady,
                 ready,
-                ready ? null : readiness.Reason);
+                ready ? null : readiness.Reason,
+                readiness.Seeds
+                    .Select(seed => new ServiceInitializationSeedState(
+                        seed.SeedKey,
+                        seed.SeedVersion,
+                        seed.Status,
+                        seed.AppliedOn,
+                        seed.Checksum,
+                        NormalizeScope(seed.Scope)))
+                    .ToList());
         }
         catch (Exception exception) when (IsMissingLocalTable(exception))
         {
@@ -119,7 +128,16 @@ public sealed class IdentityServiceInitializer : IServiceInitializer
             requiredSeedReady,
             bootstrapReady,
             migrationReady && requiredSeedReady && bootstrapReady,
-            migrationReady && requiredSeedReady && bootstrapReady ? null : "Identity 本地初始化事实未达到期望状态。");
+            migrationReady && requiredSeedReady && bootstrapReady ? null : "Identity 本地初始化事实未达到期望状态。",
+            result.SeedVersions
+                .Select(seed => new ServiceInitializationSeedState(
+                    seed.SeedKey,
+                    seed.SeedVersion,
+                    seed.Status,
+                    seed.AppliedOn,
+                    seed.Checksum,
+                    NormalizeScope(seed.Scope)))
+                .ToList());
     }
 
     public Task<ServiceInitializationState> VerifyAsync(
@@ -164,4 +182,13 @@ public sealed class IdentityServiceInitializer : IServiceInitializer
         seeds.Any(seed => string.Equals(seed.SeedKey, seedKey, StringComparison.Ordinal)
             && string.Equals(seed.SeedVersion, BootstrapSeedCatalog.SeedVersion, StringComparison.Ordinal)
             && string.Equals(seed.Status, "Applied", StringComparison.Ordinal));
+
+    private static string? NormalizeScope(string? scope) => scope?.Trim() switch
+    {
+        null => null,
+        "" => string.Empty,
+        var value when string.Equals(value, BootstrapSeedCatalog.SystemScope, StringComparison.OrdinalIgnoreCase) => "System",
+        var value when string.Equals(value, BootstrapSeedCatalog.TenantScope, StringComparison.OrdinalIgnoreCase) => "Tenant",
+        _ => scope.Trim(),
+    };
 }

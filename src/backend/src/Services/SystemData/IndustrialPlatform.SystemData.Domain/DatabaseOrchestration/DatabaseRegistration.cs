@@ -100,6 +100,9 @@ public sealed class DatabaseRegistration : AggregateRoot
     /// <summary>本模块版本化种子声明集合(不含种子内容,只含校验和等非敏感元数据)。</summary>
     public IReadOnlyCollection<SeedSet> SeedSets { get; private set; }
 
+    /// <summary>是否由服务初始化器拥有 Migration/Seed/Bootstrap 生命周期;false 保持 v1 SQL Runner 兼容。</summary>
+    public bool UsesServiceInitializer { get; private set; }
+
     private DatabaseRegistration()
     {
         TenantNId = string.Empty;
@@ -141,7 +144,8 @@ public sealed class DatabaseRegistration : AggregateRoot
         bool autoMigrate,
         string manifestVersion,
         string manifestChecksum,
-        IReadOnlyCollection<SeedSet>? seedSets)
+        IReadOnlyCollection<SeedSet>? seedSets,
+        bool usesServiceInitializer)
     {
         TenantNId = DatabaseOrchestrationGuard.RequireNId(tenantNId, "注册清单的租户标识不能为空。");
         EnvironmentNId = DatabaseOrchestrationGuard.RequireNId(environmentNId, "注册清单的环境标识不能为空。");
@@ -173,6 +177,7 @@ public sealed class DatabaseRegistration : AggregateRoot
             manifestVersion, "清单版本不能为空。", VersionMaxLength, $"清单版本长度不能超过 {VersionMaxLength} 个字符。");
         ManifestChecksum = DatabaseOrchestrationGuard.RequireSha256Hex(manifestChecksum, "清单校验和不能为空。");
         SeedSets = SeedSetGuard.Validate(seedSets);
+        UsesServiceInitializer = usesServiceInitializer;
         Status = RegistrationStatus.Registered;
         AddDomainEvent(CreateChangedEvent());
     }
@@ -201,6 +206,7 @@ public sealed class DatabaseRegistration : AggregateRoot
         string manifestVersion,
         string manifestChecksum,
         IReadOnlyCollection<SeedSet>? seedSets,
+        bool usesServiceInitializer,
         RegistrationStatus status,
         bool isFrozen,
         bool isLocked,
@@ -234,6 +240,7 @@ public sealed class DatabaseRegistration : AggregateRoot
         ManifestVersion = manifestVersion;
         ManifestChecksum = manifestChecksum;
         SeedSets = seedSets ?? [];
+        UsesServiceInitializer = usesServiceInitializer;
         Status = status;
         IsFrozen = isFrozen;
         IsLocked = isLocked;
@@ -267,7 +274,8 @@ public sealed class DatabaseRegistration : AggregateRoot
         string manifestVersion,
         string manifestChecksum,
         IReadOnlyCollection<SeedSet>? seedSets = null,
-        string? moduleKey = null)
+        string? moduleKey = null,
+        bool usesServiceInitializer = false)
         => new(
             tenantNId,
             environmentNId,
@@ -289,7 +297,8 @@ public sealed class DatabaseRegistration : AggregateRoot
             autoMigrate,
             manifestVersion,
             manifestChecksum,
-            seedSets);
+            seedSets,
+            usesServiceInitializer);
 
     /// <summary>以新版本清单重注册(应用层已裁决版本冲突),发布变更事件。模块身份不可变。</summary>
     public void ReRegister(
@@ -308,7 +317,8 @@ public sealed class DatabaseRegistration : AggregateRoot
         bool autoMigrate,
         string manifestVersion,
         string manifestChecksum,
-        IReadOnlyCollection<SeedSet>? seedSets = null)
+        IReadOnlyCollection<SeedSet>? seedSets = null,
+        bool usesServiceInitializer = false)
     {
         EnsureCanModify();
         Provider = DatabaseOrchestrationGuard.RequireTrimmedNonEmpty(
@@ -334,6 +344,7 @@ public sealed class DatabaseRegistration : AggregateRoot
             manifestVersion, "清单版本不能为空。", VersionMaxLength, $"清单版本长度不能超过 {VersionMaxLength} 个字符。");
         ManifestChecksum = DatabaseOrchestrationGuard.RequireSha256Hex(manifestChecksum, "清单校验和不能为空。");
         SeedSets = SeedSetGuard.Validate(seedSets);
+        UsesServiceInitializer = usesServiceInitializer;
         Status = RegistrationStatus.Registered;
         AddDomainEvent(CreateChangedEvent());
         Touch();
@@ -344,6 +355,20 @@ public sealed class DatabaseRegistration : AggregateRoot
     {
         EnsureCanModify();
         DesiredState = desiredState;
+        AddDomainEvent(CreateChangedEvent());
+        Touch();
+    }
+
+    /// <summary>将旧 V2 注册清单升级到服务初始化器拥有的生命周期。</summary>
+    public void EnableServiceInitializer()
+    {
+        EnsureCanModify();
+        if (UsesServiceInitializer)
+        {
+            return;
+        }
+
+        UsesServiceInitializer = true;
         AddDomainEvent(CreateChangedEvent());
         Touch();
     }

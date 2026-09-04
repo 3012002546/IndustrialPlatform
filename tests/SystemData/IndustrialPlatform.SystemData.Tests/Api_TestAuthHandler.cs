@@ -83,6 +83,8 @@ public sealed class TestAuthHandler : AuthenticationHandler<TestAuthHandlerOptio
             new(ClaimConstants.UserNId, user.UserNId),
             new(ClaimConstants.UserName, user.UserName),
             new(ClaimConstants.TenantId, user.TenantNId),
+            new(ClaimConstants.SessionId, "test-session"),
+            new(ClaimConstants.AuthVersion, "1"),
         };
         claims.AddRange(user.Roles.Select(role => new Claim(ClaimConstants.Role, role)));
         claims.AddRange(user.PermissionNIds.Select(permission => new Claim(SystemDataClaimTypes.PermissionNId, permission)));

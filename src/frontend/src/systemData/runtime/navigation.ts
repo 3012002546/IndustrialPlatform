@@ -1,38 +1,79 @@
-import { House, Link, Menu, Monitor, Setting, Tickets, Tools, User } from '@element-plus/icons-vue'
+import {
+  Avatar,
+  House,
+  Link,
+  Lock,
+  Menu,
+  Monitor,
+  Setting,
+  Tickets,
+  Tools,
+  User,
+  UserFilled,
+} from '@element-plus/icons-vue'
+import type { Component } from 'vue'
 
 import { isPcDensity, isThemeMode, isThemePalette } from '@/theme'
-import type { NavigationGroup, NavigationItem } from '@/components/navigation/types'
+import type {
+  NavigationGroup,
+  NavigationItem,
+  NavigationSection,
+} from '@/components/navigation/types'
 import type { NavigationRuntimeNodeDto, ThemePolicyDto } from '@/api/systemData/types'
 import type { PcDensity, ThemeMode, ThemePalette, UiPreferencesV1 } from '@/theme/types'
+import { isRegisteredRouteName } from '@/router/routeNames'
+import { getDefaultPcNavigationGroups } from '@/components/navigation/navigation'
 
-const ICONS = {
-  house: House,
-  link: Link,
-  menu: Menu,
-  monitor: Monitor,
-  setting: Setting,
-  tickets: Tickets,
-  tools: Tools,
-  user: User,
-} as const
+const ICONS = new Map<string, Component>([
+  ['avatar', Avatar],
+  ['house', House],
+  ['link', Link],
+  ['lock', Lock],
+  ['menu', Menu],
+  ['monitor', Monitor],
+  ['setting', Setting],
+  ['tickets', Tickets],
+  ['tools', Tools],
+  ['user', User],
+  ['userfilled', UserFilled],
+])
+const defaultGroups = getDefaultPcNavigationGroups()
+const defaultItems = defaultGroups.flatMap((group) => group.items)
 
-function iconFor(iconKey: string | null) {
-  return (iconKey === null ? undefined : ICONS[iconKey.toLowerCase() as keyof typeof ICONS]) ?? Menu
+function iconFor(node: NavigationRuntimeNodeDto): Component {
+  const key = node.iconKey?.trim().replace(/[-_]/g, '').toLowerCase()
+  if (key) return ICONS.get(key) ?? Menu
+
+  // Older/default imports have no iconKey. Reuse only icon metadata, never the
+  // baseline tree: published labels, parents, order and permissions stay intact.
+  const fallback =
+    node.kind.toLowerCase() === 'group'
+      ? defaultGroups.find(
+          (group) => node.nodeNId === group.id || node.nodeNId === `navigation.group.${group.id}`,
+        )
+      : defaultItems.find((item) => item.routeName === node.routeName)
+  return fallback?.icon ?? Menu
 }
 
-function mapItem(node: NavigationRuntimeNodeDto): NavigationItem | null {
+function mapItem(node: NavigationRuntimeNodeDto, sectionId?: string): NavigationItem | null {
   if (node.kind.toLowerCase() === 'group') return null
   if (node.routeName === null || node.routeName.trim() === '') return null
+  if (!isRegisteredRouteName(node.routeName)) return null
   return {
     id: node.nodeNId,
     label: node.label,
-    labelKey: `shell.navigation.item.${node.resourceNId ?? node.nodeNId}`,
+    labelKey: '',
     fallbackLabel: node.label,
     routeName: node.routeName,
-    icon: iconFor(node.iconKey),
+    icon: iconFor(node),
     ...(node.requiredPermissionNId === null ? {} : { permission: node.requiredPermissionNId }),
     ...(node.featureNId === null ? {} : { featureNId: node.featureNId }),
-    children: node.children.map(mapItem).filter((item): item is NavigationItem => item !== null),
+    ...(sectionId === undefined ? {} : { sectionId }),
+    displayOrder: node.displayOrder,
+    children: node.children
+      .map((child) => mapItem(child, sectionId))
+      .filter((item): item is NavigationItem => item !== null)
+      .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0) || a.id.localeCompare(b.id)),
   }
 }
 
@@ -41,20 +82,46 @@ export function mapRuntimeNavigation(
   nodes: readonly NavigationRuntimeNodeDto[],
 ): NavigationGroup[] {
   return [...nodes]
-    .sort((a, b) => a.displayOrder - b.displayOrder)
+    .sort((a, b) => a.displayOrder - b.displayOrder || a.nodeNId.localeCompare(b.nodeNId))
     .filter((node) => node.kind.toLowerCase() === 'group')
-    .map((node) => ({
-      id: node.nodeNId,
-      label: node.label,
-      labelKey: `shell.navigation.group.${node.resourceNId ?? node.nodeNId}`,
-      fallbackLabel: node.label,
-      icon: iconFor(node.iconKey),
-      displayOrder: node.displayOrder,
-      items: node.children
-        .map(mapItem)
-        .filter((item): item is NavigationItem => item !== null)
-        .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0) || a.id.localeCompare(b.id)),
-    }))
+    .map((node) => {
+      const sections: NavigationSection[] = []
+      const items: NavigationItem[] = []
+      for (const child of node.children) {
+        if (child.kind.toLowerCase() === 'group') {
+          const sectionId = child.nodeNId
+          sections.push({
+            id: sectionId,
+            label: child.label,
+            labelKey: '',
+            fallbackLabel: child.label,
+            displayOrder: child.displayOrder,
+          })
+          for (const item of child.children) {
+            const mapped = mapItem(item, sectionId)
+            if (mapped !== null) items.push(mapped)
+          }
+        } else {
+          const mapped = mapItem(child)
+          if (mapped !== null) items.push(mapped)
+        }
+      }
+      sections.sort(
+        (a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0) || a.id.localeCompare(b.id),
+      )
+      return {
+        id: node.nodeNId,
+        label: node.label,
+        labelKey: '',
+        fallbackLabel: node.label,
+        icon: iconFor(node),
+        displayOrder: node.displayOrder,
+        sections,
+        items: items.sort(
+          (a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0) || a.id.localeCompare(b.id),
+        ),
+      }
+    })
 }
 
 function filterItem(
@@ -69,7 +136,12 @@ function filterItem(
   ) {
     return null
   }
-  if (enabledFeatures !== undefined && item.featureNId !== undefined && !enabledFeatures.has(item.featureNId)) return null
+  if (
+    enabledFeatures !== undefined &&
+    item.featureNId !== undefined &&
+    !enabledFeatures.has(item.featureNId)
+  )
+    return null
   const children = (item.children ?? [])
     .map((child) => filterItem(child, permissionNIds, enabledFeatures))
     .filter((child): child is NavigationItem => child !== null)

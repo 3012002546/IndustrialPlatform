@@ -110,6 +110,9 @@ public sealed record DatabaseRegistrationV1
     /// <summary>模块标识(v2;migration-only v1 为 ServiceKey 兼容值)。</summary>
     public string ModuleKey { get; init; } = string.Empty;
 
+    /// <summary>是否由服务初始化器拥有生命周期;false 表示 legacy SQL Runner。</summary>
+    public bool UsesServiceInitializer { get; init; }
+
     /// <summary>数据库提供程序标识。</summary>
     public string Provider { get; init; } = string.Empty;
 
@@ -118,6 +121,9 @@ public sealed record DatabaseRegistrationV1
 
     /// <summary>解析出的物理库名。</summary>
     public string PhysicalDatabaseName { get; init; } = string.Empty;
+
+    /// <summary>脱敏后的物理库目标;V2 管理端应优先展示此字段。</summary>
+    public string PhysicalDatabaseTarget { get; init; } = string.Empty;
 
     /// <summary>是否与其他服务共享物理数据库。</summary>
     public bool IsSharedPhysicalDatabase { get; init; }
@@ -180,6 +186,9 @@ public sealed record DatabaseRegistrationSummaryV1
     /// <summary>模块标识(v2;migration-only v1 为 ServiceKey 兼容值)。</summary>
     public string ModuleKey { get; init; } = string.Empty;
 
+    /// <summary>是否由服务初始化器拥有生命周期。</summary>
+    public bool UsesServiceInitializer { get; init; }
+
     /// <summary>稳定逻辑库名。</summary>
     public string LogicalDatabaseName { get; init; } = string.Empty;
 
@@ -237,6 +246,12 @@ public sealed record EnvironmentPolicyV1
 
     /// <summary>策略版本号。</summary>
     public int PolicyRevision { get; init; }
+
+    /// <summary>服务初始化策略(<c>Standard</c>/<c>Advanced</c>),由服务端有效策略推导。</summary>
+    public string InitializationPolicy { get; init; } = string.Empty;
+
+    /// <summary>是否来自租户显式策略;false 表示可信环境默认值。</summary>
+    public bool IsExplicit { get; init; }
 }
 
 /// <summary>不可变计划响应。</summary>

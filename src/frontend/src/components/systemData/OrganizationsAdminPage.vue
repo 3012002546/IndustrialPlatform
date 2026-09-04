@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
+import { ElIcon, ElMessageBox } from 'element-plus'
+import { Plus } from '@element-plus/icons-vue'
+import AppErrorAlert from '@/components/base/AppErrorAlert.vue'
 import AppEmptyState from '@/components/base/AppEmptyState.vue'
 import AppFormDrawer from '@/components/management/AppFormDrawer.vue'
 import AppTreeTableLayout from '@/components/management/AppTreeTableLayout.vue'
@@ -7,22 +10,30 @@ import AppDataTable from '@/components/management/AppDataTable.vue'
 import type { AppDataTableExportRequest } from '@/components/management/AppDataTable'
 import { downloadBlob } from '@/components/management/download'
 import SystemDataAdminFrame from './SystemDataAdminFrame.vue'
+import OrganizationMasterList from './OrganizationMasterList.vue'
 import PermissionGate from '@/permissions/PermissionGate.vue'
 import { PERMISSIONS } from '@/permissions'
 import type { OrganizationNodeDto, PositionDto } from '@/api/systemData/managementTypes'
 import { useSystemDataManagementStore } from '@/stores/systemData/managementStore'
 import { getSystemDataManagementApi } from '@/api/systemData/managementRegistry'
+import { localeMessages } from '@/localization/i18n'
+import { interpolate, systemDataEnumLabel, systemDataPageCopy } from '@/localization/systemData'
+import { useLocalizationStore } from '@/stores/localizationStore'
 
 const props = withDefaults(
   defineProps<{ title?: string; description?: string; permission?: string }>(),
   {
-    title: '行政组织与岗位',
-    description:
-      '维护根公司、子组织和岗位；先创建根公司，再选择可读的父组织；保存后树和岗位会刷新。',
+    title: '',
+    description: '',
     permission: PERMISSIONS.systemDataOrganizationView,
   },
 )
 const store = useSystemDataManagementStore()
+const localization = useLocalizationStore()
+const copy = computed(() => systemDataPageCopy(localization.locale, 'organizations'))
+const commonCopy = computed(() => localeMessages[localization.locale].systemData.copy)
+const pageTitle = computed(() => props.title || copy.value.title)
+const pageDescription = computed(() => props.description || copy.value.description)
 const drawerOpen = ref(false)
 const editingOrganization = ref(false)
 const editingPosition = ref<PositionDto | null>(null)
@@ -37,28 +48,10 @@ const form = reactive({
 })
 const moveTargetNId = ref('')
 const moveReason = ref('')
-const ORGANIZATION_COLUMNS = [
-  { field: 'name', title: '组织', minWidth: 180 },
-  { field: 'type', title: '类型', width: 100, filter: { kind: 'text' as const } },
-  { field: 'status', title: '状态', width: 100, filter: { kind: 'text' as const } },
-]
-const POSITION_COLUMNS = [
-  { field: 'name', title: '岗位', minWidth: 180 },
-  { field: 'status', title: '状态', width: 100, filter: { kind: 'text' as const } },
-]
-async function exportOrganizations(request: AppDataTableExportRequest): Promise<void> {
-  const api = getSystemDataManagementApi()
-  if (api === null) return
-  const blob = await api.exportOrganizations({
-    search: typeof request.filters.name === 'string' ? request.filters.name : undefined,
-    quantity: request.quantity,
-    columns: request.columns,
-    sortField: request.sort?.field,
-    sortOrder: request.sort?.order,
-  })
-  downloadBlob(blob, `${request.filename}.xlsx`)
-}
-
+const positionColumns = computed(() => [
+  { field: 'name', title: copy.value.position, minWidth: 180 },
+  { field: 'status', title: copy.value.status, width: 100, filter: { kind: 'text' as const } },
+])
 async function exportPositions(request: AppDataTableExportRequest): Promise<void> {
   const api = getSystemDataManagementApi()
   if (api === null) return
@@ -93,6 +86,15 @@ function newOrganization(): void {
   editingPosition.value = null
   drawerOpen.value = true
 }
+function newChildOrganization(): void {
+  if (!store.selectedOrganizationNId) return
+  resetForm()
+  form.type = 'Department'
+  form.parentNId = store.selectedOrganizationNId
+  editingOrganization.value = false
+  editingPosition.value = null
+  drawerOpen.value = true
+}
 function editOrganization(): void {
   const item = store.selectedOrganization
   if (!item) return
@@ -123,18 +125,97 @@ function editPosition(item: PositionDto): void {
   editingOrganization.value = false
   drawerOpen.value = true
 }
-function selectOrganizationTable(selected: unknown): void {
-  const item = (selected as OrganizationNodeDto[])[0]
-  if (item) store.selectOrganization(item.nId)
+function selectOrganization(nId: string | null): void {
+  if (nId) void store.selectOrganization(nId)
+  else store.clearOrganizationSelection()
+}
+async function refreshOrganizations(): Promise<void> {
+  await store.load('organizations')
+}
+async function exportOrganizations(request: AppDataTableExportRequest): Promise<void> {
+  const api = getSystemDataManagementApi()
+  if (api === null) return
+  const blob = await api.exportOrganizations({
+    quantity: request.quantity,
+    columns: request.columns,
+    sortField: request.sort?.field,
+    sortOrder: request.sort?.order,
+  })
+  downloadBlob(blob, `${request.filename}.xlsx`)
+}
+async function confirmAction(title: string, message: string): Promise<boolean> {
+  try {
+    await ElMessageBox.confirm(message, title, {
+      type: 'warning',
+      confirmButtonText: commonCopy.value.confirm,
+      cancelButtonText: commonCopy.value.cancel,
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+async function toggleOrganizationStatus(): Promise<void> {
+  const item = store.selectedOrganization
+  if (!item) return
+  const status = item.status === 'Active' ? 'Inactive' : 'Active'
+  if (
+    !(await confirmAction(
+      copy.value.statusConfirmTitle,
+      interpolate(copy.value.statusConfirmBody, {
+        name: item.name,
+        status: systemDataEnumLabel(localization.locale, status),
+      }),
+    ))
+  )
+    return
+  await store.setOrganizationStatus(item.nId, {
+    status,
+    reason: moveReason.value.trim() || copy.value.organizationDetail,
+  })
+}
+async function togglePositionStatus(item: PositionDto): Promise<void> {
+  const status = item.status === 'Active' ? 'Inactive' : 'Active'
+  if (
+    !(await confirmAction(
+      copy.value.statusConfirmTitle,
+      interpolate(copy.value.statusConfirmBody, {
+        name: item.name,
+        status: systemDataEnumLabel(localization.locale, status),
+      }),
+    ))
+  )
+    return
+  await store.setPositionStatus(item.nId, { status, reason: copy.value.organizationDetail })
+}
+async function confirmMove(): Promise<void> {
+  const preview = store.movePreview
+  if (!preview) return
+  if (
+    !(await confirmAction(
+      copy.value.moveConfirmTitle,
+      interpolate(copy.value.moveConfirmBody, {
+        organizations: preview.subtreeOrganizationCount,
+        positions: preview.subtreePositionCount,
+      }),
+    ))
+  )
+    return
+  await store.moveOrganization(preview.nId, {
+    previewOrganizationRevision: preview.organizationRevision,
+    expectedOptimisticVersion: preview.expectedOptimisticVersion,
+    expectedConcurrencyVersion: preview.expectedConcurrencyVersion,
+    ...(moveTargetNId.value ? { targetParentOrganizationNId: moveTargetNId.value } : {}),
+  })
 }
 async function submit(): Promise<void> {
   formError.value = ''
   if (!form.name.trim()) {
-    formError.value = form.type === 'position' ? '请输入岗位名称。' : '请输入组织名称。'
+    formError.value = copy.value.invalidName
     return
   }
   if (!Number.isInteger(form.displayOrder) || form.displayOrder < 0) {
-    formError.value = '显示顺序必须是大于等于 0 的整数。'
+    formError.value = copy.value.invalidOrder
     return
   }
   if (editingOrganization.value) {
@@ -155,11 +236,11 @@ async function submit(): Promise<void> {
       expectedConcurrencyVersion: editingPosition.value.concurrencyVersion,
     })
   else if (!form.nId.trim()) {
-    formError.value = form.type === 'position' ? '请输入岗位 NId。' : '请输入组织 NId。'
+    formError.value = copy.value.invalidNid
     return
   } else if (form.type === 'position') {
     if (!store.selectedOrganizationNId) {
-      formError.value = '请先选择所属组织。'
+      formError.value = copy.value.selectOrganization
       return
     }
     await store.createPosition({
@@ -170,10 +251,10 @@ async function submit(): Promise<void> {
       organizationNId: store.selectedOrganizationNId,
     })
   } else if (form.type !== 'Company' && !form.parentNId) {
-    formError.value = '非根组织必须选择父组织；请先创建根公司。'
+    formError.value = copy.value.missingParent
     return
   } else if (form.type === 'Company' && form.parentNId) {
-    formError.value = '根公司不能选择父组织。'
+    formError.value = copy.value.rootParent
     return
   } else
     await store.createOrganization({
@@ -190,67 +271,98 @@ async function submit(): Promise<void> {
 <template>
   <SystemDataAdminFrame
     kind="organizations"
-    :title="props.title"
-    :description="props.description"
+    :title="pageTitle"
+    :description="pageDescription"
     :permission="props.permission"
   >
-    <AppTreeTableLayout tree-label="组织森林" content-label="岗位表">
-      <template #tree>
-        <AppDataTable
-          table-key="systemdata-organizations"
-          route-key="systemdata-organizations"
-          row-key="nId"
-          mode="tree"
-          selection="single"
-          :rows="store.organizationTree"
-          :total="organizations.length"
-          :columns="ORGANIZATION_COLUMNS"
-          :exporter="exportOrganizations"
-          @selection-change="selectOrganizationTable"
+    <template #toolbar>
+      <PermissionGate :permission-n-id="PERMISSIONS.systemDataOrganizationCreate">
+        <el-button
+          type="primary"
+          data-testid="systemdata-organizations-new"
+          @click="newOrganization"
         >
-          <template #toolbar-actions
-            ><PermissionGate :permission-n-id="PERMISSIONS.systemDataOrganizationCreate"
-              ><button type="button" data-testid="systemdata-organizations-new" @click="newOrganization">
-                新建组织
-              </button></PermissionGate
-            ><PermissionGate :permission-n-id="PERMISSIONS.systemDataPositionCreate"
-              ><button
-                v-if="store.selectedOrganizationNId"
-                type="button"
-                data-testid="systemdata-positions-new"
-                @click="startPosition"
-              >
-                新建岗位
-              </button></PermissionGate></template
-          >
-          <template #cell-name="{ row }">
-            <button type="button" @click="store.selectOrganization(row.nId)">{{ row.name }}</button>
-          </template>
-        </AppDataTable>
-      </template>
-      <template #toolbar
-        ><strong>组织详情与岗位</strong
-        ><PermissionGate :permission-n-id="PERMISSIONS.systemDataOrganizationUpdate"
-          ><button v-if="store.selectedOrganization" type="button" @click="editOrganization">
-            编辑组织
-          </button></PermissionGate
-        ><PermissionGate :permission-n-id="PERMISSIONS.systemDataOrganizationStatus"
-          ><button
-          v-if="store.selectedOrganizationNId"
-          type="button"
+          <ElIcon class="systemdata-page-action-icon" aria-hidden="true"><Plus /></ElIcon>
+          {{ copy.newOrganization }}
+        </el-button>
+      </PermissionGate>
+      <PermissionGate :permission-n-id="PERMISSIONS.systemDataOrganizationView">
+        <el-button
+          type="default"
+          data-testid="systemdata-organizations-export"
           @click="
-            store.setOrganizationStatus(store.selectedOrganizationNId, {
-              status: store.selectedOrganization?.status === 'Active' ? 'Inactive' : 'Active',
-              reason: moveReason || '管理员调整组织状态',
+            exportOrganizations({
+              filename: 'systemdata-organizations',
+              quantity: 10000,
+              columns: [],
+              queryMode: 'top',
+              filters: {},
             })
           "
         >
-          {{ store.selectedOrganization?.status === 'Active' ? '停用组织' : '启用组织' }}</button></PermissionGate
+          {{ copy.export }}
+        </el-button>
+      </PermissionGate>
+    </template>
+    <AppTreeTableLayout
+      class="systemdata-organizations-layout"
+      :tree-label="copy.treeLabel"
+      :content-label="copy.contentLabel"
+    >
+      <template #tree>
+        <OrganizationMasterList
+          :nodes="store.organizationTree"
+          :selected-n-id="store.selectedOrganizationNId"
+          :loading="store.organizationTreeLoading"
+          @select="selectOrganization"
+          @refresh="refreshOrganizations"
+        />
+      </template>
+      <template #toolbar
+        ><strong>{{ copy.organizationDetail }}</strong
+        ><PermissionGate :permission-n-id="PERMISSIONS.systemDataOrganizationCreate"
+          ><el-button
+            v-if="store.selectedOrganizationNId"
+            link
+            type="primary"
+            data-testid="systemdata-organizations-new-child"
+            @click="newChildOrganization"
+          >
+            {{ copy.newOrganization }}
+          </el-button></PermissionGate
+        ><PermissionGate :permission-n-id="PERMISSIONS.systemDataPositionCreate"
+          ><el-button
+            v-if="store.selectedOrganizationNId"
+            link
+            type="primary"
+            data-testid="systemdata-positions-new"
+            @click="startPosition"
+          >
+            {{ copy.newPosition }}
+          </el-button></PermissionGate
+        ><PermissionGate :permission-n-id="PERMISSIONS.systemDataOrganizationUpdate"
+          ><el-button
+            v-if="store.selectedOrganization"
+            link
+            type="primary"
+            @click="editOrganization"
+          >
+            {{ copy.editOrganization }}
+          </el-button></PermissionGate
+        ><PermissionGate :permission-n-id="PERMISSIONS.systemDataOrganizationStatus"
+          ><el-button
+            v-if="store.selectedOrganizationNId"
+            link
+            :type="store.selectedOrganization?.status === 'Active' ? 'danger' : 'success'"
+            @click="toggleOrganizationStatus"
+          >
+            {{ store.selectedOrganization?.status === 'Active' ? copy.disable : copy.enable }}
+          </el-button></PermissionGate
         ><el-select
           v-if="store.selectedOrganizationNId"
           v-model="moveTargetNId"
-          aria-label="目标父组织"
-          placeholder="移动到父组织"
+          :aria-label="copy.moveTarget"
+          :placeholder="copy.moveTarget"
           clearable
           style="width: 220px"
           ><el-option
@@ -259,71 +371,88 @@ async function submit(): Promise<void> {
             :label="item.name + '（' + item.nId + '）'"
             :value="item.nId" /></el-select
         ><PermissionGate :permission-n-id="PERMISSIONS.systemDataOrganizationMove"
-          ><button
-          v-if="store.selectedOrganizationNId"
-          type="button"
-          @click="
-            store.previewOrganizationMove(store.selectedOrganizationNId, moveTargetNId || undefined)
-          "
+          ><el-button
+            v-if="store.selectedOrganizationNId"
+            type="default"
+            @click="
+              store.previewOrganizationMove(
+                store.selectedOrganizationNId,
+                moveTargetNId || undefined,
+              )
+            "
+          >
+            {{ copy.movePreview }}
+          </el-button></PermissionGate
+        ></template
+      >
+      <div v-if="store.organizationDetailLoading" class="systemdata-organization-detail-state" role="status" aria-live="polite">
+        {{ commonCopy.loading }}
+      </div>
+      <AppErrorAlert
+        v-else-if="store.organizationDetailError"
+        :title="commonCopy.interfaceUnavailable"
+        :message="store.organizationDetailError"
+      >
+        <el-button
+          link
+          type="primary"
+          @click="store.selectedOrganizationNId && store.selectOrganization(store.selectedOrganizationNId)"
         >
-          预览移动
-        </button></PermissionGate></template
-      >
-      <p v-if="store.selectedOrganization">
-        {{ store.selectedOrganization.name }} · {{ store.selectedOrganization.type }} ·
-        {{ store.selectedOrganization.status }}
-      </p>
-      <AppEmptyState v-if="!store.positions" title="请选择组织读取岗位" /><AppEmptyState
-        v-else-if="store.positions.items.length === 0"
-        title="暂无岗位"
-      />
-      <AppDataTable
-        v-else
-        table-key="systemdata-positions"
-        route-key="systemdata-organizations"
-        row-key="nId"
-        :rows="store.positions.items"
-        :total="store.positions.total"
-        :columns="POSITION_COLUMNS"
-        :exporter="exportPositions"
-      >
+          {{ commonCopy.retry }}
+        </el-button>
+      </AppErrorAlert>
+      <template v-else>
+        <p v-if="store.selectedOrganization" class="systemdata-organization-context">
+          {{ store.selectedOrganization.name }} ·
+          {{ systemDataEnumLabel(localization.locale, store.selectedOrganization.type) }} ·
+          {{ systemDataEnumLabel(localization.locale, store.selectedOrganization.status) }}
+        </p>
+        <AppEmptyState v-if="!store.positions" :title="copy.selectOrganization" /><AppEmptyState
+          v-else-if="store.positions.items.length === 0"
+          :title="copy.noPositions"
+        />
+        <AppDataTable
+          v-else
+          table-key="systemdata-positions"
+          route-key="systemdata-organizations"
+          row-key="nId"
+          :rows="store.positions.items"
+          :total="store.positions.total"
+          :columns="positionColumns"
+          :exporter="exportPositions"
+        >
         <template #cell-name="{ row }"
           >{{ row.name }}<small>{{ row.description }}</small></template
         >
+        <template #cell-status="{ row }">{{
+          systemDataEnumLabel(localization.locale, row.status)
+        }}</template>
         <template #actions="{ row }">
           <PermissionGate :permission-n-id="PERMISSIONS.systemDataPositionUpdate"
-            ><button type="button" @click="editPosition(row)">编辑</button></PermissionGate
+            ><el-button link type="primary" @click="editPosition(row)">
+              {{ copy.edit }}
+            </el-button></PermissionGate
           ><PermissionGate :permission-n-id="PERMISSIONS.systemDataPositionStatus"
-            ><button
-            type="button"
-            @click="
-              store.setPositionStatus(row.nId, {
-                status: row.status === 'Active' ? 'Inactive' : 'Active',
-                reason: '岗位状态调整',
-              })
-            "
+            ><el-button
+              link
+              :type="row.status === 'Active' ? 'danger' : 'success'"
+              @click="togglePositionStatus(row)"
+            >
+              {{ row.status === 'Active' ? copy.disable : copy.enable }}
+            </el-button></PermissionGate
           >
-            {{ row.status === 'Active' ? '停用' : '启用' }}
-          </button></PermissionGate>
         </template>
-      </AppDataTable>
-      <div v-if="store.movePreview" role="status">
-        移动预览：组织 {{ store.movePreview.subtreeOrganizationCount }} · 岗位
+        </AppDataTable>
+      </template>
+      <div v-if="store.movePreview" class="systemdata-move-preview" role="status">
+        {{ copy.movePreview }}：{{ copy.organization }}
+        {{ store.movePreview.subtreeOrganizationCount }} · {{ copy.position }}
         {{ store.movePreview.subtreePositionCount
         }}<PermissionGate :permission-n-id="PERMISSIONS.systemDataOrganizationMove"
-          ><button
-          type="button"
-          @click="
-            store.moveOrganization(store.movePreview.nId, {
-              previewOrganizationRevision: store.movePreview.organizationRevision,
-              expectedOptimisticVersion: store.movePreview.expectedOptimisticVersion,
-              expectedConcurrencyVersion: store.movePreview.expectedConcurrencyVersion,
-              ...(moveTargetNId ? { targetParentOrganizationNId: moveTargetNId } : {}),
-            })
-          "
+          ><el-button type="primary" @click="confirmMove">
+            {{ copy.confirmMove }}
+          </el-button></PermissionGate
         >
-          确认移动
-        </button></PermissionGate>
       </div>
     </AppTreeTableLayout>
   </SystemDataAdminFrame>
@@ -332,53 +461,126 @@ async function submit(): Promise<void> {
     :busy="store.loading"
     :title="
       editingOrganization
-        ? '编辑组织'
+        ? copy.editOrganizationTitle
         : editingPosition
-          ? '编辑岗位'
+          ? copy.editPositionTitle
           : form.type === 'position'
-            ? '新建岗位'
-            : '新建组织'
+            ? copy.createPositionTitle
+            : copy.createOrganizationTitle
     "
     @submit="submit"
     ><el-form :model="form" label-width="120px"
       ><p v-if="formError" role="alert">{{ formError }}</p>
       <el-form-item
         v-if="!editingOrganization && !editingPosition"
-        :label="form.type === 'position' ? '岗位 NId' : '组织 NId'"
+        :label="form.type === 'position' ? copy.positionNid : copy.nid"
         ><el-input
           v-model="form.nId"
-          :aria-label="form.type === 'position' ? '岗位 NId' : '组织 NId'"
-          placeholder="租户内稳定业务标识" /></el-form-item
-      ><el-form-item label="名称"
-        ><el-input
-          v-model="form.name"
-          :aria-label="form.type === 'position' ? '岗位名称' : '组织名称'" /></el-form-item
+          :aria-label="form.type === 'position' ? copy.positionNid : copy.nid"
+          :placeholder="copy.nid" /></el-form-item
+      ><el-form-item :label="copy.name"
+        ><el-input v-model="form.name" :aria-label="copy.name" /></el-form-item
       ><template v-if="!editingOrganization && !editingPosition && form.type !== 'position'"
-        ><el-form-item label="组织类型"
-          ><el-select v-model="form.type" aria-label="组织类型"
-            ><el-option label="Company" value="Company" /><el-option
-              label="Department"
-              value="Department" /><el-option label="Section" value="Section" /><el-option
-              label="Team"
+        ><el-form-item :label="copy.organizationType"
+          ><el-select v-model="form.type" :aria-label="copy.organizationType"
+            ><el-option :label="copy.company" value="Company" /><el-option
+              :label="copy.department"
+              value="Department" /><el-option :label="copy.section" value="Section" /><el-option
+              :label="copy.team"
               value="Team" /></el-select></el-form-item
-        ><el-form-item label="父组织"
-          ><el-select v-model="form.parentNId" aria-label="父组织" clearable
-            ><el-option label="根公司（无父组织）" value="" /><el-option
+        ><el-form-item :label="copy.parent"
+          ><el-select v-model="form.parentNId" :aria-label="copy.parent" clearable
+            ><el-option :label="copy.rootCompany" value="" /><el-option
               v-for="item in organizations"
               :key="item.nId"
               :label="item.name + '（' + item.nId + '）'"
               :value="item.nId" /></el-select
-          ><small>先创建根公司，子组织使用可读名称选择父组织。</small></el-form-item
+          ><small>{{ copy.parentHint }}</small></el-form-item
         ></template
-      ><el-form-item v-if="form.type === 'position'" label="描述"
+      ><el-form-item v-if="form.type === 'position'" :label="copy.descriptionField"
         ><el-input v-model="form.description" type="textarea" /></el-form-item
-      ><el-form-item :label="form.type === 'position' ? '岗位显示顺序' : '组织显示顺序'"
+      ><el-form-item :label="copy.displayOrder"
         ><el-input-number
           v-model="form.displayOrder"
           :min="0"
           :step="1"
-          :aria-label="
-            form.type === 'position' ? '岗位显示顺序' : '组织显示顺序'
-          " /></el-form-item></el-form
+          :aria-label="copy.displayOrder" /></el-form-item></el-form
   ></AppFormDrawer>
 </template>
+
+<style scoped>
+.systemdata-organizations-layout {
+  min-height: 0;
+}
+
+.systemdata-organizations-layout :deep(.app-tree-table__tree) {
+  width: min(460px, 36vw);
+}
+
+.systemdata-organizations-layout :deep(.app-data-table__card),
+.systemdata-organizations-layout :deep(.app-data-table__surface) {
+  min-width: 0;
+}
+
+.systemdata-organizations-layout :deep(.app-data-table__pagination) {
+  max-width: 100%;
+  flex-wrap: wrap;
+  white-space: normal;
+  row-gap: var(--ip-space-1);
+}
+
+.systemdata-organizations-layout :deep(.app-tree-table__toolbar) {
+  align-items: center;
+}
+
+.systemdata-organizations-layout :deep(.app-tree-table__toolbar > strong) {
+  margin-right: auto;
+  color: var(--ip-color-text-primary);
+  font-size: var(--ip-font-size-md);
+}
+
+.systemdata-organization-context {
+  margin: 0;
+  color: var(--ip-color-text-secondary);
+  font-size: var(--ip-font-size-sm);
+}
+.systemdata-organization-detail-state {
+  display: flex;
+  min-height: 180px;
+  align-items: center;
+  justify-content: center;
+  color: var(--ip-color-text-secondary);
+  background: var(--ip-color-bg-muted);
+  border: 1px dashed var(--ip-color-border);
+  border-radius: var(--ip-radius-md);
+}
+
+.systemdata-move-preview {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ip-space-2);
+  padding: var(--ip-space-3);
+  color: var(--ip-color-text-primary);
+  background: var(--ip-color-bg-muted);
+  border: 1px solid var(--ip-color-border);
+  border-radius: var(--ip-radius-md);
+}
+
+@media (max-width: 1200px) {
+  .systemdata-organizations-layout {
+    flex-direction: column;
+  }
+
+  .systemdata-organizations-layout :deep(.app-tree-table__tree) {
+    width: auto;
+    height: min(38vh, 320px);
+    max-height: min(38vh, 320px);
+    flex: 0 0 auto;
+  }
+
+  .systemdata-organizations-layout :deep(.app-tree-table__content) {
+    min-height: 320px;
+  }
+}
+</style>

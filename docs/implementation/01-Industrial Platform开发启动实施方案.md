@@ -2,7 +2,7 @@
 
 # Industrial Platform开发启动实施方案
 
-> 本文保留启动期设计与历史快照；当前阶段状态统一以 `docs/blueprint/09-Industrial Platform开发总TodoList.md`、各 PF 实施方案执行记录、`docs/evidence/**` 和 `docs/status/CURRENT.md` 为准。PF-02 SystemData 当前为“功能开发完成 / 收束验收中”，PF-03 未启动。
+> 本文保留启动期设计与历史快照；当前阶段状态统一以 `docs/blueprint/09-Industrial Platform开发总TodoList.md`、各 PF 实施方案执行记录、`docs/evidence/**` 和 `docs/status/CURRENT.md` 为准。PF-02 SystemData在2026-09-04已关闭已知功能整改缺陷，完成26项分层证据与017状态回写；完整真实矩阵、200%及外部门禁仍待验收，013/PF-02保持active，PF-03未启动。下文“尚未开发”等仅为启动期历史快照。
 
 版本：V1.1
 阶段：Development Implementation Phase
@@ -149,7 +149,7 @@ PF-02 的最高优先级是 `SystemData.Service` 数据库编排/环境引导控
 | 阶段 | Service Host 动作 | 本阶段范围 |
 | --- | --- | --- |
 | PF-02 | 创建 `SystemData.Service` | SystemData，数据库编排/环境引导最高优先 |
-| PF-03 | 继续利用 `ReferenceData.Service` 骨架 | Dictionary、Parameter、Metadata、DynamicProperty、CodingRule |
+| PF-03 | 继续利用 `ReferenceData.Service` 骨架 | Dictionary、Parameter、Metadata、DynamicProperty、CodingRule、StateMachine、UnitOfMeasure |
 | PF-04 | 扩展 `SystemData.Service` | File、Notification、Audit，分别建模 |
 | PF-05 | 创建 `Collaboration.Service` | Messaging、Presence、AttachmentIntegration |
 | PF-06 | 扩展 `Collaboration.Service` | RemoteAssistance |

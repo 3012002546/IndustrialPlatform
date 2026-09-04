@@ -2,7 +2,7 @@
 
 # Industrial Platform MasterData Service开发实施方案
 
-> 当前里程碑范围：在 BuildingBlocks、统一运行基线、统一前端、Identity 登录闭环和 ReferenceData 完整纵向交付之后，完成单位、物料分类、批次策略、物料及版本、制造组织、仓库/库位、设备、BOM、工艺路线、缓存和集成事件，并同步交付对应 PC 管理页面、契约测试与关键路径 E2E；库存实例、生产执行、设备遥测和跨系统同步作业不在本阶段实现。
+> 当前里程碑范围：在 BuildingBlocks、统一运行基线、统一前端、Identity 登录闭环和 ReferenceData（含 UnitOfMeasure）完整纵向交付之后，完成物料分类、批次策略、物料及版本、制造组织、仓库/库位、设备、BOM、工艺路线、缓存和集成事件，并同步交付对应 PC 管理页面、契约测试与关键路径 E2E；MasterData 只选择和快照通用单位，并管理物料专属箱/件与密度场景规则；库存实例、生产执行、设备遥测和跨系统同步作业不在本阶段实现。
 
 版本：V2.0
 
@@ -95,7 +95,8 @@ OperationalData / WorkOrder / IoT Collector 等后续服务
 
 ## 2.1 MasterData负责
 
-- 单位及单位换算、物料分类和批次策略等制造主数据定义。
+- 物料分类、批次策略，以及物料基础、采购和库存单位的选用与发布快照。
+- 仅在物料范围内定义箱/件比例、密度等专属业务规则；不成为通用单位或跨维度换算权威。
 - 物料身份与不可覆盖的发布版本、生效区间和生命周期。
 - 工厂、车间、产线、工作中心等制造组织结构。
 - 仓库、库位、用途和库存权威模式定义，但不保存库存事实。
@@ -111,8 +112,8 @@ MasterData 是稳定制造业务定义的权威来源；发布后供业务执行
 | 不属于本服务的内容 | 权威归属 | MasterData 允许保存的引用或快照 |
 | --- | --- | --- |
 | 用户、角色、登录、租户成员关系 | Identity | `tenantId`、`userId`、权限与工厂数据范围上下文 |
-| 字典、配置、元数据定义、编码规则 | ReferenceData | 对应 NId、规则版本、schema revision 和必要显示快照 |
-| 库存批次实例、余额、预留、流水和仓储单据 | OperationalData | 物料、单位、仓库、库位和批次策略的 NId/发布版本 |
+| 字典、配置、元数据定义、编码规则、状态机定义、通用单位/换算 | ReferenceData | 对应 NId、规则版本、schema revision，及 `UnitDimensionNId`、`UnitNId`、`unitRevision`、`sourceScope`、`sourceTenantNId` 和必要快照 |
+| 库存批次实例、余额、预留、流水和仓储单据 | OperationalData | 物料、仓库、库位和批次策略的 NId/发布版本，以及必要 UnitReference 快照 |
 | 生产订单、派工、报工与执行状态 | WorkOrder/MES | Material/BOM/Routing 发布快照引用 |
 | 设备采集点、遥测、报警和在线状态 | IoT Collector/IoT Platform | EquipmentNId 和静态设备标识 |
 | 称量任务、过程和结果 | Weighting | 物料、单位、BOM 与批次策略引用 |
@@ -124,7 +125,8 @@ MasterData 禁止直接读写其他服务数据库；其他服务也禁止直接
 ## 2.3 本阶段取舍
 
 - PC 管理端完整交付；PDA/Mobile 不新增主数据维护入口。
-- ReferenceData 负责字典、元数据和编码规则。MasterData 不创建 `md_dictionary`，物料/设备类型等可配置枚举通过 ReferenceData 契约解析。
+- ReferenceData 负责字典、元数据、编码规则、状态机定义和通用单位/换算。MasterData 不创建 `md_dictionary`、`md_unit` 或 `md_unit_conversion`；物料/设备类型等可配置枚举与单位均通过公开契约解析。
+- `UnitOfMeasure` 的通用定义、维度、精度、舍入与同维度换算由 ReferenceData 权威管理。MasterData 仅保存物料选用的 `UnitReference`（`UnitDimensionNId`、`UnitNId`、`unitRevision`、`sourceScope`、`sourceTenantNId`）及发布快照；`sourceTenantNId` 是定义来源而非业务对象 `TenantNId`，Platform 来源为空，Tenant 来源等于可信当前租户。跨物理维度只可由物料专属密度等明确业务规则处理，不能调用通用换算绕过该规则。
 - 批次策略只定义批号作用域、保质期和 FIFO/FEFO 等规则；具体批次、库存和拣选决策属于 OperationalData。
 - 仓库只声明 `Internal` 或 `ExternalWms` 权威模式；本阶段不实现 WMS 接口、库存同步或切换作业。
 - 设备静态扩展属性可以按 ReferenceData 的 schema revision 保存；实时测点和遥测不得写入 MasterData。
@@ -170,7 +172,7 @@ API Gateway  /masterdata/api/v1/master-data/**
 MasterData.Api  /api/v1/master-data/**
   │
   ├── Application：命令、查询、授权、校验和事务编排
-  │       ├── Domain：单位、物料、组织、仓储定义、设备、BOM、Routing
+  │       ├── Domain：物料、组织、仓储定义、设备、BOM、Routing
   │       └── Contracts：DTO、错误码和集成事件 V1
   │
   └── Infrastructure
@@ -179,7 +181,7 @@ MasterData.Api  /api/v1/master-data/**
           └── RabbitMQ：发布版本化变更事件
 
 ReferenceData
-  └── 字典、编码、元数据与配置契约
+  └── 字典、编码、元数据、状态机与 UnitOfMeasure 公开契约
 
 OperationalData / WorkOrder / IoT / Weighting / Trace
   ├── 同步读取当前或指定时间的已发布定义
@@ -258,16 +260,14 @@ Api → Application + Contracts + Infrastructure + Web + Logging
 
 # 7. 领域模型与发布生命周期详细设计
 
-## 7.1 单位、分类与批次策略
+## 7.1 分类、批次策略与单位引用
 
 | 聚合/实体 | 主要业务字段 | 核心约束 |
 | --- | --- | --- |
-| Unit | `NId`、`TenantId`、`Code`、`Name`、`Symbol`、`Dimension`、`DecimalPlaces`、`IsBaseUnit`、`Status` | 租户内 Code 唯一；小数位 0～12；停用前检查有效物料/BOM 引用 |
-| UnitConversion | `FromUnitNId`、`ToUnitNId`、`Factor`、`Offset`、`Precision` | 同一维度；Factor 大于 0；禁止重复方向和循环产生不一致换算 |
 | MaterialCategory | `NId`、`ParentNId`、`Code`、`Name`、`Path`、`Level`、`Status` | 租户内 Code 唯一；禁止循环；停用父节点前处理活动子节点 |
 | BatchPolicy | `NId`、`Code`、`LotScope`、`ShelfLifeDays`、`PickingStrategy`、`RequireExpiryDate`、`Status` | `ShelfLifeDays` 非负；PickingStrategy 为 FIFO/FEFO；只定义策略，不创建批次 |
 
-换算统一为 `target = source × Factor + Offset`，精度由目标单位和换算记录共同限制；质量、长度、体积等不同 Dimension 禁止换算。
+`UnitReference` 只来自 ReferenceData 已发布 UnitOfMeasure 公开契约，固定为 `UnitDimensionNId`、`UnitNId`、`unitRevision`、`sourceScope`、`sourceTenantNId`；`unitRevision` 是整份 `UnitDimension.Revision`，来源字段不等于业务对象 `TenantNId`（Platform 为空，Tenant 等于可信当前租户）。通用换算仅允许同来源、同维度、同修订的单位。物料版本可分别选择基础、采购和库存单位；发布时验证引用可用并将单位显示、精度、舍入和所需同维度换算快照写入版本。箱/件比例或质量/体积互换仅在物料专属包装、密度规则中表达并随物料版本发布；质量、长度、体积等不同物理维度不属于通用换算。
 
 ## 7.2 物料与版本
 
@@ -276,7 +276,7 @@ Api → Application + Contracts + Infrastructure + Web + Logging
 | 类型 | 主要业务字段 |
 | --- | --- |
 | Material | `NId`、`TenantId`、`Code`、`CurrentReleasedVersionNId`、`Status`、`ExternalSource`、`ExternalId` |
-| MaterialVersion | `NId`、`MaterialNId`、`VersionNo`、`Name`、`ShortName`、`MaterialType`、`CategoryNId`、`BaseUnitNId`、`BatchPolicyNId`、`SchemaRevision`、`Attributes`、`EffectiveFrom`、`EffectiveTo`、`Status`、`ChangeReason`、`ReviewedBy`、`ReviewedOn`、`ReleasedBy`、`ReleasedOn` |
+| MaterialVersion | `NId`、`MaterialNId`、`VersionNo`、`Name`、`ShortName`、`MaterialType`、`CategoryNId`、`BaseUnitReference`、`PurchaseUnitReference`、`StockUnitReference`、`MaterialUnitRules`、`BatchPolicyNId`、`SchemaRevision`、`Attributes`、`EffectiveFrom`、`EffectiveTo`、`Status`、`ChangeReason`、`ReviewedBy`、`ReviewedOn`、`ReleasedBy`、`ReleasedOn` |
 
 版本状态机：
 
@@ -287,7 +287,7 @@ Draft → Review → Released → Expired
 ```
 
 - 一个 Material 可有多个草稿/历史版本，但同一 `VersionNo` 唯一。
-- 发布前必须完成分类、单位、批次策略、元数据 revision 和生效区间校验。
+- 发布前必须完成分类、ReferenceData UnitReference、物料专属单位规则、批次策略、元数据 revision 和生效区间校验。
 - 同一 Material 的 Released 生效区间不得重叠；解析时传入 `asOf`，只返回覆盖该时刻的唯一发布版本。
 - Released 内容不可修改；变更时复制为新 Draft。`CurrentReleasedVersionNId` 只是当前读取优化，不替代按时间解析。
 - 发布产生领域事件，Outbox 转换为 `MaterialReleasedIntegrationEventV1`。
@@ -329,14 +329,14 @@ Warehouse/Location 不包含数量、批次、可用量、预留或库存状态�
 | --- | --- |
 | Bom | `NId`、`TenantId`、`ProductMaterialNId`、`FactoryNId`、`Code`、`CurrentReleasedVersionNId`、`Status` |
 | BomVersion | `NId`、`BomNId`、`VersionNo`、`EffectiveFrom`、`EffectiveTo`、`Status`、`ChangeReason`、发布审计字段 |
-| BomItem | `NId`、`BomVersionNId`、`Sequence`、`ComponentMaterialNId`、`Quantity`、`UnitNId`、`ScrapRate`、`IsOptional` |
+| BomItem | `NId`、`BomVersionNId`、`Sequence`、`ComponentMaterialNId`、`Quantity`、`UnitReference`、`ScrapRate`、`IsOptional` |
 | BomItemSubstitute | `NId`、`BomItemNId`、`SubstituteMaterialNId`、`Priority`、`ConversionRatio`、`UsageLimit` |
 
 - BOM 至少一个有效行；Sequence 在版本内唯一；Quantity 与 ConversionRatio 大于 0，ScrapRate 在 `[0,1)`。
-- 产品、组件、替代料必须解析为可用物料；单位必须能与组件基础单位换算。
+- 产品、组件、替代料必须解析为可用物料；单位引用必须与组件基础单位同维度，或由该物料已发布的专属包装/密度规则明确换算。
 - 禁止直接自引用，也必须用依赖图检测跨 BOM 版本循环。
 - 发布版本不可修改，生效区间不得与同一产品/工厂作用域的其他发布版本重叠。
-- 发布快照包含产品版本、组件版本、单位换算和替代料规则，保证 WorkOrder 后续重放不受主数据新版本影响。
+- 发布快照包含产品版本、组件版本、ReferenceData 单位引用（含来源和修订）、所用换算/舍入快照与替代料规则，保证 WorkOrder 后续重放不受后续定义变化影响。
 
 ## 7.7 工艺路线版本与发布
 
@@ -361,7 +361,7 @@ Warehouse/Location 不包含数量、批次、可用量、预留或库存状态�
 
 | 模块 | 表 |
 | --- | --- |
-| 单位与定义 | `md_unit`、`md_unit_conversion`、`md_material_category`、`md_batch_policy` |
+| 定义 | `md_material_category`、`md_batch_policy` |
 | 物料 | `md_material`、`md_material_version` |
 | 制造组织 | `md_factory`、`md_workshop`、`md_production_line`、`md_work_center` |
 | 仓储定义 | `md_warehouse`、`md_location` |
@@ -374,7 +374,7 @@ Warehouse/Location 不包含数量、批次、可用量、预留或库存状态�
 
 - 所有租户表索引以 `tenant_id` 开头；Code 唯一性包含明确业务作用域和软删除策略。
 - `effective_from`、`effective_to` 使用 `timestamptz`，采用左闭右开区间 `[from,to)`；空 `effective_to` 表示无上限。
-- 金额外的数量/换算统一使用显式 PostgreSQL `numeric(p,s)`；精度在迁移和契约测试中锁定，禁止依赖 provider 默认值。
+- 金额外的数量和物料专属规则结果统一使用显式 PostgreSQL `numeric(p,s)`；精度来自发布的 UnitOfMeasure 快照并在迁移和契约测试中锁定，禁止依赖 provider 默认值。
 - JSONB 只用于经 ReferenceData schema revision 验证的静态扩展属性，不用于替代关系表或关键查询字段。
 - 发布命令通过事务和并发条件保证“校验区间、更新当前指针、写审计、写 Outbox”原子完成。
 - migration 必须可前向执行；破坏性 schema 变更需独立迁移计划，不在普通任务中清空或重建数据库。
@@ -397,7 +397,6 @@ Warehouse/Location 不包含数量、批次、可用量、预留或库存状态�
 
 | 资源 | 核心 API |
 | --- | --- |
-| Units | `GET/POST /units`、`GET/PUT /units/{unitNId}`、`POST /units/{unitNId}/conversions`、`POST /units/{unitNId}/enable|disable` |
 | Material definitions | `GET/POST /material-categories`、`GET/POST /batch-policies` |
 | Materials | `GET/POST /materials`、`GET /materials/{materialNId}`、`POST /materials/{materialNId}/versions`、`PUT /materials/{materialNId}/versions/{versionNId}`、`POST .../submit-review|reject|release|expire`、`GET /materials/{materialNId}/resolve?asOf=` |
 | Organizations | `GET /organizations/tree`、`POST/PUT /factories`、`/workshops`、`/production-lines`、`/work-centers`、启停端点 |
@@ -414,7 +413,7 @@ Warehouse/Location 不包含数量、批次、可用量、预留或库存状态�
 
 | 事件 | 关键 payload |
 | --- | --- |
-| `MaterialReleasedIntegrationEventV1` | MaterialNId、VersionNId/VersionNo、生效区间、类型、分类、基础单位、批次策略、schema revision |
+| `MaterialReleasedIntegrationEventV1` | MaterialNId、VersionNId/VersionNo、生效区间、类型、分类、基础/采购/库存 UnitReference（含来源与修订）、物料专属单位规则快照、批次策略、schema revision |
 | `BomReleasedIntegrationEventV1` | BomNId、BomVersionNId/VersionNo、ProductMaterialNId、FactoryNId、生效区间、snapshotVersion |
 | `RoutingReleasedIntegrationEventV1` | RoutingNId、RoutingVersionNId/VersionNo、ProductMaterialNId、FactoryNId、BomVersionNId、生效区间、snapshotVersion |
 | `WarehouseChangedIntegrationEventV1` | WarehouseNId、FactoryNId、AuthorityMode、状态、changeKind |
@@ -449,7 +448,7 @@ masterdata:v1:{tenantId}:organization:{factoryNId}:{optimisticVersion}
 
 | 页面 | 路由 | 核心能力 |
 | --- | --- | --- |
-| 单位与基础定义 | `/pc/master-data/definitions` | 单位/换算、分类树、批次策略列表与启停 |
+| 基础定义 | `/pc/master-data/definitions` | 分类树、批次策略列表与启停，以及物料单位选用/专属规则；通用单位维护跳转或链接至 ReferenceData |
 | 物料管理 | `/pc/master-data/materials` | 筛选分页、物料详情、版本时间线、草稿编辑、送审/发布/失效 |
 | 制造组织 | `/pc/master-data/organizations` | 工厂到工作中心树、节点编辑、启停校验 |
 | 仓库与库位 | `/pc/master-data/warehouses` | 仓库列表、库位树、默认用途、权威模式确认 |
@@ -464,7 +463,7 @@ masterdata:v1:{tenantId}:organization:{factoryNId}:{optimisticVersion}
 - 发布动作展示版本、生效区间和影响摘要，要求填写变更原因并二次确认。
 - Released 字段只读；创建新修订是唯一修改入口。
 - 树节点支持键盘导航，表单错误与控件用 `aria-describedby` 关联；不得只用颜色表达状态。
-- 页面不自行实现单位换算、循环检测或发布资格等权威业务规则；前端可预校验，最终以后端结果为准。
+- 页面不自行实现通用单位换算、循环检测或发布资格等权威业务规则；前端可预校验，最终以后端与 ReferenceData UnitOfMeasure 契约结果为准。
 
 ---
 
@@ -481,7 +480,7 @@ masterdata:v1:{tenantId}:organization:{factoryNId}:{optimisticVersion}
 | `MD_EFFECTIVE_RANGE_OVERLAP` | 409 | 已发布生效区间重叠 |
 | `MD_REFERENCE_NOT_ACTIVE` | 422 | 引用的主数据或 ReferenceData 定义不可用 |
 | `MD_HIERARCHY_INVALID` | 422 | 层级、跨工厂或循环关系非法 |
-| `MD_UNIT_CONVERSION_INVALID` | 422 | 单位维度、因子或精度非法 |
+| `MD_UNIT_REFERENCE_INVALID` | 422 | ReferenceData 单位来源、修订、维度或物料专属规则不兼容 |
 | `MD_BOM_CYCLE_DETECTED` | 422 | BOM 自引用或递归循环 |
 | `MD_ROUTING_DEPENDENCY_CYCLE` | 422 | 工序前置关系成环 |
 | `MD_FACTORY_SCOPE_DENIED` | 403 | 无目标工厂数据权限 |
@@ -517,7 +516,7 @@ masterdata.audit.read
 
 | 层次 | 必测内容 |
 | --- | --- |
-| Domain | 状态机、区间重叠、单位换算、层级循环、BOM 循环、Routing 依赖、发布后不可变 |
+| Domain | 状态机、区间重叠、UnitReference/物料专属规则、层级循环、BOM 循环、Routing 依赖、发布后不可变 |
 | Application | 权限、租户/工厂范围、命令事务、ReferenceData 引用校验、并发和错误映射 |
 | Infrastructure | PostgreSQL 映射/索引/复合外键、软删除、事务、缓存失效、Outbox、RabbitMQ 序列化 |
 | API/Contracts | 路径、DTO、分页、双并发字段、错误信封、OpenAPI、事件 V1 向后兼容 |
@@ -526,7 +525,7 @@ masterdata.audit.read
 
 关键验收场景：
 
-1. 创建单位/分类/批次策略，创建物料草稿，送审并发布；指定生效时刻只能解析唯一版本。
+1. 选择已发布 ReferenceData 单位，创建分类/批次策略与物料草稿，送审并发布；指定生效时刻只能解析唯一版本并返回单位来源与修订快照。
 2. 两个客户端基于同一版本编辑，后提交者收到 `MD_CONCURRENCY_CONFLICT`，页面不丢输入。
 3. 跨租户和无 FactoryNId 范围访问被拒绝，列表也不泄露数量。
 4. BOM 空行、重复序号、自引用、间接循环和重叠发布均失败；有效发布写入快照与 Outbox。
@@ -577,23 +576,23 @@ TASK-MD-002 与 TASK-MD-004 在 001 完成后可并行；005 与 006 在 004 完
 
 **建议提交：** `feat(master-data): scaffold service boundaries`
 
-## TASK-MD-002 实现单位、物料分类与批次策略定义
+## TASK-MD-002 实现物料分类、批次策略与单位引用规则
 
 **状态：** 可派遣
 
-**目标：** 建立 Unit、UnitConversion、MaterialCategory 和 BatchPolicy 纵向闭环，为物料、BOM 与 OperationalData 提供稳定定义。
+**目标：** 建立 MaterialCategory、BatchPolicy、已发布 ReferenceData UnitOfMeasure 的消费契约，以及物料专属包装/密度规则纵向闭环，为物料、BOM 与 OperationalData 提供稳定引用。
 
-**输入文档：** 本文第 7.1、8、9、11～12 节；ReferenceData 已发布字典、编码与元数据契约。
+**输入文档：** 本文第 7.1、8、9、11～12 节；ReferenceData 已发布字典、编码、元数据与 UnitOfMeasure 公开契约。
 
 **依赖：** TASK-MD-001。
 
 **允许修改范围：** MasterData 的 Definitions Domain/Application/Contracts/Infrastructure/Api、对应测试；不修改 ReferenceData 实现。
 
-**预期输出：** 单位唯一性与精确换算、分类树、批号作用域/保质期/FIFO/FEFO 策略、持久化迁移、版本化 API、权限和契约测试。
+**预期输出：** 分类树、批号作用域/保质期/FIFO/FEFO 策略、UnitReference 校验与快照、物料专属包装/密度规则、持久化迁移、版本化 API、权限和契约测试；不创建单位或通用换算 CRUD。
 
-**验证与证据：** 覆盖重复单位、跨维度/非正因子、精度、循环分类、活动子节点、非法批次策略、租户隔离和 PostgreSQL numeric/timestamptz 映射。
+**验证与证据：** 覆盖失效或来源/修订不匹配的 UnitReference、同维度与物料专属规则校验、精度快照、循环分类、活动子节点、非法批次策略、租户隔离和 PostgreSQL numeric/timestamptz 映射。
 
-**结果回写：** 回写单位精度、换算公式、分类深度、批次策略字段、错误码和 OperationalData 消费契约。
+**结果回写：** 回写 UnitReference/来源/修订与快照字段、物料专属规则、分类深度、批次策略字段、错误码和 OperationalData 消费契约。
 
 **建议提交：** `feat(master-data): add manufacturing definitions`
 
@@ -691,7 +690,7 @@ TASK-MD-002 与 TASK-MD-004 在 001 完成后可并行；005 与 006 在 004 完
 
 **预期输出：** 产品/工厂作用域 BOM、行与替代料、递归循环检测、发布快照、按时间解析和 `BomReleasedIntegrationEventV1`。
 
-**验证与证据：** 覆盖空 BOM、重复行、非正用量、非法单位、自引用/间接循环、重叠区间、Released 修改、并发发布及快照可重放。
+**验证与证据：** 覆盖空 BOM、重复行、非正用量、非法 UnitReference、自引用/间接循环、重叠区间、Released 修改、并发发布及快照可重放。
 
 **结果回写：** 回写递归规则、替代料模型、版本状态机、快照、错误码和事件字段。
 
@@ -729,7 +728,7 @@ TASK-MD-002 与 TASK-MD-004 在 001 完成后可并行；005 与 006 在 004 完
 
 **允许修改范围：** MasterData Api/Application/Infrastructure、缓存/审计适配及测试；`src/frontend` 的 MasterData api/types/stores/pages/router、菜单、权限和对应测试。
 
-**预期输出：** `/api/v1/master-data` 稳定 API、当前/指定时刻解析、缓存回源与失效、工厂数据权限、完整审计，以及单位、物料、组织、仓库/库位、设备、BOM、Routing 管理页面。
+**预期输出：** `/api/v1/master-data` 稳定 API、当前/指定时刻解析、缓存回源与失效、工厂数据权限、完整审计，以及分类/批次策略、物料、组织、仓库/库位、设备、BOM、Routing 管理页面；通用单位页面由 ReferenceData 提供。
 
 **验证与证据：** 覆盖分页/过滤、租户隔离、工厂权限、缓存命中/失效/降级、并发冲突、审计完整性、OpenAPI；覆盖页面权限、表单、版本发布、冲突恢复、可访问性和关键路径 E2E。
 
@@ -763,7 +762,7 @@ TASK-MD-002 与 TASK-MD-004 在 001 完成后可并行；005 与 006 在 004 完
 
 ## 15.1 领域与数据
 
-- 单位、分类、批次策略、物料、组织、仓储定义、设备、BOM 和 Routing 均有明确聚合、状态机、不变量和数据库约束。
+- 分类、批次策略、物料、组织、仓储定义、设备、BOM 和 Routing 均有明确聚合、状态机、不变量和数据库约束；通用单位/换算通过 ReferenceData UnitOfMeasure 契约消费，物料仅保存单位选用、专属规则和发布快照。
 - `masterdata_db` 只保存稳定主数据定义、版本、快照、审计与 Outbox；无库存事实、生产执行、遥测或其他服务权威数据。
 - 只有 Released 且覆盖目标时刻的版本可被运行时解析；历史版本不被覆盖。
 
@@ -815,8 +814,8 @@ TASK-MD-002 与 TASK-MD-004 在 001 完成后可并行；005 与 006 在 004 完
 后续服务可以稳定依赖：
 
 ```text
-稳定标识：MaterialNId、UnitNId、FactoryNId、WarehouseNId、LocationNId、EquipmentNId、BomNId、RoutingNId
-版本标识：MaterialVersionNId、BomVersionNId、RoutingVersionNId、VersionNo、snapshotVersion
+稳定标识：MaterialNId、FactoryNId、WarehouseNId、LocationNId、EquipmentNId、BomNId、RoutingNId；ReferenceData 的 UnitDimensionNId、UnitNId
+版本标识：MaterialVersionNId、BomVersionNId、RoutingVersionNId、VersionNo、snapshotVersion；ReferenceData `unitRevision`（整份 UnitDimension.Revision）、`sourceScope`、`sourceTenantNId`
 解析语义：tenantId + business scope + asOf，仅返回唯一 Released 版本
 API：/api/v1/master-data 下的读取与 resolve 契约
 事件：MaterialReleased、BomReleased、RoutingReleased、WarehouseChanged、EquipmentCreated/Changed V1

@@ -347,6 +347,20 @@ public sealed class SystemDataOrchestrationStoreTests : IDisposable
 
         Assert.NotNull(latest);
         Assert.Equal("1.0.0", latest.ObservedVersion);
+
+        await _store.AddObservationAsync(
+            CreateObservation("2.0.0", DateTimeOffset.UtcNow, moduleKey: "module-b"),
+            Ct);
+
+        var moduleA = await _store.GetLatestObservationAsync(
+            Tenant, "Development", "systemdata", "systemdata", Ct);
+        var moduleB = await _store.GetLatestObservationAsync(
+            Tenant, "Development", "systemdata", "module-b", Ct);
+
+        Assert.NotNull(moduleA);
+        Assert.Equal("1.0.0", moduleA.ObservedVersion);
+        Assert.NotNull(moduleB);
+        Assert.Equal("2.0.0", moduleB.ObservedVersion);
     }
 
     // =====================================================================
@@ -585,7 +599,8 @@ public sealed class SystemDataOrchestrationStoreTests : IDisposable
 
     private static DatabaseMigrationObservation CreateObservation(
         string observedVersion = "1.0.0",
-        DateTimeOffset? observedOn = null) =>
+        DateTimeOffset? observedOn = null,
+        string? moduleKey = null) =>
         DatabaseMigrationObservation.Record(
             Tenant,
             "Development",
@@ -595,5 +610,6 @@ public sealed class SystemDataOrchestrationStoreTests : IDisposable
             Sha("artifact"),
             observedOn ?? DateTimeOffset.UtcNow.AddMinutes(-1),
             "OP-001",
-            VerificationStatus.Verified);
+            VerificationStatus.Verified,
+            moduleKey);
 }

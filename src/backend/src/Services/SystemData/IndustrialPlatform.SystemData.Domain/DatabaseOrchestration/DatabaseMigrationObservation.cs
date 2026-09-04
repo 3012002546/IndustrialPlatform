@@ -19,6 +19,9 @@ public sealed class DatabaseMigrationObservation : AggregateRoot
     /// <summary>服务稳定键。</summary>
     public string ServiceKey { get; private set; }
 
+    /// <summary>初始化单元模块标识;v1 记录缺省回退为 ServiceKey。</summary>
+    public string ModuleKey { get; private set; }
+
     /// <summary>数据库身份指纹(由 <see cref="Topology.DatabaseTopologyFingerprint.ComputeDatabaseIdentityFingerprint"/> 计算)。</summary>
     public string DatabaseIdentityFingerprint { get; private set; }
 
@@ -42,6 +45,7 @@ public sealed class DatabaseMigrationObservation : AggregateRoot
         TenantNId = string.Empty;
         EnvironmentNId = string.Empty;
         ServiceKey = string.Empty;
+        ModuleKey = string.Empty;
         DatabaseIdentityFingerprint = string.Empty;
         ObservedVersion = string.Empty;
         ArtifactChecksum = string.Empty;
@@ -51,6 +55,7 @@ public sealed class DatabaseMigrationObservation : AggregateRoot
         string tenantNId,
         string environmentNId,
         string serviceKey,
+        string moduleKey,
         string databaseIdentityFingerprint,
         string observedVersion,
         string artifactChecksum,
@@ -62,6 +67,8 @@ public sealed class DatabaseMigrationObservation : AggregateRoot
         EnvironmentNId = DatabaseOrchestrationGuard.RequireNId(environmentNId, "迁移观察的环境标识不能为空。");
         ServiceKey = DatabaseOrchestrationGuard.RequireTrimmedNonEmpty(
             serviceKey, "服务键不能为空。", DatabaseRegistration.ServiceKeyMaxLength, $"服务键长度不能超过 {DatabaseRegistration.ServiceKeyMaxLength} 个字符。");
+        ModuleKey = DatabaseOrchestrationGuard.RequireTrimmedNonEmpty(
+            moduleKey, "模块标识不能为空。", DatabaseRegistration.ModuleKeyMaxLength, $"模块标识长度不能超过 {DatabaseRegistration.ModuleKeyMaxLength} 个字符。");
         DatabaseIdentityFingerprint = DatabaseOrchestrationGuard.RequireSha256Hex(databaseIdentityFingerprint, "数据库身份指纹不能为空。");
         ObservedVersion = DatabaseOrchestrationGuard.RequireTrimmedNonEmpty(
             observedVersion, "观察版本不能为空。", DatabaseProvisionPlan.VersionMaxLength, $"观察版本长度不能超过 {DatabaseProvisionPlan.VersionMaxLength} 个字符。");
@@ -79,6 +86,7 @@ public sealed class DatabaseMigrationObservation : AggregateRoot
         string tenantNId,
         string environmentNId,
         string serviceKey,
+        string moduleKey,
         string databaseIdentityFingerprint,
         string observedVersion,
         string artifactChecksum,
@@ -99,6 +107,7 @@ public sealed class DatabaseMigrationObservation : AggregateRoot
         TenantNId = tenantNId;
         EnvironmentNId = environmentNId;
         ServiceKey = serviceKey;
+        ModuleKey = moduleKey;
         DatabaseIdentityFingerprint = databaseIdentityFingerprint;
         ObservedVersion = observedVersion;
         ArtifactChecksum = artifactChecksum;
@@ -125,11 +134,13 @@ public sealed class DatabaseMigrationObservation : AggregateRoot
         string artifactChecksum,
         DateTimeOffset observedOn,
         string? operationNId,
-        VerificationStatus verificationStatus)
+        VerificationStatus verificationStatus,
+        string? moduleKey = null)
         => new(
             tenantNId,
             environmentNId,
             serviceKey,
+            moduleKey ?? serviceKey,
             databaseIdentityFingerprint,
             observedVersion,
             artifactChecksum,

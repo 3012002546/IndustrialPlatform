@@ -211,6 +211,24 @@ Equipment Service
 
 ---
 
+## 4.1 ReferenceData 数据所有权摘要
+
+`referencedata_db` 固定使用 PostgreSQL Schema `reference_data`，由一个服务级 `schema_migrations`、`seed_ledger` 和带 `module_key` 的 `outbox_message` 管理；七个逻辑模块不分别建立 Migration、Ledger、Outbox 或连接。当前没有实际入站事件消费者，因此不建 Inbox/Checkpoint。
+
+| 模块 | 表前缀 | 聚合与边界 |
+| --- | --- | --- |
+| Dictionary | `dictionary_*` | 字典定义与项 |
+| Parameter | `parameter_*` | 配置应用域、键与值 |
+| DynamicProperty | `dynamic_property_*` | ReferenceData 自有动态配置 |
+| Metadata | `metadata_*` | Schema 与属性定义 |
+| CodingRule | `coding_rule_*` | 编码规则与技术序列记录 |
+| StateMachine | `state_machine_*` | `StateMachineDefinition` 根及私有 `StateNode`、`StateTransition`；仅定义与判定合法转换，不执行实例状态 |
+| UnitOfMeasure | `unit_of_measure_*` | `UnitDimension` 根及按 Revision 整份快照的 `UnitDefinition`；不建立两两 Conversion 图或独立 Factor 表 |
+
+`UnitDefinition` 在所属维度快照内保存 `FactorToBase`、`OffsetToBase`、`DecimalPlaces` 与 `RoundingMode`。跨维度换算和随物料变化的包装比例不属于 ReferenceData：后者由 MasterData 按物料规则拥有；状态实例、业务前置条件和状态历史由相应业务服务拥有，禁止跨库 `SetStatus`。
+
+---
+
 # 5. PostgreSQL Schema设计
 
 每个数据库：

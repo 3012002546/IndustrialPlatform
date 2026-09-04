@@ -147,6 +147,15 @@ public sealed class BackupRequiredException : DatabaseOrchestrationException
     }
 }
 
+/// <summary>执行前操作者已失去当前租户 SYSTEM_ADMIN 资格(禁止目标库写入)。</summary>
+public sealed class OperatorNotAuthorizedException : DatabaseOrchestrationException
+{
+    public OperatorNotAuthorizedException()
+        : base(403, "SD_DB_OPERATOR_NOT_AUTHORIZED", "当前操作者已不具备该租户的 SYSTEM_ADMIN 资格,拒绝执行数据库变更。")
+    {
+    }
+}
+
 /// <summary>操作冲突(§9.9 SD_DB_OPERATION_CONFLICT):幂等键冲突或并发更新冲突。</summary>
 public sealed class OperationConflictException : DatabaseOrchestrationException
 {

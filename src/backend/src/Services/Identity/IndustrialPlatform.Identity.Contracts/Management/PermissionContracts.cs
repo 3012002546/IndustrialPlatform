@@ -11,4 +11,5 @@ public sealed record PermissionTreeNode(
     string? ParentPermissionNId,
     string? Description,
     string Status,
-    IReadOnlyList<PermissionTreeNode> Children);
+    IReadOnlyList<PermissionTreeNode> Children,
+    bool IsProtected = false);

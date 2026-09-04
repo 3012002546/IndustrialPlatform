@@ -52,6 +52,9 @@ public sealed class DatabaseRegistrationTable
     [SugarColumn(ColumnName = "seed_sets")]
     public string? SeedSets { get; set; }
 
+    [SugarColumn(ColumnName = "uses_service_initializer")]
+    public bool UsesServiceInitializer { get; set; }
+
     [SugarColumn(ColumnName = "provider")]
     public string Provider { get; set; } = string.Empty;
 

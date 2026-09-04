@@ -66,5 +66,25 @@ public sealed class ModuleIsolationAcceptanceTests
         Assert.NotNull(handleB);
         handleA?.Dispose();
         handleB?.Dispose();
+
+        // 控制面观察同样按初始化单元隔离:当前模块不得读到另一个模块的迁移操作或 bootstrap 状态。
+        var readinessA = await harness.OperationService.GetReadinessV2Async(
+            InitializationGateHarness.Tenant,
+            TestInitializableService.ServiceKey,
+            moduleA.ModuleKey,
+            "trace-module-a",
+            Ct);
+        var readinessB = await harness.OperationService.GetReadinessV2Async(
+            InitializationGateHarness.Tenant,
+            TestInitializableService.ServiceKey,
+            moduleB.ModuleKey,
+            "trace-module-b",
+            Ct);
+        Assert.True(readinessA.Ready);
+        Assert.True(readinessB.Ready);
+        Assert.Equal(opA.OperationNId, readinessA.OperationNId);
+        Assert.Equal(opB.OperationNId, readinessB.OperationNId);
+        Assert.Null(readinessA.BootstrapStatus);
+        Assert.Equal("Ready", readinessB.BootstrapStatus);
     }
 }

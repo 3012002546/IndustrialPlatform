@@ -43,6 +43,7 @@ public sealed class UserManagementServiceTests
         _refreshStore,
         _cache,
         _auditSink,
+        new AllowSystemAdminAuthorization(),
         NullLogger<UserManagementService>.Instance);
 
     private User SeedUser(string nId = "alice.user", string loginName = "alice", string name = "Alice")
@@ -990,5 +991,12 @@ public sealed class UserManagementServiceTests
 
             Entries.Add(entry);
         }
+    }
+
+    private sealed class AllowSystemAdminAuthorization : ISystemAdminAuthorization
+    {
+        public Task<bool> IsSystemAdminAsync(string tenantNId, string userNId, CancellationToken cancellationToken) => Task.FromResult(true);
+
+        public Task EnsureSystemAdminAsync(string tenantNId, string userNId, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 }

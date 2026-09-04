@@ -1,5 +1,6 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
+import ElementPlus from 'element-plus'
 import { describe, expect, it, vi } from 'vitest'
 import { persistAuthSession } from '../fixtures/session'
 import { useAuthStore } from '@/stores/authStore'
@@ -187,7 +188,7 @@ describe('SystemDataAdminPage', () => {
     ['organizations', '组织详情与岗位'],
     ['assignments', 'Identity 用户搜索'],
     ['navigation', '草稿树'],
-    ['features', '功能开关'],
+    ['features', 'SystemData features'],
     ['services', 'Platform'],
     ['themes', '允许配色'],
     ['service-initialization', '服务/模块注册'],
@@ -209,7 +210,7 @@ describe('SystemDataAdminPage', () => {
     )
     const wrapper = mount(SystemDataAdminPage, {
       props: { kind, title: `SystemData ${kind}` },
-      global: { plugins: [pinia] },
+      global: { plugins: [pinia, ElementPlus] },
     })
 
     await flushPromises()
@@ -243,7 +244,7 @@ describe('SystemDataAdminPage', () => {
     )
     const wrapper = mount(SystemDataAdminPage, {
       props: { kind: 'organizations', title: '行政组织与岗位' },
-      global: { plugins: [pinia] },
+      global: { plugins: [pinia, ElementPlus] },
     })
     await flushPromises()
 

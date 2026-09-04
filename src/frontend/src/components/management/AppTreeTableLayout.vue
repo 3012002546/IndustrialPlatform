@@ -87,4 +87,22 @@ withDefaults(
   display: flex;
   justify-content: flex-end;
 }
+
+@media (max-width: 900px) {
+  .app-tree-table {
+    flex-direction: column;
+  }
+
+  .app-tree-table__tree,
+  .app-tree-table__tree--narrow,
+  .app-tree-table__tree--medium {
+    width: auto;
+    max-height: min(38vh, 320px);
+    flex: 0 1 auto;
+  }
+
+  .app-tree-table__content {
+    min-height: 320px;
+  }
+}
 </style>

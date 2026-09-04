@@ -74,7 +74,7 @@
 | 统一前端第一批 | 已完成 | `TASK-FE-001～010` 执行记录均已完成 |
 | Identity | 当前范围已完成 | `TASK-ID-001～023` 已完成并合入 `develop`；本地可验证门禁全绿，真实 PostgreSQL/Redis 联合登录链路保留为外部验收项 |
 | PF-01 视觉主题与平台外壳 | 已完成（外部真机项待验收） | 实施 04 `TASK-PF01-001～007` 已完成；真实 Identity 联合验收 real E2E 19/19 |
-| PF-02 SystemData | 功能开发完成 / 收束验收中 | `TASK-SD-001～010` 已完成；`TASK-SD-011～012` 功能开发完成、待收束验收；`TASK-SD-013` 重新打开；`TASK-SD-014～017` 待派遣；不自动进入 PF-03 |
+| PF-02 SystemData | 收束验收中 / 26项证据状态已回写 | 2026-09-04已知整改缺陷复验关闭；24项部分、ORG-02/03隔离通过/真实HTTP待补；014完整UI与200%、015真实链、016外部门禁保留；017本轮回写完成，013/PF-02继续active，不进入PF-03 |
 | ReferenceData | 仅骨架 | 已有健康检查、测试入口和详细实施方案，业务能力尚未开发 |
 | 架构收敛整改 | 已完成 | 四个已批准工作包完成，结果已纳入当前架构基线 |
 | MasterData | 暂缓 | 实施方案存在，本轮不进入开发 |
@@ -217,7 +217,7 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 
 # 9. PF-02 SystemData
 
-**状态：** 功能开发完成 / 收束验收中；`TASK-SD-001～010` 已完成，`TASK-SD-011～012` 功能开发完成、待收束验收，`TASK-SD-013` 重新打开，`TASK-SD-014～017` 待派遣；不自动进入 PF-03
+**状态：** 收束验收中（2026-09-03）；`TASK-SD-001～010` 已完成，011～012 待收束，014/016 已交付并关闭已报告缺陷，015 真实矩阵受环境限制，017 已回写证据，013/PF-02 未关闭；不自动进入 PF-03
 **Service Host：** 创建 `SystemData.Service`；本阶段只交付 SystemData 模块。
 **建议会话标题：** `PF-02 SystemData阶段管理`
 **输入：** 蓝图 05、07、13、20、23、27、30、31、32、33；PF-00 身份契约；PF-01 页面规范；PostgreSQL 18 与当前 `deploy/cloud-dev` 最小引导现状。
@@ -260,28 +260,29 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 3. 收敛测试项目与门禁。
 4. 对齐当前服务初始化与 readiness。
 
-冻结规则为：SystemData = Topology + Orchestration + Policy + Observation；Service = Migration + Seed + Bootstrap + Verify + Ledger；runtime readiness 只取本地核心数据库事实。Gateway 与 UnifiedHost 分别承担分布式反向代理和统一进程组合宿主，不互相替代。ReferenceData 保持一个宿主、五个逻辑模块、一个 `reference_data` Schema、模块表前缀、一个服务级 Migration/Ledger 和一个带 `ModuleKey` 的服务级 Outbox；没有真实入站事件消费者时不预建 Inbox/Checkpoint。
+冻结规则为：SystemData = Topology + Orchestration + Policy + Observation；Service = Migration + Seed + Bootstrap + Verify + Ledger；runtime readiness 只取本地核心数据库事实。Gateway 与 UnifiedHost 分别承担分布式反向代理和统一进程组合宿主，不互相替代。ReferenceData 保持一个宿主、七个逻辑模块、一个 `reference_data` Schema、模块表前缀、一个服务级 Migration/Ledger 和一个带 `ModuleKey` 的服务级 Outbox；没有真实入站事件消费者时不预建 Inbox/Checkpoint。
 
 # 10. PF-03 ReferenceData
 
 **状态：** 文档已收敛，代码仅骨架，未启动
-**Service Host：** 继续利用现有 `ReferenceData.Service` 骨架；内部模块为 Dictionary、Parameter、Metadata、DynamicProperty、CodingRule。
+**Service Host：** 继续利用现有 `ReferenceData.Service` 骨架；内部模块为 Dictionary、Parameter、Metadata、DynamicProperty、CodingRule、StateMachine、UnitOfMeasure。
 **建议会话标题：** `PF-03 ReferenceData阶段管理`
 **现有实施文档：** `docs/implementation/06-Industrial Platform ReferenceData Service开发实施方案.md`
 **输入：** 蓝图 05、07、08、21、26、27、31；现有 06 实施方案；PF-00/01/02 契约。
-**目标：** 在一个 `ReferenceData.Service` 内按 Dictionary、Parameter、DynamicProperty、Metadata、CodingRule 五个纵向切片顺序交付，复用一个数据库 Schema、服务级迁移/Outbox 与现有前端平台，不复制五套微服务治理设施。
+**目标：** 在一个 `ReferenceData.Service` 内按 Dictionary、Parameter、DynamicProperty、UnitOfMeasure、Metadata、CodingRule、StateMachine 七个纵向切片顺序交付，复用一个数据库 Schema、服务级迁移/Outbox 与现有前端平台，不按模块复制微服务治理设施。
 **依赖：** PF-00；与 PF-02 对菜单、主题默认值和系统参数所有权达成明确契约。
-**禁止范围：** SystemData、MasterData 业务实体、Low Code 运行时。
+**禁止范围：** SystemData、MasterData 业务实体、业务当前状态/事务、物料专属换算、Low Code 运行时与通用工作流/脚本引擎。
 
 **文档收敛结果：**
 
-- 五模块全部保留，原 `TASK-RD-001～014` 收敛为 `TASK-RD-001～008` 顺序步骤；
+- 原五模块保留，新增 StateMachine 与 UnitOfMeasure；实施 06 V2.7 调整为 `TASK-RD-001～010` 十个顺序步骤，计量单位先于 Metadata，仍不独立派遣或提交；
+- StateMachine 只拥有定义、版本和路径合法性，业务实例/权限/前置条件/事务仍归业务服务；通用单位与换算由 ReferenceData 唯一维护，MasterData 保留物料单位选用及专属比例；
 - SystemData 与 ReferenceData 参数所有权边界保持不变；
 - 当前代码仍是骨架，实施文档已显式记录初始化/readiness 差距；
 - 每个模块按后端、前端和测试同一步纵向交付并复用 PF-01 平台能力；
 - 依赖、状态、任务卡和验收证据已同步到实施 06。
 
-**完成门禁：** 五类能力纵向交付并连接真实 Gateway；缓存、Outbox、审计、页面、契约和 E2E 完成；不越界实现业务实体属性值。
+**完成门禁：** 七类能力纵向交付并连接真实 Gateway；缓存、Outbox、审计、页面、契约和 E2E 完成；固定定义修订/单位换算/业务事务失败不推进状态有验证；不越界实现业务实体属性值或业务状态执行。
 
 # 11. PF-04 File / Notification / Audit
 
@@ -486,9 +487,9 @@ WorkOrder、Weighting、Trace、BatchRecord 和生产闭环分别开会话设计
 | --- | --- | --- | --- | --- | --- | --- |
 | PF-00 Identity | 当前范围已完成 | PF-00 固定工作线 | 蓝图 13、31、33 | 实施 03 | TASK-ID-001～023 已完成；PF-00 集成提交 `9f48d89` | `docs/evidence/PF-00.md`；本地门禁全绿，真实 PostgreSQL/Redis 联合链路为外部验收项 |
 | PF-01 视觉主题 | 已完成（外部真机项待验收） | 现有 PF-01 会话继续 | 已批准 PF-01 规格 | `docs/implementation/04-Industrial Platform视觉主题与平台外壳开发实施方案.md` | 设计提交 `e2d24a4`、`d7ef889`、`efb3b35`；开发未提交(按协作约定) | TASK-PF01-001～007 完成；静态门禁全绿、mock E2E 102/102、真实 Identity E2E 19/19 |
-| PF-02 SystemData | 功能开发完成 / 收束验收中 | PF-02 固定工作线 | 蓝图 05、07、33 V3.1 | `docs/implementation/05-Industrial Platform SystemData开发实施方案.md` | 001～010 已完成；011～012 功能开发完成待验收；013 重新打开；014～017 待派遣 | `docs/evidence/PF-02.md`；真实组织/岗位 CRUD 已通过，七页真实操作、V2 Advanced 与十三项门禁证据矩阵待收束；不自动进入 PF-03 |
+| PF-02 SystemData | 收束验收中 / 真实矩阵受环境限制 | PF-02 主工作区顺序交接 | 蓝图 05、07、33 V3.1 | `docs/implementation/05-Industrial Platform SystemData开发实施方案.md` | 001～010 已完成；011～012 待收束；014/016 已交付并关闭已报告缺陷；015 待真实验收；017 已回写；013 未关闭 | `docs/evidence/PF-02.md` 第五轮；后端1378通过/3跳过、独立探针8项达到预期；七页/三端/十三门禁真实矩阵仍待验收，不进入 PF-03 |
 | 架构收敛整改 | 已完成 | 当前计划 | 已批准整改设计 | 已批准四工作包计划 | WP1～WP4 已完成 | 结果已纳入当前架构基线 |
-| PF-03 ReferenceData | 文档已收敛，代码仅骨架，未启动 | 待创建 | 蓝图 07、21、26、32、33；五模块边界已确认 | 实施 06 V2.6 已收敛 | - | - |
+| PF-03 ReferenceData | 文档已收敛，代码仅骨架，未启动 | 待创建 | 蓝图 07、21、26、32、33；七模块与单位/状态机所有权已确认 | 实施 06 V2.7 已收敛，十个内部步骤 | - | - |
 | PF-04 File / Notification / Audit | 待启动 | 待创建 | 蓝图 05、30、31 | 实施 07 待创建 | - | - |
 | PF-05 Collaboration | 待启动 | 待创建 | 蓝图 05 | 实施 08 待创建 | - | - |
 | PF-06 RemoteAssistance | 详细设计已确认，PoC 门禁待派遣 | 当前 PF-06 阶段管理会话 | 蓝图 05、32、33；Screego/W3C 官方证据 | `docs/implementation/09-Industrial Platform RemoteAssistance开发实施方案.md` | 推荐平台原生控制面/最小信令，Screego 仅未修改基准 PoC | TASK-PF06-001 待另行派遣；002～008 门禁阻塞，未开发/未测试 |

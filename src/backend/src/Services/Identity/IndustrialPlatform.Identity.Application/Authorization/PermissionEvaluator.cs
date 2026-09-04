@@ -48,6 +48,8 @@ public sealed partial class PermissionEvaluator : IPermissionEvaluator
             return new PermissionEvaluation(false, AuthorizationDenialReason.SessionInvalid);
         }
 
+        var protectedInitializationPermission = AuthorizationPermissionPolicy.IsProtectedInitializationPermission(requiredPermissionNId);
+
         // 1. 会话撤销校验(fail-closed:Redis 不可用抛安全存储不可用,不得放行)。
         if (!string.IsNullOrEmpty(sessionNId)
             && await _sessionRevocation.IsRevokedAsync(sessionNId, cancellationToken))
@@ -56,7 +58,11 @@ public sealed partial class PermissionEvaluator : IPermissionEvaluator
         }
 
         // 2. 版本化权限缓存命中 → 快速裁决,不落数据库(§14)。
-        var cached = await TryGetCachedAsync(tenantNId, userNId, authVersion, cancellationToken);
+        // 保留权限缓存用于普通权限；初始化/数据库编排权限必须每次装载当前租户的
+        // SYSTEM_ADMIN 事实，避免旧缓存或 JWT 权限声明在管理员被撤销后继续放行。
+        var cached = protectedInitializationPermission
+            ? null
+            : await TryGetCachedAsync(tenantNId, userNId, authVersion, cancellationToken);
         if (cached is not null)
         {
             return cached.Status == UserStatus.Active
@@ -87,6 +93,22 @@ public sealed partial class PermissionEvaluator : IPermissionEvaluator
         }
 
         // 4. 回填缓存(尽力而为)。
+        if (protectedInitializationPermission && !snapshot.IsSystemAdmin)
+        {
+            return await DenyAndAuditAsync(
+                tenantNId,
+                userNId,
+                sessionNId,
+                requiredPermissionNId,
+                AuthorizationDenialReason.MissingPermission,
+                cancellationToken);
+        }
+
+        if (protectedInitializationPermission)
+        {
+            return new PermissionEvaluation(true, AuthorizationDenialReason.None);
+        }
+
         await TryPopulateCacheAsync(snapshot, cancellationToken);
 
         return await EvaluatePermissionAsync(snapshot.PermissionNIds, requiredPermissionNId, tenantNId, userNId, sessionNId, cancellationToken);

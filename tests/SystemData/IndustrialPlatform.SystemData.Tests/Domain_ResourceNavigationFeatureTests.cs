@@ -95,14 +95,125 @@ public sealed class ResourceNavigationFeatureTests
         var service = new ResourceNavigationService(store, new TestPermissionRegistry());
         await service.RegisterManifestAsync("tenant-a", new RegisterModuleManifestRequest { ModuleNId = "module-a", ManifestVersion = "1", Checksum = "checksum", PermissionNIds = ["permission-a"] }, CancellationToken.None);
         await service.RegisterResourceAsync("tenant-a", new RegisterUiResourceRequest { ResourceNId = "resource-a", OwnerModuleNId = "module-a", ManifestVersion = "1", Type = "Page", Name = "页面", RouteName = "route-a", RequiredPermissionNId = "permission-a", SupportedTerminals = ["Pc"] }, CancellationToken.None);
-        await service.AddNodeAsync("tenant-a", new CreateNavigationNodeRequest { NodeNId = "group-a", Kind = "Group", Label = "分组", VisibleTerminals = ["Pc"] }, CancellationToken.None);
-        await service.AddNodeAsync("tenant-a", new CreateNavigationNodeRequest { NodeNId = "link-a", Kind = "Link", Label = "页面", ParentNodeNId = "group-a", ResourceNId = "resource-a", VisibleTerminals = ["Pc"] }, CancellationToken.None);
-        var firstRevision = await service.PublishAsync("tenant-a", "user-a", CancellationToken.None);
+        await service.AddNodeAsync("tenant-a", new CreateNavigationNodeRequest { NodeNId = "group-a", Kind = "Group", Label = "分组", VisibleTerminals = ["Pc"], ExpectedDraftRevision = 2 }, CancellationToken.None);
+        await service.AddNodeAsync("tenant-a", new CreateNavigationNodeRequest { NodeNId = "link-a", Kind = "Link", Label = "页面", ParentNodeNId = "group-a", ResourceNId = "resource-a", VisibleTerminals = ["Pc"], ExpectedDraftRevision = 3 }, CancellationToken.None);
+        var firstRevision = await service.PublishAsync("tenant-a", "user-a", 4, CancellationToken.None);
         var runtime = await service.RuntimeAsync("tenant-a", UiTerminal.Pc, CancellationToken.None);
         Assert.Equal(firstRevision, runtime.Revision);
         Assert.Single(runtime.Nodes);
         Assert.Single(runtime.Nodes.Single().Children);
-        await Assert.ThrowsAsync<ValidationException>(() => service.RollbackAsync("tenant-a", "user-a", CancellationToken.None));
+        await Assert.ThrowsAsync<ValidationException>(() => service.RollbackAsync("tenant-a", "user-a", firstRevision, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Navigation_action_associations_round_trip_and_reject_page_resources()
+    {
+        var store = new ControlPlaneTestStore();
+        var service = new ResourceNavigationService(store, new TestPermissionRegistry());
+        await service.RegisterManifestAsync("tenant-actions", new RegisterModuleManifestRequest
+        {
+            ModuleNId = "module-actions",
+            ManifestVersion = "1",
+            Checksum = "actions-checksum",
+            Permissions =
+            [
+                new PermissionDeclarationRequest { PermissionNId = "page.view", Name = "查看页面", ResourceType = "Page" },
+                new PermissionDeclarationRequest { PermissionNId = "action.execute", Name = "执行操作", ResourceType = "Action" },
+            ],
+            Resources =
+            [
+                new RegisterUiResourceRequest
+                {
+                    ResourceNId = "page-a",
+                    OwnerModuleNId = "module-actions",
+                    ManifestVersion = "1",
+                    Type = "Page",
+                    Name = "页面 A",
+                    RouteName = "page-a",
+                    RequiredPermissionNId = "page.view",
+                    SupportedTerminals = ["Pc"],
+                },
+                new RegisterUiResourceRequest
+                {
+                    ResourceNId = "action-a",
+                    OwnerModuleNId = "module-actions",
+                    ManifestVersion = "1",
+                    Type = "Action",
+                    Name = "操作 A",
+                    RequiredPermissionNId = "action.execute",
+                    SupportedTerminals = ["Pc"],
+                },
+            ],
+        }, CancellationToken.None);
+
+        await service.AddNodeAsync("tenant-actions", new CreateNavigationNodeRequest
+        {
+            NodeNId = "page-menu-a",
+            Kind = "Link",
+            Label = "页面 A",
+            ResourceNId = "page-a",
+            VisibleTerminals = ["Pc"],
+            ActionResourceNIds = ["action-a"],
+            ExpectedDraftRevision = 1,
+        }, CancellationToken.None);
+
+        var draft = await new ResourceNavigationService(store, new TestPermissionRegistry())
+            .GetDraftAsync("tenant-actions", CancellationToken.None);
+        var node = Assert.Single(draft.Nodes);
+        Assert.Equal(["action-a"], node.ActionResourceNIds);
+        Assert.True((await service.ValidateAsync("tenant-actions", CancellationToken.None)).IsValid);
+
+        await Assert.ThrowsAsync<ValidationException>(() => service.UpdateNodeAsync("tenant-actions", "page-menu-a", new UpdateNavigationNodeRequest
+        {
+            Label = "页面 A",
+            ResourceNId = "page-a",
+            VisibleTerminals = ["Pc"],
+            ActionResourceNIds = ["page-a"],
+            ExpectedDraftRevision = 2,
+        }, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Navigation_add_allows_three_levels_but_rejects_a_fourth_level()
+    {
+        var service = new ResourceNavigationService(new ControlPlaneTestStore(), new TestPermissionRegistry());
+
+        await service.AddNodeAsync("tenant-depth", new CreateNavigationNodeRequest
+        {
+            NodeNId = "level-1",
+            Kind = "Group",
+            Label = "一级",
+            VisibleTerminals = ["Pc"],
+            ExpectedDraftRevision = 0,
+        }, CancellationToken.None);
+        await service.AddNodeAsync("tenant-depth", new CreateNavigationNodeRequest
+        {
+            NodeNId = "level-2",
+            Kind = "Group",
+            Label = "二级",
+            ParentNodeNId = "level-1",
+            VisibleTerminals = ["Pc"],
+            ExpectedDraftRevision = 1,
+        }, CancellationToken.None);
+        await service.AddNodeAsync("tenant-depth", new CreateNavigationNodeRequest
+        {
+            NodeNId = "level-3",
+            Kind = "Group",
+            Label = "三级",
+            ParentNodeNId = "level-2",
+            VisibleTerminals = ["Pc"],
+            ExpectedDraftRevision = 2,
+        }, CancellationToken.None);
+
+        await Assert.ThrowsAsync<ValidationException>(() => service.AddNodeAsync("tenant-depth", new CreateNavigationNodeRequest
+        {
+            NodeNId = "level-4",
+            Kind = "Group",
+            Label = "四级",
+            ParentNodeNId = "level-3",
+            VisibleTerminals = ["Pc"],
+            ExpectedDraftRevision = 3,
+        }, CancellationToken.None));
     }
 
     [Fact]

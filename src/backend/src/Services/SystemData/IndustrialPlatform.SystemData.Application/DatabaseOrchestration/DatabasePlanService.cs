@@ -32,6 +32,9 @@ public interface IPlanService
 
     /// <summary>分页查询计划。</summary>
     Task<DatabaseOrchestrationPageResult<DatabasePlanV1>> ListAsync(string tenantNId, int pageIndex, int pageSize, CancellationToken cancellationToken);
+
+    /// <summary>读取当前可信环境的有效策略,与 plan/apply 门禁使用同一解析器。</summary>
+    Task<EnvironmentPolicyV1> GetEffectivePolicyAsync(string tenantNId, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -194,6 +197,36 @@ public sealed class DatabasePlanService : IPlanService
             page.Total,
             page.PageIndex,
             page.PageSize);
+    }
+
+    /// <inheritdoc />
+    public async Task<EnvironmentPolicyV1> GetEffectivePolicyAsync(
+        string tenantNId,
+        CancellationToken cancellationToken)
+    {
+        var topology = _topologyProvider.GetTopology();
+        var policy = await EnvironmentPolicyResolver.ResolveAsync(
+            _store,
+            _options.Value,
+            tenantNId,
+            topology.EnvironmentName,
+            topology,
+            cancellationToken);
+        return new EnvironmentPolicyV1
+        {
+            TenantNId = tenantNId,
+            EnvironmentNId = topology.EnvironmentName,
+            EnvironmentKind = policy.EnvironmentKind.ToString(),
+            ApprovalRequired = policy.ApprovalRequired,
+            BackupRequired = policy.BackupRequired,
+            PlanTtlSeconds = policy.PlanTtlSeconds,
+            PlanTimeoutSeconds = policy.PlanTimeoutSeconds,
+            ApplyTimeoutSeconds = policy.ApplyTimeoutSeconds,
+            MaxPreMigrationRetries = policy.MaxPreMigrationRetries,
+            PolicyRevision = policy.PolicyRevision,
+            InitializationPolicy = policy.InitializationPolicy.ToString(),
+            IsExplicit = policy.IsExplicit,
+        };
     }
 
     private static DatabasePlanV1 ToPlanV1(DatabaseProvisionPlan plan, DateTimeOffset now) => new()

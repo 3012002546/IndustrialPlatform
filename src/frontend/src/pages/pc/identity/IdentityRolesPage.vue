@@ -282,6 +282,7 @@ const permissionTarget = ref<RoleSummaryDto | null>(null)
 interface TreeData {
   id: string
   label: string
+  disabled?: boolean
   children?: TreeData[]
 }
 const permissionTree = ref<TreeData[]>([])
@@ -294,7 +295,8 @@ const treeLoading = ref(false)
 function toTreeData(nodes: PermissionTreeNodeDto[]): TreeData[] {
   return nodes.map((node) => ({
     id: node.permissionNId,
-    label: node.name,
+    label: node.isProtected ? `${node.name}（${copy.value.protectedPermission}）` : node.name,
+    ...(node.isProtected === true ? { disabled: true } : {}),
     ...(node.children.length > 0 ? { children: toTreeData(node.children) } : {}),
   }))
 }
@@ -330,7 +332,11 @@ async function submitPermissions(): Promise<void> {
   const checked = tree === undefined ? [] : (tree.getCheckedKeys() as string[])
   const halfChecked = tree === undefined ? [] : (tree.getHalfCheckedKeys() as string[])
   // 半选(父节点)一并提交,保证权限意图完整。
-  const permissionNIds = [...new Set([...checked, ...halfChecked])]
+  const permissionNIds = [...new Set([...checked, ...halfChecked])].filter(
+    (permissionNId) =>
+      !permissionNId.startsWith('systemdata.service-initialization.') &&
+      !permissionNId.startsWith('systemdata.database-orchestration.'),
+  )
   permissionSaving.value = true
   try {
     await management.assignRolePermissions(target.roleNId, {

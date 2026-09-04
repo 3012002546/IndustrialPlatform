@@ -54,6 +54,26 @@ public sealed class UiResource
         IReadOnlyCollection<UiTerminal> supportedTerminals) =>
         new(tenantNId, nId, ownerModuleNId, manifestVersion, type, name, routeName, requiredPermissionNId, supportedTerminals);
 
+    /// <summary>
+    /// Rebinds the resource to a newer trusted module manifest while preserving
+    /// its identity, route, permission, terminals, and lifecycle status.
+    /// </summary>
+    public UiResource RebindManifestVersion(string manifestVersion)
+    {
+        var rebound = new UiResource(
+            TenantNId,
+            NId,
+            OwnerModuleNId,
+            manifestVersion,
+            Type,
+            Name,
+            RouteName,
+            RequiredPermissionNId,
+            SupportedTerminals);
+        if (Status == UiResourceStatus.Retired) rebound.Retire();
+        return rebound;
+    }
+
     public void Retire() => Status = UiResourceStatus.Retired;
 
     private static string Require(string? value, string parameterName) =>
@@ -70,7 +90,8 @@ public sealed class NavigationNode
 {
     private NavigationNode(string tenantNId, string nId, NavigationNodeKind kind, string label,
         string? parentNodeNId, string navigationSetNId, string? resourceNId, string? featureNId,
-        IReadOnlyCollection<UiTerminal> visibleTerminals, string? iconKey)
+        IReadOnlyCollection<UiTerminal> visibleTerminals, string? iconKey,
+        IReadOnlyCollection<string>? actionResourceNIds)
     {
         TenantNId = Require(tenantNId);
         NId = Require(nId);
@@ -82,6 +103,7 @@ public sealed class NavigationNode
         FeatureNId = featureNId?.Trim();
         IconKey = ValidateIconKey(iconKey);
         VisibleTerminals = UiResource.ValidateTerminals(visibleTerminals);
+        ActionResourceNIds = kind == NavigationNodeKind.Link ? ValidateActionResourceNIds(actionResourceNIds) : [];
         Status = NavigationNodeStatus.Active;
         if (kind == NavigationNodeKind.Group && ResourceNId is not null)
             throw new ArgumentException("A navigation group cannot reference a resource.", nameof(resourceNId));
@@ -94,20 +116,22 @@ public sealed class NavigationNode
     public NavigationNodeKind Kind { get; }
     public string Label { get; private set; }
     public string? ParentNodeNId { get; private set; }
-    public string NavigationSetNId { get; }
-    public string? ResourceNId { get; }
-    public string? FeatureNId { get; }
+    public string NavigationSetNId { get; private set; }
+    public string? ResourceNId { get; private set; }
+    public string? FeatureNId { get; private set; }
     public string? IconKey { get; private set; }
-    public IReadOnlyCollection<UiTerminal> VisibleTerminals { get; }
+    public IReadOnlyCollection<UiTerminal> VisibleTerminals { get; private set; }
+    public IReadOnlyCollection<string> ActionResourceNIds { get; private set; }
     public int DisplayOrder { get; private set; }
     public NavigationNodeStatus Status { get; private set; }
 
     public static NavigationNode CreateGroup(string tenantNId, string nId, string label, string? parentNodeNId, string navigationSetNId, string? iconKey = null) =>
-        new(tenantNId, nId, NavigationNodeKind.Group, label, parentNodeNId, navigationSetNId, null, null, [UiTerminal.Pc, UiTerminal.Pda, UiTerminal.Mobile], iconKey);
+        new(tenantNId, nId, NavigationNodeKind.Group, label, parentNodeNId, navigationSetNId, null, null, [UiTerminal.Pc, UiTerminal.Pda, UiTerminal.Mobile], iconKey, []);
 
     public static NavigationNode CreateLink(string tenantNId, string nId, string label, string? parentNodeNId,
-        string navigationSetNId, string resourceNId, string? featureNId, IReadOnlyCollection<UiTerminal> visibleTerminals, string? iconKey = null) =>
-        new(tenantNId, nId, NavigationNodeKind.Link, label, parentNodeNId, navigationSetNId, resourceNId, featureNId, visibleTerminals, iconKey);
+        string navigationSetNId, string resourceNId, string? featureNId, IReadOnlyCollection<UiTerminal> visibleTerminals, string? iconKey = null,
+        IReadOnlyCollection<string>? actionResourceNIds = null) =>
+        new(tenantNId, nId, NavigationNodeKind.Link, label, parentNodeNId, navigationSetNId, resourceNId, featureNId, visibleTerminals, iconKey, actionResourceNIds);
 
     public void SetDisplayOrder(int displayOrder)
     {
@@ -123,7 +147,31 @@ public sealed class NavigationNode
 
     public void UpdateIconKey(string? iconKey) => IconKey = ValidateIconKey(iconKey);
 
+    public void UpdateConfiguration(string? parentNodeNId, string? resourceNId, string? featureNId, IReadOnlyCollection<UiTerminal>? visibleTerminals, IReadOnlyCollection<string>? actionResourceNIds = null)
+    {
+        ParentNodeNId = string.IsNullOrWhiteSpace(parentNodeNId) ? null : parentNodeNId.Trim();
+        ResourceNId = string.IsNullOrWhiteSpace(resourceNId) ? null : resourceNId.Trim();
+        FeatureNId = string.IsNullOrWhiteSpace(featureNId) ? null : featureNId.Trim();
+        if (Kind == NavigationNodeKind.Group)
+        {
+            if (ResourceNId is not null || FeatureNId is not null)
+                throw new ArgumentException("A navigation group cannot reference a resource or feature.");
+            ResourceNId = null;
+            FeatureNId = null;
+            VisibleTerminals = [UiTerminal.Pc, UiTerminal.Pda, UiTerminal.Mobile];
+            ActionResourceNIds = [];
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(ResourceNId))
+            throw new ArgumentException("A navigation link must reference a resource.");
+        VisibleTerminals = UiResource.ValidateTerminals(visibleTerminals);
+        ActionResourceNIds = ValidateActionResourceNIds(actionResourceNIds);
+    }
+
     public void Retire() => Status = NavigationNodeStatus.Inactive;
+
+    public void Restore() => Status = NavigationNodeStatus.Active;
 
     private static string Require(string? value) => string.IsNullOrWhiteSpace(value) ? throw new ArgumentException("Value is required.") : value.Trim();
 
@@ -135,6 +183,10 @@ public sealed class NavigationNode
             throw new ArgumentException("IconKey must contain only ASCII letters, digits, '-' or '_'.", nameof(value));
         return candidate;
     }
+
+    private static string[] ValidateActionResourceNIds(IReadOnlyCollection<string>? values) =>
+        (values ?? []).Select(value => value?.Trim() ?? string.Empty).Where(value => value.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 }
 
 public sealed record PermissionReceipt(string ModuleNId, string ManifestVersion, string Checksum, bool Verified);
@@ -169,6 +221,22 @@ public static class NavigationValidator
             if (!nodeIds.Add(node.NId)) errors.Add(new("DUPLICATE_NODE", "Navigation node id is duplicated.", node.NId));
             if (node.ParentNodeNId is not null && !activeNodes.Any(p => p.NId.Equals(node.ParentNodeNId, StringComparison.OrdinalIgnoreCase)))
                 errors.Add(new("ORPHAN_NODE", "Navigation node parent does not exist.", node.NId));
+            if (node.ParentNodeNId is not null)
+            {
+                var parent = activeNodes.FirstOrDefault(candidate => candidate.NId.Equals(node.ParentNodeNId, StringComparison.OrdinalIgnoreCase));
+                if (parent?.Kind == NavigationNodeKind.Link)
+                    errors.Add(new("INVALID_PARENT_KIND", "Navigation nodes cannot be children of a link.", node.NId));
+                var depth = 1;
+                var cursor = parent;
+                var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                while (cursor?.ParentNodeNId is not null && visited.Add(cursor.NId))
+                {
+                    depth++;
+                    cursor = activeNodes.FirstOrDefault(candidate => candidate.NId.Equals(cursor.ParentNodeNId, StringComparison.OrdinalIgnoreCase));
+                }
+                if (depth > 3)
+                    errors.Add(new("MAX_DEPTH", "Navigation hierarchy cannot exceed three levels.", node.NId));
+            }
             if (node.Kind == NavigationNodeKind.Group && !activeNodes.Any(child => child.ParentNodeNId?.Equals(node.NId, StringComparison.OrdinalIgnoreCase) == true))
                 errors.Add(new("EMPTY_GROUP", "Navigation group has no active children.", node.NId));
             if (node.Kind != NavigationNodeKind.Link) continue;
@@ -181,6 +249,17 @@ public static class NavigationValidator
             if (!node.VisibleTerminals.All(resource.SupportedTerminals.Contains)) errors.Add(new("TERMINAL_NOT_SUPPORTED", "Visible terminals exceed resource support.", node.NId));
             if (node.FeatureNId is not null && (!featureMap.TryGetValue(node.FeatureNId, out var feature) || feature.Status == FeatureStatus.Retired))
                 errors.Add(new("FEATURE_INVALID", "Navigation feature is missing or retired.", node.NId));
+            foreach (var actionResourceNId in node.ActionResourceNIds)
+            {
+                if (!resourceMap.TryGetValue(actionResourceNId, out var actionResource))
+                    errors.Add(new("ACTION_RESOURCE_NOT_FOUND", "Navigation action resource does not exist.", node.NId));
+                else if (actionResource.Type != UiResourceType.Action)
+                    errors.Add(new("ACTION_RESOURCE_INVALID", "Navigation permission associations must reference Action resources.", node.NId));
+                else if (actionResource.Status == UiResourceStatus.Retired)
+                    errors.Add(new("ACTION_RESOURCE_RETIRED", "Retired action resources cannot be associated.", node.NId));
+                else if (!permissionReceipts.Any(receipt => receipt.Verified && receipt.ModuleNId.Equals(actionResource.OwnerModuleNId, StringComparison.OrdinalIgnoreCase)))
+                    errors.Add(new("PERMISSION_UNVERIFIED", "Action resource permission registration is not verified.", node.NId));
+            }
             if (!permissionReceipts.Any(receipt => receipt.Verified && receipt.ModuleNId.Equals(resource.OwnerModuleNId, StringComparison.OrdinalIgnoreCase)))
                 errors.Add(new("PERMISSION_UNVERIFIED", "Resource permission registration is not verified.", node.NId));
         }

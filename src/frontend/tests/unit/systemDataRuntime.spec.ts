@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { House } from '@element-plus/icons-vue'
+import { Avatar, House, Lock, Menu, Tools, UserFilled } from '@element-plus/icons-vue'
 
 import {
   applyNavigationPolicy,
@@ -9,6 +9,7 @@ import {
 } from '@/systemData/runtime/navigation'
 import type { NavigationRuntimeNodeDto, ThemePolicyDto } from '@/api/systemData/types'
 import type { NavigationGroup } from '@/components/navigation/types'
+import { getDefaultPcNavigationGroups } from '@/components/navigation/navigation'
 
 const node = (overrides: Partial<NavigationRuntimeNodeDto>): NavigationRuntimeNodeDto => ({
   nodeNId: 'group-1',
@@ -25,6 +26,96 @@ const node = (overrides: Partial<NavigationRuntimeNodeDto>): NavigationRuntimeNo
 })
 
 describe('SystemData runtime navigation adapter', () => {
+  it('keeps the existing platform icons when published defaults have no icon key', () => {
+    const defaults = getDefaultPcNavigationGroups()
+    const groups = mapRuntimeNavigation(
+      defaults.map((group) =>
+        node({
+          nodeNId: `navigation.group.${group.id}`,
+          label: `Renamed ${group.id}`,
+          iconKey: null,
+          children: group.items.map((item) =>
+            node({
+              nodeNId: `custom.${item.id}`,
+              kind: 'Link',
+              label: `Renamed ${item.id}`,
+              routeName: item.routeName,
+              iconKey: ' ',
+            }),
+          ),
+        }),
+      ),
+    )
+
+    for (const group of defaults) {
+      const mapped = groups.find((item) => item.id === `navigation.group.${group.id}`)
+      expect(mapped?.icon).toBe(group.icon)
+      for (const item of group.items) {
+        expect(mapped?.items.find((entry) => entry.routeName === item.routeName)?.icon).toBe(
+          item.icon,
+        )
+      }
+    }
+  })
+
+  it.each([
+    [' UserFilled ', UserFilled],
+    ['user-filled', UserFilled],
+    ['Avatar', Avatar],
+    ['Lock', Lock],
+    ['tools', Tools],
+    ['unknown-icon', Menu],
+    ['constructor', Menu],
+  ])('uses an explicit icon key before the route default: %s', (iconKey, icon) => {
+    const groups = mapRuntimeNavigation([
+      node({
+        iconKey,
+        children: [node({ kind: 'Link', routeName: 'identity-users', iconKey })],
+      }),
+    ])
+
+    expect(groups[0]?.icon).toBe(icon)
+    expect(groups[0]?.items[0]?.icon).toBe(icon)
+  })
+
+  it('only fills icons and preserves a moved menu without restoring default nodes', () => {
+    const groups = mapRuntimeNavigation([
+      node({
+        nodeNId: 'custom-root',
+        iconKey: null,
+        children: [
+          node({
+            nodeNId: 'service-operations',
+            children: [
+              node({
+                nodeNId: 'moved-theme',
+                kind: 'Link',
+                label: 'Custom theme',
+                routeName: 'systemdata-themes',
+                iconKey: null,
+                requiredPermissionNId: 'systemdata.theme-policy.view',
+              }),
+            ],
+          }),
+        ],
+      }),
+    ])
+    const themeIcon = getDefaultPcNavigationGroups()
+      .flatMap((group) => group.items)
+      .find((item) => item.routeName === 'systemdata-themes')?.icon
+
+    expect(groups).toHaveLength(1)
+    expect(groups[0]?.icon).toBe(Menu)
+    expect(groups[0]?.items).toHaveLength(1)
+    expect(groups[0]?.items[0]).toMatchObject({
+      id: 'moved-theme',
+      label: 'Custom theme',
+      sectionId: 'service-operations',
+      permission: 'systemdata.theme-policy.view',
+    })
+    expect(groups[0]?.items[0]?.icon).toBe(themeIcon)
+  })
+
   it('intersects permissions, removes disabled features, and prunes empty groups', () => {
     const groups = mapRuntimeNavigation([
       node({
@@ -57,8 +148,26 @@ describe('SystemData runtime navigation adapter', () => {
         items: [expect.objectContaining({ id: 'allowed', routeName: 'systemdata-services' })],
       }),
     ])
-    expect(groups[0]?.labelKey).toBe('shell.navigation.group.group-1')
-    expect(groups[0]?.items[0]?.labelKey).toBe('shell.navigation.item.allowed')
+    const systemGroup = groups.find((group) => group.id === 'group-1')
+    expect(systemGroup?.labelKey).toBe('')
+    expect(systemGroup?.items[0]?.labelKey).toBe('')
+  })
+
+  it('does not create a runtime RouterLink for an unregistered future page route', () => {
+    const groups = mapRuntimeNavigation([
+      node({
+        children: [
+          node({
+            nodeNId: 'future-page',
+            kind: 'Link',
+            label: '未来页面',
+            routeName: 'future-page-not-registered',
+          }),
+        ],
+      }),
+    ])
+
+    expect(groups[0]?.items).toEqual([])
   })
 
   it('filters anyPermissions and does not leak filtered children or empty groups', () => {

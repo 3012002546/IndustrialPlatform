@@ -1,6 +1,8 @@
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Options;
 using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Runner;
+using IndustrialPlatform.SystemData.Application.IdentityDirectory;
+using IndustrialPlatform.SystemData.Contracts.Administration;
 using IndustrialPlatform.SystemData.Contracts.DatabaseOrchestration;
 using IndustrialPlatform.SystemData.Domain.DatabaseOrchestration;
 using IndustrialPlatform.SharedKernel.Topology;
@@ -269,7 +271,38 @@ public sealed class InitializationGateHarness : IDisposable
             Scope.ArtifactStore,
             Scope.Verifier,
             [Scope.SqlBundleExecutor, Scope.InitializerExecutor],
-            Scope.SecretProvider);
+            Scope.SecretProvider,
+            identityUserDirectory: new GateIdentityUserDirectory(Tenant, Actor));
+    }
+
+    private sealed class GateIdentityUserDirectory : IIdentityUserDirectory
+    {
+        private readonly string _tenantNId;
+        private readonly string _userNId;
+
+        public GateIdentityUserDirectory(string tenantNId, string userNId)
+        {
+            _tenantNId = tenantNId;
+            _userNId = userNId;
+        }
+
+        public Task<IdentityUserDirectoryEntryV1?> GetAsync(
+            string tenantNId,
+            string userNId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IdentityUserDirectoryEntryV1?>(
+                string.Equals(tenantNId, _tenantNId, StringComparison.Ordinal)
+                    && string.Equals(userNId, _userNId, StringComparison.Ordinal)
+                    ? new IdentityUserDirectoryEntryV1
+                    {
+                        TenantNId = _tenantNId,
+                        UserNId = _userNId,
+                        LoginName = _userNId,
+                        Name = _userNId,
+                        Status = "Active",
+                        IsSystemAdmin = true,
+                    }
+                    : null);
     }
 
     /// <summary>返回本地替身连接的三角色凭据解析/写入假端口(SQLite 单连接)。</summary>

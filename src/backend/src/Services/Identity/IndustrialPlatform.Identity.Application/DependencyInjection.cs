@@ -35,6 +35,7 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(AuthorizationOptions.SectionName));
         services.AddSingleton<IPermissionEvaluator, PermissionEvaluator>();
         services.AddSingleton<IAuthorizationDenialSink, AuthorizationDenialSink>();
+        services.AddSingleton<ISystemAdminAuthorization, SystemAdminAuthorization>();
 
         // 管理用例(TASK-ID-008):用户/角色/权限/审计;持久化端口由基础设施注册。
         services.AddSingleton<IUserManagementService, UserManagementService>();
