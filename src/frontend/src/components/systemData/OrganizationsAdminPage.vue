@@ -38,6 +38,7 @@ const drawerOpen = ref(false)
 const editingOrganization = ref(false)
 const editingPosition = ref<PositionDto | null>(null)
 const formError = ref('')
+const saving = ref(false)
 const form = reactive({
   nId: '',
   name: '',
@@ -156,115 +157,139 @@ async function confirmAction(title: string, message: string): Promise<boolean> {
   }
 }
 async function toggleOrganizationStatus(): Promise<void> {
+  if (saving.value) return
   const item = store.selectedOrganization
   if (!item) return
-  const status = item.status === 'Active' ? 'Inactive' : 'Active'
-  if (
-    !(await confirmAction(
-      copy.value.statusConfirmTitle,
-      interpolate(copy.value.statusConfirmBody, {
-        name: item.name,
-        status: systemDataEnumLabel(localization.locale, status),
-      }),
-    ))
-  )
-    return
-  await store.setOrganizationStatus(item.nId, {
-    status,
-    reason: moveReason.value.trim() || copy.value.organizationDetail,
-  })
+  saving.value = true
+  try {
+    const status = item.status === 'Active' ? 'Inactive' : 'Active'
+    if (
+      !(await confirmAction(
+        copy.value.statusConfirmTitle,
+        interpolate(copy.value.statusConfirmBody, {
+          name: item.name,
+          status: systemDataEnumLabel(localization.locale, status),
+        }),
+      ))
+    )
+      return
+    await store.setOrganizationStatus(item.nId, {
+      status,
+      reason: moveReason.value.trim() || copy.value.organizationDetail,
+    })
+  } finally {
+    saving.value = false
+  }
 }
 async function togglePositionStatus(item: PositionDto): Promise<void> {
-  const status = item.status === 'Active' ? 'Inactive' : 'Active'
-  if (
-    !(await confirmAction(
-      copy.value.statusConfirmTitle,
-      interpolate(copy.value.statusConfirmBody, {
-        name: item.name,
-        status: systemDataEnumLabel(localization.locale, status),
-      }),
-    ))
-  )
-    return
-  await store.setPositionStatus(item.nId, { status, reason: copy.value.organizationDetail })
+  if (saving.value) return
+  saving.value = true
+  try {
+    const status = item.status === 'Active' ? 'Inactive' : 'Active'
+    if (
+      !(await confirmAction(
+        copy.value.statusConfirmTitle,
+        interpolate(copy.value.statusConfirmBody, {
+          name: item.name,
+          status: systemDataEnumLabel(localization.locale, status),
+        }),
+      ))
+    )
+      return
+    await store.setPositionStatus(item.nId, { status, reason: copy.value.organizationDetail })
+  } finally {
+    saving.value = false
+  }
 }
 async function confirmMove(): Promise<void> {
+  if (saving.value) return
   const preview = store.movePreview
   if (!preview) return
-  if (
-    !(await confirmAction(
-      copy.value.moveConfirmTitle,
-      interpolate(copy.value.moveConfirmBody, {
-        organizations: preview.subtreeOrganizationCount,
-        positions: preview.subtreePositionCount,
-      }),
-    ))
-  )
-    return
-  await store.moveOrganization(preview.nId, {
-    previewOrganizationRevision: preview.organizationRevision,
-    expectedOptimisticVersion: preview.expectedOptimisticVersion,
-    expectedConcurrencyVersion: preview.expectedConcurrencyVersion,
-    ...(moveTargetNId.value ? { targetParentOrganizationNId: moveTargetNId.value } : {}),
-  })
+  saving.value = true
+  try {
+    if (
+      !(await confirmAction(
+        copy.value.moveConfirmTitle,
+        interpolate(copy.value.moveConfirmBody, {
+          organizations: preview.subtreeOrganizationCount,
+          positions: preview.subtreePositionCount,
+        }),
+      ))
+    )
+      return
+    await store.moveOrganization(preview.nId, {
+      previewOrganizationRevision: preview.organizationRevision,
+      expectedOptimisticVersion: preview.expectedOptimisticVersion,
+      expectedConcurrencyVersion: preview.expectedConcurrencyVersion,
+      ...(moveTargetNId.value ? { targetParentOrganizationNId: moveTargetNId.value } : {}),
+    })
+  } finally {
+    saving.value = false
+  }
 }
 async function submit(): Promise<void> {
-  formError.value = ''
-  if (!form.name.trim()) {
-    formError.value = copy.value.invalidName
-    return
-  }
-  if (!Number.isInteger(form.displayOrder) || form.displayOrder < 0) {
-    formError.value = copy.value.invalidOrder
-    return
-  }
-  if (editingOrganization.value) {
-    const item = store.selectedOrganization
-    if (!item) return
-    await store.updateOrganization(item.nId, {
-      name: form.name.trim(),
-      displayOrder: form.displayOrder,
-      expectedOptimisticVersion: item.optimisticVersion,
-      expectedConcurrencyVersion: item.concurrencyVersion,
-    })
-  } else if (editingPosition.value)
-    await store.updatePosition(editingPosition.value.nId, {
-      name: form.name.trim(),
-      description: form.description.trim(),
-      displayOrder: form.displayOrder,
-      expectedOptimisticVersion: editingPosition.value.optimisticVersion,
-      expectedConcurrencyVersion: editingPosition.value.concurrencyVersion,
-    })
-  else if (!form.nId.trim()) {
-    formError.value = copy.value.invalidNid
-    return
-  } else if (form.type === 'position') {
-    if (!store.selectedOrganizationNId) {
-      formError.value = copy.value.selectOrganization
+  if (saving.value) return
+  saving.value = true
+  try {
+    formError.value = ''
+    if (!form.name.trim()) {
+      formError.value = copy.value.invalidName
       return
     }
-    await store.createPosition({
-      nId: form.nId.trim(),
-      name: form.name.trim(),
-      description: form.description.trim(),
-      displayOrder: form.displayOrder,
-      organizationNId: store.selectedOrganizationNId,
-    })
-  } else if (form.type !== 'Company' && !form.parentNId) {
-    formError.value = copy.value.missingParent
-    return
-  } else if (form.type === 'Company' && form.parentNId) {
-    formError.value = copy.value.rootParent
-    return
-  } else
-    await store.createOrganization({
-      nId: form.nId.trim(),
-      name: form.name.trim(),
-      type: form.type,
-      displayOrder: form.displayOrder,
-      ...(form.parentNId ? { parentOrganizationNId: form.parentNId } : {}),
-    })
-  if (!store.error) drawerOpen.value = false
+    if (!Number.isInteger(form.displayOrder) || form.displayOrder < 0) {
+      formError.value = copy.value.invalidOrder
+      return
+    }
+    if (editingOrganization.value) {
+      const item = store.selectedOrganization
+      if (!item) return
+      await store.updateOrganization(item.nId, {
+        name: form.name.trim(),
+        displayOrder: form.displayOrder,
+        expectedOptimisticVersion: item.optimisticVersion,
+        expectedConcurrencyVersion: item.concurrencyVersion,
+      })
+    } else if (editingPosition.value)
+      await store.updatePosition(editingPosition.value.nId, {
+        name: form.name.trim(),
+        description: form.description.trim(),
+        displayOrder: form.displayOrder,
+        expectedOptimisticVersion: editingPosition.value.optimisticVersion,
+        expectedConcurrencyVersion: editingPosition.value.concurrencyVersion,
+      })
+    else if (!form.nId.trim()) {
+      formError.value = copy.value.invalidNid
+      return
+    } else if (form.type === 'position') {
+      if (!store.selectedOrganizationNId) {
+        formError.value = copy.value.selectOrganization
+        return
+      }
+      await store.createPosition({
+        nId: form.nId.trim(),
+        name: form.name.trim(),
+        description: form.description.trim(),
+        displayOrder: form.displayOrder,
+        organizationNId: store.selectedOrganizationNId,
+      })
+    } else if (form.type !== 'Company' && !form.parentNId) {
+      formError.value = copy.value.missingParent
+      return
+    } else if (form.type === 'Company' && form.parentNId) {
+      formError.value = copy.value.rootParent
+      return
+    } else
+      await store.createOrganization({
+        nId: form.nId.trim(),
+        name: form.name.trim(),
+        type: form.type,
+        displayOrder: form.displayOrder,
+        ...(form.parentNId ? { parentOrganizationNId: form.parentNId } : {}),
+      })
+    if (!store.error) drawerOpen.value = false
+  } finally {
+    saving.value = false
+  }
 }
 </script>
 
@@ -280,6 +305,7 @@ async function submit(): Promise<void> {
         <el-button
           type="primary"
           data-testid="systemdata-organizations-new"
+          :disabled="saving"
           @click="newOrganization"
         >
           <ElIcon class="systemdata-page-action-icon" aria-hidden="true"><Plus /></ElIcon>
@@ -354,6 +380,8 @@ async function submit(): Promise<void> {
             v-if="store.selectedOrganizationNId"
             link
             :type="store.selectedOrganization?.status === 'Active' ? 'danger' : 'success'"
+            :loading="saving"
+            :disabled="saving"
             @click="toggleOrganizationStatus"
           >
             {{ store.selectedOrganization?.status === 'Active' ? copy.disable : copy.enable }}
@@ -374,6 +402,7 @@ async function submit(): Promise<void> {
           ><el-button
             v-if="store.selectedOrganizationNId"
             type="default"
+            :disabled="saving"
             @click="
               store.previewOrganizationMove(
                 store.selectedOrganizationNId,
@@ -385,7 +414,12 @@ async function submit(): Promise<void> {
           </el-button></PermissionGate
         ></template
       >
-      <div v-if="store.organizationDetailLoading" class="systemdata-organization-detail-state" role="status" aria-live="polite">
+      <div
+        v-if="store.organizationDetailLoading"
+        class="systemdata-organization-detail-state"
+        role="status"
+        aria-live="polite"
+      >
         {{ commonCopy.loading }}
       </div>
       <AppErrorAlert
@@ -396,7 +430,9 @@ async function submit(): Promise<void> {
         <el-button
           link
           type="primary"
-          @click="store.selectedOrganizationNId && store.selectOrganization(store.selectedOrganizationNId)"
+          @click="
+            store.selectedOrganizationNId && store.selectOrganization(store.selectedOrganizationNId)
+          "
         >
           {{ commonCopy.retry }}
         </el-button>
@@ -421,27 +457,29 @@ async function submit(): Promise<void> {
           :columns="positionColumns"
           :exporter="exportPositions"
         >
-        <template #cell-name="{ row }"
-          >{{ row.name }}<small>{{ row.description }}</small></template
-        >
-        <template #cell-status="{ row }">{{
-          systemDataEnumLabel(localization.locale, row.status)
-        }}</template>
-        <template #actions="{ row }">
-          <PermissionGate :permission-n-id="PERMISSIONS.systemDataPositionUpdate"
-            ><el-button link type="primary" @click="editPosition(row)">
-              {{ copy.edit }}
-            </el-button></PermissionGate
-          ><PermissionGate :permission-n-id="PERMISSIONS.systemDataPositionStatus"
-            ><el-button
-              link
-              :type="row.status === 'Active' ? 'danger' : 'success'"
-              @click="togglePositionStatus(row)"
-            >
-              {{ row.status === 'Active' ? copy.disable : copy.enable }}
-            </el-button></PermissionGate
+          <template #cell-name="{ row }"
+            >{{ row.name }}<small>{{ row.description }}</small></template
           >
-        </template>
+          <template #cell-status="{ row }">{{
+            systemDataEnumLabel(localization.locale, row.status)
+          }}</template>
+          <template #actions="{ row }">
+            <PermissionGate :permission-n-id="PERMISSIONS.systemDataPositionUpdate"
+              ><el-button link type="primary" @click="editPosition(row)">
+                {{ copy.edit }}
+              </el-button></PermissionGate
+            ><PermissionGate :permission-n-id="PERMISSIONS.systemDataPositionStatus"
+              ><el-button
+                link
+                :type="row.status === 'Active' ? 'danger' : 'success'"
+                :loading="saving"
+                :disabled="saving"
+                @click="togglePositionStatus(row)"
+              >
+                {{ row.status === 'Active' ? copy.disable : copy.enable }}
+              </el-button></PermissionGate
+            >
+          </template>
         </AppDataTable>
       </template>
       <div v-if="store.movePreview" class="systemdata-move-preview" role="status">
@@ -449,7 +487,7 @@ async function submit(): Promise<void> {
         {{ store.movePreview.subtreeOrganizationCount }} · {{ copy.position }}
         {{ store.movePreview.subtreePositionCount
         }}<PermissionGate :permission-n-id="PERMISSIONS.systemDataOrganizationMove"
-          ><el-button type="primary" @click="confirmMove">
+          ><el-button type="primary" :loading="saving" :disabled="saving" @click="confirmMove">
             {{ copy.confirmMove }}
           </el-button></PermissionGate
         >
@@ -458,7 +496,7 @@ async function submit(): Promise<void> {
   </SystemDataAdminFrame>
   <AppFormDrawer
     v-model="drawerOpen"
-    :busy="store.loading"
+    :busy="saving"
     :title="
       editingOrganization
         ? copy.editOrganizationTitle

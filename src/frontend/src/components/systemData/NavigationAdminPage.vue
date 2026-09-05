@@ -77,6 +77,7 @@ const defaultImportPreviewOpen = ref(false)
 const defaultImportPreviewRevision = ref<number | null>(null)
 const defaultImportConflict = ref('')
 const runtimePreviewOpen = ref(false)
+const saving = ref(false)
 
 const draft = reactive({
   nodeNId: '',
@@ -624,43 +625,49 @@ function navigationRequest(
 }
 
 async function save(): Promise<void> {
-  if (editorMode.value === 'permissions') {
-    const node = selectedNode.value
-    if (node === null) return
-    await store.updateNavigationNode(node.nodeNId, {
-      label: node.label,
-      parentNodeNId: node.parentNodeNId,
-      resourceNId: node.resourceNId,
-      featureNId: node.featureNId,
-      iconKey: node.iconKey,
-      displayOrder: node.displayOrder,
-      visibleTerminals: node.visibleTerminals,
-      actionResourceNIds: actionResourceNIds.value,
-      expectedDraftRevision: store.navigationDraft?.draftRevision ?? 0,
-    })
-    if (!store.error) editorOpen.value = false
-    return
-  }
-  const request = navigationRequest(
-    selectedNode.value?.kind.toLowerCase() === 'link'
-      ? [...(selectedNode.value.actionResourceNIds ?? [])]
-      : [],
-  )
-  if (!request.label || (draft.kind === 'Link' && !request.resourceNId)) return
-  if (selected.value) {
-    await store.updateNavigationNode(selected.value, request)
-    if (!store.error) editorOpen.value = false
-  } else {
-    const saved = await store.addNavigationNode({
-      nodeNId: draft.nodeNId,
-      kind: draft.kind,
-      navigationSetNId: 'PLATFORM_NAVIGATION',
-      ...request,
-    })
-    if (!saved) return
-    pendingNodeNId.value = ''
-    editorOpen.value = false
-    resetDraft()
+  if (saving.value) return
+  saving.value = true
+  try {
+    if (editorMode.value === 'permissions') {
+      const node = selectedNode.value
+      if (node === null) return
+      await store.updateNavigationNode(node.nodeNId, {
+        label: node.label,
+        parentNodeNId: node.parentNodeNId,
+        resourceNId: node.resourceNId,
+        featureNId: node.featureNId,
+        iconKey: node.iconKey,
+        displayOrder: node.displayOrder,
+        visibleTerminals: node.visibleTerminals,
+        actionResourceNIds: actionResourceNIds.value,
+        expectedDraftRevision: store.navigationDraft?.draftRevision ?? 0,
+      })
+      if (!store.error) editorOpen.value = false
+      return
+    }
+    const request = navigationRequest(
+      selectedNode.value?.kind.toLowerCase() === 'link'
+        ? [...(selectedNode.value.actionResourceNIds ?? [])]
+        : [],
+    )
+    if (!request.label || (draft.kind === 'Link' && !request.resourceNId)) return
+    if (selected.value) {
+      await store.updateNavigationNode(selected.value, request)
+      if (!store.error) editorOpen.value = false
+    } else {
+      const saved = await store.addNavigationNode({
+        nodeNId: draft.nodeNId,
+        kind: draft.kind,
+        navigationSetNId: 'PLATFORM_NAVIGATION',
+        ...request,
+      })
+      if (!saved) return
+      pendingNodeNId.value = ''
+      editorOpen.value = false
+      resetDraft()
+    }
+  } finally {
+    saving.value = false
   }
 }
 
@@ -678,13 +685,25 @@ async function confirmMutation(title: string, body: string): Promise<boolean> {
 }
 
 async function publish(): Promise<void> {
-  if (await confirmMutation(copy.value.confirmPublishTitle, copy.value.confirmPublishBody))
-    await store.publishNavigation()
+  if (saving.value) return
+  saving.value = true
+  try {
+    if (await confirmMutation(copy.value.confirmPublishTitle, copy.value.confirmPublishBody))
+      await store.publishNavigation()
+  } finally {
+    saving.value = false
+  }
 }
 
 async function rollback(): Promise<void> {
-  if (await confirmMutation(copy.value.confirmRollbackTitle, copy.value.confirmRollbackBody))
-    await store.rollbackNavigation()
+  if (saving.value) return
+  saving.value = true
+  try {
+    if (await confirmMutation(copy.value.confirmRollbackTitle, copy.value.confirmRollbackBody))
+      await store.rollbackNavigation()
+  } finally {
+    saving.value = false
+  }
 }
 
 async function previewDefaultImport(): Promise<void> {
@@ -697,22 +716,28 @@ async function previewDefaultImport(): Promise<void> {
 }
 
 async function confirmDefaultImport(): Promise<void> {
-  if (!defaultImportRevisionMatches.value) {
-    defaultImportConflict.value = copy.value.previewConflict
-    return
+  if (saving.value) return
+  saving.value = true
+  try {
+    if (!defaultImportRevisionMatches.value) {
+      defaultImportConflict.value = copy.value.previewConflict
+      return
+    }
+    if (!defaultImportCanConfirm.value) {
+      return
+    }
+    await store.importNavigationDefaults()
+    if (store.error) {
+      defaultImportConflict.value = /(?:409|CONFLICT|CONCURRENCY)/i.test(store.error)
+        ? copy.value.previewConflict
+        : store.error
+      return
+    }
+    defaultImportPreviewRevision.value = store.navigationDefaultPreview?.draftRevision ?? null
+    defaultImportPreviewOpen.value = false
+  } finally {
+    saving.value = false
   }
-  if (!defaultImportCanConfirm.value) {
-    return
-  }
-  await store.importNavigationDefaults()
-  if (store.error) {
-    defaultImportConflict.value = /(?:409|CONFLICT|CONCURRENCY)/i.test(store.error)
-      ? copy.value.previewConflict
-      : store.error
-    return
-  }
-  defaultImportPreviewRevision.value = store.navigationDefaultPreview?.draftRevision ?? null
-  defaultImportPreviewOpen.value = false
 }
 
 function openRuntimePreview(): void {
@@ -720,12 +745,18 @@ function openRuntimePreview(): void {
 }
 
 async function disableNode(node: NavigationNodeDto): Promise<void> {
-  if (node.status !== 'Active') {
-    await store.restoreNavigationNode(node.nodeNId)
-    return
+  if (saving.value) return
+  saving.value = true
+  try {
+    if (node.status !== 'Active') {
+      await store.restoreNavigationNode(node.nodeNId)
+      return
+    }
+    if (await confirmMutation(copy.value.confirmDisableTitle, copy.value.confirmDisableBody))
+      await store.deleteNavigationNode(node.nodeNId)
+  } finally {
+    saving.value = false
   }
-  if (await confirmMutation(copy.value.confirmDisableTitle, copy.value.confirmDisableBody))
-    await store.deleteNavigationNode(node.nodeNId)
 }
 
 onMounted(async () => {
@@ -751,12 +782,16 @@ resetDraft()
         {{ copy.preview }}
       </el-button>
       <PermissionGate :permission-n-id="PERMISSIONS.systemDataNavigationManage">
-        <el-button data-testid="systemdata-navigation-new-first-level" @click="newFirstLevel">
+        <el-button
+          data-testid="systemdata-navigation-new-first-level"
+          :disabled="saving"
+          @click="newFirstLevel"
+        >
           {{ copy.newFirstLevel || copy.add }}
         </el-button>
         <el-button
           data-testid="systemdata-navigation-defaults"
-          :disabled="store.loading"
+          :disabled="store.loading || saving"
           @click="previewDefaultImport"
         >
           {{ copy.importDefaults }}
@@ -769,14 +804,21 @@ resetDraft()
         <el-button
           type="primary"
           data-testid="systemdata-navigation-publish"
-          :disabled="store.loading"
+          :loading="saving"
+          :disabled="store.loading || saving"
           @click="publish"
         >
           {{ copy.publish }}
         </el-button>
       </PermissionGate>
       <PermissionGate :permission-n-id="PERMISSIONS.systemDataNavigationRollback">
-        <el-button type="danger" data-testid="systemdata-navigation-rollback" @click="rollback">
+        <el-button
+          type="danger"
+          data-testid="systemdata-navigation-rollback"
+          :loading="saving"
+          :disabled="saving"
+          @click="rollback"
+        >
           {{ copy.rollback }}
         </el-button>
       </PermissionGate>
@@ -809,13 +851,14 @@ resetDraft()
               <el-button
                 link
                 :type="action === 'status' && row.node.status === 'Active' ? 'danger' : 'primary'"
+                :disabled="saving"
                 @click="handleRowAction(row, action)"
               >
                 {{ rowActionText(row, action) }}
               </el-button>
             </template>
             <el-dropdown v-if="overflowRowActions(row, availableWidth).length" trigger="click">
-              <el-button link type="primary" class="systemdata-navigation-more">
+              <el-button link type="primary" class="systemdata-navigation-more" :disabled="saving">
                 {{ copy.more }}
               </el-button>
               <template #dropdown>
@@ -878,7 +921,7 @@ resetDraft()
 
     <AppFormDrawer
       v-model="defaultImportPreviewOpen"
-      :busy="store.loading"
+      :busy="saving"
       :title="copy.importDefaultsTitle"
       size="wide"
       @submit="confirmDefaultImport"
@@ -937,7 +980,8 @@ resetDraft()
           <el-button
             type="primary"
             data-testid="systemdata-navigation-defaults-confirm"
-            :disabled="!defaultImportCanConfirm"
+            :loading="saving"
+            :disabled="saving || !defaultImportCanConfirm"
             @click="confirmDefaultImport"
           >
             {{ copy.importDefaultsConfirm }}
@@ -987,7 +1031,7 @@ resetDraft()
 
     <AppFormDrawer
       v-model="editorOpen"
-      :busy="store.loading"
+      :busy="saving"
       :title="
         editorMode === 'permissions' ? copy.permissionAssociation : selected ? copy.edit : copy.add
       "
@@ -1041,11 +1085,9 @@ resetDraft()
               <el-option
                 v-for="resource in pageResources"
                 :key="resource.resourceNId"
-                :label="
-                  `${resource.name} (${resource.resourceNId})${
-                    isRegisteredRouteName(resource.routeName) ? '' : ` · ${copy.routeUnavailable}`
-                  }`
-                "
+                :label="`${resource.name} (${resource.resourceNId})${
+                  isRegisteredRouteName(resource.routeName) ? '' : ` · ${copy.routeUnavailable}`
+                }`"
                 :disabled="!isRegisteredRouteName(resource.routeName)"
                 :value="resource.resourceNId"
               />
@@ -1089,7 +1131,13 @@ resetDraft()
       <template #footer>
         <el-button @click="editorOpen = false">{{ commonCopy.cancel }}</el-button>
         <PermissionGate :permission-n-id="PERMISSIONS.systemDataNavigationManage">
-          <el-button type="primary" data-testid="systemdata-navigation-save" @click="save">
+          <el-button
+            type="primary"
+            data-testid="systemdata-navigation-save"
+            :loading="saving"
+            :disabled="saving"
+            @click="save"
+          >
             {{ copy.save }}
           </el-button>
         </PermissionGate>

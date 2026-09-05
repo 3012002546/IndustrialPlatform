@@ -38,6 +38,7 @@ const mode = ref('Inherit')
 const reason = ref('')
 const confirmed = ref(false)
 const open = ref(false)
+const saving = ref(false)
 const featureRows = computed(() => {
   const affectedMenus = new Map<string, string[]>()
   const visit = (items: readonly NavigationNodeDto[]): void => {
@@ -107,22 +108,27 @@ function edit(nId: string): void {
   open.value = true
 }
 async function submit(): Promise<void> {
-  if (!selected.value || !confirmed.value) return
+  if (saving.value || !selected.value || !confirmed.value) return
+  saving.value = true
   try {
-    await ElMessageBox.confirm(
-      interpolate(copy.value.confirmBody, { feature: selected.value }),
-      copy.value.confirmTitle,
-      {
-        type: 'warning',
-        confirmButtonText: commonCopy.value.confirm,
-        cancelButtonText: commonCopy.value.cancel,
-      },
-    )
-  } catch {
-    return
+    try {
+      await ElMessageBox.confirm(
+        interpolate(copy.value.confirmBody, { feature: selected.value }),
+        copy.value.confirmTitle,
+        {
+          type: 'warning',
+          confirmButtonText: commonCopy.value.confirm,
+          cancelButtonText: commonCopy.value.cancel,
+        },
+      )
+    } catch {
+      return
+    }
+    await store.setFeatureOverride(selected.value, mode.value, reason.value.trim())
+    if (!store.error) open.value = false
+  } finally {
+    saving.value = false
   }
-  await store.setFeatureOverride(selected.value, mode.value, reason.value.trim())
-  if (!store.error) open.value = false
 }
 </script>
 <template>
@@ -158,13 +164,13 @@ async function submit(): Promise<void> {
       }}</template>
       <template #actions="{ row }"
         ><PermissionGate :permission-n-id="PERMISSIONS.systemDataFeatureManage"
-          ><el-button link type="primary" @click="edit(row.featureNId)">
+          ><el-button link type="primary" :disabled="saving" @click="edit(row.featureNId)">
             {{ copy.override }}
           </el-button></PermissionGate
         ></template
       >
     </AppDataTable></SystemDataAdminFrame
-  ><AppFormDrawer v-model="open" :busy="store.loading" :title="copy.overrideTitle" @submit="submit"
+  ><AppFormDrawer v-model="open" :busy="saving" :title="copy.overrideTitle" @submit="submit"
     ><el-form label-width="120px"
       ><el-form-item :label="copy.overrideMode"
         ><el-select v-model="mode" :aria-label="copy.overrideMode"

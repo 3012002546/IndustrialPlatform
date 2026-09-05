@@ -51,6 +51,7 @@ const formError = ref('')
 const polling = ref(false)
 const registrationDrawerOpen = ref(false)
 const planDrawerOpen = ref(false)
+const saving = ref(false)
 
 const registration = ref({
   serviceKey: '',
@@ -235,87 +236,125 @@ function selectOperationRows(rows: unknown): void {
 }
 
 async function register(): Promise<void> {
-  formError.value = ''
-  if (Object.values(registration.value).some((value) => !value.trim())) {
-    formError.value = copy.value.validationHint
-    return
+  if (saving.value) return
+  saving.value = true
+  try {
+    formError.value = ''
+    if (Object.values(registration.value).some((value) => !value.trim())) {
+      formError.value = copy.value.validationHint
+      return
+    }
+    await store.registerInitialization({
+      ...registration.value,
+      manifestVersion: '1',
+    })
+    if (!store.error) registrationDrawerOpen.value = false
+  } finally {
+    saving.value = false
   }
-  await store.registerInitialization({
-    ...registration.value,
-    manifestVersion: '1',
-  })
-  if (!store.error) registrationDrawerOpen.value = false
 }
 
 async function createPlan(): Promise<void> {
-  formError.value = ''
-  if (Object.values(plan.value).some((value) => !value.trim())) {
-    formError.value = copy.value.validationHint
-    return
+  if (saving.value) return
+  saving.value = true
+  try {
+    formError.value = ''
+    if (Object.values(plan.value).some((value) => !value.trim())) {
+      formError.value = copy.value.validationHint
+      return
+    }
+    await store.createInitializationPlan({ ...plan.value })
+    if (!store.error) planDrawerOpen.value = false
+  } finally {
+    saving.value = false
   }
-  await store.createInitializationPlan({ ...plan.value })
-  if (!store.error) planDrawerOpen.value = false
 }
 
 async function createApproval(): Promise<void> {
-  if (!selectedPlan.value || store.loading) return
-  await store.createApproval(selectedPlan.value.planNId, approvalReason.value.trim())
+  if (saving.value || !selectedPlan.value || store.loading) return
+  saving.value = true
+  try {
+    await store.createApproval(selectedPlan.value.planNId, approvalReason.value.trim())
+  } finally {
+    saving.value = false
+  }
 }
 
 async function captureBackup(): Promise<void> {
-  if (!selectedPlan.value || !backupReference.value.trim() || store.loading) return
-  await store.createBackupEvidence(selectedPlan.value.planNId, backupReference.value.trim())
+  if (saving.value || !selectedPlan.value || !backupReference.value.trim() || store.loading) return
+  saving.value = true
+  try {
+    await store.createBackupEvidence(selectedPlan.value.planNId, backupReference.value.trim())
+  } finally {
+    saving.value = false
+  }
 }
 
 async function verifyBackup(): Promise<void> {
   const evidence = store.initializationBackupEvidence
-  if (!evidence || evidence.planNId !== selectedPlanNId.value || store.loading) return
-  await store.verifyBackupEvidence(evidence.evidenceNId)
+  if (saving.value || !evidence || evidence.planNId !== selectedPlanNId.value || store.loading)
+    return
+  saving.value = true
+  try {
+    await store.verifyBackupEvidence(evidence.evidenceNId)
+  } finally {
+    saving.value = false
+  }
 }
 
 async function apply(): Promise<void> {
   const currentPlan = selectedPlan.value
-  if (!currentPlan || store.loading) return
+  if (saving.value || !currentPlan || store.loading) return
+  saving.value = true
   try {
-    await ElMessageBox.confirm(
-      interpolate(copy.value.confirmApplyBody, {
-        service: currentPlan.serviceKey,
-        module: currentPlan.moduleKey,
-        version: currentPlan.requestedMigrationVersion,
-      }),
-      copy.value.confirmApplyTitle,
-      {
-        type: 'warning',
-        confirmButtonText: commonCopy.value.confirm,
-        cancelButtonText: commonCopy.value.cancel,
-      },
-    )
-  } catch {
-    return
+    try {
+      await ElMessageBox.confirm(
+        interpolate(copy.value.confirmApplyBody, {
+          service: currentPlan.serviceKey,
+          module: currentPlan.moduleKey,
+          version: currentPlan.requestedMigrationVersion,
+        }),
+        copy.value.confirmApplyTitle,
+        {
+          type: 'warning',
+          confirmButtonText: commonCopy.value.confirm,
+          cancelButtonText: commonCopy.value.cancel,
+        },
+      )
+    } catch {
+      return
+    }
+    await store.applyInitialization({
+      planNId: currentPlan.planNId,
+      moduleKey: currentPlan.moduleKey,
+      requestedVersion: currentPlan.requestedMigrationVersion,
+    })
+  } finally {
+    saving.value = false
   }
-  await store.applyInitialization({
-    planNId: currentPlan.planNId,
-    moduleKey: currentPlan.moduleKey,
-    requestedVersion: currentPlan.requestedMigrationVersion,
-  })
 }
 
 async function cancelOperation(operation: InitializationOperationDto): Promise<void> {
-  if (store.loading || !['Queued', 'Running'].includes(operation.status)) return
+  if (saving.value || store.loading || !['Queued', 'Running'].includes(operation.status)) return
+  saving.value = true
   try {
-    await ElMessageBox.confirm(
-      `${operation.serviceKey} / ${operation.moduleKey} · ${copy.value.cancelOperation}`,
-      copy.value.cancelOperation,
-      {
-        type: 'warning',
-        confirmButtonText: commonCopy.value.confirm,
-        cancelButtonText: commonCopy.value.cancel,
-      },
-    )
-  } catch {
-    return
+    try {
+      await ElMessageBox.confirm(
+        `${operation.serviceKey} / ${operation.moduleKey} · ${copy.value.cancelOperation}`,
+        copy.value.cancelOperation,
+        {
+          type: 'warning',
+          confirmButtonText: commonCopy.value.confirm,
+          cancelButtonText: commonCopy.value.cancel,
+        },
+      )
+    } catch {
+      return
+    }
+    await store.cancelInitialization(operation.operationNId)
+  } finally {
+    saving.value = false
   }
-  await store.cancelInitialization(operation.operationNId)
 }
 
 let pollingTimer: number | undefined
@@ -390,7 +429,11 @@ onBeforeUnmount(clearPollingTimer)
       <h2>{{ copy.registerTitle }}</h2>
       <p class="systemdata-init-hint">{{ copy.validationHint }}</p>
       <PermissionGate :permission-n-id="PERMISSIONS.systemDataServiceInitializationRegister">
-        <el-button type="primary" :disabled="store.loading" @click="registrationDrawerOpen = true">
+        <el-button
+          type="primary"
+          :disabled="store.loading || saving"
+          @click="registrationDrawerOpen = true"
+        >
           <ElIcon class="systemdata-page-action-icon" aria-hidden="true"><Plus /></ElIcon>
           {{ copy.register }}
         </el-button>
@@ -473,7 +516,11 @@ onBeforeUnmount(clearPollingTimer)
     >
       <h2>{{ copy.planTitle }}</h2>
       <PermissionGate :permission-n-id="PERMISSIONS.systemDataServiceInitializationPlan">
-        <el-button type="primary" :disabled="store.loading" @click="planDrawerOpen = true">
+        <el-button
+          type="primary"
+          :disabled="store.loading || saving"
+          @click="planDrawerOpen = true"
+        >
           <ElIcon class="systemdata-page-action-icon" aria-hidden="true"><Plus /></ElIcon>
           {{ copy.createPlan }}
         </el-button>
@@ -555,7 +602,12 @@ onBeforeUnmount(clearPollingTimer)
         <div class="systemdata-init-gates">
           <label>{{ copy.approvalReason }}<el-input v-model="approvalReason" /></label>
           <PermissionGate :permission-n-id="PERMISSIONS.systemDataServiceInitializationApprove">
-            <el-button type="primary" :disabled="store.loading" @click="createApproval">
+            <el-button
+              type="primary"
+              :loading="saving"
+              :disabled="store.loading || saving"
+              @click="createApproval"
+            >
               {{ copy.createApproval }}
             </el-button>
           </PermissionGate>
@@ -563,7 +615,8 @@ onBeforeUnmount(clearPollingTimer)
           <PermissionGate :permission-n-id="PERMISSIONS.systemDataServiceInitializationBackup">
             <el-button
               type="default"
-              :disabled="store.loading || !backupReference.trim()"
+              :loading="saving"
+              :disabled="store.loading || saving || !backupReference.trim()"
               @click="captureBackup"
             >
               {{ copy.captureBackup }}
@@ -588,7 +641,8 @@ onBeforeUnmount(clearPollingTimer)
                 v-if="store.initializationBackupEvidence.status !== 'Verified'"
                 link
                 type="success"
-                :disabled="store.loading"
+                :loading="saving"
+                :disabled="store.loading || saving"
                 @click="verifyBackup"
               >
                 {{ copy.verifyBackup }}
@@ -597,9 +651,13 @@ onBeforeUnmount(clearPollingTimer)
           </div>
           <p class="systemdata-init-impact">{{ copy.applyImpact }}</p>
           <PermissionGate :permission-n-id="PERMISSIONS.systemDataServiceInitializationApply">
-            <el-button type="primary" :disabled="store.loading" @click="apply">{{
-              copy.apply
-            }}</el-button>
+            <el-button
+              type="primary"
+              :loading="saving"
+              :disabled="store.loading || saving"
+              @click="apply"
+              >{{ copy.apply }}</el-button
+            >
           </PermissionGate>
         </div>
       </article>
@@ -643,7 +701,8 @@ onBeforeUnmount(clearPollingTimer)
               v-if="['Queued', 'Running'].includes(row.status)"
               link
               type="danger"
-              :disabled="store.loading"
+              :loading="saving"
+              :disabled="store.loading || saving"
               @click="cancelOperation(row)"
             >
               {{ copy.cancelOperation }}
@@ -752,7 +811,7 @@ onBeforeUnmount(clearPollingTimer)
 
     <AppFormDrawer
       v-model="registrationDrawerOpen"
-      :busy="store.loading"
+      :busy="saving"
       :title="copy.registerTitle"
       size="medium"
       @submit="register"
@@ -779,7 +838,7 @@ onBeforeUnmount(clearPollingTimer)
 
     <AppFormDrawer
       v-model="planDrawerOpen"
-      :busy="store.loading"
+      :busy="saving"
       :title="copy.planTitle"
       size="medium"
       @submit="createPlan"

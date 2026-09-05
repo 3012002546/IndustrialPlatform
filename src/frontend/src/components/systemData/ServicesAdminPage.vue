@@ -33,6 +33,7 @@ const pageDescription = computed(() => props.description || copy.value.descripti
 const open = ref(false)
 const editing = ref('')
 const formError = ref('')
+const saving = ref(false)
 const form = reactive({ name: '', entryPoint: 'https://', owner: '' })
 const serviceColumns = computed(() => [
   { field: 'name', title: copy.value.name, minWidth: 160, filter: { kind: 'text' as const } },
@@ -87,45 +88,57 @@ function create(): void {
   open.value = true
 }
 async function submit(): Promise<void> {
-  formError.value = ''
-  const name = form.name.trim()
-  const entryPoint = form.entryPoint.trim()
-  if (!name) {
-    formError.value = copy.value.invalidName
-    return
+  if (saving.value) return
+  saving.value = true
+  try {
+    formError.value = ''
+    const name = form.name.trim()
+    const entryPoint = form.entryPoint.trim()
+    if (!name) {
+      formError.value = copy.value.invalidName
+      return
+    }
+    if (!entryPoint.startsWith('https://')) {
+      formError.value = copy.value.invalidHttps
+      return
+    }
+    if (editing.value)
+      await store.updateService(editing.value, {
+        name,
+        entryPoint,
+        ...(form.owner ? { ownerOrganizationNId: form.owner } : {}),
+      })
+    else await store.createService(name, entryPoint, form.owner || undefined)
+    if (!store.error) open.value = false
+  } finally {
+    saving.value = false
   }
-  if (!entryPoint.startsWith('https://')) {
-    formError.value = copy.value.invalidHttps
-    return
-  }
-  if (editing.value)
-    await store.updateService(editing.value, {
-      name,
-      entryPoint,
-      ...(form.owner ? { ownerOrganizationNId: form.owner } : {}),
-    })
-  else await store.createService(name, entryPoint, form.owner || undefined)
-  if (!store.error) open.value = false
 }
 async function toggleStatus(item: ServiceCatalogDto): Promise<void> {
+  if (saving.value) return
   const status = item.status === 'Active' ? 'Inactive' : 'Active'
+  saving.value = true
   try {
-    await ElMessageBox.confirm(
-      interpolate(copy.value.statusConfirmBody, {
-        name: item.name,
-        status: systemDataEnumLabel(localization.locale, status),
-      }),
-      copy.value.statusConfirmTitle,
-      {
-        type: 'warning',
-        confirmButtonText: commonCopy.value.confirm,
-        cancelButtonText: commonCopy.value.cancel,
-      },
-    )
-  } catch {
-    return
+    try {
+      await ElMessageBox.confirm(
+        interpolate(copy.value.statusConfirmBody, {
+          name: item.name,
+          status: systemDataEnumLabel(localization.locale, status),
+        }),
+        copy.value.statusConfirmTitle,
+        {
+          type: 'warning',
+          confirmButtonText: commonCopy.value.confirm,
+          cancelButtonText: commonCopy.value.cancel,
+        },
+      )
+    } catch {
+      return
+    }
+    await store.setServiceStatus(item.serviceNId, { status })
+  } finally {
+    saving.value = false
   }
-  await store.setServiceStatus(item.serviceNId, { status })
 }
 </script>
 <template>
@@ -136,7 +149,7 @@ async function toggleStatus(item: ServiceCatalogDto): Promise<void> {
     :permission="props.permission"
     ><template #toolbar
       ><PermissionGate :permission-n-id="PERMISSIONS.systemDataServiceCatalogManage"
-        ><el-button type="primary" @click="create">
+        ><el-button type="primary" :disabled="saving" @click="create">
           <ElIcon class="systemdata-page-action-icon" aria-hidden="true"><Plus /></ElIcon>
           {{ copy.createExternal }}
         </el-button></PermissionGate
@@ -161,11 +174,19 @@ async function toggleStatus(item: ServiceCatalogDto): Promise<void> {
         }}</template>
         <template #actions="{ row }">
           <PermissionGate :permission-n-id="PERMISSIONS.systemDataServiceCatalogManage"
-            ><el-button v-if="row.kind === 'External'" link type="primary" @click="edit(row)">
+            ><el-button
+              v-if="row.kind === 'External'"
+              link
+              type="primary"
+              :disabled="saving"
+              @click="edit(row)"
+            >
               {{ commonCopy.edit }}</el-button
             ><el-button
               link
               :type="row.status === 'Active' ? 'danger' : 'success'"
+              :loading="saving"
+              :disabled="saving"
               @click="toggleStatus(row)"
             >
               {{ row.status === 'Active' ? commonCopy.disabled : commonCopy.enabled }}
@@ -176,7 +197,7 @@ async function toggleStatus(item: ServiceCatalogDto): Promise<void> {
     </div></SystemDataAdminFrame
   ><AppFormDrawer
     v-model="open"
-    :busy="store.loading"
+    :busy="saving"
     :title="editing ? copy.editExternal : copy.createExternal"
     @submit="submit"
     ><el-form label-width="120px"

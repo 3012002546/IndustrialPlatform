@@ -23,6 +23,7 @@ const themeCopy = computed(() => localeMessages[localization.locale].common.them
 const pageTitle = computed(() => props.title || copy.value.title)
 const pageDescription = computed(() => props.description || copy.value.description)
 const formError = ref('')
+const saving = ref(false)
 const draft = reactive({
   allowedPalettes: [] as string[],
   allowedModes: [] as string[],
@@ -63,33 +64,39 @@ function densityLabel(value: string): string {
   return themeCopy.value.densities[value as keyof typeof themeCopy.value.densities] ?? value
 }
 async function save(): Promise<void> {
-  formError.value = ''
-  if (
-    !draft.allowedPalettes.length ||
-    !draft.allowedModes.length ||
-    !draft.allowedPcDensities.length
-  ) {
-    formError.value = copy.value.invalid
-    return
+  if (saving.value) return
+  saving.value = true
+  try {
+    formError.value = ''
+    if (
+      !draft.allowedPalettes.length ||
+      !draft.allowedModes.length ||
+      !draft.allowedPcDensities.length
+    ) {
+      formError.value = copy.value.invalid
+      return
+    }
+    if (
+      !draft.allowedPalettes.includes(draft.defaultPalette) ||
+      !draft.allowedModes.includes(draft.defaultMode) ||
+      !draft.allowedPcDensities.includes(draft.defaultPcDensity)
+    ) {
+      formError.value = copy.value.invalid
+      return
+    }
+    const expectedPolicyRevision = store.themePolicy?.policyRevision ?? 0
+    await store.updateThemeDefaults({
+      expectedPolicyRevision,
+      allowedPalettes: [...draft.allowedPalettes],
+      allowedModes: [...draft.allowedModes],
+      allowedPcDensities: [...draft.allowedPcDensities],
+      defaultPalette: draft.defaultPalette,
+      defaultMode: draft.defaultMode,
+      defaultPcDensity: draft.defaultPcDensity,
+    })
+  } finally {
+    saving.value = false
   }
-  if (
-    !draft.allowedPalettes.includes(draft.defaultPalette) ||
-    !draft.allowedModes.includes(draft.defaultMode) ||
-    !draft.allowedPcDensities.includes(draft.defaultPcDensity)
-  ) {
-    formError.value = copy.value.invalid
-    return
-  }
-  const expectedPolicyRevision = store.themePolicy?.policyRevision ?? 0
-  await store.updateThemeDefaults({
-    expectedPolicyRevision,
-    allowedPalettes: [...draft.allowedPalettes],
-    allowedModes: [...draft.allowedModes],
-    allowedPcDensities: [...draft.allowedPcDensities],
-    defaultPalette: draft.defaultPalette,
-    defaultMode: draft.defaultMode,
-    defaultPcDensity: draft.defaultPcDensity,
-  })
 }
 watch(() => store.themePolicy, sync, { immediate: true })
 </script>
@@ -100,11 +107,16 @@ watch(() => store.themePolicy, sync, { immediate: true })
     :description="pageDescription"
     :permission="props.permission"
     ><template #toolbar
-      ><el-button type="default" :loading="store.loading" @click="reload">{{
+      ><el-button type="default" :loading="store.loading" :disabled="saving" @click="reload">{{
         copy.reload
       }}</el-button
       ><PermissionGate :permission-n-id="PERMISSIONS.systemDataThemePolicyManage"
-        ><el-button type="primary" :disabled="store.loading" @click="save">
+        ><el-button
+          type="primary"
+          :loading="saving"
+          :disabled="store.loading || saving"
+          @click="save"
+        >
           {{ copy.save }}
         </el-button></PermissionGate
       ></template
@@ -121,22 +133,22 @@ watch(() => store.themePolicy, sync, { immediate: true })
       <el-form label-width="120px"
         ><el-form-item :label="copy.allowedPalettes"
           ><el-checkbox-group v-model="draft.allowedPalettes"
-            ><el-checkbox
-              v-for="value in THEME_PALETTES"
-              :key="value"
-              :label="value">{{ paletteLabel(value) }}</el-checkbox></el-checkbox-group></el-form-item
+            ><el-checkbox v-for="value in THEME_PALETTES" :key="value" :label="value">{{
+              paletteLabel(value)
+            }}</el-checkbox></el-checkbox-group
+          ></el-form-item
         ><el-form-item :label="copy.allowedModes"
           ><el-checkbox-group v-model="draft.allowedModes"
-            ><el-checkbox
-              v-for="value in THEME_MODES"
-              :key="value"
-              :label="value">{{ modeLabel(value) }}</el-checkbox></el-checkbox-group></el-form-item
+            ><el-checkbox v-for="value in THEME_MODES" :key="value" :label="value">{{
+              modeLabel(value)
+            }}</el-checkbox></el-checkbox-group
+          ></el-form-item
         ><el-form-item :label="copy.allowedDensities"
           ><el-checkbox-group v-model="draft.allowedPcDensities"
-            ><el-checkbox
-              v-for="value in PC_DENSITIES"
-              :key="value"
-              :label="value">{{ densityLabel(value) }}</el-checkbox></el-checkbox-group></el-form-item
+            ><el-checkbox v-for="value in PC_DENSITIES" :key="value" :label="value">{{
+              densityLabel(value)
+            }}</el-checkbox></el-checkbox-group
+          ></el-form-item
         ><el-form-item :label="copy.defaultPalette"
           ><el-select v-model="draft.defaultPalette"
             ><el-option
@@ -170,7 +182,9 @@ watch(() => store.themePolicy, sync, { immediate: true })
           >{{ paletteLabel(draft.defaultPalette) }} · {{ modeLabel(draft.defaultMode) }} ·
           {{ densityLabel(draft.defaultPcDensity) }}</span
         >
-        <div class="systemdata-theme-preview__sample">Aa · {{ copy.previewSample || copy.save }}</div>
+        <div class="systemdata-theme-preview__sample">
+          Aa · {{ copy.previewSample || copy.save }}
+        </div>
       </div>
     </div></SystemDataAdminFrame
   >

@@ -41,6 +41,7 @@ const primary = ref(false)
 const from = ref('')
 const to = ref('')
 const unavailable = ref(false)
+const saving = ref(false)
 const assignmentColumns = computed(() => [
   { field: 'positionName', title: copy.value.position, minWidth: 160 },
   { field: 'state', title: copy.value.state, width: 110 },
@@ -104,14 +105,19 @@ function openNew(): void {
   drawerOpen.value = true
 }
 async function submit(): Promise<void> {
-  if (!selectedUser.value || !positionNId.value) return
-  await store.createAssignment(selectedUser.value.userNId, {
-    positionNId: positionNId.value,
-    isPrimary: primary.value,
-    ...(from.value ? { effectiveFrom: from.value } : {}),
-    ...(to.value ? { effectiveTo: to.value } : {}),
-  })
-  if (!store.error) drawerOpen.value = false
+  if (saving.value || !selectedUser.value || !positionNId.value) return
+  saving.value = true
+  try {
+    await store.createAssignment(selectedUser.value.userNId, {
+      positionNId: positionNId.value,
+      isPrimary: primary.value,
+      ...(from.value ? { effectiveFrom: from.value } : {}),
+      ...(to.value ? { effectiveTo: to.value } : {}),
+    })
+    if (!store.error) drawerOpen.value = false
+  } finally {
+    saving.value = false
+  }
 }
 async function confirmAssignmentAction(action: string, body: string): Promise<boolean> {
   try {
@@ -126,30 +132,48 @@ async function confirmAssignmentAction(action: string, body: string): Promise<bo
   }
 }
 async function endAssignment(nId: string, name: string): Promise<void> {
-  if (await confirmAssignmentAction(copy.value.end, interpolate(copy.value.endedBody, { name })))
-    await store.endAssignment(nId)
+  if (saving.value) return
+  saving.value = true
+  try {
+    if (await confirmAssignmentAction(copy.value.end, interpolate(copy.value.endedBody, { name })))
+      await store.endAssignment(nId)
+  } finally {
+    saving.value = false
+  }
 }
 async function cancelAssignment(nId: string, name: string): Promise<void> {
-  if (
-    await confirmAssignmentAction(
-      copy.value.cancelAssignment,
-      interpolate(copy.value.cancelledBody, { name }),
+  if (saving.value) return
+  saving.value = true
+  try {
+    if (
+      await confirmAssignmentAction(
+        copy.value.cancelAssignment,
+        interpolate(copy.value.cancelledBody, { name }),
+      )
     )
-  )
-    await store.cancelAssignment(nId, { reason: copy.value.cancelledBody })
+      await store.cancelAssignment(nId, { reason: copy.value.cancelledBody })
+  } finally {
+    saving.value = false
+  }
 }
 async function switchPrimary(nId: string, name: string): Promise<void> {
-  if (
-    await confirmAssignmentAction(
-      copy.value.switchPrimary,
-      interpolate(copy.value.confirmBody, { action: copy.value.switchPrimary, name }),
+  if (saving.value) return
+  saving.value = true
+  try {
+    if (
+      await confirmAssignmentAction(
+        copy.value.switchPrimary,
+        interpolate(copy.value.confirmBody, { action: copy.value.switchPrimary, name }),
+      )
     )
-  )
-    await store.setPrimaryAssignment(store.assignmentUserNId, {
-      targetAssignmentNId: nId,
-      effectiveOn: new Date().toISOString(),
-      reason: copy.value.switchPrimary,
-    })
+      await store.setPrimaryAssignment(store.assignmentUserNId, {
+        targetAssignmentNId: nId,
+        effectiveOn: new Date().toISOString(),
+        reason: copy.value.switchPrimary,
+      })
+  } finally {
+    saving.value = false
+  }
 }
 </script>
 <template>
@@ -227,6 +251,8 @@ async function switchPrimary(nId: string, name: string): Promise<void> {
             v-if="row.state === 'Current'"
             link
             type="danger"
+            :loading="saving"
+            :disabled="saving"
             @click="endAssignment(row.nId, row.positionName)"
           >
             {{ copy.end }}</el-button
@@ -234,6 +260,8 @@ async function switchPrimary(nId: string, name: string): Promise<void> {
             v-if="row.state === 'Scheduled'"
             link
             type="warning"
+            :loading="saving"
+            :disabled="saving"
             @click="cancelAssignment(row.nId, row.positionName)"
           >
             {{ copy.cancelAssignment }}</el-button
@@ -241,6 +269,8 @@ async function switchPrimary(nId: string, name: string): Promise<void> {
             v-if="!row.isPrimary && !['Cancelled', 'Ended'].includes(row.state)"
             link
             type="success"
+            :loading="saving"
+            :disabled="saving"
             @click="switchPrimary(row.nId, row.positionName)"
           >
             {{ copy.switchPrimary }}
@@ -249,11 +279,7 @@ async function switchPrimary(nId: string, name: string): Promise<void> {
       </template>
     </AppDataTable></SystemDataAdminFrame
   >
-  <AppFormDrawer
-    v-model="drawerOpen"
-    :busy="store.loading"
-    :title="copy.createTitle"
-    @submit="submit"
+  <AppFormDrawer v-model="drawerOpen" :busy="saving" :title="copy.createTitle" @submit="submit"
     ><el-form label-width="120px"
       ><el-form-item :label="copy.position"
         ><el-select
