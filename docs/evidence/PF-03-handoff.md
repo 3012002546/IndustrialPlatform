@@ -4,13 +4,15 @@
 
 结论：**独立验收 PASS，无剩余阻塞缺陷**
 
+> 2026-09-05 总控已完成集成：功能提交 `969ee156` 通过合并提交 `e9452b47` 进入 `develop`；开发/验收任务已归档，专用工作树与分支已清理。本文以下内容保留交接时点记录。
+
 ## 1. 工作区与所有权
 
 - 工作树：`D:/Code/Industrial Platform/IndustrialPlatform-worktrees/pf-03`
 - 分支：`work/pf-03-reference-data`
 - 当前 HEAD：`17e4821aa487a451364cde7df73b6804822999c3`
 - 基线后全部 PF-03 变更仍在工作树中；`staged=0`，开发与验收任务均未 commit、push、merge 或清理工作树。
-- `docs/tasks/active/PF-03.md` 为主控所有，开发任务未修改其内容。
+- 交接时 `docs/tasks/active/PF-03.md` 为主控所有，开发任务未修改其内容；集成后已由总控移至 `docs/tasks/archive/PF-03.md`。
 - `CLAUDE.md`、`bin/`、`obj/`、`dist/`、`TestResults/`、缓存和运行日志不得进入提交。
 - 独立验收任务：`01a06f80-13d9-7db3-89da-34c3162eebf0`
 - 主控任务：`01a05d86-26f0-7be2-890a-e74974cd6c31`
@@ -53,7 +55,7 @@ ReferenceData 的 Dictionary、Parameter、DynamicProperty/EAV、UnitOfMeasure�
 - [真实浏览器结果](assets/PF-03/real-browser-results.json)
 - [真实 RabbitMQ 事件报告](assets/PF-03/real-rabbit-events-report.json)
 - [开发实施方案](../implementation/06-Industrial%20Platform%20ReferenceData%20Service开发实施方案.md)
-- [主控任务文件](../tasks/active/PF-03.md)
+- [归档工作包](../tasks/archive/PF-03.md)
 
 四张验收缺陷修复后的 1366 截图：
 
