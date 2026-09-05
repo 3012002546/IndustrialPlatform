@@ -1,4 +1,8 @@
 <Solution>
+  <Folder Name="/Services/" />
+  <Folder Name="/Services/ReferenceData/">
+    <Project Path="src/Services/ReferenceData/IndustrialPlatform.ReferenceData.Contracts/IndustrialPlatform.ReferenceData.Contracts.csproj" />
+  </Folder>
   <Folder Name="/src/" />
   <Folder Name="/src/BuildingBlocks/">
     <Project Path="src\BuildingBlocks\IndustrialPlatform.SharedKernel\IndustrialPlatform.SharedKernel.csproj" />

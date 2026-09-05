@@ -27,7 +27,7 @@ public sealed class RedisHealthCheck : IHealthCheck
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            return HealthCheckResult.Unhealthy($"Redis 不可访问:{exception.GetType().Name}");
+            return HealthCheckResult.Degraded($"Redis 不可访问:{exception.GetType().Name}");
         }
     }
 }

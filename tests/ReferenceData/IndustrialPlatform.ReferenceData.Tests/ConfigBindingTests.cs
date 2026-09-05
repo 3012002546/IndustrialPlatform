@@ -22,7 +22,8 @@ public sealed class ConfigBindingTests
 
         var options = factory.Services.GetRequiredService<IOptions<SqlSugarOptions>>().Value;
 
-        Assert.Equal("Data Source=industrial-platform.referencedata.db", options.ConnectionString);
+        var topology = factory.Services.GetRequiredService<IConfiguration>().GetSection("DatabaseTopology").Get<IndustrialPlatform.SharedKernel.Topology.DatabaseTopologyOptions>()!;
+        Assert.Equal($"Data Source={topology.SharedSqliteFile}", options.ConnectionString);
         Assert.Equal(SqlSugar.DbType.Sqlite, options.DbType);
     }
 

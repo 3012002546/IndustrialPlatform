@@ -21,7 +21,7 @@ public static class BootstrapSeedCatalog
     public const string BootstrapAdminSeedKey = "identity.bootstrap-admin";
 
     /// <summary>全部种子当前版本;目录内容变化必须递增。</summary>
-    public const string SeedVersion = "1.2.0";
+    public const string SeedVersion = "1.3.0";
 
     /// <summary>系统作用域。</summary>
     public const string SystemScope = "system";
@@ -122,6 +122,44 @@ public static class BootstrapSeedCatalog
         new(PermissionCatalog.SystemDataServiceInitializationApprove, "审批服务初始化", PermissionType.Action),
         new(PermissionCatalog.SystemDataServiceInitializationBackup, "确认服务初始化备份", PermissionType.Action),
         new(PermissionCatalog.SystemDataServiceInitializationCancel, "取消服务初始化", PermissionType.Action),
+        new(PermissionCatalog.ReferenceDataDictionaryView, "字典：view", PermissionType.Page),
+        new(PermissionCatalog.ReferenceDataDictionaryCreate, "字典：create", PermissionType.Action),
+        new(PermissionCatalog.ReferenceDataDictionaryUpdate, "字典：update", PermissionType.Action),
+        new(PermissionCatalog.ReferenceDataDictionaryPublish, "字典：publish", PermissionType.Action),
+        new(PermissionCatalog.ReferenceDataDictionaryDisable, "字典：disable", PermissionType.Action),
+        new(PermissionCatalog.ReferenceDataParameterView, "参数：view", PermissionType.Page),
+        new(PermissionCatalog.ReferenceDataParameterCreate, "参数：create", PermissionType.Action),
+        new(PermissionCatalog.ReferenceDataParameterUpdate, "参数：update", PermissionType.Action),
+        new(PermissionCatalog.ReferenceDataParameterDisable, "参数：disable", PermissionType.Action),
+        new(PermissionCatalog.ReferenceDataParameterReadSecretReference, "参数：read-secret-reference", PermissionType.Action),
+        new(PermissionCatalog.ReferenceDataDynamicPropertyView, "动态配置：view", PermissionType.Page),
+        new(PermissionCatalog.ReferenceDataDynamicPropertyCreate, "动态配置：create", PermissionType.Action),
+        new(PermissionCatalog.ReferenceDataDynamicPropertyUpdate, "动态配置：update", PermissionType.Action),
+        new(PermissionCatalog.ReferenceDataDynamicPropertyPublish, "动态配置：publish", PermissionType.Action),
+        new(PermissionCatalog.ReferenceDataDynamicPropertyDisable, "动态配置：disable", PermissionType.Action),
+        new(PermissionCatalog.ReferenceDataUnitOfMeasureView, "计量单位：view", PermissionType.Page),
+        new(PermissionCatalog.ReferenceDataUnitOfMeasureCreate, "计量单位：create", PermissionType.Action),
+        new(PermissionCatalog.ReferenceDataUnitOfMeasureUpdate, "计量单位：update", PermissionType.Action),
+        new(PermissionCatalog.ReferenceDataUnitOfMeasurePublish, "计量单位：publish", PermissionType.Action),
+        new(PermissionCatalog.ReferenceDataUnitOfMeasureDisable, "计量单位：disable", PermissionType.Action),
+        new(PermissionCatalog.ReferenceDataMetadataView, "元数据：view", PermissionType.Page),
+        new(PermissionCatalog.ReferenceDataMetadataCreate, "元数据：create", PermissionType.Action),
+        new(PermissionCatalog.ReferenceDataMetadataUpdate, "元数据：update", PermissionType.Action),
+        new(PermissionCatalog.ReferenceDataMetadataPublish, "元数据：publish", PermissionType.Action),
+        new(PermissionCatalog.ReferenceDataMetadataDisable, "元数据：disable", PermissionType.Action),
+        new(PermissionCatalog.ReferenceDataCodingRuleView, "编码规则：view", PermissionType.Page),
+        new(PermissionCatalog.ReferenceDataCodingRuleCreate, "编码规则：create", PermissionType.Action),
+        new(PermissionCatalog.ReferenceDataCodingRuleUpdate, "编码规则：update", PermissionType.Action),
+        new(PermissionCatalog.ReferenceDataCodingRulePublish, "编码规则：publish", PermissionType.Action),
+        new(PermissionCatalog.ReferenceDataCodingRuleDisable, "编码规则：disable", PermissionType.Action),
+        new(PermissionCatalog.ReferenceDataCodingRulePreview, "编码规则：preview", PermissionType.Action),
+        new(PermissionCatalog.ReferenceDataCodingRuleGenerate, "编码规则：generate", PermissionType.Action),
+        new(PermissionCatalog.ReferenceDataStateMachineView, "状态机：view", PermissionType.Page),
+        new(PermissionCatalog.ReferenceDataStateMachineCreate, "状态机：create", PermissionType.Action),
+        new(PermissionCatalog.ReferenceDataStateMachineUpdate, "状态机：update", PermissionType.Action),
+        new(PermissionCatalog.ReferenceDataStateMachinePublish, "状态机：publish", PermissionType.Action),
+        new(PermissionCatalog.ReferenceDataStateMachineDisable, "状态机：disable", PermissionType.Action),
+        new(PermissionCatalog.ReferenceDataPlatformManage, "平台级参考定义：manage", PermissionType.Action),
     ];
 
     /// <summary>系统角色定义(SYSTEM_ADMIN 拥有全部目录权限)。</summary>

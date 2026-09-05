@@ -1,3 +1,4 @@
+import type { ReferenceDataMessages } from './referenceData'
 export type SupportedLocale = 'zh-CN' | 'en-US'
 
 export interface IdentityManagementCommonCopy {
@@ -294,6 +295,7 @@ export interface LocalePreferences {
 }
 
 export interface PlatformLocaleMessages {
+  referenceData: ReferenceDataMessages
   common: {
     brand: { name: string; description: string }
     action: {

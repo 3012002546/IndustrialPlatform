@@ -9,6 +9,117 @@ import AppDataTable from '@/components/management/AppDataTable.vue'
 import { useLocalizationStore } from '@/stores/localizationStore'
 
 describe('AppDataTable', () => {
+  it('keeps the compact master title and paging within a narrow pane', async () => {
+    const wrapper = mount(AppDataTable, {
+      props: {
+        tableKey: 'compact-master',
+        columns: [{ field: 'name', title: 'Name' }],
+        rows: [{ id: '1', name: 'One' }],
+        toolbarProfile: 'compact',
+        toolbarTitle: 'Domains',
+        selection: 'single',
+      },
+      global: { components: { 'el-pagination': ElPagination } },
+    })
+    expect(
+      wrapper
+        .findAll('.app-data-table__toolbar > .app-data-table__toolbar-title')
+        .map((item) => item.text()),
+    ).toEqual(['Domains'])
+    expect(wrapper.findComponent(ElPagination).props('layout')).toBe('total, prev, pager, next')
+    await wrapper.setProps({ toolbarProfile: 'full' })
+    expect(wrapper.findComponent(ElPagination).props('layout')).toBe(
+      'total, sizes, prev, pager, next, jumper',
+    )
+    wrapper.unmount()
+  })
+  it('keeps the newest result when an older request finishes later', async () => {
+    type Page = {
+      items: { id: string; name: string }[]
+      total: number
+      pageIndex: number
+      pageSize: number
+    }
+    let finishOld!: (page: Page) => void
+    let finishNew!: (page: Page) => void
+    const loader = vi
+      .fn<() => Promise<Page>>()
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishOld = resolve
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishNew = resolve
+          }),
+      )
+    const wrapper = mount(AppDataTable, {
+      props: { tableKey: 'latest-query', columns: [{ field: 'name', title: 'Name' }], loader },
+    })
+    const reload = (wrapper.vm as unknown as { reload: () => Promise<void> }).reload
+    const old = reload()
+    const latest = reload()
+    finishNew({ items: [{ id: 'new', name: 'Latest' }], total: 1, pageIndex: 1, pageSize: 20 })
+    await latest
+    finishOld({ items: [{ id: 'old', name: 'Stale' }], total: 9, pageIndex: 2, pageSize: 20 })
+    await old
+    await flushPromises()
+    expect(wrapper.emitted('loaded')).toHaveLength(1)
+    expect(wrapper.emitted('loaded')?.[0]?.[0]).toMatchObject({
+      items: [{ id: 'new' }],
+      total: 1,
+      pageIndex: 1,
+    })
+    wrapper.unmount()
+  })
+
+  it('ignores an older error after a newer request succeeds', async () => {
+    let failOld!: (error: Error) => void
+    const loader = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise((_, reject) => {
+            failOld = reject
+          }),
+      )
+      .mockResolvedValueOnce({ items: [], total: 0, pageIndex: 1, pageSize: 20 })
+    const wrapper = mount(AppDataTable, {
+      props: { tableKey: 'latest-error', columns: [{ field: 'name', title: 'Name' }], loader },
+    })
+    const reload = (wrapper.vm as unknown as { reload: () => Promise<void> }).reload
+    const old = reload()
+    await reload()
+    failOld(new Error('Cancelled old request'))
+    await old
+    expect(wrapper.emitted('load-error')).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('does not apply disabled quick search to server results in header mode', async () => {
+    const rows = [
+      { id: '1', name: 'Alpha' },
+      { id: '2', name: 'Beta' },
+    ]
+    const loader = vi.fn().mockResolvedValue({ items: rows, total: 2, pageIndex: 1, pageSize: 25 })
+    const wrapper = mount(AppDataTable, {
+      props: {
+        tableKey: 'header-server-quick',
+        columns: [{ field: 'name', title: 'Name' }],
+        rows,
+        loader,
+      },
+    })
+    await wrapper.get('[data-testid="app-data-table-quick-search"]').setValue('Beta')
+    expect(wrapper.findComponent(VxeTable).props('data')).toEqual([rows[1]])
+    await wrapper.get('[data-testid="app-data-table-query-toggle"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.findComponent(VxeTable).props('data')).toEqual(rows)
+    wrapper.unmount()
+  })
   beforeEach(() => {
     localStorage.clear()
     setActivePinia(createPinia())

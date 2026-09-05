@@ -28,7 +28,7 @@ public sealed class RabbitMqHealthCheck : IHealthCheck
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            return HealthCheckResult.Unhealthy($"RabbitMQ 不可访问:{exception.GetType().Name}");
+            return HealthCheckResult.Degraded($"RabbitMQ 不可访问:{exception.GetType().Name}");
         }
     }
 }

@@ -36,9 +36,11 @@ public sealed class ProjectReferenceArchitectureTests
             ["src/backend/src/Services/Identity/IndustrialPlatform.Identity.Infrastructure/IndustrialPlatform.Identity.Infrastructure.csproj"] =
                 ["IndustrialPlatform.EventBus", "IndustrialPlatform.Identity.Application", "IndustrialPlatform.Identity.Domain", "IndustrialPlatform.Infrastructure", "IndustrialPlatform.Logging", "IndustrialPlatform.Security"],
             ["src/backend/src/Services/ReferenceData/IndustrialPlatform.ReferenceData.Api/IndustrialPlatform.ReferenceData.Api.csproj"] =
-                ["IndustrialPlatform.ReferenceData.Application", "IndustrialPlatform.ReferenceData.Infrastructure", "IndustrialPlatform.Web"],
+                ["IndustrialPlatform.ReferenceData.Application", "IndustrialPlatform.ReferenceData.Contracts", "IndustrialPlatform.ReferenceData.Infrastructure", "IndustrialPlatform.Security", "IndustrialPlatform.Web"],
             ["src/backend/src/Services/ReferenceData/IndustrialPlatform.ReferenceData.Application/IndustrialPlatform.ReferenceData.Application.csproj"] =
-                ["IndustrialPlatform.Application.Abstractions", "IndustrialPlatform.ReferenceData.Domain"],
+                ["IndustrialPlatform.Application.Abstractions", "IndustrialPlatform.ReferenceData.Contracts", "IndustrialPlatform.ReferenceData.Domain"],
+            ["src/backend/src/Services/ReferenceData/IndustrialPlatform.ReferenceData.Contracts/IndustrialPlatform.ReferenceData.Contracts.csproj"] =
+                ["IndustrialPlatform.EventBus"],
             ["src/backend/src/Services/ReferenceData/IndustrialPlatform.ReferenceData.Domain/IndustrialPlatform.ReferenceData.Domain.csproj"] =
                 ["IndustrialPlatform.SharedKernel"],
             ["src/backend/src/Services/ReferenceData/IndustrialPlatform.ReferenceData.Infrastructure/IndustrialPlatform.ReferenceData.Infrastructure.csproj"] =

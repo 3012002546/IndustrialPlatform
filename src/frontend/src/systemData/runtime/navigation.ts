@@ -40,6 +40,77 @@ const ICONS = new Map<string, Component>([
 const defaultGroups = getDefaultPcNavigationGroups()
 const defaultItems = defaultGroups.flatMap((group) => group.items)
 
+// Frozen fingerprint of the SystemData default published before PF-03.  Exact
+// matching keeps configured-empty and tenant-customized snapshots authoritative.
+// prettier-ignore
+const LEGACY_DEFAULT_NAVIGATION_FINGERPRINT = JSON.stringify([
+  [null, 'navigation.group.workspace', 'Group', '工作台', null, null, null, null, null, 0],
+  ['navigation.group.workspace', 'navigation.link.pc-home', 'Link', '首页', 'systemdata.navigation.pc-home', 'pc-home', 'platform.home.view', null, null, 0],
+  ['navigation.group.workspace', 'navigation.link.terminal-preview', 'Link', '终端预览', 'systemdata.navigation.terminal-preview', 'terminal-preview', 'platform.pda.view', null, null, 1],
+  [null, 'navigation.group.system', 'Group', '系统管理', null, null, null, null, null, 1],
+  ['navigation.group.system', 'navigation.group.identity-access', 'Group', '身份与访问', null, null, null, null, null, 0],
+  ['navigation.group.identity-access', 'navigation.link.identity-users', 'Link', '用户管理', 'systemdata.navigation.identity-users', 'identity-users', 'identity.user.view', null, null, 0],
+  ['navigation.group.identity-access', 'navigation.link.identity-user-groups', 'Link', '用户组管理', 'systemdata.navigation.identity-user-groups', 'identity-user-groups', 'identity.user-group.view', null, null, 1],
+  ['navigation.group.identity-access', 'navigation.link.identity-roles', 'Link', '角色权限', 'systemdata.navigation.identity-roles', 'identity-roles', 'identity.role.view', null, null, 2],
+  ['navigation.group.identity-access', 'navigation.link.identity-permissions', 'Link', '权限目录', 'systemdata.navigation.identity-permissions', 'identity-permissions', 'identity.permission.view', null, null, 3],
+  ['navigation.group.identity-access', 'navigation.link.identity-audits', 'Link', '登录审计', 'systemdata.navigation.identity-audits', 'identity-audits', 'identity.audit.login.view', null, null, 4],
+  ['navigation.group.identity-access', 'navigation.link.identity-sso-providers', 'Link', '企业登录源', 'systemdata.navigation.identity-sso-providers', 'sso-providers', 'identity.sso.view', null, null, 5],
+  ['navigation.group.identity-access', 'navigation.link.identity-sso-clients', 'Link', 'SSO Client', 'systemdata.navigation.identity-sso-clients', 'sso-clients', 'identity.sso.view', null, null, 6],
+  ['navigation.group.system', 'navigation.group.organization-people', 'Group', '组织与人员', null, null, null, null, null, 1],
+  ['navigation.group.organization-people', 'navigation.link.systemdata-organizations', 'Link', '行政组织与岗位', 'systemdata.navigation.systemdata-organizations', 'systemdata-organizations', 'systemdata.organization.view', null, null, 0],
+  ['navigation.group.organization-people', 'navigation.link.systemdata-assignments', 'Link', '用户任职', 'systemdata.navigation.systemdata-assignments', 'systemdata-assignments', 'systemdata.assignment.view', null, null, 1],
+  ['navigation.group.system', 'navigation.group.menu-platform', 'Group', '菜单与平台配置', null, null, null, null, null, 2],
+  ['navigation.group.menu-platform', 'navigation.link.systemdata-navigation', 'Link', '菜单管理', 'systemdata.navigation.systemdata-navigation', 'systemdata-navigation', 'systemdata.navigation.view', null, null, 0],
+  ['navigation.group.menu-platform', 'navigation.link.systemdata-features', 'Link', '功能开关', 'systemdata.navigation.systemdata-features', 'systemdata-features', 'systemdata.feature.view', null, null, 1],
+  ['navigation.group.menu-platform', 'navigation.link.systemdata-themes', 'Link', '租户主题策略', 'systemdata.navigation.systemdata-themes', 'systemdata-themes', 'systemdata.theme-policy.view', null, null, 2],
+  ['navigation.group.system', 'navigation.group.service-operations', 'Group', '服务与运维', null, null, null, null, null, 3],
+  ['navigation.group.service-operations', 'navigation.link.systemdata-services', 'Link', '服务目录', 'systemdata.navigation.systemdata-services', 'systemdata-services', 'systemdata.service-catalog.view', null, null, 0],
+  ['navigation.group.service-operations', 'navigation.link.systemdata-service-initialization', 'Link', '服务初始化编排', 'systemdata.navigation.systemdata-service-initialization', 'systemdata-service-initialization', 'systemdata.service-initialization.view', null, null, 1],
+])
+
+function isLegacyDefaultNavigation(nodes: readonly NavigationRuntimeNodeDto[]): boolean {
+  const flattened: unknown[][] = []
+  const visit = (children: readonly NavigationRuntimeNodeDto[], parentNodeNId: string | null) => {
+    for (const child of children) {
+      flattened.push([
+        parentNodeNId,
+        child.nodeNId,
+        child.kind,
+        child.label,
+        child.resourceNId,
+        child.routeName,
+        child.requiredPermissionNId,
+        child.featureNId,
+        child.iconKey,
+        child.displayOrder,
+      ])
+      visit(child.children, child.nodeNId)
+    }
+  }
+  visit(nodes, null)
+  return JSON.stringify(flattened) === LEGACY_DEFAULT_NAVIGATION_FINGERPRINT
+}
+
+function addLegacyReferenceDataNavigation(
+  nodes: readonly NavigationRuntimeNodeDto[],
+  groups: NavigationGroup[],
+): NavigationGroup[] {
+  if (!isLegacyDefaultNavigation(nodes)) return groups
+  const defaultSystem = defaultGroups.find((group) => group.id === 'system')
+  const section = defaultSystem?.sections?.find((candidate) => candidate.id === 'reference-data')
+  const items = defaultSystem?.items.filter((item) => item.sectionId === 'reference-data') ?? []
+  if (section === undefined || items.length === 0) return groups
+  return groups.map((group) =>
+    group.id === 'navigation.group.system'
+      ? {
+          ...group,
+          sections: [section, ...(group.sections ?? [])],
+          items: [...items, ...group.items],
+        }
+      : group,
+  )
+}
+
 function iconFor(node: NavigationRuntimeNodeDto): Component {
   const key = node.iconKey?.trim().replace(/[-_]/g, '').toLowerCase()
   if (key) return ICONS.get(key) ?? Menu
@@ -81,7 +152,7 @@ function mapItem(node: NavigationRuntimeNodeDto, sectionId?: string): Navigation
 export function mapRuntimeNavigation(
   nodes: readonly NavigationRuntimeNodeDto[],
 ): NavigationGroup[] {
-  return [...nodes]
+  const groups = [...nodes]
     .sort((a, b) => a.displayOrder - b.displayOrder || a.nodeNId.localeCompare(b.nodeNId))
     .filter((node) => node.kind.toLowerCase() === 'group')
     .map((node) => {
@@ -122,6 +193,7 @@ export function mapRuntimeNavigation(
         ),
       }
     })
+  return addLegacyReferenceDataNavigation(nodes, groups)
 }
 
 function filterItem(

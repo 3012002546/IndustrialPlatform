@@ -69,6 +69,31 @@ describe('HttpClient — 成功信封', () => {
     await client({ getToken: () => 'tok-1' }).get('/api/auth')
     expect(auth).toBe('Bearer tok-1')
   })
+
+  it('preserves selected JSON number tokens without IEEE-754 rounding', async () => {
+    server.use(
+      http.get(
+        `${BASE}/api/precise-decimals`,
+        () =>
+          new HttpResponse(
+            '{"success":true,"code":"200","message":"success","data":{"minValue":9999999999999999.123456789012,"maxValue":-0.000000000001,"revision":7}}',
+            { headers: { 'Content-Type': 'application/json' } },
+          ),
+      ),
+    )
+
+    const data = await client().get<{
+      minValue: string
+      maxValue: string
+      revision: number
+    }>('/api/precise-decimals', { preserveJsonNumberKeys: ['minValue', 'maxValue'] })
+
+    expect(data).toEqual({
+      minValue: '9999999999999999.123456789012',
+      maxValue: '-0.000000000001',
+      revision: 7,
+    })
+  })
 })
 
 describe('HttpClient — 统一错误分类', () => {
@@ -148,6 +173,37 @@ describe('HttpClient — 统一错误分类', () => {
     )
     expect(await failureKind(client().get('/api/server-error'))).toBe('server')
   })
+
+  it.each([
+    ['HTML', '<html>bad gateway</html>'],
+    ['empty', ''],
+  ])(
+    'keeps Axios status and trace data for a precise-number request with a %s 5xx body',
+    async (_, body) => {
+      server.use(
+        http.get(
+          `${BASE}/api/precise-server-error`,
+          () =>
+            new HttpResponse(body, {
+              status: 502,
+              headers: { 'Content-Type': 'text/html', 'X-Trace-Id': 'trace-proxy' },
+            }),
+        ),
+      )
+
+      const outcome = await client()
+        .get('/api/precise-server-error', { preserveJsonNumberKeys: ['minValue', 'maxValue'] })
+        .then(
+          () => null,
+          (error: unknown) => error,
+        )
+
+      expect(outcome).toBeInstanceOf(ApiError)
+      expect((outcome as ApiError).kind).toBe('server')
+      expect((outcome as ApiError).details.status).toBe(502)
+      expect((outcome as ApiError).details.traceId).toBe('trace-proxy')
+    },
+  )
 
   it('preserves business code/message on a non-2xx business envelope', async () => {
     server.use(

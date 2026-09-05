@@ -69,6 +69,7 @@ public sealed class UnifiedHostTests : IDisposable
                 .UseSetting("IndustrialPlatform:DevelopmentInfrastructureMode", "Sqlite")
                 .UseSetting("SqlSugar:ConnectionString", $"Data Source={_dbPath};Foreign Keys=True")
                 .UseSetting("SqlSugar:DbType", "Sqlite")
+                .UseSetting("DatabaseTopology:SharedSqliteFile", _dbPath)
                 .ConfigureTestServices(services =>
                 {
                     services.RemoveAll<IRefreshSessionStore>();
@@ -285,7 +286,7 @@ public sealed class UnifiedHostTests : IDisposable
     }
 
     [Fact]
-    public async Task ReadyHealth_ListsPerModulePrefixedChecks()
+    public async Task Ready_and_capability_health_list_prefixed_checks_without_mixing_profiles()
     {
         using var factory = CreateFactory();
         using var client = factory.CreateClient();
@@ -304,9 +305,21 @@ public sealed class UnifiedHostTests : IDisposable
         Assert.Contains("identity.redis", names);
         Assert.Contains("systemdata.postgres", names);
         Assert.Contains("referencedata.postgres", names);
-        Assert.Contains("referencedata.rabbitmq", names);
+        Assert.DoesNotContain("referencedata.rabbitmq", names);
         // 无未加前缀的同名检查(避免覆盖)
         Assert.DoesNotContain("postgres", names);
+
+        using var capabilityResponse = await client.GetAsync("/health/capabilities");
+        using var capabilityPayload = JsonDocument.Parse(
+            await capabilityResponse.Content.ReadAsStreamAsync());
+        var capabilityNames = capabilityPayload.RootElement.GetProperty("checks")
+            .EnumerateArray()
+            .Select(check => check.GetProperty("name").GetString())
+            .ToArray();
+        Assert.Contains("referencedata.redis", capabilityNames);
+        Assert.Contains("referencedata.rabbitmq", capabilityNames);
+        Assert.Contains("referencedata.seq", capabilityNames);
+        Assert.DoesNotContain("referencedata.postgres", capabilityNames);
     }
 
     // ---------------------------------------------------------------------------

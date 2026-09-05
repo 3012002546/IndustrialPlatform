@@ -1,0 +1,89 @@
+{
+  "baseUrl": "http://localhost:4173",
+  "gatewayUrl": "http://127.0.0.1:5043",
+  "viewport": "1366x768",
+  "authentication": "real Identity bootstrap admin over HTTP",
+  "consoleErrors": 0,
+  "pageErrors": 0,
+  "failedRequests": 0,
+  "pages": [
+    {
+      "route": "dictionaries",
+      "subjectNId": "PF03_REAL_STATUS",
+      "documentOverflowPixels": 0
+    },
+    {
+      "route": "parameters",
+      "subjectNId": "PF03_REAL_APP",
+      "documentOverflowPixels": 0
+    },
+    {
+      "route": "dynamic-properties",
+      "subjectNId": "PF03_REAL_MATRIX",
+      "documentOverflowPixels": 0
+    },
+    {
+      "route": "units-of-measure",
+      "subjectNId": "PF03_REAL_MASS",
+      "documentOverflowPixels": 0,
+      "moreTriggerVisible": true,
+      "overflowActionVisible": true,
+      "actionGroupHeightPx": 20,
+      "directActionCount": 2,
+      "directActionLineCount": 1,
+      "lastObservedAtUtc": "2026-09-05T03:55:35.377Z"
+    },
+    {
+      "route": "metadata",
+      "subjectNId": "PF03_REAL_ENTITY",
+      "documentOverflowPixels": 0,
+      "moreTriggerVisible": true,
+      "overflowActionVisible": true,
+      "actionGroupHeightPx": 20,
+      "directActionCount": 2,
+      "directActionLineCount": 1,
+      "lastObservedAtUtc": "2026-09-05T03:55:35.377Z"
+    },
+    {
+      "route": "coding-rules",
+      "subjectNId": "PF03_REAL_CODE",
+      "documentOverflowPixels": 0,
+      "moreTriggerVisible": true,
+      "overflowActionVisible": true,
+      "actionGroupHeightPx": 20,
+      "directActionCount": 2,
+      "directActionLineCount": 1,
+      "lastObservedAtUtc": "2026-09-05T03:55:35.377Z"
+    },
+    {
+      "route": "state-machines",
+      "subjectNId": "PF03_REAL_FLOW",
+      "documentOverflowPixels": 0,
+      "moreTriggerVisible": true,
+      "overflowActionVisible": true,
+      "actionGroupHeightPx": 20,
+      "directActionCount": 2,
+      "directActionLineCount": 1,
+      "lastObservedAtUtc": "2026-09-05T03:55:35.377Z"
+    }
+  ],
+  "runtimeInteractions": {
+    "unitConversion": "1.25 KG -> 1250.000 G",
+    "codingPreview": "REAL-000001",
+    "stateEvaluation": "UNKNOWN -> TRANSITION_NOT_DEFINED"
+  },
+  "lastRefresh": {
+    "scope": "partial",
+    "routes": [
+      "units-of-measure",
+      "metadata",
+      "coding-rules",
+      "state-machines"
+    ],
+    "observedAtUtc": "2026-09-05T03:55:35.377Z",
+    "consoleErrors": 0,
+    "pageErrors": 0,
+    "failedRequests": 0,
+    "http5xx": 0
+  }
+}

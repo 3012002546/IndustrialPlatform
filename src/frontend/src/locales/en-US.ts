@@ -1,6 +1,8 @@
 import type { PlatformLocaleMessages } from '@/localization/types'
+import { referenceDataEn } from '@/localization/referenceData'
 
 export const enUS = {
+  referenceData: referenceDataEn,
   common: {
     brand: { name: 'Industrial Platform', description: 'Unified industrial platform workspace' },
     action: {
@@ -171,6 +173,7 @@ export const enUS = {
       platformManagement: 'Platform management',
       group: { workspace: 'Workspace', system: 'System management' },
       section: {
+        'reference-data': 'Reference data',
         'identity-access': 'Identity & access',
         'organization-platform': 'Organization & platform',
         'organization-people': 'Organization & people',
@@ -178,6 +181,13 @@ export const enUS = {
         'service-operations': 'Services & operations',
       },
       item: {
+        'reference-data-dictionaries': 'Dictionaries',
+        'reference-data-parameters': 'Parameters',
+        'reference-data-dynamic-properties': 'Dynamic properties',
+        'reference-data-units-of-measure': 'Units of measure',
+        'reference-data-metadata': 'Metadata schemas',
+        'reference-data-coding-rules': 'Coding rules',
+        'reference-data-state-machines': 'State machines',
         'pc-home': 'Home',
         'terminal-preview': 'Terminal preview',
         'identity-users': 'User management',

@@ -1,7 +1,15 @@
 using IndustrialPlatform.Application.Abstractions.Initialization;
+using IndustrialPlatform.Infrastructure.Caching;
+using IndustrialPlatform.Infrastructure.Database;
+using IndustrialPlatform.ReferenceData.Application.Caching;
+using IndustrialPlatform.ReferenceData.Infrastructure.Caching;
 using IndustrialPlatform.ReferenceData.Infrastructure.Initialization;
+using IndustrialPlatform.ReferenceData.Infrastructure.Outbox;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using StackExchange.Redis;
 
 namespace IndustrialPlatform.ReferenceData.Infrastructure;
 
@@ -23,8 +31,33 @@ public static class DependencyInjection
 
         services.AddSqlSugar(configuration);
         services.AddRedis(configuration);
+        services.AddSingleton<IReferenceDataCache>(serviceProvider => new RedisReferenceDataCache(
+            serviceProvider.GetRequiredService<IConnectionMultiplexer>(),
+            serviceProvider.GetRequiredService<IOptions<RedisOptions>>(),
+            serviceProvider.GetRequiredService<ILogger<RedisReferenceDataCache>>(),
+            serviceProvider.GetRequiredService<SqlSugarDbContext>()));
         services.AddEventBus(configuration);
+        services.AddSingleton(TimeProvider.System);
+        services.AddScoped<ReferenceDataOutboxStore>();
+        services.AddHostedService<ReferenceDataOutboxDispatcher>();
         services.AddSingleton<ReferenceDataInitializationLedger>();
+        services.AddHttpClient();
+        services.AddScoped<IndustrialPlatform.ReferenceData.Application.Dictionary.IDictionaryRepository, Dictionary.DictionaryRepository>();
+        services.AddScoped<IndustrialPlatform.ReferenceData.Application.Dictionary.DictionaryService>();
+        services.AddScoped<IndustrialPlatform.ReferenceData.Application.Parameter.IParameterRepository, Parameter.ParameterRepository>();
+        services.AddScoped<IndustrialPlatform.ReferenceData.Application.Parameter.ParameterService>();
+        services.AddScoped<IndustrialPlatform.ReferenceData.Application.DynamicProperty.IDynamicConfigurationRepository, DynamicProperty.DynamicConfigurationRepository>();
+        services.AddScoped<IndustrialPlatform.ReferenceData.Application.DynamicProperty.DynamicConfigurationService>();
+        services.AddScoped<IndustrialPlatform.ReferenceData.Application.UnitOfMeasure.IUnitDimensionRepository, UnitOfMeasure.UnitDimensionRepository>();
+        services.AddScoped<IndustrialPlatform.ReferenceData.Application.UnitOfMeasure.UnitDimensionService>();
+        services.AddScoped<IndustrialPlatform.ReferenceData.Application.Metadata.IMetadataSchemaRepository, Metadata.MetadataSchemaRepository>();
+        services.AddScoped<IndustrialPlatform.ReferenceData.Application.Metadata.MetadataSchemaService>();
+        services.AddScoped<IndustrialPlatform.ReferenceData.Application.CodingRule.ICodingRuleRepository, CodingRule.CodingRuleRepository>();
+        services.AddScoped<IndustrialPlatform.ReferenceData.Application.CodingRule.CodingRuleService>();
+        services.AddScoped<IndustrialPlatform.ReferenceData.Application.StateMachine.IStateMachineRepository, StateMachine.StateMachineRepository>();
+        services.AddScoped<IndustrialPlatform.ReferenceData.Application.StateMachine.StateMachineService>();
+        services.AddScoped<IndustrialPlatform.ReferenceData.Application.Authorization.IReferenceDataPermissionEvaluator,
+            IndustrialPlatform.ReferenceData.Infrastructure.Authorization.HttpReferenceDataPermissionEvaluator>();
         services.AddSingleton<ReferenceDataServiceInitializer>();
         services.AddSingleton<IServiceInitializer>(sp => sp.GetRequiredService<ReferenceDataServiceInitializer>());
         return services;

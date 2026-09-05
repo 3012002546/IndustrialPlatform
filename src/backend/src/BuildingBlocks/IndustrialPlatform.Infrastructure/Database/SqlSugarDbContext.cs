@@ -1,3 +1,4 @@
+using System.Data.Common;
 using IndustrialPlatform.SharedKernel.Entities;
 using Microsoft.Extensions.Options;
 using SqlSugar;
@@ -28,7 +29,7 @@ public sealed class SqlSugarDbContext : IDisposable
 
         var connectionConfig = new ConnectionConfig
         {
-            ConnectionString = value.ConnectionString,
+            ConnectionString = EnsureSqliteForeignKeys(value),
             DbType = value.DbType,
             IsAutoCloseConnection = value.IsAutoCloseConnection,
             ConfigureExternalServices = new ConfigureExternalServices
@@ -44,6 +45,18 @@ public sealed class SqlSugarDbContext : IDisposable
         };
 
         _sqlSugar = new SqlSugarScope(connectionConfig);
+    }
+
+    private static string EnsureSqliteForeignKeys(SqlSugarOptions options)
+    {
+        if (options.DbType != DbType.Sqlite)
+        {
+            return options.ConnectionString!;
+        }
+
+        var builder = new DbConnectionStringBuilder { ConnectionString = options.ConnectionString };
+        builder["Foreign Keys"] = true;
+        return builder.ConnectionString!;
     }
 
     /// <summary>获取 SqlSugar 客户端。</summary>

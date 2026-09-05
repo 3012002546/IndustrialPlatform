@@ -479,6 +479,7 @@ function localRowsForRequest(): T[] {
 
 const localRows = computed(() => localRowsForRequest())
 const serverRowsForDisplay = computed(() => {
+  if (activeQueryMode.value === 'header') return serverRows.value
   const query = quickSearch.value.trim().toLowerCase()
   if (query === '') return serverRows.value
   return serverRows.value.filter((row) =>
@@ -693,7 +694,9 @@ const nativeCustomConfig = {
   confirmButtonText: localeMessages[localization.locale].common.action.confirm,
 }
 
+let loadSequence = 0
 async function reload(emitQueryChange = true): Promise<void> {
+  const sequence = ++loadSequence
   const shouldEmitQueryChange = emitQueryChange && !suppressNextCacheQueryChange.value
   if (shouldEmitQueryChange === false && emitQueryChange) suppressNextCacheQueryChange.value = false
   if (props.loader === undefined) {
@@ -704,6 +707,7 @@ async function reload(emitQueryChange = true): Promise<void> {
   loadError.value = null
   try {
     const next = await props.loader(request())
+    if (sequence !== loadSequence) return
     serverRows.value = next.items
     serverTotal.value = next.total
     currentPage.value = next.pageIndex
@@ -711,10 +715,11 @@ async function reload(emitQueryChange = true): Promise<void> {
     emit('loaded', next)
     if (shouldEmitQueryChange) emit('query-change', request())
   } catch (error) {
+    if (sequence !== loadSequence) return
     loadError.value = error
     emit('load-error', error)
   } finally {
-    loaderLoading.value = false
+    if (sequence === loadSequence) loaderLoading.value = false
   }
 }
 
@@ -1612,6 +1617,7 @@ onUpdated(() => {
 })
 
 onBeforeUnmount(() => {
+  loadSequence++
   headerObserver?.disconnect()
   headerObserver = undefined
   actionColumnObserver?.disconnect()
@@ -1795,6 +1801,11 @@ defineExpose({
       </div>
 
       <div v-if="toolbarProfile !== 'hidden'" class="app-data-table__toolbar">
+        <strong
+          v-if="toolbarProfile === 'compact' && toolbarTitle"
+          class="app-data-table__toolbar-title"
+          >{{ toolbarTitle }}</strong
+        >
         <div class="app-data-table__toolbar-left" role="group" :aria-label="copy.primaryTools">
           <strong v-if="toolbarTitle" class="app-data-table__toolbar-title">{{
             toolbarTitle
@@ -2480,7 +2491,11 @@ defineExpose({
           :page-sizes="[10, 25, 50, 100, 150, 200]"
           :pager-count="5"
           :total="tableTotal"
-          layout="total, sizes, prev, pager, next, jumper"
+          :layout="
+            toolbarProfile === 'compact'
+              ? 'total, prev, pager, next'
+              : 'total, sizes, prev, pager, next, jumper'
+          "
           @current-change="onPageChange"
           @size-change="onPageSizeChange"
         />

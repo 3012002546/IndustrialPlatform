@@ -1,9 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\IndustrialPlatform.ReferenceData.Application\IndustrialPlatform.ReferenceData.Application.csproj" />
     <ProjectReference Include="..\IndustrialPlatform.ReferenceData.Infrastructure\IndustrialPlatform.ReferenceData.Infrastructure.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\IndustrialPlatform.Web\IndustrialPlatform.Web.csproj" />
+    <ProjectReference Include="..\IndustrialPlatform.ReferenceData.Contracts\IndustrialPlatform.ReferenceData.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\IndustrialPlatform.Security\IndustrialPlatform.Security.csproj" />
   </ItemGroup>
 
 </Project>

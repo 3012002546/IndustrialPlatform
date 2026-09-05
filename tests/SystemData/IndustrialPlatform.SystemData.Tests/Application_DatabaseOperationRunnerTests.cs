@@ -231,6 +231,7 @@ public sealed class DatabaseOperationRunnerTests
     public async Task RunOnceAsync_ServiceOwnedReferenceData_UsesRealInitializerAndReadiness()
     {
         var dbPath = Path.Combine(Path.GetTempPath(), $"industrial-platform-runner-referencedata-{Guid.NewGuid():N}.db");
+        var topology = DevelopmentTopology with { SharedSqliteFile = dbPath };
         try
         {
             using var dbContext = new IndustrialPlatform.Infrastructure.Database.SqlSugarDbContext(Options.Create(new SqlSugarOptions
@@ -241,7 +242,7 @@ public sealed class DatabaseOperationRunnerTests
             var initializer = new ReferenceDataServiceInitializer(new ReferenceDataInitializationLedger(dbContext));
             var invoker = new InProcessServiceInitializationInvoker([initializer]);
             var store = new FakeDatabaseOrchestrationStore();
-            var runner = CreateRunner(store, new FakeTargetAdapter(), DevelopmentTopology, serviceInitializationInvoker: invoker);
+            var runner = CreateRunner(store, new FakeTargetAdapter(), topology, serviceInitializationInvoker: invoker);
             var seed = new SeedSet(
                 ReferenceDataServiceInitializer.BaselineSeedKey,
                 ReferenceDataServiceInitializer.BaselineVersion,
@@ -252,39 +253,39 @@ public sealed class DatabaseOperationRunnerTests
                 "sig-ref",
                 requiredForReadiness: true,
                 allowedEnvironments: string.Empty,
-                dependsOnMigrationVersion: ReferenceDataServiceInitializer.BaselineVersion,
+                dependsOnMigrationVersion: ReferenceDataServiceInitializer.CurrentVersion,
                 dependsOnSeedKeys: null,
                 BootstrapPolicy.FailClosed);
             var registration = await SeedServiceRegistrationAsync(
                 store,
-                DevelopmentTopology,
+                topology,
                 "referencedata",
                 "referencedata",
-                ReferenceDataServiceInitializer.BaselineVersion,
+                ReferenceDataServiceInitializer.CurrentVersion,
                 [seed]);
 
             await SeedServiceOperationAsync(
                 store,
-                DevelopmentTopology,
+                topology,
                 "OP-REAL-REFERENCEDATA-PLAN",
                 OperationKind.Plan,
                 "referencedata",
                 "referencedata",
                 null,
-                ReferenceDataServiceInitializer.BaselineVersion);
+                ReferenceDataServiceInitializer.CurrentVersion);
             Assert.Equal(1, await runner.RunOnceAsync(CancellationToken.None));
             var plan = store.Plans.Single();
             Assert.True(plan.ServiceRequiresApply);
 
             await SeedServiceOperationAsync(
                 store,
-                DevelopmentTopology,
+                topology,
                 "OP-REAL-REFERENCEDATA-APPLY",
                 OperationKind.Apply,
                 "referencedata",
                 "referencedata",
                 plan.PlanNId,
-                ReferenceDataServiceInitializer.BaselineVersion);
+                ReferenceDataServiceInitializer.CurrentVersion);
             Assert.Equal(1, await runner.RunOnceAsync(CancellationToken.None));
 
             var apply = store.Operations.Single(item => item.OperationNId == "OP-REAL-REFERENCEDATA-APPLY");
@@ -300,7 +301,7 @@ public sealed class DatabaseOperationRunnerTests
             Assert.Equal(seed.SeedChecksum, observation!.Checksum);
             Assert.Equal(seed.Scope, observation.Scope);
 
-            var readiness = await CreateOperationService(store).GetReadinessV2Async(
+            var readiness = await CreateOperationService(store, topology).GetReadinessV2Async(
                 Tenant,
                 "referencedata",
                 "referencedata",
@@ -891,10 +892,10 @@ public sealed class DatabaseOperationRunnerTests
                     : null);
     }
 
-    private static DatabaseOperationService CreateOperationService(FakeDatabaseOrchestrationStore store) =>
+    private static DatabaseOperationService CreateOperationService(FakeDatabaseOrchestrationStore store, DatabaseTopology? topology = null) =>
         new(
             store,
-            new FakeTopologyProvider(DevelopmentTopology),
+            new FakeTopologyProvider(topology ?? DevelopmentTopology),
             new DatabaseApprovalService(store),
             new DatabaseBackupService(store, Options.Create(new DatabaseOrchestrationOptions())),
             Options.Create(new DatabaseOrchestrationOptions()));

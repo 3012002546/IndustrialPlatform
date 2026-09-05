@@ -12,6 +12,23 @@ namespace IndustrialPlatform.BuildingBlocks.Tests;
 public sealed class RabbitMqConnectionTests
 {
     [Fact]
+    public async Task CreateChannelAsync_EnablesBrokerConfirmationsAndTrackingForConfirmedPublisher()
+    {
+        await using var sut = new RabbitMqConnection(
+            Options.Create(new RabbitMqOptions()),
+            NullLogger<RabbitMqConnection>.Instance);
+        var connection = DispatchProxy.Create<IConnection, ShutdownOnCloseConnectionProxy>();
+        var proxy = (ShutdownOnCloseConnectionProxy)(object)connection;
+        SetPrivateField(sut, "_connection", connection);
+
+        await sut.CreateChannelAsync(publisherConfirmationsEnabled: true);
+
+        Assert.NotNull(proxy.LastChannelOptions);
+        Assert.True(proxy.LastChannelOptions!.PublisherConfirmationsEnabled);
+        Assert.True(proxy.LastChannelOptions.PublisherConfirmationTrackingEnabled);
+    }
+
+    [Fact]
     public async Task DisposeAsync_WhenCloseRaisesShutdown_ReleasesTheOriginalConnection()
     {
         var sut = new RabbitMqConnection(
@@ -51,6 +68,7 @@ public sealed class RabbitMqConnectionTests
         private Delegate? _shutdownHandler;
 
         public bool DisposeCalled { get; private set; }
+        public CreateChannelOptions? LastChannelOptions { get; private set; }
 
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
@@ -59,6 +77,16 @@ public sealed class RabbitMqConnectionTests
             {
                 _shutdownHandler = (Delegate)args![0]!;
                 return null;
+            }
+
+            if (targetMethod.Name == "get_IsOpen")
+                return true;
+
+            if (targetMethod.Name == "CreateChannelAsync")
+            {
+                LastChannelOptions = (CreateChannelOptions)args![0]!;
+                var channel = DispatchProxy.Create<IChannel, NoopChannelProxy>();
+                return Task.FromResult(channel);
             }
 
             if (targetMethod.Name == "CloseAsync")
@@ -87,5 +115,17 @@ public sealed class RabbitMqConnectionTests
                         ? Activator.CreateInstance(targetMethod.ReturnType)
                         : null;
         }
+    }
+
+    public class NoopChannelProxy : DispatchProxy
+    {
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args) =>
+            targetMethod?.ReturnType == typeof(ValueTask)
+                ? ValueTask.CompletedTask
+                : targetMethod?.ReturnType == typeof(Task)
+                    ? Task.CompletedTask
+                    : targetMethod?.ReturnType.IsValueType == true
+                        ? Activator.CreateInstance(targetMethod.ReturnType)
+                        : null;
     }
 }
