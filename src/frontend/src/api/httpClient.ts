@@ -19,6 +19,8 @@ import { redactHeaders } from './redact'
 export interface RequestOptions {
   headers?: Record<string, string>
   signal?: AbortSignal
+  /** Parse selected JSON numeric properties as their exact source tokens. */
+  preserveJsonNumberKeys?: readonly string[]
 }
 
 /** 成功响应的有限元数据；运行时快照用它携带 ETag/304。 */
@@ -114,6 +116,19 @@ export function createHttpClient(deps: HttpClientDeps): HttpClient {
           validateStatus: (status) =>
             (status >= 200 && status < 300) || (withMeta && status === 304),
           ...(options.signal === undefined ? {} : { signal: options.signal }),
+          ...(options.preserveJsonNumberKeys === undefined
+            ? {}
+            : {
+                transformResponse: [
+                  (data: unknown) =>
+                    typeof data === 'string'
+                      ? parseJsonPreservingNumberKeysWhenJson(
+                          data,
+                          options.preserveJsonNumberKeys ?? [],
+                        )
+                      : data,
+                ],
+              }),
         })
         const responseHeaders = toHeaderRecord(response.headers)
         const data =
@@ -188,12 +203,17 @@ export function createHttpClient(deps: HttpClientDeps): HttpClient {
         return envelope.data as T
       }
       if (envelope.valid) {
-        throw createApiError('business', localizeApiErrorMessage(envelope.code, envelope.message), correlationId, {
-          status,
-          code: envelope.code,
-          ...(envelope.parameters === undefined ? {} : { parameters: envelope.parameters }),
-          ...(envelope.traceId === undefined ? {} : { traceId: envelope.traceId }),
-        })
+        throw createApiError(
+          'business',
+          localizeApiErrorMessage(envelope.code, envelope.message),
+          correlationId,
+          {
+            status,
+            code: envelope.code,
+            ...(envelope.parameters === undefined ? {} : { parameters: envelope.parameters }),
+            ...(envelope.traceId === undefined ? {} : { traceId: envelope.traceId }),
+          },
+        )
       }
       throw createApiError(
         'invalidResponse',
@@ -237,6 +257,36 @@ export function createHttpClient(deps: HttpClientDeps): HttpClient {
       request<T>('PUT', path, body, options) as Promise<T>,
     delete: <T>(path: string, body?: unknown, options: RequestOptions = {}) =>
       request<T>('DELETE', path, body, options) as Promise<T>,
+  }
+}
+
+interface JsonParseContext {
+  source?: string
+}
+
+/**
+ * JSON.parse normally rounds decimals before a reviver can inspect them. Modern runtimes pass the
+ * original primitive token in the reviver context, which lets decimal contracts remain lossless.
+ */
+export function parseJsonPreservingNumberKeys(text: string, keys: readonly string[]): unknown {
+  const preserved = new Set(keys)
+  return JSON.parse(text, (key: string, value: unknown, context?: JsonParseContext) => {
+    if (preserved.has(key) && typeof value === 'number') {
+      if (context?.source === undefined) {
+        throw new Error('This browser cannot preserve exact JSON decimal values.')
+      }
+      return context.source
+    }
+    return value
+  }) as unknown
+}
+
+function parseJsonPreservingNumberKeysWhenJson(text: string, keys: readonly string[]): unknown {
+  try {
+    return parseJsonPreservingNumberKeys(text, keys)
+  } catch (error) {
+    if (error instanceof SyntaxError) return text
+    throw error
   }
 }
 

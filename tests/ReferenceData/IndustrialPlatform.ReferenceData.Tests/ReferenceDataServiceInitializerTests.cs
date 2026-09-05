@@ -1,6 +1,8 @@
 using IndustrialPlatform.Application.Abstractions.Initialization;
 using IndustrialPlatform.Infrastructure.Database;
 using IndustrialPlatform.ReferenceData.Infrastructure.Initialization;
+using IndustrialPlatform.ReferenceData.Infrastructure.Persistence;
+using IndustrialPlatform.ReferenceData.Infrastructure.UnitOfMeasure;
 using Microsoft.Extensions.Options;
 using SqlSugar;
 
@@ -20,6 +22,27 @@ public sealed class ReferenceDataServiceInitializerTests : IDisposable
             DbType = DbType.Sqlite,
         }));
         _initializer = new ReferenceDataServiceInitializer(new ReferenceDataInitializationLedger(_dbContext));
+    }
+
+    [Fact]
+    public async Task Wrong_physical_target_is_rejected_without_writing_initialization_tables()
+    {
+        var context = CreateContext();
+        context = context with { DatabaseTarget = context.DatabaseTarget with { PhysicalDatabaseName = "another-target.db" } };
+        var inspection = await _initializer.InspectAsync(context, CancellationToken.None);
+        var plan = await _initializer.PlanAsync(context, inspection, CancellationToken.None);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _initializer.ApplyAsync(context, plan, CancellationToken.None));
+        Assert.False(await TableExistsAsync("reference_data_schema_migrations"));
+    }
+
+    [Fact]
+    public async Task Unknown_desired_version_is_rejected_without_writing_initialization_tables()
+    {
+        var context = CreateContext() with { DesiredVersion = "unknown-future-version" };
+        var inspection = await _initializer.InspectAsync(context, CancellationToken.None);
+        var plan = await _initializer.PlanAsync(context, inspection, CancellationToken.None);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _initializer.ApplyAsync(context, plan, CancellationToken.None));
+        Assert.False(await TableExistsAsync("reference_data_schema_migrations"));
     }
 
     [Fact]
@@ -46,6 +69,67 @@ public sealed class ReferenceDataServiceInitializerTests : IDisposable
         Assert.Equal("System", seed.Scope);
         Assert.True(await TableExistsAsync("reference_data_schema_migrations"));
         Assert.True(await TableExistsAsync("reference_data_seed_ledger"));
+        Assert.Equal(1, await _dbContext.SqlSugar.Ado.GetIntAsync(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='dictionary_draft_uq'"));
+        Assert.Equal(ReferenceDataServiceInitializer.CurrentVersion,
+            await _dbContext.SqlSugar.Ado.GetStringAsync(
+                "SELECT migration_id FROM reference_data_schema_migrations "
+                + "ORDER BY applied_on DESC,migration_id DESC LIMIT 1"));
+    }
+
+    [Fact]
+    public async Task Verify_accepts_legacy_migration_checksums_that_only_differ_by_line_endings()
+    {
+        var context = CreateContext();
+        var inspection = await _initializer.InspectAsync(context, CancellationToken.None);
+        var plan = await _initializer.PlanAsync(context, inspection, CancellationToken.None);
+        await _initializer.ApplyAsync(context, plan, CancellationToken.None);
+
+        foreach (var lineEnding in new[] { "\r\n", "\n" })
+        {
+            var checksum = ReferenceDataInitializationLedger.Hash(
+                UnitOfMeasureMigration.Sql(false).ReplaceLineEndings(lineEnding));
+            await _dbContext.SqlSugar.Ado.ExecuteCommandAsync(
+                "UPDATE reference_data_schema_migrations SET checksum=@checksum WHERE migration_id=@version",
+                new SugarParameter("@checksum", checksum),
+                new SugarParameter("@version", UnitOfMeasureMigration.Version));
+
+            Assert.True((await _initializer.VerifyAsync(context, CancellationToken.None)).Ready);
+        }
+    }
+
+    [Fact]
+    public async Task Integrity_migration_disables_older_duplicate_drafts_before_creating_the_unique_index()
+    {
+        await _dbContext.SqlSugar.Ado.ExecuteCommandAsync("""
+            CREATE TABLE reference_data_dictionary_definition (
+                id TEXT PRIMARY KEY NOT NULL,
+                tenant_nid TEXT NULL,
+                n_id TEXT NOT NULL,
+                revision INTEGER NOT NULL,
+                status TEXT NOT NULL,
+                is_deleted INTEGER NOT NULL,
+                last_updated_on TEXT NOT NULL
+            );
+            INSERT INTO reference_data_dictionary_definition
+                (id,tenant_nid,n_id,revision,status,is_deleted,last_updated_on)
+            VALUES ('old','TENANT-A','STATUS',1,'Draft',0,'2026-09-04T00:00:00Z'),
+                   ('new','TENANT-A','STATUS',2,'Draft',0,'2026-09-05T00:00:00Z');
+            """);
+
+        await _dbContext.SqlSugar.Ado.ExecuteCommandAsync(ReferenceDataIntegrityMigration.Sql(false));
+
+        Assert.Equal("Disabled", await _dbContext.SqlSugar.Ado.GetStringAsync(
+            "SELECT status FROM reference_data_dictionary_definition WHERE id='old'"));
+        Assert.Equal("Draft", await _dbContext.SqlSugar.Ado.GetStringAsync(
+            "SELECT status FROM reference_data_dictionary_definition WHERE id='new'"));
+        Assert.Equal(1, await _dbContext.SqlSugar.Ado.GetIntAsync(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='dictionary_draft_uq'"));
+        await Assert.ThrowsAnyAsync<Exception>(() => _dbContext.SqlSugar.Ado.ExecuteCommandAsync("""
+            INSERT INTO reference_data_dictionary_definition
+                (id,tenant_nid,n_id,revision,status,is_deleted,last_updated_on)
+            VALUES ('third','TENANT-A','STATUS',3,'Draft',0,'2026-09-05T00:00:00Z')
+            """));
     }
 
     [Fact]
@@ -91,6 +175,29 @@ public sealed class ReferenceDataServiceInitializerTests : IDisposable
             CancellationToken.None);
         Assert.Equal(unknownChecksum, seed!.Checksum);
         Assert.Null(seed.Scope);
+    }
+
+    [Theory]
+    [InlineData("production")]
+    [InlineData("PRODUCTION")]
+    [InlineData("PrOdUcTiOn")]
+    public async Task Production_requires_advanced_policy_regardless_of_environment_name_casing(
+        string environmentName)
+    {
+        var context = CreateContext();
+        context = context with
+        {
+            EnvironmentName = environmentName,
+            DatabaseTarget = context.DatabaseTarget with { EnvironmentName = environmentName },
+        };
+        var inspection = await _initializer.InspectAsync(context, CancellationToken.None);
+        var plan = await _initializer.PlanAsync(context, inspection, CancellationToken.None);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _initializer.ApplyAsync(context, plan, CancellationToken.None));
+
+        Assert.Equal("REF-INITIALIZATION-ADVANCED-REQUIRED", exception.Message);
+        Assert.False(await TableExistsAsync("reference_data_schema_migrations"));
     }
 
     public void Dispose()
@@ -150,7 +257,7 @@ public sealed class ReferenceDataServiceInitializerTests : IDisposable
             new SugarParameter("@traceId", "legacy-trace"));
     }
 
-    private static ServiceInitializationContext CreateContext() => new(
+    private ServiceInitializationContext CreateContext() => new(
         "Test",
         "tenant-1",
         "operation-1",
@@ -158,13 +265,13 @@ public sealed class ReferenceDataServiceInitializerTests : IDisposable
         "referencedata",
         new IndustrialPlatform.SharedKernel.Topology.ResolvedDatabaseTarget(
             "Test",
-            IndustrialPlatform.SharedKernel.Topology.DatabaseTopologyMode.Shared,
+            IndustrialPlatform.SharedKernel.Topology.DatabaseTopologyMode.PerService,
             "referencedata",
             IndustrialPlatform.SharedKernel.Topology.DatabaseProvider.Sqlite,
             "referencedata_db",
-            "target",
+            _dbPath,
             false),
-        ReferenceDataServiceInitializer.BaselineVersion,
+        ReferenceDataServiceInitializer.CurrentVersion,
         ServiceInitializationPolicy.Standard,
         "trace-1");
 }

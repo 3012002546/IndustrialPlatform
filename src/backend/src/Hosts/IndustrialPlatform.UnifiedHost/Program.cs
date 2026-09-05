@@ -33,6 +33,7 @@ foreach (var module in UnifiedHostModuleCatalog.Modules)
 }
 // UnifiedHost 不经 HTTP 回调自身；SystemData 权限直接复用 Identity 的权威评估器。
 builder.Services.AddSingleton<ISystemDataPermissionEvaluator, InProcessSystemDataPermissionEvaluator>();
+builder.Services.AddScoped<IndustrialPlatform.ReferenceData.Application.Authorization.IReferenceDataPermissionEvaluator, InProcessReferenceDataPermissionEvaluator>();
 builder.Services.AddSingleton<IIdentityPermissionRegistry, InProcessIdentityPermissionRegistry>();
 // Identity 与 SystemData 使用相同的 permission:* 策略名；组合宿主明确让 SystemData 路由
 // 使用 SystemData requirement，防止首次注册的 Identity 策略遮蔽其专用适配器。
@@ -77,6 +78,7 @@ app.Use(async (context, next) =>
     await next(context);
 });
 app.UseRouting();
+IndustrialPlatform.ReferenceData.Api.Endpoints.ReferenceDataRequestErrors.UseReferenceDataRequestErrors(app);
 if (app.Environment.IsDevelopment())
 {
     app.UseCors("UnifiedHostDevelopmentCors");
@@ -92,6 +94,12 @@ app.MapHealthChecks("/health/live", new HealthCheckOptions
 });
 app.MapHealthChecks("/health/ready", new HealthCheckOptions
 {
+    Predicate = registration => !registration.Tags.Contains("capability"),
+    ResponseWriter = HealthCheckResponseWriter.Write,
+});
+app.MapHealthChecks("/health/capabilities", new HealthCheckOptions
+{
+    Predicate = registration => registration.Tags.Contains("capability"),
     ResponseWriter = HealthCheckResponseWriter.Write,
 });
 app.MapControllers();

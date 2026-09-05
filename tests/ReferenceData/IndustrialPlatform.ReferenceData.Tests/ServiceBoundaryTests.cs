@@ -9,6 +9,7 @@ public sealed class ServiceBoundaryTests
     [InlineData("IndustrialPlatform.ReferenceData.Application")]
     [InlineData("IndustrialPlatform.ReferenceData.Infrastructure")]
     [InlineData("IndustrialPlatform.ReferenceData.Api")]
+    [InlineData("IndustrialPlatform.ReferenceData.Contracts")]
     public void LoadsExpectedReferenceDataAssembly(string assemblyName)
     {
         var assembly = Assembly.Load(new AssemblyName(assemblyName));

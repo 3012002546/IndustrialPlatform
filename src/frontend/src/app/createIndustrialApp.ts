@@ -12,6 +12,7 @@ import '@/styles/base.css'
 import App from '@/App.vue'
 import { createHttpClient, type HttpAuthRefresh } from '@/api/httpClient'
 import { createIdentityAuthApi } from '@/api/identity/identityApi'
+import { createReferenceDataApi, registerReferenceDataApi } from '@/api/referenceData'
 import { createIdentityManagementApi } from '@/api/identity/management'
 import { registerManagementApi } from '@/api/identity/managementRegistry'
 import { createIdentitySsoApi, registerSsoApi } from '@/api/identity/sso'
@@ -85,6 +86,7 @@ function installAuthGateway(pinia: Pinia, router: Router): void {
     )
     // 管理端 API 与认证共用同一 client(令牌注入 + 401 单飞刷新)。
     registerManagementApi(createIdentityManagementApi(client))
+    registerReferenceDataApi(createReferenceDataApi(client))
     registerSystemDataManagementApi(createSystemDataManagementApi(client))
     const systemDataRuntimeApi = createSystemDataRuntimeApi(client)
     registerSystemDataRuntimeApi(systemDataRuntimeApi)

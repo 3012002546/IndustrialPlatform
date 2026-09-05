@@ -2,10 +2,11 @@ using IndustrialPlatform.Application.Abstractions.Initialization;
 
 namespace IndustrialPlatform.ReferenceData.Infrastructure.Initialization;
 
-/// <summary>ReferenceData 服务级初始化器，只应用一个 baseline，不实现五个业务模块。</summary>
+/// <summary>ReferenceData 服务级初始化器；核心就绪只由本地数据库事实决定。</summary>
 public sealed class ReferenceDataServiceInitializer : IServiceInitializer
 {
-    public const string BaselineVersion = "reference-data-baseline-v1";
+    public const string BaselineVersion = "reference-data-2.7-001";
+    public const string CurrentVersion = "reference-data-2.7-011";
     public const string BaselineSeedKey = "reference-data.baseline";
     public static readonly string BaselineChecksum =
         System.Security.Cryptography.SHA256.HashData(
@@ -25,11 +26,19 @@ public sealed class ReferenceDataServiceInitializer : IServiceInitializer
     public async Task<ServiceInitializationState> InspectAsync(ServiceInitializationContext context, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (!_ledger.MatchesTarget(context))
+            return new ServiceInitializationState(ServiceKey, ModuleKey, null, false, false, true, false, "REF-INITIALIZATION-TARGET-MISMATCH");
+        return await InspectLocalAsync(cancellationToken);
+    }
+
+    public async Task<ServiceInitializationState> InspectLocalAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
         try
         {
             var migration = await _ledger.GetMigrationAsync(cancellationToken);
             var seed = await _ledger.GetSeedAsync(BaselineSeedKey, BaselineVersion, cancellationToken);
-            var migrationReady = migration?.MigrationId == BaselineVersion;
+            var migrationReady = migration?.MigrationId == CurrentVersion && await _ledger.MigrationValidAsync(cancellationToken);
             var seedReady = seed is not null
                             && string.Equals(seed.Checksum, BaselineChecksum, StringComparison.Ordinal)
                             && string.Equals(seed.Scope, "System", StringComparison.OrdinalIgnoreCase);
@@ -71,29 +80,14 @@ public sealed class ReferenceDataServiceInitializer : IServiceInitializer
 
     public async Task<ServiceInitializationState> ApplyAsync(ServiceInitializationContext context, ServiceInitializationPlan plan, CancellationToken cancellationToken)
     {
-        await _ledger.EnsureTablesAsync(cancellationToken);
-        if (await _ledger.GetMigrationAsync(cancellationToken) is null)
-        {
-            await _ledger.RecordMigrationAsync(BaselineVersion, cancellationToken);
-        }
-
-        var seed = await _ledger.GetSeedAsync(BaselineSeedKey, BaselineVersion, cancellationToken);
-        if (seed is null)
-        {
-            await _ledger.RecordSeedAsync(BaselineSeedKey, BaselineVersion, context.OperationNId, context.TraceId, cancellationToken);
-        }
-        else if (string.Equals(seed.Checksum, BaselineVersion, StringComparison.Ordinal)
-                 || (string.Equals(seed.Checksum, BaselineChecksum, StringComparison.Ordinal)
-                     && string.IsNullOrWhiteSpace(seed.Scope)))
-        {
-            await _ledger.NormalizeLegacySeedAsync(
-                BaselineSeedKey,
-                BaselineVersion,
-                BaselineChecksum,
-                "System",
-                cancellationToken);
-        }
-
+        if (!_ledger.MatchesTarget(context)) throw new InvalidOperationException("REF-INITIALIZATION-TARGET-MISMATCH");
+        if (string.Equals(context.EnvironmentName, "Production", StringComparison.OrdinalIgnoreCase)
+            && context.Policy != ServiceInitializationPolicy.Advanced)
+            throw new InvalidOperationException("REF-INITIALIZATION-ADVANCED-REQUIRED");
+        if (plan.ServiceKey != ServiceKey || plan.ModuleKey != ModuleKey || plan.DesiredVersion != CurrentVersion
+            || (!string.IsNullOrEmpty(context.DesiredVersion) && context.DesiredVersion != CurrentVersion))
+            throw new InvalidOperationException("REF-INITIALIZATION-VERSION-UNSUPPORTED");
+        await _ledger.ApplyAsync(context, cancellationToken);
         return await InspectAsync(context, cancellationToken);
     }
 
@@ -105,7 +99,7 @@ public sealed class ReferenceDataServiceInitializer : IServiceInitializer
         ServiceInitializationState inspection)
     {
         var desiredVersion = string.IsNullOrWhiteSpace(context.DesiredVersion)
-            ? BaselineVersion
+            ? CurrentVersion
             : context.DesiredVersion;
         return new ServiceInitializationPlan(
             ServiceKey,

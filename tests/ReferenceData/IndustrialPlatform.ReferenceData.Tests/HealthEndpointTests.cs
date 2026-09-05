@@ -41,7 +41,7 @@ public sealed class HealthEndpointTests : IClassFixture<WebApplicationFactory<Pr
     }
 
     [Fact]
-    public async Task ReadyEndpointReportsAllRegisteredChecksWithoutCredentials()
+    public async Task ReadyEndpointReportsOnlyCoreChecksWithoutCredentials()
     {
         using var client = factory.CreateClient();
 
@@ -57,9 +57,10 @@ public sealed class HealthEndpointTests : IClassFixture<WebApplicationFactory<Pr
             .ToArray();
 
         Assert.Contains("postgres", checkNames);
-        Assert.Contains("redis", checkNames);
-        Assert.Contains("rabbitmq", checkNames);
-        Assert.Contains("seq", checkNames);
+        Assert.Contains("initialization", checkNames);
+        Assert.DoesNotContain("redis", checkNames);
+        Assert.DoesNotContain("rabbitmq", checkNames);
+        Assert.DoesNotContain("seq", checkNames);
 
         var body = await response.Content.ReadAsStringAsync();
         Assert.DoesNotContain("sample-dev-password", body);

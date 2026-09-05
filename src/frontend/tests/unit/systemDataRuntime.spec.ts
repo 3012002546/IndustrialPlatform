@@ -25,7 +25,102 @@ const node = (overrides: Partial<NavigationRuntimeNodeDto>): NavigationRuntimeNo
   ...overrides,
 })
 
+type LegacyDeclaration = readonly [
+  parentNodeNId: string | null,
+  nodeNId: string,
+  kind: 'Group' | 'Link',
+  label: string,
+  routeName: string | null,
+  requiredPermissionNId: string | null,
+  displayOrder: number,
+]
+
+// prettier-ignore
+const legacyDeclarations: readonly LegacyDeclaration[] = [
+  [null, 'navigation.group.workspace', 'Group', '工作台', null, null, 0],
+  ['navigation.group.workspace', 'navigation.link.pc-home', 'Link', '首页', 'pc-home', 'platform.home.view', 0],
+  ['navigation.group.workspace', 'navigation.link.terminal-preview', 'Link', '终端预览', 'terminal-preview', 'platform.pda.view', 1],
+  [null, 'navigation.group.system', 'Group', '系统管理', null, null, 1],
+  ['navigation.group.system', 'navigation.group.identity-access', 'Group', '身份与访问', null, null, 0],
+  ['navigation.group.identity-access', 'navigation.link.identity-users', 'Link', '用户管理', 'identity-users', 'identity.user.view', 0],
+  ['navigation.group.identity-access', 'navigation.link.identity-user-groups', 'Link', '用户组管理', 'identity-user-groups', 'identity.user-group.view', 1],
+  ['navigation.group.identity-access', 'navigation.link.identity-roles', 'Link', '角色权限', 'identity-roles', 'identity.role.view', 2],
+  ['navigation.group.identity-access', 'navigation.link.identity-permissions', 'Link', '权限目录', 'identity-permissions', 'identity.permission.view', 3],
+  ['navigation.group.identity-access', 'navigation.link.identity-audits', 'Link', '登录审计', 'identity-audits', 'identity.audit.login.view', 4],
+  ['navigation.group.identity-access', 'navigation.link.identity-sso-providers', 'Link', '企业登录源', 'sso-providers', 'identity.sso.view', 5],
+  ['navigation.group.identity-access', 'navigation.link.identity-sso-clients', 'Link', 'SSO Client', 'sso-clients', 'identity.sso.view', 6],
+  ['navigation.group.system', 'navigation.group.organization-people', 'Group', '组织与人员', null, null, 1],
+  ['navigation.group.organization-people', 'navigation.link.systemdata-organizations', 'Link', '行政组织与岗位', 'systemdata-organizations', 'systemdata.organization.view', 0],
+  ['navigation.group.organization-people', 'navigation.link.systemdata-assignments', 'Link', '用户任职', 'systemdata-assignments', 'systemdata.assignment.view', 1],
+  ['navigation.group.system', 'navigation.group.menu-platform', 'Group', '菜单与平台配置', null, null, 2],
+  ['navigation.group.menu-platform', 'navigation.link.systemdata-navigation', 'Link', '菜单管理', 'systemdata-navigation', 'systemdata.navigation.view', 0],
+  ['navigation.group.menu-platform', 'navigation.link.systemdata-features', 'Link', '功能开关', 'systemdata-features', 'systemdata.feature.view', 1],
+  ['navigation.group.menu-platform', 'navigation.link.systemdata-themes', 'Link', '租户主题策略', 'systemdata-themes', 'systemdata.theme-policy.view', 2],
+  ['navigation.group.system', 'navigation.group.service-operations', 'Group', '服务与运维', null, null, 3],
+  ['navigation.group.service-operations', 'navigation.link.systemdata-services', 'Link', '服务目录', 'systemdata-services', 'systemdata.service-catalog.view', 0],
+  ['navigation.group.service-operations', 'navigation.link.systemdata-service-initialization', 'Link', '服务初始化编排', 'systemdata-service-initialization', 'systemdata.service-initialization.view', 1],
+]
+
+function legacyDefaultNavigation(): NavigationRuntimeNodeDto[] {
+  function build(declaration: LegacyDeclaration): NavigationRuntimeNodeDto {
+    const [, nodeNId, kind, label, routeName, requiredPermissionNId, displayOrder] = declaration
+    return node({
+      nodeNId,
+      kind,
+      label,
+      resourceNId:
+        kind === 'Link'
+          ? `systemdata.navigation.${nodeNId.slice('navigation.link.'.length)}`
+          : null,
+      routeName,
+      requiredPermissionNId,
+      iconKey: null,
+      displayOrder,
+      children: legacyDeclarations.filter(([parent]) => parent === nodeNId).map(build),
+    })
+  }
+
+  return legacyDeclarations.filter(([parent]) => parent === null).map(build)
+}
+
 describe('SystemData runtime navigation adapter', () => {
+  it('adds ReferenceData registrations to the exact pre-PF-03 default snapshot', () => {
+    const groups = mapRuntimeNavigation(legacyDefaultNavigation())
+    const system = groups.find((group) => group.id === 'navigation.group.system')
+
+    expect(system?.sections?.[0]?.id).toBe('reference-data')
+    expect(
+      system?.items
+        .filter((item) => item.sectionId === 'reference-data')
+        .map((item) => item.routeName),
+    ).toEqual([
+      'reference-data-dictionaries',
+      'reference-data-parameters',
+      'reference-data-dynamic-properties',
+      'reference-data-units-of-measure',
+      'reference-data-metadata',
+      'reference-data-coding-rules',
+      'reference-data-state-machines',
+    ])
+  })
+
+  it('does not add ReferenceData registrations to a customized legacy-shaped snapshot', () => {
+    const renamed = legacyDefaultNavigation()
+    renamed[1]!.label = '自定义系统'
+    const hidden = legacyDefaultNavigation()
+    hidden[1]!.children = hidden[1]!.children.filter(
+      (child) => child.nodeNId !== 'navigation.group.service-operations',
+    )
+
+    for (const groups of [mapRuntimeNavigation(renamed), mapRuntimeNavigation(hidden)]) {
+      expect(groups.flatMap((group) => group.items)).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ routeName: 'reference-data-dictionaries' }),
+        ]),
+      )
+    }
+  })
+
   it('keeps the existing platform icons when published defaults have no icon key', () => {
     const defaults = getDefaultPcNavigationGroups()
     const groups = mapRuntimeNavigation(

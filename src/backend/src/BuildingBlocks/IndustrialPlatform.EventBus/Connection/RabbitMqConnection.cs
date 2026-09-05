@@ -32,10 +32,18 @@ public sealed partial class RabbitMqConnection : IRabbitMqConnection, IAsyncDisp
     }
 
     /// <inheritdoc/>
-    public async Task<IChannel> CreateChannelAsync(CancellationToken cancellationToken = default)
+    public Task<IChannel> CreateChannelAsync(CancellationToken cancellationToken = default) =>
+        CreateChannelAsync(false, cancellationToken);
+
+    /// <inheritdoc/>
+    public async Task<IChannel> CreateChannelAsync(
+        bool publisherConfirmationsEnabled,
+        CancellationToken cancellationToken = default)
     {
         var connection = await GetConnectionAsync(cancellationToken);
-        return await connection.CreateChannelAsync(new CreateChannelOptions(false, true), cancellationToken);
+        return await connection.CreateChannelAsync(
+            new CreateChannelOptions(publisherConfirmationsEnabled, publisherConfirmationsEnabled),
+            cancellationToken);
     }
 
     private async Task<IConnection> GetConnectionAsync(CancellationToken cancellationToken)

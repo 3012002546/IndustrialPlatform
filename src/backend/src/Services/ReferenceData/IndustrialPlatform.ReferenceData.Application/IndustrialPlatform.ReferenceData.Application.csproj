@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\IndustrialPlatform.ReferenceData.Domain\IndustrialPlatform.ReferenceData.Domain.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\IndustrialPlatform.Application.Abstractions\IndustrialPlatform.Application.Abstractions.csproj" />
+    <ProjectReference Include="..\IndustrialPlatform.ReferenceData.Contracts\IndustrialPlatform.ReferenceData.Contracts.csproj" />
   </ItemGroup>
 
 </Project>

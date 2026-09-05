@@ -27,6 +27,13 @@ import IdentityPermissionsPage from '@/pages/pc/identity/IdentityPermissionsPage
 import IdentityRolesPage from '@/pages/pc/identity/IdentityRolesPage.vue'
 import IdentityUserGroupsPage from '@/pages/pc/identity/IdentityUserGroupsPage.vue'
 import IdentityUsersPage from '@/pages/pc/identity/IdentityUsersPage.vue'
+import DictionariesPage from '@/pages/pc/referenceData/DictionariesPage.vue'
+import ParametersPage from '@/pages/pc/referenceData/ParametersPage.vue'
+import DynamicPropertiesPage from '@/pages/pc/referenceData/DynamicPropertiesPage.vue'
+import UnitOfMeasurePage from '@/pages/pc/referenceData/UnitOfMeasurePage.vue'
+import MetadataPage from '@/pages/pc/referenceData/MetadataPage.vue'
+import CodingRulesPage from '@/pages/pc/referenceData/CodingRulesPage.vue'
+import StateMachinesPage from '@/pages/pc/referenceData/StateMachinesPage.vue'
 import ProfilePage from '@/pages/pc/ProfilePage.vue'
 import SsoClientsPage from '@/pages/pc/identity/sso/SsoClientsPage.vue'
 import SsoProvidersPage from '@/pages/pc/identity/sso/SsoProvidersPage.vue'
@@ -45,6 +52,16 @@ import { PERMISSIONS } from '@/permissions'
 import { ROUTE_NAMES } from './routeNames'
 
 export { ROUTE_NAMES } from './routeNames'
+
+const parameterRouteMeta = {
+  title: '参数管理',
+  titleKey: 'referenceData.parameterTitle',
+  fallbackTitle: '参数管理',
+  requiresAuth: true,
+  permission: PERMISSIONS.referenceDataParameterView,
+  terminal: 'pc',
+  workspace: 'business',
+} as const
 
 /**
  * 根路由占位:守卫对 root 总是按生效终端分流(§12.3),组件不会实际渲染;
@@ -185,6 +202,101 @@ export const routes: RouteRecordRaw[] = [
           fallbackTitle: '用户管理',
           requiresAuth: true,
           permission: PERMISSIONS.userView,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
+      {
+        path: 'system/reference-data/dictionaries',
+        name: ROUTE_NAMES.referenceDataDictionaries,
+        component: DictionariesPage,
+        meta: {
+          title: '字典管理',
+          titleKey: 'referenceData.dictionaryTitle',
+          fallbackTitle: '字典管理',
+          requiresAuth: true,
+          permission: PERMISSIONS.referenceDataDictionaryView,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
+      {
+        path: 'system/reference-data/configurations',
+        name: ROUTE_NAMES.referenceDataParameters,
+        component: ParametersPage,
+        meta: parameterRouteMeta,
+      },
+      {
+        path: 'system/reference-data/parameters',
+        redirect: { name: ROUTE_NAMES.referenceDataParameters },
+        meta: parameterRouteMeta,
+      },
+      {
+        path: 'system/reference-data/dynamic-properties',
+        name: ROUTE_NAMES.referenceDataDynamicProperties,
+        component: DynamicPropertiesPage,
+        meta: {
+          title: '动态属性',
+          titleKey: 'referenceData.dynamicTitle',
+          fallbackTitle: '动态属性',
+          requiresAuth: true,
+          permission: PERMISSIONS.referenceDataDynamicPropertyView,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
+      {
+        path: 'system/reference-data/units-of-measure',
+        name: ROUTE_NAMES.referenceDataUnitsOfMeasure,
+        component: UnitOfMeasurePage,
+        meta: {
+          title: '计量单位',
+          titleKey: 'referenceData.unitTitle',
+          fallbackTitle: '计量单位',
+          requiresAuth: true,
+          permission: PERMISSIONS.referenceDataUnitOfMeasureView,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
+      {
+        path: 'system/reference-data/metadata',
+        name: ROUTE_NAMES.referenceDataMetadata,
+        component: MetadataPage,
+        meta: {
+          title: '元数据 Schema',
+          titleKey: 'referenceData.metadataTitle',
+          fallbackTitle: '元数据 Schema',
+          requiresAuth: true,
+          permission: PERMISSIONS.referenceDataMetadataView,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
+      {
+        path: 'system/reference-data/coding-rules',
+        name: ROUTE_NAMES.referenceDataCodingRules,
+        component: CodingRulesPage,
+        meta: {
+          title: '编码规则',
+          titleKey: 'shell.navigation.item.reference-data-coding-rules',
+          fallbackTitle: '编码规则',
+          requiresAuth: true,
+          permission: PERMISSIONS.referenceDataCodingRuleView,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
+      {
+        path: 'system/reference-data/state-machines',
+        name: ROUTE_NAMES.referenceDataStateMachines,
+        component: StateMachinesPage,
+        meta: {
+          title: '状态机定义',
+          titleKey: 'referenceData.stateMachineTitle',
+          fallbackTitle: '状态机定义',
+          requiresAuth: true,
+          permission: PERMISSIONS.referenceDataStateMachineView,
           terminal: 'pc',
           workspace: 'business',
         },

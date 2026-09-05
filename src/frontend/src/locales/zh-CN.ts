@@ -1,6 +1,8 @@
 import type { PlatformLocaleMessages } from '@/localization/types'
+import { referenceDataZh } from '@/localization/referenceData'
 
 export const zhCN = {
+  referenceData: referenceDataZh,
   common: {
     brand: { name: 'Industrial Platform', description: '工业平台统一工作空间' },
     action: {
@@ -161,6 +163,7 @@ export const zhCN = {
       platformManagement: '平台管理',
       group: { workspace: '工作台', system: '系统管理' },
       section: {
+        'reference-data': '参考数据',
         'identity-access': '身份与访问',
         'organization-platform': '组织域平台',
         'organization-people': '组织与人员',
@@ -168,6 +171,13 @@ export const zhCN = {
         'service-operations': '服务与运维',
       },
       item: {
+        'reference-data-dictionaries': '字典管理',
+        'reference-data-parameters': '参数管理',
+        'reference-data-dynamic-properties': '动态属性',
+        'reference-data-units-of-measure': '计量单位',
+        'reference-data-metadata': '元数据 Schema',
+        'reference-data-coding-rules': '编码规则',
+        'reference-data-state-machines': '状态机定义',
         'pc-home': '首页',
         'terminal-preview': '终端预览',
         'identity-users': '用户管理',

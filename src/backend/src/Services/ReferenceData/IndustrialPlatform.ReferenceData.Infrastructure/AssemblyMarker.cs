@@ -1,3 +1,3 @@
-namespace IndustrialPlatform.ReferenceData.Infrastructure;
+using System.Runtime.CompilerServices;
 
-public static class AssemblyMarker;
+[assembly: InternalsVisibleTo("IndustrialPlatform.ReferenceData.Tests")]

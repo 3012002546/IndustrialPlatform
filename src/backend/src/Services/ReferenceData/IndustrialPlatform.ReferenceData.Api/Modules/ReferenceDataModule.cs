@@ -1,4 +1,5 @@
 using IndustrialPlatform.ReferenceData.Api.Health;
+using IndustrialPlatform.ReferenceData.Api.Endpoints;
 using IndustrialPlatform.ReferenceData.Infrastructure;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
@@ -14,14 +15,20 @@ namespace IndustrialPlatform.ReferenceData.Api.Modules;
 /// </summary>
 public static class ReferenceDataModule
 {
-    /// <summary>注册 ReferenceData 模块全部服务(当前无认证/授权/控制器)。</summary>
-    public static IServiceCollection AddReferenceDataModule(this IServiceCollection services, IConfiguration configuration)
+    /// <summary>注册 ReferenceData 模块全部服务。</summary>
+    public static IServiceCollection AddReferenceDataModule(this IServiceCollection services, IConfiguration configuration, bool unifiedHost = false)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
 
         services.AddReferenceDataInfrastructure(configuration);
         services.AddHttpClient();
+        services.AddAuthorization();
+        services.AddHttpContextAccessor();
+        services.AddCurrentUser();
+        services.AddSingleton(provider => new IndustrialPlatform.ReferenceData.Api.Initialization.ReferenceDataHostContext(
+            configuration, provider.GetRequiredService<IHostEnvironment>(),
+            provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<IndustrialPlatform.Infrastructure.Database.SqlSugarOptions>>(), unifiedHost));
         return services;
     }
 
@@ -34,16 +41,24 @@ public static class ReferenceDataModule
         ArgumentNullException.ThrowIfNull(builder);
 
         return builder
-            .AddCheck<PostgresHealthCheck>(Name(namePrefix, "postgres"), timeout: TimeSpan.FromSeconds(3))
-            .AddCheck<RedisHealthCheck>(Name(namePrefix, "redis"), timeout: TimeSpan.FromSeconds(3))
-            .AddCheck<RabbitMqHealthCheck>(Name(namePrefix, "rabbitmq"), timeout: TimeSpan.FromSeconds(3))
-            .AddCheck<SeqHealthCheck>(Name(namePrefix, "seq"), timeout: TimeSpan.FromSeconds(3));
+            .AddCheck<PostgresHealthCheck>(Name(namePrefix, "postgres"), tags: ["ready"], timeout: TimeSpan.FromSeconds(3))
+            .AddCheck<InitializationHealthCheck>(Name(namePrefix, "initialization"), tags: ["ready"], timeout: TimeSpan.FromSeconds(3))
+            .AddCheck<RedisHealthCheck>(Name(namePrefix, "redis"), failureStatus: HealthStatus.Degraded, tags: ["capability"], timeout: TimeSpan.FromSeconds(3))
+            .AddCheck<RabbitMqHealthCheck>(Name(namePrefix, "rabbitmq"), failureStatus: HealthStatus.Degraded, tags: ["capability"], timeout: TimeSpan.FromSeconds(3))
+            .AddCheck<SeqHealthCheck>(Name(namePrefix, "seq"), failureStatus: HealthStatus.Degraded, tags: ["capability"], timeout: TimeSpan.FromSeconds(3));
     }
 
-    /// <summary>映射 ReferenceData 模块端点(当前无模块专属 minimal API)。</summary>
+    /// <summary>映射 ReferenceData 模块端点。</summary>
     public static IEndpointRouteBuilder MapReferenceDataModule(this IEndpointRouteBuilder endpoints)
     {
         ArgumentNullException.ThrowIfNull(endpoints);
+        endpoints.MapDictionaryEndpoints();
+        endpoints.MapParameterEndpoints();
+        endpoints.MapDynamicConfigurationEndpoints();
+        endpoints.MapUnitOfMeasureEndpoints();
+        endpoints.MapMetadataEndpoints();
+        endpoints.MapCodingRuleEndpoints();
+        endpoints.MapStateMachineEndpoints();
         return endpoints;
     }
 

@@ -6,7 +6,7 @@
 
 版本：V2.7（七模块参考定义增补版）
 
-所属项目开发路线阶段：PF-03「ReferenceData」。当前代码只有服务骨架；本文沿用 V2.6 的纵向交付与共享基础设施决策，新增状态机、计量单位后形成 `TASK-RD-001～010` 十个顺序执行步骤。原五个业务模块全部保留，但不复制七套微服务级治理设施。文档收敛不等于 PF-03 已启动；内部步骤不独立派遣、默认不独立提交，任何开发和状态推进仍需 PF-03 整体授权。阶段定义见 `docs/blueprint/09-Industrial Platform开发总TodoList.md`。
+所属项目开发路线阶段：PF-03「ReferenceData」。`TASK-RD-001～010` 已于 2026-09-05 完成实现与验收；七个业务模块共享服务级治理设施，最终证据见第 26 节及 `docs/evidence/PF-03.md`。内部步骤不独立提交。阶段定义见 `docs/blueprint/09-Industrial Platform开发总TodoList.md`。
 
 服务：
 
@@ -59,9 +59,9 @@ Vitest 4 + Playwright 1.62
 
 目标读者包括后端、统一前端、测试、集成和任务验收人员。任何实现偏差必须先回写本文，再继续开发或验收。
 
-## 1.2 当前输入状态
+## 1.2 PF-03 启动前输入状态（历史基线）
 
-截至本次文档设计核对：
+截至 PF-03 启动前的文档设计核对：
 
 - 后端已存在 Api、Application、Domain、Infrastructure 四个项目，并已加入解决方案。
 - Api 已提供 `/health`、`/health/live`、`/health/ready`，Infrastructure 已注册 PostgreSQL、Redis 和 RabbitMQ 基础能力。
@@ -299,7 +299,7 @@ Domain 只引用 SharedKernel；Application 可引用 Application.Abstractions�
 - 所有写接口执行模块独立权限校验和乐观并发；编码生成额外要求 `Idempotency-Key`。
 - Parameter 可保存普通非敏感值；密码、Token、私钥、连接串或客户 IdP Secret 只保存受信 Secret Provider 的 `SecretRef`、版本标识和脱敏状态，普通查询不得解析或返回秘密本体。
 - 每项任务执行 TDD，并记录命令、退出码、通过/失败/跳过数量、报告路径和外部环境限制。
-- PF 级状态流转统一为 `设计待确认 → 待派遣 → 已派遣 → 开发中 → 待验收 → 已完成`。本文十个编号只表示 PF-03 内部进度步骤，当前均为“未开始”；它们不独立进入派遣、验收或提交状态，未经 PF-03 整体授权不得执行。
+- PF 级状态流转统一为 `设计待确认 → 待派遣 → 已派遣 → 开发中 → 待验收 → 已完成`。本文十个编号只表示 PF-03 内部进度步骤，现均已完成；它们不独立提交。
 
 所有需要领域生命周期、软删除和双版本并发的领域实体直接继承 02 第 8 节定义的 BuildingBlocks Entity，公共字段和 PostgreSQL 列名固定为：
 
@@ -524,6 +524,7 @@ MultiValues: ConfigurationKeyMultiValue[]
 - Enum 必须提供已发布 DictionaryNId；Reference 必须提供 ReferenceTarget；其他类型禁止填写对应引用字段。
 - NId 使用与 AppDomain 相同规则。已被消费的 NId 不支持原位改名，只能禁用旧 Key 并新增 Key。
 - DataType 或 ValueMode 已产生实际值后禁止原位切换；需要变更时新增 Key，避免消费者在同一路径下遇到类型突变。
+- 实现持久化 `HasHadValue` 不可逆事实：首次产生 Value、DefaultValue 或任一明细后置为 true；清空和停用不能解除类型/模式保护。管理 DTO 暴露该事实供页面禁用类型切换。
 
 ## 9.4 ConfigurationScalar值对象
 
@@ -544,6 +545,7 @@ CanonicalValue
 - Enum 保存 DictionaryItem.NId；Reference 保存不超过 128 字符的不透明标识。
 - Json 最大 64 KiB，禁止脚本、SQL、表达式和可执行模板。
 - SQL NULL 表示“未配置”；JSON `null` 不作为有效配置值，空字符串只对 String 有效。
+- 管理 DTO 在类型化 value/defaultValue 之外提供规范化 `valueJson/defaultValueJson` 文本；浏览器编辑 Int64/Decimal 时保留原始数字 token，经共享 HTTP 客户端发送 JSON 数值，不经 JavaScript Number 往返。运行时显式 null 字段不可被全局忽略空值策略隐藏。
 
 ## 9.5 ConfigurationKeyMultiValue实体
 
@@ -591,6 +593,10 @@ Platform AppDomain/Key
 ## 9.7 变更历史与边界
 
 每次 AppDomain、Key 或 MultiValue 变更都追加历史记录，包含对象类型/ID、完整路径、变更原因、前后值摘要、AppDomain Revision、用户、TraceId 和 CreatedOn。历史只追加，不直接更新。
+
+应用域完整详情包含 Key 和 MultiValue 明细，列表只返回摘要。除 Key history 外，`GET /admin/configuration-domains/{id}/history` 提供应用域及全部子项历史分页，使用 parameter.view 权限。摘要记录值是否存在、规范化摘要 hash、启用/默认项及数量，不记录原值。无实际变化不推进修订或写历史。普通 PUT 若使已有 Key/明细从启用转为停用，仍额外要求 parameter.disable，不能借 update 权限绕过停用权限。
+
+新增 Multi Key 可选携带 `initialValues[{nId,name,value,sort,isDefault,enabled}]`，与 Key 同次校验、同根版本、同事务创建。更新 Key 禁止通过此字段替换明细；页面也可先创建非必填 Multi Key、添加明细后再设为必填。Disabled 不豁免 Mandatory 不变量。
 
 不提供 Secret 类型。疑似密码、Token、私钥、连接串或客户 IdP Secret 的 NId/Value 必须拒绝并记录不含原值的安全审计。
 
@@ -996,6 +1002,7 @@ PostgreSQL 固定使用一个 `reference_data` Schema。下表只列主要职责
 | `reference_data.state_machine_definition`、`reference_data.state_machine_node`、`reference_data.state_machine_transition` | StateMachineDefinition 修订与私有节点/转换 | 作用域+NId+Revision 唯一；节点唯一；根内 FromStatusNId+ActionNId 唯一；所有子项随根写入 |
 | `reference_data.unit_of_measure_dimension`、`reference_data.unit_of_measure_unit` | UnitDimension 修订及到基准单位的换算参数 | 作用域+维度NId+Revision 唯一；修订内单位 NId 唯一；正因子/精度范围；唯一基准由聚合发布校验 |
 | `reference_data.outbox_message` | ReferenceData 事件发布 | 单一服务级 Outbox；`ModuleKey` 标识逻辑模块归属 |
+| `reference_data.cache_generation` | 缓存失效的数据库权威事实 | SHA-256 `generation_key` 主键；每次有效业务写生成新的 256 位 `generation_token` |
 | `reference_data.schema_migrations`、`reference_data.seed_ledger` | ReferenceData 初始化事实 | 单一服务级迁移流与账本；七模块不是独立初始化单元 |
 
 上述命名中点号左侧是唯一 PostgreSQL Schema，点号右侧以模块前缀表达逻辑所有权；SQLite 使用 `reference_data_dictionary_*` 等等价全名。领域聚合根和有独立生命周期的领域实体遵守第 6 节公共字段；聚合子项使用必要的普通外键且只能随聚合根写入。技术记录使用最小字段，不软删除、不冻结、不套用双版本。模块之间不得建立外键，跨模块引用只保存稳定 NId/Revision 并通过进程内公开 Application 契约校验。
@@ -1007,6 +1014,7 @@ PostgreSQL 固定使用一个 `reference_data` Schema。下表只列主要职责
 - PostgreSQL 大小写不敏感唯一使用规范化列或函数索引，不依赖默认排序规则。
 - 平台级空租户的唯一约束使用明确的部分唯一索引，避免 `NULL` 导致重复。
 - 发布切换、动态配置四表快照、配置历史、编码生成和 Outbox 均使用本地事务；禁止分布式事务。
+- 影响运行时读取结果的写事务必须在同一事务更新受影响范围的持久化 generation token；业务事务回滚时 token 同步回滚。当前迁移流最终版本为 `reference-data-2.7-011`。
 - 本阶段创建的 EAV 值表只保存 ReferenceData 自有配置记录；不创建业务实体属性值表、低代码页面表或跨服务外键。
 
 ## 13.1 SystemData 数据库编排消费与 readiness
@@ -1041,8 +1049,9 @@ Shared 物理目标只解析一次；ReferenceData initializer 对服务级 DDL 
   → 请求校验
   → 加载聚合及双版本检查
   → 领域行为
-  → 本地事务保存 + 历史/Outbox/审计
-  → 提交后缓存失效
+  → 本地事务保存 + 历史/Outbox/审计 + 更新持久化 generation token
+  → 提交；旧 Redis envelope 因 token 不匹配立即失效
+  → 下一次回源前后复验 token，并原子回填 Redis envelope/generation
 ```
 
 查询默认排除软删除；Admin 查询可查看 Draft、Superseded 和 Disabled。运行时当前选择只返回 Published/Active；状态机、单位按固定来源读取曾发布 Revision 的例外见第 7、12A、12B 节。EvaluateTransition/ConvertQuantity 都是无副作用查询，不能通过调用它们创建业务状态或历史记录。
@@ -1070,6 +1079,7 @@ Gateway：/referencedata/api/v1/reference-data/**
 | PUT | `/admin/dictionaries/{id}` | `UpdateDictionaryRequest` → `DictionaryDetailDto` | `referencedata.dictionary.update` |
 | POST | `/admin/dictionaries/{id}/clone` | 并发版本 → 新 Draft | `referencedata.dictionary.create` |
 | POST | `/admin/dictionaries/{id}/publish` | 并发版本 → Published | `referencedata.dictionary.publish` |
+| GET | `/admin/dictionaries/{id}/publication-check` | 只读 `DictionaryPublicationCheckDto`：同作用域上一曾发布 Revision、新增/变更/停用项 NId 和字段错误；停用历史仍参与校验 | `referencedata.dictionary.view` |
 | POST | `/admin/dictionaries/{id}/disable` | 并发版本+原因 → Disabled | `referencedata.dictionary.disable` |
 | GET | `/admin/configuration-domains` | Query → `PageResult<ConfigurationAppDomainSummaryDto>` | `referencedata.parameter.view` |
 | POST | `/admin/configuration-domains` | `CreateConfigurationAppDomainRequest` → `ConfigurationAppDomainDetailDto`，201 | `referencedata.parameter.create` |
@@ -1353,14 +1363,18 @@ referencedata:v1:{sourceScope}:{sourceTenantKey}:state-machine:{normalizedNId}:{
 referencedata:v1:{sourceScope}:{sourceTenantKey}:unit-of-measure:{dimensionNId}:{currentOrRevision}
 ```
 
-全服务复用一个 Redis 连接与一套 Cache Aside 适配器，七模块通过逻辑键前缀和模块 Revision 隔离，不设置会造成跨模块联动失效的全局 `ReferenceDataRevision`。建议 TTL：字典 30 分钟、参数配置 Key/Domain 5 分钟、DynamicProperty Schema 15 分钟、动态配置记录页 5 分钟、元数据 15 分钟、编码规则 15 分钟；AppDomain/Key/MultiValue 修改提交成功后失效整个逻辑 AppDomain 的 Key 和 Domain 缓存，其他能力按 NId 失效。缓存值必须包含 Revision，禁止永久缓存“不存在”。状态机/单位当前选择缓存 TTL 为 5 分钟、固定修订 30 分钟；发布/停用清理对应 current/列表/详情状态缓存，已发布内容的 Revision 快照不被新版本替换。缓存键必须区分 Platform/Tenant 与实际来源租户；计算结果无须另建全局缓存。
+全服务复用一个 Redis 连接与一套 Cache Aside 适配器，七模块通过逻辑键前缀和模块 Revision 隔离，不设置会造成跨模块联动失效的全局 `ReferenceDataRevision`。建议 TTL：字典 30 分钟、参数配置 Key/Domain 5 分钟、DynamicProperty Schema 15 分钟、动态配置记录页 5 分钟、元数据 15 分钟、编码规则 15 分钟；AppDomain/Key/MultiValue 修改在同一事务推进整个逻辑 AppDomain 的 Key 和 Domain token，其他能力按 NId 推进。缓存值必须包含 Revision，禁止永久缓存“不存在”。状态机/单位当前选择缓存 TTL 为 5 分钟、固定修订 30 分钟；发布/停用通过数据库 token 逻辑失效对应 current/列表/详情缓存，旧物理值留待 TTL 到期，已发布 Revision 快照不被新版本替换。缓存键必须区分 Platform/Tenant 与实际来源租户；计算结果无须另建全局缓存。
+
+上述为业务逻辑键。Redis 物理值键使用 `referencedata:cache:v3:{hashTag}:{logicalKey}`，generation 键使用 `referencedata:generation:v3:{hashTag}`；`hashTag` 由 GenerationKey 派生，使条件回填涉及的两个键位于同一 Redis Cluster slot。GenerationKey 按 Dictionary/DynamicProperty/Metadata/CodingRule 的 NId、Parameter 的 AppDomain 读法，以及 StateMachine/UnitOfMeasure 的来源、租户、NId、current/Revision/list 范围细分，避免单对象变更淘汰整个模块。
 
 一致性策略：
 
 - Cache Aside：先读 Redis，未命中读 PostgreSQL 并回填。
+- PostgreSQL 同时作为数据与失效 token 的权威来源。Redis envelope 携带 token；已有账本行使用随机 256 位值，缺行时使用基线 `0`。缓存命中仍用一次轻量数据库标量查询校验，无法验证或 token 不一致时按未命中处理。
+- 回源前捕获数据库 token，回填前再次查询数据库并拒绝已变化的 token；核对通过后，用 Redis 同槽脚本原子写入 token 与 envelope。缓存命中也再次查询数据库校验，因此漏掉 Redis 通知或并发回填都不会返回旧值。每次写使用随机 256 位 token，数据库时间点恢复后不会因整数版本重合重新激活旧缓存。
 - Redis 不可用时降级直读 PostgreSQL并记录指标，不阻断正确读取。
 - PostgreSQL 与 Redis 同时不可用时返回 503，不返回无法证明有效的陈旧配置。
-- 写入不经过缓存；事务成功后失效，失败不得误删为成功状态。
+- 写入不经过缓存；写事务内推进数据库 token，提交后旧 envelope 随即无法通过数据库校验，失败事务不会改变有效 token。权威模式不依赖提交后的 Redis 失效调用。
 - 编码序列和 Idempotency Record 永不以 Redis 为权威。
 
 ---
@@ -1502,6 +1516,7 @@ PC 菜单：
 | `REF-SCOPE-FACTORY-NOT-READY` | 409 | 说明需等待 MasterData 工厂校验契约 |
 | `REF-DICT-NOT-FOUND` | 404 | 返回字典列表 |
 | `REF-DICT-DUPLICATE-NID` | 409 | 标记 DictionaryDefinition/DictionaryItem NId 冲突 |
+| `REF-DICT-HISTORICAL-ITEM-REMOVED` | 409 | 保留已发布历史项，改用禁用并新增标识；发布前校验使用同一码 |
 | `REF-CONFIG-DOMAIN-NOT-FOUND` | 404 | 返回应用域列表 |
 | `REF-CONFIG-KEY-NOT-FOUND` | 404 | 定位完整配置路径 |
 | `REF-CONFIG-DUPLICATE-NID` | 409 | 标记 AppDomain/Key/MultiValue NId 冲突 |
@@ -1510,6 +1525,13 @@ PC 菜单：
 | `REF-CONFIG-READ-ONLY` | 409 | 说明只能由受信任同步/迁移更新 |
 | `REF-CONFIG-MULTI-VALUE-LIMIT` | 422 | 提示单键1000条上限 |
 | `REF-CONFIG-SENSITIVE-REJECTED` | 400 | 指向密钥管理，不回显原值 |
+| `REF-CONFIG-NID-IMMUTABLE` | 409 | 停用旧标识并新增，不原位改名 |
+| `REF-CONFIG-TYPE-CHANGE-NOT-ALLOWED` | 409 | 已产生过值的路径类型/模式固定 |
+| `REF-CONFIG-DUPLICATE-VALUE` | 409 | 修正重复的启用明细规范化值 |
+| `REF-CONFIG-DEFAULT-MUST-BE-ENABLED` | 409 | 先取消默认项标记，再停用 |
+| `REF-CONFIG-KEY-LIMIT` | 409 | 应用域及有效合并结果最多 500 个键 |
+| `REF-CONFIG-ENUM-VALUE-INVALID` | 400 | 值必须属于本作用域有效的已发布字典 |
+| `REF-CONFIG-VERSION-EXHAUSTED` | 409 | 修订容量耗尽时拒绝修改，保留原状态 |
 | `REF-DYNAMIC-CONFIG-NOT-FOUND` | 404 | 返回动态配置列表 |
 | `REF-DYNAMIC-CONFIG-FIELD-INVALID` | 422 | 定位字段定义或值错误 |
 | `REF-DYNAMIC-CONFIG-REVISION-REQUIRED` | 400 | 先读取 Schema 并携带 Revision |
@@ -1563,7 +1585,7 @@ ReferenceData 不建立 `ref_operation_audit`、统一审计查询 API、审计�
 | Frontend Component | AppDomain/Key导航、Single/Multi编辑、ReadOnly禁用、显式空值提示、动态字段编辑、EAV记录分页、发布差异、权限按钮、冲突保留、错误映射 |
 | E2E | 七页路由/权限 smoke；字典与 DynamicProperty 原关键路径；状态机“定义→发布→动作校验”；单位“维度/单位→发布→换算试算”；编码规则 Preview |
 
-上述适用层次收敛在 `IndustrialPlatform.ReferenceData.Tests` 服务级项目，并按七个逻辑模块组织目录；真实 PostgreSQL、Redis、RabbitMQ 和跨入口链路进入统一 `IndustrialPlatform.IntegrationTests`。测试覆盖 `TenantNId` 隔离、权限拒绝、乐观并发、发布/覆盖或修订语义、单一 Schema/模块表前缀、服务级 Ledger/Outbox 和缓存降级；当前无入站消费者，不编写假想 Inbox 测试，也不为每个生产技术层创建独立测试项目。
+上述适用层次收敛在 `IndustrialPlatform.ReferenceData.Tests` 服务级项目，并按七个逻辑模块组织目录；真实 PostgreSQL/Redis 专项位于该项目的 `Infrastructure/ReferenceDataPostgresAcceptanceTests.cs`，真实 RabbitMQ 与跨入口链路另以 PF-03 验收脚本和证据文件验证。测试覆盖 `TenantNId` 隔离、权限拒绝、乐观并发、发布/覆盖或修订语义、单一 Schema/模块表前缀、服务级 Ledger/Outbox 和缓存降级；当前无入站消费者，不编写假想 Inbox 测试，也不为每个生产技术层创建独立测试项目。
 
 新两模块额外覆盖冻结根后所有子项写入口拒绝、Unfreeze/Unlock 不能修改已发布内容、克隆不复制 Id/并发令牌、平台预置保护不可 mass assignment 绕过、定义发布后旧业务快照稳定。状态机消费以测试项目内的最小工单/库存样例夹具证明：业务前置条件或事务失败时当前状态、业务写入和历史均不前进；夹具不等于正式 WorkOrder/OperationalData 已实现，不扩张 PF-03 生产代码范围。
 
@@ -1583,7 +1605,7 @@ Parameter、Metadata 和 CodingRule 的领域语义主要由 Domain/Application/
 10. Enum 属性引用未发布字典时 Schema 发布失败；字典发布后 Schema 可发布且带 Revision。
 11. 同一编码请求使用相同 Idempotency-Key 返回相同编码；换参数复用同一键返回 409；并发请求不生成重复序号。
 12. 两个浏览器编辑同一 Draft，后提交者收到并发冲突，前端不丢失本地输入。
-13. Redis 停止时运行时读取回源 PostgreSQL；PostgreSQL 同时不可用时返回 503。
+13. Redis 停止时运行时读取回源 PostgreSQL；写副本漏发 Redis 失效时，另一副本仍以数据库权威 token 拒绝旧值；token 与业务事务一同回滚；PostgreSQL 同时不可用时返回 503。
 14. 无权限用户看不到管理按钮且直接调用 API 返回 403；跨租户 ID 返回 404 或统一拒绝，不泄露存在性。
 15. 发布写库成功但 RabbitMQ 暂时不可用时 Outbox 保留待重试，恢复后只发布兼容的 V1 事件。
 16. 聚合子项写入不存在的父表时数据库拒绝；子项只能通过聚合根用例写入，聚合根软删除后不再加载有效子项，且不存在绕过聚合根单独恢复子项的 API/Repository。
@@ -1611,7 +1633,7 @@ TRX、coverage、Playwright report 或截图路径
 PostgreSQL / Redis / RabbitMQ / 浏览器等外部环境状态
 ```
 
-本次文档调整没有执行后端或前端测试；现有骨架测试和 PF-02 尚未开发的 fixture 只能作为输入，不能作为 PF-03 新鲜验收证据。
+本文初稿阶段没有执行后端或前端测试，当时的骨架测试仅作为输入；PF-03 完成后的新鲜验收命令与结果统一记录在第 26 节及 `docs/evidence/PF-03.md`。
 
 ---
 
@@ -1651,7 +1673,7 @@ PF-01 Gateway/前端基线 + Identity 可信身份/权限契约 + PF-02 数据�
 
 ## TASK-RD-001 收敛服务薄基础
 
-**状态：** 未开始（PF-03 未整体授权；内部顺序步骤）
+**状态：** 已完成（2026-09-05；见第 26 节）
 
 **目标：** 在现有骨架上建立五层项目引用、七模块目录边界、可信身份/权限接入、单一数据库初始化单元、单一 Schema/迁移流和 core readiness/capability health 分层；不提前实现业务模块或自建框架。
 
@@ -1673,7 +1695,7 @@ PF-01 Gateway/前端基线 + Identity 可信身份/权限契约 + PF-02 数据�
 
 ## TASK-RD-002 完成 Dictionary 纵向切片
 
-**状态：** 未开始（PF-03 授权后随 TASK-RD-001 顺序执行）
+**状态：** 已完成（2026-09-05；见第 26 节）
 
 **目标：** 完成 DictionaryDefinition/Item 聚合、持久化、管理与运行时 API、权限、PC 页面、测试和发布版本行为。
 
@@ -1695,7 +1717,7 @@ PF-01 Gateway/前端基线 + Identity 可信身份/权限契约 + PF-02 数据�
 
 ## TASK-RD-003 完成 Parameter 纵向切片
 
-**状态：** 未开始（PF-03 授权后随 TASK-RD-002 顺序执行）
+**状态：** 已完成（2026-09-05；见第 26 节）
 
 **目标：** 完成 ConfigurationAppDomain 聚合、Single/Multi Key、逐 Key 作用域覆盖、历史、有效值解析以及对应管理页面。
 
@@ -1717,7 +1739,7 @@ PF-01 Gateway/前端基线 + Identity 可信身份/权限契约 + PF-02 数据�
 
 ## TASK-RD-004 完成 DynamicProperty/EAV 纵向切片
 
-**状态：** 未开始（PF-03 授权后随 TASK-RD-003 顺序执行）
+**状态：** 已完成（2026-09-05；见第 26 节）
 
 **目标：** 在 DynamicProperty 模块内完成 ReferenceData 自有 DynamicConfigDefinition/Field/Record/Value EAV、整份 Revision 发布、分页运行时读取和 PC 管理页面。
 
@@ -1739,7 +1761,7 @@ PF-01 Gateway/前端基线 + Identity 可信身份/权限契约 + PF-02 数据�
 
 ## TASK-RD-005 完成 UnitOfMeasure 纵向切片
 
-**状态：** 未开始（PF-03 授权后随 TASK-RD-004 顺序执行）
+**状态：** 已完成（2026-09-05；见第 26 节）
 
 **目标：** 完成通用维度、单位、基准换算、精度舍入、系统预置保护、修订读取及 PC 管理/试算。
 
@@ -1761,7 +1783,7 @@ PF-01 Gateway/前端基线 + Identity 可信身份/权限契约 + PF-02 数据�
 
 ## TASK-RD-006 完成 Metadata 纵向切片
 
-**状态：** 未开始（PF-03 授权后随 TASK-RD-005 顺序执行）
+**状态：** 已完成（2026-09-05；见第 26 节）
 
 **目标：** 完成 EntitySchema/AttributeDefinition、类型专属约束、字典/固定修订单位引用校验、发布版本、运行时读取和 PC 管理页面。
 
@@ -1783,7 +1805,7 @@ PF-01 Gateway/前端基线 + Identity 可信身份/权限契约 + PF-02 数据�
 
 ## TASK-RD-007 完成 CodingRule 纵向切片
 
-**状态：** 未开始（PF-03 授权后随 TASK-RD-006 顺序执行）
+**状态：** 已完成（2026-09-05；见第 26 节）
 
 **目标：** 完成模板解析、规则发布、Preview、数据库原子序列、周期重置、幂等 Generate 和 PC 管理页面。
 
@@ -1805,7 +1827,7 @@ PF-01 Gateway/前端基线 + Identity 可信身份/权限契约 + PF-02 数据�
 
 ## TASK-RD-008 完成 StateMachine 纵向切片
 
-**状态：** 未开始（PF-03 授权后随 TASK-RD-007 顺序执行）
+**状态：** 已完成（2026-09-05；见第 26 节）
 
 **目标：** 完成状态机定义、节点/转换、发布修订、固定版本读取、定义路径校验和 PC 管理页面。
 
@@ -1827,7 +1849,7 @@ PF-01 Gateway/前端基线 + Identity 可信身份/权限契约 + PF-02 数据�
 
 ## TASK-RD-009 接入共享缓存、Outbox 与可观测性
 
-**状态：** 未开始（PF-03 授权后随 TASK-RD-008 顺序执行）
+**状态：** 已完成（2026-09-05；见第 26 节）
 
 **目标：** 在七个已完成纵向模块上接入共享 Redis Cache Aside、单一服务级 Outbox/Dispatcher、V1 事件、降级策略、日志、指标和 Redis/RabbitMQ/Seq capability health；不预建无消费者的 Inbox。
 
@@ -1837,9 +1859,9 @@ PF-01 Gateway/前端基线 + Identity 可信身份/权限契约 + PF-02 数据�
 
 **允许修改范围：** ReferenceData 服务级 Persistence/Messaging/Caching/Logging/Metrics/Health 及七模块的薄适配和测试；不得新建模块级 Outbox/连接/Worker，不得建立统一审计事实表/API/页面，不得把完整配置值写入事件或日志。
 
-**预期输出：** 一个 Redis 连接和 Cache Aside 适配器；逻辑模块缓存键；`reference_data.outbox_message`、`ModuleKey`、一个 Dispatcher；七个 V1 事件；RabbitMQ 中断积压/恢复；PF-04 Audit 适配门禁；结构化日志、指标、core readiness 与 Redis/RabbitMQ/Seq capability health 分层。
+**预期输出：** 一个 Redis 连接和 Cache Aside 适配器；细粒度逻辑缓存键与数据库权威 `reference_data.cache_generation`；`reference_data.outbox_message`、`ModuleKey`、一个 Dispatcher；七个 V1 事件；RabbitMQ 中断积压/恢复；PF-04 Audit 适配门禁；结构化日志、指标、core readiness 与 Redis/RabbitMQ/Seq capability health 分层。
 
-**验证与证据：** 覆盖租户缓存隔离、Revision/失效、Redis 回源、双故障 503、业务事务与 Outbox 原子性、RabbitMQ 恢复、重复/乱序事件的 Outbox 载荷与 Revision 兼容性、事件快照、敏感值扫描、按 ModuleKey 积压指标；证明 ReferenceData 未注册假想消费者、没有七套 Outbox/Inbox 或竞争 PF-04 的审计中心。
+**验证与证据：** 覆盖租户缓存隔离、细粒度 token、Redis Cluster 同 slot、回源与条件回填、跨副本漏失效、数据库恢复不发生 ABA、双故障 503、业务事务/token/Outbox 原子性、RabbitMQ 恢复、重复/乱序事件的 Outbox 载荷与 Revision 兼容性、事件快照、敏感值扫描、按 ModuleKey 积压指标；证明 ReferenceData 未注册假想消费者、没有七套 Outbox/Inbox 或竞争 PF-04 的审计中心。
 
 **结果回写：** 回写缓存键/TTL、Outbox 表和重试、事件/路由键、降级行为、健康标签、指标、审计适配状态和测试证据。
 
@@ -1849,7 +1871,7 @@ PF-01 Gateway/前端基线 + Identity 可信身份/权限契约 + PF-02 数据�
 
 ## TASK-RD-010 完成契约、E2E 与 PF-03 联合验收
 
-**状态：** 未开始（PF-03 授权后随 TASK-RD-009 顺序执行）
+**状态：** 已完成（2026-09-05；见第 26 节）
 
 **目标：** 使用真实 Gateway/UnifiedHost、Identity、SystemData 初始化编排、PostgreSQL、Redis、RabbitMQ 和浏览器验证七模块全纵向链路，并冻结供下游使用的 V1 契约。SystemData 只参与初始化 Operation 与离线验证，不成为 ReferenceData 日常运行依赖。
 
@@ -1876,7 +1898,7 @@ PF-01 Gateway/前端基线 + Identity 可信身份/权限契约 + PF-02 数据�
 - 字典、参数配置应用域（单值/多值）、动态配置 EAV、元数据定义、编码规则、状态机定义和计量单位均有明确聚合、不变量、状态和租户边界。
 - 所有领域实体以 NId 作为稳定业务标识，引用字段使用 `{EntityName}NId`；除正式生成的编码结果外，实体定义、DTO、API 和页面不存在 Code 业务标识。
 - 领域表定义只列业务字段，具有独立领域生命周期的实体应用 Entity 公共字段；Ledger、Outbox、历史、序列和幂等记录使用最小技术字段。聚合子项使用普通外键并只能随聚合根写入，没有机械增加软删除影子列或复合唯一键。
-- `referencedata_db` 按 SystemData 配置解析 Shared/PerService；服务级初始化器、Migration/Ledger 和本地 readiness 均有真实 PostgreSQL 18 证据。
+- `referencedata_db` 按 SystemData 配置解析 Shared/PerService；服务级初始化器、Migration/Ledger 和本地 readiness 均有本次隔离 PostgreSQL 17.11 证据。
 - 动态配置四表只允许同 Revision 关联，字段和值类型由领域与数据库约束双重保证，整份发布不产生半成品。
 - 发布/配置变更与单一服务级 Outbox 原子，Outbox 行以 ModuleKey 保留模块归属；当前无入站消费者和 Inbox。正式编码在并发和重试下不重复。
 - 动态配置值仅保存 ReferenceData 自有配置记录；未创建业务实体 EAV 值表、低代码页面运行时或跨服务外键。
@@ -1885,7 +1907,7 @@ PF-01 Gateway/前端基线 + Identity 可信身份/权限契约 + PF-02 数据�
 
 - Gateway 与内部路径、DTO、权限、错误码、Idempotency-Key 和 Revision 前后一致。
 - 七个 V1 事件完成重复、乱序和兼容性验证。
-- Redis 故障可回源 PostgreSQL，双故障明确返回 503，缓存不成为权威。
+- Redis 故障可回源 PostgreSQL；跨副本漏失效时由数据库权威随机 token 拒绝旧值；数据库无法验证时不使用陈旧缓存，双故障明确返回 503。
 - MasterData 可只通过稳定 V1 契约消费字典、参数配置应用域、动态配置 Schema/记录、实体 Schema、编码生成、状态机定义及通用单位/换算；不再定义另一套通用单位权威源。
 - 状态机不持有业务当前状态、不提供通用 SetStatus；单位不包含全球箱/件比例、密度跨维度换算或任意公式。固定修订历史读取与新业务选择分离，变更定义不会静默改变在途业务。
 
@@ -1915,16 +1937,16 @@ PF-01 Gateway/前端基线 + Identity 可信身份/权限契约 + PF-02 数据�
 
 | 内部步骤 | 进度 | PF 执行者 | PF Evidence | 结果回写 |
 | --- | --- | --- | --- | --- |
-| TASK-RD-001 | PF-03 未授权（内部顺序步骤） | - | - | - |
-| TASK-RD-002 | PF-03 未授权（内部顺序步骤） | - | - | - |
-| TASK-RD-003 | PF-03 未授权（内部顺序步骤） | - | - | - |
-| TASK-RD-004 | PF-03 未授权（内部顺序步骤） | - | - | - |
-| TASK-RD-005 | PF-03 未授权（内部顺序步骤） | - | - | - |
-| TASK-RD-006 | PF-03 未授权（内部顺序步骤） | - | - | - |
-| TASK-RD-007 | PF-03 未授权（内部顺序步骤） | - | - | - |
-| TASK-RD-008 | PF-03 未授权（内部顺序步骤） | - | - | - |
-| TASK-RD-009 | PF-03 未授权（内部顺序步骤） | - | - | - |
-| TASK-RD-010 | PF-03 未授权（内部顺序步骤） | - | - | - |
+| TASK-RD-001 | 已完成（2026-09-05） | PF-03 专用 Codex 任务 | `docs/evidence/PF-03.md` | 单一迁移流达到 011，权限、宿主接线及 readiness/capability 分层完成 |
+| TASK-RD-002 | 已完成（2026-09-05） | PF-03 专用 Codex 任务 | `docs/evidence/PF-03.md` | Dictionary 纵向切片及页面完成 |
+| TASK-RD-003 | 已完成（2026-09-05） | PF-03 专用 Codex 任务 | `docs/evidence/PF-03.md` | Parameter 单值/多值、历史及页面完成 |
+| TASK-RD-004 | 已完成（2026-09-05） | PF-03 专用 Codex 任务 | `docs/evidence/PF-03.md` | DynamicProperty 强类型配置 EAV、分页运行时及页面完成 |
+| TASK-RD-005 | 已完成（2026-09-05） | PF-03 专用 Codex 任务 | `docs/evidence/PF-03.md` | UnitOfMeasure 固定修订、换算及页面完成 |
+| TASK-RD-006 | 已完成（2026-09-05） | PF-03 专用 Codex 任务 | `docs/evidence/PF-03.md` | Metadata 约束、依赖校验、发布及页面完成 |
+| TASK-RD-007 | 已完成（2026-09-05） | PF-03 专用 Codex 任务 | `docs/evidence/PF-03.md` | CodingRule 预览、幂等生成及页面完成 |
+| TASK-RD-008 | 已完成（2026-09-05） | PF-03 专用 Codex 任务 | `docs/evidence/PF-03.md` | StateMachine 定义校验、固定修订判断及页面完成 |
+| TASK-RD-009 | 已完成（2026-09-05） | PF-03 专用 Codex 任务 | `docs/evidence/PF-03.md` | 数据库权威细粒度 token、Redis v3 同槽 fencing、单一 Outbox、V1 事件和指标完成 |
+| TASK-RD-010 | 已完成（2026-09-05） | PF-03 专用 Codex 任务 | `docs/evidence/PF-03.md` | 真实 PostgreSQL/Redis/RabbitMQ/UnifiedHost/Identity/浏览器联合验收完成 |
 
 ---
 
@@ -2008,7 +2030,7 @@ V1事件
 
 前端路由
   /pc/system/reference-data/dictionaries
-  /pc/system/reference-data/configurations
+  /pc/system/reference-data/parameters
   /pc/system/reference-data/dynamic-properties
   /pc/system/reference-data/metadata
   /pc/system/reference-data/coding-rules
@@ -2025,7 +2047,7 @@ V1事件
 # 28. 文档自审清单
 
 - [x] 引用文件真实存在。
-- [x] 当前代码/环境状态已如实记录；CodeFirst baseline 与全依赖阻断 readiness 是 TASK-RD-001 待消除的已知骨架差距。
+- [x] 当前代码/环境状态已如实记录；TASK-RD-001 已移除 CodeFirst 占位并完成 ReferenceData core readiness 与 capability health 分层。
 - [x] 无待确定项、待办占位或模糊处理语句。
 - [x] ReferenceData、Identity、MasterData、OperationalData 和低代码平台边界明确。
 - [x] API、事件、类型、权限和路由前后一致。

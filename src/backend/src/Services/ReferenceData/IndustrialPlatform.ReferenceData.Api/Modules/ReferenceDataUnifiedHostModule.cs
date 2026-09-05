@@ -15,7 +15,7 @@ public sealed class ReferenceDataUnifiedHostModule : IUnifiedHostModule
     public string ExternalPathPrefix => "/referencedata";
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration) =>
-        services.AddReferenceDataModule(configuration);
+        services.AddReferenceDataModule(configuration, unifiedHost: true);
 
     public void RegisterHealthChecks(IHealthChecksBuilder healthChecks) =>
         healthChecks.AddReferenceDataHealthChecks("referencedata");

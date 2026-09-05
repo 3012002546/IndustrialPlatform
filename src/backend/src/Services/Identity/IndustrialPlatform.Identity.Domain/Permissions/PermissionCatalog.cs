@@ -141,6 +141,45 @@ public static class PermissionCatalog
     public const string SystemDataServiceInitializationBackup = "systemdata.service-initialization.backup";
     public const string SystemDataServiceInitializationCancel = "systemdata.service-initialization.cancel";
 
+    public const string ReferenceDataDictionaryView = "referencedata.dictionary.view";
+    public const string ReferenceDataDictionaryCreate = "referencedata.dictionary.create";
+    public const string ReferenceDataDictionaryUpdate = "referencedata.dictionary.update";
+    public const string ReferenceDataDictionaryPublish = "referencedata.dictionary.publish";
+    public const string ReferenceDataDictionaryDisable = "referencedata.dictionary.disable";
+    public const string ReferenceDataParameterView = "referencedata.parameter.view";
+    public const string ReferenceDataParameterCreate = "referencedata.parameter.create";
+    public const string ReferenceDataParameterUpdate = "referencedata.parameter.update";
+    public const string ReferenceDataParameterDisable = "referencedata.parameter.disable";
+    public const string ReferenceDataParameterReadSecretReference = "referencedata.parameter.read-secret-reference";
+    public const string ReferenceDataDynamicPropertyView = "referencedata.dynamic-property.view";
+    public const string ReferenceDataDynamicPropertyCreate = "referencedata.dynamic-property.create";
+    public const string ReferenceDataDynamicPropertyUpdate = "referencedata.dynamic-property.update";
+    public const string ReferenceDataDynamicPropertyPublish = "referencedata.dynamic-property.publish";
+    public const string ReferenceDataDynamicPropertyDisable = "referencedata.dynamic-property.disable";
+    public const string ReferenceDataUnitOfMeasureView = "referencedata.unit-of-measure.view";
+    public const string ReferenceDataUnitOfMeasureCreate = "referencedata.unit-of-measure.create";
+    public const string ReferenceDataUnitOfMeasureUpdate = "referencedata.unit-of-measure.update";
+    public const string ReferenceDataUnitOfMeasurePublish = "referencedata.unit-of-measure.publish";
+    public const string ReferenceDataUnitOfMeasureDisable = "referencedata.unit-of-measure.disable";
+    public const string ReferenceDataMetadataView = "referencedata.metadata.view";
+    public const string ReferenceDataMetadataCreate = "referencedata.metadata.create";
+    public const string ReferenceDataMetadataUpdate = "referencedata.metadata.update";
+    public const string ReferenceDataMetadataPublish = "referencedata.metadata.publish";
+    public const string ReferenceDataMetadataDisable = "referencedata.metadata.disable";
+    public const string ReferenceDataCodingRuleView = "referencedata.coding-rule.view";
+    public const string ReferenceDataCodingRuleCreate = "referencedata.coding-rule.create";
+    public const string ReferenceDataCodingRuleUpdate = "referencedata.coding-rule.update";
+    public const string ReferenceDataCodingRulePublish = "referencedata.coding-rule.publish";
+    public const string ReferenceDataCodingRuleDisable = "referencedata.coding-rule.disable";
+    public const string ReferenceDataCodingRulePreview = "referencedata.coding-rule.preview";
+    public const string ReferenceDataCodingRuleGenerate = "referencedata.coding-rule.generate";
+    public const string ReferenceDataStateMachineView = "referencedata.state-machine.view";
+    public const string ReferenceDataStateMachineCreate = "referencedata.state-machine.create";
+    public const string ReferenceDataStateMachineUpdate = "referencedata.state-machine.update";
+    public const string ReferenceDataStateMachinePublish = "referencedata.state-machine.publish";
+    public const string ReferenceDataStateMachineDisable = "referencedata.state-machine.disable";
+    public const string ReferenceDataPlatformManage = "referencedata.platform.manage";
+
     /// <summary>第一批权限 NId,按 §9.2 目录顺序。</summary>
     public static IReadOnlyList<string> FirstBatchNIds { get; } =
     [
@@ -213,5 +252,43 @@ public static class PermissionCatalog
         SystemDataServiceInitializationApprove,
         SystemDataServiceInitializationBackup,
         SystemDataServiceInitializationCancel,
+        ReferenceDataDictionaryView,
+        ReferenceDataDictionaryCreate,
+        ReferenceDataDictionaryUpdate,
+        ReferenceDataDictionaryPublish,
+        ReferenceDataDictionaryDisable,
+        ReferenceDataParameterView,
+        ReferenceDataParameterCreate,
+        ReferenceDataParameterUpdate,
+        ReferenceDataParameterDisable,
+        ReferenceDataParameterReadSecretReference,
+        ReferenceDataDynamicPropertyView,
+        ReferenceDataDynamicPropertyCreate,
+        ReferenceDataDynamicPropertyUpdate,
+        ReferenceDataDynamicPropertyPublish,
+        ReferenceDataDynamicPropertyDisable,
+        ReferenceDataUnitOfMeasureView,
+        ReferenceDataUnitOfMeasureCreate,
+        ReferenceDataUnitOfMeasureUpdate,
+        ReferenceDataUnitOfMeasurePublish,
+        ReferenceDataUnitOfMeasureDisable,
+        ReferenceDataMetadataView,
+        ReferenceDataMetadataCreate,
+        ReferenceDataMetadataUpdate,
+        ReferenceDataMetadataPublish,
+        ReferenceDataMetadataDisable,
+        ReferenceDataCodingRuleView,
+        ReferenceDataCodingRuleCreate,
+        ReferenceDataCodingRuleUpdate,
+        ReferenceDataCodingRulePublish,
+        ReferenceDataCodingRuleDisable,
+        ReferenceDataCodingRulePreview,
+        ReferenceDataCodingRuleGenerate,
+        ReferenceDataStateMachineView,
+        ReferenceDataStateMachineCreate,
+        ReferenceDataStateMachineUpdate,
+        ReferenceDataStateMachinePublish,
+        ReferenceDataStateMachineDisable,
+        ReferenceDataPlatformManage,
     ];
 }

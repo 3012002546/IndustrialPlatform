@@ -101,6 +101,23 @@ describe('SystemData runtime store', () => {
     ])
   })
 
+  it('keeps an explicitly configured empty navigation empty', async () => {
+    registerSystemDataRuntimeApi({
+      ...api,
+      getNavigation: async () => ({
+        kind: 'updated',
+        etag: '"nav-empty"',
+        data: { revision: 3, configured: true, degraded: false, nodes: [] },
+      }),
+    })
+    const store = useSystemDataRuntimeStore()
+    store.setPermissions(['referencedata.dictionary.view'])
+
+    await store.refresh('Pc')
+
+    expect(store.navigationGroups).toEqual([])
+  })
+
   it('waits for the server revision returned after publish before accepting runtime navigation', async () => {
     let releaseFirst!: () => void
     const firstResponse = new Promise<{

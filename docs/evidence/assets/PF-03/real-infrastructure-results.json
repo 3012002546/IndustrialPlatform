@@ -1,0 +1,81 @@
+{
+  "observedAtUtc": "2026-09-05T02:58:29Z",
+  "topology": {
+    "host": "UnifiedHost",
+    "databaseMode": "Shared",
+    "postgres": "127.0.0.1:55493/pf03_reference_data",
+    "redis": "127.0.0.1:59243",
+    "rabbitMq": "127.0.0.1:59244",
+    "migration": "reference-data-2.7-011"
+  },
+  "healthyBaseline": {
+    "readyHttp": 200,
+    "capabilitiesHttp": 200,
+    "referenceDataPostgres": "Healthy",
+    "referenceDataInitialization": "Healthy",
+    "referenceDataRedis": "Healthy",
+    "referenceDataRabbitMq": "Healthy"
+  },
+  "redisCache": {
+    "observedValueKeys": 10,
+    "observedGenerationKeys": 9,
+    "observedTotalKeys": 19,
+    "generationKeysHaveTtl": false,
+    "ttlSeconds": {
+      "dictionary": 1800,
+      "parameter": 271,
+      "dynamicSchema": 900,
+      "dynamicRecords": 300,
+      "metadata": 900,
+      "codingRule": 900,
+      "stateCurrent": 300,
+      "stateRevision": 1800,
+      "unitCurrent": 299,
+      "unitRevision": 1800
+    }
+  },
+  "cacheConsistency": {
+    "authoritativeGenerationTable": "reference_data.cache_generation",
+    "generatedTokenBits": 256,
+    "missingRowBaseline": "0",
+    "redisPhysicalKeyVersion": "v3",
+    "redisClusterHashTagged": true,
+    "cacheHitValidatedAgainstDatabase": true,
+    "asymmetricRedisInvalidationRejected": true,
+    "transactionRollbackKeepsGenerationUnchanged": true,
+    "abaMitigation": "random 256-bit generation tokens",
+    "pointInTimeRestoreDrill": false
+  },
+  "redisOutage": {
+    "referenceDataRedisCapability": "Degraded",
+    "referenceDataPostgres": "Healthy",
+    "referenceDataInitialization": "Healthy",
+    "adapterToRealPostgresAcceptance": "1 passed",
+    "unifiedHostReadyHttp": 503,
+    "unifiedHostConstraint": "Co-hosted Identity and SystemData mark their shared Redis checks Unhealthy before external ReferenceData authorization can complete",
+    "afterRecoveryReadyHttp": 200,
+    "afterRecoveryReferenceDataRedis": "Healthy"
+  },
+  "rabbitMqOutage": {
+    "referenceDataRabbitMqCapability": "Degraded",
+    "referenceDataPostgres": "Healthy",
+    "referenceDataInitialization": "Healthy",
+    "mutationHttp": "201/200",
+    "outboxWhileDown": { "status": "Pending", "attemptCount": 0 },
+    "outboxAfterRecovery": { "status": "Published", "attemptCount": 0 },
+    "afterRecoveryReadyHttp": 200,
+    "afterRecoveryReferenceDataRabbitMq": "Healthy"
+  },
+  "rabbitMqEvents": {
+    "messages": 8,
+    "uniqueRoutingKeys": 7,
+    "allPayloadsJsonObjects": true,
+    "eventVersion": 1,
+    "persistent": true,
+    "sensitiveValuesFound": false
+  },
+  "finalOutbox": {
+    "published": 16,
+    "pending": 0
+  }
+}
