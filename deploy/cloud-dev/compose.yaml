@@ -15,8 +15,12 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: ${POSTGRES_DB:-industrial_platform}
-      IDENTITY_DATABASE: ${IDENTITY_DATABASE:-identity_db}
+      DATABASE_TOPOLOGY_MODE: ${DATABASE_TOPOLOGY_MODE:-Shared}
+      SHARED_DATABASE_NAME: ${SHARED_DATABASE_NAME:-industrial_platform}
+      IDENTITY_DATABASE: ${IDENTITY_DATABASE:-industrial_platform}
+      SYSTEMDATA_DATABASE: ${SYSTEMDATA_DATABASE:-industrial_platform}
       REFERENCE_DATA_DATABASE: ${REFERENCE_DATA_DATABASE:-industrial_platform}
+      UNIFIEDHOST_DATABASE: ${UNIFIEDHOST_DATABASE:-industrial_platform}
     command:
       - postgres
       - -c

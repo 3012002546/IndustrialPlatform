@@ -81,12 +81,19 @@ public sealed class JwtIntegrationTests
         {
             using var factory = new WebApplicationFactory<SystemDataApi::Program>()
                 .WithWebHostBuilder(builder => builder
-                    .UseEnvironment("Testing")
+                    .UseEnvironment("Development")
+                    .UseSetting("IndustrialPlatform:DevelopmentInfrastructureMode", "Sqlite")
+                    .UseSetting("DatabaseTopology:EnvironmentName", "Development")
+                    .UseSetting("DatabaseTopology:Mode", "Shared")
+                    .UseSetting("DatabaseTopology:SharedDatabaseName", "industrial_platform_test")
+                    .UseSetting("DatabaseTopology:SharedSqliteFile", databasePath)
                     .ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(new Dictionary<string, string?>
                     {
                         ["IndustrialPlatform:DevelopmentInfrastructureMode"] = "Sqlite",
-                        ["SqlSugar:ConnectionString"] = $"Data Source={databasePath}",
-                        ["SqlSugar:DbType"] = "Sqlite",
+                        ["DatabaseTopology:EnvironmentName"] = "Development",
+                        ["DatabaseTopology:Mode"] = "Shared",
+                        ["DatabaseTopology:SharedDatabaseName"] = "industrial_platform_test",
+                        ["DatabaseTopology:SharedSqliteFile"] = databasePath,
                         ["Redis:ConnectionString"] = "localhost:6379,abortConnect=false",
                         ["Jwt:Issuer"] = Issuer,
                         ["Jwt:Audience"] = Audience,

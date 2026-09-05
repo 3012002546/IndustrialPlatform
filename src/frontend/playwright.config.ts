@@ -9,6 +9,7 @@ export default defineConfig({
     '**/identity-pages.spec.ts',
     '**/user-management-golden.spec.ts',
     '**/systemdata-admin-visual.spec.ts',
+    '**/systemdata-real.spec.ts',
   ],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,

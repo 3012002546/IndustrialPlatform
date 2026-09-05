@@ -1,4 +1,4 @@
-# 常规后端测试
+# 后端测试
 
 常规门禁保留六个可重复运行的测试项目：BuildingBlocks、Identity、SystemData、ReferenceData、Gateway 和 UnifiedHost。
 
@@ -10,4 +10,4 @@ Identity 的 Domain、Application、Contract、Infrastructure、API 测试统一
 dotnet test src/backend/IndustrialPlatform.slnx --configuration Release --no-build --filter "Category!=Integration"
 ```
 
-SQLite、内存替身和 `WebApplicationFactory` 测试放在常规项目；真实 PostgreSQL、Redis、RabbitMQ 或跨服务链路放在 IntegrationTests。
+SQLite、内存替身和 `WebApplicationFactory` 测试放在常规项目；真实 PostgreSQL、Redis、RabbitMQ 或跨服务链路放在 `tests/IntegrationTests/`。

@@ -39,9 +39,15 @@ to maintain its versioned cluster directory below it. PostgreSQL is capped at
 capped at 256 MiB and 192 MiB of cached data with `allkeys-lru` eviction.
 
 The initialization script runs only when PostgreSQL creates a fresh cluster.
-It creates the Identity and ReferenceData databases idempotently and sets
-`ON_ERROR_STOP`, so SQL failures fail container initialization instead of
-being silently ignored. For an existing volume, create a newly added database
+It reads `DATABASE_TOPOLOGY_MODE` and the same service-target variables used by
+the application. In `Shared`, `POSTGRES_DB`, `SHARED_DATABASE_NAME`,
+`IDENTITY_DATABASE`, `SYSTEMDATA_DATABASE`, `REFERENCE_DATA_DATABASE`, and
+`UNIFIEDHOST_DATABASE` must all be the same physical database; the script then
+creates one target only. In `PerService`, it creates the explicitly listed
+service targets and never falls back to a logical service name. Both paths are
+idempotent and set `ON_ERROR_STOP`, so a topology mismatch fails container
+initialization instead of silently creating `reference-data` or
+`referencedata_db`. For an existing volume, create a newly added database
 explicitly; never delete the volume merely to rerun initialization.
 
 ## Backups and restore
@@ -75,22 +81,25 @@ gunzip -c /path/to/backup/roles.sql.gz | \
   postgres sh -ec 'psql --set=ON_ERROR_STOP=1 --username="$POSTGRES_USER" --dbname=postgres'
 docker compose --env-file .env -f compose.yaml --profile core exec -T \
   postgres sh -ec 'pg_restore --exit-on-error --clean --if-exists --create --username="$POSTGRES_USER" --dbname=postgres' \
-  < /path/to/backup/identity.dump
+  < /path/to/backup/platform.dump
 ```
 
-Repeat the `pg_restore` command for `platform.dump` and, when present,
-`reference-data.dump`. Verify the backup's `SHA256SUMS` first. A restore with
+Repeat the `pg_restore` command for each dump present in the selected backup.
+Shared topology intentionally produces one dump for the shared physical
+database even though several service variables point at it; PerService produces
+one dump per distinct target. Verify the backup's `SHA256SUMS` first. A restore with
 `--clean --create` replaces the named database; take a fresh backup and stop
 application writers before running it.
 
 ## Local optional configuration
 
 Copy `src/backend/appsettings.Development.local.example.json` to
-`src/backend/appsettings.Development.local.json`. With
-`RemoteDevelopment.Enabled=false` or when the file is absent, both services
-use their checked-in SQLite databases. With it enabled, PostgreSQL and Redis
-use the Tailnet host. RabbitMQ and Seq each require their own `Enabled=true`;
-this keeps the default core profile usable without Seq.
+`src/backend/appsettings.Development.local.json` for remote Development.
+For local SQLite, set `IndustrialPlatform__DevelopmentInfrastructureMode=Sqlite`
+explicitly; the host then derives its SQLite file from `DatabaseTopology`.
+With remote Development enabled, PostgreSQL and Redis use the Tailnet host.
+RabbitMQ and Seq each require their own `Enabled=true`; this keeps the default
+core profile usable without Seq.
 
 ## Safe SSH/Tailscale posture
 

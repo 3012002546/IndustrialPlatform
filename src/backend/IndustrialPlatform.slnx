@@ -1,8 +1,4 @@
 <Solution>
-  <Folder Name="/Services/" />
-  <Folder Name="/Services/ReferenceData/">
-    <Project Path="src/Services/ReferenceData/IndustrialPlatform.ReferenceData.Contracts/IndustrialPlatform.ReferenceData.Contracts.csproj" />
-  </Folder>
   <Folder Name="/src/" />
   <Folder Name="/src/BuildingBlocks/">
     <Project Path="src\BuildingBlocks\IndustrialPlatform.SharedKernel\IndustrialPlatform.SharedKernel.csproj" />
@@ -40,6 +36,7 @@
     <Project Path="..\..\tests\SystemData\IndustrialPlatform.SystemData.Tests\IndustrialPlatform.SystemData.Tests.csproj" />
   </Folder>
   <Folder Name="/src/Services/ReferenceData/">
+    <Project Path="src\Services\ReferenceData\IndustrialPlatform.ReferenceData.Contracts\IndustrialPlatform.ReferenceData.Contracts.csproj" />
     <Project Path="src\Services\ReferenceData\IndustrialPlatform.ReferenceData.Domain\IndustrialPlatform.ReferenceData.Domain.csproj" />
     <Project Path="src\Services\ReferenceData\IndustrialPlatform.ReferenceData.Application\IndustrialPlatform.ReferenceData.Application.csproj" />
     <Project Path="src\Services\ReferenceData\IndustrialPlatform.ReferenceData.Infrastructure\IndustrialPlatform.ReferenceData.Infrastructure.csproj" />

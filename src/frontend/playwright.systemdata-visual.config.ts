@@ -1,3 +1,6 @@
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
 import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
@@ -9,7 +12,7 @@ export default defineConfig({
   workers: 1,
   timeout: 90_000,
   reporter: 'list',
-  outputDir: 'C:/Users/DONG/AppData/Local/Temp/pf02-systemdata-playwright',
+  outputDir: join(tmpdir(), 'pf02-systemdata-playwright'),
   use: {
     baseURL: 'http://127.0.0.1:4187',
     trace: 'retain-on-failure',

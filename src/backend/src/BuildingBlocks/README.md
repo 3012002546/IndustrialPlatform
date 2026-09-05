@@ -11,14 +11,14 @@ BuildingBlocks 提供可被各服务复用、但不拥有具体业务语义的�
 - 不保存 Identity、SystemData 或未来 MES 领域规则。
 - 不把所有实体强制改造成复杂聚合；简单 CRUD 可使用与复杂度匹配的模型。
 - 不定义跨服务业务契约；跨服务契约归拥有方或消费方端口。
-- 不承担服务初始化编排。中立初始化协议由后续整改放在 `IndustrialPlatform.Application.Abstractions/Initialization/`，SystemData 只消费协议，各服务拥有实现。
+- 不承担服务初始化编排。中立初始化协议位于 `IndustrialPlatform.Application.Abstractions/Initialization/`，SystemData 只消费协议，各服务拥有实现。
 
 ## 项目结构与调用链
 
 | 项目 | 主要入口 |
 | --- | --- |
 | `IndustrialPlatform.SharedKernel` | `Entities/`、`Events/`、`Results/`、`Topology/` |
-| `IndustrialPlatform.Application.Abstractions` | 与业务无关的应用层契约；当前仅程序集标记，后续承载中立初始化协议 |
+| `IndustrialPlatform.Application.Abstractions` | 与业务无关的应用层契约及 `Inspect → Plan → Apply → Verify` 中立初始化协议 |
 | `IndustrialPlatform.Infrastructure` | `Database/SqlSugarDbContext.cs`、`Repository/BaseRepository{TEntity}.cs`、`Caching/` |
 | `IndustrialPlatform.EventBus` | `IEventBus`、`RabbitMqEventBus`、消费者后台服务和订阅管理 |
 | `IndustrialPlatform.Logging` | `UseIndustrialSerilog`、`TraceIdEnricher` |
@@ -51,7 +51,7 @@ dotnet test tests/BuildingBlocks/IndustrialPlatform.BuildingBlocks.Tests/Industr
 
 BuildingBlocks 不拥有业务 Migration、Seed、Bootstrap 或 Ledger。`ResolvedDatabaseTarget` 等拓扑类型只表达非敏感数据库目标。冻结边界是：SystemData 负责 `Topology + Orchestration + Policy + Observation`，目标服务负责 `Migration + Seed + Bootstrap + Verify + Ledger`。
 
-工作包 4 将增加最小 `Inspect → Plan → Apply → Verify` 中立协议；协议不得携带 SQL、密码、管理员凭据、Seed Secret 或文件路径。
+现有 `Inspect → Plan → Apply → Verify` 中立协议不得携带 SQL、密码、管理员凭据、Seed Secret 或文件路径。
 
 ## 测试入口
 

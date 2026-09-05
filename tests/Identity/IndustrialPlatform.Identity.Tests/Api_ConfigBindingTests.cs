@@ -21,7 +21,7 @@ public sealed class ConfigBindingTests
 
         var options = factory.Services.GetRequiredService<IOptions<SqlSugarOptions>>().Value;
 
-        Assert.Equal("Data Source=industrial-platform.identity.db", options.ConnectionString);
+        Assert.Equal("Data Source=industrial-platform.db", options.ConnectionString);
         Assert.Equal(SqlSugar.DbType.Sqlite, options.DbType);
     }
 

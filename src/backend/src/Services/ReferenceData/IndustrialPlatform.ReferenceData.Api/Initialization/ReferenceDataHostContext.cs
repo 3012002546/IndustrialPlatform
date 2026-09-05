@@ -13,7 +13,8 @@ public sealed class ReferenceDataHostContext(IConfiguration configuration, IHost
     {
         var options = new DatabaseTopologyOptions();
         configuration.GetSection(DatabaseTopologyOptions.SectionName).Bind(options);
-        options.EnvironmentName = environment.EnvironmentName;
+        if (!string.Equals(options.EnvironmentName, environment.EnvironmentName, StringComparison.Ordinal))
+            throw new InvalidOperationException("ReferenceData database topology environment does not match the host environment.");
         var key = unifiedHost ? "unifiedhost" : "referencedata";
         if (options.Mode == DatabaseTopologyMode.PerService && !options.ServiceDatabases.ContainsKey(key))
             throw new InvalidOperationException("REF-INITIALIZATION-TARGET-MISSING");

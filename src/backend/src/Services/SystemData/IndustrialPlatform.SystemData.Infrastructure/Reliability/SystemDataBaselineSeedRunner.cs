@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging;
 namespace IndustrialPlatform.SystemData.Infrastructure.Reliability;
 
 /// <summary>
-/// SDM-013～017 SystemBaseline/TenantBaseline。只有显式配置 BaselineTenantNId 才运行，
+/// SDM-013～019 SystemBaseline/TenantBaseline。只有显式配置 BaselineTenantNId 才运行，
 /// 生产环境还必须显式批准自动写入；每个 seed 与版本/checksum 写入同一控制面事务的 seed ledger。
 /// </summary>
 public sealed partial class SystemDataBaselineSeedRunner : BackgroundService
@@ -26,6 +26,16 @@ public sealed partial class SystemDataBaselineSeedRunner : BackgroundService
         "systemdata.service-initialization.view", "systemdata.service-initialization.register", "systemdata.service-initialization.plan", "systemdata.service-initialization.apply", "systemdata.service-initialization.approve", "systemdata.service-initialization.backup", "systemdata.service-initialization.cancel",
         "platform.home.view", "platform.pda.view", "platform.mobile.view",
         "identity.user.view", "identity.user-group.view", "identity.role.view", "identity.permission.view", "identity.audit.login.view", "identity.sso.view",
+    ];
+    private static readonly string[] ReferenceDataPermissions = [
+        "referencedata.dictionary.view", "referencedata.dictionary.create", "referencedata.dictionary.update", "referencedata.dictionary.publish", "referencedata.dictionary.disable",
+        "referencedata.parameter.view", "referencedata.parameter.create", "referencedata.parameter.update", "referencedata.parameter.disable", "referencedata.parameter.read-secret-reference",
+        "referencedata.dynamic-property.view", "referencedata.dynamic-property.create", "referencedata.dynamic-property.update", "referencedata.dynamic-property.publish", "referencedata.dynamic-property.disable",
+        "referencedata.unit-of-measure.view", "referencedata.unit-of-measure.create", "referencedata.unit-of-measure.update", "referencedata.unit-of-measure.publish", "referencedata.unit-of-measure.disable",
+        "referencedata.metadata.view", "referencedata.metadata.create", "referencedata.metadata.update", "referencedata.metadata.publish", "referencedata.metadata.disable",
+        "referencedata.coding-rule.view", "referencedata.coding-rule.create", "referencedata.coding-rule.update", "referencedata.coding-rule.publish", "referencedata.coding-rule.disable", "referencedata.coding-rule.preview", "referencedata.coding-rule.generate",
+        "referencedata.state-machine.view", "referencedata.state-machine.create", "referencedata.state-machine.update", "referencedata.state-machine.publish", "referencedata.state-machine.disable",
+        "referencedata.platform.manage",
     ];
     private static readonly (string NId, string Name, string RouteName, string PermissionNId)[] DefaultResources = [
         // Keep the legacy systemdata.navigation resource intact; the homepage gets its own
@@ -47,15 +57,57 @@ public sealed partial class SystemDataBaselineSeedRunner : BackgroundService
         ("systemdata.navigation.systemdata-services", "服务目录", "systemdata-services", "systemdata.service-catalog.view"),
         ("systemdata.navigation.systemdata-service-initialization", "服务初始化编排", "systemdata-service-initialization", "systemdata.service-initialization.view"),
     ];
+    private static readonly (string NId, string Name, string RouteName, string PermissionNId)[] ReferenceDataResources = [
+        ("referencedata.navigation.dictionaries", "字典管理", "reference-data-dictionaries", "referencedata.dictionary.view"),
+        ("referencedata.navigation.parameters", "参数管理", "reference-data-parameters", "referencedata.parameter.view"),
+        ("referencedata.navigation.dynamic-properties", "动态属性", "reference-data-dynamic-properties", "referencedata.dynamic-property.view"),
+        ("referencedata.navigation.units-of-measure", "计量单位", "reference-data-units-of-measure", "referencedata.unit-of-measure.view"),
+        ("referencedata.navigation.metadata", "元数据 Schema", "reference-data-metadata", "referencedata.metadata.view"),
+        ("referencedata.navigation.coding-rules", "编码规则", "reference-data-coding-rules", "referencedata.coding-rule.view"),
+        ("referencedata.navigation.state-machines", "状态机定义", "reference-data-state-machines", "referencedata.state-machine.view"),
+    ];
     internal const string CurrentManifestSeedKey = "SDM-017";
     internal const string CurrentManifestVersion = "2";
     internal const string ResourceConsistencySeedKey = "SDM-018";
     internal const string ResourceConsistencySeedVersion = "1";
+    internal const string ReferenceDataManifestSeedKey = "SDM-019";
+    internal const string ReferenceDataManifestVersion = "1";
     internal const string RequiredFeatureNId = "systemdata.control-plane";
     internal const string RequiredCatalogNId = "systemdata";
     internal static string CurrentManifestChecksum => Checksum(CurrentManifestSeedKey);
     internal static IReadOnlyCollection<string> RequiredPermissionNIds => SystemDataPermissions;
     internal static IReadOnlyCollection<(string NId, string Name, string RouteName, string PermissionNId)> RequiredResourceFacts => DefaultResources;
+    internal static string ReferenceDataManifestChecksum => Checksum(ReferenceDataManifestSeedKey);
+    internal static IReadOnlyCollection<string> RequiredReferenceDataPermissionNIds => ReferenceDataPermissions;
+    internal static IReadOnlyCollection<(string NId, string Name, string RouteName, string PermissionNId)> RequiredReferenceDataResourceFacts => ReferenceDataResources;
+
+    internal static bool IsReferenceDataBootstrapReady(ControlPlaneSnapshot controlPlane)
+    {
+        var manifest = controlPlane.Manifests.SingleOrDefault(item => item.ModuleNId.Equals("referencedata", StringComparison.OrdinalIgnoreCase));
+        var receipt = controlPlane.PermissionReceipts.SingleOrDefault(item => item.ModuleNId.Equals("referencedata", StringComparison.OrdinalIgnoreCase));
+        var requiredPermissions = ReferenceDataPermissions.Order(StringComparer.OrdinalIgnoreCase).ToArray();
+        var manifestPermissions = manifest?.PermissionNIds.Order(StringComparer.OrdinalIgnoreCase).ToArray();
+        var requiredResourcesReady = ReferenceDataResources.All(required =>
+            controlPlane.Resources.Any(resource =>
+                resource.NId.Equals(required.NId, StringComparison.OrdinalIgnoreCase)
+                && resource.OwnerModuleNId.Equals("referencedata", StringComparison.OrdinalIgnoreCase)
+                && resource.Type == UiResourceType.Page
+                && resource.ManifestVersion == ReferenceDataManifestVersion
+                && resource.RouteName == required.RouteName
+                && resource.RequiredPermissionNId == required.PermissionNId
+                && resource.Status == UiResourceStatus.Active));
+        return manifest is not null
+            && manifest.ManifestVersion == ReferenceDataManifestVersion
+            && manifest.Checksum.Equals(ReferenceDataManifestChecksum, StringComparison.OrdinalIgnoreCase)
+            && manifestPermissions is not null
+            && manifestPermissions.SequenceEqual(requiredPermissions, StringComparer.OrdinalIgnoreCase)
+            && manifest.PermissionReceiptVersion == ReferenceDataManifestVersion
+            && string.Equals(manifest.PermissionReceiptChecksum, ReferenceDataManifestChecksum, StringComparison.OrdinalIgnoreCase)
+            && receipt is { Verified: true }
+            && receipt.ManifestVersion == ReferenceDataManifestVersion
+            && receipt.Checksum.Equals(ReferenceDataManifestChecksum, StringComparison.OrdinalIgnoreCase)
+            && requiredResourcesReady;
+    }
 
     internal static bool IsCurrentTheme(ThemePolicy? theme) => theme is not null
         && theme.AllowedPalettes.Count > 0
@@ -128,6 +180,28 @@ public sealed partial class SystemDataBaselineSeedRunner : BackgroundService
                 throw new InvalidOperationException("Identity permission registry did not verify the SystemData baseline manifest.");
             }
 
+            var referenceDataChecksum = ReferenceDataManifestChecksum;
+            var referenceDataPermissionManifest = new PermissionManifestV1(
+                "referencedata",
+                ReferenceDataManifestVersion,
+                referenceDataChecksum,
+                ReferenceDataPermissions.Select(x => new PermissionManifestEntry(
+                    x,
+                    x,
+                    x.EndsWith(".view", StringComparison.OrdinalIgnoreCase) ? "Page" : "Action",
+                    null)).ToArray());
+            var referenceDataPermissionReceipt = _permissionRegistry is null
+                ? null
+                : await _permissionRegistry.VerifyAsync(referenceDataPermissionManifest, cancellationToken);
+            if (referenceDataPermissionReceipt is null
+                || !referenceDataPermissionReceipt.Verified
+                || !string.Equals(referenceDataPermissionReceipt.ModuleNId, referenceDataPermissionManifest.ModuleNId, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(referenceDataPermissionReceipt.ManifestVersion, referenceDataPermissionManifest.ManifestVersion, StringComparison.Ordinal)
+                || !string.Equals(referenceDataPermissionReceipt.Checksum, referenceDataPermissionManifest.Checksum, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("Identity permission registry did not verify the ReferenceData baseline manifest.");
+            }
+
             await ApplySeedAsync(tenantNId, "SDM-013", "1", ["permissions", "resources", "navigation"], state =>
             {
                 var checksum = Checksum("SDM-013");
@@ -190,6 +264,75 @@ public sealed partial class SystemDataBaselineSeedRunner : BackgroundService
                     PermissionReceipts = state.PermissionReceipts
                         .Where(existing => !existing.ModuleNId.Equals("systemdata", StringComparison.OrdinalIgnoreCase))
                         .Append(new PermissionReceipt("systemdata", permissionReceipt.ManifestVersion, permissionReceipt.Checksum, permissionReceipt.Verified))
+                        .ToArray(),
+                    Resources = resources,
+                };
+            }, cancellationToken);
+            await ApplySeedAsync(tenantNId, ReferenceDataManifestSeedKey, "1", ["permissions", "resources"], state =>
+            {
+                var manifest = new ModuleManifestState(
+                    tenantNId,
+                    "referencedata",
+                    ReferenceDataManifestVersion,
+                    referenceDataChecksum,
+                    ReferenceDataPermissions,
+                    referenceDataPermissionReceipt.ManifestVersion,
+                    referenceDataPermissionReceipt.Checksum,
+                    referenceDataPermissionReceipt.VerifiedOn)
+                {
+                    PermissionDeclarationItems = referenceDataPermissionManifest.Permissions,
+                    ResourceDeclarations = ReferenceDataResources
+                        .Select(item => new ModuleResourceDeclaration(
+                            item.NId,
+                            ReferenceDataManifestVersion,
+                            nameof(UiResourceType.Page),
+                            item.Name,
+                            item.RouteName,
+                            item.PermissionNId,
+                            [UiTerminal.Pc, UiTerminal.Pda, UiTerminal.Mobile]))
+                        .ToArray(),
+                };
+                var resources = state.Resources.ToList();
+                foreach (var item in ReferenceDataResources)
+                {
+                    var resource = UiResource.Create(
+                        tenantNId,
+                        item.NId,
+                        "referencedata",
+                        ReferenceDataManifestVersion,
+                        UiResourceType.Page,
+                        item.Name,
+                        item.RouteName,
+                        item.PermissionNId,
+                        [UiTerminal.Pc, UiTerminal.Pda, UiTerminal.Mobile]);
+                    var current = resources.FirstOrDefault(existing => existing.NId.Equals(resource.NId, StringComparison.OrdinalIgnoreCase));
+                    if (current is null)
+                    {
+                        resources.Add(resource);
+                        continue;
+                    }
+
+                    if (!current.OwnerModuleNId.Equals("referencedata", StringComparison.OrdinalIgnoreCase))
+                        throw new InvalidOperationException($"ReferenceData resource identity collision: {resource.NId}.");
+                    if (current.Type != resource.Type
+                        || !string.Equals(current.Name, resource.Name, StringComparison.Ordinal)
+                        || !string.Equals(current.RouteName, resource.RouteName, StringComparison.Ordinal)
+                        || !string.Equals(current.RequiredPermissionNId, resource.RequiredPermissionNId, StringComparison.OrdinalIgnoreCase)
+                        || !current.SupportedTerminals.ToHashSet().SetEquals(resource.SupportedTerminals))
+                        throw new InvalidOperationException($"ReferenceData resource declaration conflict: {resource.NId}.");
+                    if (current.ManifestVersion != ReferenceDataManifestVersion)
+                        resources[resources.IndexOf(current)] = current.RebindManifestVersion(ReferenceDataManifestVersion);
+                }
+
+                return state with
+                {
+                    Manifests = state.Manifests
+                        .Where(existing => !existing.ModuleNId.Equals("referencedata", StringComparison.OrdinalIgnoreCase))
+                        .Append(manifest)
+                        .ToArray(),
+                    PermissionReceipts = state.PermissionReceipts
+                        .Where(existing => !existing.ModuleNId.Equals("referencedata", StringComparison.OrdinalIgnoreCase))
+                        .Append(new PermissionReceipt("referencedata", referenceDataPermissionReceipt.ManifestVersion, referenceDataPermissionReceipt.Checksum, referenceDataPermissionReceipt.Verified))
                         .ToArray(),
                     Resources = resources,
                 };

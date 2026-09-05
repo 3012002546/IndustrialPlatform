@@ -5,6 +5,7 @@ using IndustrialPlatform.Infrastructure.Database;
 using IndustrialPlatform.SharedKernel.Topology;
 using IndustrialPlatform.SystemData.Application.ControlPlane;
 using IndustrialPlatform.SystemData.Application.Reliability;
+using IndustrialPlatform.SystemData.Contracts.ControlPlane;
 using IndustrialPlatform.SystemData.Domain.ControlPlane;
 using IndustrialPlatform.SystemData.Infrastructure.DatabaseOrchestration.Initialization;
 using IndustrialPlatform.SystemData.Infrastructure.Persistence.Entities;
@@ -49,6 +50,12 @@ public sealed class SystemDataBaselineSeedRunnerTests
         Assert.Contains(harness.Store.Snapshot.Resources, resource => resource.NId == "tenant.navigation.custom");
         Assert.Contains("SDM-013", harness.Store.AppliedSeedKeys);
         Assert.Contains("SDM-017", harness.Store.AppliedSeedKeys);
+        Assert.Contains(SystemDataBaselineSeedRunner.ReferenceDataManifestSeedKey, harness.Store.AppliedSeedKeys);
+        var referenceDataManifest = harness.Store.Snapshot.Manifests.Single(manifest => manifest.ModuleNId == "referencedata");
+        Assert.Equal(38, referenceDataManifest.PermissionNIds.Count);
+        Assert.Equal(7, referenceDataManifest.ResourceDeclarations.Count);
+        Assert.Equal(7, harness.Store.Snapshot.Resources.Count(resource => resource.OwnerModuleNId == "referencedata"));
+        Assert.True(SystemDataBaselineSeedRunner.IsReferenceDataBootstrapReady(harness.Store.Snapshot));
 
         var revision = harness.Store.Snapshot.Revision;
         var commitCount = harness.Store.CommitCount;
@@ -58,6 +65,52 @@ public sealed class SystemDataBaselineSeedRunnerTests
         Assert.True(second.Ready);
         Assert.Equal(revision, harness.Store.Snapshot.Revision);
         Assert.Equal(commitCount, harness.Store.CommitCount);
+    }
+
+    [Fact]
+    public async Task Reference_data_defaults_preview_import_publish_and_remain_additive_to_custom_draft_nodes()
+    {
+        using var harness = new BaselineHarness();
+        var initial = await harness.Initializer.InspectAsync(harness.Context, CancellationToken.None);
+        await harness.Initializer.ApplyAsync(
+            harness.Context,
+            await harness.Initializer.PlanAsync(harness.Context, initial, CancellationToken.None),
+            CancellationToken.None);
+
+        var customGroup = NavigationNode.CreateGroup(Tenant, "tenant.custom.group", "租户自定义", null, "PLATFORM_NAVIGATION");
+        customGroup.SetDisplayOrder(99);
+        var customLink = NavigationNode.CreateLink(
+            Tenant,
+            "tenant.custom.link",
+            "租户入口",
+            customGroup.NId,
+            "PLATFORM_NAVIGATION",
+            "systemdata.navigation.pc-home",
+            null,
+            [UiTerminal.Pc]);
+        harness.Store.ReplaceSnapshot(harness.Store.Snapshot with { DraftNodes = [customGroup, customLink] });
+        var service = new ResourceNavigationService(harness.Store, new VerifiedPermissionRegistry());
+
+        var preview = await service.PreviewDefaultImportAsync(Tenant, CancellationToken.None);
+        Assert.Equal(8, preview.Items.Count(item => item.NodeNId == "navigation.group.reference-data" || item.NodeNId.StartsWith("navigation.link.reference-data-", StringComparison.Ordinal)));
+        Assert.All(preview.Items.Where(item => item.NodeNId.StartsWith("navigation.link.reference-data-", StringComparison.Ordinal)), item => Assert.Equal("Add", item.Action));
+
+        var imported = await service.ImportDefaultsAsync(Tenant, new ImportNavigationDefaultsRequest { ExpectedDraftRevision = preview.DraftRevision }, CancellationToken.None);
+        Assert.All(imported.Items.Where(item => item.NodeNId == "navigation.group.reference-data" || item.NodeNId.StartsWith("navigation.link.reference-data-", StringComparison.Ordinal)), item => Assert.Equal("Added", item.Action));
+        Assert.Contains(harness.Store.Snapshot.DraftNodes, node => node.NId == customGroup.NId && node.Label == customGroup.Label);
+
+        var repeated = await service.PreviewDefaultImportAsync(Tenant, CancellationToken.None);
+        Assert.All(repeated.Items.Where(item => item.NodeNId == "navigation.group.reference-data" || item.NodeNId.StartsWith("navigation.link.reference-data-", StringComparison.Ordinal)), item => Assert.Equal("Skipped", item.Action));
+
+        var validation = await service.ValidateAsync(Tenant, CancellationToken.None);
+        Assert.True(validation.IsValid, string.Join("; ", validation.Errors.Select(error => $"{error.Code}:{error.NodeNId}")));
+        var publishedRevision = await service.PublishAsync(Tenant, "acceptance", repeated.DraftRevision, CancellationToken.None);
+        var runtime = await service.RuntimeAsync(Tenant, UiTerminal.Pc, CancellationToken.None);
+
+        Assert.Equal(publishedRevision, runtime.Revision);
+        var referenceDataGroup = runtime.Nodes.Single(node => node.NodeNId == "navigation.group.reference-data");
+        Assert.Equal(7, referenceDataGroup.Children.Count);
+        Assert.Contains(runtime.Nodes, node => node.NodeNId == customGroup.NId);
     }
 
     [Fact]

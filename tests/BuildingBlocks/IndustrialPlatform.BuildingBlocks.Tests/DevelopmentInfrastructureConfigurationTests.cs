@@ -96,6 +96,9 @@ public sealed class DevelopmentInfrastructureConfigurationTests
                 ContentRootPath = contentRoot,
             });
             builder.Configuration["IndustrialPlatform:DevelopmentInfrastructureMode"] = "Sqlite";
+            builder.Configuration["DatabaseTopology:EnvironmentName"] = "Development";
+            builder.Configuration["DatabaseTopology:Mode"] = "Shared";
+            builder.Configuration["DatabaseTopology:SharedSqliteFile"] = "industrial-platform.db";
 
             var loaded = builder.AddOptionalLocalDevelopmentInfrastructure(DevelopmentService.Identity);
 
@@ -106,6 +109,51 @@ public sealed class DevelopmentInfrastructureConfigurationTests
             File.Delete(source);
             Directory.Delete(root, recursive: true);
         }
+    }
+
+    [Fact]
+    public void ExplicitSqliteModeUsesTheSharedTopologyFile()
+    {
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+        {
+            EnvironmentName = "Development",
+            ContentRootPath = Path.GetTempPath(),
+        });
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["IndustrialPlatform:DevelopmentInfrastructureMode"] = "Sqlite",
+            ["DatabaseTopology:EnvironmentName"] = "Development",
+            ["DatabaseTopology:Mode"] = "Shared",
+            ["DatabaseTopology:SharedSqliteFile"] = "shared-test.db",
+        });
+
+        var loaded = builder.AddOptionalLocalDevelopmentInfrastructure(DevelopmentService.ReferenceData);
+
+        Assert.False(loaded);
+        Assert.Equal("Sqlite", builder.Configuration["SqlSugar:DbType"]);
+        Assert.Equal("Data Source=shared-test.db", builder.Configuration["SqlSugar:ConnectionString"]);
+    }
+
+    [Fact]
+    public void SqliteModeRejectsTopologyEnvironmentDifferentFromHostEnvironment()
+    {
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+        {
+            EnvironmentName = "Staging",
+            ContentRootPath = Path.GetTempPath(),
+        });
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["IndustrialPlatform:DevelopmentInfrastructureMode"] = "Sqlite",
+            ["DatabaseTopology:EnvironmentName"] = "Development",
+            ["DatabaseTopology:Mode"] = "Shared",
+            ["DatabaseTopology:SharedSqliteFile"] = "shared-test.db",
+        });
+
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            builder.AddOptionalLocalDevelopmentInfrastructure(DevelopmentService.ReferenceData));
+
+        Assert.Contains("EnvironmentName", exception.Message);
     }
 
     [Fact]

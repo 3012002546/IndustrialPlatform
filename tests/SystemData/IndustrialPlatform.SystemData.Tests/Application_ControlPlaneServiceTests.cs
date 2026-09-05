@@ -31,6 +31,27 @@ public sealed class ControlPlaneServiceTests
     }
 
     [Fact]
+    public async Task Default_navigation_preview_declares_reference_data_root_and_seven_links()
+    {
+        var service = new ResourceNavigationService(new ControlPlaneTestStore(), new TestPermissionRegistry());
+
+        var preview = await service.PreviewDefaultImportAsync("tenant-a", CancellationToken.None);
+
+        var referenceDataItems = preview.Items
+            .Where(item => item.NodeNId == "navigation.group.reference-data"
+                || item.NodeNId.StartsWith("navigation.link.reference-data-", StringComparison.Ordinal))
+            .ToArray();
+
+        Assert.Equal(8, referenceDataItems.Length);
+        Assert.Equal("navigation.group.reference-data", referenceDataItems[0].NodeNId);
+        Assert.All(referenceDataItems.Skip(1), item =>
+        {
+            Assert.Equal("navigation.group.reference-data", item.ParentNodeNId);
+            Assert.Equal("Blocked", item.Action);
+        });
+    }
+
+    [Fact]
     public async Task Module_manifest_registers_full_permission_manifest_and_trusted_declarations_idempotently()
     {
         var store = new ControlPlaneTestStore();

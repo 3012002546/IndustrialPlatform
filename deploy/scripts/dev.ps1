@@ -7,7 +7,7 @@
     Starts (in dependency order), stops, or reports the status of the local
     development stack. Default mode starts the single UnifiedHost process
     (Identity + SystemData + ReferenceData composed); use -IndependentServices
-    to start the independent backend services (Gateway + Identity + ReferenceData)
+    to start the independent backend services (Gateway + Identity + SystemData + ReferenceData)
     for boundary validation and future split. The frontend (Vite) is NOT started
     automatically — run it separately.
 
@@ -28,7 +28,7 @@
     Skip the solution build before starting services.
 
 .PARAMETER IndependentServices
-    Start the independent backend services (Gateway + Identity + ReferenceData)
+    Start the independent backend services (Gateway + Identity + SystemData + ReferenceData)
     instead of the default single UnifiedHost process. Default (no switch) is
     UnifiedHost only — the daily debugging entry (UnifiedHost + Vite).
     `status` and `stop` target the same mode as `start`.
@@ -73,13 +73,14 @@ $TargetTfm  = 'net10.0'
 # Default (no switch): only the single UnifiedHost process
 # (composed Identity + SystemData + ReferenceData) - the daily entry (UnifiedHost + Vite).
 # status/stop use the same registry as start, so their targets match the start mode.
-# -IndependentServices: start Gateway + Identity + ReferenceData for boundary
+# -IndependentServices: start Gateway + Identity + SystemData + ReferenceData for boundary
 # validation and future split.
 # ---------------------------------------------------------------------------
 if ($IndependentServices) {
     $Services = @(
         [pscustomobject]@{ Name = 'Gateway';       Port = 5080;  Project = 'src\backend\src\Gateway\IndustrialPlatform.Gateway\IndustrialPlatform.Gateway.csproj';  HealthPath = '/health' }
         [pscustomobject]@{ Name = 'Identity';      Port = 5041;  Project = 'src\backend\src\Services\Identity\IndustrialPlatform.Identity.Api\IndustrialPlatform.Identity.Api.csproj';      HealthPath = '/health' }
+        [pscustomobject]@{ Name = 'SystemData';    Port = 5042;  Project = 'src\backend\src\Services\SystemData\IndustrialPlatform.SystemData.Api\IndustrialPlatform.SystemData.Api.csproj';    HealthPath = '/health' }
         [pscustomobject]@{ Name = 'ReferenceData'; Port = 62311; Project = 'src\backend\src\Services\ReferenceData\IndustrialPlatform.ReferenceData.Api\IndustrialPlatform.ReferenceData.Api.csproj'; HealthPath = '/health' }
     )
 } else {
@@ -298,6 +299,7 @@ function Start-Stack {
     } else {
         Write-Host '  Gateway       http://localhost:5080'
         Write-Host '  Identity      http://localhost:5041'
+        Write-Host '  SystemData    http://localhost:5042'
         Write-Host '  ReferenceData http://localhost:62311'
         Write-Host '  Seq           http://localhost:5341'
         Write-Host '  RabbitMQ      http://localhost:15672'

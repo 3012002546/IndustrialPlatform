@@ -12,7 +12,8 @@
       3. Start the default UnifiedHost via deploy/scripts/dev.ps1, or the
          explicitly requested independent services.
          (infrastructure skipped; Docker acceptance is deferred).
-      4. Probe UnifiedHost health, readiness and the unified 404 envelope.
+      4. Probe UnifiedHost or independent-service health, readiness, forwarding,
+         and the relevant 404 envelope.
       5. Report infrastructure container status (N/A when Docker is absent).
       6. Stop services (unless -KeepRunning).
 
@@ -23,7 +24,7 @@
     Leave services running after the smoke test instead of stopping them.
 
 .PARAMETER IndependentServices
-    Explicitly validate the distributed Gateway + Identity + ReferenceData
+    Explicitly validate the distributed Gateway + Identity + SystemData + ReferenceData
     deployment. The default remains the single UnifiedHost on port 5041.
 
 .EXAMPLE
@@ -171,9 +172,12 @@ if ($startExit -eq 0) {
         $probes = @(
             [pscustomobject]@{ Name = 'Gateway /health';          Url = 'http://localhost:5080/health';          Expect = 200 }
             [pscustomobject]@{ Name = 'Identity /health';         Url = 'http://localhost:5041/health';          Expect = 200 }
+            [pscustomobject]@{ Name = 'SystemData /health';       Url = 'http://localhost:5042/health';          Expect = 200 }
             [pscustomobject]@{ Name = 'ReferenceData /health';    Url = 'http://localhost:62311/health';         Expect = 200 }
             [pscustomobject]@{ Name = 'Gateway /health/live';     Url = 'http://localhost:5080/health/live';     Expect = 200 }
             [pscustomobject]@{ Name = 'Gateway /identity/health'; Url = 'http://localhost:5080/identity/health'; Expect = 200 }
+            [pscustomobject]@{ Name = 'Gateway /systemdata/health'; Url = 'http://localhost:5080/systemdata/health'; Expect = 200 }
+            [pscustomobject]@{ Name = 'Gateway /referencedata/health'; Url = 'http://localhost:5080/referencedata/health'; Expect = 200 }
             [pscustomobject]@{ Name = 'Gateway unknown API (404)'; Url = 'http://localhost:5080/unknown';       Expect = 404 }
         )
     } else {
@@ -214,6 +218,24 @@ if ($startExit -eq 0) {
         Write-Host ("  {0}  Gateway forwarding body mentions service=Identity" -f $(if ($forwardOk) { 'PASS' } else { 'FAIL' }))
         Add-StepResult 'Probe gateway forwarding body' $(if ($forwardOk) { 0 } else { 1 }) $(if ($forwardOk) { 'body ok' } else { $forwardBody })
         if (-not $forwardOk) { $OverallOk = $false }
+
+        $systemDataForwardBody = ''
+        try {
+            $systemDataForwardBody = (Invoke-WebRequest -Uri 'http://localhost:5080/systemdata/health' -UseBasicParsing -TimeoutSec 5).Content
+        } catch { }
+        $systemDataForwardOk = $systemDataForwardBody -match '"service"\s*:\s*"SystemData"'
+        Write-Host ("  {0}  Gateway forwarding body mentions service=SystemData" -f $(if ($systemDataForwardOk) { 'PASS' } else { 'FAIL' }))
+        Add-StepResult 'Probe gateway SystemData forwarding body' $(if ($systemDataForwardOk) { 0 } else { 1 }) $(if ($systemDataForwardOk) { 'body ok' } else { $systemDataForwardBody })
+        if (-not $systemDataForwardOk) { $OverallOk = $false }
+
+        $referenceDataForwardBody = ''
+        try {
+            $referenceDataForwardBody = (Invoke-WebRequest -Uri 'http://localhost:5080/referencedata/health' -UseBasicParsing -TimeoutSec 5).Content
+        } catch { }
+        $referenceDataForwardOk = $referenceDataForwardBody -match '"service"\s*:\s*"ReferenceData"'
+        Write-Host ("  {0}  Gateway forwarding body mentions service=ReferenceData" -f $(if ($referenceDataForwardOk) { 'PASS' } else { 'FAIL' }))
+        Add-StepResult 'Probe gateway ReferenceData forwarding body' $(if ($referenceDataForwardOk) { 0 } else { 1 }) $(if ($referenceDataForwardOk) { 'body ok' } else { $referenceDataForwardBody })
+        if (-not $referenceDataForwardOk) { $OverallOk = $false }
     } else {
         $healthBody = ''
         try {

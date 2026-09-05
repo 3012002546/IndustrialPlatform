@@ -161,7 +161,7 @@ export const zhCN = {
     navigation: {
       workspace: '工作台',
       platformManagement: '平台管理',
-      group: { workspace: '工作台', system: '系统管理' },
+      group: { workspace: '工作台', 'reference-data': '参考数据', system: '系统管理' },
       section: {
         'reference-data': '参考数据',
         'identity-access': '身份与访问',

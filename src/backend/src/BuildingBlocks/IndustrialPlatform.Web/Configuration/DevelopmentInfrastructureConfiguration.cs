@@ -41,7 +41,7 @@ public static class DevelopmentInfrastructureConfiguration
             [DevelopmentService.SystemData] = ("systemdata", "systemdata_db"),
             // UnifiedHost 单连接承载全部模块:Shared 模式解析共享物理库;PerService 模式
             // 需要 ServiceDatabases["unifiedhost"] 显式映射(否则启动明确失败,见 ResolveTarget)。
-            [DevelopmentService.UnifiedHost] = ("unifiedhost", "identity_db"),
+            [DevelopmentService.UnifiedHost] = ("unifiedhost", "unifiedhost_db"),
         };
 
     public static bool AddOptionalLocalDevelopmentInfrastructure(
@@ -53,6 +53,7 @@ public static class DevelopmentInfrastructureConfiguration
         var mode = builder.Configuration[DevelopmentInfrastructureModeKey];
         if (string.Equals(mode, "Sqlite", StringComparison.OrdinalIgnoreCase))
         {
+            ApplySqliteTopology(builder.Configuration, service, builder.Environment.EnvironmentName);
             return false;
         }
 
@@ -73,7 +74,7 @@ public static class DevelopmentInfrastructureConfiguration
                 + $"如测试需要 SQLite，必须显式设置 {DevelopmentInfrastructureModeKey}=Sqlite。");
         }
 
-        if (!Apply(builder.Configuration, localConfigurationPath, service))
+        if (!Apply(builder.Configuration, localConfigurationPath, service, builder.Environment.EnvironmentName))
         {
             throw new InvalidOperationException(
                 $"统一 Development 配置未启用 RemoteDevelopment.Enabled。"
@@ -116,7 +117,8 @@ public static class DevelopmentInfrastructureConfiguration
     public static bool Apply(
         ConfigurationManager configuration,
         string localConfigurationPath,
-        DevelopmentService service)
+        DevelopmentService service,
+        string? expectedEnvironmentName = null)
     {
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentException.ThrowIfNullOrWhiteSpace(localConfigurationPath);
@@ -138,7 +140,7 @@ public static class DevelopmentInfrastructureConfiguration
         var redis = section.GetRequiredSection("Redis");
 
         // 数据库物理名唯一来源:DatabaseTopology(解析失败抛明确、脱敏的启动错误)。
-        var target = ResolveTarget(configuration, service);
+        var target = ResolveTarget(configuration, service, DatabaseProvider.PostgreSQL, expectedEnvironmentName);
 
         var sql = new DbConnectionStringBuilder
         {
@@ -180,13 +182,34 @@ public static class DevelopmentInfrastructureConfiguration
         return true;
     }
 
+    private static void ApplySqliteTopology(
+        ConfigurationManager configuration,
+        DevelopmentService service,
+        string expectedEnvironmentName)
+    {
+        var target = ResolveTarget(configuration, service, DatabaseProvider.Sqlite, expectedEnvironmentName);
+        var connection = new DbConnectionStringBuilder
+        {
+            ["Data Source"] = target.PhysicalDatabaseName,
+        };
+        configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["SqlSugar:DbType"] = "Sqlite",
+            ["SqlSugar:ConnectionString"] = connection.ConnectionString,
+        });
+    }
+
     /// <summary>
     /// 解析当前服务的 PostgreSQL 物理库目标。复用 <see cref="DatabaseTopologyResolver"/>
     /// 的领域解析规则;启动连接串路径比编排更严格:Shared 缺名、PerService 缺映射、
     /// 非法 Mode 都在启动期明确失败,不允许 PerService 静默回退逻辑名。
     /// 错误消息只含逻辑服务键与配置键,不含地址、账号、密码等敏感值。
     /// </summary>
-    private static ResolvedDatabaseTarget ResolveTarget(ConfigurationManager configuration, DevelopmentService service)
+    private static ResolvedDatabaseTarget ResolveTarget(
+        ConfigurationManager configuration,
+        DevelopmentService service,
+        DatabaseProvider provider,
+        string? expectedEnvironmentName = null)
     {
         var (serviceKey, logicalDatabaseName) = Services[service];
 
@@ -195,13 +218,23 @@ public static class DevelopmentInfrastructureConfiguration
         section.Bind(options);
 
         var topology = options.ToTopology();
+        if (!string.IsNullOrWhiteSpace(expectedEnvironmentName)
+            && !string.Equals(topology.EnvironmentName, expectedEnvironmentName, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"Development 数据库拓扑配置 {DatabaseTopologyOptions.SectionName}:EnvironmentName 与宿主环境不一致。");
+        }
+
         switch (topology.Mode)
         {
             case DatabaseTopologyMode.Shared:
-                if (string.IsNullOrWhiteSpace(topology.SharedDatabaseName))
+                var sharedTarget = provider == DatabaseProvider.Sqlite
+                    ? topology.SharedSqliteFile
+                    : topology.SharedDatabaseName;
+                if (string.IsNullOrWhiteSpace(sharedTarget))
                 {
                     throw new InvalidOperationException(
-                        $"Development 数据库拓扑配置 {DatabaseTopologyOptions.SectionName}:SharedDatabaseName 缺失,无法解析共享物理库。");
+                        $"Development 数据库拓扑配置 {DatabaseTopologyOptions.SectionName}:{(provider == DatabaseProvider.Sqlite ? "SharedSqliteFile" : "SharedDatabaseName")} 缺失,无法解析共享物理库。");
                 }
 
                 break;
@@ -219,7 +252,7 @@ public static class DevelopmentInfrastructureConfiguration
                     $"Development 数据库拓扑配置 {DatabaseTopologyOptions.SectionName}:Mode 非法:{topology.Mode}。");
         }
 
-        return DatabaseTopologyResolver.Resolve(topology, serviceKey, DatabaseProvider.PostgreSQL, logicalDatabaseName);
+        return DatabaseTopologyResolver.Resolve(topology, serviceKey, provider, logicalDatabaseName);
     }
 
     private static string Required(IConfigurationSection section, string key) =>

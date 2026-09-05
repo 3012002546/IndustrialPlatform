@@ -171,7 +171,7 @@ export const enUS = {
     navigation: {
       workspace: 'Workspace',
       platformManagement: 'Platform management',
-      group: { workspace: 'Workspace', system: 'System management' },
+      group: { workspace: 'Workspace', 'reference-data': 'Reference data', system: 'System management' },
       section: {
         'reference-data': 'Reference data',
         'identity-access': 'Identity & access',

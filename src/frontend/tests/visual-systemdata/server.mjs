@@ -1,4 +1,5 @@
 import { createServer } from 'node:http'
+import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 
@@ -13,7 +14,7 @@ import {
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url))
 const frontendRoot = resolve(scriptDirectory, '../..')
-const visualViteCacheDirectory = 'C:/Users/DONG/AppData/Local/Temp/pf02-systemdata-vite-cache'
+const visualViteCacheDirectory = resolve(tmpdir(), 'pf02-systemdata-vite-cache')
 const portArgumentIndex = process.argv.indexOf('--port')
 const parsedPort = portArgumentIndex >= 0 ? Number(process.argv[portArgumentIndex + 1]) : 4187
 const port = Number.isInteger(parsedPort) && parsedPort > 0 ? parsedPort : 4187

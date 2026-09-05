@@ -91,6 +91,7 @@ public sealed class SystemDataServiceInitializer : IServiceInitializer
                     && receipt.ManifestVersion == SystemDataBaselineSeedRunner.CurrentManifestVersion
                     && receipt.Checksum.Equals(SystemDataBaselineSeedRunner.CurrentManifestChecksum, StringComparison.OrdinalIgnoreCase)
                     && requiredResourcesReady;
+                bootstrapReady = bootstrapReady && SystemDataBaselineSeedRunner.IsReferenceDataBootstrapReady(controlPlane);
             }
 
             // 版本按声明的迁移序列计算，而不是按 AppliedOn 或字符串最大值，兼容历史补录旧编号。

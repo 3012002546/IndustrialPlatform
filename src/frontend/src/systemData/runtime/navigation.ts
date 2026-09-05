@@ -40,9 +40,8 @@ const ICONS = new Map<string, Component>([
 const defaultGroups = getDefaultPcNavigationGroups()
 const defaultItems = defaultGroups.flatMap((group) => group.items)
 
-// Frozen fingerprint of the SystemData default published before PF-03.  Exact
-// matching keeps configured-empty and tenant-customized snapshots authoritative.
-// prettier-ignore
+/* Retained only as a compatibility marker for the historical snapshot shape;
+// runtime navigation never uses it to add nodes.
 const LEGACY_DEFAULT_NAVIGATION_FINGERPRINT = JSON.stringify([
   [null, 'navigation.group.workspace', 'Group', '工作台', null, null, null, null, null, 0],
   ['navigation.group.workspace', 'navigation.link.pc-home', 'Link', '首页', 'systemdata.navigation.pc-home', 'pc-home', 'platform.home.view', null, null, 0],
@@ -65,50 +64,32 @@ const LEGACY_DEFAULT_NAVIGATION_FINGERPRINT = JSON.stringify([
   ['navigation.group.menu-platform', 'navigation.link.systemdata-themes', 'Link', '租户主题策略', 'systemdata.navigation.systemdata-themes', 'systemdata-themes', 'systemdata.theme-policy.view', null, null, 2],
   ['navigation.group.system', 'navigation.group.service-operations', 'Group', '服务与运维', null, null, null, null, null, 3],
   ['navigation.group.service-operations', 'navigation.link.systemdata-services', 'Link', '服务目录', 'systemdata.navigation.systemdata-services', 'systemdata-services', 'systemdata.service-catalog.view', null, null, 0],
-  ['navigation.group.service-operations', 'navigation.link.systemdata-service-initialization', 'Link', '服务初始化编排', 'systemdata.navigation.systemdata-service-initialization', 'systemdata-service-initialization', 'systemdata.service-initialization.view', null, null, 1],
+  ['navigation.group.reference-data', { labelKey: 'shell.navigation.group.reference-data', fallbackLabel: '参考数据' }],
+  ['navigation.link.reference-data-dictionaries', { labelKey: 'shell.navigation.item.reference-data-dictionaries', fallbackLabel: '字典管理' }],
+  ['navigation.link.reference-data-parameters', { labelKey: 'shell.navigation.item.reference-data-parameters', fallbackLabel: '参数管理' }],
+  ['navigation.link.reference-data-dynamic-properties', { labelKey: 'shell.navigation.item.reference-data-dynamic-properties', fallbackLabel: '动态属性' }],
+  ['navigation.link.reference-data-units-of-measure', { labelKey: 'shell.navigation.item.reference-data-units-of-measure', fallbackLabel: '计量单位' }],
+  ['navigation.link.reference-data-metadata', { labelKey: 'shell.navigation.item.reference-data-metadata', fallbackLabel: '元数据 Schema' }],
+  ['navigation.link.reference-data-coding-rules', { labelKey: 'shell.navigation.item.reference-data-coding-rules', fallbackLabel: '编码规则' }],
+  ['navigation.link.reference-data-state-machines', { labelKey: 'shell.navigation.item.reference-data-state-machines', fallbackLabel: '状态机定义' }],
+]) */
+
+const BUILTIN_NAVIGATION_TEXT = new Map<string, { labelKey: string; fallbackLabel: string }>([
+  ['navigation.group.reference-data', { labelKey: 'shell.navigation.group.reference-data', fallbackLabel: '参考数据' }],
+  ['navigation.link.reference-data-dictionaries', { labelKey: 'shell.navigation.item.reference-data-dictionaries', fallbackLabel: '字典管理' }],
+  ['navigation.link.reference-data-parameters', { labelKey: 'shell.navigation.item.reference-data-parameters', fallbackLabel: '参数管理' }],
+  ['navigation.link.reference-data-dynamic-properties', { labelKey: 'shell.navigation.item.reference-data-dynamic-properties', fallbackLabel: '动态属性' }],
+  ['navigation.link.reference-data-units-of-measure', { labelKey: 'shell.navigation.item.reference-data-units-of-measure', fallbackLabel: '计量单位' }],
+  ['navigation.link.reference-data-metadata', { labelKey: 'shell.navigation.item.reference-data-metadata', fallbackLabel: '元数据 Schema' }],
+  ['navigation.link.reference-data-coding-rules', { labelKey: 'shell.navigation.item.reference-data-coding-rules', fallbackLabel: '编码规则' }],
+  ['navigation.link.reference-data-state-machines', { labelKey: 'shell.navigation.item.reference-data-state-machines', fallbackLabel: '状态机定义' }],
 ])
 
-function isLegacyDefaultNavigation(nodes: readonly NavigationRuntimeNodeDto[]): boolean {
-  const flattened: unknown[][] = []
-  const visit = (children: readonly NavigationRuntimeNodeDto[], parentNodeNId: string | null) => {
-    for (const child of children) {
-      flattened.push([
-        parentNodeNId,
-        child.nodeNId,
-        child.kind,
-        child.label,
-        child.resourceNId,
-        child.routeName,
-        child.requiredPermissionNId,
-        child.featureNId,
-        child.iconKey,
-        child.displayOrder,
-      ])
-      visit(child.children, child.nodeNId)
-    }
-  }
-  visit(nodes, null)
-  return JSON.stringify(flattened) === LEGACY_DEFAULT_NAVIGATION_FINGERPRINT
-}
-
-function addLegacyReferenceDataNavigation(
-  nodes: readonly NavigationRuntimeNodeDto[],
-  groups: NavigationGroup[],
-): NavigationGroup[] {
-  if (!isLegacyDefaultNavigation(nodes)) return groups
-  const defaultSystem = defaultGroups.find((group) => group.id === 'system')
-  const section = defaultSystem?.sections?.find((candidate) => candidate.id === 'reference-data')
-  const items = defaultSystem?.items.filter((item) => item.sectionId === 'reference-data') ?? []
-  if (section === undefined || items.length === 0) return groups
-  return groups.map((group) =>
-    group.id === 'navigation.group.system'
-      ? {
-          ...group,
-          sections: [section, ...(group.sections ?? [])],
-          items: [...items, ...group.items],
-        }
-      : group,
-  )
+function runtimeText(node: NavigationRuntimeNodeDto): { label: string; labelKey: string; fallbackLabel: string } {
+  const builtIn = BUILTIN_NAVIGATION_TEXT.get(node.nodeNId)
+  if (builtIn === undefined || node.label !== builtIn.fallbackLabel)
+    return { label: node.label, labelKey: '', fallbackLabel: node.label }
+  return { label: node.label, ...builtIn }
 }
 
 function iconFor(node: NavigationRuntimeNodeDto): Component {
@@ -130,11 +111,10 @@ function mapItem(node: NavigationRuntimeNodeDto, sectionId?: string): Navigation
   if (node.kind.toLowerCase() === 'group') return null
   if (node.routeName === null || node.routeName.trim() === '') return null
   if (!isRegisteredRouteName(node.routeName)) return null
+  const text = runtimeText(node)
   return {
     id: node.nodeNId,
-    label: node.label,
-    labelKey: '',
-    fallbackLabel: node.label,
+    ...text,
     routeName: node.routeName,
     icon: iconFor(node),
     ...(node.requiredPermissionNId === null ? {} : { permission: node.requiredPermissionNId }),
@@ -161,11 +141,10 @@ export function mapRuntimeNavigation(
       for (const child of node.children) {
         if (child.kind.toLowerCase() === 'group') {
           const sectionId = child.nodeNId
+          const text = runtimeText(child)
           sections.push({
             id: sectionId,
-            label: child.label,
-            labelKey: '',
-            fallbackLabel: child.label,
+            ...text,
             displayOrder: child.displayOrder,
           })
           for (const item of child.children) {
@@ -181,10 +160,8 @@ export function mapRuntimeNavigation(
         (a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0) || a.id.localeCompare(b.id),
       )
       return {
+        ...runtimeText(node),
         id: node.nodeNId,
-        label: node.label,
-        labelKey: '',
-        fallbackLabel: node.label,
         icon: iconFor(node),
         displayOrder: node.displayOrder,
         sections,
@@ -193,7 +170,7 @@ export function mapRuntimeNavigation(
         ),
       }
     })
-  return addLegacyReferenceDataNavigation(nodes, groups)
+  return groups
 }
 
 function filterItem(

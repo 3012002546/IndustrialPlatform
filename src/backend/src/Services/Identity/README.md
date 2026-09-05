@@ -52,17 +52,13 @@ Identity 拥有自己的 Migration、Seed、Bootstrap、Verify 和 Ledger。Syst
 
 ## 测试入口
 
-当前测试按层分布：
+当前测试已按服务收敛为单一项目，测试文件通过 `Domain_`、`Application_`、`Contract_`、`Infrastructure_`、`Api_` 前缀保留层次：
 
 ```powershell
-dotnet test tests/Identity/IndustrialPlatform.Identity.Domain.Tests/IndustrialPlatform.Identity.Domain.Tests.csproj --configuration Release
-dotnet test tests/Identity/IndustrialPlatform.Identity.Application.Tests/IndustrialPlatform.Identity.Application.Tests.csproj --configuration Release
-dotnet test tests/Identity/IndustrialPlatform.Identity.Contract.Tests/IndustrialPlatform.Identity.Contract.Tests.csproj --configuration Release
-dotnet test tests/Identity/IndustrialPlatform.Identity.Infrastructure.Tests/IndustrialPlatform.Identity.Infrastructure.Tests.csproj --configuration Release
-dotnet test tests/Identity/IndustrialPlatform.Identity.Api.Tests/IndustrialPlatform.Identity.Api.Tests.csproj --configuration Release
+dotnet test tests/Identity/IndustrialPlatform.Identity.Tests/IndustrialPlatform.Identity.Tests.csproj --configuration Release
 ```
 
-工作包 3 会收敛为 `tests/Identity/IndustrialPlatform.Identity.Tests/`；在该工作包完成前以现有项目为准。前端对应测试位于 `src/frontend/tests/`。
+前端对应测试位于 `src/frontend/tests/`。
 
 ## 常见问题排查
 
@@ -70,7 +66,7 @@ dotnet test tests/Identity/IndustrialPlatform.Identity.Api.Tests/IndustrialPlatf
 
 - 现象 → 正确账号无法登录，或登录后管理接口被拒绝。
 - 首先检查 → `/health/ready`、JWT 配置、令牌 claims、后端 PermissionCatalog 与前端 `PERMISSIONS` 是否一致。
-- 执行命令 → `dotnet test tests/Identity/IndustrialPlatform.Identity.Api.Tests/IndustrialPlatform.Identity.Api.Tests.csproj --configuration Release --filter "FullyQualifiedName~AuthEndpointTests|FullyQualifiedName~PermissionAuthorizationTests"`
+- 执行命令 → `dotnet test tests/Identity/IndustrialPlatform.Identity.Tests/IndustrialPlatform.Identity.Tests.csproj --configuration Release --filter "FullyQualifiedName~AuthEndpointTests|FullyQualifiedName~PermissionAuthorizationTests"`
 - 正常结果 → 登录端点测试和权限授权测试通过。
 - 异常时下一步 → 分别检查认证、权限评估、数据库目录/Seed 和 Redis 状态，不得临时绕过授权。
 相关代码入口 → `IndustrialPlatform.Identity.Api/Controllers/AuthController.cs`、`IndustrialPlatform.Identity.Api/Authorization/`、`IndustrialPlatform.Identity.Application/Authentication/`、`IndustrialPlatform.Identity.Application/Authorization/`。
@@ -79,7 +75,7 @@ dotnet test tests/Identity/IndustrialPlatform.Identity.Api.Tests/IndustrialPlatf
 
 - 现象 → Host 启动失败、readiness 503 或 admin 初始化命令失败。
 - 首先检查 → DatabaseTopology、数据库可达性、本地 migration/seed ledger 及 Secret 输入。
-- 执行命令 → `dotnet test tests/Identity/IndustrialPlatform.Identity.Infrastructure.Tests/IndustrialPlatform.Identity.Infrastructure.Tests.csproj --configuration Release --filter "FullyQualifiedName~Migration|FullyQualifiedName~Seed|FullyQualifiedName~Bootstrap"`
+- 执行命令 → `dotnet test tests/Identity/IndustrialPlatform.Identity.Tests/IndustrialPlatform.Identity.Tests.csproj --configuration Release --filter "FullyQualifiedName~Migration|FullyQualifiedName~Seed|FullyQualifiedName~Bootstrap"`
 - 正常结果 → Migration、Seed 与 Bootstrap 的幂等/漂移规则测试通过。
 - 异常时下一步 → 查看脱敏日志定位 Schema、checksum 或 Secret 缺失；禁止删除重建、固定默认密码或打印临时凭据。
 相关代码入口 → `IndustrialPlatform.Identity.Infrastructure/Persistence/Migrations/`、`IndustrialPlatform.Identity.Infrastructure/Bootstrap/`、`IndustrialPlatform.Identity.Application/Bootstrap/`。

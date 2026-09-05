@@ -84,24 +84,45 @@ function legacyDefaultNavigation(): NavigationRuntimeNodeDto[] {
 }
 
 describe('SystemData runtime navigation adapter', () => {
-  it('adds ReferenceData registrations to the exact pre-PF-03 default snapshot', () => {
-    const groups = mapRuntimeNavigation(legacyDefaultNavigation())
-    const system = groups.find((group) => group.id === 'navigation.group.system')
-
-    expect(system?.sections?.[0]?.id).toBe('reference-data')
-    expect(
-      system?.items
-        .filter((item) => item.sectionId === 'reference-data')
-        .map((item) => item.routeName),
-    ).toEqual([
-      'reference-data-dictionaries',
-      'reference-data-parameters',
-      'reference-data-dynamic-properties',
-      'reference-data-units-of-measure',
-      'reference-data-metadata',
-      'reference-data-coding-rules',
-      'reference-data-state-machines',
+  it('maps the authoritative ReferenceData root and preserves bilingual built-in labels', () => {
+    const groups = mapRuntimeNavigation([
+      node({
+        nodeNId: 'navigation.group.reference-data',
+        label: '参考数据',
+        children: [
+          node({
+            nodeNId: 'navigation.link.reference-data-dictionaries',
+            kind: 'Link',
+            label: '字典管理',
+            resourceNId: 'referencedata.navigation.dictionaries',
+            routeName: 'reference-data-dictionaries',
+            requiredPermissionNId: 'referencedata.dictionary.view',
+            displayOrder: 0,
+          }),
+        ],
+      }),
     ])
+
+    expect(groups[0]).toMatchObject({
+      id: 'navigation.group.reference-data',
+      labelKey: 'shell.navigation.group.reference-data',
+      fallbackLabel: '参考数据',
+    })
+    expect(groups[0]?.items[0]).toMatchObject({
+      routeName: 'reference-data-dictionaries',
+      labelKey: 'shell.navigation.item.reference-data-dictionaries',
+      fallbackLabel: '字典管理',
+    })
+  })
+
+  it('does not synthesize ReferenceData registrations into an old authoritative snapshot', () => {
+    const groups = mapRuntimeNavigation(legacyDefaultNavigation())
+    expect(groups.find((group) => group.id === 'navigation.group.reference-data')).toBeUndefined()
+    expect(groups.flatMap((group) => group.items)).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ routeName: 'reference-data-dictionaries' }),
+      ]),
+    )
   })
 
   it('does not add ReferenceData registrations to a customized legacy-shaped snapshot', () => {

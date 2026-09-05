@@ -160,8 +160,7 @@ IndustrialPlatform/
 │   ├── BuildingBlocks/      # 共享技术基础组件
 │   ├── Hosts/               # UnifiedHost 统一进程入口
 │   ├── Gateway/             # 分布式反向代理入口
-│   ├── Services/            # 领域服务及分层项目
-│   └── Tools/               # 后端工具
+│   └── Services/            # 领域服务及分层项目
 ├── src/frontend/            # Vue 3 统一前端与前端测试
 ├── tests/                   # 后端及跨模块测试
 ├── docker/                  # 本地基础设施编排
@@ -171,7 +170,7 @@ IndustrialPlatform/
 
 ## 开发与文档入口
 
-- 开发环境：[开发指南](docs/DEVELOPMENT.md)、[前端说明](src/frontend/README.md)、[VS 与 VS Code 调试](src/DEBUGGING.md)。
+- 开发环境：[开发指南](docs/DEVELOPMENT.md)、[前端说明](src/frontend/README.md)、[后端测试](tests/README.md)、[VS 与 VS Code 调试](src/DEBUGGING.md)。
 - 运行部署：[UnifiedHost](src/backend/src/Hosts/IndustrialPlatform.UnifiedHost/README.md)、[Gateway](src/backend/src/Gateway/README.md)、[应用容器部署](deploy/application/README.md)、[开发脚本](deploy/scripts/README.md)。
 - 模块说明：[BuildingBlocks](src/backend/src/BuildingBlocks/README.md)、[Identity](src/backend/src/Services/Identity/README.md)、[SystemData](src/backend/src/Services/SystemData/README.md)、[ReferenceData](src/backend/src/Services/ReferenceData/README.md)。
 - 架构设计：[总体架构](docs/blueprint/01-Industrial%20Platform%20总体架构设计%20V1.0.md)、[数据库编排与环境引导](docs/blueprint/33-Industrial%20Platform%20SystemData数据库编排与环境引导.md)、[架构蓝图索引](docs/blueprint/README.md)。

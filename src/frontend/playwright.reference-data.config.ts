@@ -15,10 +15,10 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
-  webServer:
-    process.env.PF03_UI_EXTERNAL_SERVER === 'true'
-      ? undefined
-      : {
+  ...(process.env.PF03_UI_EXTERNAL_SERVER === 'true'
+    ? {}
+    : {
+        webServer: {
           command:
             'node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 4273 --strictPort --logLevel error',
           url: 'http://127.0.0.1:4273',
@@ -26,4 +26,5 @@ export default defineConfig({
           timeout: 60_000,
           env: { VITE_AUTH_MODE: 'http', VITE_API_BASE_URL: 'http://127.0.0.1:4273' },
         },
+      }),
 })

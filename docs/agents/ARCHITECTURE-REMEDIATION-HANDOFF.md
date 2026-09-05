@@ -31,7 +31,7 @@
 - `src/backend/IndustrialPlatform.slnx`
 - `src/backend/src/Services/SystemData/IndustrialPlatform.SystemData.Domain/AssemblyMarker.cs`
 - `src/backend/src/Services/SystemData/IndustrialPlatform.SystemData.Infrastructure/AssemblyMarker.cs`
-- `tests/UnitTests/README.md`
+- `tests/README.md`
 - `tests/IntegrationTests/README.md`
 
 删除：仅合并完成且高价值行为已由目标项目验证覆盖的旧 Identity/SystemData 测试 `.csproj`、重复低价值测试和空目录。删除前记录原覆盖意图及替代测试。

@@ -5,7 +5,7 @@ namespace IndustrialPlatform.SystemData.Domain.Tests;
 
 /// <summary>
 /// 数据库拓扑解析器规则测试(05 方案 §2.3/§7.1):Shared 仅 Development、
-/// Shared 必须提供目标名、PerService 优先显式映射缺失回退逻辑名。
+/// Shared 必须提供目标名、PerService 必须提供显式映射。
 /// </summary>
 public sealed class DatabaseTopologyResolverTests
 {
@@ -74,14 +74,14 @@ public sealed class DatabaseTopologyResolverTests
     }
 
     [Fact]
-    public void Resolve_PerServiceWithoutMapping_FallsBackToLogicalName()
+    public void Resolve_PerServiceWithoutMapping_ThrowsValidationException()
     {
         var topology = PerService(new Dictionary<string, string>());
 
-        var target = DatabaseTopologyResolver.Resolve(
-            topology, "systemdata", DatabaseProvider.PostgreSQL, "systemdata_db");
+        var exception = Assert.Throws<ValidationException>(() => DatabaseTopologyResolver.Resolve(
+            topology, "systemdata", DatabaseProvider.PostgreSQL, "systemdata_db"));
 
-        Assert.Equal("systemdata_db", target.PhysicalDatabaseName);
+        Assert.Contains("缺少服务 systemdata 的物理映射", exception.Message);
     }
 
     [Fact]

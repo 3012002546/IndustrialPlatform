@@ -26,7 +26,7 @@ namespace IndustrialPlatform.UnifiedHost.Tests;
 /// <summary>
 /// UnifiedHost 集成测试:单进程组合 Identity/SystemData/ReferenceData 模块后
 /// 路由可达、认证共享、模块 health/readiness 前缀命名、无重复路由/DI 冲突,
-/// 以及真实 HostedService 注册下的模块迁移顺序协调(Identity → SystemData)。
+/// 以及真实 HostedService 注册下的模块迁移顺序协调(Identity → SystemData → ReferenceData)。
 /// 使用临时 SQLite;仅替换外部依赖(Redis 刷新会话存储为内存版),保留真实迁移协调路径。
 /// </summary>
 public sealed class UnifiedHostTests : IDisposable
@@ -100,13 +100,13 @@ public sealed class UnifiedHostTests : IDisposable
     }
 
     [Fact]
-    public async Task RealHostedServices_MigrateBothModulesSequentially()
+    public async Task RealHostedServices_MigrateAllModulesSequentially()
     {
         using var factory = CreateFactory();
         using var client = factory.CreateClient();
 
         // 触发宿主启动:ModuleMigrationCoordinatorHostedService 在启动阶段同步(阻塞)完成
-        // Identity → SystemData 迁移/种子,宿主启动完成后 CreateClient 才返回。
+        // Identity → SystemData → ReferenceData 迁移/种子,宿主启动完成后 CreateClient 才返回。
         using var health = await client.GetAsync("/health");
         Assert.Equal(HttpStatusCode.OK, health.StatusCode);
 
@@ -119,10 +119,11 @@ public sealed class UnifiedHostTests : IDisposable
         Assert.Equal(typeof(ModuleMigrationCoordinatorHostedService), hostedTypes[0]);
         Assert.DoesNotContain(hostedTypes, type => type.Name == "SchemaMigrationBackgroundService");
 
-        // 迁移账本:Identity 迁移 + 系统目录种子已应用,SystemData 迁移已应用
+        // 三模块迁移账本与系统目录种子均已应用。
         Assert.True(await TableExistsAsync("identity_schema_migrations"));
         Assert.True(await TableExistsAsync("identity_seed_ledger"));
         Assert.True(await TableExistsAsync("system_data_schema_migrations"));
+        Assert.True(await TableExistsAsync("reference_data_schema_migrations"));
         Assert.True(await CountAsync("SELECT COUNT(*) FROM identity_seed_ledger") >= 2);
         // 协调器不含 SecretBootstrap:admin 只由显式初始化创建(无 bootstrap-admin 种子账本)
         Assert.Equal(0, await CountAsync("SELECT COUNT(*) FROM identity_seed_ledger WHERE seed_n_id = 'identity.bootstrap-admin'"));
@@ -216,7 +217,7 @@ public sealed class UnifiedHostTests : IDisposable
     }
 
     [Fact]
-    public async Task GatewaySystemDataPrefix_IsRemoved_AndReferenceDataPrefixRemainsApi404()
+    public async Task GatewaySystemDataPrefix_IsRemoved_AndReferenceDataBusinessPrefixIsMapped()
     {
         using var factory = CreateFactory();
         using var client = factory.CreateClient();
@@ -224,10 +225,11 @@ public sealed class UnifiedHostTests : IDisposable
         using var systemDataResponse = await client.GetAsync("/systemdata/api/v1/organizations/tree");
         Assert.Equal(HttpStatusCode.Unauthorized, systemDataResponse.StatusCode);
 
-        // ReferenceData 当前没有模块专属业务端点；前缀剥离后未知 API 仍须保持 API 404，
-        // 不能被 SPA fallback 当作前端路由返回 index.html。
-        using var referenceDataResponse = await client.GetAsync("/referencedata/api/v1/not-yet-implemented");
-        Assert.Equal(HttpStatusCode.NotFound, referenceDataResponse.StatusCode);
+        // ReferenceData 真实业务端点:前缀剥离后应命中端点并由共享认证返回 401,
+        // 而不是 404 或 SPA fallback 的 index.html。
+        using var referenceDataResponse = await client.GetAsync(
+            "/referencedata/api/v1/reference-data/admin/dictionaries");
+        Assert.Equal(HttpStatusCode.Unauthorized, referenceDataResponse.StatusCode);
         Assert.NotEqual("text/html", referenceDataResponse.Content.Headers.ContentType?.MediaType);
     }
 

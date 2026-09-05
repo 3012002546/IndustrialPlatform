@@ -17,10 +17,19 @@ compose=(docker compose --env-file .env -f compose.yaml --profile core)
 dump_database() {
   database_env_name="$1"
   output_name="$2"
+  database_name="$("${compose[@]}" exec -T postgres sh -ec "printf %s \"\$$database_env_name\"")"
+  [[ -n "$database_name" ]] || { echo "Missing database target: $database_env_name" >&2; exit 1; }
+  if [[ -n "${dumped_databases[$database_name]+yes}" ]]; then
+    return
+  fi
+  dumped_databases["$database_name"]=1
   "${compose[@]}" exec -T postgres sh -ec \
-    "exec pg_dump --format=custom --create --username=\"\$POSTGRES_USER\" \"\$$database_env_name\"" \
+    'exec pg_dump --format=custom --create --username="$POSTGRES_USER" "$1"' \
+    sh "$database_name" \
     > "$destination/$output_name.dump"
 }
+
+declare -A dumped_databases=()
 
 "${compose[@]}" exec -T postgres sh -ec \
   'exec pg_dumpall --roles-only --username="$POSTGRES_USER"' \
@@ -28,11 +37,9 @@ dump_database() {
 
 dump_database POSTGRES_DB platform
 dump_database IDENTITY_DATABASE identity
-
-if [[ "$("${compose[@]}" exec -T postgres sh -ec 'printf %s "$REFERENCE_DATA_DATABASE"')" != \
-      "$("${compose[@]}" exec -T postgres sh -ec 'printf %s "$POSTGRES_DB"')" ]]; then
-  dump_database REFERENCE_DATA_DATABASE reference-data
-fi
+dump_database SYSTEMDATA_DATABASE systemdata
+dump_database REFERENCE_DATA_DATABASE reference-data
+dump_database UNIFIEDHOST_DATABASE unifiedhost
 
 (cd "$destination" && sha256sum ./* > SHA256SUMS)
 find "$backup_root" -mindepth 1 -maxdepth 1 -type d \

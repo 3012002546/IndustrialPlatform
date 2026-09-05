@@ -44,21 +44,17 @@ Invoke-RestMethod http://localhost:5042/health/ready
 
 SystemData 自身存在 bootstrap 例外：基础设施只创建最小数据库/角色，SystemData 再运行自己的显式 Migration 与 SystemBaseline。它自己的 ledger 是运行事实。
 
-对其他服务的目标流程是 `Registration → ResolveTopology → Inspect → Plan → Apply → Verify → Observation`。当前 `ServiceInitializerExecutor` 仍是待工作包 4 整改的占位边界；不得把现状描述成最终服务自有初始化已经完成。工作包 4 将引入消费端口及进程内/HTTP 适配器，SystemData 只持久化已有目标 ledger 与脱敏 Observation。
+对其他服务的流程是 `Registration → ResolveTopology → Inspect → Plan → Apply → Verify → Observation`。SystemData 通过 `IServiceInitializationInvoker` 使用进程内或受信 HTTP 适配器调用服务自有初始化器；目标服务拥有 Migration、Seed、Bootstrap、Verify 与 Ledger，SystemData 只持久化控制面 Operation 和脱敏 Observation。
 
 ## 测试入口
 
-当前测试项目：
+当前测试已按服务收敛为单一项目，测试文件通过 `Domain_`、`Application_`、`Contract_`、`Infrastructure_`、`Api_` 前缀保留层次：
 
 ```powershell
-dotnet test tests/SystemData/IndustrialPlatform.SystemData.Domain.Tests/IndustrialPlatform.SystemData.Domain.Tests.csproj --configuration Release
-dotnet test tests/SystemData/IndustrialPlatform.SystemData.Application.Tests/IndustrialPlatform.SystemData.Application.Tests.csproj --configuration Release
-dotnet test tests/SystemData/IndustrialPlatform.SystemData.Contract.Tests/IndustrialPlatform.SystemData.Contract.Tests.csproj --configuration Release
-dotnet test tests/SystemData/IndustrialPlatform.SystemData.Infrastructure.Tests/IndustrialPlatform.SystemData.Infrastructure.Tests.csproj --configuration Release
-dotnet test tests/SystemData/IndustrialPlatform.SystemData.Api.Tests/IndustrialPlatform.SystemData.Api.Tests.csproj --configuration Release
+dotnet test tests/SystemData/IndustrialPlatform.SystemData.Tests/IndustrialPlatform.SystemData.Tests.csproj --configuration Release
 ```
 
-工作包 3 将其收敛到 `tests/SystemData/IndustrialPlatform.SystemData.Tests/`，真实 PostgreSQL/Redis/RabbitMQ 测试移入统一 IntegrationTests；完成前不要使用未来路径作为当前门禁。
+真实 PostgreSQL、Redis、RabbitMQ 测试位于统一的 `tests/IntegrationTests/`。
 
 ## 常见问题排查
 
@@ -66,7 +62,7 @@ dotnet test tests/SystemData/IndustrialPlatform.SystemData.Api.Tests/IndustrialP
 
 - 现象 → plan/apply 返回 OperationId 后状态不推进，或出现脱敏失败。
 - 首先检查 → Runner HostedService、Operation step、环境策略、目标指纹和依赖可达性。
-- 执行命令 → `dotnet test tests/SystemData/IndustrialPlatform.SystemData.Application.Tests/IndustrialPlatform.SystemData.Application.Tests.csproj --configuration Release --filter "FullyQualifiedName~DatabaseOperationRunner|FullyQualifiedName~EnvironmentGate"`
+- 执行命令 → `dotnet test tests/SystemData/IndustrialPlatform.SystemData.Tests/IndustrialPlatform.SystemData.Tests.csproj --configuration Release --filter "FullyQualifiedName~DatabaseOperationRunner|FullyQualifiedName~EnvironmentGate"`
 - 正常结果 → Runner 状态迁移和环境拒绝规则测试通过。
 - 异常时下一步 → 再运行 Infrastructure Runner 测试并检查脱敏日志；不要直接改目标服务表或跳过审批/备份门禁。
 相关代码入口 → `IndustrialPlatform.SystemData.Application/DatabaseOrchestration/Runner/`、`IndustrialPlatform.SystemData.Infrastructure/DatabaseOrchestration/Runner/`、`IndustrialPlatform.SystemData.Api/Controllers/ServiceInitializationController.cs`。
@@ -75,7 +71,7 @@ dotnet test tests/SystemData/IndustrialPlatform.SystemData.Api.Tests/IndustrialP
 
 - 现象 → `/health/ready` 返回 503。
 - 首先检查 → 响应中的 postgres/redis/seq 检查及 SystemData 自己的 migration 事实。
-- 执行命令 → `dotnet test tests/SystemData/IndustrialPlatform.SystemData.Api.Tests/IndustrialPlatform.SystemData.Api.Tests.csproj --configuration Release --filter FullyQualifiedName~HealthEndpointTests`
+- 执行命令 → `dotnet test tests/SystemData/IndustrialPlatform.SystemData.Tests/IndustrialPlatform.SystemData.Tests.csproj --configuration Release --filter FullyQualifiedName~HealthEndpointTests`
 - 正常结果 → liveness 不依赖外部组件，readiness 能准确报告本服务依赖。
 - 异常时下一步 → 检查对应依赖和 `DatabaseTopology`；其他已初始化服务是否 Ready 必须由其本地事实判断，不能由 SystemData 状态代替。
 相关代码入口 → `IndustrialPlatform.SystemData.Api/Health/`、`IndustrialPlatform.SystemData.Infrastructure/Persistence/Migrations/`、`IndustrialPlatform.SystemData.Api/Modules/SystemDataModule.cs`。
