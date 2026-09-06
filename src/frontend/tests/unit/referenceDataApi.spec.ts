@@ -76,8 +76,8 @@ describe('ReferenceData API and route contracts', () => {
         path: 'system/reference-data/metadata',
         id: 'reference-data-metadata',
         permission: PERMISSIONS.referenceDataMetadataView,
-        zh: '元数据 Schema',
-        en: 'Metadata schemas',
+        zh: '元数据定义',
+        en: 'Metadata definitions',
       },
       {
         name: ROUTE_NAMES.referenceDataCodingRules,

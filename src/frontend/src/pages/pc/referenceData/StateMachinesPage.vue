@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Plus } from '@element-plus/icons-vue'
+import { ArrowDown, Delete, Plus } from '@element-plus/icons-vue'
 import { ApiError } from '@/api/errors'
 import { getReferenceDataApi } from '@/api/referenceData'
 import type { StateMachineApi } from '@/api/referenceData/stateMachines'
@@ -80,36 +80,7 @@ const outcomeOptions = computed(() => [
   { value: 'Skipped', label: copy.value.stateMachineOutcomeSkipped },
 ])
 const columns = computed<AppDataTableColumn[]>(() => [
-  { field: 'nId', title: copy.value.nId, minWidth: 145, sortable: true, filter: false },
-  { field: 'name', title: copy.value.name, minWidth: 175, sortable: true },
-  {
-    field: 'scopeType',
-    title: copy.value.scope,
-    width: 100,
-    filter: { kind: 'select', options: scopeOptions.value },
-  },
-  { field: 'revision', title: copy.value.revision, width: 82, sortable: true, filter: false },
-  {
-    field: 'status',
-    title: copy.value.status,
-    width: 112,
-    sortable: true,
-    filter: { kind: 'select', options: statusOptions.value },
-  },
-  { field: 'nodeCount', title: copy.value.stateMachineNodeCount, width: 86, filter: false },
-  {
-    field: 'transitionCount',
-    title: copy.value.stateMachineTransitionCount,
-    width: 100,
-    filter: false,
-  },
-  {
-    field: 'lastUpdatedOn',
-    title: copy.value.updatedOn,
-    minWidth: 170,
-    sortable: true,
-    filter: false,
-  },
+  { field: 'name', title: copy.value.name, minWidth: 120, sortable: true },
 ])
 const nodeColumns = computed<AppDataTableColumn[]>(() => [
   { field: 'nId', title: copy.value.nId, minWidth: 125, filter: false },
@@ -217,29 +188,36 @@ function canEdit(row: StateMachineLifecycle): boolean {
     row.status === 'Draft' && scopeWritable(row) && has(PERMISSIONS.referenceDataStateMachineUpdate)
   )
 }
-function canClone(row: StateMachineLifecycle): boolean {
+function canClone(row: StateMachineLifecycle | null): boolean {
   return (
+    !!row &&
     row.publishedOn !== null &&
     scopeWritable(row) &&
     has(PERMISSIONS.referenceDataStateMachineCreate)
   )
 }
-function canPublish(row: StateMachineLifecycle): boolean {
+function canPublish(row: StateMachineLifecycle | null): boolean {
   return (
+    !!row &&
     row.status === 'Draft' &&
     scopeWritable(row) &&
     has(PERMISSIONS.referenceDataStateMachinePublish)
   )
 }
-function canDisable(row: StateMachineLifecycle): boolean {
+function canDisable(row: StateMachineLifecycle | null): boolean {
   return (
+    !!row &&
     (row.status === 'Draft' || row.status === 'Published') &&
     scopeWritable(row) &&
     has(PERMISSIONS.referenceDataStateMachineDisable)
   )
 }
-function canCheck(row: StateMachineSummary): boolean {
-  return row.publishedOn !== null && ['Published', 'Superseded', 'Disabled'].includes(row.status)
+function canCheck(row: StateMachineLifecycle | null): boolean {
+  return (
+    !!row &&
+    row.publishedOn !== null &&
+    ['Published', 'Superseded', 'Disabled'].includes(row.status)
+  )
 }
 
 async function load(request: AppDataTableRequest) {
@@ -259,7 +237,10 @@ async function load(request: AppDataTableRequest) {
   }
   try {
     if (!api) throw new Error(copy.value.unavailable)
-    return await api.listStateMachines(params, { signal: listRequest.signal })
+    const result = await api.listStateMachines(params, { signal: listRequest.signal })
+    if (activeId.value && !result.items.some((item) => item.id === activeId.value))
+      activeId.value = null
+    return result
   } finally {
     firstLoading.value = false
   }
@@ -297,6 +278,16 @@ type FormMode = 'create' | 'edit' | 'view'
 const formOpen = ref(false)
 const formMode = ref<FormMode>('view')
 const selected = ref<StateMachineDetail | null>(null)
+const activeId = ref<string | null>(null)
+const selectedSummary = computed<StateMachineSummary | null>(() =>
+  selected.value
+    ? {
+        ...selected.value,
+        nodeCount: selected.value.nodes.length,
+        transitionCount: selected.value.transitions.length,
+      }
+    : null,
+)
 const savedSnapshot = ref('')
 const form = reactive({
   nId: '',
@@ -306,6 +297,7 @@ const form = reactive({
   nodes: [] as FormNode[],
   transitions: [] as FormTransition[],
 })
+const stateDetailTab = ref('nodes')
 const dirty = computed(
   () => formOpen.value && formMode.value !== 'view' && JSON.stringify(form) !== savedSnapshot.value,
 )
@@ -431,8 +423,14 @@ async function create(): Promise<void> {
   formMode.value = 'create'
   formOpen.value = true
 }
-async function open(row: StateMachineSummary, edit = false): Promise<void> {
+async function open(
+  row: StateMachineSummary,
+  edit = false,
+  showForm = true,
+  markActive = false,
+): Promise<void> {
   if (!(await allowDiscard())) return
+  if (markActive) activeId.value = row.id
   detailSequence++
   detailRequest?.abort()
   detailRequest = new AbortController()
@@ -445,12 +443,15 @@ async function open(row: StateMachineSummary, edit = false): Promise<void> {
     if (sequence !== detailSequence) return
     fill(item)
     formMode.value = edit && canEdit(item) ? 'edit' : 'view'
-    formOpen.value = true
+    formOpen.value = showForm
   } catch (caught) {
     if (sequence === detailSequence) report(caught)
   } finally {
     if (sequence === detailSequence) busy.value = false
   }
+}
+async function select(row: StateMachineSummary): Promise<void> {
+  await open(row, false, false, true)
 }
 async function allowDiscard(): Promise<boolean> {
   if (busy.value && formOpen.value) return false
@@ -469,7 +470,6 @@ function closeFormNow(): void {
   detailSequence++
   detailRequest?.abort()
   formOpen.value = false
-  selected.value = null
   busy.value = false
 }
 async function closeForm(value = false): Promise<void> {
@@ -600,8 +600,8 @@ async function copyUnsaved(): Promise<void> {
     ElMessage.warning(copy.value.copyFailed)
   }
 }
-async function clone(row: StateMachineSummary): Promise<void> {
-  if (!api || !canClone(row) || busy.value || !(await allowDiscard())) return
+async function clone(row: StateMachineSummary | null): Promise<void> {
+  if (!api || !row || !canClone(row) || busy.value || !(await allowDiscard())) return
   busy.value = true
   clearError()
   try {
@@ -617,8 +617,8 @@ async function clone(row: StateMachineSummary): Promise<void> {
     busy.value = false
   }
 }
-async function preparePublication(row: StateMachineSummary): Promise<void> {
-  if (!api || !canPublish(row) || busy.value) return
+async function preparePublication(row: StateMachineSummary | null): Promise<void> {
+  if (!api || !row || !canPublish(row) || busy.value) return
   detailSequence++
   detailRequest?.abort()
   detailRequest = new AbortController()
@@ -654,7 +654,11 @@ async function publish(): Promise<void> {
   busy.value = true
   clearError()
   try {
-    await api.publishStateMachine(publicationRow.value.id, version(publicationRow.value))
+    const result = await api.publishStateMachine(
+      publicationRow.value.id,
+      version(publicationRow.value),
+    )
+    if (result) fill(result)
     publicationOpen.value = false
     publication.value = null
     publicationRow.value = null
@@ -666,8 +670,8 @@ async function publish(): Promise<void> {
     busy.value = false
   }
 }
-async function disable(row: StateMachineSummary): Promise<void> {
-  if (!api || !canDisable(row) || busy.value) return
+async function disable(row: StateMachineSummary | null): Promise<void> {
+  if (!api || !row || !canDisable(row) || busy.value) return
   let reason = ''
   try {
     const response = await ElMessageBox.prompt(
@@ -689,10 +693,11 @@ async function disable(row: StateMachineSummary): Promise<void> {
   busy.value = true
   clearError()
   try {
-    await api.disableStateMachine(row.id, {
+    const result = await api.disableStateMachine(row.id, {
       ...version(row),
       changeReason: reason,
     })
+    if (result) fill(result)
     ElMessage.success(copy.value.disabledSuccess)
     await table.value?.reload()
   } catch (caught) {
@@ -725,8 +730,8 @@ const selectedAvailability = computed(() =>
 function availabilityLabel(item: AvailableStateMachine): string {
   return `${item.name} (${item.nId}) · ${sourceLabel(item.sourceScope, item.sourceTenantNId)} · ${copy.value.revision} ${item.revision}`
 }
-async function openRuntime(row: StateMachineSummary): Promise<void> {
-  if (!api || !canCheck(row) || !(await allowDiscard())) return
+async function openRuntime(row: StateMachineSummary | null): Promise<void> {
+  if (!api || !row || !canCheck(row) || !(await allowDiscard())) return
   runtimeSequence++
   runtimeRequest?.abort()
   runtimeRequest = new AbortController()
@@ -902,107 +907,178 @@ onBeforeUnmount(() => {
     >
       <p v-if="traceId">{{ copy.traceId }}: {{ traceId }}</p>
     </el-alert>
-    <AppQueryPanel show-actions grid @submit="search" @reset="reset">
-      <label class="state-machine-query-field">
-        <span>{{ copy.keyword }}</span>
-        <el-input v-model="query.keyword" :aria-label="copy.keyword" @keyup.enter="search" />
-      </label>
-      <label class="state-machine-query-field">
-        <span>{{ copy.scope }}</span>
-        <el-select v-model="query.scopeType" :aria-label="copy.scope">
-          <el-option value="" :label="copy.all" />
-          <el-option v-for="option in scopeOptions" :key="option.value" v-bind="option" />
-        </el-select>
-      </label>
-      <label class="state-machine-query-field">
-        <span>{{ copy.status }}</span>
-        <el-select v-model="query.status" :aria-label="copy.status">
-          <el-option value="" :label="copy.all" />
-          <el-option v-for="option in statusOptions" :key="option.value" v-bind="option" />
-        </el-select>
-      </label>
-    </AppQueryPanel>
-    <AppDataTable
-      ref="table"
-      table-key="reference-data-state-machines"
-      :columns="columns"
-      :loader="load"
-      :query-mode="mode"
-      selection="none"
-      @query-mode-change="switchMode"
-      @loaded="onLoaded"
-      @load-error="reportList"
-    >
-      <template #cell-scopeType="{ row }">
-        {{ row.scopeType === 'Tenant' ? copy.tenant : copy.platform }}
-      </template>
-      <template #cell-status="{ row }">
-        <el-tag
-          :type="
-            row.status === 'Published' ? 'success' : row.status === 'Draft' ? 'info' : 'warning'
-          "
+    <div class="state-master-detail">
+      <section class="state-master" :aria-label="copy.stateMachineTitle">
+        <AppQueryPanel show-actions grid @submit="search" @reset="reset">
+          <label class="state-machine-query-field">
+            <span>{{ copy.keyword }}</span>
+            <el-input v-model="query.keyword" :aria-label="copy.keyword" @keyup.enter="search" />
+          </label>
+          <label class="state-machine-query-field">
+            <span>{{ copy.scope }}</span>
+            <el-select v-model="query.scopeType" :aria-label="copy.scope">
+              <el-option value="" :label="copy.all" />
+              <el-option v-for="option in scopeOptions" :key="option.value" v-bind="option" />
+            </el-select>
+          </label>
+          <label class="state-machine-query-field">
+            <span>{{ copy.status }}</span>
+            <el-select v-model="query.status" :aria-label="copy.status">
+              <el-option value="" :label="copy.all" />
+              <el-option v-for="option in statusOptions" :key="option.value" v-bind="option" />
+            </el-select>
+          </label>
+        </AppQueryPanel>
+        <AppDataTable
+          ref="table"
+          table-key="reference-data-state-machines"
+          :columns="columns"
+          :loader="load"
+          :query-mode="mode"
+          toolbar-profile="compact"
+          :quick-search-enabled="false"
+          selection="none"
+          :active-row-key="activeId"
+          @row-click="select"
+          @query-mode-change="switchMode"
+          @loaded="onLoaded"
+          @load-error="reportList"
         >
-          {{ statusLabel(row.status) }}
-        </el-tag>
-      </template>
-      <template #cell-lastUpdatedOn="{ row }">{{ date(row.lastUpdatedOn) }}</template>
-      <template #actions="{ row, availableWidth }">
-        <div class="state-machine-actions">
-          <el-button link type="primary" @click="open(row, false)">{{ copy.detail }}</el-button>
-          <el-button
-            v-if="canEdit(row) && availableWidth >= 190"
-            link
-            type="primary"
-            data-testid="state-machine-edit"
-            @click="open(row, true)"
+          <template #cell-name="{ row }"
+            ><div class="state-directory-name">
+              <strong>{{ row.name }}</strong
+              ><small :title="`${row.nId} · ${statusLabel(row.status)}`"
+                ><span class="directory-status">{{ statusLabel(row.status) }}</span> ·
+                {{ row.nId }}</small
+              >
+            </div></template
           >
-            {{ copy.edit }}
-          </el-button>
-          <el-dropdown
-            v-if="
-              canEdit(row) || canClone(row) || canPublish(row) || canDisable(row) || canCheck(row)
-            "
-            trigger="click"
-          >
-            <el-button link type="primary" :disabled="busy" data-testid="state-machine-more">{{
-              copy.more
-            }}</el-button>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item
-                  v-if="canEdit(row) && availableWidth < 190"
-                  data-testid="state-machine-edit"
-                  @click="open(row, true)"
-                >
-                  {{ copy.edit }}
-                </el-dropdown-item>
-                <el-dropdown-item v-if="canClone(row)" @click="clone(row)">{{
-                  copy.clone
-                }}</el-dropdown-item>
-                <el-dropdown-item
-                  v-if="canPublish(row)"
-                  data-testid="state-machine-publish"
-                  @click="preparePublication(row)"
-                >
-                  {{ copy.stateMachinePublicationCheck }}
-                </el-dropdown-item>
-                <el-dropdown-item v-if="canDisable(row)" @click="disable(row)">{{
-                  copy.disable
-                }}</el-dropdown-item>
-                <el-dropdown-item
-                  v-if="canCheck(row)"
-                  data-testid="state-machine-check-open"
-                  @click="openRuntime(row)"
-                >
-                  {{ copy.stateMachineCheck }}
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-        </div>
-      </template>
-    </AppDataTable>
-    <p v-if="!firstLoading && total === 0 && !listError">{{ copy.stateMachineEmpty }}</p>
+          <template #cell-lastUpdatedOn="{ row }">{{ date(row.lastUpdatedOn) }}</template>
+        </AppDataTable>
+        <p v-if="!firstLoading && total === 0 && !listError">{{ copy.stateMachineEmpty }}</p>
+      </section>
+      <section class="state-detail-panel" :aria-label="copy.stateMachineTitle">
+        <el-empty v-if="!selected" :description="copy.stateMachineTitle" />
+        <template v-else>
+          <header class="state-detail-context">
+            <div>
+              <h2>{{ selected.name }}</h2>
+              <p>
+                {{ selected.nId }} ·
+                {{ selected.scopeType === 'Tenant' ? copy.tenant : copy.platform }} ·
+                {{ copy.revision }} {{ selected.revision }} · {{ statusLabel(selected.status) }} ·
+                {{ copy.stateMachineNodeCount }} {{ selected.nodes.length }} ·
+                {{ copy.stateMachineTransitionCount }}
+                {{ selected.transitions.length }}
+              </p>
+            </div>
+            <div class="state-machine-actions">
+              <el-button
+                v-if="canEdit(selected)"
+                @click="((formOpen = true), (formMode = 'edit'))"
+                >{{ copy.edit }}</el-button
+              >
+              <el-dropdown
+                v-if="
+                  canClone(selectedSummary) ||
+                  canPublish(selectedSummary) ||
+                  canDisable(selectedSummary) ||
+                  canCheck(selectedSummary)
+                "
+                trigger="click"
+              >
+                <el-button :disabled="busy" data-testid="state-machine-more">
+                  {{ copy.more }}<el-icon><ArrowDown /></el-icon>
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item
+                      v-if="canClone(selectedSummary)"
+                      @click="clone(selectedSummary)"
+                      >{{ copy.clone }}</el-dropdown-item
+                    >
+                    <el-dropdown-item
+                      v-if="canPublish(selectedSummary)"
+                      data-testid="state-machine-publish"
+                      @click="preparePublication(selectedSummary)"
+                    >
+                      {{ copy.stateMachinePublicationCheck }}
+                    </el-dropdown-item>
+                    <el-dropdown-item
+                      v-if="canDisable(selectedSummary)"
+                      @click="disable(selectedSummary)"
+                      >{{ copy.disable }}</el-dropdown-item
+                    >
+                    <el-dropdown-item
+                      v-if="canCheck(selectedSummary)"
+                      data-testid="state-machine-check-open"
+                      @click="openRuntime(selectedSummary)"
+                    >
+                      {{ copy.stateMachineCheck }}
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </div>
+          </header>
+          <el-tabs v-model="stateDetailTab">
+            <el-tab-pane :label="copy.stateMachineNodes" name="nodes">
+              <AppDataTable
+                table-key="reference-data-state-machine-inline-nodes"
+                :rows="form.nodes"
+                :total="form.nodes.length"
+                :columns="nodeColumns"
+                row-key="localKey"
+                toolbar-profile="compact"
+                selection="none"
+              >
+                <template #cell-isInitial="{ row }">{{
+                  row.isInitial ? copy.trueValue : copy.falseValue
+                }}</template>
+                <template #cell-isTerminal="{ row }">{{
+                  row.isTerminal ? copy.trueValue : copy.falseValue
+                }}</template>
+                <template #cell-outcome="{ row }">{{ outcomeLabel(row.outcome) }}</template>
+              </AppDataTable>
+            </el-tab-pane>
+            <el-tab-pane :label="copy.stateMachineTransitions" name="transitions">
+              <AppDataTable
+                table-key="reference-data-state-machine-inline-transitions"
+                :rows="form.transitions"
+                :total="form.transitions.length"
+                :columns="transitionColumns"
+                row-key="localKey"
+                toolbar-profile="compact"
+                selection="none"
+              />
+            </el-tab-pane>
+            <el-tab-pane :label="copy.stateMachinePublicationCheck" name="check">
+              <el-alert :title="copy.stateMachinePublishHint" type="info" :closable="false" />
+              <p>{{ copy.stateMachineGraphHint }}</p>
+              <el-button
+                v-if="canPublish(selectedSummary)"
+                type="primary"
+                :loading="busy"
+                data-testid="state-machine-detail-publication-open"
+                @click="preparePublication(selectedSummary)"
+                >{{ copy.stateMachinePublicationCheck }}</el-button
+              >
+            </el-tab-pane>
+            <el-tab-pane :label="copy.stateMachineCheck" name="action">
+              <el-alert :title="copy.stateMachineCheckHint" type="info" :closable="false" />
+              <el-button
+                v-if="canCheck(selectedSummary)"
+                type="primary"
+                :loading="runtimeLoading"
+                data-testid="state-machine-detail-check-open"
+                @click="openRuntime(selectedSummary)"
+                >{{ copy.stateMachineCheck }}</el-button
+              >
+            </el-tab-pane>
+          </el-tabs>
+        </template>
+      </section>
+    </div>
 
     <AppFormDrawer
       :model-value="formOpen"
@@ -1441,8 +1517,22 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .state-machine-page {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
   min-width: 0;
-  overflow-x: clip;
+  overflow: hidden;
+}
+.state-machine-page :deep(.app-page__body) {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.state-machine-page :deep(.app-query-panel) {
+  flex: 0 0 auto;
 }
 .state-machine-query-field {
   display: grid;
@@ -1450,6 +1540,98 @@ onBeforeUnmount(() => {
   max-width: 100%;
   min-width: 0;
   gap: var(--ip-space-2);
+}
+.state-master-detail {
+  display: grid;
+  flex: 1 1 0;
+  grid-template-columns: minmax(250px, 280px) minmax(0, 1fr);
+  gap: var(--ip-space-4);
+  min-height: 0;
+  align-items: stretch;
+}
+.state-master,
+.state-detail-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.state-master {
+  gap: var(--ip-space-3);
+  overflow: hidden;
+}
+.state-master :deep(.app-data-table),
+.state-detail-panel :deep(.app-data-table) {
+  flex: 1 1 0;
+  min-height: 0;
+}
+.state-master :deep(.app-data-table__card),
+.state-detail-panel :deep(.app-data-table__card) {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+}
+.state-directory-name {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+.state-directory-name strong,
+.state-directory-name small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.state-directory-name small {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+.state-detail-panel {
+  min-height: 0;
+  padding: var(--ip-space-4);
+  border: 1px solid var(--el-border-color-light);
+  border-radius: var(--ip-radius-md);
+  background: var(--el-bg-color);
+}
+.state-detail-panel > :deep(.el-empty) {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.state-detail-panel :deep(.el-tabs) {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+}
+.state-detail-panel :deep(.el-tabs__content) {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.state-detail-panel :deep(.el-tab-pane) {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.state-detail-context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ip-space-3);
+  margin-bottom: var(--ip-space-3);
+}
+.state-detail-context h2 {
+  margin: 0;
+}
+.state-detail-context p {
+  margin: var(--ip-space-1) 0 0;
+  color: var(--el-text-color-secondary);
 }
 .state-machine-actions {
   display: inline-flex;
@@ -1511,6 +1693,9 @@ onBeforeUnmount(() => {
   margin-bottom: 0;
 }
 @media (max-width: 768px) {
+  .state-master-detail {
+    grid-template-columns: 1fr;
+  }
   .state-machine-section-heading {
     flex-direction: column;
   }

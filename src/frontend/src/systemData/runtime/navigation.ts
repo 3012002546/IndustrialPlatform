@@ -64,28 +64,65 @@ const LEGACY_DEFAULT_NAVIGATION_FINGERPRINT = JSON.stringify([
   ['navigation.group.menu-platform', 'navigation.link.systemdata-themes', 'Link', '租户主题策略', 'systemdata.navigation.systemdata-themes', 'systemdata-themes', 'systemdata.theme-policy.view', null, null, 2],
   ['navigation.group.system', 'navigation.group.service-operations', 'Group', '服务与运维', null, null, null, null, null, 3],
   ['navigation.group.service-operations', 'navigation.link.systemdata-services', 'Link', '服务目录', 'systemdata.navigation.systemdata-services', 'systemdata-services', 'systemdata.service-catalog.view', null, null, 0],
-  ['navigation.group.reference-data', { labelKey: 'shell.navigation.group.reference-data', fallbackLabel: '参考数据' }],
+  ['navigation.group.reference-data', { labelKey: 'shell.navigation.group.reference-data', fallbackLabel: '基础配置' }],
   ['navigation.link.reference-data-dictionaries', { labelKey: 'shell.navigation.item.reference-data-dictionaries', fallbackLabel: '字典管理' }],
   ['navigation.link.reference-data-parameters', { labelKey: 'shell.navigation.item.reference-data-parameters', fallbackLabel: '参数管理' }],
   ['navigation.link.reference-data-dynamic-properties', { labelKey: 'shell.navigation.item.reference-data-dynamic-properties', fallbackLabel: '动态属性' }],
   ['navigation.link.reference-data-units-of-measure', { labelKey: 'shell.navigation.item.reference-data-units-of-measure', fallbackLabel: '计量单位' }],
-  ['navigation.link.reference-data-metadata', { labelKey: 'shell.navigation.item.reference-data-metadata', fallbackLabel: '元数据 Schema' }],
+  ['navigation.link.reference-data-metadata', { labelKey: 'shell.navigation.item.reference-data-metadata', fallbackLabel: '元数据定义' }],
   ['navigation.link.reference-data-coding-rules', { labelKey: 'shell.navigation.item.reference-data-coding-rules', fallbackLabel: '编码规则' }],
   ['navigation.link.reference-data-state-machines', { labelKey: 'shell.navigation.item.reference-data-state-machines', fallbackLabel: '状态机定义' }],
 ]) */
 
 const BUILTIN_NAVIGATION_TEXT = new Map<string, { labelKey: string; fallbackLabel: string }>([
-  ['navigation.group.reference-data', { labelKey: 'shell.navigation.group.reference-data', fallbackLabel: '参考数据' }],
-  ['navigation.link.reference-data-dictionaries', { labelKey: 'shell.navigation.item.reference-data-dictionaries', fallbackLabel: '字典管理' }],
-  ['navigation.link.reference-data-parameters', { labelKey: 'shell.navigation.item.reference-data-parameters', fallbackLabel: '参数管理' }],
-  ['navigation.link.reference-data-dynamic-properties', { labelKey: 'shell.navigation.item.reference-data-dynamic-properties', fallbackLabel: '动态属性' }],
-  ['navigation.link.reference-data-units-of-measure', { labelKey: 'shell.navigation.item.reference-data-units-of-measure', fallbackLabel: '计量单位' }],
-  ['navigation.link.reference-data-metadata', { labelKey: 'shell.navigation.item.reference-data-metadata', fallbackLabel: '元数据 Schema' }],
-  ['navigation.link.reference-data-coding-rules', { labelKey: 'shell.navigation.item.reference-data-coding-rules', fallbackLabel: '编码规则' }],
-  ['navigation.link.reference-data-state-machines', { labelKey: 'shell.navigation.item.reference-data-state-machines', fallbackLabel: '状态机定义' }],
+  [
+    'navigation.group.reference-data',
+    { labelKey: 'shell.navigation.group.reference-data', fallbackLabel: '基础配置' },
+  ],
+  [
+    'navigation.link.reference-data-dictionaries',
+    { labelKey: 'shell.navigation.item.reference-data-dictionaries', fallbackLabel: '字典管理' },
+  ],
+  [
+    'navigation.link.reference-data-parameters',
+    { labelKey: 'shell.navigation.item.reference-data-parameters', fallbackLabel: '参数管理' },
+  ],
+  [
+    'navigation.link.reference-data-dynamic-properties',
+    {
+      labelKey: 'shell.navigation.item.reference-data-dynamic-properties',
+      fallbackLabel: '动态属性',
+    },
+  ],
+  [
+    'navigation.link.reference-data-units-of-measure',
+    {
+      labelKey: 'shell.navigation.item.reference-data-units-of-measure',
+      fallbackLabel: '计量单位',
+    },
+  ],
+  [
+    'navigation.link.reference-data-metadata',
+    { labelKey: 'shell.navigation.item.reference-data-metadata', fallbackLabel: '元数据定义' },
+  ],
+  [
+    'navigation.link.reference-data-coding-rules',
+    { labelKey: 'shell.navigation.item.reference-data-coding-rules', fallbackLabel: '编码规则' },
+  ],
+  [
+    'navigation.link.reference-data-state-machines',
+    {
+      labelKey: 'shell.navigation.item.reference-data-state-machines',
+      fallbackLabel: '状态机定义',
+    },
+  ],
 ])
 
-function runtimeText(node: NavigationRuntimeNodeDto): { label: string; labelKey: string; fallbackLabel: string } {
+function runtimeText(node: NavigationRuntimeNodeDto): {
+  label: string
+  labelKey: string
+  fallbackLabel: string
+} {
   const builtIn = BUILTIN_NAVIGATION_TEXT.get(node.nodeNId)
   if (builtIn === undefined || node.label !== builtIn.fallbackLabel)
     return { label: node.label, labelKey: '', fallbackLabel: node.label }

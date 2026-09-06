@@ -1,4 +1,5 @@
 using IndustrialPlatform.Application.Abstractions.Initialization;
+using IndustrialPlatform.ReferenceData.Infrastructure.UnitOfMeasure;
 
 namespace IndustrialPlatform.ReferenceData.Infrastructure.Initialization;
 
@@ -38,28 +39,43 @@ public sealed class ReferenceDataServiceInitializer : IServiceInitializer
         {
             var migration = await _ledger.GetMigrationAsync(cancellationToken);
             var seed = await _ledger.GetSeedAsync(BaselineSeedKey, BaselineVersion, cancellationToken);
+            var unitSeed = await _ledger.GetSeedAsync(UnitOfMeasureSystemSeed.SeedKey, UnitOfMeasureSystemSeed.SeedVersion, cancellationToken);
             var migrationReady = migration?.MigrationId == CurrentVersion && await _ledger.MigrationValidAsync(cancellationToken);
             var seedReady = seed is not null
                             && string.Equals(seed.Checksum, BaselineChecksum, StringComparison.Ordinal)
                             && string.Equals(seed.Scope, "System", StringComparison.OrdinalIgnoreCase);
+            var unitSeedReady = unitSeed is not null
+                                && string.Equals(unitSeed.Checksum, UnitOfMeasureSystemSeed.Checksum, StringComparison.Ordinal)
+                                && string.Equals(unitSeed.Scope, "System", StringComparison.OrdinalIgnoreCase)
+                                && await _ledger.UnitOfMeasureSeedDataReadyAsync(cancellationToken);
+            var requiredSeedReady = seedReady && unitSeedReady;
+            var seeds = new List<ServiceInitializationSeedState>();
+            if (seed is not null)
+                seeds.Add(new ServiceInitializationSeedState(
+                    BaselineSeedKey,
+                    BaselineVersion,
+                    "Applied",
+                    seed.AppliedOn,
+                    seed.Checksum,
+                    seed.Scope));
+            if (unitSeed is not null)
+                seeds.Add(new ServiceInitializationSeedState(
+                    UnitOfMeasureSystemSeed.SeedKey,
+                    UnitOfMeasureSystemSeed.SeedVersion,
+                    "Applied",
+                    unitSeed.AppliedOn,
+                    unitSeed.Checksum,
+                    unitSeed.Scope));
             return new ServiceInitializationState(
                 ServiceKey,
                 ModuleKey,
                 migration?.MigrationId,
                 migrationReady,
-                seedReady,
+                requiredSeedReady,
                 true,
-                migrationReady && seedReady,
-                migrationReady && seedReady ? null : "ReferenceData 服务级 baseline 尚未完成。",
-                seed is null
-                    ? []
-                    : [new ServiceInitializationSeedState(
-                        BaselineSeedKey,
-                        BaselineVersion,
-                        "Applied",
-                        seed.AppliedOn,
-                        seed.Checksum,
-                        seed.Scope)]);
+                migrationReady && requiredSeedReady,
+                migrationReady && requiredSeedReady ? null : "ReferenceData 服务级 baseline 尚未完成。",
+                seeds);
         }
         catch (Exception exception) when (IsMissingLocalTable(exception))
         {
@@ -107,7 +123,7 @@ public sealed class ReferenceDataServiceInitializer : IServiceInitializer
             inspection.ObservedVersion,
             desiredVersion,
             !inspection.Ready || !string.Equals(inspection.ObservedVersion, desiredVersion, StringComparison.Ordinal),
-            inspection.Ready ? [] : ["reference-data-schema-migration", "reference-data-required-seed"]);
+            inspection.Ready ? [] : ["reference-data-schema-migration", "reference-data-required-seeds"]);
     }
 
     private static bool IsMissingLocalTable(Exception exception)

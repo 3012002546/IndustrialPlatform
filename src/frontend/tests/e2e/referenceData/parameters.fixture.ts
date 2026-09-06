@@ -260,22 +260,46 @@ for (const scenario of [
       })
     })
     await page.goto('/pc/system/reference-data/parameters')
-    await expect(page.getByTestId('reference-data-parameters')).toBeVisible()
-    await page.locator('.parameter-master .vxe-cell--radio').first().click()
+    const root = page.getByTestId('reference-data-parameters')
+    const master = root.locator('.parameter-master')
+    await expect(root).toBeVisible()
+    await expect(master.locator('.vxe-body--row').first()).toBeVisible()
+    await expect(master.locator('.vxe-cell--radio')).toHaveCount(0)
+    await expect(master.locator('.app-data-table__selection-summary')).toHaveCount(0)
+    const masterWidth = await master.evaluate((element) => element.getBoundingClientRect().width)
+    expect(masterWidth).toBeGreaterThanOrEqual(240)
+    expect(masterWidth).toBeLessThanOrEqual(300)
+    await master.locator('.vxe-body--row').first().click()
+    await expect(master.locator('.vxe-body--row').first()).toHaveAttribute('aria-current', 'true')
     await expect(page.getByTestId('parameter-create-key')).toBeVisible()
+    for (const tableBody of [
+      master.locator('.vxe-table--body-wrapper'),
+      root.locator('.parameter-detail > .app-data-table .vxe-table--body-wrapper'),
+    ]) {
+      const metrics = await tableBody.evaluate((element) => ({
+        scrollWidth: element.scrollWidth,
+        clientWidth: element.clientWidth,
+      }))
+      expect(metrics.scrollWidth, JSON.stringify(metrics)).toBeLessThanOrEqual(
+        metrics.clientWidth + 1,
+      )
+    }
     const edit = scenario.locale === 'zh-CN' ? '编辑' : 'Edit'
-    const more = scenario.locale === 'zh-CN' ? '更多' : 'More'
     const close = scenario.locale === 'zh-CN' ? '关闭' : 'Close'
     async function openKey(nId: string) {
-      const index = nId === 'AMOUNT' ? 0 : 1
-      await page
-        .locator('.parameter-detail')
-        .getByRole('button', { name: more, exact: true })
-        .nth(index)
+      await root
+        .locator('.parameter-detail .vxe-body--row')
+        .filter({ hasText: nId })
+        .first()
         .click()
-      await page.getByRole('menuitem', { name: edit, exact: true }).click()
+      await root.getByTestId('parameter-key-edit').click()
     }
     await openKey('AMOUNT')
+    await expect(root.locator('.parameter-values')).toContainText(
+      scenario.locale === 'zh-CN'
+        ? '单值键无需维护多值明细'
+        : 'Single-value keys do not use value entries.',
+    )
     let dialog = page.getByRole('dialog').filter({ has: page.getByTestId('parameter-save') })
     await dialog.getByTestId('form-surface-mode-toggle').click()
     await dialog
@@ -333,6 +357,16 @@ for (const scenario of [
     expect(historyCount).toBeGreaterThan(0)
     await page.getByRole('dialog').getByRole('button', { name: close, exact: true }).last().click()
     await expect(page.locator('.el-message')).toHaveCount(0)
+    const pcMain = page.locator('.ip-pc-main')
+    const mainMetrics = await pcMain.evaluate((element) => ({
+      scrollLeft: element.scrollLeft,
+      scrollWidth: element.scrollWidth,
+      clientWidth: element.clientWidth,
+    }))
+    expect(mainMetrics.scrollLeft, JSON.stringify(mainMetrics)).toBe(0)
+    expect(mainMetrics.scrollWidth, JSON.stringify(mainMetrics)).toBeLessThanOrEqual(
+      mainMetrics.clientWidth + 1,
+    )
     await page.screenshot({
       path: testInfo.outputPath('parameter-list-' + scenario.width + '.png'),
       fullPage: true,

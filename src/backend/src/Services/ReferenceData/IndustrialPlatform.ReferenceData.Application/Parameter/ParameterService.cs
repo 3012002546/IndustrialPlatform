@@ -97,6 +97,10 @@ public sealed partial class ParameterService
         ChangeAsync(actor, id, request.ExpectedAppDomainOptimisticVersion, request.ExpectedAppDomainConcurrencyVersion, request.ChangeReason, keyId, "MultiValue", enabled ? "Enabled" : "Disabled",
             domain => { domain.SetValueEnabled(keyId, valueId, enabled); return valueId; }, cancellationToken);
 
+    public Task<ConfigurationDomainDetailDto> DeleteValueAsync(ReferenceDataActor actor, Guid id, Guid keyId, Guid valueId, ConfigurationChildStateRequest request, CancellationToken cancellationToken) =>
+        ChangeAsync(actor, id, request.ExpectedAppDomainOptimisticVersion, request.ExpectedAppDomainConcurrencyVersion, request.ChangeReason, keyId, "MultiValue", "Deleted",
+            domain => { domain.RemoveValue(keyId, valueId); return valueId; }, cancellationToken);
+
     public async Task<(IReadOnlyList<ConfigurationHistoryDto> Items, long Total)> HistoryAsync(ReferenceDataActor actor, Guid id, Guid? keyId, int pageIndex, int pageSize, CancellationToken cancellationToken)
     {
         Page(pageIndex, pageSize);
@@ -181,7 +185,8 @@ public sealed partial class ParameterService
         if (key.Settings.DataType != ReferenceDataType.Enum) return;
         var dictionary = await dictionaries.GetEffectiveAsync(actor, key.Settings.DictionaryNId!, null, cancellationToken);
         var allowed = dictionary.Items.Where(item => item.Enabled).Select(item => item.NId).ToHashSet(StringComparer.Ordinal);
-        var values = key.MultiValues.Select(item => item.Settings.Value).Concat(new[] { key.Settings.Value, key.Settings.DefaultValue }.OfType<ConfigurationScalar>());
+        var values = key.MultiValues.Where(item => !item.IsDeleted).Select(item => item.Settings.Value)
+            .Concat(new[] { key.Settings.Value, key.Settings.DefaultValue }.OfType<ConfigurationScalar>());
         if (values.Any(value => !allowed.Contains(value.JsonValue.GetString()!))) throw new ReferenceDataException("REF-CONFIG-ENUM-VALUE-INVALID", field: "value");
     }
 
@@ -258,9 +263,9 @@ public sealed partial class ParameterService
             hasDefaultValue = settings.DefaultValue is not null,
             valueHash = settings.Value?.CanonicalValueHash,
             defaultValueHash = settings.DefaultValue?.CanonicalValueHash,
-            valueCount = key.MultiValues.Count,
+            valueCount = key.MultiValues.Count(item => !item.IsDeleted),
             enabledValueCount = key.EnabledValues().Count,
-            multiValues = key.MultiValues.OrderBy(item => item.NId, StringComparer.Ordinal).Select(item => new { item.NId, item.Settings.Enabled, item.Settings.IsDefault, item.Settings.Sort, valueHash = item.Settings.Value.CanonicalValueHash })
+            multiValues = key.MultiValues.Where(item => !item.IsDeleted).OrderBy(item => item.NId, StringComparer.Ordinal).Select(item => new { item.NId, item.Settings.Enabled, item.Settings.IsDefault, item.Settings.Sort, valueHash = item.Settings.Value.CanonicalValueHash })
         });
     }
     private static ConfigurationHistoryDto History(ReferenceDataActor actor, ConfigurationAppDomain domain, Guid? keyId, Guid objectId,
@@ -275,6 +280,6 @@ public sealed partial class ParameterService
                 key.Settings.DataType.ToString(), key.Settings.ValueMode.ToString(), key.Settings.Value?.JsonValue, key.Settings.DefaultValue?.JsonValue,
                 key.Settings.Value?.CanonicalValue, key.Settings.DefaultValue?.CanonicalValue, key.Settings.IsMandatory, key.Settings.IsReadOnly,
                 key.Settings.DictionaryNId, key.Settings.ReferenceTarget, key.Settings.Status.ToString(), key.Settings.Sort,
-                key.MultiValues.OrderBy(item => item.Settings.Sort).ThenBy(item => item.NId, StringComparer.Ordinal).Select(MapValue).ToArray(), key.HasHadValue, key.IsFrozen, key.IsLocked)).ToArray(),
+                key.MultiValues.Where(item => !item.IsDeleted).OrderBy(item => item.Settings.Sort).ThenBy(item => item.NId, StringComparer.Ordinal).Select(MapValue).ToArray(), key.HasHadValue, key.IsFrozen, key.IsLocked)).ToArray(),
         domain.LastUpdatedOn, domain.OptimisticVersion, domain.ConcurrencyVersion, domain.IsFrozen, domain.IsLocked);
 }

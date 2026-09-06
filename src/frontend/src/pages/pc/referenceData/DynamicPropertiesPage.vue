@@ -97,25 +97,7 @@ const typeOptions = computed(() =>
   ).map((value) => ({ value, label: copy.value[`type${value}`] })),
 )
 const masterColumns = computed<AppDataTableColumn[]>(() => [
-  { field: 'nId', title: copy.value.nId, minWidth: 150, sortable: true, filter: false },
-  { field: 'name', title: copy.value.name, minWidth: 170, sortable: true },
-  {
-    field: 'scopeType',
-    title: copy.value.scope,
-    width: 100,
-    filter: { kind: 'select', options: scopeOptions.value },
-  },
-  { field: 'revision', title: copy.value.revision, width: 86, sortable: true, filter: false },
-  {
-    field: 'status',
-    title: copy.value.status,
-    width: 112,
-    sortable: true,
-    filter: { kind: 'select', options: statusOptions.value },
-  },
-  { field: 'fieldCount', title: copy.value.dynamicFieldCount, width: 86, filter: false },
-  { field: 'recordCount', title: copy.value.dynamicRecordCount, width: 86, filter: false },
-  { field: 'publishedOn', title: copy.value.publishedOn, minWidth: 170, filter: false },
+  { field: 'name', title: copy.value.name, minWidth: 120, sortable: true },
 ])
 const fieldColumns = computed<AppDataTableColumn[]>(() => [
   { field: 'nId', title: copy.value.nId, minWidth: 120, filter: false },
@@ -301,8 +283,8 @@ function reportList(caught: unknown) {
   if (!(caught instanceof ApiError && caught.kind === 'cancelled'))
     listError.value = copy.value.unavailable
 }
-async function selectDefinition(rows: DynamicConfigurationSummary[]) {
-  const id = rows[0]?.id ?? null
+async function selectDefinition(row: DynamicConfigurationSummary) {
+  const id = row.id
   if (id === selectedId.value) return
   if (!(await allowDiscard())) return
   closeEditorNow()
@@ -1013,13 +995,11 @@ onBeforeUnmount(() => {
 
 <template>
   <AppPage
+    class="dynamic-page"
     data-testid="reference-data-dynamic-properties"
     :title="copy.dynamicTitle"
     :description="copy.dynamicDescription"
   >
-    <template #heading-meta
-      ><span>{{ total }}</span></template
-    >
     <template #actions>
       <PermissionGate :permission-n-id="PERMISSIONS.referenceDataDynamicPropertyCreate">
         <el-button
@@ -1041,233 +1021,242 @@ onBeforeUnmount(() => {
     >
       <p v-if="traceId">{{ copy.traceId }}: {{ traceId }}</p>
     </el-alert>
-    <AppQueryPanel v-if="mode === 'top'" show-actions grid @submit="search" @reset="reset">
-      <label class="dynamic-query-field"
-        ><span>{{ copy.keyword }}</span
-        ><el-input
-          v-model="query.keyword"
-          :aria-label="copy.keyword"
-          maxlength="200"
-          clearable
-          @keyup.enter="search"
-      /></label>
-      <label class="dynamic-query-field"
-        ><span>{{ copy.scope }}</span
-        ><el-select v-model="query.scopeType" :aria-label="copy.scope" clearable
-          ><el-option
-            v-for="option in scopeOptions"
-            :key="option.value"
-            v-bind="option" /></el-select
-      ></label>
-      <label class="dynamic-query-field"
-        ><span>{{ copy.status }}</span
-        ><el-select v-model="query.status" :aria-label="copy.status" clearable
-          ><el-option
-            v-for="option in statusOptions"
-            :key="option.value"
-            v-bind="option" /></el-select
-      ></label>
-    </AppQueryPanel>
     <el-skeleton v-if="firstLoading" :rows="3" animated :aria-label="copy.dynamicLoading" />
-    <AppDataTable
-      ref="master"
-      table-key="reference-data-dynamic-properties"
-      :columns="masterColumns"
-      :loader="loadDefinitions"
-      :query-mode="mode"
-      selection="single"
-      :selected-row-key="selectedId"
-      :toolbar-labels="true"
-      @selection-change="selectDefinition"
-      @query-mode-change="switchMode"
-      @loaded="onLoaded"
-      @load-error="reportList"
-    >
-      <template #cell-scopeType="{ row }">{{
-        row.scopeType === 'Tenant' ? copy.tenant : copy.platform
-      }}</template>
-      <template #cell-status="{ row }"
-        ><el-tag
-          :type="
-            row.status === 'Published' ? 'success' : row.status === 'Draft' ? 'info' : 'warning'
-          "
-          >{{ statusLabel(row.status) }}</el-tag
-        ></template
-      >
-      <template #cell-publishedOn="{ row }">{{ date(row.publishedOn) }}</template>
-    </AppDataTable>
-    <p v-if="!firstLoading && total === 0 && !listError">{{ copy.dynamicEmpty }}</p>
-
-    <section class="dynamic-property-detail" :aria-busy="detailLoading">
-      <p v-if="!selectedId">{{ copy.dynamicSelect }}</p>
-      <el-skeleton v-else-if="detailLoading && !definition" :rows="4" animated />
-      <template v-else-if="definition">
-        <header class="dynamic-property-context">
-          <div>
-            <h2>{{ definition.name }}</h2>
-            <p>
-              {{ definition.nId }} · {{ copy.revision }} {{ definition.revision }} ·
-              {{ statusLabel(definition.status) }}
-            </p>
-          </div>
-          <div class="dynamic-actions">
-            <el-button v-if="canEdit(definition)" @click="openDefinition()">{{
-              copy.dynamicEditDefinition
-            }}</el-button>
-            <el-button v-if="canClone(definition)" @click="clone">{{ copy.clone }}</el-button>
-            <el-button
-              v-if="canDisable(definition)"
-              type="danger"
-              plain
-              @click="disableDefinition"
-              >{{ copy.disable }}</el-button
-            >
-            <el-button v-if="canPublish(definition)" type="primary" @click="preparePublication">{{
-              copy.dynamicPublicationCheck
-            }}</el-button>
-          </div>
-        </header>
-        <el-alert
-          v-if="definition.status !== 'Draft' || !scopeWritable(definition)"
-          :title="definition.status === 'Draft' ? copy.protected : copy.readOnly"
-          type="info"
-          :closable="false"
-        />
-        <el-alert :title="copy.dynamicReplacementHint" type="info" :closable="false" />
-        <el-tabs v-model="detailTab">
-          <el-tab-pane :label="copy.dynamicFields" name="fields">
-            <div class="dynamic-section-heading">
-              <h3>{{ copy.dynamicFields }} ({{ definition.fields.length }}/100)</h3>
-              <el-button
-                v-if="canEdit(definition)"
-                :disabled="definition.fields.length >= 100"
-                :icon="Plus"
-                @click="openField(null)"
-                >{{ copy.dynamicAddField }}</el-button
+    <div class="dynamic-master-detail">
+      <section class="dynamic-property-master" :aria-label="copy.dynamicTitle">
+        <AppQueryPanel v-if="mode === 'top'" show-actions grid @submit="search" @reset="reset">
+          <label class="dynamic-query-field"
+            ><span>{{ copy.keyword }}</span
+            ><el-input
+              v-model="query.keyword"
+              :aria-label="copy.keyword"
+              maxlength="200"
+              clearable
+              @keyup.enter="search"
+          /></label>
+          <label class="dynamic-query-field"
+            ><span>{{ copy.scope }}</span
+            ><el-select v-model="query.scopeType" :aria-label="copy.scope" clearable
+              ><el-option
+                v-for="option in scopeOptions"
+                :key="option.value"
+                v-bind="option" /></el-select
+          ></label>
+          <label class="dynamic-query-field"
+            ><span>{{ copy.status }}</span
+            ><el-select v-model="query.status" :aria-label="copy.status" clearable
+              ><el-option
+                v-for="option in statusOptions"
+                :key="option.value"
+                v-bind="option" /></el-select
+          ></label>
+        </AppQueryPanel>
+        <AppDataTable
+          ref="master"
+          table-key="reference-data-dynamic-properties"
+          :columns="masterColumns"
+          :loader="loadDefinitions"
+          :query-mode="mode"
+          selection="none"
+          :active-row-key="selectedId"
+          toolbar-profile="compact"
+          :toolbar-labels="true"
+          :quick-search-enabled="false"
+          @row-click="selectDefinition"
+          @query-mode-change="switchMode"
+          @loaded="onLoaded"
+          @load-error="reportList"
+        >
+          <template #cell-name="{ row }"
+            ><div class="dynamic-directory-name">
+              <strong>{{ row.name }}</strong
+              ><small :title="`${row.nId} · ${statusLabel(row.status)}`"
+                ><span class="directory-status">{{ statusLabel(row.status) }}</span> ·
+                {{ row.nId }}</small
               >
+            </div></template
+          >
+          <template #cell-publishedOn="{ row }">{{ date(row.publishedOn) }}</template>
+        </AppDataTable>
+        <p v-if="!firstLoading && total === 0 && !listError">{{ copy.dynamicEmpty }}</p>
+      </section>
+
+      <section class="dynamic-property-detail" :aria-busy="detailLoading">
+        <p v-if="!selectedId">{{ copy.dynamicSelect }}</p>
+        <el-skeleton v-else-if="detailLoading && !definition" :rows="4" animated />
+        <template v-else-if="definition">
+          <header class="dynamic-property-context">
+            <div>
+              <h2>{{ definition.name }}</h2>
+              <p>
+                {{ definition.nId }} ·
+                {{ definition.scopeType === 'Tenant' ? copy.tenant : copy.platform }} ·
+                {{ copy.revision }} {{ definition.revision }} ·
+                {{ statusLabel(definition.status) }} · {{ copy.dynamicFieldCount }}
+                {{ definition.fields.length }} · {{ copy.dynamicRecordCount }}
+                {{ definition.recordCount }}
+              </p>
             </div>
-            <p>{{ copy.dynamicFieldIdentityHint }}</p>
-            <AppDataTable
-              table-key="reference-data-dynamic-fields"
-              :rows="definition.fields"
-              :total="definition.fields.length"
-              :columns="fieldColumns"
-              toolbar-profile="compact"
-              selection="none"
-            >
-              <template #cell-dataType="{ row }">{{ typeLabel(row.dataType) }}</template>
-              <template #cell-required="{ row }">{{
-                row.required ? copy.trueValue : copy.falseValue
-              }}</template>
-              <template #cell-enabled="{ row }">{{
-                row.enabled ? copy.trueValue : copy.falseValue
-              }}</template>
-              <template #actions="{ row }">
-                <div v-if="canEdit(definition)" class="dynamic-actions">
-                  <el-button link type="primary" @click="openField(row)">{{
-                    copy.dynamicEditField
-                  }}</el-button>
-                  <el-button
-                    v-if="!row.hasHadValue && !row.wasPublished"
-                    link
-                    type="danger"
-                    :icon="Delete"
-                    @click="removeField(row)"
-                    >{{ copy.remove }}</el-button
-                  >
-                </div>
-              </template>
-            </AppDataTable>
-            <p v-if="definition.fields.length === 0">{{ copy.dynamicNoFields }}</p>
-          </el-tab-pane>
-          <el-tab-pane :label="copy.dynamicRecords" name="records">
-            <div class="dynamic-section-heading">
-              <h3>{{ copy.dynamicRecords }}</h3>
-              <el-button v-if="canEdit(definition)" :icon="Plus" @click="openRecord(null)">{{
-                copy.dynamicAddRecord
+            <div class="dynamic-actions">
+              <el-button v-if="canEdit(definition)" @click="openDefinition()">{{
+                copy.dynamicEditDefinition
+              }}</el-button>
+              <el-button v-if="canClone(definition)" @click="clone">{{ copy.clone }}</el-button>
+              <el-button
+                v-if="canDisable(definition)"
+                type="danger"
+                plain
+                @click="disableDefinition"
+                >{{ copy.disable }}</el-button
+              >
+              <el-button v-if="canPublish(definition)" type="primary" @click="preparePublication">{{
+                copy.dynamicPublicationCheck
               }}</el-button>
             </div>
-            <AppQueryPanel show-actions grid @submit="searchRecords" @reset="resetRecords">
-              <label class="dynamic-query-field"
-                ><span>{{ copy.keyword }}</span
-                ><el-input
-                  v-model="recordQuery.keyword"
-                  :aria-label="copy.keyword"
-                  @keyup.enter="searchRecords"
-              /></label>
-              <label class="dynamic-query-field"
-                ><span>{{ copy.nId }}</span
-                ><el-input
-                  v-model="recordQuery.nId"
-                  :aria-label="copy.nId"
-                  @keyup.enter="searchRecords"
-              /></label>
-              <label class="dynamic-query-field"
-                ><span>{{ copy.dynamicCategory }}</span
-                ><el-input
-                  v-model="recordQuery.category"
-                  :aria-label="copy.dynamicCategory"
-                  @keyup.enter="searchRecords"
-              /></label>
-            </AppQueryPanel>
-            <AppDataTable
-              :key="definition.id"
-              ref="recordsTable"
-              table-key="reference-data-dynamic-records"
-              :columns="recordColumns"
-              :loader="loadRecords"
-              query-mode="top"
-              toolbar-profile="compact"
-              selection="none"
-            >
-              <template #cell-values="{ row }">{{ recordValues(row) }}</template>
-              <template #cell-enabled="{ row }">{{
-                row.enabled ? copy.trueValue : copy.falseValue
-              }}</template>
-              <template #actions="{ row }">
-                <div
-                  v-if="
-                    (canEdit(definition) && !row.isFrozen && !row.isLocked) || canDisableRecord(row)
-                  "
-                  class="dynamic-actions"
+          </header>
+          <el-alert
+            v-if="definition.status !== 'Draft' || !scopeWritable(definition)"
+            :title="definition.status === 'Draft' ? copy.protected : copy.readOnly"
+            type="info"
+            :closable="false"
+          />
+          <el-alert :title="copy.dynamicReplacementHint" type="info" :closable="false" />
+          <el-tabs v-model="detailTab">
+            <el-tab-pane :label="copy.dynamicFields" name="fields">
+              <div class="dynamic-section-heading">
+                <h3>{{ copy.dynamicFields }} ({{ definition.fields.length }}/100)</h3>
+                <el-button
+                  v-if="canEdit(definition)"
+                  :disabled="definition.fields.length >= 100"
+                  :icon="Plus"
+                  @click="openField(null)"
+                  >{{ copy.dynamicAddField }}</el-button
                 >
-                  <el-button
-                    v-if="canEdit(definition) && !row.isFrozen && !row.isLocked"
-                    link
-                    type="primary"
-                    @click="openRecord(row)"
-                    >{{ copy.dynamicEditRecord }}</el-button
+              </div>
+              <p>{{ copy.dynamicFieldIdentityHint }}</p>
+              <AppDataTable
+                table-key="reference-data-dynamic-fields"
+                :rows="definition.fields"
+                :total="definition.fields.length"
+                :columns="fieldColumns"
+                toolbar-profile="compact"
+                selection="none"
+              >
+                <template #cell-dataType="{ row }">{{ typeLabel(row.dataType) }}</template>
+                <template #cell-required="{ row }">{{
+                  row.required ? copy.trueValue : copy.falseValue
+                }}</template>
+                <template #cell-enabled="{ row }">{{
+                  row.enabled ? copy.trueValue : copy.falseValue
+                }}</template>
+                <template #actions="{ row }">
+                  <div v-if="canEdit(definition)" class="dynamic-actions">
+                    <el-button link type="primary" @click="openField(row)">{{
+                      copy.dynamicEditField
+                    }}</el-button>
+                    <el-button
+                      v-if="!row.hasHadValue && !row.wasPublished"
+                      link
+                      type="danger"
+                      :icon="Delete"
+                      @click="removeField(row)"
+                      >{{ copy.remove }}</el-button
+                    >
+                  </div>
+                </template>
+              </AppDataTable>
+              <p v-if="definition.fields.length === 0">{{ copy.dynamicNoFields }}</p>
+            </el-tab-pane>
+            <el-tab-pane :label="copy.dynamicRecords" name="records">
+              <div class="dynamic-section-heading">
+                <h3>{{ copy.dynamicRecords }}</h3>
+                <el-button v-if="canEdit(definition)" :icon="Plus" @click="openRecord(null)">{{
+                  copy.dynamicAddRecord
+                }}</el-button>
+              </div>
+              <AppQueryPanel show-actions grid @submit="searchRecords" @reset="resetRecords">
+                <label class="dynamic-query-field"
+                  ><span>{{ copy.keyword }}</span
+                  ><el-input
+                    v-model="recordQuery.keyword"
+                    :aria-label="copy.keyword"
+                    @keyup.enter="searchRecords"
+                /></label>
+                <label class="dynamic-query-field"
+                  ><span>{{ copy.nId }}</span
+                  ><el-input
+                    v-model="recordQuery.nId"
+                    :aria-label="copy.nId"
+                    @keyup.enter="searchRecords"
+                /></label>
+                <label class="dynamic-query-field"
+                  ><span>{{ copy.dynamicCategory }}</span
+                  ><el-input
+                    v-model="recordQuery.category"
+                    :aria-label="copy.dynamicCategory"
+                    @keyup.enter="searchRecords"
+                /></label>
+              </AppQueryPanel>
+              <AppDataTable
+                :key="definition.id"
+                ref="recordsTable"
+                table-key="reference-data-dynamic-records"
+                :columns="recordColumns"
+                :loader="loadRecords"
+                query-mode="top"
+                toolbar-profile="compact"
+                selection="none"
+              >
+                <template #cell-values="{ row }">{{ recordValues(row) }}</template>
+                <template #cell-enabled="{ row }">{{
+                  row.enabled ? copy.trueValue : copy.falseValue
+                }}</template>
+                <template #actions="{ row }">
+                  <div
+                    v-if="
+                      (canEdit(definition) && !row.isFrozen && !row.isLocked) ||
+                      canDisableRecord(row)
+                    "
+                    class="dynamic-actions"
                   >
-                  <el-button
-                    v-if="canDisableRecord(row)"
-                    link
-                    type="danger"
-                    @click="disableRecord(row)"
-                    >{{ copy.disable }}</el-button
-                  >
-                </div>
-              </template>
-            </AppDataTable>
-          </el-tab-pane>
-          <el-tab-pane :label="copy.dynamicPublication" name="publication">
-            <p>{{ copy.publicationHint }}</p>
-            <dl class="dynamic-summary">
-              <dt>{{ copy.dynamicFieldCount }}</dt>
-              <dd>{{ definition.fields.length }}</dd>
-              <dt>{{ copy.dynamicRecordCount }}</dt>
-              <dd>{{ definition.recordCount }}</dd>
-              <dt>{{ copy.dynamicValueCount }}</dt>
-              <dd>{{ definition.valueCount }}</dd>
-              <dt>{{ copy.publishedOn }}</dt>
-              <dd>{{ date(definition.publishedOn) }}</dd>
-            </dl>
-            <el-button v-if="canPublish(definition)" type="primary" @click="preparePublication">{{
-              copy.dynamicPublicationCheck
-            }}</el-button>
-          </el-tab-pane>
-        </el-tabs>
-      </template>
-    </section>
+                    <el-button
+                      v-if="canEdit(definition) && !row.isFrozen && !row.isLocked"
+                      link
+                      type="primary"
+                      @click="openRecord(row)"
+                      >{{ copy.dynamicEditRecord }}</el-button
+                    >
+                    <el-button
+                      v-if="canDisableRecord(row)"
+                      link
+                      type="danger"
+                      @click="disableRecord(row)"
+                      >{{ copy.disable }}</el-button
+                    >
+                  </div>
+                </template>
+              </AppDataTable>
+            </el-tab-pane>
+            <el-tab-pane :label="copy.dynamicPublication" name="publication">
+              <p>{{ copy.publicationHint }}</p>
+              <dl class="dynamic-summary">
+                <dt>{{ copy.dynamicFieldCount }}</dt>
+                <dd>{{ definition.fields.length }}</dd>
+                <dt>{{ copy.dynamicRecordCount }}</dt>
+                <dd>{{ definition.recordCount }}</dd>
+                <dt>{{ copy.dynamicValueCount }}</dt>
+                <dd>{{ definition.valueCount }}</dd>
+                <dt>{{ copy.publishedOn }}</dt>
+                <dd>{{ date(definition.publishedOn) }}</dd>
+              </dl>
+              <el-button v-if="canPublish(definition)" type="primary" @click="preparePublication">{{
+                copy.dynamicPublicationCheck
+              }}</el-button>
+            </el-tab-pane>
+          </el-tabs>
+        </template>
+      </section>
+    </div>
 
     <AppFormDrawer
       :model-value="editorKind !== null"
@@ -1547,6 +1536,23 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.dynamic-page {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.dynamic-page :deep(.app-page__body) {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.dynamic-page :deep(.app-query-panel) {
+  flex: 0 0 auto;
+}
 .dynamic-query-field {
   display: grid;
   gap: var(--ip-space-2);
@@ -1554,11 +1560,52 @@ onBeforeUnmount(() => {
   flex: 0 0 180px;
   max-width: 100%;
 }
-.dynamic-property-detail {
+.dynamic-master-detail {
   display: grid;
+  flex: 1 1 0;
+  grid-template-columns: minmax(250px, 280px) minmax(0, 1fr);
+  gap: var(--ip-space-4);
+  min-height: 0;
+  align-items: stretch;
+}
+.dynamic-property-master,
+.dynamic-property-detail {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.dynamic-property-master {
   gap: var(--ip-space-3);
-  margin-top: var(--ip-space-4);
-  min-height: 120px;
+  overflow: hidden;
+}
+.dynamic-directory-name {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+.dynamic-directory-name strong,
+.dynamic-directory-name small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dynamic-directory-name small {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+.dynamic-property-detail {
+  display: flex;
+  gap: var(--ip-space-3);
+  padding: var(--ip-space-4);
+  border: 1px solid var(--el-border-color-light);
+  border-radius: var(--ip-radius-md);
+  background: var(--el-bg-color);
+  min-height: 0;
+}
+.dynamic-property-detail > * {
+  min-width: 0;
+  max-width: 100%;
 }
 .dynamic-property-context,
 .dynamic-section-heading {
@@ -1567,6 +1614,10 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: var(--ip-space-3);
 }
+.dynamic-property-context > div:first-child {
+  min-width: 0;
+  max-width: 100%;
+}
 .dynamic-property-context h2,
 .dynamic-section-heading h3 {
   margin: 0;
@@ -1574,6 +1625,7 @@ onBeforeUnmount(() => {
 .dynamic-property-context p {
   margin: var(--ip-space-1) 0 0;
   color: var(--el-text-color-secondary);
+  overflow-wrap: anywhere;
 }
 .dynamic-actions {
   display: inline-flex;
@@ -1583,6 +1635,38 @@ onBeforeUnmount(() => {
 }
 .dynamic-actions > .el-button {
   margin-left: 0;
+}
+.dynamic-property-master :deep(.app-data-table),
+.dynamic-property-detail :deep(.app-data-table) {
+  flex: 1 1 0;
+  min-height: 0;
+}
+.dynamic-property-master :deep(.app-data-table__card),
+.dynamic-property-detail :deep(.app-data-table__card) {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+}
+.dynamic-property-detail :deep(.el-tabs) {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+}
+.dynamic-property-detail :deep(.el-tabs__content) {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.dynamic-property-detail :deep(.el-tab-pane) {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 .dynamic-form-grid,
 .dynamic-values-grid {
@@ -1603,6 +1687,9 @@ onBeforeUnmount(() => {
   overflow-wrap: anywhere;
 }
 @media (max-width: 768px) {
+  .dynamic-master-detail {
+    grid-template-columns: 1fr;
+  }
   .dynamic-property-context,
   .dynamic-section-heading {
     align-items: flex-start;

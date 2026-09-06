@@ -171,9 +171,13 @@ export const enUS = {
     navigation: {
       workspace: 'Workspace',
       platformManagement: 'Platform management',
-      group: { workspace: 'Workspace', 'reference-data': 'Reference data', system: 'System management' },
+      group: {
+        workspace: 'Workspace',
+        'reference-data': 'Basic configuration',
+        system: 'System management',
+      },
       section: {
-        'reference-data': 'Reference data',
+        'reference-data': 'Basic configuration',
         'identity-access': 'Identity & access',
         'organization-platform': 'Organization & platform',
         'organization-people': 'Organization & people',
@@ -185,7 +189,7 @@ export const enUS = {
         'reference-data-parameters': 'Parameters',
         'reference-data-dynamic-properties': 'Dynamic properties',
         'reference-data-units-of-measure': 'Units of measure',
-        'reference-data-metadata': 'Metadata schemas',
+        'reference-data-metadata': 'Metadata definitions',
         'reference-data-coding-rules': 'Coding rules',
         'reference-data-state-machines': 'State machines',
         'pc-home': 'Home',

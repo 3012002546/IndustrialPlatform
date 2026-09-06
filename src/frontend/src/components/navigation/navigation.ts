@@ -49,9 +49,9 @@ const DEFAULT_PC_NAVIGATION_GROUPS: readonly NavigationGroup[] = [
   },
   {
     id: 'reference-data',
-    label: '参考数据',
+    label: '基础配置',
     labelKey: 'shell.navigation.group.reference-data',
-    fallbackLabel: '参考数据',
+    fallbackLabel: '基础配置',
     icon: Tickets,
     items: [
       {
@@ -84,7 +84,7 @@ const DEFAULT_PC_NAVIGATION_GROUPS: readonly NavigationGroup[] = [
       },
       {
         id: 'reference-data-metadata',
-        label: '元数据 Schema',
+        label: '元数据定义',
         routeName: 'reference-data-metadata',
         icon: Tickets,
         permission: PERMISSIONS.referenceDataMetadataView,

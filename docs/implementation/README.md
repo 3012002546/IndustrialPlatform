@@ -32,9 +32,9 @@ PF-02 及其后的新服务必须以 `docs/blueprint/07-PostgreSQL数据库规�
 | 02B | [统一前端第一批开发 TODO](02B-Industrial%20Platform统一前端第一批开发实施方案.md) | `TASK-FE-001～010` 已完成 |
 | 03 | [Identity Service实施方案](03-Industrial%20Platform%20Identity%20Service开发实施方案.md) | `TASK-ID-001～023` 当前范围已完成并合入；真实 PostgreSQL/Redis 联合登录链路保留为外部验收项 |
 | 04 | [PF-01 视觉主题与平台外壳实施方案](04-Industrial%20Platform视觉主题与平台外壳开发实施方案.md) | `TASK-PF01-001～007` 已完成；真实 Identity 联合验收 real E2E 19/19；外部真机 safe-area 待验收 |
-| 05 | [PF-02 SystemData实施方案](05-Industrial%20Platform%20SystemData开发实施方案.md) | 2026-09-04：已知整改缺陷复验关闭，26项分层证据与017状态回写完成；014完整UI/真正200%、015真实链及016外部门禁仍待验收，013/PF-02保持active；PF-03未启动 |
-| 06 | [PF-03 ReferenceData实施方案](06-Industrial%20Platform%20ReferenceData%20Service开发实施方案.md) | V2.7 七模块文档已收敛，含状态机定义/计量单位与十个内部步骤；代码仅骨架，PF-03 未启动 |
-| 07 | PF-04 File / Notification / Audit实施方案（待 PF-04 会话创建） | 三个模块分开建模，在同一阶段管理会话协调和派遣 |
+| 05 | [PF-02 SystemData实施方案](05-Industrial%20Platform%20SystemData开发实施方案.md) | 已有控制面及管理能力，PF-02 仍 active；真实菜单发布、七页/三端及外部门禁按 CURRENT/阶段 evidence 收束。PF-04 只核验所消费的稳定契约，不重做已完成前置 |
+| 06 | [PF-03 ReferenceData实施方案](06-Industrial%20Platform%20ReferenceData%20Service开发实施方案.md) | 七模块已于 2026-09-05 完成并经独立验收 PASS，功能 969ee156 / 合并 e9452b47；当前后续 WIP 不包含在历史验收内，证据见 docs/evidence/PF-03.md |
+| 07 | [PF-04 File / Notification / Audit实施方案](07-Industrial%20Platform%20File%20Notification%20Audit开发实施方案.md) | V1.1，2026-09-06 开发就绪复评；001～009 可派遣，整包按依赖连续执行；接入/组件验证在任务内完成，010 高级合规后续待细化；未实际派遣/开发 |
 | 08 | PF-05 Collaboration实施方案（待 PF-05 会话创建） | 待阶段管理会话设计和派遣 |
 | 09 | [PF-06 RemoteAssistance实施方案](09-Industrial%20Platform%20RemoteAssistance开发实施方案.md) | 详细设计已确认；`TASK-PF06-001` 双 PoC/现场网络/许可门禁待另行派遣，002～008 保持门禁阻塞；未开发、未测试 |
 | 10 | PF-07 Scheduler / Platform Health实施方案（待 PF-07 会话创建） | 两个模块分开建模，在同一阶段管理会话协调和派遣 |

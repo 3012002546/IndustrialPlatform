@@ -263,6 +263,12 @@ for (const scenario of [
     const root = page.getByTestId('coding-rules-page')
     const more = root.locator('[data-testid="coding-rule-more"]:visible')
     await expect(root).toBeVisible()
+    const table = root.locator('.app-data-table').first()
+    await expect(table.locator('.vxe-cell--radio')).toHaveCount(0)
+    await expect(table.locator('.app-data-table__selection-summary')).toHaveCount(0)
+    for (const tool of ['query-toggle', 'sort', 'group', 'export']) {
+      await expect(table.getByTestId(`app-data-table-${tool}`)).toBeVisible()
+    }
     await root.getByTestId('coding-rule-create').click()
     const editor = page.getByRole('dialog').filter({ has: page.getByTestId('coding-rule-save') })
     await expect(editor.getByText('{YYYY} {MM} {DD} {TENANT} {FACTORY} {SEQ:n}')).toBeVisible()
@@ -321,6 +327,16 @@ for (const scenario of [
     expect(generationKeys).toEqual(['fixture-same-key', 'fixture-same-key'])
     expect(nextSequence).toBe(2)
 
+    const pcMain = page.locator('.ip-pc-main')
+    const mainMetrics = await pcMain.evaluate((element) => ({
+      scrollLeft: element.scrollLeft,
+      scrollWidth: element.scrollWidth,
+      clientWidth: element.clientWidth,
+    }))
+    expect(mainMetrics.scrollLeft, JSON.stringify(mainMetrics)).toBe(0)
+    expect(mainMetrics.scrollWidth, JSON.stringify(mainMetrics)).toBeLessThanOrEqual(
+      mainMetrics.clientWidth + 1,
+    )
     await page.screenshot({
       path: testInfo.outputPath(`coding-rules-${scenario.width}.png`),
       fullPage: true,

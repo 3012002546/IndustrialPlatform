@@ -160,13 +160,21 @@ function keys(wrapper: VueWrapper): TableWrapper {
   return table(wrapper, 'reference-data-parameter-keys')
 }
 async function select(wrapper: VueWrapper, row: ConfigurationDomainSummary) {
-  master(wrapper).findComponent(VxeTable).vm.$emit('radio-change', { row })
+  master(wrapper)
+    .findComponent(VxeTable)
+    .vm.$emit('cell-click', {
+      row,
+      column: { field: 'name' },
+    })
   await flushPromises()
 }
-async function clickButton(wrapper: VueWrapper, label: string) {
-  const result = wrapper.findAll('button').find((item) => item.text() === label)
-  expect(result, label).toBeDefined()
-  await result!.trigger('click')
+async function selectKey(wrapper: VueWrapper, row: ConfigurationKey) {
+  keys(wrapper)
+    .findComponent(VxeTable)
+    .vm.$emit('cell-click', {
+      row,
+      column: { field: 'name' },
+    })
   await flushPromises()
 }
 function editor(wrapper: VueWrapper): VueWrapper<InstanceType<typeof AppFormDrawer>> {
@@ -201,32 +209,32 @@ describe('Parameter management page', () => {
   it('does not load a domain before selection or after an empty selection event', async () => {
     const wrapper = await mountPage()
     expect(api.listConfigurationDomains).toHaveBeenCalled()
-    expect(master(wrapper).props('selection')).toBe('single')
-    expect(master(wrapper).props('selectedRowKey')).toBeNull()
+    expect(master(wrapper).props('selection')).toBe('none')
+    expect(master(wrapper).props('activeRowKey')).toBeNull()
+    expect(master(wrapper).props('columns')).toHaveLength(1)
     expect(wrapper.get('.parameter-detail').text()).toContain('Select a domain')
-    expect(api.getConfigurationDomain).not.toHaveBeenCalled()
-    master(wrapper).findComponent(VxeTable).vm.$emit('radio-change', { records: [] })
-    await flushPromises()
     expect(api.getConfigurationDomain).not.toHaveBeenCalled()
   })
 
-  it('clears the selected domain and keys through the real table clear control', async () => {
+  it('keeps the clicked domain as the active current object', async () => {
     const wrapper = await mountPage()
     await select(wrapper, summaryA)
     expect(keys(wrapper).props('rows')).toEqual(domainA.keys)
     expect(wrapper.get('.parameter-detail').text()).toContain('Alpha limit')
     expect(api.getConfigurationDomain).toHaveBeenCalledTimes(1)
-    await master(wrapper).get('[data-testid="app-data-table-clear-selection"]').trigger('click')
-    await flushPromises()
-    expect(master(wrapper).props('selectedRowKey')).toBeNull()
-    expect(wrapper.get('.parameter-detail').text()).toContain('Select a domain')
-    expect(wrapper.get('.parameter-detail').text()).not.toContain('Alpha limit')
-    expect(
-      wrapper
-        .findAllComponents<TableInstance>({ name: 'AppDataTable' })
-        .some((item) => item.props('tableKey') === 'reference-data-parameter-keys'),
-    ).toBe(false)
+    expect(master(wrapper).props('activeRowKey')).toBe(summaryA.id)
+    expect(wrapper.get('.parameter-detail').text()).toContain('Alpha limit')
     expect(api.getConfigurationDomain).toHaveBeenCalledTimes(1)
+  })
+
+  it('explains that a single-value key has no multiple-value details', async () => {
+    const wrapper = await mountPage()
+    await select(wrapper, summaryA)
+    await selectKey(wrapper, keyA)
+
+    expect(wrapper.get('.parameter-values').text()).toContain(
+      'Single-value keys do not use value entries.',
+    )
   })
 
   it('keeps B when the cancelled A request still completes after B', async () => {
@@ -245,7 +253,7 @@ describe('Parameter management page', () => {
     expect(wrapper.get('.parameter-context h2').text()).toBe('Beta domain')
     finishA(structuredClone(domainA))
     await flushPromises()
-    expect(master(wrapper).props('selectedRowKey')).toBe(summaryB.id)
+    expect(master(wrapper).props('activeRowKey')).toBe(summaryB.id)
     expect(wrapper.get('.parameter-context h2').text()).toBe('Beta domain')
     expect(keys(wrapper).props('rows')).toEqual(domainB.keys)
     expect(wrapper.get('.parameter-detail').text()).not.toContain('Alpha limit')
@@ -254,7 +262,9 @@ describe('Parameter management page', () => {
   it('retains a dirty key form but disables saving after update permission is revoked', async () => {
     const wrapper = await mountPage()
     await select(wrapper, summaryA)
-    await clickButton(keys(wrapper), 'Edit')
+    await selectKey(wrapper, keyA)
+    await wrapper.get('[data-testid="parameter-key-edit"]').trigger('click')
+    await flushPromises()
     await editor(wrapper).get('input[aria-label="Value"]').setValue('42.125')
     await editor(wrapper).get('textarea[aria-label="Change reason"]').setValue('Retain this reason')
     useAuthStore().adoptSession(makeAuthSession([PERMISSIONS.referenceDataParameterView]))
@@ -302,12 +312,14 @@ describe('Parameter management page', () => {
       api.getConfigurationDomain.mockResolvedValue(readonly)
       const wrapper = await mountPage()
       await select(wrapper, summaryA)
+      await selectKey(wrapper, readonly.keys[0]!)
       expect(
         keys(wrapper)
           .findAll('button')
           .some((item) => item.text() === 'Edit'),
       ).toBe(false)
-      await clickButton(keys(wrapper), 'Details')
+      await wrapper.get('[data-testid="parameter-key-details"]').trigger('click')
+      await flushPromises()
       const form = editor(wrapper)
       expect(form.text()).toContain(
         'Only trusted synchronization or migration can change this key.',
@@ -346,7 +358,9 @@ describe('Parameter management page', () => {
     )
     const wrapper = await mountPage()
     await select(wrapper, summaryA)
-    await clickButton(keys(wrapper), 'Edit')
+    await selectKey(wrapper, keyA)
+    await wrapper.get('[data-testid="parameter-key-edit"]').trigger('click')
+    await flushPromises()
     const value = '9007199254740993.0000000001'
     const reason = 'Preserve exact decimal during a conflict'
     await editor(wrapper).get('input[aria-label="Value"]').setValue(value)

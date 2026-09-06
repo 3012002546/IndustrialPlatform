@@ -161,9 +161,9 @@ export const zhCN = {
     navigation: {
       workspace: '工作台',
       platformManagement: '平台管理',
-      group: { workspace: '工作台', 'reference-data': '参考数据', system: '系统管理' },
+      group: { workspace: '工作台', 'reference-data': '基础配置', system: '系统管理' },
       section: {
-        'reference-data': '参考数据',
+        'reference-data': '基础配置',
         'identity-access': '身份与访问',
         'organization-platform': '组织域平台',
         'organization-people': '组织与人员',
@@ -175,7 +175,7 @@ export const zhCN = {
         'reference-data-parameters': '参数管理',
         'reference-data-dynamic-properties': '动态属性',
         'reference-data-units-of-measure': '计量单位',
-        'reference-data-metadata': '元数据 Schema',
+        'reference-data-metadata': '元数据定义',
         'reference-data-coding-rules': '编码规则',
         'reference-data-state-machines': '状态机定义',
         'pc-home': '首页',

@@ -6,6 +6,7 @@ using IndustrialPlatform.Application.Abstractions.Initialization;
 using IndustrialPlatform.Infrastructure.Database;
 using IndustrialPlatform.SharedKernel.Topology;
 using SqlSugar;
+using IndustrialPlatform.ReferenceData.Infrastructure.UnitOfMeasure;
 
 namespace IndustrialPlatform.ReferenceData.Infrastructure.Initialization;
 
@@ -86,6 +87,37 @@ public sealed class ReferenceDataInitializationLedger(SqlSugarDbContext dbContex
         }
     }
 
+    public async Task<bool> UnitOfMeasureSeedDataReadyAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!await TableExistsAsync("unit_of_measure_dimension") || !await TableExistsAsync("unit_of_measure_unit"))
+            return false;
+
+        var booleanTrue = PostgreSql ? "TRUE" : "1";
+        var booleanFalse = PostgreSql ? "FALSE" : "0";
+        var dimensions = string.Join(",", UnitOfMeasureSystemSeed.DimensionNIds.Select(nId => $"'{nId}'"));
+        var units = string.Join(",", UnitOfMeasureSystemSeed.UnitNIds.Select(nId => $"'{nId}'"));
+        var dimensionCount = await Db.Ado.GetIntAsync($"""
+            SELECT COUNT(*) FROM {Table("unit_of_measure_dimension")}
+            WHERE tenant_nid IS NULL AND scope_type='Platform' AND is_system_defined={booleanTrue}
+              AND is_deleted={booleanFalse}
+              AND status='Published' AND revision=1 AND n_id IN ({dimensions})
+            """);
+        var unitCount = await Db.Ado.GetIntAsync($"""
+            SELECT COUNT(DISTINCT unit.n_id)
+            FROM {Table("unit_of_measure_unit")} unit
+            INNER JOIN {Table("unit_of_measure_dimension")} dimension
+                ON dimension.id=unit.unit_dimension_id
+            WHERE dimension.tenant_nid IS NULL AND dimension.scope_type='Platform'
+              AND dimension.is_system_defined={booleanTrue}
+              AND dimension.is_deleted={booleanFalse}
+              AND unit.is_deleted={booleanFalse}
+              AND unit.n_id IN ({units})
+            """);
+        return dimensionCount == UnitOfMeasureSystemSeed.DimensionNIds.Count
+            && unitCount == UnitOfMeasureSystemSeed.UnitNIds.Count;
+    }
+
     private async Task<bool> TableExistsAsync(string name) => PostgreSql
         ? await Db.Ado.GetIntAsync("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='reference_data' AND table_name=@name", new SugarParameter("@name", name)) == 1
         : await Db.Ado.GetIntAsync("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=@name", new SugarParameter("@name", Table(name))) == 1;
@@ -145,6 +177,18 @@ public sealed class ReferenceDataInitializationLedger(SqlSugarDbContext dbContex
                         new SugarParameter("@version", script.Version), new SugarParameter("@checksum", MigrationChecksum(script.Sql)),
                         new SugarParameter("@target", LocalTargetIdentity), new SugarParameter("@now", DateTimeOffset.UtcNow));
                 }
+                var unitSeed = await GetSeedAsync(UnitOfMeasureSystemSeed.SeedKey, UnitOfMeasureSystemSeed.SeedVersion, cancellationToken);
+                if (unitSeed is not null
+                    && (!string.Equals(unitSeed.Checksum, UnitOfMeasureSystemSeed.Checksum, StringComparison.Ordinal)
+                        || !string.Equals(unitSeed.Scope, "System", StringComparison.OrdinalIgnoreCase)))
+                    throw new InvalidOperationException("REF-INITIALIZATION-DRIFT");
+                await Db.Ado.ExecuteCommandAsync(UnitOfMeasureSystemSeed.Sql(PostgreSql));
+                if (unitSeed is null)
+                    await Db.Ado.ExecuteCommandAsync(
+                        $"INSERT INTO {Table("seed_ledger")} (seed_key,seed_version,checksum,scope,applied_on,operation_n_id,trace_id) VALUES (@key,@version,@checksum,'System',@now,@operation,@trace)",
+                        new SugarParameter("@key", UnitOfMeasureSystemSeed.SeedKey), new SugarParameter("@version", UnitOfMeasureSystemSeed.SeedVersion),
+                        new SugarParameter("@checksum", UnitOfMeasureSystemSeed.Checksum), new SugarParameter("@now", DateTimeOffset.UtcNow),
+                        new SugarParameter("@operation", context.OperationNId), new SugarParameter("@trace", context.TraceId));
                 var seed = await GetSeedAsync(ReferenceDataServiceInitializer.BaselineSeedKey, ReferenceDataServiceInitializer.BaselineVersion, cancellationToken);
                 if (seed is null)
                     await Db.Ado.ExecuteCommandAsync(

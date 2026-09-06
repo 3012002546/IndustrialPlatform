@@ -358,53 +358,26 @@ Information
 
 # 8. Business Audit审计体系
 
-工业软件必须具备：
+2026-09-06 PF-04 范围收束：当前交付 Audit Core，增强合规能力为 Audit Advanced。审计事实可靠性、可信身份、脱敏和授权查询必须保留；不能仅凭追加型日志宣称已实现密码学不可抵赖或完整合规。具体任务、API、失败矩阵见[实施 07 V1.1 第 7.1、9、12～15 章](../implementation/07-Industrial%20Platform%20File%20Notification%20Audit开发实施方案.md)。
 
-不可抵赖。
+## 8.1 审计模型与可靠边界
 
----
+Audit 是 SystemData.Service 内部模块，默认接入该服务的初始化/迁移/账本，逻辑数据命名空间独立。旧 Audit Service/audit_log 示意不表示当前另建宿主或迁移其他服务历史数据。
 
-# 8.1 审计模型
+| 数据 | 当前语义 |
+| --- | --- |
+| AuditFact | AuditEventNId、可信 TenantNId、生产服务/模块、Actor 用户/服务、Action、ResourceType/ResourceNId、Outcome、OccurredOn/ReceivedOn、TraceId/OperationId、脱敏摘要；不可变追加 |
+| 幂等与冲突 | TenantNId + ProducerServiceKey + AuditEventNId 唯一；规范化输入摘要版本固定，同键相同返回原结果、不同内容冲突告警；不等于哈希链 |
+| AuditLifecycle | 当前 RetainUntil、DeletionBlocked、归档/清理进度；变化追加事实。原事实的政策字段只能是发生/接收时快照 |
+| 现有本地审计/Outbox | 由原服务保留和管理，通过公开适配增量发送；不直接接管其表，不创建第二权威历史或第二套消息平台 |
 
-数据库：
+成功关键变更的业务数据与审计 Outbox 同事务；事务回滚后的失败/拒绝经独立可靠事务/持久路径记录，不能依赖已回滚事务。中央暂不可用但本地已可靠保存可按风险策略继续；必要审计无法保存时高风险操作关闭并告警，禁止吞异常。维护必须审计动作目录，区分业务事实、安全事件和技术诊断，避免无限审计自身。
 
-Audit Service
+Core 提供授权限窗查询、字段白名单/脱敏、有界导出和访问审计、基础保留清理。查询/导出不得自动保存完整 BeforeData/AfterData、请求正文、密码或 token。清理是保留到期且无禁止删除约束后的受控例外，不提供普通事实编辑/删除接口。
 
-表：
+Advanced 后续按明确需求交付哈希链、签名 checkpoint、独立外部锚点、完整 Legal Hold 审批、敏感值解密和复杂证据导出；不列入 Core 表、API、页面或 File/Notification 前置。既有 Collaboration 的 365 天内容、3 年合规访问和法律保全优先要求（蓝图 05 第 8.1 节）仍有效，相关能力启用前必须落实保全保护。Audit.NET 仅作采集抽象参考；CAP 仅在既有可靠能力不足时重新评估，不叠加第二套 Outbox。
 
-```
-audit_log
-
-```
-
-字段：
-
-```sql
-Id
-
-TenantId
-
-UserId
-
-ServiceName
-
-Action
-
-BusinessType
-
-BusinessId
-
-BeforeData
-
-AfterData
-
-CreateTime
-
-IpAddress
-
-Device
-
-```
+下列 MES/AI 场景是相应未来业务阶段的动作目录输入，不因列在本蓝图就成为 PF-04 当前实现或验收清单。
 
 ---
 

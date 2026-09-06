@@ -264,9 +264,9 @@ export const routes: RouteRecordRaw[] = [
         name: ROUTE_NAMES.referenceDataMetadata,
         component: MetadataPage,
         meta: {
-          title: '元数据 Schema',
+          title: '元数据定义',
           titleKey: 'referenceData.metadataTitle',
-          fallbackTitle: '元数据 Schema',
+          fallbackTitle: '元数据定义',
           requiresAuth: true,
           permission: PERMISSIONS.referenceDataMetadataView,
           terminal: 'pc',

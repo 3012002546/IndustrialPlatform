@@ -66,6 +66,8 @@ import {
   findAppDataTablePreferenceInput,
   findAppDataTableSurface,
   findVxeActiveCustomPanel,
+  findVxeBodyRow,
+  findVxeBodyRows,
   findVxeCustomBody,
   findVxeCustomHeader,
   findVxeCustomPanel,
@@ -75,6 +77,7 @@ import {
   findVxeHeaderRow,
   findVxeHeaderTables,
   findVxeHeaderWrapper,
+  isAppDataTableActionCell,
   isVxeCustomPanelActive,
   isVxeMainHeader,
   markVxeCustomPanelPlatformClass,
@@ -208,9 +211,12 @@ const props = withDefaults(
     tree?: AppDataTableTreeOptions<T>
     selection?: 'none' | 'single' | 'multiple'
     selectedRowKey?: string | null
+    activeRowKey?: string | null
+    actionColumnWidth?: number
     toolbarProfile?: 'full' | 'compact' | 'hidden'
     toolbarTitle?: string
     toolbarLabels?: boolean
+    quickSearchEnabled?: boolean
   }>(),
   {
     rows: () => [],
@@ -224,6 +230,7 @@ const props = withDefaults(
     selection: 'none',
     toolbarProfile: 'full',
     toolbarLabels: false,
+    quickSearchEnabled: true,
   },
 )
 
@@ -238,6 +245,7 @@ const emit = defineEmits([
   'query-change',
   'query-mode-change',
   'selection-change',
+  'row-click',
   'export',
   'group-change',
 ])
@@ -293,7 +301,8 @@ const printTitle = ref(`${props.tableKey}${copy.value.printTitleSuffix}`)
 const printDataMode = ref<AppDataTableQuickExportMode>('current')
 const printWidthMode = ref<AppDataTablePrintWidthMode>('current')
 const selectedRows = ref<T[]>([])
-const actionColumnWidth = ref(220)
+const localActiveRowKey = ref<string | null>(null)
+const actionColumnWidth = ref(props.actionColumnWidth ?? 220)
 const tableRef = ref<VxeTableInstance<T> | null>(null)
 const toolbarRef = ref<VxeToolbarInstance | null>(null)
 const tableFullscreen = ref(false)
@@ -497,6 +506,19 @@ const tableRows = computed<T[]>(() => {
 })
 function isGroupRow(row: AppDataTableRenderRow<T>): row is AppDataTableGroupRow {
   return (row as AppDataTableGroupRow).__appDataTableGroup === true
+}
+
+const effectiveActiveRowKey = computed(() =>
+  props.activeRowKey === undefined ? localActiveRowKey.value : props.activeRowKey,
+)
+
+function rowKeyValue(row: T): string | null {
+  const value = cellValue(row, props.rowKey)
+  return value === undefined || value === null ? null : String(value)
+}
+
+function isActiveRow(row: AppDataTableRenderRow<T>): boolean {
+  return !isGroupRow(row) && rowKeyValue(row as T) === effectiveActiveRowKey.value
 }
 
 const groupSpanMethod: VxeTablePropTypes.SpanMethod<AppDataTableRenderRow<T>> = ({
@@ -826,7 +848,7 @@ async function resetColumnWidths(): Promise<void> {
       })
     | null
   preferences.value.widths = {}
-  actionColumnWidth.value = 220
+  actionColumnWidth.value = props.actionColumnWidth ?? 220
   persist()
   await nextTick()
   await table?.resetCustom?.({ resizable: true })
@@ -868,6 +890,66 @@ function onSelectionChange(event: { records?: T[]; row?: T }): void {
   const records = event.records ?? (event.row === undefined ? [] : [event.row])
   selectedRows.value = records.filter((row) => !isGroupRow(row as AppDataTableRenderRow<T>))
   emit('selection-change', selectedRows.value)
+}
+
+function emitRowClick(row: T): void {
+  if (props.activeRowKey === undefined) localActiveRowKey.value = rowKeyValue(row)
+  emit('row-click', row)
+}
+
+function onCellClick(event: { row?: AppDataTableRenderRow<T>; column?: { field?: string } }): void {
+  const row = event.row
+  if (row === undefined || isGroupRow(row) || event.column?.field === '__actions') return
+  emitRowClick(row as T)
+}
+
+const renderedRowsByVxeId = new Map<string, T>()
+
+function syncActiveRowAccessibility(): void {
+  const table = tableRef.value as
+    (VxeTableInstance<T> & { getRowid?: (row: T) => string | number }) | null
+  const root = (table as unknown as { $el?: HTMLElement } | null)?.$el
+  if (root === undefined || table?.getRowid === undefined) return
+
+  renderedRowsByVxeId.clear()
+  groupedTableRows.value.forEach((row) => {
+    if (isGroupRow(row)) return
+    const vxeRowId = table.getRowid!(row as T)
+    if (vxeRowId !== undefined && vxeRowId !== null)
+      renderedRowsByVxeId.set(String(vxeRowId), row as T)
+  })
+
+  findVxeBodyRows(root).forEach((element) => {
+    const row = renderedRowsByVxeId.get(element.getAttribute('rowid') ?? '')
+    if (row === undefined) {
+      element.removeAttribute('aria-current')
+      element.removeAttribute('tabindex')
+      element.removeAttribute('data-app-row-key')
+      element.classList.remove('app-data-table__active-row')
+      return
+    }
+    element.setAttribute('tabindex', '0')
+    const key = rowKeyValue(row)
+    if (key === null) element.removeAttribute('data-app-row-key')
+    else element.setAttribute('data-app-row-key', key)
+    const active = isActiveRow(row)
+    element.classList.toggle('app-data-table__active-row', active)
+    if (active) element.setAttribute('aria-current', 'true')
+    else element.removeAttribute('aria-current')
+  })
+}
+
+function onSurfaceKeydown(event: KeyboardEvent): void {
+  if (event.key !== 'Enter' && event.key !== ' ') return
+  const target = event.target
+  if (!(target instanceof HTMLElement)) return
+  if (isAppDataTableActionCell(target)) return
+  const rowElement = findVxeBodyRow(target)
+  if (rowElement === null) return
+  const row = renderedRowsByVxeId.get(rowElement.getAttribute('rowid') ?? '')
+  if (row === undefined) return
+  event.preventDefault()
+  emitRowClick(row)
 }
 
 function clearSelection(): void {
@@ -1254,6 +1336,7 @@ async function syncVxeDomAfterRender(): Promise<void> {
 
   syncNativeHeaderFilterRows()
   syncVxeDuplicateAccessibility()
+  syncActiveRowAccessibility()
   syncNativeCustomPanel()
   syncActionColumnWidth()
   observeActionColumn()
@@ -1558,7 +1641,7 @@ function clearUiCacheState(event: Event): void {
   sort.value = undefined
   selectedRows.value = []
   preferences.value = defaultPreferences()
-  actionColumnWidth.value = 220
+  actionColumnWidth.value = props.actionColumnWidth ?? 220
   exportFields.value = props.columns.map((column) => column.field)
   printFields.value = []
   quickExportMode.value = 'current'
@@ -1566,6 +1649,7 @@ function clearUiCacheState(event: Event): void {
   exportFilename.value = props.tableKey
   printDataMode.value = 'current'
   printWidthMode.value = 'current'
+  if (props.activeRowKey === undefined) localActiveRowKey.value = null
   clearSelection()
   const table = tableRef.value as
     | (VxeTableInstance<T> & {
@@ -1600,6 +1684,7 @@ onMounted(() => {
     headerObserver = new MutationObserver(() => {
       syncNativeHeaderFilterRows()
       syncVxeDuplicateAccessibility()
+      syncActiveRowAccessibility()
       syncNativeCustomPanel()
       syncActionColumnWidth()
     })
@@ -1674,7 +1759,12 @@ const tableBindings = computed(() => ({
   columnConfig: { resizable: true },
   sortConfig: { iconLayout: 'vertical' as const },
   rowClassName: ({ row }: { row: AppDataTableRenderRow<T> }) =>
-    isGroupRow(row) ? 'app-data-table__group-row' : '',
+    [
+      isGroupRow(row) ? 'app-data-table__group-row' : '',
+      isActiveRow(row) ? 'app-data-table__active-row' : '',
+    ]
+      .filter(Boolean)
+      .join(' '),
   spanMethod: groupSpanMethod,
   ...(treeConfig.value === undefined ? {} : { treeConfig: treeConfig.value }),
   ...(props.mode === 'detail' ? { expandConfig: { trigger: 'row' as const } } : {}),
@@ -1750,6 +1840,20 @@ watch(
   },
   { deep: true, immediate: true },
 )
+watch(
+  () => props.actionColumnWidth,
+  (value) => {
+    if (value !== undefined) actionColumnWidth.value = value
+  },
+)
+
+watch(
+  [() => props.activeRowKey, groupedTableRows],
+  () => {
+    void nextTick(syncActiveRowAccessibility)
+  },
+  { deep: true },
+)
 
 defineExpose({
   topQuery,
@@ -1779,7 +1883,6 @@ defineExpose({
       'app-data-table--compact-stack',
       {
         'app-data-table--fullscreen': tableFullscreen,
-        'app-data-table--toolbar-compact': toolbarProfile === 'compact',
       },
     ]"
     data-testid="app-data-table"
@@ -1807,10 +1910,12 @@ defineExpose({
           >{{ toolbarTitle }}</strong
         >
         <div class="app-data-table__toolbar-left" role="group" :aria-label="copy.primaryTools">
-          <strong v-if="toolbarTitle" class="app-data-table__toolbar-title">{{
-            toolbarTitle
-          }}</strong>
-          <template v-if="mode === 'tree'">
+          <strong
+            v-if="toolbarProfile === 'full' && toolbarTitle"
+            class="app-data-table__toolbar-title"
+            >{{ toolbarTitle }}</strong
+          >
+          <template v-if="mode === 'tree' && toolbarProfile === 'full'">
             <button
               type="button"
               class="app-data-table__icon-button app-data-table__tree-control"
@@ -1839,6 +1944,7 @@ defineExpose({
             </button>
           </template>
           <button
+            v-if="toolbarProfile === 'full'"
             type="button"
             class="app-data-table__icon-button"
             :class="{ 'is-active': activeQueryMode === 'header' }"
@@ -1853,7 +1959,7 @@ defineExpose({
               {{ activeQueryMode === 'top' ? copy.queryHeaderLabel : copy.queryTopLabel }}
             </span>
           </button>
-          <div class="app-data-table__toolbar-popover">
+          <div v-if="toolbarProfile === 'full'" class="app-data-table__toolbar-popover">
             <button
               ref="sortTrigger"
               type="button"
@@ -1930,7 +2036,7 @@ defineExpose({
               </div>
             </div>
           </div>
-          <div class="app-data-table__toolbar-popover">
+          <div v-if="toolbarProfile === 'full'" class="app-data-table__toolbar-popover">
             <button
               ref="groupTrigger"
               type="button"
@@ -1988,6 +2094,7 @@ defineExpose({
             </div>
           </div>
           <label
+            v-if="props.quickSearchEnabled"
             class="app-data-table__quick-search"
             :class="{ 'is-disabled': activeQueryMode === 'header' }"
             :aria-label="copy.quickSearch"
@@ -2002,7 +2109,7 @@ defineExpose({
               @input="setQuickSearch(($event.target as HTMLInputElement).value)"
             />
           </label>
-          <div class="app-data-table__export">
+          <div v-if="toolbarProfile === 'full'" class="app-data-table__export">
             <button
               ref="exportTrigger"
               type="button"
@@ -2124,7 +2231,7 @@ defineExpose({
               </div>
             </div>
           </div>
-          <div class="app-data-table__toolbar-popover">
+          <div v-if="toolbarProfile === 'full'" class="app-data-table__toolbar-popover">
             <button
               ref="printTrigger"
               type="button"
@@ -2236,95 +2343,97 @@ defineExpose({
           >
             <Refresh aria-hidden="true" />
           </button>
-          <button
-            type="button"
-            class="app-data-table__icon-button"
-            data-testid="app-data-table-fullscreen"
-            :aria-label="tableFullscreen ? copy.exitFullscreen : copy.fullscreen"
-            :title="tableFullscreen ? copy.exitFullscreen : copy.fullscreen"
-            @click="tableFullscreen = !tableFullscreen"
-          >
-            <FullScreen aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            class="app-data-table__icon-button"
-            data-testid="app-data-table-column-settings"
-            ref="columnSettingsTrigger"
-            :aria-label="copy.columnSettings"
-            :title="copy.columnSettings"
-            @click="openNativeCustom($event)"
-          >
-            <Setting aria-hidden="true" />
-          </button>
-          <div class="app-data-table__toolbar-popover">
+          <template v-if="toolbarProfile === 'full'">
             <button
-              ref="tableSettingsTrigger"
               type="button"
               class="app-data-table__icon-button"
-              data-testid="app-data-table-table-settings"
-              :aria-label="copy.rowSettings"
-              :title="copy.rowSettings"
-              :aria-expanded="settingsOpen"
-              @click="toggleTableSettings"
+              data-testid="app-data-table-fullscreen"
+              :aria-label="tableFullscreen ? copy.exitFullscreen : copy.fullscreen"
+              :title="tableFullscreen ? copy.exitFullscreen : copy.fullscreen"
+              @click="tableFullscreen = !tableFullscreen"
             >
-              <Operation aria-hidden="true" />
+              <FullScreen aria-hidden="true" />
             </button>
-            <div
-              v-if="settingsOpen"
-              ref="tableSettingsPanel"
-              class="app-data-table__popover app-data-table__panel app-data-table__settings"
-              data-testid="app-data-table-settings"
-              data-font-size="12px"
-              @mousedown.stop
-              @click.stop
+            <button
+              type="button"
+              class="app-data-table__icon-button"
+              data-testid="app-data-table-column-settings"
+              ref="columnSettingsTrigger"
+              :aria-label="copy.columnSettings"
+              :title="copy.columnSettings"
+              @click="openNativeCustom($event)"
             >
-              <div class="app-data-table__dialog-header">
-                <strong>{{ copy.rowSettings }}</strong>
-                <span>{{ copy.rowSettingsHint }}</span>
-              </div>
-              <div class="app-data-table__settings-options">
-                <label
-                  ><span>{{ copy.showIndex }}</span
-                  ><input v-model="preferences.showIndex" type="checkbox" @change="persist"
-                /></label>
-                <label
-                  ><span>{{ copy.showBorder }}</span
-                  ><input v-model="preferences.border" type="checkbox" @change="persist"
-                /></label>
-              </div>
-              <div class="app-data-table__settings-section">
-                <span>{{ copy.density }}</span>
-                <div class="app-data-table__densities" role="group" :aria-label="copy.density">
+              <Setting aria-hidden="true" />
+            </button>
+            <div class="app-data-table__toolbar-popover">
+              <button
+                ref="tableSettingsTrigger"
+                type="button"
+                class="app-data-table__icon-button"
+                data-testid="app-data-table-table-settings"
+                :aria-label="copy.rowSettings"
+                :title="copy.rowSettings"
+                :aria-expanded="settingsOpen"
+                @click="toggleTableSettings"
+              >
+                <Operation aria-hidden="true" />
+              </button>
+              <div
+                v-if="settingsOpen"
+                ref="tableSettingsPanel"
+                class="app-data-table__popover app-data-table__panel app-data-table__settings"
+                data-testid="app-data-table-settings"
+                data-font-size="12px"
+                @mousedown.stop
+                @click.stop
+              >
+                <div class="app-data-table__dialog-header">
+                  <strong>{{ copy.rowSettings }}</strong>
+                  <span>{{ copy.rowSettingsHint }}</span>
+                </div>
+                <div class="app-data-table__settings-options">
+                  <label
+                    ><span>{{ copy.showIndex }}</span
+                    ><input v-model="preferences.showIndex" type="checkbox" @change="persist"
+                  /></label>
+                  <label
+                    ><span>{{ copy.showBorder }}</span
+                    ><input v-model="preferences.border" type="checkbox" @change="persist"
+                  /></label>
+                </div>
+                <div class="app-data-table__settings-section">
+                  <span>{{ copy.density }}</span>
+                  <div class="app-data-table__densities" role="group" :aria-label="copy.density">
+                    <button
+                      v-for="density in ['comfortable', 'medium', 'compact'] as const"
+                      :key="density"
+                      type="button"
+                      :data-testid="`app-data-table-density-${density}`"
+                      :class="{ 'is-active': preferences.density === density }"
+                      @click="setDensity(density)"
+                    >
+                      {{
+                        density === 'comfortable'
+                          ? copy.defaultDensity
+                          : density === 'medium'
+                            ? copy.mediumDensity
+                            : copy.compactDensity
+                      }}
+                    </button>
+                  </div>
+                </div>
+                <div class="app-data-table__panel-footer">
                   <button
-                    v-for="density in ['comfortable', 'medium', 'compact'] as const"
-                    :key="density"
                     type="button"
-                    :data-testid="`app-data-table-density-${density}`"
-                    :class="{ 'is-active': preferences.density === density }"
-                    @click="setDensity(density)"
+                    data-testid="app-data-table-settings-close"
+                    @click="settingsOpen = false"
                   >
-                    {{
-                      density === 'comfortable'
-                        ? copy.defaultDensity
-                        : density === 'medium'
-                          ? copy.mediumDensity
-                          : copy.compactDensity
-                    }}
+                    {{ copy.done }}
                   </button>
                 </div>
               </div>
-              <div class="app-data-table__panel-footer">
-                <button
-                  type="button"
-                  data-testid="app-data-table-settings-close"
-                  @click="settingsOpen = false"
-                >
-                  {{ copy.done }}
-                </button>
-              </div>
             </div>
-          </div>
+          </template>
         </div>
       </div>
 
@@ -2336,7 +2445,7 @@ defineExpose({
         :tools="[]"
       />
 
-      <div class="app-data-table__surface" :aria-busy="tableLoading">
+      <div class="app-data-table__surface" :aria-busy="tableLoading" @keydown="onSurfaceKeydown">
         <VxeTable
           ref="tableRef"
           v-bind="tableBindings"
@@ -2344,6 +2453,7 @@ defineExpose({
           @checkbox-change="onSelectionChange"
           @checkbox-all="onSelectionChange"
           @radio-change="onSelectionChange"
+          @cell-click="onCellClick"
           @resizable-change="onColumnResizeChange"
         >
           <VxeColumn v-if="mode === 'detail'" type="expand" width="60" :title="copy.detail">
@@ -2564,6 +2674,17 @@ defineExpose({
   border-top: 1px solid var(--ip-color-border);
   overflow: hidden;
 }
+.app-data-table :deep(.vxe-body--row.app-data-table__active-row .vxe-body--column) {
+  background: var(--ip-color-bg-muted);
+  background: color-mix(in srgb, var(--ip-color-primary) 10%, var(--ip-color-bg-container));
+}
+.app-data-table :deep(.vxe-body--row.app-data-table__active-row:hover .vxe-body--column) {
+  background: color-mix(in srgb, var(--ip-color-primary) 16%, var(--ip-color-bg-container));
+}
+.app-data-table :deep(.vxe-body--row[tabindex='0']:focus-visible) {
+  outline: 2px solid var(--ip-color-primary);
+  outline-offset: -2px;
+}
 .app-data-table__loading {
   position: absolute;
   z-index: 2;
@@ -2615,16 +2736,6 @@ defineExpose({
   display: flex;
   align-items: center;
   gap: var(--ip-space-2);
-}
-.app-data-table--toolbar-compact .app-data-table__toolbar-left,
-.app-data-table--toolbar-compact
-  .app-data-table__toolbar-right
-  > [data-testid='app-data-table-fullscreen'],
-.app-data-table--toolbar-compact
-  .app-data-table__toolbar-right
-  > [data-testid='app-data-table-column-settings'],
-.app-data-table--toolbar-compact .app-data-table__toolbar-right > .app-data-table__toolbar-popover {
-  display: none;
 }
 .app-data-table__toolbar-title {
   margin-right: var(--ip-space-2);

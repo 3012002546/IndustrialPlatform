@@ -58,7 +58,7 @@ public sealed class UiResource
     /// Rebinds the resource to a newer trusted module manifest while preserving
     /// its identity, route, permission, terminals, and lifecycle status.
     /// </summary>
-    public UiResource RebindManifestVersion(string manifestVersion)
+    public UiResource RebindManifestVersion(string manifestVersion, string? name = null)
     {
         var rebound = new UiResource(
             TenantNId,
@@ -66,7 +66,7 @@ public sealed class UiResource
             OwnerModuleNId,
             manifestVersion,
             Type,
-            Name,
+            name ?? Name,
             RouteName,
             RequiredPermissionNId,
             SupportedTerminals);

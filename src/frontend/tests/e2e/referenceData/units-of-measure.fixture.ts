@@ -352,6 +352,14 @@ for (const scenario of [
     const root = page.getByTestId('reference-data-units-of-measure')
     const more = root.locator('[data-testid="unit-dimension-more"]:visible')
     await expect(root).toBeVisible()
+    const directory = root.locator('.unit-master')
+    await expect(directory.locator('.vxe-cell--radio')).toHaveCount(0)
+    await expect(directory.locator('.app-data-table__selection-summary')).toHaveCount(0)
+    const directoryWidth = await directory.evaluate(
+      (element) => element.getBoundingClientRect().width,
+    )
+    expect(directoryWidth).toBeGreaterThanOrEqual(240)
+    expect(directoryWidth).toBeLessThanOrEqual(300)
     await root.getByTestId('unit-dimension-create').click()
     const dimensionEditor = page
       .getByRole('dialog')
@@ -389,6 +397,18 @@ for (const scenario of [
     expect(writes[0]).toContain('"factorToBase":"0.001000000000"')
     expect(writes[0]).toContain('"offsetToBase":"0"')
 
+    await directory.locator('.vxe-body--row').first().locator('.vxe-body--column').first().click()
+    await expect(directory.locator('.vxe-body--row').first()).toHaveAttribute(
+      'aria-current',
+      'true',
+    )
+    const unitSurface = root.locator(
+      '.unit-detail-panel .el-tabs__content .app-data-table__surface',
+    )
+    await expect(unitSurface).toBeVisible()
+    expect(
+      await unitSurface.evaluate((element) => element.getBoundingClientRect().height),
+    ).toBeGreaterThan(100)
     await expect(more).toBeVisible()
     await more.click()
     await expect(page.locator('[data-testid="unit-dimension-publish"]:visible')).toBeVisible()
@@ -418,6 +438,16 @@ for (const scenario of [
     await expect(conversion.getByTestId('unit-runtime-revision')).toContainText('1')
     expect(fixedHistoryRead).toBe(true)
 
+    const pcMain = page.locator('.ip-pc-main')
+    const mainMetrics = await pcMain.evaluate((element) => ({
+      scrollLeft: element.scrollLeft,
+      scrollWidth: element.scrollWidth,
+      clientWidth: element.clientWidth,
+    }))
+    expect(mainMetrics.scrollLeft, JSON.stringify(mainMetrics)).toBe(0)
+    expect(mainMetrics.scrollWidth, JSON.stringify(mainMetrics)).toBeLessThanOrEqual(
+      mainMetrics.clientWidth + 1,
+    )
     await page.screenshot({
       path: testInfo.outputPath(`units-of-measure-${scenario.width}.png`),
       fullPage: true,

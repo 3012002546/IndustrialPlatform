@@ -1205,34 +1205,22 @@ time
 
 ---
 
-# 20. Audit数据库
+# 20. File / Notification / Audit 数据模型（PF-04）
 
-统一审计。
+2026-09-06 同步[实施 07 V1.1 第 7～9 章](../implementation/07-Industrial%20Platform%20File%20Notification%20Audit开发实施方案.md)。以下是设计，尚未实施迁移；不是另一套 audit_db 或跨服务历史表替换方案。
 
----
+三个逻辑模块共用 SystemData 的配置目标、服务级 Migration/Seed Ledger 和既有可靠设施，按蓝图 32/33 接入。逻辑表采用各模块命名空间（建议 system_file_、system_notification_、system_audit_），现有 system_data_* 表保留；无独立生命周期证据时不机械拆为四个初始化单元。
 
-## audit_log
+| 模块 | 当前逻辑记录 | 关键约束 |
+| --- | --- | --- |
+| File | upload_session、file_object、file_scan_attempt、file_reference_grant | 会话租户/上传者/用途、采样版本与指纹、锁定完整预期 hash、底层上传标识、WriterEpoch/版本和到期时间；FileNId 独立。底层 tus store 的持久字节/偏移为权威，不建重复 upload_part |
+| Notification | announcement、notification_message、inbox_delivery | 内容/受众规则按发布固化，Delivery 表达实际收件人；TenantNId + NotificationNId + RecipientUserNId 唯一，首次已读幂等；不强制 audience_snapshot/audience_batch 独立聚合 |
+| Audit Core | audit_fact、audit_lifecycle、audit_ingress_failure | AuditEventNId、可信 TenantNId/主体/生产者、动作/资源/结果、UTC 时间、TraceId/OperationId、脱敏字段；租户+生产服务+事件唯一并比较规范化内容摘要 |
+| 可靠技术存储 | 现有服务级 Outbox 与必要入站去重/作业进度 | 业务+审计 Outbox 同事务，失败/拒绝/回滚另走独立可靠事务；按真实消费者增量接入，不按模块数复制 |
 
-```sql
-audit_log
+AuditFact 是不可变事实；当前 RetainUntil/DeletionBlocked/归档进度归 lifecycle，变更另追加审计。原事实若保存政策版本，仅代表当时快照；授权到期清理与普通删除不同。File 分离会话状态、处理状态、扫描结果和读/删限制；活跃引用/禁止删除/保留期阻止物理清理。跨模块只引用 NId，无跨模块外键或 Repository 访问。
 
-id
-
-tenant_id
-
-user_id
-
-action
-
-module
-
-before_json
-
-after_json
-
-time
-
-```
+Advanced 的 integrity_checkpoint、legal_hold 审批、敏感值密文库、复杂 export_job；FileRetentionCase/全局去重及复杂受众批次均不属于当前必建表。按实际查询建租户/时间/资源或收件人索引，不强制分区、全游标或双并发令牌。已有明确保留/法律保全要求不能因增强表后置而绕过。
 
 ---
 

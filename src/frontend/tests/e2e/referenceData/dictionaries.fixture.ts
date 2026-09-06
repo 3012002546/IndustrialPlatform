@@ -160,9 +160,23 @@ for (const scenario of [
     const root = page.getByTestId('reference-data-dictionaries')
     await expect(root).toBeVisible()
     await expect(root.locator('.app-data-table').first()).toContainText('ORDER_STATUS')
+    const directory = root.locator('.dictionary-directory')
+    await expect(directory.locator('.vxe-body--row').first()).toBeVisible()
+    await expect(directory.locator('.vxe-cell--radio')).toHaveCount(0)
+    await expect(directory.locator('.app-data-table__selection-summary')).toHaveCount(0)
+    const directoryWidth = await directory.evaluate(
+      (element) => element.getBoundingClientRect().width,
+    )
+    expect(directoryWidth).toBeGreaterThanOrEqual(240)
+    expect(directoryWidth).toBeLessThanOrEqual(300)
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
     ).toBe(true)
+    await directory.locator('.vxe-body--row').first().locator('.vxe-body--column').first().click()
+    await expect(directory.locator('.vxe-body--row').first()).toHaveAttribute(
+      'aria-current',
+      'true',
+    )
     const edit = scenario.locale === 'zh-CN' ? '编辑' : 'Edit'
     const editButton = root.getByRole('button', { name: edit, exact: true }).first()
     if (await editButton.isVisible()) await editButton.click()
@@ -180,17 +194,6 @@ for (const scenario of [
     await dialog
       .getByTestId('dictionary-name')
       .fill(scenario.locale === 'zh-CN' ? '工单状态（已更新）' : 'Updated order status')
-    await dialog
-      .getByRole('tab', {
-        name: scenario.locale === 'zh-CN' ? '字典项' : 'Dictionary items',
-        exact: true,
-      })
-      .click()
-    await expect(dialog.locator('.el-switch:visible')).toBeVisible()
-    await expect(dialog.getByRole('switch')).toBeChecked()
-    await dialog.locator('.el-switch:visible').click()
-    await expect(dialog.getByRole('switch')).not.toBeChecked()
-    await dialog.locator('.el-switch:visible').click()
     await page.screenshot({
       path: testInfo.outputPath(`dictionary-editor-${scenario.width}.png`),
       fullPage: true,
@@ -198,6 +201,28 @@ for (const scenario of [
     })
     await dialog.getByTestId('dictionary-save').click()
     await expect(dialog).not.toBeVisible()
+    await directory.locator('.vxe-body--row').first().locator('.vxe-body--column').first().click()
+    await expect(directory.locator('.vxe-body--row').first()).toHaveAttribute(
+      'aria-current',
+      'true',
+    )
+    await expect(root.getByTestId('dictionary-item-edit-OPEN')).toBeVisible()
+    await root.getByTestId('dictionary-item-edit-OPEN').click()
+    const itemDialog = page
+      .getByRole('dialog')
+      .filter({ has: page.getByTestId('dictionary-item-save') })
+    await expect(itemDialog).toBeVisible()
+    await expect(itemDialog.getByTestId('dictionary-name')).toHaveCount(0)
+    await itemDialog
+      .getByTestId('dictionary-item-name')
+      .fill(scenario.locale === 'zh-CN' ? '开放（已更新）' : 'Open (updated)')
+    await page.screenshot({
+      path: testInfo.outputPath(`dictionary-item-editor-${scenario.width}.png`),
+      fullPage: true,
+      animations: 'disabled',
+    })
+    await itemDialog.getByTestId('dictionary-item-save').click()
+    await expect(itemDialog).not.toBeVisible()
     await root
       .getByRole('button', { name: scenario.locale === 'zh-CN' ? '更多' : 'More', exact: true })
       .first()
@@ -213,13 +238,22 @@ for (const scenario of [
     await expect(root.locator('.app-data-table').first()).toContainText(
       scenario.locale === 'zh-CN' ? '已发布' : 'Published',
     )
-    await root.getByTestId('app-data-table-query-toggle').click()
-    await root.getByTestId('app-data-table-header-filter-name').fill('Updated')
-    await root.getByTestId('app-data-table-header-filter-name').press('Enter')
+    await root.locator('.dictionary-query-field input').first().fill('Updated')
+    await root.getByTestId('query-panel-submit').click()
     await expect
       .poll(() => requests.some((request) => request.includes('keyword=Updated')))
       .toBe(true)
     await expect(page.locator('.el-message')).toHaveCount(0)
+    const pcMain = page.locator('.ip-pc-main')
+    const mainMetrics = await pcMain.evaluate((element) => ({
+      scrollLeft: element.scrollLeft,
+      scrollWidth: element.scrollWidth,
+      clientWidth: element.clientWidth,
+    }))
+    expect(mainMetrics.scrollLeft, JSON.stringify(mainMetrics)).toBe(0)
+    expect(mainMetrics.scrollWidth, JSON.stringify(mainMetrics)).toBeLessThanOrEqual(
+      mainMetrics.clientWidth + 1,
+    )
     await page.screenshot({
       path: testInfo.outputPath(`dictionary-list-${scenario.width}.png`),
       fullPage: true,

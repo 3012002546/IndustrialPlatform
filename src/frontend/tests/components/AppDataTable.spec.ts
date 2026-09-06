@@ -26,11 +26,70 @@ describe('AppDataTable', () => {
         .findAll('.app-data-table__toolbar > .app-data-table__toolbar-title')
         .map((item) => item.text()),
     ).toEqual(['Domains'])
+    expect(wrapper.find('[data-testid="app-data-table-sort"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="app-data-table-group"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="app-data-table-export"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="app-data-table-print"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="app-data-table-fullscreen"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="app-data-table-column-settings"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="app-data-table-table-settings"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="app-data-table-query-toggle"]').exists()).toBe(false)
     expect(wrapper.findComponent(ElPagination).props('layout')).toBe('total, prev, pager, next')
     await wrapper.setProps({ toolbarProfile: 'full' })
     expect(wrapper.findComponent(ElPagination).props('layout')).toBe(
       'total, sizes, prev, pager, next, jumper',
     )
+    wrapper.unmount()
+  })
+
+  it('exposes an active row without selection chrome and activates it from the keyboard', async () => {
+    const rows = [
+      { id: '1', name: 'One' },
+      { id: '2', name: 'Two' },
+    ]
+    const wrapper = mount(AppDataTable, {
+      props: {
+        tableKey: 'active-row-contract',
+        columns: [{ field: 'name', title: 'Name' }],
+        rows,
+        rowKey: 'id',
+        activeRowKey: '2',
+        selection: 'none',
+      },
+    })
+    await flushPromises()
+
+    const activeRows = wrapper.findAll('.vxe-body--row.app-data-table__active-row')
+    expect(activeRows).toHaveLength(1)
+    expect(activeRows[0]!.attributes('aria-current')).toBe('true')
+    expect(activeRows[0]!.attributes('tabindex')).toBe('0')
+    expect(wrapper.find('.vxe-cell--radio').exists()).toBe(false)
+    expect(wrapper.find('.app-data-table__selection-summary').exists()).toBe(false)
+
+    await activeRows[0]!.trigger('keydown', { key: 'Enter' })
+    expect(wrapper.emitted('row-click')?.at(-1)?.[0]).toEqual(rows[1])
+    wrapper.unmount()
+  })
+
+  it('does not change the active row when an action cell is clicked', async () => {
+    const rows = [{ id: '1', name: 'One' }]
+    const wrapper = mount(AppDataTable, {
+      props: {
+        tableKey: 'active-row-actions',
+        columns: [{ field: 'name', title: 'Name' }],
+        rows,
+        activeRowKey: null,
+        selection: 'none',
+      },
+      slots: { actions: '<button data-testid="row-action">Action</button>' },
+    })
+    await flushPromises()
+    wrapper.findComponent(VxeTable).vm.$emit('cell-click', {
+      row: rows[0],
+      column: { field: '__actions' },
+    })
+    await flushPromises()
+    expect(wrapper.emitted('row-click')).toBeUndefined()
     wrapper.unmount()
   })
   it('keeps the newest result when an older request finishes later', async () => {

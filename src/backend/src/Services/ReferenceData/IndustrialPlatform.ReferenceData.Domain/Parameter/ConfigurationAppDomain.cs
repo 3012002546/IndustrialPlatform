@@ -96,6 +96,12 @@ public sealed class ConfigurationAppDomain : AggregateRoot
         if (key.UpdateValue(valueId, value.NId, value.Settings with { Enabled = enabled })) Changed();
     }
 
+    public void RemoveValue(Guid keyId, Guid valueId)
+    {
+        EnsureCanModify();
+        if (Key(keyId).RemoveValue(valueId)) Changed();
+    }
+
     public ConfigurationKey Key(Guid keyId) => keys.Find(item => item.Id == keyId && !item.IsDeleted)
         ?? throw new ReferenceDataException("REF-CONFIG-KEY-NOT-FOUND", 404);
 
@@ -130,7 +136,7 @@ public sealed class ConfigurationKey : Entity
     public string NId { get; }
     public ConfigurationKeySettings Settings { get; private set; }
     public IReadOnlyList<ConfigurationKeyMultiValue> MultiValues => values.AsReadOnly();
-    public bool HasActualValue => Settings.Value is not null || Settings.DefaultValue is not null || values.Count > 0;
+    public bool HasActualValue => Settings.Value is not null || Settings.DefaultValue is not null || values.Any(item => !item.IsDeleted);
     public bool HasHadValue { get; private set; }
 
     private ConfigurationKey(Guid domainId, string nId, ConfigurationKeySettings settings)
@@ -174,7 +180,19 @@ public sealed class ConfigurationKey : Entity
         Touch(); return true;
     }
 
+    internal bool RemoveValue(Guid id)
+    {
+        EnsureWritable();
+        var value = Value(id);
+        Validate(Settings, values.Where(item => item.Id != id).ToArray());
+        value.MarkDeleted();
+        Touch();
+        return true;
+    }
+
     public ConfigurationKeyMultiValue Value(Guid id) => values.Find(item => item.Id == id && !item.IsDeleted)
+        ?? throw new ReferenceDataException("REF-CONFIG-KEY-NOT-FOUND", 404);
+    public ConfigurationKeyMultiValue ValueIncludingDeleted(Guid id) => values.Find(item => item.Id == id)
         ?? throw new ReferenceDataException("REF-CONFIG-KEY-NOT-FOUND", 404);
     public IReadOnlyList<ConfigurationKeyMultiValue> EnabledValues() => values.Where(item => item.Settings.Enabled && !item.IsDeleted)
         .OrderBy(item => item.Settings.Sort).ThenBy(item => item.NId, StringComparer.Ordinal).ToArray();
@@ -208,7 +226,7 @@ public sealed class ConfigurationKey : Entity
             throw new ReferenceDataException("REF-CONFIG-VALUE-MODE-CONFLICT", 422);
         if (children.Count > 1000) throw new ReferenceDataException("REF-CONFIG-MULTI-VALUE-LIMIT", 422);
         if (children.Select(item => item.NId).Distinct(StringComparer.Ordinal).Count() != children.Count) throw new ReferenceDataException("REF-CONFIG-DUPLICATE-NID", 409, "nId");
-        var enabled = children.Where(item => item.Settings.Enabled).ToArray();
+        var enabled = children.Where(item => !item.IsDeleted && item.Settings.Enabled).ToArray();
         if (enabled.Select(item => item.Settings.Value.CanonicalValueHash).Distinct(StringComparer.Ordinal).Count() != enabled.Length)
             throw new ReferenceDataException("REF-CONFIG-DUPLICATE-VALUE", 409, "value");
         ValidateMandatory(settings, children);

@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
+import { VxeTable } from 'vxe-table'
 import { makeAuthSession, persistAuthSession } from '../fixtures/session'
 import { useAuthStore } from '@/stores/authStore'
 import { useLocalizationStore } from '@/stores/localizationStore'
@@ -103,7 +104,16 @@ async function mountPage(permissions = editPermissions, locale: 'zh-CN' | 'en-US
   return wrapper
 }
 async function button(wrapper: VueWrapper, label: string) {
-  const found = wrapper.findAll('button').find((button) => button.text() === label)
+  let found = wrapper.findAll('button').find((button) => button.text() === label)
+  if (!found) {
+    const master = wrapper.findAllComponents({ name: 'AppDataTable' })[0]!
+    master.findComponent(VxeTable).vm.$emit('cell-click', {
+      row: summary,
+      column: { field: 'name' },
+    })
+    await flushPromises()
+    found = wrapper.findAll('button').find((button) => button.text() === label)
+  }
   expect(found, label).toBeDefined()
   await found!.trigger('click')
   await flushPromises()
@@ -132,6 +142,117 @@ afterEach(() => {
 })
 
 describe('Dictionary management page', () => {
+  it('keeps the page heading free of an unlabeled record count', async () => {
+    const wrapper = await mountPage()
+
+    expect(wrapper.find('.app-page__heading-meta').exists()).toBe(false)
+  })
+
+  it('keeps the dictionary filters with the directory instead of consuming the detail workspace', async () => {
+    const wrapper = await mountPage()
+
+    expect(
+      wrapper.get('.dictionary-directory').findComponent({ name: 'AppQueryPanel' }).exists(),
+    ).toBe(true)
+    expect(
+      wrapper.findAllComponents({ name: 'AppDataTable' })[0]!.props('quickSearchEnabled'),
+    ).toBe(false)
+  })
+
+  it('distinguishes no selection from an empty directory and keeps the empty-state create entry local', async () => {
+    const wrapper = await mountPage()
+    expect(wrapper.get('.dictionary-content').text()).toContain('请选择一个字典')
+
+    api.listDictionaries.mockResolvedValueOnce({ items: [], total: 0, pageIndex: 1, pageSize: 25 })
+    const empty = await mountPage()
+    expect(empty.get('.dictionary-content').text()).toContain('暂无字典')
+    expect(empty.get('[data-testid="dictionary-empty-create"]').text()).toBe('新建字典')
+  })
+
+  it('makes a directory click the active object without opening the editor drawer', async () => {
+    const wrapper = await mountPage()
+    const master = wrapper.findAllComponents({ name: 'AppDataTable' })[0]!
+    expect(master.props('selection')).toBe('none')
+    expect(master.props('activeRowKey')).toBeNull()
+    expect(master.props('columns')).toHaveLength(1)
+    master.findComponent(VxeTable).vm.$emit('cell-click', {
+      row: summary,
+      column: { field: 'name' },
+    })
+    await flushPromises()
+
+    expect(api.getDictionary).toHaveBeenCalledWith(summary.id, expect.anything())
+    expect(master.props('activeRowKey')).toBe(summary.id)
+    expect(wrapper.get('.dictionary-content').text()).toContain('Status')
+    expect(wrapper.findAllComponents(AppFormDrawer).every((item) => item.props('modelValue'))).toBe(
+      false,
+    )
+  })
+
+  it('opens one dictionary item in its own editor and cancel leaves the parent closed', async () => {
+    const wrapper = await mountPage()
+    const master = wrapper.findAllComponents({ name: 'AppDataTable' })[0]!
+    master.findComponent(VxeTable).vm.$emit('cell-click', {
+      row: summary,
+      column: { field: 'name' },
+    })
+    await flushPromises()
+
+    await wrapper.get('[data-testid="dictionary-item-edit-OPEN"]').trigger('click')
+    await flushPromises()
+    const itemDrawer = wrapper
+      .findAllComponents(AppFormDrawer)
+      .find(
+        (item) =>
+          item.props('modelValue') && item.find('[data-testid="dictionary-item-save"]').exists(),
+      )
+    expect(itemDrawer).toBeDefined()
+    expect(itemDrawer!.find('[data-testid="dictionary-item-name"]').exists()).toBe(true)
+    expect(itemDrawer!.find('[data-testid="dictionary-name"]').exists()).toBe(false)
+    expect(
+      wrapper.findAllComponents(AppFormDrawer).filter((item) => item.props('modelValue')),
+    ).toHaveLength(1)
+
+    await itemDrawer!.get('[data-testid="dictionary-item-cancel"]').trigger('click')
+    expect(api.updateDictionary).not.toHaveBeenCalled()
+    expect(itemDrawer!.props('modelValue')).toBe(false)
+  })
+
+  it('saves a dictionary item through the aggregate version contract without opening the parent editor', async () => {
+    const wrapper = await mountPage()
+    const master = wrapper.findAllComponents({ name: 'AppDataTable' })[0]!
+    master.findComponent(VxeTable).vm.$emit('cell-click', {
+      row: summary,
+      column: { field: 'name' },
+    })
+    await flushPromises()
+
+    await wrapper.get('[data-testid="dictionary-item-edit-OPEN"]').trigger('click')
+    await flushPromises()
+    const itemDrawer = wrapper
+      .findAllComponents(AppFormDrawer)
+      .find(
+        (item) =>
+          item.props('modelValue') && item.find('[data-testid="dictionary-item-save"]').exists(),
+      )!
+    await itemDrawer.get('[data-testid="dictionary-item-name"]').setValue('Open state')
+    await itemDrawer.get('[data-testid="dictionary-item-save"]').trigger('click')
+    await flushPromises()
+
+    expect(api.updateDictionary).toHaveBeenCalledWith(
+      summary.id,
+      expect.objectContaining({
+        expectedOptimisticVersion: summary.optimisticVersion,
+        expectedConcurrencyVersion: summary.concurrencyVersion,
+        items: [expect.objectContaining({ nId: 'OPEN', name: 'Open state' })],
+      }),
+    )
+    expect(itemDrawer.props('modelValue')).toBe(false)
+    expect(
+      wrapper.findAllComponents(AppFormDrawer).filter((item) => item.props('modelValue')),
+    ).toHaveLength(0)
+  })
+
   it('uses server filters in both query modes and hides write actions from a viewer', async () => {
     const wrapper = await mountPage([PERMISSIONS.referenceDataDictionaryView], 'en-US')
     expect(wrapper.text()).toContain('Dictionaries')
@@ -144,11 +265,15 @@ describe('Dictionary management page', () => {
       expect.objectContaining({ keyword: 'STATUS' }),
       expect.anything(),
     )
-    await wrapper.get('[data-testid="app-data-table-query-toggle"]').trigger('click')
-    await flushPromises()
-    await wrapper.get('[data-testid="app-data-table-header-filter-name"]').setValue('Open')
-    await wrapper.get('[data-testid="app-data-table-header-filter-name"]').trigger('keyup.enter')
-    await flushPromises()
+    const master = wrapper.findAllComponents({ name: 'AppDataTable' })[0]!
+    expect(master.find('[data-testid="app-data-table-query-toggle"]').exists()).toBe(false)
+    await master.props('loader')!({
+      pageIndex: 1,
+      pageSize: 25,
+      queryMode: 'column',
+      filters: { name: 'Open' },
+      columns: [],
+    })
     expect(api.listDictionaries).toHaveBeenLastCalledWith(
       expect.objectContaining({ keyword: 'Open' }),
       expect.anything(),
@@ -215,8 +340,14 @@ describe('Dictionary management page', () => {
         }),
     )
     const wrapper = await mountPage()
-    await button(wrapper, '详情')
+    const master = wrapper.findAllComponents({ name: 'AppDataTable' })[0]!
+    master.findComponent(VxeTable).vm.$emit('cell-click', {
+      row: summary,
+      column: { field: 'name' },
+    })
+    await flushPromises()
     await wrapper.get('[data-testid="dictionary-create"]').trigger('click')
+    await flushPromises()
     await wrapper.get('input[data-testid="dictionary-name"]').setValue('New local draft')
     resolveDetail(detail)
     await flushPromises()
@@ -249,6 +380,12 @@ describe('Dictionary management page', () => {
         }),
     )
     const wrapper = await mountPage()
+    const master = wrapper.findAllComponents({ name: 'AppDataTable' })[0]!
+    master.findComponent(VxeTable).vm.$emit('cell-click', {
+      row: summary,
+      column: { field: 'name' },
+    })
+    await flushPromises()
     wrapper.findComponent({ name: 'ElDropdown' }).vm.$emit('command', 'publish')
     await flushPromises()
     const surface = wrapper

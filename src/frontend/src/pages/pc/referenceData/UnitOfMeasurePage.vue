@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Plus } from '@element-plus/icons-vue'
+import { ArrowDown, Delete, Plus } from '@element-plus/icons-vue'
 import { ApiError } from '@/api/errors'
 import { getReferenceDataApi } from '@/api/referenceData'
 import type {
@@ -74,33 +74,7 @@ const roundingOptions = computed(() => [
   { value: 'AwayFromZero', label: copy.value.unitAwayFromZero },
 ])
 const columns = computed<AppDataTableColumn[]>(() => [
-  { field: 'nId', title: copy.value.nId, minWidth: 140, sortable: true, filter: false },
-  { field: 'name', title: copy.value.name, minWidth: 160, sortable: true },
-  {
-    field: 'scopeType',
-    title: copy.value.scope,
-    width: 100,
-    filter: { kind: 'select', options: scopeOptions.value },
-  },
-  { field: 'revision', title: copy.value.revision, width: 82, sortable: true, filter: false },
-  {
-    field: 'status',
-    title: copy.value.status,
-    width: 112,
-    sortable: true,
-    filter: { kind: 'select', options: statusOptions.value },
-  },
-  { field: 'conversionKind', title: copy.value.unitConversionKind, minWidth: 150, filter: false },
-  { field: 'baseUnitNId', title: copy.value.unitBase, width: 110, filter: false },
-  { field: 'unitCount', title: copy.value.unitCount, width: 86, filter: false },
-  { field: 'isSystemDefined', title: copy.value.unitSystemDefined, width: 110, filter: false },
-  {
-    field: 'lastUpdatedOn',
-    title: copy.value.updatedOn,
-    minWidth: 170,
-    sortable: true,
-    filter: false,
-  },
+  { field: 'name', title: copy.value.name, minWidth: 120, sortable: true },
 ])
 const unitColumns = computed<AppDataTableColumn[]>(() => [
   { field: 'nId', title: copy.value.nId, minWidth: 120, filter: false },
@@ -193,29 +167,36 @@ function canEdit(row: UnitLifecycle) {
     has(PERMISSIONS.referenceDataUnitOfMeasureUpdate)
   )
 }
-function canClone(row: UnitLifecycle) {
+function canClone(row: UnitLifecycle | null) {
   return (
+    !!row &&
     row.publishedOn !== null &&
     scopeWritable(row) &&
     has(PERMISSIONS.referenceDataUnitOfMeasureCreate)
   )
 }
-function canPublish(row: UnitLifecycle) {
+function canPublish(row: UnitLifecycle | null) {
   return (
+    !!row &&
     row.status === 'Draft' &&
     scopeWritable(row) &&
     has(PERMISSIONS.referenceDataUnitOfMeasurePublish)
   )
 }
-function canDisable(row: UnitLifecycle) {
+function canDisable(row: UnitLifecycle | null) {
   return (
+    !!row &&
     ['Draft', 'Published'].includes(row.status) &&
     scopeWritable(row) &&
     has(PERMISSIONS.referenceDataUnitOfMeasureDisable)
   )
 }
-function canConvert(row: UnitDimensionSummary) {
-  return row.publishedOn !== null && ['Published', 'Superseded', 'Disabled'].includes(row.status)
+function canConvert(row: UnitDimensionSummary | null) {
+  return (
+    !!row &&
+    row.publishedOn !== null &&
+    ['Published', 'Superseded', 'Disabled'].includes(row.status)
+  )
 }
 
 async function load(request: AppDataTableRequest) {
@@ -235,7 +216,10 @@ async function load(request: AppDataTableRequest) {
   }
   try {
     if (!api) throw new Error(copy.value.unavailable)
-    return await api.listUnitDimensions(params, { signal: listRequest.signal })
+    const result = await api.listUnitDimensions(params, { signal: listRequest.signal })
+    if (activeId.value && !result.items.some((item) => item.id === activeId.value))
+      activeId.value = null
+    return result
   } finally {
     firstLoading.value = false
   }
@@ -271,6 +255,7 @@ type FormMode = 'create' | 'edit' | 'view'
 const formOpen = ref(false)
 const formMode = ref<FormMode>('view')
 const selected = ref<UnitDimension | null>(null)
+const activeId = ref<string | null>(null)
 const form = reactive({
   nId: '',
   name: '',
@@ -280,6 +265,7 @@ const form = reactive({
   baseUnitNId: '',
   units: [] as FormUnit[],
 })
+const unitDetailTab = ref('units')
 const savedSnapshot = ref('')
 const dirty = computed(
   () => formOpen.value && formMode.value !== 'view' && JSON.stringify(form) !== savedSnapshot.value,
@@ -293,6 +279,9 @@ const canSubmit = computed(() => {
   return formMode.value === 'edit' && !!selected.value && canEdit(selected.value)
 })
 const isReadOnly = computed(() => !canSubmit.value)
+const selectedSummary = computed<UnitDimensionSummary | null>(() =>
+  selected.value ? { ...selected.value, unitCount: selected.value.units.length } : null,
+)
 function unitWritable(unit: Pick<FormUnit, 'isFrozen' | 'isLocked'>) {
   return canSubmit.value && !unit.isFrozen && !unit.isLocked
 }
@@ -378,8 +367,9 @@ async function create() {
   savedSnapshot.value = JSON.stringify(form)
   formOpen.value = true
 }
-async function open(row: UnitDimensionSummary, edit = false) {
+async function open(row: UnitDimensionSummary, edit = false, showForm = true, markActive = false) {
   if (!(await allowDiscard())) return
+  if (markActive) activeId.value = row.id
   detailSequence++
   detailRequest?.abort()
   detailRequest = new AbortController()
@@ -392,12 +382,15 @@ async function open(row: UnitDimensionSummary, edit = false) {
     if (sequence !== detailSequence) return
     fill(item)
     formMode.value = edit && canEdit(item) ? 'edit' : 'view'
-    formOpen.value = true
+    formOpen.value = showForm
   } catch (caught) {
     if (sequence === detailSequence) report(caught)
   } finally {
     if (sequence === detailSequence) busy.value = false
   }
+}
+async function select(row: UnitDimensionSummary) {
+  await open(row, false, false, true)
 }
 async function allowDiscard() {
   if (busy.value) return false
@@ -416,7 +409,6 @@ function closeFormNow() {
   detailSequence++
   detailRequest?.abort()
   formOpen.value = false
-  selected.value = null
   busy.value = false
 }
 async function closeForm(value = false) {
@@ -528,8 +520,8 @@ async function copyUnsaved() {
     ElMessage.warning(copy.value.copyFailed)
   }
 }
-async function clone(row: UnitDimensionSummary) {
-  if (!api || !canClone(row) || busy.value) return
+async function clone(row: UnitDimensionSummary | null) {
+  if (!api || !row || !canClone(row) || busy.value) return
   busy.value = true
   clearError()
   try {
@@ -545,8 +537,8 @@ async function clone(row: UnitDimensionSummary) {
     busy.value = false
   }
 }
-async function publish(row: UnitDimensionSummary) {
-  if (!api || !canPublish(row) || busy.value) return
+async function publish(row: UnitDimensionSummary | null) {
+  if (!api || !row || !canPublish(row) || busy.value) return
   try {
     await ElMessageBox.confirm(copy.value.unitPublishHint, copy.value.publish, {
       confirmButtonText: copy.value.publish,
@@ -559,7 +551,8 @@ async function publish(row: UnitDimensionSummary) {
   busy.value = true
   clearError()
   try {
-    await api.publishUnitDimension(row.id, version(row))
+    const result = await api.publishUnitDimension(row.id, version(row))
+    if (result) fill(result)
     ElMessage.success(copy.value.publishedSuccess)
     await table.value?.reload()
   } catch (caught) {
@@ -568,8 +561,8 @@ async function publish(row: UnitDimensionSummary) {
     busy.value = false
   }
 }
-async function disable(row: UnitDimensionSummary) {
-  if (!api || !canDisable(row) || busy.value) return
+async function disable(row: UnitDimensionSummary | null) {
+  if (!api || !row || !canDisable(row) || busy.value) return
   let reason = ''
   try {
     const result = await ElMessageBox.prompt(copy.value.unitDisableHint, copy.value.reason, {
@@ -585,7 +578,8 @@ async function disable(row: UnitDimensionSummary) {
   busy.value = true
   clearError()
   try {
-    await api.disableUnitDimension(row.id, { ...version(row), changeReason: reason })
+    const result = await api.disableUnitDimension(row.id, { ...version(row), changeReason: reason })
+    if (result) fill(result)
     ElMessage.success(copy.value.disabledSuccess)
     await table.value?.reload()
   } catch (caught) {
@@ -605,8 +599,8 @@ const conversionResult = ref<UnitConversionResult | null>(null)
 let runtimeRequest: AbortController | undefined
 let runtimeSequence = 0
 
-async function openConversion(row: UnitDimensionSummary) {
-  if (!api || !canConvert(row) || !(await allowDiscard())) return
+async function openConversion(row: UnitDimensionSummary | null) {
+  if (!api || !row || !canConvert(row) || !(await allowDiscard())) return
   closeFormNow()
   clearError()
   conversionRow.value = row
@@ -709,6 +703,7 @@ onBeforeUnmount(() => {
 
 <template>
   <AppPage
+    class="unit-page"
     :title="copy.unitTitle"
     :description="copy.unitDescription"
     data-testid="reference-data-units-of-measure"
@@ -731,111 +726,179 @@ onBeforeUnmount(() => {
     >
       <p v-if="traceId">{{ copy.traceId }}: {{ traceId }}</p>
     </el-alert>
-    <AppQueryPanel show-actions grid @submit="search" @reset="reset">
-      <label class="unit-query-field"
-        ><span>{{ copy.keyword }}</span
-        ><el-input v-model="query.keyword" :aria-label="copy.keyword" @keyup.enter="search"
-      /></label>
-      <label class="unit-query-field"
-        ><span>{{ copy.scope }}</span
-        ><el-select v-model="query.scopeType" :aria-label="copy.scope"
-          ><el-option value="" :label="copy.all" /><el-option
-            v-for="option in scopeOptions"
-            :key="option.value"
-            v-bind="option" /></el-select
-      ></label>
-      <label class="unit-query-field"
-        ><span>{{ copy.status }}</span
-        ><el-select v-model="query.status" :aria-label="copy.status"
-          ><el-option value="" :label="copy.all" /><el-option
-            v-for="option in statusOptions"
-            :key="option.value"
-            v-bind="option" /></el-select
-      ></label>
-    </AppQueryPanel>
-    <AppDataTable
-      ref="table"
-      table-key="reference-data-units-of-measure"
-      :columns="columns"
-      :loader="load"
-      :query-mode="mode"
-      selection="none"
-      @update:query-mode="switchMode"
-      @loaded="onLoaded"
-      @error="reportList"
-    >
-      <template #cell-scopeType="{ row }">{{
-        row.scopeType === 'Tenant' ? copy.tenant : copy.platform
-      }}</template>
-      <template #cell-status="{ row }"
-        ><el-tag
-          :type="
-            row.status === 'Published' ? 'success' : row.status === 'Draft' ? 'info' : 'warning'
+    <div class="unit-master-detail">
+      <section class="unit-master" :aria-label="copy.unitTitle">
+        <AppQueryPanel show-actions grid @submit="search" @reset="reset">
+          <label class="unit-query-field"
+            ><span>{{ copy.keyword }}</span
+            ><el-input v-model="query.keyword" :aria-label="copy.keyword" @keyup.enter="search"
+          /></label>
+          <label class="unit-query-field"
+            ><span>{{ copy.scope }}</span
+            ><el-select v-model="query.scopeType" :aria-label="copy.scope"
+              ><el-option value="" :label="copy.all" /><el-option
+                v-for="option in scopeOptions"
+                :key="option.value"
+                v-bind="option" /></el-select
+          ></label>
+          <label class="unit-query-field"
+            ><span>{{ copy.status }}</span
+            ><el-select v-model="query.status" :aria-label="copy.status"
+              ><el-option value="" :label="copy.all" /><el-option
+                v-for="option in statusOptions"
+                :key="option.value"
+                v-bind="option" /></el-select
+          ></label>
+        </AppQueryPanel>
+        <AppDataTable
+          ref="table"
+          table-key="reference-data-units-of-measure"
+          :columns="columns"
+          :loader="load"
+          :query-mode="mode"
+          toolbar-profile="compact"
+          :quick-search-enabled="false"
+          selection="none"
+          :active-row-key="activeId"
+          @row-click="select"
+          @query-mode-change="switchMode"
+          @loaded="onLoaded"
+          @load-error="reportList"
+        >
+          <template #cell-name="{ row }"
+            ><div class="unit-directory-name">
+              <strong>{{ row.name }}</strong
+              ><small :title="`${row.nId} · ${statusLabel(row.status)}`"
+                ><span class="directory-status">{{ statusLabel(row.status) }}</span> ·
+                {{ row.nId }}</small
+              >
+            </div></template
+          >
+          <template #cell-conversionKind="{ row }">{{
+            conversionKindLabel(row.conversionKind)
+          }}</template>
+          <template #cell-isSystemDefined="{ row }">{{
+            row.isSystemDefined ? copy.trueValue : copy.falseValue
+          }}</template>
+          <template #cell-lastUpdatedOn="{ row }">{{ date(row.lastUpdatedOn) }}</template>
+        </AppDataTable>
+        <p v-if="!firstLoading && total === 0 && !listError">{{ copy.unitEmpty }}</p>
+      </section>
+      <section class="unit-detail-panel" :aria-label="copy.unitTitle">
+        <el-empty
+          v-if="!selected"
+          :description="
+            !firstLoading && total === 0 && !listError ? copy.unitEmpty : copy.unitSelect
           "
-          >{{ statusLabel(row.status) }}</el-tag
-        ></template
-      >
-      <template #cell-conversionKind="{ row }">{{
-        conversionKindLabel(row.conversionKind)
-      }}</template>
-      <template #cell-isSystemDefined="{ row }">{{
-        row.isSystemDefined ? copy.trueValue : copy.falseValue
-      }}</template>
-      <template #cell-lastUpdatedOn="{ row }">{{ date(row.lastUpdatedOn) }}</template>
-      <template #actions="{ row, availableWidth }">
-        <div class="unit-actions">
-          <el-button link type="primary" @click="open(row, false)">{{ copy.detail }}</el-button>
+        >
           <el-button
-            v-if="canEdit(row) && availableWidth >= 190"
-            link
+            v-if="!firstLoading && total === 0 && !listError"
             type="primary"
-            @click="open(row, true)"
-            >{{ copy.edit }}</el-button
+            data-testid="unit-dimension-empty-create"
+            @click="create"
+            >{{ copy.unitCreate }}</el-button
           >
-          <el-dropdown
-            v-if="
-              canEdit(row) || canClone(row) || canPublish(row) || canDisable(row) || canConvert(row)
-            "
-            trigger="click"
-          >
-            <el-button link type="primary" :disabled="busy" data-testid="unit-dimension-more">{{
-              copy.more
-            }}</el-button>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item
-                  v-if="canEdit(row) && availableWidth < 190"
-                  @click="open(row, true)"
-                >
-                  {{ copy.edit }}
-                </el-dropdown-item>
-                <el-dropdown-item v-if="canClone(row)" @click="clone(row)">{{
-                  copy.clone
-                }}</el-dropdown-item>
-                <el-dropdown-item
-                  v-if="canPublish(row)"
-                  data-testid="unit-dimension-publish"
-                  @click="publish(row)"
-                >
-                  {{ copy.publish }}
-                </el-dropdown-item>
-                <el-dropdown-item v-if="canDisable(row)" @click="disable(row)">{{
-                  copy.disable
-                }}</el-dropdown-item>
-                <el-dropdown-item
-                  v-if="canConvert(row)"
-                  data-testid="unit-conversion-open"
-                  @click="openConversion(row)"
-                >
-                  {{ copy.unitTryConvert }}
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-        </div>
-      </template>
-    </AppDataTable>
-    <p v-if="!firstLoading && total === 0 && !listError">{{ copy.unitEmpty }}</p>
+        </el-empty>
+        <template v-else>
+          <header class="unit-detail-context">
+            <div>
+              <h2>{{ selected.name }}</h2>
+              <p>
+                {{ selected.nId }} ·
+                {{ selected.scopeType === 'Tenant' ? copy.tenant : copy.platform }} ·
+                {{ copy.revision }} {{ selected.revision }} · {{ statusLabel(selected.status) }} ·
+                {{ copy.unitCount }} {{ selected.units.length }} ·
+                {{ conversionKindLabel(selected.conversionKind) }}
+              </p>
+            </div>
+            <div class="unit-actions">
+              <el-button
+                v-if="canEdit(selected)"
+                @click="((formOpen = true), (formMode = 'edit'))"
+                >{{ copy.edit }}</el-button
+              >
+              <el-dropdown
+                v-if="
+                  canClone(selectedSummary) ||
+                  canPublish(selectedSummary) ||
+                  canDisable(selectedSummary) ||
+                  canConvert(selectedSummary)
+                "
+                trigger="click"
+              >
+                <el-button :disabled="busy" data-testid="unit-dimension-more">
+                  {{ copy.more }}<el-icon><ArrowDown /></el-icon>
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item
+                      v-if="canClone(selectedSummary)"
+                      @click="clone(selectedSummary)"
+                      >{{ copy.clone }}</el-dropdown-item
+                    >
+                    <el-dropdown-item
+                      v-if="canPublish(selectedSummary)"
+                      data-testid="unit-dimension-publish"
+                      @click="publish(selectedSummary)"
+                    >
+                      {{ copy.publish }}
+                    </el-dropdown-item>
+                    <el-dropdown-item
+                      v-if="canDisable(selectedSummary)"
+                      @click="disable(selectedSummary)"
+                      >{{ copy.disable }}</el-dropdown-item
+                    >
+                    <el-dropdown-item
+                      v-if="canConvert(selectedSummary)"
+                      data-testid="unit-conversion-open"
+                      @click="openConversion(selectedSummary)"
+                    >
+                      {{ copy.unitTryConvert }}
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </div>
+          </header>
+          <el-tabs v-model="unitDetailTab">
+            <el-tab-pane :label="copy.unitDefinitions" name="units">
+              <AppDataTable
+                table-key="reference-data-units-inline"
+                :rows="form.units"
+                :total="form.units.length"
+                :columns="unitColumns"
+                row-key="localKey"
+                toolbar-profile="compact"
+                selection="none"
+              >
+                <template #cell-roundingMode="{ row }">{{
+                  row.roundingMode === 'ToEven' ? copy.unitToEven : copy.unitAwayFromZero
+                }}</template>
+                <template #cell-enabled="{ row }">{{
+                  row.enabled ? copy.trueValue : copy.falseValue
+                }}</template>
+              </AppDataTable>
+            </el-tab-pane>
+            <el-tab-pane :label="copy.unitTryConvert" name="conversion">
+              <el-alert :title="copy.unitPublishHint" type="info" :closable="false" />
+              <el-button
+                v-if="selectedSummary && canConvert(selectedSummary)"
+                type="primary"
+                @click="openConversion(selectedSummary)"
+                >{{ copy.unitTryConvert }}</el-button
+              >
+            </el-tab-pane>
+            <el-tab-pane :label="copy.publicationTitle" name="check">
+              <el-alert
+                :title="selected.isSystemDefined ? copy.unitSystemReadOnly : copy.unitPublishHint"
+                :type="selected.isSystemDefined ? 'warning' : 'info'"
+                :closable="false"
+              />
+            </el-tab-pane>
+          </el-tabs>
+        </template>
+      </section>
+    </div>
 
     <AppFormDrawer
       :model-value="formOpen"
@@ -1136,12 +1199,121 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.unit-page {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.unit-page :deep(.app-page__body) {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.unit-page :deep(.app-query-panel) {
+  flex: 0 0 auto;
+}
 .unit-query-field {
   display: grid;
   flex: 0 0 180px;
   max-width: 100%;
   min-width: 0;
   gap: var(--ip-space-2);
+}
+.unit-master-detail {
+  display: grid;
+  flex: 1 1 0;
+  grid-template-columns: minmax(250px, 280px) minmax(0, 1fr);
+  gap: var(--ip-space-4);
+  min-height: 0;
+  align-items: stretch;
+}
+.unit-master,
+.unit-detail-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.unit-master {
+  gap: var(--ip-space-3);
+  overflow: hidden;
+}
+.unit-master :deep(.app-data-table),
+.unit-detail-panel :deep(.app-data-table) {
+  flex: 1 1 0;
+  min-height: 0;
+}
+.unit-master :deep(.app-data-table__card),
+.unit-detail-panel :deep(.app-data-table__card) {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+}
+.unit-directory-name {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+.unit-directory-name strong,
+.unit-directory-name small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.unit-directory-name small {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+.unit-detail-panel {
+  min-height: 0;
+  padding: var(--ip-space-4);
+  border: 1px solid var(--el-border-color-light);
+  border-radius: var(--ip-radius-md);
+  background: var(--el-bg-color);
+}
+.unit-detail-panel > :deep(.el-empty) {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.unit-detail-panel :deep(.el-tabs) {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+}
+.unit-detail-panel :deep(.el-tabs__content) {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.unit-detail-panel :deep(.el-tab-pane) {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.unit-detail-context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ip-space-3);
+  margin-bottom: var(--ip-space-3);
+}
+.unit-detail-context h2 {
+  margin: 0;
+}
+.unit-detail-context p {
+  margin: var(--ip-space-1) 0 0;
+  color: var(--el-text-color-secondary);
 }
 .unit-actions {
   display: inline-flex;
@@ -1184,6 +1356,9 @@ onBeforeUnmount(() => {
   margin-right: auto;
 }
 @media (max-width: 768px) {
+  .unit-master-detail {
+    grid-template-columns: 1fr;
+  }
   .unit-section-heading {
     align-items: flex-start;
     flex-direction: column;

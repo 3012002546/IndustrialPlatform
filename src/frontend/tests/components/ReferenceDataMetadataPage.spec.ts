@@ -208,8 +208,21 @@ function table(wrapper: VueWrapper, key: string) {
   expect(found, key).toBeDefined()
   return found!
 }
-function button(wrapper: VueWrapper, label: string) {
-  const found = wrapper.findAll('button').find((item) => item.text() === label)
+async function selectRow(wrapper: VueWrapper, row: MetadataSchemaSummary) {
+  table(wrapper, 'reference-data-metadata')
+    .findComponent(VxeTable)
+    .vm.$emit('cell-click', {
+      row,
+      column: { field: 'name' },
+    })
+  await flushPromises()
+}
+async function button(wrapper: VueWrapper, label: string) {
+  let found = wrapper.findAll('button').find((item) => item.text() === label)
+  if (!found) {
+    await selectRow(wrapper, summary())
+    found = wrapper.findAll('button').find((item) => item.text() === label)
+  }
   expect(found, label).toBeDefined()
   return found!
 }
@@ -336,22 +349,44 @@ afterEach(() => {
 })
 
 describe('Metadata management page', () => {
-  it('moves Edit into More below 190px and restores the direct action when widened', async () => {
+  it('makes a catalog click the active definition without opening the editor drawer', async () => {
+    const { wrapper } = await mountPage()
+    const master = table(wrapper, 'reference-data-metadata')
+    expect(master.props('selection')).toBe('none')
+    expect(master.props('activeRowKey')).toBeNull()
+    expect(master.props('columns')).toHaveLength(1)
+    master.findComponent(VxeTable).vm.$emit('cell-click', {
+      row: summary(),
+      column: { field: 'name' },
+    })
+    await flushPromises()
+
+    expect(api.getMetadataSchema).toHaveBeenCalledWith(summary().id, expect.anything())
+    expect(master.props('activeRowKey')).toBe(summary().id)
+    expect(wrapper.get('.metadata-detail-panel').text()).toContain('Equipment')
+    expect(wrapper.findAllComponents(AppFormDrawer).every((item) => item.props('modelValue'))).toBe(
+      false,
+    )
+  })
+
+  it('keeps directory actions in the selected schema context header', async () => {
+    const published = summary({
+      id: 'metadata-published',
+      revision: 1,
+      status: 'Published',
+      publishedOn: '2026-09-04T00:00:00Z',
+    })
     api.listMetadataSchemas.mockResolvedValue({
-      items: [
-        summary(),
-        summary({
-          id: 'metadata-published',
-          revision: 1,
-          status: 'Published',
-          publishedOn: '2026-09-04T00:00:00Z',
-        }),
-      ],
+      items: [summary(), published],
       total: 2,
       pageIndex: 1,
       pageSize: 20,
     })
+    api.getMetadataSchema.mockImplementation(async (id: string) =>
+      structuredClone(detail(id === published.id ? published : summary())),
+    )
     const { wrapper } = await mountPage()
+    await selectRow(wrapper, summary())
     const actions = () => wrapper.findAll('.metadata-actions')[0]!
     const action = (label: string) =>
       actions()
@@ -363,28 +398,14 @@ describe('Metadata management page', () => {
     for (const label of ['Publication check', 'Disable']) {
       expect(action(label).element.closest('[data-testid="dropdown-menu"]')).not.toBeNull()
     }
-    const publishedActions = wrapper.findAll('.metadata-actions')[1]!
+    expect(wrapper.find('.app-data-table__actions-column').exists()).toBe(false)
+
+    await selectRow(wrapper, published)
+    const publishedActions = wrapper.find('.metadata-actions')
     for (const label of ['Clone new revision', 'Disable', 'Runtime read']) {
       const item = publishedActions.findAll('button').find((button) => button.text() === label)!
       expect(item.element.closest('[data-testid="dropdown-menu"]')).not.toBeNull()
     }
-
-    wrapper.findComponent(VxeTable).vm.$emit('resizable-change', {
-      resizeColumn: { field: '__actions' },
-      resizeWidth: 120,
-    })
-    await flushPromises()
-
-    expect(action('Edit').element.closest('[data-testid="dropdown-menu"]')).not.toBeNull()
-    expect(action('Details').element.closest('[data-testid="dropdown-menu"]')).toBeNull()
-
-    wrapper.findComponent(VxeTable).vm.$emit('resizable-change', {
-      resizeColumn: { field: '__actions' },
-      resizeWidth: 220,
-    })
-    await flushPromises()
-
-    expect(action('Edit').element.closest('[data-testid="dropdown-menu"]')).toBeNull()
   })
 
   it('uses an ordinary list and aborts a superseded server query', async () => {
@@ -417,7 +438,7 @@ describe('Metadata management page', () => {
 
   it('edits all eight attribute types and preserves fixed unit coordinates and versions', async () => {
     const { wrapper } = await mountPage()
-    await button(wrapper, 'Edit').trigger('click')
+    await (await button(wrapper, 'Edit')).trigger('click')
     await flushPromises()
     const editor = drawer(wrapper, 'metadata-schema-save')
     expect(editor.findAll('[data-testid^="metadata-attribute-type-"]')).toHaveLength(8)
@@ -474,7 +495,7 @@ describe('Metadata management page', () => {
 
   it('shows complete publication differences before publishing', async () => {
     const { wrapper } = await mountPage()
-    await button(wrapper, 'Publication check').trigger('click')
+    await (await button(wrapper, 'Publication check')).trigger('click')
     await flushPromises()
     const publication = drawer(wrapper, 'metadata-publish-confirm')
     expect(publication.text()).toContain('WEIGHT')
@@ -486,7 +507,7 @@ describe('Metadata management page', () => {
 
   it('blocks unsafe patterns and decimal defaults outside the declared scale', async () => {
     const { wrapper } = await mountPage()
-    await button(wrapper, 'Edit').trigger('click')
+    await (await button(wrapper, 'Edit')).trigger('click')
     await flushPromises()
     const editor = drawer(wrapper, 'metadata-schema-save')
     await editor.get('[data-testid="metadata-attribute-pattern-0"]').setValue('(a+)+$')
@@ -502,7 +523,7 @@ describe('Metadata management page', () => {
 
   it('compares decimal bounds without rounding distinct values to the same Number', async () => {
     const { wrapper } = await mountPage()
-    await button(wrapper, 'Edit').trigger('click')
+    await (await button(wrapper, 'Edit')).trigger('click')
     await flushPromises()
     const editor = drawer(wrapper, 'metadata-schema-save')
     await editor
@@ -526,7 +547,10 @@ describe('Metadata management page', () => {
       pageSize: 20,
     })
     const { wrapper } = await mountPage()
-    await button(wrapper, 'Runtime read').trigger('click')
+    const published = summary({ status: 'Published', publishedOn: '2026-09-05T00:00:00Z' })
+    api.getMetadataSchema.mockResolvedValue(structuredClone(detail(published)))
+    await selectRow(wrapper, published)
+    await (await button(wrapper, 'Runtime read')).trigger('click')
     await flushPromises()
     const viewer = drawer(wrapper, 'metadata-runtime-mode')
     expect(api.getMetadataSchemaRevision).toHaveBeenCalledWith(
@@ -553,7 +577,7 @@ describe('Metadata management page', () => {
     )
     const confirm = vi.spyOn(ElMessageBox, 'confirm').mockRejectedValue(new Error('cancel'))
     const { wrapper, router } = await mountPage()
-    await button(wrapper, 'Edit').trigger('click')
+    await (await button(wrapper, 'Edit')).trigger('click')
     await flushPromises()
     const editor = drawer(wrapper, 'metadata-schema-save')
     await editor.get('[data-testid="metadata-schema-name"]').setValue('Unsaved schema')

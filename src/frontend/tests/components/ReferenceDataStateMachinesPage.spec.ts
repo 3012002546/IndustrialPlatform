@@ -196,8 +196,20 @@ async function mountPage(grants = permissions) {
   await flushPromises()
   return { wrapper, router }
 }
-function button(wrapper: VueWrapper, label: string, index = 0) {
-  const items = wrapper.findAll('button').filter((item) => item.text() === label)
+async function selectRow(wrapper: VueWrapper, row: StateMachineSummary) {
+  const master = wrapper.findComponent<TableInstance>(AppDataTable)
+  master.findComponent(VxeTable).vm.$emit('cell-click', {
+    row,
+    column: { field: 'name' },
+  })
+  await flushPromises()
+}
+async function button(wrapper: VueWrapper, label: string, index = 0) {
+  let items = wrapper.findAll('button').filter((item) => item.text() === label)
+  if (!items[index]) {
+    await selectRow(wrapper, summary())
+    items = wrapper.findAll('button').filter((item) => item.text() === label)
+  }
   expect(items[index], `${label}[${index}]`).toBeDefined()
   return items[index]!
 }
@@ -305,8 +317,29 @@ afterEach(() => {
 })
 
 describe('StateMachinesPage', () => {
-  it('moves Edit into More below 190px and restores the direct action when widened', async () => {
+  it('makes a catalog click the active definition without opening the editor drawer', async () => {
     const { wrapper } = await mountPage()
+    const master = wrapper.findComponent<TableInstance>(AppDataTable)
+    expect(master.props('selection')).toBe('none')
+    expect(master.props('activeRowKey')).toBeNull()
+    expect(master.props('columns')).toHaveLength(1)
+    master.findComponent(VxeTable).vm.$emit('cell-click', {
+      row: summary(),
+      column: { field: 'name' },
+    })
+    await flushPromises()
+
+    expect(api.getStateMachine).toHaveBeenCalledWith(summary().id, expect.anything())
+    expect(master.props('activeRowKey')).toBe(summary().id)
+    expect(wrapper.get('.state-detail-panel').text()).toContain('Tenant order flow')
+    expect(wrapper.findAllComponents(AppFormDrawer).every((item) => item.props('modelValue'))).toBe(
+      false,
+    )
+  })
+
+  it('keeps directory actions in the selected definition context header', async () => {
+    const { wrapper } = await mountPage()
+    await selectRow(wrapper, summary())
     const actions = () => wrapper.findAll('.state-machine-actions')[0]!
     const action = (label: string) =>
       actions()
@@ -318,28 +351,27 @@ describe('StateMachinesPage', () => {
     for (const label of ['Publication check', 'Disable']) {
       expect(action(label).element.closest('[data-testid="dropdown-menu"]')).not.toBeNull()
     }
-    const publishedActions = wrapper.findAll('.state-machine-actions')[1]!
+    expect(wrapper.find('.app-data-table__actions-column').exists()).toBe(false)
+
+    const published = summary({
+      id: 'platform-published',
+      name: 'Platform order flow',
+      scopeType: 'Platform',
+      tenantNId: null,
+      revision: 1,
+      status: 'Published',
+      sourceRevision: null,
+      optimisticVersion: 2,
+      concurrencyVersion: 'token-2',
+      publishedOn: '2026-09-01T00:00:00Z',
+      publishedBy: 'SYSTEM',
+    })
+    await selectRow(wrapper, published)
+    const publishedActions = wrapper.find('.state-machine-actions')
     for (const label of ['Clone new revision', 'Disable', 'Definition check']) {
       const item = publishedActions.findAll('button').find((button) => button.text() === label)!
       expect(item.element.closest('[data-testid="dropdown-menu"]')).not.toBeNull()
     }
-
-    wrapper.findComponent(VxeTable).vm.$emit('resizable-change', {
-      resizeColumn: { field: '__actions' },
-      resizeWidth: 120,
-    })
-    await flushPromises()
-
-    expect(action('Edit').element.closest('[data-testid="dropdown-menu"]')).not.toBeNull()
-    expect(action('Details').element.closest('[data-testid="dropdown-menu"]')).toBeNull()
-
-    wrapper.findComponent(VxeTable).vm.$emit('resizable-change', {
-      resizeColumn: { field: '__actions' },
-      resizeWidth: 220,
-    })
-    await flushPromises()
-
-    expect(action('Edit').element.closest('[data-testid="dropdown-menu"]')).toBeNull()
   })
 
   it('shows tenant and platform definitions in an ordinary list and aborts a superseded query', async () => {
@@ -373,7 +405,7 @@ describe('StateMachinesPage', () => {
 
   it('edits the complete graph and sends both aggregate version tokens', async () => {
     const { wrapper } = await mountPage()
-    await button(wrapper, 'Edit').trigger('click')
+    await (await button(wrapper, 'Edit')).trigger('click')
     await flushPromises()
     const editor = drawer(wrapper, 'state-machine-save')
     await editor.get('[data-testid="state-machine-name"]').setValue('Order lifecycle')
@@ -404,7 +436,7 @@ describe('StateMachinesPage', () => {
 
   it('blocks a terminal node with an outgoing transition and duplicate deterministic actions', async () => {
     const { wrapper } = await mountPage()
-    await button(wrapper, 'Edit').trigger('click')
+    await (await button(wrapper, 'Edit')).trigger('click')
     await flushPromises()
     const editor = drawer(wrapper, 'state-machine-save')
     await editor.get('[data-testid="state-transition-from-0"]').setValue('DONE')
@@ -422,7 +454,7 @@ describe('StateMachinesPage', () => {
     } as never)
     const { wrapper } = await mountPage()
 
-    await button(wrapper, 'Disable', 0).trigger('click')
+    await (await button(wrapper, 'Disable', 0)).trigger('click')
     await flushPromises()
 
     const options = prompt.mock.calls[0]?.[2] as
@@ -435,7 +467,7 @@ describe('StateMachinesPage', () => {
   it('shows every publication difference before publishing with both versions', async () => {
     const { wrapper } = await mountPage()
 
-    await button(wrapper, 'Publication check').trigger('click')
+    await (await button(wrapper, 'Publication check')).trigger('click')
     await flushPromises()
 
     expect(api.checkStateMachinePublication).toHaveBeenCalledWith(
@@ -467,7 +499,7 @@ describe('StateMachinesPage', () => {
     })
     const { wrapper } = await mountPage()
 
-    await button(wrapper, 'Publication check').trigger('click')
+    await (await button(wrapper, 'Publication check')).trigger('click')
     await flushPromises()
 
     const publication = drawer(wrapper, 'state-machine-publish-confirm')
@@ -488,15 +520,29 @@ describe('StateMachinesPage', () => {
       action: 'confirm',
     } as never)
     const { wrapper } = await mountPage()
+    const published = summary({
+      id: 'platform-published',
+      name: 'Platform order flow',
+      scopeType: 'Platform',
+      tenantNId: null,
+      revision: 1,
+      status: 'Published',
+      sourceRevision: null,
+      optimisticVersion: 2,
+      concurrencyVersion: 'token-2',
+      publishedOn: '2026-09-01T00:00:00Z',
+      publishedBy: 'SYSTEM',
+    })
+    await selectRow(wrapper, published)
 
-    await button(wrapper, 'Clone new revision').trigger('click')
+    await (await button(wrapper, 'Clone new revision')).trigger('click')
     await flushPromises()
     expect(api.cloneStateMachine).toHaveBeenCalledWith('platform-published', {
       expectedOptimisticVersion: 2,
       expectedConcurrencyVersion: 'token-2',
     })
 
-    await button(wrapper, 'Disable', 0).trigger('click')
+    await (await button(wrapper, 'Disable', 0)).trigger('click')
     await flushPromises()
     expect(api.disableStateMachine).toHaveBeenCalledWith(
       expect.any(String),
@@ -522,7 +568,23 @@ describe('StateMachinesPage', () => {
 
   it('loads available definitions, reads an explicit fixed source, and keeps a false evaluation visible', async () => {
     const { wrapper } = await mountPage()
-    await button(wrapper, 'Definition check').trigger('click')
+    await selectRow(
+      wrapper,
+      summary({
+        id: 'platform-published',
+        name: 'Platform order flow',
+        scopeType: 'Platform',
+        tenantNId: null,
+        revision: 1,
+        status: 'Published',
+        sourceRevision: null,
+        optimisticVersion: 2,
+        concurrencyVersion: 'token-2',
+        publishedOn: '2026-09-01T00:00:00Z',
+        publishedBy: 'SYSTEM',
+      }),
+    )
+    await (await button(wrapper, 'Definition check')).trigger('click')
     await flushPromises()
     const runtimeDrawer = drawer(wrapper, 'state-machine-evaluate')
 
@@ -577,7 +639,7 @@ describe('StateMachinesPage', () => {
       }),
     )
     const { wrapper } = await mountPage()
-    await button(wrapper, 'Edit').trigger('click')
+    await (await button(wrapper, 'Edit')).trigger('click')
     await flushPromises()
     const editor = drawer(wrapper, 'state-machine-save')
     await editor.get('[data-testid="state-machine-name"]').setValue('Unsaved state machine')
@@ -613,17 +675,36 @@ describe('StateMachinesPage', () => {
     )
     const confirm = vi.spyOn(ElMessageBox, 'confirm').mockRejectedValue(new Error('cancel'))
     const { wrapper, router } = await mountPage()
-    await button(wrapper, 'Details', 0).trigger('click')
+    const master = wrapper.findComponent<TableInstance>(AppDataTable)
+    const tenant = summary()
+    const platform = summary({
+      id: 'platform-published',
+      name: 'Platform order flow',
+      scopeType: 'Platform',
+      tenantNId: null,
+      status: 'Published',
+      publishedOn: '2026-09-01T00:00:00Z',
+      publishedBy: 'SYSTEM',
+    })
+    master.findComponent(VxeTable).vm.$emit('cell-click', {
+      row: tenant,
+      column: { field: 'name' },
+    })
+    await flushPromises()
     const signal = api.getStateMachine.mock.calls[0]![1].signal as AbortSignal
-    await button(wrapper, 'Details', 1).trigger('click')
+    master.findComponent(VxeTable).vm.$emit('cell-click', {
+      row: platform,
+      column: { field: 'name' },
+    })
     await flushPromises()
     expect(signal.aborted).toBe(true)
     resolveFirst(detail(summary()))
     await flushPromises()
-    expect(drawer(wrapper, 'state-machine-detail-marker').text()).toContain('Platform order flow')
+    expect(wrapper.get('.state-detail-panel').text()).toContain('Platform order flow')
 
-    api.getStateMachine.mockResolvedValue(detail(summary()))
-    await button(wrapper, 'Edit').trigger('click')
+    api.getStateMachine.mockResolvedValue(detail(tenant))
+    await selectRow(wrapper, tenant)
+    await (await button(wrapper, 'Edit')).trigger('click')
     await flushPromises()
     await drawer(wrapper, 'state-machine-save')
       .get('[data-testid="state-machine-name"]')

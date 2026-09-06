@@ -107,6 +107,12 @@ export function createParameterApi(client: HttpClient) {
         `${valuePath(id, keyId, valueId)}/${enabled ? 'enable' : 'disable'}`,
         request,
       ),
+    deleteConfigurationValue: (
+      id: string,
+      keyId: string,
+      valueId: string,
+      request: ConfigurationVersion,
+    ) => client.delete<ConfigurationDomain>(valuePath(id, keyId, valueId), request, jsonOptions),
     configurationHistory: (
       id: string,
       keyId: string | null,

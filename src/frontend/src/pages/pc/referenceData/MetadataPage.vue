@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
-import { Delete, Plus } from '@element-plus/icons-vue'
+import { ArrowDown, Delete, Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ApiError } from '@/api/errors'
 import { getReferenceDataApi } from '@/api/referenceData'
@@ -87,30 +87,7 @@ const dataTypeOptions = computed<{ value: MetadataDataType; label: string }[]>((
   { value: 'Reference', label: copy.value.typeReferenceMetadata },
 ])
 const columns = computed<AppDataTableColumn[]>(() => [
-  { field: 'nId', title: copy.value.nId, minWidth: 150, sortable: true, filter: false },
-  { field: 'name', title: copy.value.name, minWidth: 170, sortable: true },
-  {
-    field: 'scopeType',
-    title: copy.value.scope,
-    width: 100,
-    filter: { kind: 'select', options: scopeOptions.value },
-  },
-  { field: 'revision', title: copy.value.revision, width: 82, sortable: true, filter: false },
-  {
-    field: 'status',
-    title: copy.value.status,
-    width: 112,
-    sortable: true,
-    filter: { kind: 'select', options: statusOptions.value },
-  },
-  { field: 'attributeCount', title: copy.value.metadataAttributeCount, width: 100, filter: false },
-  {
-    field: 'lastUpdatedOn',
-    title: copy.value.updatedOn,
-    minWidth: 170,
-    sortable: true,
-    filter: false,
-  },
+  { field: 'name', title: copy.value.name, minWidth: 120, sortable: true },
 ])
 const runtimeColumns = computed<AppDataTableColumn[]>(() => [
   { field: 'nId', title: copy.value.nId, minWidth: 130, filter: false },
@@ -121,12 +98,39 @@ const runtimeColumns = computed<AppDataTableColumn[]>(() => [
   { field: 'enabled', title: copy.value.enabled, width: 80, filter: false },
   { field: 'defaultValue', title: copy.value.metadataDefault, minWidth: 160, filter: false },
 ])
+const attributePreviewColumns = computed<AppDataTableColumn[]>(() => [
+  { field: 'nId', title: copy.value.nId, minWidth: 130, filter: false },
+  { field: 'name', title: copy.value.name, minWidth: 150, filter: false },
+  { field: 'dataType', title: copy.value.dataType, width: 130, filter: false },
+  { field: 'required', title: copy.value.metadataRequired, width: 90, filter: false },
+  { field: 'isArray', title: copy.value.metadataArray, width: 80, filter: false },
+  { field: 'enabled', title: copy.value.enabled, width: 80, filter: false },
+])
 
 function statusLabel(status: PublicationStatus) {
   return statusOptions.value.find((item) => item.value === status)?.label ?? status
 }
 function typeLabel(type: MetadataDataType) {
   return dataTypeOptions.value.find((item) => item.value === type)?.label ?? type
+}
+function structurePreview() {
+  return JSON.stringify(
+    {
+      nId: form.nId,
+      name: form.name,
+      revision: selected.value?.revision ?? null,
+      attributes: form.attributes.map((attribute) => ({
+        nId: attribute.nId,
+        name: attribute.name,
+        dataType: attribute.dataType,
+        required: attribute.required,
+        isArray: attribute.isArray,
+        enabled: attribute.enabled,
+      })),
+    },
+    null,
+    2,
+  )
 }
 function date(value: string) {
   return new Intl.DateTimeFormat(localization.locale, {
@@ -194,25 +198,32 @@ function canEdit(row: SchemaLifecycle) {
     row.status === 'Draft' && scopeWritable(row) && has(PERMISSIONS.referenceDataMetadataUpdate)
   )
 }
-function canClone(row: SchemaLifecycle) {
+function canClone(row: SchemaLifecycle | null) {
   return (
-    row.publishedOn !== null && scopeWritable(row) && has(PERMISSIONS.referenceDataMetadataCreate)
+    !!row &&
+    row.publishedOn !== null &&
+    scopeWritable(row) &&
+    has(PERMISSIONS.referenceDataMetadataCreate)
   )
 }
-function canPublish(row: SchemaLifecycle) {
+function canPublish(row: SchemaLifecycle | null) {
   return (
-    row.status === 'Draft' && scopeWritable(row) && has(PERMISSIONS.referenceDataMetadataPublish)
+    !!row &&
+    row.status === 'Draft' &&
+    scopeWritable(row) &&
+    has(PERMISSIONS.referenceDataMetadataPublish)
   )
 }
-function canDisable(row: SchemaLifecycle) {
+function canDisable(row: SchemaLifecycle | null) {
   return (
+    !!row &&
     ['Draft', 'Published'].includes(row.status) &&
     scopeWritable(row) &&
     has(PERMISSIONS.referenceDataMetadataDisable)
   )
 }
-function canReadRuntime(row: MetadataSchemaSummary) {
-  return row.publishedOn !== null
+function canReadRuntime(row: MetadataSchemaSummary | null) {
+  return row?.publishedOn !== null && row?.publishedOn !== undefined
 }
 
 async function load(request: AppDataTableRequest) {
@@ -232,7 +243,10 @@ async function load(request: AppDataTableRequest) {
   }
   try {
     if (!api) throw new Error(copy.value.unavailable)
-    return await api.listMetadataSchemas(params, { signal: listRequest.signal })
+    const result = await api.listMetadataSchemas(params, { signal: listRequest.signal })
+    if (activeId.value && !result.items.some((item) => item.id === activeId.value))
+      activeId.value = null
+    return result
   } finally {
     firstLoading.value = false
   }
@@ -273,6 +287,10 @@ type FormMode = 'create' | 'edit' | 'view'
 const formOpen = ref(false)
 const formMode = ref<FormMode>('view')
 const selected = ref<MetadataSchema | null>(null)
+const activeId = ref<string | null>(null)
+const selectedSummary = computed<MetadataSchemaSummary | null>(() =>
+  selected.value ? { ...selected.value, attributeCount: selected.value.attributes.length } : null,
+)
 const form = reactive({
   nId: '',
   name: '',
@@ -280,6 +298,7 @@ const form = reactive({
   scopeType: 'Tenant' as ReferenceScope,
   attributes: [] as FormAttribute[],
 })
+const metadataDetailTab = ref('attributes')
 const savedSnapshot = ref('')
 const referenceLoading = ref(false)
 const dictionaryOptions = ref<DictionarySummary[]>([])
@@ -642,8 +661,9 @@ async function create() {
   formOpen.value = true
   await refreshReferenceOptions()
 }
-async function open(row: MetadataSchemaSummary, edit = false) {
+async function open(row: MetadataSchemaSummary, edit = false, showForm = true, markActive = false) {
   if (!(await allowDiscard())) return
+  if (markActive) activeId.value = row.id
   detailSequence++
   detailRequest?.abort()
   detailRequest = new AbortController()
@@ -656,13 +676,16 @@ async function open(row: MetadataSchemaSummary, edit = false) {
     if (sequence !== detailSequence) return
     fill(item)
     formMode.value = edit && canEdit(item) ? 'edit' : 'view'
-    formOpen.value = true
+    formOpen.value = showForm
     await refreshReferenceOptions()
   } catch (caught) {
     if (sequence === detailSequence) report(caught)
   } finally {
     if (sequence === detailSequence) busy.value = false
   }
+}
+async function select(row: MetadataSchemaSummary) {
+  await open(row, false, false, true)
 }
 async function allowDiscard() {
   if (busy.value) return false
@@ -683,7 +706,6 @@ function closeFormNow() {
   referenceSequence++
   referenceRequest?.abort()
   formOpen.value = false
-  selected.value = null
   dictionaryOptions.value = []
   unitDimensionOptions.value = []
   unitSnapshots.value = new Map()
@@ -995,8 +1017,8 @@ async function copyUnsaved() {
     ElMessage.warning(copy.value.copyFailed)
   }
 }
-async function clone(row: MetadataSchemaSummary) {
-  if (!api || !canClone(row) || busy.value) return
+async function clone(row: MetadataSchemaSummary | null) {
+  if (!api || !row || !canClone(row) || busy.value) return
   busy.value = true
   clearError()
   try {
@@ -1016,8 +1038,8 @@ async function clone(row: MetadataSchemaSummary) {
 const publicationOpen = ref(false)
 const publication = ref<MetadataPublicationCheck | null>(null)
 const publicationRow = ref<MetadataSchemaSummary | null>(null)
-async function preparePublication(row: MetadataSchemaSummary) {
-  if (!api || !canPublish(row) || busy.value || !(await allowDiscard())) return
+async function preparePublication(row: MetadataSchemaSummary | null) {
+  if (!api || !row || !canPublish(row) || busy.value || !(await allowDiscard())) return
   detailSequence++
   detailRequest?.abort()
   detailRequest = new AbortController()
@@ -1051,7 +1073,11 @@ async function publish() {
   busy.value = true
   clearError()
   try {
-    await api.publishMetadataSchema(publicationRow.value.id, version(publicationRow.value))
+    const result = await api.publishMetadataSchema(
+      publicationRow.value.id,
+      version(publicationRow.value),
+    )
+    if (result) fill(result)
     publicationOpen.value = false
     publication.value = null
     publicationRow.value = null
@@ -1063,8 +1089,8 @@ async function publish() {
     busy.value = false
   }
 }
-async function disable(row: MetadataSchemaSummary) {
-  if (!api || !canDisable(row) || busy.value) return
+async function disable(row: MetadataSchemaSummary | null) {
+  if (!api || !row || !canDisable(row) || busy.value) return
   let reason = ''
   try {
     const result = await ElMessageBox.prompt(copy.value.metadataDisableHint, copy.value.reason, {
@@ -1080,7 +1106,11 @@ async function disable(row: MetadataSchemaSummary) {
   busy.value = true
   clearError()
   try {
-    await api.disableMetadataSchema(row.id, { ...version(row), changeReason: reason })
+    const result = await api.disableMetadataSchema(row.id, {
+      ...version(row),
+      changeReason: reason,
+    })
+    if (result) fill(result)
     ElMessage.success(copy.value.disabledSuccess)
     await table.value?.reload()
   } catch (caught) {
@@ -1097,8 +1127,8 @@ const runtimeRow = ref<MetadataSchemaSummary | null>(null)
 const runtimeSchema = ref<EffectiveMetadataSchema | null>(null)
 let runtimeRequest: AbortController | undefined
 let runtimeSequence = 0
-async function openRuntime(row: MetadataSchemaSummary) {
-  if (!api || !canReadRuntime(row) || !(await allowDiscard())) return
+async function openRuntime(row: MetadataSchemaSummary | null) {
+  if (!api || !row || !canReadRuntime(row) || !(await allowDiscard())) return
   closeFormNow()
   clearError()
   runtimeRow.value = row
@@ -1165,6 +1195,7 @@ onBeforeUnmount(() => {
 
 <template>
   <AppPage
+    class="metadata-page"
     :title="copy.metadataTitle"
     :description="copy.metadataDescription"
     data-testid="reference-data-metadata"
@@ -1187,108 +1218,165 @@ onBeforeUnmount(() => {
     >
       <p v-if="traceId">{{ copy.traceId }}: {{ traceId }}</p>
     </el-alert>
-    <AppQueryPanel show-actions grid @submit="search" @reset="reset">
-      <label class="metadata-query-field">
-        <span>{{ copy.keyword }}</span>
-        <el-input v-model="query.keyword" :aria-label="copy.keyword" @keyup.enter="search" />
-      </label>
-      <label class="metadata-query-field">
-        <span>{{ copy.scope }}</span>
-        <el-select v-model="query.scopeType" :aria-label="copy.scope">
-          <el-option value="" :label="copy.all" />
-          <el-option v-for="option in scopeOptions" :key="option.value" v-bind="option" />
-        </el-select>
-      </label>
-      <label class="metadata-query-field">
-        <span>{{ copy.status }}</span>
-        <el-select v-model="query.status" :aria-label="copy.status">
-          <el-option value="" :label="copy.all" />
-          <el-option v-for="option in statusOptions" :key="option.value" v-bind="option" />
-        </el-select>
-      </label>
-    </AppQueryPanel>
-    <AppDataTable
-      ref="table"
-      table-key="reference-data-metadata"
-      :columns="columns"
-      :loader="load"
-      :query-mode="mode"
-      selection="none"
-      @update:query-mode="switchMode"
-      @loaded="onLoaded"
-      @error="reportList"
-    >
-      <template #cell-scopeType="{ row }">{{
-        row.scopeType === 'Tenant' ? copy.tenant : copy.platform
-      }}</template>
-      <template #cell-status="{ row }">
-        <el-tag
-          :type="
-            row.status === 'Published' ? 'success' : row.status === 'Draft' ? 'info' : 'warning'
-          "
+    <div class="metadata-master-detail">
+      <section class="metadata-master" :aria-label="copy.metadataTitle">
+        <AppQueryPanel show-actions grid @submit="search" @reset="reset">
+          <label class="metadata-query-field">
+            <span>{{ copy.keyword }}</span>
+            <el-input v-model="query.keyword" :aria-label="copy.keyword" @keyup.enter="search" />
+          </label>
+          <label class="metadata-query-field">
+            <span>{{ copy.scope }}</span>
+            <el-select v-model="query.scopeType" :aria-label="copy.scope">
+              <el-option value="" :label="copy.all" />
+              <el-option v-for="option in scopeOptions" :key="option.value" v-bind="option" />
+            </el-select>
+          </label>
+          <label class="metadata-query-field">
+            <span>{{ copy.status }}</span>
+            <el-select v-model="query.status" :aria-label="copy.status">
+              <el-option value="" :label="copy.all" />
+              <el-option v-for="option in statusOptions" :key="option.value" v-bind="option" />
+            </el-select>
+          </label>
+        </AppQueryPanel>
+        <AppDataTable
+          ref="table"
+          table-key="reference-data-metadata"
+          :columns="columns"
+          :loader="load"
+          :query-mode="mode"
+          toolbar-profile="compact"
+          :quick-search-enabled="false"
+          selection="none"
+          :active-row-key="activeId"
+          @row-click="select"
+          @query-mode-change="switchMode"
+          @loaded="onLoaded"
+          @load-error="reportList"
         >
-          {{ statusLabel(row.status) }}
-        </el-tag>
-      </template>
-      <template #cell-lastUpdatedOn="{ row }">{{ date(row.lastUpdatedOn) }}</template>
-      <template #actions="{ row, availableWidth }">
-        <div class="metadata-actions">
-          <el-button link type="primary" @click="open(row, false)">{{ copy.detail }}</el-button>
-          <el-button
-            v-if="canEdit(row) && availableWidth >= 190"
-            link
-            type="primary"
-            @click="open(row, true)"
-            >{{ copy.edit }}</el-button
+          <template #cell-name="{ row }"
+            ><div class="metadata-directory-name">
+              <strong>{{ row.name }}</strong
+              ><small :title="`${row.nId} · ${statusLabel(row.status)}`"
+                ><span class="directory-status">{{ statusLabel(row.status) }}</span> ·
+                {{ row.nId }}</small
+              >
+            </div></template
           >
-          <el-dropdown
-            v-if="
-              canEdit(row) ||
-              canClone(row) ||
-              canPublish(row) ||
-              canDisable(row) ||
-              canReadRuntime(row)
-            "
-            trigger="click"
-          >
-            <el-button link type="primary" :disabled="busy" data-testid="metadata-more">{{
-              copy.more
-            }}</el-button>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item
-                  v-if="canEdit(row) && availableWidth < 190"
-                  @click="open(row, true)"
-                >
-                  {{ copy.edit }}
-                </el-dropdown-item>
-                <el-dropdown-item v-if="canClone(row)" @click="clone(row)">{{
-                  copy.clone
-                }}</el-dropdown-item>
-                <el-dropdown-item
-                  v-if="canPublish(row)"
-                  data-testid="metadata-publication-open"
-                  @click="preparePublication(row)"
-                >
-                  {{ copy.metadataPublicationCheck }}
-                </el-dropdown-item>
-                <el-dropdown-item v-if="canDisable(row)" @click="disable(row)">{{
-                  copy.disable
-                }}</el-dropdown-item>
-                <el-dropdown-item
-                  v-if="canReadRuntime(row)"
-                  data-testid="metadata-runtime-open"
-                  @click="openRuntime(row)"
-                >
-                  {{ copy.metadataRuntime }}
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-        </div>
-      </template>
-    </AppDataTable>
-    <p v-if="!firstLoading && total === 0 && !listError">{{ copy.metadataEmpty }}</p>
+          <template #cell-lastUpdatedOn="{ row }">{{ date(row.lastUpdatedOn) }}</template>
+        </AppDataTable>
+        <p v-if="!firstLoading && total === 0 && !listError">{{ copy.metadataEmpty }}</p>
+      </section>
+      <section class="metadata-detail-panel" :aria-label="copy.metadataTitle">
+        <el-empty v-if="!selected" :description="copy.metadataSelect" />
+        <template v-else>
+          <header class="metadata-detail-context">
+            <div>
+              <h2>{{ selected.name }}</h2>
+              <p>
+                {{ selected.nId }} ·
+                {{ selected.scopeType === 'Tenant' ? copy.tenant : copy.platform }} ·
+                {{ copy.revision }} {{ selected.revision }} · {{ statusLabel(selected.status) }} ·
+                {{ copy.metadataAttributeCount }}
+                {{ selected.attributes.length }}
+              </p>
+            </div>
+            <div class="metadata-actions">
+              <el-button
+                v-if="canEdit(selected)"
+                @click="((formOpen = true), (formMode = 'edit'))"
+                >{{ copy.edit }}</el-button
+              >
+              <el-dropdown
+                v-if="
+                  canClone(selectedSummary) ||
+                  canPublish(selectedSummary) ||
+                  canDisable(selectedSummary) ||
+                  canReadRuntime(selectedSummary)
+                "
+                trigger="click"
+              >
+                <el-button :disabled="busy" data-testid="metadata-more">
+                  {{ copy.more }}<el-icon><ArrowDown /></el-icon>
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item
+                      v-if="canClone(selectedSummary)"
+                      @click="clone(selectedSummary)"
+                      >{{ copy.clone }}</el-dropdown-item
+                    >
+                    <el-dropdown-item
+                      v-if="canPublish(selectedSummary)"
+                      data-testid="metadata-publication-open"
+                      @click="preparePublication(selectedSummary)"
+                    >
+                      {{ copy.metadataPublicationCheck }}
+                    </el-dropdown-item>
+                    <el-dropdown-item
+                      v-if="canDisable(selectedSummary)"
+                      @click="disable(selectedSummary)"
+                      >{{ copy.disable }}</el-dropdown-item
+                    >
+                    <el-dropdown-item
+                      v-if="canReadRuntime(selectedSummary)"
+                      data-testid="metadata-runtime-open"
+                      @click="openRuntime(selectedSummary)"
+                    >
+                      {{ copy.metadataRuntime }}
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </div>
+          </header>
+          <el-tabs v-model="metadataDetailTab">
+            <el-tab-pane :label="copy.metadataAttributeTable" name="attributes">
+              <AppDataTable
+                table-key="reference-data-metadata-inline-attributes"
+                :rows="form.attributes"
+                :total="form.attributes.length"
+                :columns="attributePreviewColumns"
+                row-key="localKey"
+                toolbar-profile="compact"
+                selection="none"
+              >
+                <template #cell-dataType="{ row }">{{ typeLabel(row.dataType) }}</template>
+                <template #cell-required="{ row }">{{
+                  row.required ? copy.trueValue : copy.falseValue
+                }}</template>
+                <template #cell-isArray="{ row }">{{
+                  row.isArray ? copy.trueValue : copy.falseValue
+                }}</template>
+                <template #cell-enabled="{ row }">{{
+                  row.enabled ? copy.trueValue : copy.falseValue
+                }}</template>
+              </AppDataTable>
+            </el-tab-pane>
+            <el-tab-pane :label="copy.metadataStructurePreview" name="preview">
+              <pre class="metadata-structure-preview">{{ structurePreview() }}</pre>
+            </el-tab-pane>
+            <el-tab-pane :label="copy.metadataPublicationDiff" name="publication">
+              <el-alert
+                :title="selected.status === 'Draft' ? copy.metadataPublicationCheck : copy.readOnly"
+                :type="selected.status === 'Draft' ? 'info' : 'success'"
+                :closable="false"
+              />
+              <p class="metadata-detail-note">{{ copy.metadataPublishHint }}</p>
+              <el-button
+                v-if="canPublish(selectedSummary)"
+                type="primary"
+                :loading="busy"
+                data-testid="metadata-detail-publication-open"
+                @click="preparePublication(selectedSummary)"
+                >{{ copy.metadataPublicationCheck }}</el-button
+              >
+            </el-tab-pane>
+          </el-tabs>
+        </template>
+      </section>
+    </div>
 
     <AppFormDrawer
       :model-value="formOpen"
@@ -1835,12 +1923,133 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.metadata-page {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.metadata-page :deep(.app-page__body) {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.metadata-page :deep(.app-query-panel) {
+  flex: 0 0 auto;
+}
 .metadata-query-field {
   display: grid;
   flex: 0 0 180px;
   max-width: 100%;
   min-width: 0;
   gap: var(--ip-space-2);
+}
+.metadata-master-detail {
+  display: grid;
+  flex: 1 1 0;
+  grid-template-columns: minmax(250px, 280px) minmax(0, 1fr);
+  gap: var(--ip-space-4);
+  min-height: 0;
+  align-items: stretch;
+}
+.metadata-master,
+.metadata-detail-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.metadata-master {
+  gap: var(--ip-space-3);
+  overflow: hidden;
+}
+.metadata-master :deep(.app-data-table),
+.metadata-detail-panel :deep(.app-data-table) {
+  flex: 1 1 0;
+  min-height: 0;
+}
+.metadata-master :deep(.app-data-table__card),
+.metadata-detail-panel :deep(.app-data-table__card) {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+}
+.metadata-directory-name {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+.metadata-directory-name strong,
+.metadata-directory-name small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.metadata-directory-name small {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+.metadata-detail-panel {
+  min-height: 0;
+  padding: var(--ip-space-4);
+  border: 1px solid var(--el-border-color-light);
+  border-radius: var(--ip-radius-md);
+  background: var(--el-bg-color);
+}
+.metadata-detail-panel > :deep(.el-empty) {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.metadata-detail-panel :deep(.el-tabs) {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+}
+.metadata-detail-panel :deep(.el-tabs__content) {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.metadata-detail-panel :deep(.el-tab-pane) {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.metadata-detail-context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ip-space-3);
+  margin-bottom: var(--ip-space-3);
+}
+.metadata-detail-context h2 {
+  margin: 0;
+}
+.metadata-detail-context p,
+.metadata-detail-note {
+  margin: var(--ip-space-1) 0 0;
+  color: var(--el-text-color-secondary);
+}
+.metadata-structure-preview {
+  max-height: 480px;
+  margin: 0;
+  overflow: auto;
+  padding: var(--ip-space-3);
+  color: var(--ip-color-text-primary);
+  background: var(--ip-color-bg-muted);
+  border-radius: var(--ip-radius-sm);
+  font-family: var(--ip-font-family-mono);
+  white-space: pre-wrap;
 }
 .metadata-actions,
 .metadata-switches,
@@ -1905,6 +2114,9 @@ onBeforeUnmount(() => {
   margin-right: auto;
 }
 @media (max-width: 768px) {
+  .metadata-master-detail {
+    grid-template-columns: 1fr;
+  }
   .metadata-section-heading {
     align-items: flex-start;
     flex-direction: column;

@@ -43,6 +43,8 @@ Worker、Agent、Screego、TURN 和本地模型运行时是辅助部署单元，
 
 `ReferenceData.Service` 是一个 Service Host，包含 Dictionary、Parameter、DynamicProperty、Metadata、CodingRule、StateMachine、UnitOfMeasure 七个逻辑领域模块。当前固定使用一个逻辑数据库 `referencedata_db`、一个 PostgreSQL Schema `reference_data`、模块表前缀、一个服务级 Migration/Ledger、一个带 `ModuleKey` 的服务级 Outbox 和共享基础设施；没有真实入站事件消费者，不创建 Inbox/Checkpoint。只有某个模块以后形成独立持久化生命周期并完成边界评审，才可成为独立初始化单元；这不改变七个领域模块的契约与数据所有权隔离。
 
+PF-04 于 2026-09-06 完成文档范围收束：File、Notification、Audit Core 加入现有 SystemData.Service，沿用服务级初始化/账本和可靠设施，逻辑数据使用模块表命名空间，不搬迁既有 SystemData 表。旧实施 07 要求“四个必需 MigrationUnit、各自独立 Outbox、控制面在线才能 Ready”的描述已失效。File 核心包含强内容确认的跨设备续传；Notification 包含旧通知状态跨端刷新；Audit Advanced 后置且不阻塞 Core。详细范围与待核验接入见[实施 07 V1.1](../implementation/07-Industrial%20Platform%20File%20Notification%20Audit开发实施方案.md)，本次未实施模块或更改运行健康规则。
+
 StateMachine 管理 `StateMachineDefinition`、其 `StateNode` 和 `StateTransition` 的版本化定义，只提供定义读取和转换合法性判断；业务服务拥有实例当前状态、权限、业务前置条件、事务和状态历史，不建立通用 `SetStatus`。UnitOfMeasure 管理 `UnitDimension` 的整份 Revision 快照及其 `UnitDefinition` 子项；物料专属包装比例等依赖具体物料的换算仍归 MasterData。
 
 当前对外入口存在两种部署角色且不得混写：

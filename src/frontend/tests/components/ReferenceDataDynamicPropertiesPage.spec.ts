@@ -203,8 +203,9 @@ function table(wrapper: VueWrapper, tableKey: string): TableWrapper {
 async function select(wrapper: VueWrapper, row: DynamicConfigurationSummary) {
   table(wrapper, 'reference-data-dynamic-properties')
     .findComponent(VxeTable)
-    .vm.$emit('radio-change', {
+    .vm.$emit('cell-click', {
       row,
+      column: { field: 'name' },
     })
   await flushPromises()
 }
@@ -324,6 +325,12 @@ afterEach(() => {
 })
 
 describe('Dynamic property management page', () => {
+  it('keeps the page heading free of an unlabeled record count', async () => {
+    const { wrapper } = await mountPage()
+
+    expect(wrapper.find('.app-page__heading-meta').exists()).toBe(false)
+  })
+
   it('loads details only after single selection and rejects an aborted late response', async () => {
     let finishA!: (value: DynamicConfiguration) => void
     api.getDynamicConfiguration.mockImplementationOnce(
@@ -331,7 +338,9 @@ describe('Dynamic property management page', () => {
     )
     const { wrapper } = await mountPage()
     const master = table(wrapper, 'reference-data-dynamic-properties')
-    expect(master.props('selection')).toBe('single')
+    expect(master.props('selection')).toBe('none')
+    expect(master.props('activeRowKey')).toBeNull()
+    expect(master.props('columns')).toHaveLength(1)
     expect(api.getDynamicConfiguration).not.toHaveBeenCalled()
     await select(wrapper, summaryA)
     const firstSignal = api.getDynamicConfiguration.mock.calls[0]![1].signal as AbortSignal
@@ -340,7 +349,7 @@ describe('Dynamic property management page', () => {
     expect(wrapper.get('.dynamic-property-context h2').text()).toBe('Mapping')
     finishA(structuredClone(detailA))
     await flushPromises()
-    expect(master.props('selectedRowKey')).toBe(summaryB.id)
+    expect(master.props('activeRowKey')).toBe(summaryB.id)
     expect(wrapper.get('.dynamic-property-context h2').text()).toBe('Mapping')
     expect(wrapper.text()).not.toContain('AMOUNT')
   })

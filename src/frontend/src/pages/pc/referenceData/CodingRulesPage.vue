@@ -292,7 +292,10 @@ async function load(request: AppDataTableRequest) {
   }
   try {
     if (!api) throw new Error(copy.value.unavailable)
-    return await api.listCodingRules(params, { signal: listRequest.signal })
+    const result = await api.listCodingRules(params, { signal: listRequest.signal })
+    if (activeId.value && !result.items.some((item) => item.id === activeId.value))
+      activeId.value = null
+    return result
   } finally {
     firstLoading.value = false
   }
@@ -318,10 +321,15 @@ function switchMode(value: AppDataTableQueryMode): void {
   if (value === 'top') table.value?.setTopQuery({ ...query })
 }
 
+function setActive(row: CodingRuleSummary): void {
+  activeId.value = row.id
+}
+
 type FormMode = 'create' | 'edit' | 'view'
 const formOpen = ref(false)
 const formMode = ref<FormMode>('view')
 const selected = ref<CodingRuleDetail | null>(null)
+const activeId = ref<string | null>(null)
 const savedSnapshot = ref('')
 const form = reactive({
   nId: '',
@@ -732,7 +740,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <AppPage :title="copy.title" :description="copy.description" data-testid="coding-rules-page">
+  <AppPage
+    class="coding-rules-page"
+    :title="copy.title"
+    :description="copy.description"
+    data-testid="coding-rules-page"
+  >
     <template #actions>
       <PermissionGate :permission-n-id="PERMISSIONS.referenceDataCodingRuleCreate">
         <el-button type="primary" :icon="Plus" data-testid="coding-rule-create" @click="create">
@@ -779,10 +792,13 @@ onBeforeUnmount(() => {
       :columns="columns"
       :loader="load"
       :query-mode="mode"
+      toolbar-profile="full"
       selection="none"
-      @update:query-mode="switchMode"
+      :active-row-key="activeId"
+      @row-click="setActive"
+      @query-mode-change="switchMode"
       @loaded="onLoaded"
-      @error="reportList"
+      @load-error="reportList"
     >
       <template #cell-scopeType="{ row }">{{
         row.scopeType === 'Tenant' ? copy.tenant : copy.platform
@@ -1105,6 +1121,33 @@ onBeforeUnmount(() => {
   min-width: 180px;
   color: var(--ip-color-text-secondary);
   font-size: var(--ip-font-size-sm);
+}
+.coding-rules-page {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.coding-rules-page :deep(.app-page__body) {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.coding-rules-page :deep(.app-query-panel) {
+  flex: 0 0 auto;
+}
+.coding-rules-page :deep(.app-data-table) {
+  flex: 1 1 0;
+  min-height: 0;
+}
+.coding-rules-page :deep(.app-data-table__card) {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .coding-actions {

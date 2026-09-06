@@ -59,10 +59,10 @@ public sealed partial class SystemDataBaselineSeedRunner : BackgroundService
     ];
     private static readonly (string NId, string Name, string RouteName, string PermissionNId)[] ReferenceDataResources = [
         ("referencedata.navigation.dictionaries", "字典管理", "reference-data-dictionaries", "referencedata.dictionary.view"),
-        ("referencedata.navigation.parameters", "参数管理", "reference-data-parameters", "referencedata.parameter.view"),
+        ("referencedata.navigation.parameters", "基础配置", "reference-data-parameters", "referencedata.parameter.view"),
         ("referencedata.navigation.dynamic-properties", "动态属性", "reference-data-dynamic-properties", "referencedata.dynamic-property.view"),
         ("referencedata.navigation.units-of-measure", "计量单位", "reference-data-units-of-measure", "referencedata.unit-of-measure.view"),
-        ("referencedata.navigation.metadata", "元数据 Schema", "reference-data-metadata", "referencedata.metadata.view"),
+        ("referencedata.navigation.metadata", "元数据定义", "reference-data-metadata", "referencedata.metadata.view"),
         ("referencedata.navigation.coding-rules", "编码规则", "reference-data-coding-rules", "referencedata.coding-rule.view"),
         ("referencedata.navigation.state-machines", "状态机定义", "reference-data-state-machines", "referencedata.state-machine.view"),
     ];
@@ -71,7 +71,7 @@ public sealed partial class SystemDataBaselineSeedRunner : BackgroundService
     internal const string ResourceConsistencySeedKey = "SDM-018";
     internal const string ResourceConsistencySeedVersion = "1";
     internal const string ReferenceDataManifestSeedKey = "SDM-019";
-    internal const string ReferenceDataManifestVersion = "1";
+    internal const string ReferenceDataManifestVersion = "3";
     internal const string RequiredFeatureNId = "systemdata.control-plane";
     internal const string RequiredCatalogNId = "systemdata";
     internal static string CurrentManifestChecksum => Checksum(CurrentManifestSeedKey);
@@ -268,7 +268,7 @@ public sealed partial class SystemDataBaselineSeedRunner : BackgroundService
                     Resources = resources,
                 };
             }, cancellationToken);
-            await ApplySeedAsync(tenantNId, ReferenceDataManifestSeedKey, "1", ["permissions", "resources"], state =>
+            await ApplySeedAsync(tenantNId, ReferenceDataManifestSeedKey, ReferenceDataManifestVersion, ["permissions", "resources"], state =>
             {
                 var manifest = new ModuleManifestState(
                     tenantNId,
@@ -314,14 +314,16 @@ public sealed partial class SystemDataBaselineSeedRunner : BackgroundService
 
                     if (!current.OwnerModuleNId.Equals("referencedata", StringComparison.OrdinalIgnoreCase))
                         throw new InvalidOperationException($"ReferenceData resource identity collision: {resource.NId}.");
+                    var shouldRenameDisplay = IsTrustedReferenceDataDisplayRename(current, resource);
                     if (current.Type != resource.Type
-                        || !string.Equals(current.Name, resource.Name, StringComparison.Ordinal)
                         || !string.Equals(current.RouteName, resource.RouteName, StringComparison.Ordinal)
                         || !string.Equals(current.RequiredPermissionNId, resource.RequiredPermissionNId, StringComparison.OrdinalIgnoreCase)
                         || !current.SupportedTerminals.ToHashSet().SetEquals(resource.SupportedTerminals))
                         throw new InvalidOperationException($"ReferenceData resource declaration conflict: {resource.NId}.");
-                    if (current.ManifestVersion != ReferenceDataManifestVersion)
-                        resources[resources.IndexOf(current)] = current.RebindManifestVersion(ReferenceDataManifestVersion);
+                    if (current.ManifestVersion != ReferenceDataManifestVersion || shouldRenameDisplay)
+                        resources[resources.IndexOf(current)] = current.RebindManifestVersion(
+                            ReferenceDataManifestVersion,
+                            shouldRenameDisplay ? resource.Name : current.Name);
                 }
 
                 return state with
@@ -383,6 +385,14 @@ public sealed partial class SystemDataBaselineSeedRunner : BackgroundService
             _applyGate.Release();
         }
     }
+
+    private static bool IsTrustedReferenceDataDisplayRename(UiResource current, UiResource expected) =>
+        (current.NId.Equals("referencedata.navigation.metadata", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(current.Name, "元数据 Schema", StringComparison.Ordinal)
+            && string.Equals(expected.Name, "元数据定义", StringComparison.Ordinal))
+        || (current.NId.Equals("referencedata.navigation.parameters", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(current.Name, "参数管理", StringComparison.Ordinal)
+            && string.Equals(expected.Name, "基础配置", StringComparison.Ordinal));
 
     private async Task ApplySeedAsync(string tenantNId, string key, string version, IReadOnlyCollection<string> _, Func<ControlPlaneSnapshot, ControlPlaneSnapshot> apply, CancellationToken cancellationToken)
     {

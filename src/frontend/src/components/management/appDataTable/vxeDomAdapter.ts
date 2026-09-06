@@ -17,6 +17,8 @@ const VXE_SELECTOR = Object.freeze({
 
 const APP_TABLE_SELECTOR = Object.freeze({
   actionColumns: '.app-data-table__actions-column-header, .app-data-table__actions-column',
+  actionColumn: '.app-data-table__actions-column',
+  bodyRow: '.vxe-body--row',
   filterRow: '.app-data-table__header-filter-row',
   dateRangeControl: '.app-data-table__date-range-control',
   customHeaderTools: '.app-data-table__native-header-tools',
@@ -41,6 +43,18 @@ export function findAppDataTableActionColumns(root: ParentNode): HTMLElement[] {
   return queryAll<HTMLElement>(root, APP_TABLE_SELECTOR.actionColumns)
 }
 
+export function findVxeBodyRows(root: ParentNode): HTMLElement[] {
+  return queryAll<HTMLElement>(root, APP_TABLE_SELECTOR.bodyRow)
+}
+
+export function findVxeBodyRow(element: Element): HTMLElement | null {
+  return closest<HTMLElement>(element, APP_TABLE_SELECTOR.bodyRow)
+}
+
+export function isAppDataTableActionCell(element: Element): boolean {
+  return closest<HTMLElement>(element, APP_TABLE_SELECTOR.actionColumn) !== null
+}
+
 export function findAppDataTableSurface(root: HTMLElement): HTMLElement | null {
   return root.parentElement
 }
@@ -58,7 +72,10 @@ export function findVxeHeaderWrapper(headerTable: HTMLTableElement): HTMLElement
 }
 
 export function isVxeMainHeader(headerTable: HTMLTableElement): boolean {
-  return findVxeHeaderWrapper(headerTable)?.classList.contains(VXE_SELECTOR.mainHeaderWrapperClass) === true
+  return (
+    findVxeHeaderWrapper(headerTable)?.classList.contains(VXE_SELECTOR.mainHeaderWrapperClass) ===
+    true
+  )
 }
 
 export function findVxeHeaderFilterRows(headerTable: HTMLTableElement): HTMLElement[] {

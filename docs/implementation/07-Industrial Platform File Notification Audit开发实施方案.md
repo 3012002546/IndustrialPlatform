@@ -1,645 +1,640 @@
-﻿# 07-Industrial Platform File Notification Audit开发实施方案
+# 07-Industrial Platform File / Notification / Audit 开发实施方案
 
-# Industrial Platform File / Notification / Audit 开发实施方案
-
-> 当前里程碑范围：PF-04 仍是一个阶段、一个详细设计任务；File、Notification、Audit 是加入 PF-02 所创建 `SystemData.Service` 的三个独立内部模块，不创建独立 Service Host。本文件完成详细设计、依赖与九字段任务卡；详细设计完成不等于允许开发。
-
-版本：V1.0-draft
-日期：2026-08-13
-阶段：PF-04 File / Notification / Audit
-阶段状态：详细设计已于 2026-08-13 获用户书面确认，允许后续进入开发；八张九字段任务卡状态为“待派遣”。当前会话按用户要求不做开发、不派遣、不创建开发子任务，尚未开发、构建或测试。
-
-模块与宿主：
-
-```text
-SystemData.Service（PF-02 创建）
-├── SystemData Core（PF-02）
-├── File Module（PF-04）
-├── Notification Module（PF-04）
-└── Audit Module（PF-04）
-```
-
-设计依据：`CLAUDE.md`、蓝图 01/05/07/09/20/27/29/30/31/32/33、实施 01、README、实施模板及实施 03/04/05/06。发生冲突时，以当前 Git/代码证据、蓝图 32/33、总 Todo 的阶段边界以及本文件明确冻结的规则为准；实施 06 的 `TenantId`、DynamicConfig、本地审计与自迁移设计不是 PF-04 稳定契约。
-
----
+版本：V1.1（蓝图与开发 TODO 整改）
+核验日期：2026-09-06（Asia/Taipei）
+阶段：PF-04 Core 开发中（001～009 已整包派遣）；独立验收预检中，尚无功能验收结论。010 为后续增强。
+依据：[评估上传设计](chatgpt-conversation://6a9d0e0a-ea6c-83e8-a243-072e8022bf65)、仓库现状及现行蓝图。2026-08-13 的设计批准仅作历史记录，不自动授权修改后方案的开发。
 
 # 1. 文档说明
 
-## 1.1 文档目的
+## 1.1 目的与权威来源
 
-本文是 PF-04 的详细设计、开发依赖、验收门禁和九字段任务卡维护源。它定义三个模块的独立数据所有权、公开契约、权限、迁移单元、测试和未来拆分边界。用户已允许后续进入开发，但实际派遣应在新的开发会话中明确执行，当前会话不实施。
+本文维护 PF-04 的详细设计、开发依赖、九字段内部任务、验收与结果回写。2026-09-06 Core 001～009 已获开发授权并整包派遣；执行者在独立工作树实施、自测且不提交，独立验收在稳定交接后执行，最终提交与集成仍由总控负责。
 
-## 1.2 当前输入状态
+- 宿主与数据所有权：[蓝图 32 第 2～4 章](../blueprint/32-Industrial%20Platform%20Service%20Host与内部模块边界.md)。
+- 初始化、环境策略与本地事实：[蓝图 33 第 3～8、12 章](../blueprint/33-Industrial%20Platform%20SystemData数据库编排与环境引导.md)、[实施 05](05-Industrial%20Platform%20SystemData开发实施方案.md)。
+- 模块范围：[蓝图 05 第 7.3、8.1 节](../blueprint/05-Industrial%20Platform平台基础功能与独立模块设计.md)、[蓝图 30 第 8 章](../blueprint/30-Industrial%20Platform日志审计与可观测性平台设计.md)。
+- 阶段状态：[CURRENT](../status/CURRENT.md)、[总 Todo 第 11、21 章](../blueprint/09-Industrial%20Platform开发总TodoList.md)。
+- 本文沿用[实施模板](TEMPLATE-开发实施方案.md)；整个 PF 是派遣单位，内部任务不是独立派遣或提交门。
 
-- 基线分支为 `develop`，首次盘点 HEAD 为 `4180d71`；当时与 `origin/develop` 无领先或落后。
-- 首次盘点只有实施 05 的并行修改；设计期间工作树继续出现 `CLAUDE.md`、实施 06、Identity 管理/审计代码及测试等并行改动。PF-04 不修改、暂存、回退或提交这些内容，也不把未验收实现当作稳定契约。
-- 当前仓库尚无 `SystemData.Service`、File、Notification 或统一 Audit 生产实现；Gateway 也没有 `/systemdata` 路由。
-- 当前 Identity 已存在本地登录/操作审计概念，ReferenceData 文档存在 `ref_operation_audit`，二者均不是统一 Audit 权威事实源；其迁移只能在各阶段明确兼容方案后实施。
-- PF-02 实施 05 已形成数据库编排设计与任务卡，但控制面尚未实现；`TASK-SD-001～004` 是 PF-04 阻塞前置。
-- PF-01 只有已批准设计、没有稳定实现；PF-03 只有骨架且实施 06 待复核。
+## 1.2 当前输入状态与证据
 
-## 1.3 执行前置
+核验基线为 `develop@36e62909105b7751c36085b37acca3043957c9aa`，读取时间为 2026-09-06。工作区存在 ReferenceData、SystemData、共享前端及测试的未提交整改，本轮保留原状；下表的历史验收不覆盖这些后续 WIP，也不是本轮测试结果。下列代码路径均相对仓库根目录。
 
-```text
-PF-02 TASK-SD-001 → SD-002 → SD-003 → SD-004 通过
-    → SystemData.Service core 可运行
-    → 支持宿主 Manifest + 子 MigrationUnit + 父子 Operation
-    → PF-04 数据库门禁验收
-    → Audit → File → Notification 纵切
-    → 三模块集成、安全、三端页面与阶段验收
-```
+| 分类 | 核验结论 | 证据位置与限制 |
+| --- | --- | --- |
+| 已实现且有历史验收证据 | SystemData 宿主、初始化器、组织/导航、Outbox 等已存在；PF-01 已交付；PF-03 七模块已完成并合入 | `docs/evidence/PF-02.md`、`docs/evidence/PF-03.md`、实施 04 执行记录、`docs/status/CURRENT.md`；PF-03 功能提交 `969ee156`、合并 `e9452b47` |
+| 已实现但尚未完整验收 | PF-02 仍 active，真实菜单发布、七页/三端及外部门禁未全闭合；当前代码 WIP 不视为已验收 | `docs/tasks/active/PF-02.md`、PF-02 evidence 最新记录；不再把 TASK-SD-001～004 写为“尚未实现” |
+| 已有能力，保留并增量接入 | Identity 本地登录/操作审计、SystemData 本地审计与 Outbox、ReferenceData Outbox 均存在；它们不等于中央 Audit Core | `src/backend/src/Services/Identity/IndustrialPlatform.Identity.Infrastructure/Authentication/{LoginAuditSink,OperationAuditSink}.cs`；SystemData Infrastructure 的 `Reliability/{SqlLocalAuditCommand,SqlControlPlaneOutbox,ControlPlaneOutboxDispatcher}.cs`；ReferenceData Infrastructure 的 `Outbox/` |
+| 已有宿主与初始化契约 | UnifiedHost 已组合 SystemData，Gateway 有服务前缀转发；初始化协议是 IServiceInitializer 的 Inspect/Plan/Apply/Verify 与本地状态 | `src/backend/src/Services/SystemData/IndustrialPlatform.SystemData.Api/Modules/SystemDataUnifiedHostModule.cs`；`src/backend/src/Gateway/IndustrialPlatform.Gateway/Configuration/GatewayRouteFactory.cs`；`src/backend/src/BuildingBlocks/IndustrialPlatform.Application.Abstractions/Initialization/ServiceInitializationContracts.cs` |
+| 只有设计、尚未实现 | 本轮在 src/tests/依赖清单中未找到 PF-04 UploadSession、InboxDelivery、AuditFactV1、tus 或扫描器正式实现；已有名字含 Audit/Outbox 的本地设施不算 PF-04 已交付 | 按上述类型、tusdotnet/tus-js-client/IVirusScanner/NotificationMessage 搜索；未发现 PF-04 工作包或验收记录 |
+| 已过时/不一致 | “SystemData、Gateway 路由、PF-01 尚不存在”“PF-03 只有骨架”；四个必需迁移单元、每模块 Outbox 和控制面在线作为日常 readiness 硬前置 | 以当前代码及蓝图 32 V1.3、33 V3.2 替代；旧快照保留在第 16 章 |
+| 当前无法核验 | 上传组件具体版本与适配器、跨实例持久化/锁、扫描引擎与策略部署、服务身份接入以及现有生产者可靠写入的全部故障路径 | 纳入 001/002/003 的接入核验与第 12 章真实验收；没有运行本轮功能测试，不能写“已通过” |
 
-PF-02 若未提供本文件要求的子迁移单元、宿主聚合 readiness 和内部协调扩展点，PF-04 必须保持阻塞，不得在 PF-04 重复实现数据库控制面。
+当前 SystemData 初始化器位于 `src/backend/src/Services/SystemData/IndustrialPlatform.SystemData.Infrastructure/DatabaseOrchestration/Initialization/SystemDataServiceInitializer.cs`，`ServiceKey=systemdata`、初始化 `ModuleKey=systemdata`。本轮采用服务级迁移接入，不能为迎合旧文档把既有控制面、账本或数据迁移重建。
 
----
+## 1.3 开发就绪评估与启动条件
+
+2026-09-06 按用户“重新评估调整，后续准备任务开发”的要求复评：001～009 的需求、所有权、状态/契约、允许范围、依赖、输出与验收已足够支撑实现，调整为 **可派遣**。上一轮将接入/集成尚未验证也计为“待细化”，混淆了设计就绪与功能验收；本次纠正分类，不要求先完成实现才能获得开发状态。
+
+| 事项 | 分类 | 执行安排及影响 |
+| --- | --- | --- |
+| Core 模型、强哈希续传、通知刷新、审计事务语义 | 已确定设计 | 按本文实施，不再普遍重开需求或选型讨论 |
+| PF-00/01/02 输入及现有 WIP | 001 的启动核验 | 开工时记录稳定交付标识、核对必要契约；具体缺口只阻塞相关路径，不要求 PF-02 全包重新验收 |
+| tus 版本/store/许可、代理头与并发写入 | 003 的任务内技术验证 | 以 tus 主路线开展最小持久上传/重启/接管验证，再扩展完整路径；版本与适配器核验是该任务工作，不是任务可派遣前必须已有的成果 |
+| 事务适配、扫描器/存储、容量与终端性能 | 002/003/004/009 的实现细节 | 在既定契约内由执行者选择最小可用配置并回写依据；不能满足安全边界时报告具体阻塞，不把全阶段退回待细化 |
+| 真扫描、真实多实例、Gateway、实际手机、跨服务身份 | 对应功能验收条件 | 能先完成契约/适配与隔离验证；缺失环境只能使对应真实验收待完成，不伪造通过 |
+| 工作线、负责人、共享文件边界 | 总控派遣准备 | 使用当时稳定基线和获准工作区，排除现有 WIP 冲突；属于工作包配置，不是产品设计缺口 |
+| 010 高级合规 | 后续需求待定 | 保持待细化，不包含在 Core 工作包，不阻塞 001～009 |
+
+“可派遣”表示设计与执行说明已就绪，不表示九项可无视依赖同时开工，也不表示功能已开发/验收。本轮已将整个 PF-04 Core 一次派遣，从 001 按第 13 章连续推进，内部步骤不逐项等待确认。首次接入检查与最小技术验证归对应任务，常规版本/参数/适配选择在已定范围内直接处理；只有改变主路线、增加基础设施或降低安全要求才回总控裁决。
+
+服务身份未稳定前可完成经验证的进程内公开契约和接收适配，不开放不可信外部服务写入口、不伪造信任头；分布式真实链仍是对应验收项。开发任务须记录实际接入证据，无法满足的真实链路保持对应验收项未通过，不扩大信任边界。
 
 # 2. 定位、目标与职责边界
 
-## 2.1 负责
+一个 `SystemData.Service`，内部包括 SystemData Core、File、Notification、Audit；统一部署嵌入 UnifiedHost，分布式部署由现有 SystemData API Host 承载。三个模块的数据所有权与公开契约独立，默认共用服务级持久化生命周期，不创建三个微服务或内部 HTTP 总线。
 
-- Audit：平台追加型合规事实的统一接收、完整性保护、保留、冻结、受权查询和导出；高风险审计访问本身也产生审计事实。
-- File：上传会话、隔离区、扩展名/MIME/魔数校验、病毒扫描适配、对象存储、受权下载、冻结、保留与清理。
-- Notification：公告、系统通知、个人收件箱、受众解析、投递状态、已读、失效、跳转目标、SignalR 在线提示与离线补拉。
-- 三模块各自的公开 Contracts、权限资源、Schema/表前缀、迁移产物与账本、API/事件、可观测性和测试。
-- 当前单租户完整可用，所有领域、持久化与消息边界使用可信身份上下文的 `TenantNId`。
+| 模块 | 当前必须交付 | 已有能力的处理 | 简化/后续增强 |
+| --- | --- | --- | --- |
+| File | 跨设备断点续传、强内容确认、隔离/校验/扫描、受权下载、引用保护、到期清理和延迟删除 | 没有找到成熟现有上传实现；消费当前身份、宿主、前端和可靠消息，保留既有用途安全政策 | 一条上传主路线；全局秒传、跨用户去重、复杂复扫、多扫描引擎、完整法律冻结流程后置 |
+| Notification | 公告、系统通知、持久收件箱、幂等投递、已读/撤回/失效、未读数、跨端刷新与安全跳转 | 复用身份/组织公开契约及前端壳；Shell 入口不算已实现通知 | 三个核心模型；模板用代码/简单配置；不强制独立 AudienceSnapshot/AudienceBatch；复杂编排、多渠道、偏好、摘要、可视化模板后置 |
+| Audit Core | 可信事件、可靠接收、幂等冲突检测、脱敏、追加事实、授权查询、必要导出/访问审计、基础保留清理与恢复 | 保留各服务本地审计、事务及 Outbox；通过生产者公开适配增量投递，不接管或删除旧表 | Audit Advanced 单列：哈希链、签名 checkpoint、外部锚点、Legal Hold 审批、敏感值解密、复杂合规导出 |
 
-## 2.2 不负责
+不在 PF-04 范围：聊天/会话/回复、MES 业务状态或历史、PF-07 通用调度平台、PF-10/10A 业务、对象存储和杀毒引擎自身、第二套数据库编排或事件总线。
 
-- 不创建 File/Audit/Notification 独立 Service Host。
-- 不覆盖业务模块自己的领域历史、业务事件或 Outbox；Audit 只保存合规事实投影。
-- 不实现用户聊天、群聊、会话和消息漫游；这些属于 Collaboration Messaging。
-- 不设计 PF-10 ServerMonitor，也不实现 PF-10A 知识、问题与助手；File 只提供未来消费者所需公开契约。
-- 不实现对象存储、杀毒引擎、邮件/短信厂商本身，只实现可替换适配器和安全门禁。
-- 不允许跨模块 Repository、DbContext、表、外键、可写视图或领域实现引用。
+**既有约束不延期：** 蓝图 05 第 8.1 节已规定 Collaboration 附件强制扫描、默认 50MB/类型白名单、内容 365 天、合规访问审计 3 年和法律保全优先。PF-04 保留用途政策与禁止删除/访问限制接入；完整审批 UI 可后置，但 PF-05 启用受保全内容前必须具有可执行的保全登记、阻止清理和可靠审计路径。若客户另有明确合规要求，记录来源和适用范围后纳入相应阶段，不靠延期标签豁免。未找到 PF-04 全场景立即交付哈希链/外部锚点的已确认要求。
 
-## 2.3 模块依赖原则
+# 3. 前后端及跨模块协作目标
 
-- 每个模块独立 Domain、Application、Contracts、Infrastructure 与组合根。
-- 同步协作只走公开 Application Contract/API；异步协作只走版本化事件。
-- 宿主只负责装配、路由、身份上下文、技术中间件和健康汇总，不承载跨模块业务规则。
-- Audit 不回查 File/Notification 表补齐事实；生产者必须提交足够、脱敏且可验证的上下文。
-
----
-
-# 3. 前后端及跨服务协作目标
-
-| 消费方 | 稳定输入 | PF-04 输出 |
+| 消费方 | 输入/职责 | PF-04 输出 |
 | --- | --- | --- |
-| Identity | JWT/可信 `TenantNId`、`UserNId`、权限集合 | Audit 写入/查询；File/Notification 授权上下文 |
-| PF-02 | DatabaseTopology、Manifest、Operation/readiness、权限资源目录 | 三个 MigrationUnit 声明与模块健康 |
-| 业务模块 | 自有事务与 Outbox、业务资源授权结果 | Audit 接收；FileNId；通知发布/收件箱契约 |
-| Collaboration/KnowledgeBase | 未来公开消费契约 | 仅 File 元数据、授权上传/下载，不开放 Repository |
-| PC/PDA/Mobile | AuthUser 与平台壳能力 | 管理页面、收件箱、上传/下载交互；按终端能力降级 |
+| Identity | 可信 TenantNId、用户/服务身份、权限 | Audit 写入适配、资源授权；不能依赖任意请求头自报身份 |
+| SystemData | 自有初始化器、权限目录、组织公开查询与宿主组合 | 三个逻辑模块的表命名空间、权限、迁移增量和局部健康 |
+| 业务生产者 | 自有事务/Outbox、用途与当前资源授权 | AuditFactV1、FileNId/引用契约、通知发布契约 |
+| PC/PDA/Mobile | 用户重新选择本地原文件、当前认证、统一组件 | 标准上传组件、跨端会话发现/接管、通知中心及管理页 |
 
-所有写接口支持 `Idempotency-Key`，所有响应与事件使用稳定 NId、UTC 时间、版本字段和稳定错误码；API 不暴露数据库键、存储物理路径、Bucket、连接串、Secret 或杀毒引擎内部信息。
-
----
+稳定 NId、UTC 时间、版本化契约与错误码贯穿边界。租户来自可信上下文；文件指纹、FileNId 和上传 URL 均不证明权限。模块之间只调用公开应用契约或版本化事件，不注入对方 Repository、直读表或创建跨模块外键。
 
 # 4. 总体架构与数据流
 
-## 4.1 数据库启动门禁
+## 4.1 初始化与故障边界
 
-```text
-基础设施最小引导 systemdata.core
-  → CoreControlReady
-  → 读取并验签 SystemData Host Manifest
-  → DatabaseTopologyOptions 解析 logical/physical target
-  → 创建父 Reconcile OperationId
-  → File / Notification / Audit UnitOperation inspect-plan-apply-verify
-  → 汇总版本、drift 与健康
-  → BusinessReady → /health/ready = 200
-```
+PF-04 只接入蓝图 33 的初始化/环境/迁移契约：同一 `systemdata_db` 目标、现有服务级迁移和 migration/seed ledger、必要种子/权限登记、本地 Inspect/Verify。当前无独立持久化生命周期证据，不新增三个初始化单元、签名宿主 Manifest 或父子编排体系。Standard/Advanced 初始化策略按平台已确认环境要求执行，PF-04 不另写规范。
 
-- `ServiceKey=systemdata` 是唯一宿主登记；PF-04 不伪装成三个服务。
-- 一个签名宿主 Manifest 包含 `systemdata.core`、`systemdata.file`、`systemdata.notification`、`systemdata.audit` 四个必需迁移单元。
-- 宿主字段拥有 Provider、稳定 `LogicalDatabaseName=systemdata_db`、Owner、DesiredState、ManifestVersion/checksum；模块单元拥有 UnitKey、Schema/前缀、MigrationAssembly/Bundle、目标版本、checksum/signature、ledger、Owner、DesiredState 和 `AutoMigrateRequested`。
-- `PhysicalDatabaseName` 由可信 `DatabaseTopologyOptions` 解析，API/Manifest 不接受物理地址、路径或凭据。
-- Development 默认 `Shared`、可显式 `PerService`；Test/Staging/Production 只允许 `PerService`。Shared 仅共享物理目标，不合并所有权、迁移产物或账本。
-- PostgreSQL 使用 `system_file`、`system_notification`、`system_audit` 独立 Schema；SQLite 使用对应 `system_file_*`、`system_notification_*`、`system_audit_*` 表前缀和独立 migration ledger。
-- Shared 物理目标以 `EnvironmentNId + Provider + PhysicalDatabaseName` 的 advisory lock/等效锁串行 DDL；每个 Unit 仍独立迁移与报告。
-- 任一必需 Unit 未登记、版本不符、drift、迁移失败、目标错误或 SystemData 控制面不可用，标准 `/health/ready` 返回 503；liveness 与脱敏模块诊断保持可用。
-- `CoreControlReady` 只开放受限管理通道以完成生产 plan、审批、备份、apply、查询和恢复；普通业务路由只在 `BusinessReady` 后开放。
-- 生产生成一个绑定 Manifest、TopologyRevision、物理目标指纹和全部 Unit 状态的不可变宿主 Plan；审批与备份证据绑定 PlanChecksum。执行与账本仍按 Unit 独立。
-- `AutoMigrateRequested` 只能收紧策略；环境政策计算 `EffectiveAutoMigrate`。Production 永远走 `plan → 审批 → 备份 → apply → verify`。
-- SystemData 自身数据库仅允许 PostgreSQL 18 Compose/init 或部署步骤最小 bootstrap；PF-04 单元不进入 init 脚本，由 core-ready 后的宿主内部协调器复用 PF-02 能力，且不调用公开编排 API。
-- 禁止 `EnsureCreated`、管理员凭据自行建库、静默切换数据库及隐式 copy/rename/merge/split；有数据的拓扑变化必须报告 drift 并走显式迁移/import。
+核心数据库身份、Schema/必要 Seed/Bootstrap 不兼容必须阻断相应核心启动。运行时扫描器故障隔离文件处理，SignalR 故障只影响提示，导出故障只影响导出；消息暂不可用但本地 Outbox 可靠保存时可积压。现有宿主仍可能因 Identity/SystemData 的 Redis/RabbitMQ 必需检查报告 503（PF-03 evidence 已记录），本设计不宣称运行代码已改为局部降级，也不在本轮改动这些安全契约。
 
-## 4.2 Audit 数据流
+## 4.2 Audit Core
 
-```text
-业务事务 → 业务变更 + 本模块 Outbox(AuditFactV1) 原子提交
-        → 幂等投递 → Audit Ingress → 验证/脱敏/完整性链 → 追加事实
-        → 查询投影/导出任务
-```
+成功关键变更：业务变更 + 本地审计 Outbox 同一事务提交 → 重试投递 → Audit 验证/脱敏/幂等接收 → 追加事实。
 
-默认策略是“可靠 Outbox、中央异步接收”：Outbox 无法写入则业务事务回滚；中央 Audit 暂时不可用但 Outbox 已落库时业务可完成。高风险审计查看、导出、解密查看、保留策略修改、法律冻结和完整性操作必须先可靠追加访问事实，失败时关闭操作。
+失败/拒绝/回滚：终止或回滚业务事务 → 独立可靠事务/持久通道记录失败事实 → 原事件标识重试投递。记录不能依赖已经回滚的事务。无跨库原子提交要求。
 
-## 4.3 File 数据流
+## 4.3 File
 
-```text
-创建上传会话 → 受限隔离上传 → 完成上传
-→ 大小/扩展名/MIME/魔数/hash 校验
-→ 病毒扫描 → Clean
-→ 提升为 Available 对象
-→ 授权下载/冻结/保留/清理
-```
+手机选文件 → 采样发现候选/创建会话 → 完整哈希登记 → 隔离上传 → 中断。
+电脑重新选择原二进制文件 → 查本人有权候选 → 完整哈希确认 → 原子接管 → 查询服务端持久断点 → 续传 → 幂等完成 → 服务端全量校验 → 扫描 → 可用。
 
-扫描不可用、超时或结果未知时文件停留隔离区，禁止业务下载、预览或下游消费。
+电脑必须能读取原文件，系统不会凭指纹取得本地不存在的文件；压缩、转码或修改后的文件重新上传。
 
-## 4.4 Notification 数据流
+## 4.4 Notification
 
-```text
-发布草稿/系统事件 → 固化内容与受众快照 → 生成 Inbox Delivery
-→ Outbox 通知 SignalR → 客户端收到提示 → 按游标补拉持久收件箱
-→ 已读/失效/跳转
-```
-
-数据库收件箱是事实源；SignalR 只做低延迟提示，不承诺恰好一次，也不承载聊天正文权威存储。
-
----
+发布/可信系统意图 → 内容与发布时受众固化 → 持久 InboxDelivery → Outbox 提示 → 客户端查询数据库事实。
+重连及收到变更提示时刷新当前列表和未读数，同时反映旧通知已读/撤回/过期；不只拉“新通知”。
 
 # 5. 项目结构与引用关系
 
-建议在 PF-02 实际项目结构稳定后落位：
+沿用 `src/backend/src/Services/SystemData/IndustrialPlatform.SystemData.{Contracts,Domain,Application,Infrastructure,Api}/`，各层按 File/Notification/Audit 子目录落位；复用现有 API 组合根，不增加空 Host/工程。Contracts 不引用存储/扫描/tus 类型；测试落现有 SystemData、UnifiedHost/Gateway 测试项目，真实外部依赖使用现有 IntegrationTests。
 
-```text
-src/backend/src/Services/SystemData/
-├── ...SystemData.Contracts/
-│   ├── File/
-│   ├── Notification/
-│   └── Audit/
-├── ...SystemData.Domain/
-│   ├── File/
-│   ├── Notification/
-│   └── Audit/
-├── ...SystemData.Application/
-│   ├── File/
-│   ├── Notification/
-│   └── Audit/
-├── ...SystemData.Infrastructure/
-│   ├── File/
-│   ├── Notification/
-│   └── Audit/
-└── ...SystemData.Api/
-    └── Modules/{File,Notification,Audit}/
-```
-
-Contracts 保持零基础设施引用；模块间只能引用对方 Contracts，优先通过宿主内部端口适配。架构测试必须阻止跨模块 Domain/Infrastructure 引用和跨模块 DbContext/Repository 注入。
-
----
+前端复用 `src/frontend/src/` 中 api、pages、components、router、locales 的既有结构；标准上传组件跨 PC/PDA/Mobile 共用。共享壳、管理表格与 PF-02 正在编辑的文件，后续派遣前由总控明确最小修改范围与顺序。
 
 # 6. 全局技术与实施约束
 
-- 所有聚合使用 `Guid` 内部键与稳定字符串 NId；外部仅暴露 `FileNId`、`NotificationNId`、`AuditEventNId` 等 NId。
-- `TenantNId` 来自可信身份/服务上下文，不接受普通请求体覆盖；平台级系统事实也必须使用明确的受控平台租户/作用域，不使用 null 绕过隔离。
-- 时间使用 UTC `timestamptz`/等价类型；状态变更使用 double concurrency token 或等价乐观并发。
-- 软删除不适用于 Audit 事实；File/Notification 的删除是状态与保留策略，不进行不可审计的物理删除。
-- 公开契约版本化；消费者不得依赖数据库 Schema、枚举整数或内部对象键。
-- 写入幂等、Outbox/Inbox、重试、死信和恢复均必须记录 OperationId/TraceId，但不得记录 Secret、原始文件内容或通知敏感正文。
-- 三模块的运行角色仅拥有自身 Schema/前缀所需 DML；迁移角色仅拥有自身 DDL；禁止跨模块授权。
-
----
+- 领域实体遵守平台 NId/生命周期规则，不逐表复制字段。UploadSession、Delivery、Outbox 等技术记录只采用所需键/状态/CAS；不机械继承软删除或双并发令牌。
+- .NET 时间用 DateTimeOffset，UTC 持久化，API 使用带时区 ISO 8601。
+- 可重试操作明确幂等语义：创建/发布以调用者作用域的请求键去重并比较内容；完成绑定会话；引用绑定消费者/资源/用途；已读取首次时间。幂等记录与业务变化同事务；无需每个接口独建幂等表。
+- 可变记录采用单一版本 CAS 或自然状态条件更新；接管写入 fencing epoch 负责废止旧写入者，是上传专用语义，不推广成全平台双令牌。
+- 普通管理列表复用受控查询的页码/页大小；收件箱滚动和审计大时间范围可采用稳定排序游标。分页游标不代表跨端变更同步。
+- 复用现有 Outbox/Dispatcher、数据库事务与重试设施，真实入站消费者才增加持久去重。现有实现的事务参与、同键冲突、确认与死信恢复须按 002 核验，不能仅因类存在就声称满足 Audit 可靠性。
+- 不新增第二套 Outbox 平台、事件总线、通用 Scheduler 或健康平台；模块作业复用现有托管服务模式。
 
 # 7. 领域模型或核心组件详细设计
 
-## 7.1 Audit
+## 7.1 Audit Core
 
-### 7.1.1 聚合与事实模型
+### 7.1.1 不可变事实与生命周期
 
-`AuditFact` 为不可变追加事实，核心字段：
+AuditFactV1 输入：AuditEventNId、EventType/EventVersion、OccurredOn、ProducerServiceKey/ProducerModuleKey、ActorType/UserNId/ServiceNId、Action、ResourceType/ResourceNId、Outcome、RiskLevel、OperationId/TraceId/CorrelationNId、Summary 及白名单 Metadata。Actor/租户与生产者声明必须按认证来源验证，拒绝冒充；ReceivedOn 由中央服务填写。
 
-- `AuditEventNId`、`TenantNId`、`OccurredOn`、`ReceivedOn`。
-- `ProducerServiceKey`、`ProducerModuleKey`、`EventType`、`EventVersion`。
-- `ActorType`、`ActorUserNId`、`ActorServiceNId`、`ImpersonatorUserNId`。
-- `Action`、`ResourceType`、`ResourceNId`、`Outcome`、`RiskLevel`。
-- `OperationId`、`TraceId`、`CorrelationNId`、`SourceIpMasked`、`UserAgentSummary`。
-- `Summary`、经过字段级策略处理的 `MetadataJson`、`PayloadClassification`。
-- `PreviousHash`、`ContentHash`、`ChainPartition`、`IntegrityVersion`。
-- `RetentionPolicyNId`、`RetainUntil`、`LegalHold`。
+事实只追加，更正生成关联原事实的新事件；不提供普通 UPDATE/DELETE 接口。TenantNId、动作、主体、资源、结果和时间不可改。接收时的 RetentionPolicyVersion 可作不可变政策快照；当前 RetainUntil、DeletionBlocked、归档/清理进度放独立 lifecycle 数据，变更追加审计。达到合法保留条件后的受控清理是明确例外，先可靠记录清理范围/数量/依据并可恢复，不把“追加型”误写成无限保留。
 
-生产者不能提交 `ReceivedOn`、哈希链字段、最终保留期限或服务端身份字段。Audit Ingress 从受信调用身份补全生产者并校验声明。
+### 7.1.2 必须审计的动作与可靠路径
 
-### 7.1.2 写入与失败策略
+| 动作目录 | 类型/路径 | 保存失败时行为 |
+| --- | --- | --- |
+| 权限/用途/引用变更，公告发布撤回，关键资源写入 | 成功业务审计与本地 Outbox 同事务 | Outbox 失败回滚业务；中央不可用但已落库可继续并告警 |
+| 登录/权限拒绝、上传接管拒绝、关键业务执行回滚 | 安全/失败事实，经回滚后独立可靠路径 | 拒绝仍拒绝；可靠记录失败必须告警/暴露稳定诊断，相关高风险后续动作按策略关闭，禁止吞异常 |
+| 受保护下载授权、Audit 查询/导出、删除/保留政策变更 | 必要访问审计先可靠落库再放行；实际流访问另记结果 | 不能可靠保存则不放行高风险数据或破坏性动作 |
+| 健康探测、普通性能诊断、无安全意义的读操作 | 技术日志/指标 | 不机械写成同强度业务审计，不用技术日志替代以上事实 |
 
-- 普通业务操作必须在自身事务内写 Audit Outbox；Outbox 写入失败则业务回滚，禁止捕获后忽略。
-- `AuditFactV1` 以 `TenantNId + ProducerServiceKey + AuditEventNId` 幂等；同键不同内容返回冲突并告警。
-- 接收流程先做 Schema/大小/枚举/时间窗/身份校验，再执行服务端脱敏和追加。
-- 永久失败进入可查询隔离队列，保留原事件的加密受控副本和脱敏诊断；不得丢弃或无限盲重试。
-- Outbox 年龄、积压量或永久失败超过风险策略阈值时，相关生产者进入 Degraded/NotReady；阈值由环境和风险等级配置，不能由调用方放宽。
-- 高风险 Audit 管理操作同步写“访问事实”后才返回数据；写失败返回 503，不能 fail-open。
+以 `TenantNId + ProducerServiceKey + AuditEventNId` 唯一去重。同键同规范化内容返回原接收结果；同键不同内容冲突并告警。内容比较使用固定版本的规范化输入摘要（排除 ReceivedOn 等接收端生成值），它只用于幂等，不是 Advanced 哈希链。首次接收的脱敏版本固化，后续重试不因脱敏政策更新生成重复事实。
 
-### 7.1.3 完整性、保留与查询
+接收失败分瞬态重试与永久隔离；保留最小安全载荷和原因，敏感原文不进入普通日志或任意死信。必要保留原件时走受控加密存储及明确期限。失败审计用服务拥有的独立事务落库，不依赖请求取消令牌立刻终止持久保存。生产者事故中尚未可靠落库的事件不能声称绝对不丢失；002/008 必须验证风险门禁和恢复边界。
 
-- 事实行禁止 UPDATE/DELETE；更正以关联原事实的 `AuditCorrectionRecorded` 新事实表达。
-- 按 `TenantNId + 时间分区` 建立哈希链；定期生成签名 checkpoint，并将摘要写入独立受控介质/外部锚点适配器。
-- 保留策略版本化；延长立即生效，缩短不得追溯删除，必须经过审批与下一清理周期。
-- Legal Hold 覆盖普通保留清理，解除冻结必须双人或等价审批并产生审计。
-- 查询默认最大时间窗、分页上限和字段投影；禁止任意 SQL、任意 JSONPath 全表扫描和未授权跨租户查询。
-- 敏感元数据默认脱敏；“查看敏感值”使用独立权限、理由、短时授权和二次审计。导出异步生成、加密、短期有效且下载也审计。
+### 7.1.3 查询、保留与必要导出
+
+查询必须有租户/权限/字段白名单、最大时间窗和页大小；索引按实际 Actor/Action/Resource/Outcome/OccurredOn 场景选择。前后值只保留获准字段的脱敏摘要，禁止整对象、密码/token、连接串和请求正文自动落库。
+
+Core 先提供有行数/时间/频率上限的授权流式导出，转义表格公式注入并记录访问；不依赖 File 完成，避免 Audit → File → Audit 循环。大批量异步合规导出、解密及证据验证属于 Advanced。基础保留清理必须服从可信服务端期限和禁止删除标记，缩短期限不自动追溯清理。
 
 ## 7.2 File
 
-### 7.2.1 聚合
+### 7.2.1 标识、采样与内容确认
 
-- `UploadSession`：上传意图、租户、拥有者、用途、期望大小/hash、允许类型策略、到期时间、分片状态和幂等键。
-- `FileObject`：`FileNId`、原始/安全展示文件名、声明/探测 MIME、扩展名、大小、hash、存储对象引用、状态、扫描结果、保留与冻结。
-- `FileReferenceGrant`：消费者模块、业务资源 NId、用途、授权动作、有效期；不保存业务表外键。
-- `FileRetentionCase`：保留策略、清理候选时间、Legal Hold/业务冻结及原因。
+| 标识 | 语义 |
+| --- | --- |
+| SampleFingerprint | 仅快速查找候选，不唯一标识文件，不作授权 |
+| ExpectedContentHash / ContentHash | 客户端所选完整文件的 SHA-256 预期值 / 服务端完整内容实测值，完成时必须相等 |
+| UploadSessionNId | 随机、独立的上传任务业务标识 |
+| WriterEpoch + 上传授权 | 绑定可信身份、会话、用途、有效期；接管后旧写入者失效，不能从内容推导 |
+| FileNId | 业务文件标识，独立于内容、上传任务及存储键 |
 
-### 7.2.2 状态机
+采样规则 `sample-v1`：L 为字节数，W=65536；L≤3W 时采整个文件一次，否则采 `[0,W)`、`[floor((L-W)/2),floor((L-W)/2)+W)`、`[L-W,L)`。哈希输入依次为 ASCII `IPF:sample-v1\n`、L 的无符号 64 位大端编码、每段 offset 与 length 的同编码及原始字节，输出小写 SHA-256 hex。不同版本不得混合匹配；001/003/006 共享边界长度/Unicode 文件名无关的固定向量。文件名和修改时间仅展示，不参与强内容确认。
 
-```text
-UploadInitiated → Uploading → Uploaded → Validating → Quarantined → Scanning
-Scanning → Available（仅 Clean）
-Scanning → Rejected（Malicious/PolicyRejected）
-Scanning → Quarantined（Unavailable/Timeout/Unknown）
-Available → Frozen → Available
-Available/Frozen/Rejected/Expired → DeletionPending → Deleted
-```
+**首期强校验只走完整哈希路线：** 允许先创建会话，但首个字节写入前必须登记完整 ExpectedContentHash（精确 64 位 hex），与大小一并锁定；客户端分块读取全文件计算，明确展示“正在确认文件”，不以一次性读入全部内存为前提。跨设备接管前新设备计算完整哈希并比对。原会话缺少完整哈希时返回 `FILE_UPLOAD_PROOF_REQUIRED`，不能确认则创建新会话重传；首期不新增已上传前缀证明协议，也不能补写一个新预期值后直接继承旧字节。
 
-- 只有 `Available` 可签发普通下载；Frozen 是否允许合规只读取决于冻结类型和独立权限。
-- 状态转换以并发版本和幂等命令保护；客户端不能直接指定状态。
-- 重新扫描产生新 ScanAttempt，不覆盖历史结果；策略或引擎版本变化可以触发受控复扫。
+采样相同但未采样区不同、同名不同内容或大小不符时拒绝接续（`FILE_UPLOAD_CONTENT_MISMATCH`），用户可新建任务。最后服务端从隔离对象完整读取，与锁定预期大小/hash 比较；只计算拼接结果的 hash 而无预期比较不可验收。完整 hash 只证明内容一致性，不证明拥有/访问权限。
 
-### 7.2.3 上传、扫描、存储与下载
+### 7.2.2 持久会话、权威断点与接管
 
-- 创建上传会话先校验用途、配额、最大大小、扩展名白名单和调用者权限。
-- 上传只写隔离区；预签名凭证最小权限、短时有效、绑定对象键/大小/content hash 条件，不暴露长期 Secret。
-- 完成上传后由服务端重新读取对象并校验实际大小、扩展名、规范化 MIME、魔数和 SHA-256/等价 hash；客户端声明不作为信任依据。
-- 文件名去路径化、控制字符清理和 Unicode 规范化；下载使用安全 `Content-Disposition`，禁止基于原名构造物理路径。
-- 病毒扫描通过 `IVirusScanner` 适配器；扫描引擎不可用时保持 Quarantined，并指数退避重试、告警，不允许人工直接改为 Clean。
-- 对象存储通过 `IObjectStorage`；数据库只存不可逆/不含凭据的 StorageObjectKey 和版本，不存本地绝对路径或公开 URL。
-- 下载先校验可信 TenantNId、调用者、消费者资源授权、File 状态和一次性 token；服务端流式代理或签发短期受限 URL，并记录下载审计。
-- 业务模块只保存 `FileNId`；跨模块不建立数据库外键。引用检查通过显式 Contract，删除采用延迟清理与重复确认。
-- 清理任务对过期上传、隔离对象和无引用文件分阶段标记；冻结、Legal Hold、活跃引用或未完成审计均阻止物理删除。
+UploadSession 保存 TenantNId、UploaderUserNId、Purpose/ResourceNId、采样版本与指纹、ExpectedSize/ExpectedContentHash、状态、ExpiresOn、底层 TransportUploadId、WriterEpoch、RecordVersion、最终 FileNId/处理 OperationId。对同租户同上传者且当前仍满足用途/资源权限的会话提供有上限的候选发现；只返回必要元数据，不泄漏他人文件、路径或 URL。跨用户接续、全局去重不开放。
+
+1. 发现候选不获得写权限；证明接口比较锁定完整 hash/大小并生成短期、绑定 session/version/hash 的证明票据。
+2. 接管必须重新授权，并与当前写入使用同一会话排他锁/CAS 边界。先阻止新旧写入、等待或中止在途写入至可确认持久边界，再增加 WriterEpoch，保存新写入者并返回短期授权。
+3. 所有 PATCH、完成、暂停、取消及底层写入入口校验当前 epoch；权限校验与实际持久写入在相同互斥范围，不能仅在请求开始验一次后允许旧长请求继续写。进程重启/多实例时互斥必须仍成立，单进程内存锁不能证明多实例安全。
+4. 从底层 store 查询已可靠保存的 Upload-Offset；客户端显示和业务库缓存不是权威，未确认尾部允许重传。接管成功后再 HEAD 获取实际断点。
+5. 接管后旧请求返回 `FILE_UPLOAD_WRITER_REPLACED`；版本/断点冲突返回冲突并重新查询，不能盲重试写入。过期/取消在锁内禁止后续写入、接管与完成。
+6. 底层资源创建与业务会话不跨存储伪造事务：创建请求幂等绑定 TransportUploadId；崩溃后补记或回收无主临时对象。存储已写而业务进度未更新时读取底层事实恢复，不能推进到客户端自报位置。
+7. 完成以会话唯一键和条件状态更新固定 FileNId/OperationId；重复返回相同结果。处理作业可恢复，崩溃后继续校验/扫描，不重复发布 Available。
+
+### 7.2.3 传输主路线与组件边界
+
+设计优先候选为 tusdotnet + tus-js-client，单条顺序偏移上传路线，不同时建设 S3 Multipart。tus 负责传输与偏移协议，File 模块负责会话发现、授权/接管、内容证明和生命周期。底层 store 的持久字节与偏移是传输权威，业务 upload_session 只保留映射及可重建观察值，**不自建 upload_part 表或平行分片状态机**。
+
+官方资料核验于 2026-09-06：[tus 协议](https://tus.io/protocols/resumable-upload)定义 HEAD/PATCH 偏移及冲突，认证留给应用；[tusdotnet](https://github.com/tusdotnet/tusdotnet)是 .NET 实现；[客户端 API](https://github.com/tus/tus-js-client/blob/main/docs/api.md)支持已有 uploadUrl，本地 URL 存储不提供跨设备发现。[服务端许可证](https://github.com/tusdotnet/tusdotnet/blob/master/LICENSE)与[客户端许可证](https://github.com/tus/tus-js-client/blob/main/LICENSE)为 MIT，实际锁定版本及第三方存储适配器须重新登记许可证。
+
+**尚未集成验证：** .NET 10/当前 Vue 构建、移动端全量 hash 的内存/耗时、持久卷重启、接管与 store 锁结合、Gateway 请求体/超时/CORS/Location/上传头、多实例持久存储和清理。003 在获准开发后验证这些条件并记录版本/证据；验证失败不自研双传输栈。只有已确认部署更适合对象存储直传时，才改选 S3 Multipart 并替换本节的传输权威与验收，不叠加第二条首期路线。没有验证结果前只称候选，不宣称 tus 自带业务接管。
+
+### 7.2.4 分离生命周期维度
+
+| 维度 | 状态/规则 |
+| --- | --- |
+| 会话 | Created → Uploading ↔ Paused → Completed；非终态可 Cancelled/Expired。断网仅客户端中断，不自动丢弃会话；Completed 表示字节接收封闭，不代表文件可用 |
+| 处理 | PendingValidation → PendingScan → Available；校验/恶意失败为 Rejected，扫描不可用保留 PendingScan 并显示故障；删除流程独立 |
+| 扫描 | NotScanned、Pending、Clean、Malicious、Error/Unknown；重试保留 ScanAttempt，不把失败覆盖为 Clean |
+| 保留/访问/删除 | RetainUntil、DeletionBlocked、ReadBlocked、DeleteRequestedOn、DeletedOn；保留不自动禁止读，禁止读不自动允许删除 |
+
+默认及已有用途继续强制扫描；只有未来明确批准的可信服务端用途策略可声明不要求扫描，此时结果只能标 NotRequired，不能标 Clean，客户端无权设置。当前必交付文件须验证完成且扫描 Clean、无 ReadBlocked 才可用。扫描器不可用/超时/未知保持隔离并重试，不开放下载或预览。
+
+文件名去路径化、控制字符和 Unicode 规范化；用途配额/大小/扩展名/MIME/魔数及恶意内容防护仍必需，文件名不构造路径。对象先存隔离区，校验通过再受控提升；存储键不含凭据、不向 API 暴露物理路径。
+
+下载逐次校验身份、当前资源权限、状态和访问限制，Core 默认授权流式代理，支持断点下载的 Range 请求亦重新授权并记录访问结果。若后续选择短期预签名 URL，签发审计不等于实际下载审计，URL 有效期内可重复使用（[AWS 官方说明](https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-presigned-url.html)）；一次性兑换只约束兑换动作，不能承诺兑换后 URL 只下载一次。需要即时撤销或严格访问记录的用途继续走受控代理。
+
+引用以 `TenantNId + FileNId + ConsumerModule + ResourceNId + Purpose` 幂等登记/释放，无跨模块外键。延迟删除先标申请，执行前在同一并发边界再检查活跃引用、保留、禁止删除和必要审计；进入不可逆删除阶段后拒绝新引用。冻结期间可以登记申请，不能物理删除。过期/取消会话、无主隔离对象及无引用文件分批可恢复清理，不引入完整 FileRetentionCase 聚合。
 
 ## 7.3 Notification
 
-### 7.3.1 聚合
+核心模型为 Announcement（草稿/排期/发布/撤回）、NotificationMessage（不可变内容、来源、失效与跳转快照）、InboxDelivery（租户/接收人/通知唯一键、首次投递、首次已读、撤回/失效可见状态）。模板使用简单配置/代码；受众规则版本及解析时点放发布记录，实际收件人由持久 Delivery 表达，不强制独立 AudienceSnapshot 聚合。
 
-- `NotificationDefinition`：类型、模板版本、默认严重级别、允许跳转类型和渠道策略。
-- `Announcement`：标题、摘要、正文、发布者、发布时间窗、优先级、状态和受众规则。
-- `NotificationMessage`：不可变内容快照、来源、业务关联、跳转目标、失效时间、幂等键。
-- `AudienceSnapshot`：发布时解析的用户/角色/组织/租户受众摘要与规则版本；大受众可批次展开。
-- `InboxDelivery`：`NotificationNId + RecipientUserNId`、投递状态、首次投递、已读、失效、置顶/确认状态和版本。
-
-### 7.3.2 语义与状态
-
-- 公告支持 Draft → Scheduled → Published → Expired/Revoked；发布后正文变化必须产生新版本，不原地篡改已投递快照。
-- 系统通知由受信服务契约或事件创建；个人收件箱只读投递事实，不允许用户伪造来源。
-- 投递至少一次、Inbox 幂等去重；SignalR 重复/丢失不影响数据库事实。
-- 已读为用户级幂等状态，记录首次已读时间；重复标记不改变时间。批量已读必须有数量上限和明确过滤条件。
-- 失效后默认不出现在未读计数，但历史查询按权限/保留策略可见；撤回产生状态事件，不能假装从未投递。
-- 跳转目标使用受控 `TargetType + TargetNId + RouteParameters`，由资源注册表解析；禁止服务端保存任意外部 URL、脚本或前端路由片段。外链仅允许显式白名单类型。
-- Notification 不是聊天：无会话、回复、输入状态、消息编辑、端到端私聊或群组成员模型。
-
-### 7.3.3 实时与离线
-
-- SignalR 事件只含 `NotificationNId`、类别、严重级别、发生时间和提示摘要，不发送高敏正文。
-- 客户端连接/重连后使用游标查询 `/inbox?after=...` 补拉；服务端游标不可伪造并绑定用户/租户。
-- 未读计数由持久数据计算并可短时缓存；缓存失效不影响查询正确性。
-- 在线推送失败只影响延迟，不把持久 Delivery 标记为失败；渠道投递状态与收件箱创建状态分开。
-
----
+- 发布前校验容量上限，通过公开用户/角色/已稳定组织查询固化收件人集合；重试不能按变化后的角色重新解析并改写原受众。首期有界受众可在单个受控事务写消息/Delivery/Outbox；超过上限拒绝并说明范围。只有真实容量或独立恢复需求成立后才引入 AudienceBatch 及分批快照，不能无界展开。
+- 发布键和 `TenantNId + NotificationNId + RecipientUserNId` 唯一约束防重复；投递重试以已有收件人为事实。已读是幂等首次时间，批量已读设数量上限；已读不等于确认收到，确认不等于业务完成，首期不增加签收动作或第二套业务状态。
+- 撤回保留历史投递事实；过期按服务端时间判断，未读数与列表使用同一过滤规则，即使过期作业延迟也不计入有效未读。
+- SignalR 只发有权限的变更提示，不发敏感正文。客户端首连/重连、切回前台、提示到达时重新查询未读数与当前列表；连接失效时采用有界定期刷新（首期默认 60 秒，可按服务端策略收紧），列表保持可手动刷新，不构建变更日志或事件回放。
+- 提示包含新投递、已读、撤回等类别，丢失/重复只影响刷新时机；不改变持久 Delivery。分页 after 只用于浏览更旧/更新记录，不用于恢复旧记录状态。
+- TargetType + TargetNId + 白名单参数由注册资源解析；正文编码/富文本白名单、拒绝脚本和任意 URL。受众按发布时间固化，打开业务目标仍校验当前权限，无权时统一提示，不泄漏资源存在性。
 
 # 8. 数据与持久化设计
 
-## 8.1 数据库与账本
+## 8.1 归属与迁移
 
-| MigrationUnit | PostgreSQL Schema | SQLite 前缀 | 独立账本 |
-| --- | --- | --- | --- |
-| `systemdata.file` | `system_file` | `system_file_` | `system_file_schema_migrations` |
-| `systemdata.notification` | `system_notification` | `system_notification_` | `system_notification_schema_migrations` |
-| `systemdata.audit` | `system_audit` | `system_audit_` | `system_audit_schema_migrations` |
+沿用 SystemData 自有服务级迁移/ledger/连接与配置映射的 `systemdata_db`，逻辑前缀建议 `system_file_`、`system_notification_`、`system_audit_`，在 001 按现行命名落定。不搬迁已有 `system_data_*` 表，不为每个逻辑模块新建物理 Schema/迁移账本。SQLite 本地测试、PostgreSQL 18 及 Shared/PerService 的适用环境沿用蓝图 07/33；不新增 Provider/拓扑组合。
 
-三者继承 `systemdata_db` 的规范化目标。Development Shared PostgreSQL 可物理落到 `industrial_platform_dev`；PerService 落到配置映射的 SystemData 物理库。模块不能自行选择物理库。
+Outbox 可以共享服务级技术存储，但必须具有可判定的生产模块归属和业务事务参与；现有实现缺少字段/能力时按公开适配增量补齐，不让模块直接操作另一模块的业务表。中央 Audit 接收和 Notification 输入确有去重需求，可用唯一事实键/投递键或最小 ingress 记录；不机械建三套 Inbox。
 
-## 8.2 主要表
+## 8.2 当前表与增强表
 
-File：`upload_session`、`upload_part`、`file_object`、`file_scan_attempt`、`file_reference_grant`、`file_retention_case`、`file_outbox`。
-Notification：`notification_definition`、`announcement`、`notification_message`、`audience_snapshot`、`audience_batch`、`inbox_delivery`、`notification_outbox`。
-Audit：`audit_fact`、`audit_integrity_checkpoint`、`audit_retention_policy`、`audit_legal_hold`、`audit_export_job`、`audit_ingress_failure`。
+| 范围 | 当前逻辑表/记录 | 不纳入当前必选 |
+| --- | --- | --- |
+| File | upload_session、file_object、file_scan_attempt、file_reference_grant；保留/限制字段归 file_object | upload_part（tus 路线不建）、file_retention_case、全局内容去重表 |
+| Notification | announcement、notification_message、inbox_delivery；受众规则固化在发布记录 | notification_definition 独立聚合、audience_snapshot、audience_batch |
+| Audit Core | audit_fact、audit_lifecycle、audit_ingress_failure；幂等摘要可在事实行保存；保留政策可用简单受控配置 | integrity_checkpoint、legal_hold 审批、敏感值密文库、复杂 export_job |
+| 公共技术 | 现有服务 Outbox/Dispatcher、所需持久入站去重、作业进度 | 第二套事件总线/调度器/数据库控制面 |
 
-每张租户业务表以 `TenantNId` 作为唯一键/索引前导；跨租户唯一性必须显式说明。跨模块只保存外部 NId 字符串，不建立外键。Outbox/Inbox 与本模块业务事务同库提交。
+租户业务唯一键/查询以前导 TenantNId 隔离；技术全局键的例外须明确不能跨租户泄漏。存储表名在逻辑名上加所属前缀。
 
-## 8.3 分区、索引与生命周期
+## 8.3 索引、并发与清理
 
-- Audit 按时间和租户策略分区；核心索引覆盖 TenantNId、OccurredOn、Actor、Action、Resource、Outcome、OperationId/TraceId。任意高基数 JSON 字段不默认建通用索引。
-- File 以 TenantNId+FileNId、状态+清理时间、hash（按策略去重但不跨租户推断存在性）索引；对象存储生命周期不能早于数据库清理批准。
-- Notification 以 TenantNId+RecipientUserNId+状态+时间、NotificationNId、失效时间索引；大受众批次生成，禁止单事务展开无限收件箱记录。
-- 清理作业均采用 lease、批次、并发版本、dry-run 指标和可恢复游标；删除前二次检查冻结/引用/保留。
+Audit 优先租户+时间/主体/资源索引，不以强制分区、哈希链换取首期查询能力。File 候选索引为租户+上传者+用途+采样版本/指纹+会话状态；hash 不提供跨用户存在性查询。Notification 索引服务接收人+状态+时间的列表/未读查询。
 
----
+清理和重试采用现有有界批处理、租约或条件抢占、重试上限和恢复位置，禁止每模块新建通用调度平台。审计先记录删除意图，物理处理后追加结果；重启可依据意图和外部对象存在性收敛。
 
 # 9. API、事件与外部集成契约
 
-## 9.1 路由边界
+## 9.1 路由与幂等语义
 
-```text
-/api/systemdata/files/...
-/api/systemdata/notifications/...
-/api/systemdata/audits/...
-```
+外部均以 `/systemdata` 为服务前缀，符合现有 UnifiedHost/Gateway 入口；独立 API Host 内部使用 `/files`、`/notifications`、`/audits`。以下是设计契约，尚未存在生产接口，001 与各模块实现时先固定 DTO/错误/授权，005 只做联合兼容验证。
 
-### File
+| 方法与内部路径 | 语义 |
+| --- | --- |
+| POST /files/upload-sessions | 创建会话；请求键绑定调用者/用途与输入摘要，返回同一 session |
+| POST /files/upload-sessions/discover | 仅搜索有权候选，输入采样版本/指纹/大小/用途，不返回上传授权 |
+| GET /files/upload-sessions/{nId} | 会话、服务端进度观察、到期与处理结果；重新授权 |
+| PUT /files/upload-sessions/{nId}/content-hash | 首次写入前固定完整预期 hash/大小；重复相同值幂等，已有字节/不同值拒绝 |
+| POST /files/upload-sessions/{nId}/resume-proof | 比对完整 hash/大小，签发短时会话版本证明；缺依据拒绝 |
+| POST /files/upload-sessions/{nId}/takeover | 证明+版本 CAS 接管，返回新 epoch 与受限上传入口；重复请求不能反复增加 epoch |
+| POST /files/upload-sessions/{nId}/pause | 当前写入者暂停，封闭在途写入并保留可靠进度；同设备恢复也经 resume-proof/takeover 恢复 Uploading、刷新授权并重新 HEAD |
+| POST /files/upload-sessions/{nId}/cancel | 幂等终止与延迟清理，已完成则拒绝取消、走文件删除规则 |
+| POST /files/upload-sessions/{nId}/complete | 幂等封闭字节接收，返回固定 FileNId/OperationId，异步处理不等于 Available |
+| HEAD/PATCH /files/uploads/{transportId} | 选定 tus adapter 的偏移传输；每次授权+epoch，底层 Location 由宿主适配，不能绕过业务会话创建裸资源 |
+| GET /files/{fileNId}、GET /files/{fileNId}/content | 元数据/受权内容访问，状态与资源权限逐次判定 |
+| PUT/DELETE /files/{fileNId}/references/{referenceNId} | 消费者权限与自然键幂等登记/释放 |
+| POST /files/{fileNId}/deletion-requests | 登记删除申请，绝非即时物理删除 |
+| PUT /files/{fileNId}/restrictions | 可信策略管理员 CAS 修改保留/读/删限制，理由与审计必需；不提供完整法律审批流程 |
+| POST /notifications/announcements；PUT /notifications/announcements/{nId} | 草稿创建/编辑，发布后正文不可原地改写 |
+| POST /notifications/announcements/{nId}/publish 或 /revoke | 原子固化/撤回与幂等请求键；排期由模块作业执行 |
+| POST /notifications/system-messages | 受信服务输入；服务身份未稳定时只开放经验证的进程内契约 |
+| GET /notifications/inbox、GET /notifications/unread-count | 用户/租户受限、统一有效性过滤、当前状态查询 |
+| PUT /notifications/inbox/{nId}/read；POST /notifications/inbox/read-batch | 首次已读幂等，批量数量受控 |
+| POST /audits/facts:ingest | 受信应用契约/服务输入，唯一键+摘要幂等与冲突 |
+| GET /audits/facts、GET /audits/facts/{nId} | 授权/脱敏/限窗查询并记录必要访问 |
+| GET /audits/exports | Core 有界流式导出与访问审计；超限拒绝，不暗中创建高级导出作业 |
 
-- `POST /files/upload-sessions`
-- `POST /files/upload-sessions/{nId}/complete`
-- `GET /files/{fileNId}`
-- `POST /files/{fileNId}/download-authorizations`
-- `POST /files/{fileNId}/freeze|unfreeze`
-- `DELETE /files/{fileNId}`（仅请求清理）
-- 内部 Contract：引用登记/释放、批量元数据查询、受控复扫。
+File 的进度权威由授权 HEAD 获取，业务查询可附观察时间避免冒充实时断点。证明和会话操作用平台响应信封；tus HEAD/PATCH 保留协议头/状态码，不把二进制强包 ApiResult。敏感值、凭据、hash 请求载荷与上传授权不进 URL query/普通日志。无权限查询采用一致拒绝行为；普通错误带稳定 code/TraceId，异步任务带 OperationId。
 
-### Notification
+Advanced 的 integrity-verifications、legal-holds 审批、decrypt、复杂 exports API 当前不注册、不生成权限菜单。
 
-- `POST /notifications/announcements`、`.../{nId}/publish|revoke`
-- `POST /notifications/system-messages`（仅受信服务）
-- `GET /notifications/inbox`
-- `PUT /notifications/inbox/{notificationNId}/read`
-- `POST /notifications/inbox/read-batch`
-- `GET /notifications/unread-count`
-- SignalR Hub 仅发布变更提示。
+## 9.2 事件与权限
 
-### Audit
+事件 Envelope 复用平台 EventNId/类型版本/OccurredOn/Producer/TenantNId/CorrelationNId/TraceId 约定；生产者已有命名风格通过兼容适配映射，不批量改名。
 
-- `POST /audits/facts:ingest`（受信服务/内部 Contract）
-- `GET /audits/facts`
-- `GET /audits/facts/{auditEventNId}`
-- `POST /audits/exports`、`GET /audits/exports/{jobNId}`
-- `POST /audits/integrity-verifications`
-- `POST /audits/legal-holds`、`.../{nId}/release`
-- 保留策略管理接口只允许平台合规管理员。
+- File：FileAvailableV1、FileRejectedV1、FileDeletedV1；上传完成不是可用事件。
+- Notification：NotificationPublishedV1、InboxDeliveryCreatedV1、NotificationReadV1、NotificationRevokedV1；过期仍以服务端时间查询为准。
+- Audit：AuditFactV1 输入，必要的接收/失败反馈按调用契约返回；不向所有业务广播每条审计，也不引入审计自身无限循环。完整性链事件仅属 Advanced。
 
-所有列表采用稳定排序和 opaque cursor；敏感查询限制时间窗、页大小、导出量与速率。错误响应包含稳定 code、TraceId，异步操作包含 OperationId，不泄露内部存储信息。
+权限前缀：`systemdata.file.upload/read/download/manage/delete`、`systemdata.notification.inbox.read/announcement.read/manage/publish/system.send`、`systemdata.audit.write/read/export/retention.manage`。接管还须同上传者/用途资源权限，manage 不默认允许跨用户续传。scan/integrity/decrypt/legal-hold 审批权限不作为当前通用必选；访问限制管理属于 file.manage 的高风险子操作并在目录登记。服务端每个动作独立授权，前端隐藏不构成权限。
 
-## 9.2 事件
+## 9.3 组件采用边界
 
-输出事件包括：
-
-- File：`FileAvailableV1`、`FileRejectedV1`、`FileQuarantinedV1`、`FileDeletedV1`。
-- Notification：`NotificationPublishedV1`、`InboxDeliveryCreatedV1`、`NotificationReadV1`、`NotificationRevokedV1`。
-- Audit：`AuditFactAcceptedV1`、`AuditIngressFailedV1`、`AuditIntegrityViolationDetectedV1`、`AuditExportCompletedV1`。
-
-输入事件必须经 Inbox 幂等；事件 Envelope 包含 EventNId、EventType/version、OccurredOn、Producer、TenantNId、CorrelationNId、TraceId。事件不携带文件正文、Secret、任意 URL、完整敏感审计载荷或数据库物理信息。
-
-## 9.3 权限资源
-
-建议资源前缀：
-
-- `systemdata.file.upload/read/download/manage/scan/freeze/delete`
-- `systemdata.notification.inbox.read/announcement.read/manage/publish/system.send`
-- `systemdata.audit.write/read/read-sensitive/export/integrity.verify/retention.manage/legal-hold.manage`
-
-权限清单由模块声明，经 PF-02/Identity 稳定注册流程核验；服务端每个端点独立授权，前端隐藏按钮不构成安全控制。
-
----
+tus 候选与证据见 7.2.3。Audit.NET 仅作采集/Provider 抽象参考，未确认集成、版本和许可前不引入；不能证明 SqlSugar 原子事务。CAP 仅在现有可靠消息缺口无法增量补齐时重新评估，本阶段不叠加。Notification 不整体引入通知编排平台。未验证的组件不写成已经安装或稳定依赖。
 
 # 10. 页面与交互设计
 
-## 10.1 PC
-
-- File 管理：筛选状态/类型/时间/拥有者，查看扫描与引用摘要，执行复扫、冻结和清理申请；不展示对象路径和扫描引擎 Secret。
-- Notification 管理：公告草稿、受众预估、排期、发布确认、撤回和投递统计；发布前展示不可变内容/受众快照摘要。
-- 个人通知中心：未读计数、分类、严重级别、已读、失效提示和受控跳转。
-- Audit 控制台：固定条件查询、详情脱敏、敏感查看理由、异步导出、完整性验证、保留策略和 Legal Hold；所有高风险动作二次确认并审计。
-
-## 10.2 PDA/Mobile
-
-- 支持上传进度、隔离/扫描状态、受权下载和失败重试提示；不提供复杂存储管理。
-- 支持个人收件箱、未读、已读和受控跳转；离线后按游标补拉。
-- Audit 默认不开放管理页面；若未来开放，仅提供权限严格限制的只读摘要，敏感查看/导出保留 PC。
-
-## 10.3 可访问性与安全交互
-
-- 状态不能只依赖颜色；键盘导航、焦点顺序、ARIA、触控尺寸、错误关联和超时提示符合 PF-01 规范。
-- 文件上传明确显示“上传完成不等于可用”；扫描未知不得显示成功。
-- Notification 跳转前验证目标可见性；无权限时显示稳定提示，不泄露目标是否存在。
-- Audit 导出和敏感查看显示用途、保留期和水印/下载到期信息。
-
----
+- 三端标准上传：文件选择、内容确认进度、候选会话、接管提示、服务端确认进度、暂停/重试/取消、到期和旧设备失效、校验/扫描状态；明示上传完成尚不可用。本地文件不可读时要求重新选择，不伪造自动恢复。
+- PC File 管理：用途/上传者/处理/扫描/访问限制筛选、元数据、引用摘要、受控限制与删除申请；没有复杂复扫/法律审批入口。
+- PC 公告管理：草稿、受众范围/数量上限、发布时间、发布/撤回；个人通知中心三端共用已读/未读/失效/安全跳转，重连刷新旧通知。
+- PC Audit Core：授权条件查询、脱敏详情、有界导出和必要保留配置；不出现解密、哈希验证、checkpoint、Legal Hold 审批页面。PDA/Mobile 不提供审计管理。
+- 管理页复用用户管理黄金页、现有管理组件及权限路由；遵循既有主题/中英语言、键盘/ARIA、触控/焦点与错误关联，状态不用单一颜色表达。大量上传字节不进入前端状态持久化。
 
 # 11. 错误、安全、审计与可观测性
 
-## 11.1 稳定错误类别
+当前错误包括 FILE_UPLOAD_PROOF_REQUIRED、FILE_UPLOAD_CONTENT_MISMATCH、FILE_UPLOAD_WRITER_REPLACED、FILE_UPLOAD_EXPIRED、FILE_UPLOAD_CANCELLED、FILE_SCAN_PENDING、FILE_MALICIOUS、FILE_REFERENCE_EXISTS、NOTIFICATION_AUDIENCE_LIMIT、NOTIFICATION_EXPIRED、NOTIFICATION_TARGET_INVALID、AUDIT_FACT_CONFLICT、AUDIT_WRITE_UNAVAILABLE、AUDIT_QUERY_SCOPE_INVALID。数据库就绪错误沿用平台，不再维护 PF04_DB_* 平行集合。
 
-- 数据库：`PF04_DB_NOT_READY`、`PF04_DB_UNIT_DRIFT`、`PF04_DB_MANIFEST_INVALID`。
-- File：`FILE_UPLOAD_EXPIRED`、`FILE_TYPE_REJECTED`、`FILE_SCAN_PENDING`、`FILE_MALICIOUS`、`FILE_NOT_AVAILABLE`、`FILE_REFERENCE_EXISTS`。
-- Notification：`NOTIFICATION_AUDIENCE_INVALID`、`NOTIFICATION_ALREADY_PUBLISHED`、`NOTIFICATION_EXPIRED`、`NOTIFICATION_TARGET_INVALID`。
-- Audit：`AUDIT_FACT_INVALID`、`AUDIT_FACT_CONFLICT`、`AUDIT_WRITE_UNAVAILABLE`、`AUDIT_QUERY_SCOPE_INVALID`、`AUDIT_INTEGRITY_FAILED`。
+安全边界：防路径穿越/双扩展名/MIME 欺骗/超限/解析炸弹；默认不引入预览转换，若引入须沙箱。HTML 和表格导出安全处理，租户/用户/服务/资源权限分层校验。存储/扫描凭据由配置 Secret 管理，不写入业务 DTO 或日志。
 
-## 11.2 安全控制
-
-- 上传防 zip bomb/解析炸弹、路径穿越、双扩展名、MIME 欺骗、超大文件和恶意内容；预览转换若引入必须独立沙箱，本阶段不默认实现。
-- 对象存储 Bucket/容器隔离 quarantine 与 available，凭据最小权限并轮换；日志禁止记录预签名 URL。
-- Notification 正文输出编码并限制富文本白名单；禁止任意 HTML/脚本和开放重定向。
-- Audit Metadata 采用 allowlist、字段分类和服务端脱敏；禁止密码、token、连接串、文件内容和完整 Authorization header。
-- 租户、用户、服务身份、权限与业务资源授权分别校验；不能仅凭知道 NId 访问资源。
-
-## 11.3 可观测性
-
-- 指标：各 MigrationUnit 版本/readiness、Operation 时长/失败、Audit Outbox 年龄/积压/拒绝/完整性、File 隔离数/扫描延迟/恶意率/存储清理、Notification 投递延迟/未读/SignalR 连接与补拉。
-- Trace 跨 API、Outbox/Inbox、扫描器、对象存储和 SignalR；高基数 NId 不作为默认指标标签。
-- 日志结构化、脱敏，包含 TenantNId 的受控散列/安全维度、OperationId、TraceId、ModuleKey 和稳定错误码。
-- 告警区分安全事件、合规缺口、容量、外部适配器故障与数据库门禁，不用单一“服务异常”掩盖根因。
-
----
+观测按能力区分：上传确认/断点/接管冲突/过期量、校验扫描延迟与隔离积压、投递延迟、未读查询、Outbox 年龄/永久失败、失败审计保存失败、清理/导出失败。指标不用高基数 NId 标签；TraceId/OperationId 贯穿可靠处理。必要审计无法落库的高风险门禁不能被“局部降级”绕过。
 
 # 12. 自动化测试与验收设计
 
-## 12.1 测试层次
+## 12.1 接入门禁
 
-- 架构测试：模块引用、Contracts 零基础设施依赖、无跨 Schema Repository/外键、无独立 Host。
-- 单元测试：三模块状态机、权限、幂等、脱敏、保留、受众、跳转和失败策略。
-- 集成测试：SQLite 与 PostgreSQL 18 显式迁移、账本独立、Outbox/Inbox、并发、对象存储/扫描适配器故障。
-- 契约测试：OpenAPI、事件版本、错误码、NId/TenantNId、游标和敏感字段扫描。
-- E2E：真实 Identity/PF-01/PF-02 稳定实现具备后验证 PC/PDA/Mobile 关键路径。
+001/008 引用蓝图 29 与 33 第 12 章的适用门禁，不另设“四 Unit 数据库十项门禁”。覆盖现有 SQLite 测试、PostgreSQL 18 空库/升级、本地 ledger/必要种子、目标身份、幂等初始化、权限与服务前缀；Shared/PerService 仅按已确认环境使用。架构测试验证模块所有权、无跨模块 Repository/外键和无独立 Host。tus 需在 UnifiedHost 与 Gateway→SystemData 两种入口验证协议，不推断某入口可用即另一入口可用。
 
-## 12.2 数据库十项门禁
+## 12.2 必须进入任务的场景
 
-1. Development Shared 默认及显式 PerService。
-2. Test/Staging/Production 拒绝 Shared。
-3. 宿主一个登记、四个独立 MigrationUnit。
-4. PostgreSQL Schema 与 SQLite 前缀/账本等价隔离。
-5. Shared 只 provision 一次，DDL 按物理目标串行。
-6. 父子 Operation、幂等恢复和单元诊断。
-7. 任一必需 Unit 异常则 Business NotReady。
-8. CoreControlReady 仅开放受限管理通道。
-9. Production Plan/审批/备份绑定完整快照。
-10. 无 `EnsureCreated`、Secret/物理目标输入和隐式拓扑数据移动。
+| 编号 | 验收场景与预期 | 责任任务 |
+| --- | --- | --- |
+| F1 | 手机上传中断，电脑重新选同二进制文件，完整 hash 比对后从持久断点接续；大文件 hash 内存/时延可接受 | 003、006、008 |
+| F2 | 服务重启、在途请求中断、底层已写但业务库未更新，按 store 恢复且未确认尾部可重传 | 003、008 |
+| F3 | 同名不同内容、采样相同而未采样区不同、大小错误、无预期 hash 均拒绝接续/明确重传 | 003、008 |
+| F4 | 跨租户/跨用户/无用途权限不能发现或接管；两设备和在途 PATCH 与接管竞态，旧 epoch 不再写入 | 003、005、008 |
+| F5 | 暂停恢复、取消/过期与 PATCH/complete 竞态、重复完成、处理期间重启不重复文件/可用事件 | 003、009、008 |
+| F6 | hash/大小/类型校验失败；扫描 Clean/Malicious/Error/Unknown/timeout；受保护文件禁下载 | 009、008 |
+| F7 | 下载权限撤销/Range、引用新增与删除竞态、禁止删除/保留、过期对象清理重启可恢复 | 009、007、008 |
+| N1 | 离线通知持久存在，重复发布/消费不重复生成 Delivery，受众超限拒绝，规则发布后不漂移 | 004、008 |
+| N2 | 电脑已读后手机重连同步旧记录；撤回/过期与未读数、列表一致，过期作业延迟也正确 | 004、006、008 |
+| N3 | SignalR 丢失/重复/故障不改变持久事实，重连/前台/定期刷新收敛 | 004、006、008 |
+| N4 | XSS/非法跳转/已撤销资源权限被拒绝，通知已读不能替代业务办理完成 | 004、005、008 |
+| A1 | 成功关键业务与本地 Audit Outbox 原子提交，Outbox 故障必须回滚业务 | 002、005、008 |
+| A2 | 事务回滚、权限拒绝后失败事实独立可靠保存；保存失败可见并按风险关闭必要操作 | 002、008 |
+| A3 | 中央暂不可用后补投、重复事件与同键不同内容冲突、永久失败及恢复 | 002、007、008 |
+| A4 | 跨租户访问拒绝、脱敏/敏感字段扫描、授权查询/导出限制、访问审计保存失败不放行 | 002、005、008 |
+| A5 | lifecycle 变化不改原事实、清理不越过保留/禁止删除，Core 验收不依赖 Advanced | 002、007、008 |
+| U1 | 三端/亮暗/中英/键盘/触控/错误与空态；真实身份下两端上传和收件箱交互 | 006、008 |
 
-## 12.3 模块关键矩阵
+## 12.3 证据要求
 
-- Audit：事务 Outbox 写失败、中央暂时不可用、重复/冲突事件、脱敏、跨租户、哈希链篡改、checkpoint、保留/冻结、敏感查询失败关闭、导出过期。
-- File：扩展名/MIME/魔数不一致、零字节/超限、hash 不符、分片重放、扫描 clean/malicious/unavailable/timeout、下载竞态、冻结、活跃引用、清理恢复、预签名泄露扫描。
-- Notification：大受众分批、重复发布、排期竞态、撤回、过期、重复 SignalR、断线补拉、游标篡改、已读并发、未读缓存失效、非法跳转和富文本 XSS。
-
-## 12.4 验收证据
-
-执行任务必须记录命令、退出码、测试通过/失败/跳过数、覆盖率、报告/截图路径、依赖提交、Provider/拓扑和外部限制。缺少 PF-02、PostgreSQL、对象存储、扫描器或真实 Identity 时只能标记“待验收”，不得以 Mock 证明生产门禁完成。
-
----
+上述为未来验收任务，本轮只做文档检查。实现时记录命令、退出码、通过/失败/跳过数、交付标识、Provider/部署模式、报告/截图位置及真实依赖限制。Mock/fixture、浏览器设备模拟、真实手机分别标注；没有真实扫描/存储/服务身份或 Gateway 链路只能对应标待验收，不能用 Mock 证明完成。最终源码发生变更时先新鲜 Release build，再 `dotnet test ... --configuration Release --no-build`；不拿旧编译产物或历史 evidence 冒充当轮通过。
 
 # 13. 开发任务依赖
 
 ```text
-PF-02 TASK-SD-001～004 + PF-04 数据库扩展契约
-  → TASK-PF04-001 宿主集成与三个迁移单元
-      → TASK-PF04-002 Audit 核心
-          ├→ TASK-PF04-003 File 核心
-          └→ TASK-PF04-004 Notification 核心
-              → TASK-PF04-005 API/事件/权限与宿主集成
-                  ├→ TASK-PF04-006 PC/PDA/Mobile 页面
-                  └→ TASK-PF04-007 安全、可观测性与生命周期作业
-                      → TASK-PF04-008 契约/E2E/阶段验收
+现有宿主/必要契约核验
+  → 001 宿主、契约与迁移接入
+    → 002 Audit Core（契约随实现固定）
+      → 003 File 会话/传输/跨设备续传 → 009 File 安全生命周期
+      → 004 Notification 持久投递/跨端同步
+    002 + 003 + 009 + 004 → 005 联合契约/权限/生产者接入
+      → 006 三端组件和页面
+      → 007 安全、恢复作业与观测
+    005 + 006 + 007 → 008 阶段集成验收
+
+010 Audit Advanced：另行范围确认；依赖 002，不是 003～009 的前置。
 ```
 
-Audit 先行是为了给 File/Notification 的高风险操作和平台事实提供统一接收面；它不允许跨库同步事务。任务只能在用户书面批准派遣后执行，且应按实际稳定契约再次细化。
+这是同一 PF 的内部执行序列；001 先固定接入约定，002/003/004/009 先提供对应契约再实现，005 不承担开发结束后才首次定义 API。独立分支显示逻辑依赖，不代表本轮派遣或允许共享文件并行编辑。
 
----
+| 旧 ID | 本轮对应与状态解释 |
+| --- | --- |
+| TASK-PF04-001 | 保留 ID，四个独立迁移单元改为现有服务级接入，不重新实施 PF-02 |
+| TASK-PF04-002 | 保留为 Audit Core；完整性/高级合规移至新增 010 |
+| TASK-PF04-003 | 保留为上传协议/会话/跨设备续传；安全/下载/引用/清理拆至新增 009 |
+| TASK-PF04-004 | 保留持久通知，减少独立聚合并补旧通知跨端同步 |
+| TASK-PF04-005 | 保留联合接入/契约验证；基础契约前移至 001 和模块任务 |
+| TASK-PF04-006 | 保留三端页面，增加标准跨设备上传，去除 Advanced 菜单 |
+| TASK-PF04-007 | 保留 Core 安全/恢复/观测，去除锚定/完整法律审批依赖 |
+| TASK-PF04-008 | 保留阶段验收，按第 12 章 Core 矩阵收束 |
+| TASK-PF04-009 / 010 | 新增的 003 安全拆分 / 002 高级后续范围，未实现 |
+
+原八项没有找到开发完成证据，历史状态与本次开发状态分开记录。2026-09-06 复评后 TASK-PF04-001～009 已作为一个 Core 工作包派遣，当前按依赖连续开发；010 保持“待细化（后续增强）”。不改变任何已完成的 PF-00/01/02/03 工作。
 
 # 14. 开发任务拆分
 
-> 以下均为九字段设计卡，详细设计已确认，统一状态“待派遣”。“待派遣”表示可在后续开发会话中按依赖创建执行任务，不表示当前已经派遣、开发或提交。
+以下每项九字段；001～009 已纳入本轮 Core 开发授权，具体共享文件边界以 `docs/tasks/active/PF-04.md` 为准。所有任务回写本文第 16/17 章，并统一使用 `docs/evidence/PF-04.md`；010 不在本轮授权内。
 
-## TASK-PF04-001 接入宿主 Manifest 与三个独立迁移单元
+## TASK-PF04-001 宿主、基础契约与迁移接入
 
-**状态：** 待派遣
-**目标：** 在 PF-02 稳定实现上接入 File/Notification/Audit MigrationUnit、父子 Operation、双层 readiness 与 Provider 等价命名空间。
-**输入文档：** 本文第 1～6、8.1、12.2 节；蓝图 32/33；实施 05 的已验收输出。
-**依赖：** TASK-SD-001～004 完成并书面验收；子 MigrationUnit/内部协调扩展点稳定。
-**允许修改范围：** 经协调后的 SystemData 宿主装配、PF-04 模块骨架、三个迁移产物及测试；禁止重写 PF-02 控制面、修改其他阶段代码或部署并行文件。
-**预期输出：** 签名宿主 Manifest、四 Unit 快照、三个 Schema/前缀及账本、父子 Operation、CoreControlReady/BusinessReady。
-**验证与证据：** 数据库十项门禁、架构引用测试、SQLite/PostgreSQL 18 空库与升级链、Secret 扫描。
-**结果回写：** 实际项目/UnitKey、表/账本、Manifest/Operation DTO、测试数、偏差和未验收项回写第 16/17 节。
-**建议提交：** `feat(systemdata): add pf04 migration units`
+**状态：** 已派遣（Core 工作包开发中；首个内部步骤，接入核验属于本任务）
 
-## TASK-PF04-002 实现统一 Audit 事实源
+**目标：** 在现有 SystemData 服务级生命周期接入三个逻辑模块，冻结基础身份/初始化/路由约定。
 
-**状态：** 待派遣
-**目标：** 实现不可变 AuditFact、可靠接收、完整性链、保留/冻结、受权查询与高风险失败关闭。
-**输入文档：** 本文 7.1、8～9、11～12 节；蓝图 30/31。
-**依赖：** TASK-PF04-001；Identity/服务身份与权限稳定契约。
-**允许修改范围：** Audit 模块及所属测试/迁移；禁止改写业务模块领域历史、直接接管 Identity/ReferenceData 本地表。
-**预期输出：** Audit Contracts、Ingress、事实/哈希/checkpoint、查询/导出、Retention/LegalHold、Outbox/Inbox 适配。
-**验证与证据：** 幂等冲突、脱敏、篡改检测、跨租户、积压恢复、敏感操作失败关闭及 PostgreSQL 分区验证。
-**结果回写：** 字段、算法版本、保留政策、API/事件/权限、性能和迁移兼容边界。
-**建议提交：** `feat(systemdata): add append-only audit module`
+**输入文档：** 本文 1～6、8.1、9、12.1；蓝图 32 第 2～4 章、33 第 3～8/12 章；实施 05/evidence 的对应现状。
 
-## TASK-PF04-003 实现安全 File 生命周期
+**依赖：** 总控给定无共享文件冲突的工作基线；本任务启动时核验所消费的 PF-00/01/02 契约并记录交付标识，不重做 TASK-SD-001～004。
 
-**状态：** 待派遣
-**目标：** 实现上传会话、隔离验证、病毒扫描、对象存储、授权下载、引用、冻结与清理。
-**输入文档：** 本文 7.2、8～12 节。
-**依赖：** TASK-PF04-001、002；对象存储与扫描器技术选型/Secret 方案书面确认。
-**允许修改范围：** File 模块、适配器、所属测试/迁移及经协调的配置；禁止设计 Operations Center/Collaboration 领域。
-**预期输出：** File Contracts/状态机、IObjectStorage/IVirusScanner、隔离与 available 边界、授权下载、引用与清理作业。
-**验证与证据：** 恶意样本安全测试、类型欺骗、扫描不可用、并发、预签名限制、冻结/引用清理和 Secret 扫描。
-**结果回写：** 存储/扫描产品与版本、大小/超时策略、状态/API/事件、测试报告和外部限制。
-**建议提交：** `feat(systemdata): add secure file module`
+**允许修改范围：** 后续获准的 SystemData Contracts/组合根/迁移接入与 SystemData/UnifiedHost/Gateway 契约测试；不改 PF-02 控制面规则或新增 Host。
 
-## TASK-PF04-004 实现持久 Notification 收件箱
+**预期输出：** 初始化/表前缀/权限声明映射、迁移增量、共用可靠设施复用清单及缺口、服务身份边界；逐项明确可复用与待验收。
 
-**状态：** 待派遣
-**目标：** 实现公告、系统通知、受众快照、个人收件箱、已读/失效、受控跳转及 SignalR 提示。
-**输入文档：** 本文 7.3、8～12 节。
-**依赖：** TASK-PF04-001、002；Identity 用户/角色与 PF-02 组织/资源目录稳定契约。
-**允许修改范围：** Notification 模块、SignalR 适配、所属测试/迁移；禁止实现聊天或修改 Collaboration。
-**预期输出：** 发布/受众/Delivery 模型、持久收件箱 API、游标补拉、未读计数、SignalR 和安全跳转解析。
-**验证与证据：** 大受众、幂等投递、断线补拉、已读并发、XSS/开放重定向、权限与缓存一致性。
-**结果回写：** 受众解析边界、容量批次、Hub/事件/API、页面消费契约及性能数据。
-**建议提交：** `feat(systemdata): add notification inbox module`
+**验证与证据：** 第 12.1 节适用初始化/架构/入口检查；记录路径、版本、命令及依赖缺口，不能只看代码存在。
 
-## TASK-PF04-005 冻结跨模块 API、事件、权限与宿主装配
+**结果回写：** 第 1.2、5、8、9、16/17 章的实际接口、Unit/表/账本和阻塞。
 
-**状态：** 待派遣
-**目标：** 冻结三个公开 Contracts、权限清单、Outbox/Inbox 和宿主路由，证明无跨模块数据访问。
-**输入文档：** 本文第 2～6、9、11 节；TASK-PF04-002～004 输出。
-**依赖：** TASK-PF04-002～004；Identity/PF-02 稳定集成契约。
-**允许修改范围：** PF-04 Contracts、宿主组合根、Gateway/OpenAPI、契约/架构测试；禁止跨模块 Repository 和非 PF-04 业务改造。
-**预期输出：** v1 DTO/events/errors/permissions、路由、可信身份/租户映射、审计接入和未来物理拆分适配点。
-**验证与证据：** OpenAPI/event snapshot、架构测试、权限负例、跨租户、幂等与敏感字段扫描。
-**结果回写：** 最终契约版本、资源名、路由、兼容策略、测试数和联合验收缺口。
-**建议提交：** `feat(systemdata): integrate pf04 module contracts`
+**提交策略：** PF 整体交付，总控按仓库门禁统一提交，执行者默认不提交。
 
-## TASK-PF04-006 实现 PC/PDA/Mobile 页面与交互
+## TASK-PF04-002 Audit Core 与可靠记录
 
-**状态：** 待派遣
-**目标：** 在 PF-01 稳定壳上实现 File/Audit 管理、公告管理和三端个人通知/文件交互。
-**输入文档：** 本文第 10～12 节；PF-01 已验收输出。
-**依赖：** TASK-PF04-005；PF-01、Identity 真实授权与 API 稳定。
-**允许修改范围：** PF-04 前端 routes/pages/stores/components/tests；禁止重做平台壳、Mock Auth 或其他阶段页面。
-**预期输出：** 权限路由、状态/错误/空态、上传与扫描反馈、收件箱补拉、高风险审计交互和三端适配。
-**验证与证据：** unit/component/E2E、键盘/ARIA/触控、XSS、断线、权限负例、截图与覆盖率。
-**结果回写：** 路由、组件、终端差异、截图/报告、测试数及外部待验收项。
-**建议提交：** `feat(frontend): add file notification audit pages`
+**状态：** 已派遣（Core 工作包开发中；按依赖执行）
 
-## TASK-PF04-007 完成安全、生命周期作业与可观测性
+**目标：** 实现事实/生命周期分离、成功与失败可靠路径、幂等冲突、脱敏查询和 Core 导出。
 
-**状态：** 待派遣
-**目标：** 完成保留/冻结/清理、重试/死信、容量保护、指标/Trace/告警和安全加固。
-**输入文档：** 本文第 6～8、11～12 节；前三模块实现输出。
-**依赖：** TASK-PF04-002～005。
-**允许修改范围：** PF-04 后台作业、模块策略/指标/告警及测试；禁止创建独立 Scheduler Service 或扩大基础设施范围。
-**预期输出：** 可恢复批作业、积压策略、完整性锚定适配、存储/扫描保护、Dashboard/告警定义和运行手册。
-**验证与证据：** 故障注入、时钟/并发、容量、恢复、Legal Hold、日志/Trace/Secret 扫描和告警演练。
-**结果回写：** 阈值、SLO、作业租约/批次、告警、恢复步骤、测试与演练证据。
-**建议提交：** `feat(systemdata): harden pf04 operations`
+**输入文档：** 本文 4.2、6、7.1、8～9、11～12；蓝图 30 第 8 章。
 
-## TASK-PF04-008 完成 PF-04 契约、E2E 与阶段验收
+**依赖：** TASK-PF04-001；可信服务身份/进程内调用及本地事务能力核验。
 
-**状态：** 待派遣
-**目标：** 从空环境和升级环境验证数据库门禁、三模块纵切、真实授权、三端页面、故障恢复与未来消费者契约。
-**输入文档：** 本文全部章节；TASK-PF04-001～007 输出；稳定 PF-01/PF-02/Identity。
-**依赖：** TASK-PF04-001～007 全部完成。
-**允许修改范围：** PF-04 验收测试、fixture、报告与本文执行记录；只修复阻塞缺陷，不扩张业务范围。
-**预期输出：** SQLite/PostgreSQL、Shared/PerService、对象存储/扫描、SignalR、Audit 完整性及 PC/PDA/Mobile 全链证据。
-**验证与证据：** 第 12 节全部矩阵、构建/覆盖率/E2E/安全扫描/性能/恢复演练，记录真实退出码与依赖提交。
-**结果回写：** 第 15～17 节、总 Todo 与实际稳定契约；未满足项明确阻塞，不伪装完成。
-**建议提交：** `test(systemdata): verify pf04 modules`
+**允许修改范围：** SystemData 各层 Audit 子目录及服务内可靠设施最小适配、所属迁移/测试；不接管其他服务审计表，不实现 Advanced。
 
----
+**预期输出：** AuditFactV1、接收幂等/隔离恢复、失败独立落库契约、动作目录、追加事实/lifecycle、授权查询/有界导出。
+
+**验证与证据：** A1～A5，明确独立失败事务、同键异载荷与审计保存失败门禁；历史 Outbox 不直接作为原子性证明。
+
+**结果回写：** 第 7.1、8、9、16/17 章的字段/摘要规范/政策/API 与证据。
+
+**提交策略：** PF 整体交付，总控统一提交，执行者默认不提交。
+
+## TASK-PF04-003 File 上传会话与跨设备续传
+
+**状态：** 已派遣（Core 工作包开发中；任务内先做 tus/store 最小集成验证，再扩展完整续传）
+
+**目标：** 在唯一传输路线实现持久会话、强证明、可靠断点和接管旧写入者失效。
+
+**输入文档：** 本文 7.2.1～7.2.3、8～9、12 的 F1～F5；官方组件/许可证链接。
+
+**依赖：** TASK-PF04-001、TASK-PF04-002；本任务内先核验并锁定 tus/store 版本、许可和部署边界，不同时做 tus 和 Multipart。
+
+**允许修改范围：** SystemData File 契约/会话/传输适配和所属迁移/测试；依赖及入口配置仅后续明确派遣范围内，不能修改用户运行环境。
+
+**预期输出：** 采样固定向量、完整 hash 路径、会话 API、底层进度映射、接管互斥/epoch、重启恢复与幂等完成。
+
+**验证与证据：** F1～F5，实际持久 store 重启、在途旧请求竞争、两种入口及移动端 hash 容量；记录版本/许可/失败假设，无条件则待验收。
+
+**结果回写：** 第 7.2、8、9、16/17 章的主路线、协议头/Location、限制和验收报告。
+
+**提交策略：** PF 整体交付，总控统一提交，执行者默认不提交。
+
+## TASK-PF04-004 Notification 持久投递与跨端同步
+
+**状态：** 已派遣（Core 工作包开发中；按依赖执行）
+
+**目标：** 以三个核心模型交付公告/系统通知/收件箱与旧通知状态刷新。
+
+**输入文档：** 本文 7.3、8～12；现有 Identity/组织公开查询契约。
+
+**依赖：** TASK-PF04-001、TASK-PF04-002；可信接收人来源，不依赖 File。
+
+**允许修改范围：** SystemData Notification 模块、SignalR 适配、所属迁移/测试；不新增聊天、复杂通知编排或通用受众作业平台。
+
+**预期输出：** 固化受众、幂等 Delivery、已读/撤回/过期/未读一致性、重连/提示/轮询刷新契约与安全跳转。
+
+**验证与证据：** N1～N4，受众上限、已读首次时间、旧记录同步、提示丢失/重复与 XSS；记录真实依赖与 fixture 区别。
+
+**结果回写：** 第 7.3、9、16/17 章的容量上限、消息/Hub/查询与刷新规则。
+
+**提交策略：** PF 整体交付，总控统一提交，执行者默认不提交。
+
+## TASK-PF04-005 联合契约、权限及现有生产者接入
+
+**状态：** 已派遣（Core 工作包开发中；按依赖执行）
+
+**目标：** 验证前置已定义的契约与两种宿主入口一致，并增量接入现有审计生产者。
+
+**输入文档：** 本文 3、5、9、12；001/002/003/004/009 输出。
+
+**依赖：** TASK-PF04-002、TASK-PF04-003、TASK-PF04-004、TASK-PF04-009。
+
+**允许修改范围：** PF-04 Contracts/宿主组合/权限注册与契约测试；Identity/SystemData/ReferenceData 生产者仅总控明确批准的公开适配文件，不改领域行为或历史表。
+
+**预期输出：** v1 契约快照、可信租户/身份链、现有审计保留兼容方案；至少 Identity/SystemData/另一平台服务代表动作的可靠接入。
+
+**验证与证据：** A1/A4、F4、N4、两入口协议/错误/权限负例和无跨表访问；验证生产者本地事务，不伪造跨库原子性。
+
+**结果回写：** 第 3、9、16/17 章实际路由、版本、兼容/历史映射与缺口。
+
+**提交策略：** PF 整体交付，总控统一提交，执行者默认不提交。
+
+## TASK-PF04-006 三端上传组件、收件箱与管理页
+
+**状态：** 已派遣（Core 工作包开发中；按依赖执行）
+
+**目标：** 交付标准跨设备上传和通知交互，以及 PC 必要 File/公告/Audit Core 页面。
+
+**输入文档：** 本文 9～12；PF-01 稳定外壳与用户管理黄金页规范。
+
+**依赖：** TASK-PF04-005；001 已核验前端/身份契约。
+
+**允许修改范围：** PF-04 前端 api/pages/components/routes/locales/tests；共享文件仅批准最小接入，不重做 AppDataTable 或平台壳。
+
+**预期输出：** 三端内容确认/续传/接管/失败恢复、通知列表刷新、权限路由/空态/错误及 Core 管理 UI。
+
+**验证与证据：** F1、N2/N3、U1；单元/组件/E2E、亮暗/中英/键盘/触控、两设备场景；真实手机与模拟设备证据分开。
+
+**结果回写：** 第 10、16/17 章路由、组件、截图/报告及终端限制。
+
+**提交策略：** PF 整体交付，总控统一提交，执行者默认不提交。
+
+## TASK-PF04-007 Core 作业恢复、安全与可观测性
+
+**状态：** 已派遣（Core 工作包开发中；按依赖执行）
+
+**目标：** 完成过期/清理/补投/扫描重试、容量保护与局部降级。
+
+**输入文档：** 本文 4.1、7～8、11～12；模块已实现输出。
+
+**依赖：** TASK-PF04-005。
+
+**允许修改范围：** PF-04 模块托管作业/策略/指标及测试；不创建 Scheduler 平台、不静默改变 Identity/宿主既有强制健康门禁。
+
+**预期输出：** 可恢复 Core 作业、受控保留/禁止删除保护、告警与恢复步骤；Advanced 故障不引入整宿主依赖。
+
+**验证与证据：** F7、A3/A5、扫描器与 SignalR 故障局部影响，清理中断重启、积压门禁与日志 Secret 扫描。
+
+**结果回写：** 第 11、12、16/17 章阈值、恢复步骤、实际 health 限制和演练证据。
+
+**提交策略：** PF 整体交付，总控统一提交，执行者默认不提交。
+
+## TASK-PF04-008 集成、安全与阶段验收
+
+**状态：** 已派遣（Core 工作包开发中；按依赖执行）
+
+**目标：** 以真实接入证明 Core 三模块、跨设备用户路径及安全/恢复边界。
+
+**输入文档：** 本文第 12/15 章；001～007 和 009 输出；现有服务稳定交付标识。
+
+**依赖：** TASK-PF04-005、TASK-PF04-006、TASK-PF04-007（传递覆盖 001～004、009）；不依赖 010。
+
+**允许修改范围：** PF-04 验收测试/fixture/报告与执行记录；发现生产缺陷回原模块范围修复，不扩张产品能力。
+
+**预期输出：** F1～F7/N1～N4/A1～A5/U1、适用初始化与两种入口的分层证据；未验证项明确待验收。
+
+**验证与证据：** 新鲜 Release build 后测试，前端检查与真实 E2E/外部故障恢复；逐项记录命令/退出码/通过失败跳过/环境，不用历史 PASS。
+
+**结果回写：** 第 15～17 章、总 Todo 与 CURRENT 的实际完成范围和风险；功能未通过不写已完成。
+
+**提交策略：** PF 整体完成后总控按当前仓库门禁统一提交；本轮文档整改不触发提交。
+
+## TASK-PF04-009 File 校验、下载、引用与清理
+
+**状态：** 已派遣（Core 工作包开发中；由原 003 拆出，扫描/存储核验在任务内完成）
+
+**目标：** 将完成的上传安全处理为可用文件，并实现授权使用/引用/保留删除。
+
+**输入文档：** 本文 7.2.4、8～12；003 会话/完成契约；蓝图 05 第 8.1 节既有用途政策。
+
+**依赖：** TASK-PF04-002、TASK-PF04-003；继承已有服务端安全政策，在本任务内确定最小扫描/存储适配并验证；真实依赖缺失列对应验收限制。
+
+**允许修改范围：** SystemData File 处理/扫描/存储/授权/引用子范围及迁移/测试，不改其他模块业务或完整法律审批流程。
+
+**预期输出：** 分离的处理/扫描/保留状态、最终 hash 对比、受控代理下载、幂等引用、延迟删除和恢复。
+
+**验证与证据：** F5～F7，扫描未知/不可用隔离、恶意内容安全 fixture、权限撤销/Range、引用竞态和保全保护；无真实扫描则该项待验收。
+
+**结果回写：** 第 7.2、8～9、16/17 章实际策略/产品版本/限制及测试证据。
+
+**提交策略：** PF 整体交付，总控统一提交，执行者默认不提交。
+
+## TASK-PF04-010 Audit Advanced 后续增强
+
+**状态：** 待细化（后续增强；不纳入当前阶段验收）
+
+**目标：** 仅在明确合规需求成立时提供完整性链、锚点、法律审批、解密或复杂证据导出。
+
+**输入文档：** 本文 2、7.1、9、15 章；需求方确认的合规来源/适用范围与 Audit Core 稳定输出。
+
+**依赖：** TASK-PF04-002；后续单独范围决策。涉及 File 异步导出时再声明其稳定契约，不能反向阻塞 Core。
+
+**允许修改范围：** 本轮无实现范围；后续由总控按选定增强项精确定界，不一次包揽所有能力。
+
+**预期输出：** 需求触发条件、成本/运维/许可与生命周期兼容方案、对应 API/表/权限/页面及专项验收；无需求保持后置。
+
+**验证与证据：** 仅对选入范围执行篡改/签名/锚定/保全/解密授权或证据验证，不污染 Core 必选矩阵。
+
+**结果回写：** 第 2、7.1、9、16/17 章与总 Todo 的后续增强范围，保留 002/007 的旧 ID 来源。
+
+**提交策略：** 不随当前 PF-04 Core 提交；后续另行工作包授权与验收。
 
 # 15. 完成标准
 
-- PF-02 数据库控制面前置真实通过，三 MigrationUnit 独立且宿主 BusinessReady 聚合正确。
-- Audit 成为统一追加合规事实源，但不覆盖业务历史/Outbox；高风险查看也可靠审计。
-- File 只有 Clean 才可用，扫描不可用保持隔离，消费者只保存 FileNId。
-- Notification 以持久收件箱为事实源，SignalR 可丢失后补拉，且不包含聊天能力。
-- TenantNId、权限、幂等、Outbox/Inbox、脱敏、保留、并发、安全和可观测性通过测试。
-- 三端边界、API/事件版本、未来物理拆分接口和运行手册形成稳定输入。
-- 用户已完成书面确认并允许后续开发；实际开发、派遣、提交与验收必须在后续开发会话按任务依赖和保护边界执行。
+本文整改和任务派遣不等于下列功能标准已经通过。PF-04 Core 的完成条件：
 
----
+- 现有宿主、服务级初始化/表命名空间及必要契约接入正确；没有重建 PF-02 或扩展 Provider/部署矩阵。
+- Audit Core 成功原子写入、回滚后失败独立记录、幂等冲突/补投、脱敏授权、基础保留/必要导出符合 A1～A5。
+- File 完成手机→电脑强确认续传、服务端持久断点、旧设备失效、最终预期 hash 对比、扫描隔离、下载/引用/清理 F1～F7。
+- Notification 数据库为事实源，离线/重复投递/旧通知已读撤回过期同步与权限跳转通过 N1～N4。
+- 三端 U1、两种入口、适用数据库/真实依赖与故障恢复有分层证据；跳过和 Mock 不充当真实通过。
+- Advanced、双上传栈、全局去重/秒传及通知编排不作为当前必选；已有明确保留/扫描/法律保全要求仍受保护。
+- 对外契约与已实现/已验收范围明确，未完成外部项保持待验收；后续实际开发派遣须明确授权。
 
 # 16. 执行记录
 
-截至 2026-08-13：已完成仓库/蓝图盘点、详细设计和用户书面确认；用户允许后续进入开发，但明确要求当前会话不做开发。当前未派遣任务，未修改生产/测试代码，未执行构建或测试，未提交 Git；并行工作树改动均保持原状。
+## 16.1 历史快照（不作为当前事实）
 
----
+2026-08-13 原记录：已完成仓库/蓝图盘点、详细设计和用户书面确认；用户允许后续进入开发，但明确要求当时会话不做开发。未派遣任务，未修改生产/测试代码，未执行构建或测试，未提交 Git；并行工作树改动保持原状。
 
-# 17. 下一阶段输入契约
+原首次盘点 `develop@4180d71`，当时记录与 origin 无领先落后，PF-02 控制面、PF-01 与 PF-03 状态为当时输入；原 TASK-PF04-001～008 全为“待派遣”。原四 MigrationUnit、哈希链/Legal Hold 首期门禁等设计已由本版替代，不能继续作为当前前置。历史全文可从整改前 Git 版本追溯。
 
-未来消费者只能依赖经验收的：
+## 16.2 首次文档整改快照（2026-09-06；任务状态已由 16.3 更新）
 
-- `FileMetadataV1`、上传会话、受权下载、引用登记/释放与 File 状态事件；不得直读 File Repository。
-- Notification 个人收件箱、系统通知发布、受控跳转和 SignalR 提示契约；不得将其当作聊天。
-- `AuditFactV1` 写入、查询/导出权限、完整性与保留语义；不得把本地审计表视为中央权威。
-- 三个 MigrationUnit 的稳定 UnitKey、版本/readiness 和 SystemData Host Manifest 聚合契约。
+| 范围 | 状态 | 执行者/任务 | 提交 | 验证证据 | 结果回写 |
+| --- | --- | --- | --- | --- | --- |
+| PF-04 蓝图与开发 TODO | 文档整改完成，Core 开发中 | 总控 `01a0759d-fc1c-7452-8a78-1031774dbb45` | 未提交 | 文档结构、链接、依赖和 diff 检查已通过；功能证据等待开发与独立验收 | 本文、相关蓝图、索引、CURRENT 与 `docs/tasks/active/PF-04.md` |
+| TASK-PF04-001～009 | 已整包派遣，开发中；尚未验收 | 开发 `01a076d2-a8d3-7163-8721-8cae51393d92`；验收 `01a076d3-3abf-7921-a367-9b70749d0780` | 未提交 | 开发按第 12～14 章验证，独立验收等待稳定交接 | 第 14 章及后续 `docs/evidence/PF-04.md` |
+| TASK-PF04-010 | 后续增强，未派遣 | - | - | 无功能证据，不阻塞 Core | 第 2/14 章 |
 
-PF-10 仅消费 ServerMonitor 范围；PF-10A KnowledgeBase 若使用文件，只消费 File 公开契约。
+## 16.3 开发就绪复评（2026-09-06）
 
----
+用户要求重新评估状态并为后续开发做准备。复核结论：Core 无需继续普遍细化设计，原“待细化”中多数事项实际属于任务内验证和最终验收，现将其分类并明确执行责任。
+
+| 范围 | 当前状态 | 开发安排 | 证据/限制 |
+| --- | --- | --- | --- |
+| TASK-PF04-001～009 | 已派遣，开发中；未验收 | 一个 Core 工作包按依赖连续执行；001 起步，003 内先技术验证 | 已落实工作树、模型、负责人和验收对端；功能测试结果等待回写 |
+| TASK-PF04-010 | 待细化（后续增强） | 当前 Core 不执行 | 需具体合规需求，保持非阻塞 |
+
+总 Todo、实施/蓝图索引、CURRENT 和实施前门禁同步此状态。首次整改历史保留；未创建执行任务、工作树或开发工作包，未修改代码、未提交 Git。
+
+# 17. 下一阶段输入契约与待核验事项
+
+以下未验证项是开发任务内的工作或功能验收条件，不是 001～009 继续保持“待细化”的理由；只有实际发现无法满足契约的证据才标记对应路径阻塞。
+
+以下目前都是设计，只有实现并经验收后才可作为稳定输入：AuditFactV1 可靠写入/授权查询；FileMetadataV1、上传会话/发现/证明/接管/完成、受权内容与引用；Notification 发布/收件箱/未读/刷新；服务级初始化增量与模块权限。消费者只保存 FileNId 等外部标识，不依赖 Repository、存储键、分页游标的隐藏同步语义或 Advanced 能力。
+
+| 待核验事项 | 责任/关闭条件 |
+| --- | --- |
+| PF-02 所用契约/当前 WIP、服务身份/权限注册 | 001/005：稳定交付标识、公开适配与对应真实验证；不因本轮文档刷新判整包完成 |
+| 现有 Outbox 的原子事务、冲突/死信与失败独立路径 | 002：A1～A3 的实际故障证据，缺口最小补齐，默认不引入 CAP |
+| tus 版本/第三方 store 许可、.NET 10、双入口、多实例锁/持久卷 | 003：固定版本及 F1～F5；不能验证时收紧支持范围并明确限制，未经决策不另建上传栈 |
+| 大文件全量 hash 的终端耗时/内存 | 003/006：PC/实际 PDA/Mobile 文件规模证据；无 hash 的旧会话不冒险续写 |
+| 扫描引擎/用途政策/存储故障与受保护下载 | 009：实际产品与 F6/F7；扫描不可用保持隔离 |
+| 合规强制项 | 后续总控：需求来源/阶段/作用域明确；保留蓝图 05 Collaboration 已定要求，高级审批后置不豁免保全 |
+
+PF-05/10A 可消费基础 File/Audit/Notification 契约，但各自的业务状态、聊天、知识生命周期及客户合规专项仍自行设计。PF-05 的已定法律保全边界应在启用前落实；不能把 Core 完成解释成完整合规平台已完成。
 
 # 18. 文档自审清单
 
-- [x] 一个阶段、一个宿主、三个独立内部模块；未创建微服务。
-- [x] 数据库拓扑先行，Shared/PerService、Manifest、父子 Operation、readiness 与 bootstrap 边界完整。
-- [x] PostgreSQL Schema/SQLite 前缀、迁移产物与账本独立。
-- [x] 无跨模块 Repository/表/外键；未来拆分只走契约。
-- [x] TenantNId 来自可信上下文，未回退为领域 TenantId。
-- [x] Audit、File、Notification 领域、API、事件、权限、页面、安全、测试均覆盖。
-- [x] 明确无 EnsureCreated、无静默数据库切换、无隐式拓扑数据移动。
-- [x] PF-02/PF-01/PF-03 未完成内容未写成当前稳定实现。
-- [x] 九字段任务卡全部为“待派遣”；后续开发已获原则允许，但当前会话未实际派遣。
-- [x] 未修改实施 03/04/05/06、生产代码或测试代码，未提交 Git。
+- [x] 当前状态按代码/Git/历史证据分层，旧 HEAD 和批准记录仅作历史。
+- [x] 一个宿主、三个逻辑模块；默认服务级迁移/可靠设施复用，控制面规范引用蓝图 33。
+- [x] 完整 hash 与采样/授权/会话/FileNId 分离；明确无预期 hash 拒绝续传。
+- [x] 权威进度、持久恢复、接管在途竞争、幂等完成及扫描/保留状态均有任务和验收。
+- [x] 持久收件箱、旧记录跨端刷新、受众容量与当前资源权限一致。
+- [x] Audit 成功/失败路径及事实/lifecycle 分离；Advanced 未混入 Core 表/API/页面/依赖/验收。
+- [x] 原八任务保留 ID，对应新增 009/010；任务具备九字段与阶段整体提交策略。
+- [x] 既有扫描、保留及法律保全要求未静默降低，未知外部依赖有关闭责任。
+- [x] 本轮只整改文档，未功能开发、迁移、派遣或 Git 提交；历史验收不冒充本轮测试。

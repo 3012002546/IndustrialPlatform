@@ -415,6 +415,14 @@ for (const scenario of [
     const root = page.getByTestId('reference-data-metadata')
     const more = root.locator('[data-testid="metadata-more"]:visible')
     await expect(root).toBeVisible()
+    const directory = root.locator('.metadata-master')
+    await expect(directory.locator('.vxe-cell--radio')).toHaveCount(0)
+    await expect(directory.locator('.app-data-table__selection-summary')).toHaveCount(0)
+    const directoryWidth = await directory.evaluate(
+      (element) => element.getBoundingClientRect().width,
+    )
+    expect(directoryWidth).toBeGreaterThanOrEqual(240)
+    expect(directoryWidth).toBeLessThanOrEqual(300)
     await root.getByTestId('metadata-schema-create').click()
     const editor = page
       .getByRole('dialog')
@@ -451,6 +459,18 @@ for (const scenario of [
     expect(writes).toHaveLength(1)
     expect(writes[0]).toContain('"defaultValue":"0.000000000001"')
 
+    await directory.locator('.vxe-body--row').first().locator('.vxe-body--column').first().click()
+    await expect(directory.locator('.vxe-body--row').first()).toHaveAttribute(
+      'aria-current',
+      'true',
+    )
+    const attributeSurface = root.locator(
+      '.metadata-detail-panel .el-tabs__content .app-data-table__surface',
+    )
+    await expect(attributeSurface).toBeVisible()
+    expect(
+      await attributeSurface.evaluate((element) => element.getBoundingClientRect().height),
+    ).toBeGreaterThan(100)
     await expect(more).toBeVisible()
     await more.click()
     await expect(page.locator('[data-testid="metadata-publication-open"]:visible')).toBeVisible()
@@ -478,6 +498,16 @@ for (const scenario of [
     await expect.poll(() => currentRead).toBe(true)
     await expect(runtimeViewer).not.toContainText('LEGACY')
 
+    const pcMain = page.locator('.ip-pc-main')
+    const mainMetrics = await pcMain.evaluate((element) => ({
+      scrollLeft: element.scrollLeft,
+      scrollWidth: element.scrollWidth,
+      clientWidth: element.clientWidth,
+    }))
+    expect(mainMetrics.scrollLeft, JSON.stringify(mainMetrics)).toBe(0)
+    expect(mainMetrics.scrollWidth, JSON.stringify(mainMetrics)).toBeLessThanOrEqual(
+      mainMetrics.clientWidth + 1,
+    )
     await page.screenshot({
       path: testInfo.outputPath(`metadata-${scenario.width}.png`),
       fullPage: true,

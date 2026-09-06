@@ -337,6 +337,7 @@ for (const scenario of [
             publishCheck: '发布校验',
             publish: '发布',
             falseValue: '否（false）',
+            noFields: '此定义还没有字段。',
           }
         : {
             create: 'New dynamic configuration',
@@ -355,10 +356,20 @@ for (const scenario of [
             publishCheck: 'Publication check',
             publish: 'Publish',
             falseValue: 'False',
+            noFields: 'This definition has no fields.',
           }
 
     await page.goto('/pc/system/reference-data/dynamic-properties')
-    await expect(page.getByTestId('reference-data-dynamic-properties')).toBeVisible()
+    const root = page.getByTestId('reference-data-dynamic-properties')
+    const directory = root.locator('.dynamic-property-master')
+    await expect(root).toBeVisible()
+    await expect(directory.locator('.vxe-cell--radio')).toHaveCount(0)
+    await expect(directory.locator('.app-data-table__selection-summary')).toHaveCount(0)
+    const directoryWidth = await directory.evaluate(
+      (element) => element.getBoundingClientRect().width,
+    )
+    expect(directoryWidth).toBeGreaterThanOrEqual(240)
+    expect(directoryWidth).toBeLessThanOrEqual(300)
     await page.getByTestId('dynamic-property-create').click()
     let dialog = page
       .getByRole('dialog')
@@ -367,6 +378,14 @@ for (const scenario of [
     await dialog.getByTestId('dynamic-definition-name').fill('Equipment profile')
     await dialog.getByTestId('dynamic-definition-save').click()
     await expect(page.getByTestId('dynamic-definition-save')).toHaveCount(0)
+    const fieldSurface = root
+      .locator('.dynamic-property-detail .el-tabs__content .app-data-table__surface')
+      .first()
+    await expect(fieldSurface).toBeVisible()
+    await expect(root.getByText(labels.noFields, { exact: true })).toBeVisible()
+    expect(
+      await fieldSurface.evaluate((element) => element.getBoundingClientRect().height),
+    ).toBeGreaterThan(0)
 
     async function addField(
       nId: string,
@@ -405,6 +424,10 @@ for (const scenario of [
     await addField('EMPTY_TEXT', 'Empty text', labels.string, async (drawer) => {
       await drawer.getByText(labels.unset, { exact: true }).click()
     })
+    expect(
+      await fieldSurface.evaluate((element) => element.getBoundingClientRect().height),
+    ).toBeGreaterThan(100)
+    await expect(fieldSurface.locator('.vxe-body--row').first()).toBeVisible()
 
     expect(writes.some((raw) => raw.includes('"defaultValue":999999999999999999.1234567890'))).toBe(
       true,
@@ -413,6 +436,13 @@ for (const scenario of [
     expect(writes.some((raw) => raw.includes('"defaultValue":""'))).toBe(true)
 
     await page.getByRole('tab', { name: labels.records, exact: true }).click()
+    const recordSurface = root
+      .locator('.dynamic-property-detail .el-tabs__content .app-data-table__surface')
+      .nth(1)
+    await expect(recordSurface).toBeVisible()
+    expect(
+      await recordSurface.evaluate((element) => element.getBoundingClientRect().height),
+    ).toBeGreaterThan(0)
     await page.getByRole('button', { name: labels.addRecord, exact: true }).click()
     dialog = page.getByRole('dialog').filter({ has: page.getByTestId('dynamic-record-save') })
     await dialog.getByTestId('dynamic-record-nid').fill('PRESS_01')
@@ -436,6 +466,10 @@ for (const scenario of [
     })
     await dialog.getByTestId('dynamic-record-save').click()
     await expect(page.getByTestId('dynamic-record-save')).toHaveCount(0)
+    expect(
+      await recordSurface.evaluate((element) => element.getBoundingClientRect().height),
+    ).toBeGreaterThan(0)
+    await expect(recordSurface.locator('.vxe-body--row').first()).toBeVisible()
 
     const recordWrite = writes.find((raw) => raw.includes('"nId":"PRESS_01"'))!
     expect(recordWrite).toContain('"AMOUNT":999999999999999999.1234567890')
@@ -478,6 +512,15 @@ for (const scenario of [
     expect(runtimeSchemaRead).toBe(true)
     expect(runtimeRecordsRead).toBe(true)
 
+    const pcMain = page.locator('.ip-pc-main')
+    const mainMetrics = await pcMain.evaluate((element) => ({
+      scrollLeft: element.scrollLeft,
+      scrollWidth: element.scrollWidth,
+      clientWidth: element.clientWidth,
+    }))
+    const metricsMessage = JSON.stringify(mainMetrics)
+    expect(mainMetrics, metricsMessage).toMatchObject({ scrollLeft: 0 })
+    expect(mainMetrics.scrollWidth, metricsMessage).toBeLessThanOrEqual(mainMetrics.clientWidth + 1)
     await page.screenshot({
       path: testInfo.outputPath(`dynamic-properties-${scenario.width}.png`),
       fullPage: true,

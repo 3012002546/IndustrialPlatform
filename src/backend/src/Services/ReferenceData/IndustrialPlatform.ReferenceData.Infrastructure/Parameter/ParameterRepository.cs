@@ -94,7 +94,7 @@ public sealed class ParameterRepository(SqlSugarDbContext context) : IParameterR
                 await WriteKeyAsync(KeyRow(key), history.ObjectType == "Key" && history.ChangeType == "Created");
                 if (history.ObjectType == "Key" && history.ChangeType == "Created")
                     foreach (var value in key.MultiValues) { cancellationToken.ThrowIfCancellationRequested(); await WriteValueAsync(ValueRow(value), true); }
-                if (history.ObjectType == "MultiValue") await WriteValueAsync(ValueRow(key.Value(history.ObjectId)), history.ChangeType == "Created");
+                if (history.ObjectType == "MultiValue") await WriteValueAsync(ValueRow(key.ValueIncludingDeleted(history.ObjectId)), history.ChangeType == "Created");
             }
             await Db.Insertable(HistoryRow(history)).AS(Table("history")).ExecuteCommandAsync(cancellationToken);
             await WriteOutboxAsync(domain, history, cancellationToken);

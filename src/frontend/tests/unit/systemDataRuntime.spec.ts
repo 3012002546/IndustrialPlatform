@@ -88,7 +88,7 @@ describe('SystemData runtime navigation adapter', () => {
     const groups = mapRuntimeNavigation([
       node({
         nodeNId: 'navigation.group.reference-data',
-        label: '参考数据',
+        label: '基础配置',
         children: [
           node({
             nodeNId: 'navigation.link.reference-data-dictionaries',
@@ -106,7 +106,7 @@ describe('SystemData runtime navigation adapter', () => {
     expect(groups[0]).toMatchObject({
       id: 'navigation.group.reference-data',
       labelKey: 'shell.navigation.group.reference-data',
-      fallbackLabel: '参考数据',
+      fallbackLabel: '基础配置',
     })
     expect(groups[0]?.items[0]).toMatchObject({
       routeName: 'reference-data-dictionaries',

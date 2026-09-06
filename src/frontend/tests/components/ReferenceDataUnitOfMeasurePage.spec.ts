@@ -173,8 +173,20 @@ async function mountPage(permissions = editPermissions) {
   await flushPromises()
   return { wrapper, router }
 }
-function button(wrapper: VueWrapper, label: string, index = 0) {
-  const items = wrapper.findAll('button').filter((item) => item.text() === label)
+async function selectRow(wrapper: VueWrapper, row: UnitDimensionSummary) {
+  const master = wrapper.findComponent<TableInstance>(AppDataTable)
+  master.findComponent(VxeTable).vm.$emit('cell-click', {
+    row,
+    column: { field: 'name' },
+  })
+  await flushPromises()
+}
+async function button(wrapper: VueWrapper, label: string, index = 0) {
+  let items = wrapper.findAll('button').filter((item) => item.text() === label)
+  if (!items[index]) {
+    await selectRow(wrapper, summary())
+    items = wrapper.findAll('button').filter((item) => item.text() === label)
+  }
   expect(items[index], `${label}[${index}]`).toBeDefined()
   return items[index]!
 }
@@ -252,22 +264,60 @@ afterEach(() => {
 })
 
 describe('UnitOfMeasurePage', () => {
-  it('moves Edit into More below 190px and restores the direct action when widened', async () => {
+  it('distinguishes no selection from an empty directory and keeps the empty-state create entry local', async () => {
+    const { wrapper } = await mountPage()
+    expect(wrapper.get('.unit-detail-panel').text()).toContain('Select a unit dimension')
+
+    api.listUnitDimensions.mockResolvedValueOnce({
+      items: [],
+      total: 0,
+      pageIndex: 1,
+      pageSize: 20,
+    })
+    const { wrapper: empty } = await mountPage()
+    expect(empty.get('.unit-detail-panel').text()).toContain('No unit dimensions yet')
+    expect(empty.get('[data-testid="unit-dimension-empty-create"]').text()).toBe('New dimension')
+  })
+
+  it('makes a dimension click the active object without opening the editor drawer', async () => {
+    const { wrapper } = await mountPage()
+    const master = wrapper.findComponent<TableInstance>(AppDataTable)
+    expect(master.props('selection')).toBe('none')
+    expect(master.props('activeRowKey')).toBeNull()
+    expect(master.props('columns')).toHaveLength(1)
+    master.findComponent(VxeTable).vm.$emit('cell-click', {
+      row: summary(),
+      column: { field: 'name' },
+    })
+    await flushPromises()
+
+    expect(api.getUnitDimension).toHaveBeenCalledWith(summary().id, expect.anything())
+    expect(master.props('activeRowKey')).toBe(summary().id)
+    expect(wrapper.get('.unit-detail-panel').text()).toContain('Tenant length')
+    expect(wrapper.findAllComponents(AppFormDrawer).every((item) => item.props('modelValue'))).toBe(
+      false,
+    )
+  })
+
+  it('keeps directory actions in the selected dimension context header', async () => {
+    const published = summary({
+      id: 'tenant-published',
+      revision: 1,
+      status: 'Published',
+      publishedOn: '2026-09-04T00:00:00Z',
+      publishedBy: 'operator',
+    })
     api.listUnitDimensions.mockResolvedValue({
-      items: [
-        summary(),
-        summary({
-          id: 'tenant-published',
-          revision: 1,
-          status: 'Published',
-          publishedOn: '2026-09-04T00:00:00Z',
-        }),
-      ],
+      items: [summary(), published],
       total: 2,
       pageIndex: 1,
       pageSize: 20,
     })
+    api.getUnitDimension.mockImplementation(async (id: string) =>
+      detail(id === published.id ? published : summary()),
+    )
     const { wrapper } = await mountPage()
+    await selectRow(wrapper, summary())
     const actions = () => wrapper.findAll('.unit-actions')[0]!
     const action = (label: string) =>
       actions()
@@ -279,28 +329,14 @@ describe('UnitOfMeasurePage', () => {
     for (const label of ['Publish', 'Disable']) {
       expect(action(label).element.closest('[data-testid="dropdown-menu"]')).not.toBeNull()
     }
-    const publishedActions = wrapper.findAll('.unit-actions')[1]!
+    expect(wrapper.find('.app-data-table__actions-column').exists()).toBe(false)
+
+    await selectRow(wrapper, published)
+    const publishedActions = wrapper.find('.unit-actions')
     for (const label of ['Clone new revision', 'Disable', 'Try conversion']) {
       const item = publishedActions.findAll('button').find((button) => button.text() === label)!
       expect(item.element.closest('[data-testid="dropdown-menu"]')).not.toBeNull()
     }
-
-    wrapper.findComponent(VxeTable).vm.$emit('resizable-change', {
-      resizeColumn: { field: '__actions' },
-      resizeWidth: 120,
-    })
-    await flushPromises()
-
-    expect(action('Edit').element.closest('[data-testid="dropdown-menu"]')).not.toBeNull()
-    expect(action('Details').element.closest('[data-testid="dropdown-menu"]')).toBeNull()
-
-    wrapper.findComponent(VxeTable).vm.$emit('resizable-change', {
-      resizeColumn: { field: '__actions' },
-      resizeWidth: 220,
-    })
-    await flushPromises()
-
-    expect(action('Edit').element.closest('[data-testid="dropdown-menu"]')).toBeNull()
   })
 
   it('keeps platform and tenant names side by side in an ordinary non-selecting list and protects system definitions', async () => {
@@ -310,7 +346,19 @@ describe('UnitOfMeasurePage', () => {
     expect(wrapper.text()).toContain('Tenant length')
     expect(wrapper.text()).toContain('Platform length')
 
-    await button(wrapper, 'Details', 1).trigger('click')
+    const selected = summary({
+      id: 'system-length',
+      name: 'Platform length',
+      scopeType: 'Platform',
+      tenantNId: null,
+      revision: 1,
+      status: 'Published',
+      sourceRevision: null,
+      isSystemDefined: true,
+      publishedOn: '2026-09-01T00:00:00Z',
+      publishedBy: 'SYSTEM',
+    })
+    await selectRow(wrapper, selected)
     await flushPromises()
     expect(wrapper.text()).toContain('Versioned seeds maintain this system dimension')
     expect(
@@ -366,7 +414,9 @@ describe('UnitOfMeasurePage', () => {
     })
     api.getUnitDimensionRevision.mockResolvedValue(runtime(published))
     const { wrapper } = await mountPage()
-    await button(wrapper, 'Try conversion').trigger('click')
+    api.getUnitDimension.mockResolvedValue(detail(published))
+    await selectRow(wrapper, published)
+    await (await button(wrapper, 'Try conversion')).trigger('click')
     await flushPromises()
     const conversion = drawer(wrapper, 'unit-conversion-submit')
     await conversion.get('[data-testid="unit-conversion-source-unit"]').setValue('M')
@@ -404,7 +454,7 @@ describe('UnitOfMeasurePage', () => {
       }),
     )
     const { wrapper } = await mountPage()
-    await button(wrapper, 'Edit').trigger('click')
+    await (await button(wrapper, 'Edit')).trigger('click')
     await flushPromises()
     const editor = drawer(wrapper, 'unit-dimension-save')
     await editor.get('[data-testid="unit-dimension-name"]').setValue('Unsaved precise length')

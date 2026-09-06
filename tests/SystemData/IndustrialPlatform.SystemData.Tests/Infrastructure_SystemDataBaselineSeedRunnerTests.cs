@@ -48,6 +48,8 @@ public sealed class SystemDataBaselineSeedRunnerTests
             && resource.RouteName == "pc-home"
             && resource.RequiredPermissionNId == "platform.home.view");
         Assert.Contains(harness.Store.Snapshot.Resources, resource => resource.NId == "tenant.navigation.custom");
+        Assert.Equal("基础配置", harness.Store.Snapshot.Resources.Single(resource => resource.NId == "referencedata.navigation.parameters").Name);
+        Assert.Equal("元数据定义", harness.Store.Snapshot.Resources.Single(resource => resource.NId == "referencedata.navigation.metadata").Name);
         Assert.Contains("SDM-013", harness.Store.AppliedSeedKeys);
         Assert.Contains("SDM-017", harness.Store.AppliedSeedKeys);
         Assert.Contains(SystemDataBaselineSeedRunner.ReferenceDataManifestSeedKey, harness.Store.AppliedSeedKeys);
@@ -65,6 +67,20 @@ public sealed class SystemDataBaselineSeedRunnerTests
         Assert.True(second.Ready);
         Assert.Equal(revision, harness.Store.Snapshot.Revision);
         Assert.Equal(commitCount, harness.Store.CommitCount);
+    }
+
+    [Fact]
+    public async Task Apply_preserves_a_customized_reference_data_resource_title()
+    {
+        using var harness = new BaselineHarness(includeLegacySeed: true, legacyParameterName: "租户参数入口");
+
+        var initial = await harness.Initializer.InspectAsync(harness.Context, CancellationToken.None);
+        await harness.Initializer.ApplyAsync(
+            harness.Context,
+            await harness.Initializer.PlanAsync(harness.Context, initial, CancellationToken.None),
+            CancellationToken.None);
+
+        Assert.Equal("租户参数入口", harness.Store.Snapshot.Resources.Single(resource => resource.NId == "referencedata.navigation.parameters").Name);
     }
 
     [Fact]
@@ -92,6 +108,7 @@ public sealed class SystemDataBaselineSeedRunnerTests
         var service = new ResourceNavigationService(harness.Store, new VerifiedPermissionRegistry());
 
         var preview = await service.PreviewDefaultImportAsync(Tenant, CancellationToken.None);
+        Assert.Equal("基础配置", preview.Items.Single(item => item.NodeNId == "navigation.group.reference-data").Label);
         Assert.Equal(8, preview.Items.Count(item => item.NodeNId == "navigation.group.reference-data" || item.NodeNId.StartsWith("navigation.link.reference-data-", StringComparison.Ordinal)));
         Assert.All(preview.Items.Where(item => item.NodeNId.StartsWith("navigation.link.reference-data-", StringComparison.Ordinal)), item => Assert.Equal("Add", item.Action));
 
@@ -282,10 +299,10 @@ public sealed class SystemDataBaselineSeedRunnerTests
         private readonly string _dbPath = Path.Combine(Path.GetTempPath(), $"industrial-platform-systemdata-baseline-{Guid.NewGuid():N}.db");
         private readonly SqlSugarDbContext _dbContext;
 
-        public BaselineHarness(bool includeLegacySeed = false)
+        public BaselineHarness(bool includeLegacySeed = false, string legacyParameterName = "参数管理")
         {
             Store = new BaselineStore(Tenant);
-            if (includeLegacySeed) Store.SeedLegacyState();
+            if (includeLegacySeed) Store.SeedLegacyState(legacyParameterName);
 
             _dbContext = new SqlSugarDbContext(Options.Create(new SqlSugarOptions
             {
@@ -376,7 +393,7 @@ public sealed class SystemDataBaselineSeedRunnerTests
 
         public void ReplaceSnapshot(ControlPlaneSnapshot snapshot) => Snapshot = snapshot;
 
-        public void SeedLegacyState()
+        public void SeedLegacyState(string legacyParameterName)
         {
             var legacyChecksum = Checksum("SDM-013");
             var manifest = new ModuleManifestState(
@@ -413,9 +430,29 @@ public sealed class SystemDataBaselineSeedRunnerTests
                 "tenant-custom",
                 "tenant.custom.view",
                 [UiTerminal.Pc]);
+            var legacyReferenceDataResource = UiResource.Create(
+                tenantNId,
+                "referencedata.navigation.metadata",
+                "referencedata",
+                "1",
+                UiResourceType.Page,
+                "元数据 Schema",
+                "reference-data-metadata",
+                "referencedata.metadata.view",
+                [UiTerminal.Pc, UiTerminal.Pda, UiTerminal.Mobile]);
+            var legacyParameterResource = UiResource.Create(
+                tenantNId,
+                "referencedata.navigation.parameters",
+                "referencedata",
+                "1",
+                UiResourceType.Page,
+                legacyParameterName,
+                "reference-data-parameters",
+                "referencedata.parameter.view",
+                [UiTerminal.Pc, UiTerminal.Pda, UiTerminal.Mobile]);
             Snapshot = Snapshot with
             {
-                Resources = [legacyResource, customResource],
+                Resources = [legacyResource, customResource, legacyReferenceDataResource, legacyParameterResource],
                 Manifests = [manifest],
                 PermissionReceipts = [new PermissionReceipt("systemdata", "1", legacyChecksum, true)],
             };

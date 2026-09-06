@@ -39,6 +39,7 @@ const master = ref<{
   clearSelection: () => void
 }>()
 const selectedId = ref<string | null>(null)
+const currentKeyId = ref<string | null>(null)
 const domain = ref<ConfigurationDomain | null>(null)
 const detailLoading = ref(false)
 const query = reactive({ keyword: '', scopeType: '', status: '' })
@@ -99,6 +100,9 @@ const activeKey = computed(
 const selectedKey = computed(
   () => domain.value?.keys.find((item) => item.id === keyId.value) ?? null,
 )
+const currentKey = computed(
+  () => domain.value?.keys.find((item) => item.id === currentKeyId.value) ?? null,
+)
 const dirty = computed(
   () => editorKind.value !== null && editing.value && JSON.stringify(form) !== savedSnapshot.value,
 )
@@ -126,28 +130,10 @@ const types = computed(() =>
   ).map((value) => ({ value, label: copy.value[`type${value}`] })),
 )
 const domainColumns = computed<AppDataTableColumn[]>(() => [
-  { field: 'name', title: copy.value.domains, minWidth: 165, filter: false },
-  { field: 'scopeType', title: copy.value.scope, width: 90, filter: false },
-  { field: 'status', title: copy.value.status, width: 95, filter: false },
+  { field: 'name', title: copy.value.domains, minWidth: 120, filter: false },
 ])
 const keyColumns = computed<AppDataTableColumn[]>(() => [
-  { field: 'nId', title: copy.value.nId, minWidth: 160 },
-  { field: 'name', title: copy.value.name, minWidth: 150 },
-  {
-    field: 'dataType',
-    title: copy.value.dataType,
-    width: 120,
-    filter: { kind: 'select', options: types.value },
-  },
-  { field: 'valueMode', title: copy.value.valueMode, width: 100 },
-  { field: 'valueJson', title: copy.value.value, minWidth: 180 },
-  {
-    field: 'status',
-    title: copy.value.status,
-    width: 110,
-    filter: { kind: 'select', options: statusOptions.value },
-  },
-  { field: 'isReadOnly', title: copy.value.readOnlyKey, width: 105 },
+  { field: 'name', title: copy.value.keys, minWidth: 160, filter: false },
 ])
 const valueColumns = computed<AppDataTableColumn[]>(() => [
   { field: 'nId', title: copy.value.nId, minWidth: 105 },
@@ -286,6 +272,7 @@ function clearSelection() {
   selectionSequence++
   selectionRequest?.abort()
   selectedId.value = null
+  currentKeyId.value = null
   domain.value = null
   detailLoading.value = false
 }
@@ -325,8 +312,8 @@ function reset() {
   Object.assign(query, { keyword: '', scopeType: '', status: '' })
   search()
 }
-async function selectDomain(rows: ConfigurationDomainSummary[]) {
-  const id = rows[0]?.id ?? null
+async function selectDomain(row: ConfigurationDomainSummary) {
+  const id = row.id
   if (id === selectedId.value) return
   if (!(await allowDiscard())) return
   editorKind.value = null
@@ -340,12 +327,21 @@ async function selectDomain(rows: ConfigurationDomainSummary[]) {
   const sequence = selectionSequence
   try {
     const result = await api.getConfigurationDomain(id, { signal: selectionRequest.signal })
-    if (sequence === selectionSequence) domain.value = result
+    if (sequence === selectionSequence) {
+      domain.value = result
+      currentKeyId.value = result.keys[0]?.id ?? null
+    }
   } catch (caught) {
     if (sequence === selectionSequence) report(caught)
   } finally {
     if (sequence === selectionSequence) detailLoading.value = false
   }
+}
+async function selectKey(row: ConfigurationKey) {
+  const id = row.id
+  if (id === currentKeyId.value) return
+  if (!(await allowDiscard())) return
+  currentKeyId.value = id
 }
 function resetForm() {
   cancelEditorReload()
@@ -423,7 +419,7 @@ async function openKey(key: ConfigurationKey | null, edit = false) {
   if (form.dataType === 'Enum') void loadEnum()
 }
 async function openValue(value: ConfigurationMultiValue | null) {
-  const key = selectedKey.value
+  const key = selectedKey.value ?? currentKey.value
   if (!key || !domain.value || !(await allowDiscard())) return
   resetForm()
   editorDomain.value = domain.value
@@ -445,6 +441,53 @@ async function openValue(value: ConfigurationMultiValue | null) {
   editorKind.value = 'value'
   snapshot()
   if (form.dataType === 'Enum') void loadEnum()
+}
+
+async function removeValue(
+  value: ConfigurationMultiValue,
+  targetKey: ConfigurationKey | null = currentKey.value,
+) {
+  const targetDomain = editorDomain.value ?? domain.value
+  const key = targetKey
+  if (!api || !targetDomain || !key || !canEditKey(key) || busy.value) return
+  let reason: string
+  try {
+    const response = await ElMessageBox.prompt(copy.value.removeValueHint, copy.value.removeValue, {
+      inputPlaceholder: copy.value.changeReason,
+      inputValidator: (input) =>
+        input.trim().length > 0 && input.length <= 500 ? true : copy.value.required,
+      inputErrorMessage: copy.value.required,
+      confirmButtonText: copy.value.removeValue,
+      cancelButtonText: copy.value.cancel,
+    })
+    reason = response.value.trim()
+  } catch {
+    return
+  }
+  busy.value = true
+  clearError()
+  try {
+    const result = await api.deleteConfigurationValue(targetDomain.id, key.id, value.id, {
+      changeReason: reason,
+      expectedAppDomainOptimisticVersion: targetDomain.optimisticVersion,
+      expectedAppDomainConcurrencyVersion: targetDomain.concurrencyVersion,
+    })
+    domain.value = result
+    editorDomain.value = result
+    selectedId.value = result.id
+    currentKeyId.value = key.id
+    ElMessage.success(copy.value.saved)
+    await master.value?.reload()
+  } catch (caught) {
+    report(caught)
+  } finally {
+    busy.value = false
+  }
+}
+
+function openCurrentValue(value: ConfigurationMultiValue | null) {
+  if (currentKey.value) keyId.value = currentKey.value.id
+  void openValue(value)
 }
 async function loadEnum() {
   enumRequest?.abort()
@@ -733,11 +776,6 @@ function closeViewer(value = false) {
     clearError()
   }
 }
-function valueDisplay(key: ConfigurationKey) {
-  return key.valueMode === 'Multi'
-    ? String(key.multiValues.filter((item) => item.enabled).length)
-    : (key.valueJson ?? key.defaultValueJson ?? copy.value.blocksInheritance)
-}
 function beforeUnload(event: BeforeUnloadEvent) {
   if (dirty.value) event.preventDefault()
 }
@@ -761,6 +799,7 @@ onBeforeUnmount(() => {
 
 <template>
   <AppPage
+    class="parameter-page"
     data-testid="reference-data-parameters"
     :title="copy.parameterTitle"
     :description="copy.parameterDescription"
@@ -784,63 +823,64 @@ onBeforeUnmount(() => {
       show-icon
       ><p v-if="traceId">{{ copy.traceId }}: {{ traceId }}</p></el-alert
     >
-    <AppQueryPanel show-actions grid @submit="search" @reset="reset">
-      <label class="parameter-query"
-        ><span>{{ copy.keyword }}</span
-        ><el-input
-          v-model="query.keyword"
-          :aria-label="copy.keyword"
-          maxlength="200"
-          clearable
-          @keyup.enter="search"
-      /></label>
-      <label class="parameter-query"
-        ><span>{{ copy.scope }}</span
-        ><el-select
-          v-model="query.scopeType"
-          :aria-label="copy.scope"
-          clearable
-          :placeholder="copy.all"
-          ><el-option v-for="item in scopeOptions" :key="item.value" v-bind="item" /></el-select
-      ></label>
-      <label class="parameter-query"
-        ><span>{{ copy.status }}</span
-        ><el-select
-          v-model="query.status"
-          :aria-label="copy.status"
-          clearable
-          :placeholder="copy.all"
-          ><el-option v-for="item in statusOptions" :key="item.value" v-bind="item" /></el-select
-      ></label>
-    </AppQueryPanel>
     <div class="parameter-layout">
       <section class="parameter-master" :aria-label="copy.domains">
+        <AppQueryPanel show-actions grid @submit="search" @reset="reset">
+          <label class="parameter-query"
+            ><span>{{ copy.keyword }}</span
+            ><el-input
+              v-model="query.keyword"
+              :aria-label="copy.keyword"
+              maxlength="200"
+              clearable
+              @keyup.enter="search"
+          /></label>
+          <label class="parameter-query"
+            ><span>{{ copy.scope }}</span
+            ><el-select
+              v-model="query.scopeType"
+              :aria-label="copy.scope"
+              clearable
+              :placeholder="copy.all"
+              ><el-option v-for="item in scopeOptions" :key="item.value" v-bind="item" /></el-select
+          ></label>
+          <label class="parameter-query"
+            ><span>{{ copy.status }}</span
+            ><el-select
+              v-model="query.status"
+              :aria-label="copy.status"
+              clearable
+              :placeholder="copy.all"
+              ><el-option
+                v-for="item in statusOptions"
+                :key="item.value"
+                v-bind="item" /></el-select
+          ></label>
+        </AppQueryPanel>
         <AppDataTable
           ref="master"
           table-key="reference-data-parameter-domains"
           :columns="domainColumns"
           :loader="loadDomains"
           row-key="id"
-          selection="single"
-          :selected-row-key="selectedId"
+          selection="none"
+          :active-row-key="selectedId"
           toolbar-profile="compact"
           :toolbar-title="copy.domains"
+          :quick-search-enabled="false"
           :page-size="20"
-          @selection-change="selectDomain"
+          @row-click="selectDomain"
           @load-error="report"
         >
           <template
             v-for="col in domainColumns"
             :key="col.field"
             #[`cell-${col.field}`]="{ row, column }"
-            ><div v-if="column.field === 'name'">
+            ><div v-if="column.field === 'name'" class="parameter-directory-name">
               <strong>{{ row.name }}</strong
               ><small class="parameter-id">{{ row.nId }}</small>
             </div>
-            <span v-else-if="column.field === 'scopeType'">{{
-              row.scopeType === 'Tenant' ? copy.tenant : copy.platform
-            }}</span
-            ><span v-else-if="column.field === 'status'">{{
+            <span v-else-if="column.field === 'status'">{{
               row.status === 'Active' ? copy.active : copy.disabled
             }}</span
             ><span v-else>{{ row[column.field] }}</span></template
@@ -880,7 +920,11 @@ onBeforeUnmount(() => {
             :columns="keyColumns"
             :rows="domain.keys"
             row-key="id"
+            selection="none"
+            :active-row-key="currentKeyId"
+            toolbar-profile="compact"
             :page-size="20"
+            @row-click="selectKey"
           >
             <template #toolbar-actions
               ><el-button
@@ -897,55 +941,101 @@ onBeforeUnmount(() => {
               v-for="col in keyColumns"
               :key="col.field"
               #[`cell-${col.field}`]="{ row, column }"
-              ><span v-if="column.field === 'valueJson'" :title="valueDisplay(row)">{{
-                valueDisplay(row)
-              }}</span
-              ><span v-else-if="column.field === 'valueMode'">{{
-                row.valueMode === 'Single' ? copy.singleValue : copy.multiValue
-              }}</span
-              ><span v-else-if="column.field === 'status'">{{
-                row.status === 'Active' ? copy.active : copy.disabled
-              }}</span
-              ><span v-else-if="column.field === 'isReadOnly'">{{
-                row.isReadOnly ? copy.readOnlyKey : '—'
-              }}</span
-              ><span v-else-if="column.field === 'dataType'">{{
-                types.find((item) => item.value === row.dataType)?.label
-              }}</span
-              ><span v-else>{{ row[column.field] }}</span></template
-            >
-            <template #actions="{ row, availableWidth }"
-              ><el-button link @click="openKey(row)">{{ copy.detail }}</el-button
-              ><el-button
-                v-if="canEditKey(row) && availableWidth >= 180"
-                link
-                type="primary"
-                @click="openKey(row, true)"
-                >{{ copy.edit }}</el-button
-              ><el-dropdown trigger="click"
-                ><el-button link>{{ copy.more }}</el-button
-                ><template #dropdown
-                  ><el-dropdown-menu
-                    ><el-dropdown-item
-                      v-if="canEditKey(row) && availableWidth < 180"
-                      @click="openKey(row, true)"
-                      >{{ copy.edit }}</el-dropdown-item
-                    ><el-dropdown-item @click="openHistory(row)">{{
-                      copy.history
-                    }}</el-dropdown-item
-                    ><el-dropdown-item @click="openEffective(row)">{{
-                      copy.viewEffective
-                    }}</el-dropdown-item
-                    ><el-dropdown-item
-                      v-if="canState(row, row.status !== 'Active')"
-                      @click="changeState(row, null, row.status !== 'Active')"
-                      >{{ row.status === 'Active' ? copy.disable : copy.enable }}</el-dropdown-item
-                    ></el-dropdown-menu
-                  ></template
-                ></el-dropdown
-              ></template
+              ><div v-if="column.field === 'name'" class="parameter-directory-name">
+                <strong>{{ row.name }}</strong>
+                <small :title="`${row.nId} · ${row.dataType} · ${row.valueMode} · ${row.status}`">
+                  {{ row.nId }} · {{ types.find((item) => item.value === row.dataType)?.label }} ·
+                  {{ row.valueMode === 'Single' ? copy.singleValue : copy.multiValue }} ·
+                  {{ row.status === 'Active' ? copy.active : copy.disabled }}
+                </small>
+              </div></template
             >
           </AppDataTable>
+        </template>
+      </section>
+      <section class="parameter-values" :aria-label="copy.valueDetails">
+        <el-empty v-if="!domain" :description="copy.selectDomain" />
+        <el-empty v-else-if="!currentKey" :description="copy.selectKey" />
+        <template v-else>
+          <header class="parameter-values-context">
+            <div>
+              <h3>{{ currentKey.name }}</h3>
+              <p>
+                {{ currentKey.nId }} ·
+                {{ currentKey.valueMode === 'Multi' ? copy.multiValue : copy.singleValue }}
+              </p>
+            </div>
+            <el-button
+              v-if="currentKey.valueMode === 'Multi' && canEditKey(currentKey)"
+              type="primary"
+              :icon="Plus"
+              :disabled="currentKey.multiValues.length >= 1000"
+              @click="openCurrentValue(null)"
+              >{{ copy.newValue }}</el-button
+            >
+            <div class="parameter-actions">
+              <el-button data-testid="parameter-key-details" @click="openKey(currentKey)">{{
+                copy.detail
+              }}</el-button>
+              <el-button
+                v-if="canEditKey(currentKey)"
+                data-testid="parameter-key-edit"
+                @click="openKey(currentKey, true)"
+                >{{ copy.edit }}</el-button
+              >
+              <el-button @click="openHistory(currentKey)">{{ copy.history }}</el-button>
+              <el-button @click="openEffective(currentKey)">{{ copy.viewEffective }}</el-button>
+              <el-button
+                v-if="canState(currentKey, currentKey.status !== 'Active')"
+                @click="changeState(currentKey, null, currentKey.status !== 'Active')"
+                >{{ currentKey.status === 'Active' ? copy.disable : copy.enable }}</el-button
+              >
+            </div>
+          </header>
+          <template v-if="currentKey.valueMode === 'Multi'">
+            <el-alert :title="copy.multiValueHint" type="info" :closable="false" />
+            <AppDataTable
+              :key="currentKey.id"
+              table-key="reference-data-parameter-values-inline"
+              :columns="valueColumns"
+              :rows="currentKey.multiValues"
+              row-key="id"
+              toolbar-profile="compact"
+              selection="none"
+            >
+              <template #actions="{ row }"
+                ><el-button
+                  v-if="canEditKey(currentKey)"
+                  link
+                  type="primary"
+                  @click="openCurrentValue(row)"
+                  >{{ copy.edit }}</el-button
+                ><el-button
+                  v-if="canEditKey(currentKey)"
+                  link
+                  type="danger"
+                  :disabled="busy"
+                  @click="removeValue(row, currentKey)"
+                  >{{ copy.removeValue }}</el-button
+                ></template
+              >
+            </AppDataTable>
+            <p v-if="currentKey.multiValues.length === 0">{{ copy.noValues }}</p>
+          </template>
+          <template v-else>
+            <el-alert :title="copy.singleValueNoDetails" type="info" :closable="false" />
+            <el-descriptions :column="1" border>
+              <el-descriptions-item :label="copy.value">{{
+                currentKey.valueJson ?? copy.notConfigured
+              }}</el-descriptions-item>
+              <el-descriptions-item :label="copy.defaultValue">{{
+                currentKey.defaultValueJson ?? copy.notConfigured
+              }}</el-descriptions-item>
+              <el-descriptions-item :label="copy.status">{{
+                currentKey.status === 'Active' ? copy.active : copy.disabled
+              }}</el-descriptions-item>
+            </el-descriptions>
+          </template>
         </template>
       </section>
     </div>
@@ -1030,6 +1120,13 @@ onBeforeUnmount(() => {
               :disabled="busy || (row.enabled && row.isDefault)"
               @click="changeState(activeKey, row, !row.enabled)"
               >{{ row.enabled ? copy.disable : copy.enable }}</el-button
+            ><el-button
+              v-if="canSubmit"
+              link
+              type="danger"
+              :disabled="busy"
+              @click="removeValue(row, activeKey)"
+              >{{ copy.removeValue }}</el-button
             ></template
           >
         </AppDataTable>
@@ -1311,21 +1408,105 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.parameter-page {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
 .parameter-layout {
   display: grid;
-  grid-template-columns: minmax(310px, 360px) minmax(0, 1fr);
+  flex: 1 1 0;
+  grid-template-columns: minmax(250px, 280px) minmax(320px, 360px) minmax(0, 1fr);
   gap: 16px;
-  align-items: start;
+  min-height: 0;
+  align-items: stretch;
 }
 .parameter-master,
-.parameter-detail {
+.parameter-detail,
+.parameter-values {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.parameter-master {
+  gap: var(--ip-space-3);
+}
+.parameter-page :deep(.app-page__body) {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.parameter-page :deep(.app-query-panel) {
+  flex: 0 0 auto;
+}
+.parameter-master :deep(.app-data-table),
+.parameter-detail :deep(.app-data-table),
+.parameter-values :deep(.app-data-table) {
+  flex: 1 1 0;
+  min-height: 0;
+}
+.parameter-master :deep(.app-data-table__card),
+.parameter-detail :deep(.app-data-table__card),
+.parameter-values :deep(.app-data-table__card) {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
 }
 .parameter-detail {
   padding: 16px;
   border: 1px solid var(--el-border-color-light);
   border-radius: 8px;
   background: var(--el-bg-color);
+}
+.parameter-values {
+  min-height: 0;
+  padding: 16px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 8px;
+  background: var(--el-bg-color);
+}
+.parameter-detail > :deep(.el-empty),
+.parameter-values > :deep(.el-empty) {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.parameter-directory-name {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+.parameter-directory-name strong,
+.parameter-directory-name small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.parameter-directory-name small {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+.parameter-values-context {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.parameter-values-context h3 {
+  margin: 0;
+}
+.parameter-values-context p {
+  margin: 6px 0 0;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
 }
 .parameter-query {
   display: grid;
@@ -1383,10 +1564,20 @@ onBeforeUnmount(() => {
 }
 @media (max-width: 1100px) {
   .parameter-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+    overflow: auto;
+  }
+  .parameter-values {
+    grid-column: 1 / -1;
   }
 }
 @media (max-width: 600px) {
+  .parameter-layout {
+    grid-template-columns: 1fr;
+  }
+  .parameter-values {
+    grid-column: auto;
+  }
   .parameter-form-grid {
     grid-template-columns: 1fr;
   }

@@ -257,6 +257,11 @@ describe('CodingRulesPage', () => {
     const { wrapper } = await mountPage()
     const table = wrapper.findComponent<TableInstance>(AppDataTable)
     expect(table.props('selection')).toBe('none')
+    expect(table.props('activeRowKey')).toBeNull()
+    expect(table.props('toolbarProfile')).toBe('full')
+    for (const tool of ['query-toggle', 'sort', 'group', 'export']) {
+      expect(wrapper.find(`[data-testid="app-data-table-${tool}"]`).exists()).toBe(true)
+    }
     expect(wrapper.text()).toContain('Tenant lot rule')
     expect(wrapper.text()).toContain('Platform lot rule')
 

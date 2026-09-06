@@ -67,6 +67,16 @@ public sealed class ReferenceDataServiceInitializerTests : IDisposable
             CancellationToken.None);
         Assert.Equal(ReferenceDataServiceInitializer.BaselineChecksum, seed!.Checksum);
         Assert.Equal("System", seed.Scope);
+        var unitSeed = await new ReferenceDataInitializationLedger(_dbContext).GetSeedAsync(
+            UnitOfMeasureSystemSeed.SeedKey,
+            UnitOfMeasureSystemSeed.SeedVersion,
+            CancellationToken.None);
+        Assert.Equal(UnitOfMeasureSystemSeed.Checksum, unitSeed!.Checksum);
+        Assert.Equal("System", unitSeed.Scope);
+        Assert.Equal(6, await _dbContext.SqlSugar.Ado.GetIntAsync(
+            "SELECT COUNT(*) FROM reference_data_unit_of_measure_dimension"));
+        Assert.Equal(12, await _dbContext.SqlSugar.Ado.GetIntAsync(
+            "SELECT COUNT(*) FROM reference_data_unit_of_measure_unit"));
         Assert.True(await TableExistsAsync("reference_data_schema_migrations"));
         Assert.True(await TableExistsAsync("reference_data_seed_ledger"));
         Assert.Equal(1, await _dbContext.SqlSugar.Ado.GetIntAsync(
@@ -75,6 +85,33 @@ public sealed class ReferenceDataServiceInitializerTests : IDisposable
             await _dbContext.SqlSugar.Ado.GetStringAsync(
                 "SELECT migration_id FROM reference_data_schema_migrations "
                 + "ORDER BY applied_on DESC,migration_id DESC LIMIT 1"));
+    }
+
+    [Fact]
+    public async Task Apply_replays_missing_system_units_without_duplicate_seed_ledger_rows()
+    {
+        var context = CreateContext();
+        var inspection = await _initializer.InspectAsync(context, CancellationToken.None);
+        var plan = await _initializer.PlanAsync(context, inspection, CancellationToken.None);
+        await _initializer.ApplyAsync(context, plan, CancellationToken.None);
+
+        await _dbContext.SqlSugar.Ado.ExecuteCommandAsync(
+            "DELETE FROM reference_data_unit_of_measure_unit WHERE n_id='G'");
+        Assert.False((await _initializer.InspectAsync(context, CancellationToken.None)).Ready);
+
+        var repairInspection = await _initializer.InspectAsync(context, CancellationToken.None);
+        await _initializer.ApplyAsync(
+            context,
+            await _initializer.PlanAsync(context, repairInspection, CancellationToken.None),
+            CancellationToken.None);
+        await _initializer.ApplyAsync(context, plan, CancellationToken.None);
+
+        Assert.True((await _initializer.VerifyAsync(context, CancellationToken.None)).Ready);
+        Assert.Equal(1, await _dbContext.SqlSugar.Ado.GetIntAsync(
+            "SELECT COUNT(*) FROM reference_data_seed_ledger "
+            + "WHERE seed_key='reference-data.unit-of-measure.system' AND seed_version='1'"));
+        Assert.Equal(1, await _dbContext.SqlSugar.Ado.GetIntAsync(
+            "SELECT COUNT(*) FROM reference_data_unit_of_measure_unit WHERE n_id='G'"));
     }
 
     [Fact]
