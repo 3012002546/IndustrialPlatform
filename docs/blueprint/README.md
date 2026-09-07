@@ -11,11 +11,11 @@
 - API 使用包含 `Z` 或明确偏移量的 ISO 8601 / RFC 3339 时间字符串。
 - PostgreSQL 持久化瞬时时间统一使用 `timestamp with time zone`（`timestamptz`），以 UTC 保存；展示时按用户、工厂或设备时区转换。
 
-当前执行优先级由 [`09-Industrial Platform开发总TodoList.md`](09-Industrial%20Platform开发总TodoList.md) 的 PF/MES 阶段编号维护，不再由文件编号推断。2026-09-06 为 PF-04 核验前置：BuildingBlocks/可运行基线/统一前端、PF-00 当前范围与 PF-01 已交付；PF-02 仍 active，具体真实验收缺口见 CURRENT；PF-03 七模块已于 2026-09-05 完成并合入；PF-04 文档已整改、功能未启动。历史验收不覆盖当前后续 WIP。
+当前执行优先级由 [`09-Industrial Platform开发总TodoList.md`](09-Industrial%20Platform开发总TodoList.md) 的 PF/MES 阶段编号维护，不再由文件编号推断。截至 2026-09-07：BuildingBlocks/可运行基线/统一前端、PF-00 当前范围与 PF-01 已交付；PF-02 仍 active，具体真实验收缺口见 CURRENT；PF-03 七模块已于 2026-09-05 完成并合入；PF-04 Core 已有提交 `8625efb`、真实验收待补。历史验收不覆盖当前后续 WIP。
 
-平台基础层当前七个 Service Host、内部模块边界和阶段映射统一读取 [`32-Industrial Platform Service Host与内部模块边界.md`](32-Industrial%20Platform%20Service%20Host与内部模块边界.md)。`Service Host != Domain Module != Initialization Unit != Deployment Unit`；旧文档中的独立 Service 名称在冲突时只表示未来拆分目标。服务初始化统一读取 [`33-Industrial Platform SystemData数据库编排与环境引导.md`](33-Industrial%20Platform%20SystemData数据库编排与环境引导.md)：SystemData 负责 Topology、Orchestration、Policy、Observation，各服务负责 Migration、Seed、Bootstrap、Verify、Ledger，runtime readiness 只取本地数据库事实。
+平台基础层规划八个 Service Host、内部模块边界和阶段映射统一读取 [`32-Industrial Platform Service Host与内部模块边界.md`](32-Industrial%20Platform%20Service%20Host与内部模块边界.md)。`Service Host != Domain Module != Initialization Unit != Deployment Unit`；旧文档中的独立 Service 名称在冲突时只表示未来拆分目标。服务初始化统一读取 [`33-Industrial Platform SystemData数据库编排与环境引导.md`](33-Industrial%20Platform%20SystemData数据库编排与环境引导.md)：SystemData 负责 Topology、Orchestration、Policy、Observation，各服务负责 Migration、Seed、Bootstrap、Verify、Ledger，runtime readiness 只取本地数据库事实。
 
-PF-04 当前入口为[实施 07 V1.1](../implementation/07-Industrial%20Platform%20File%20Notification%20Audit开发实施方案.md)：2026-09-06 蓝图与开发 TODO 整改后已复评为 Core 可派遣（001～009），功能未启动；010 Advanced 后续待细化。蓝图 05 第 7.3 节、30 第 8 章、26 第 20 章及 32 已收束为跨设备续传、持久通知跨端刷新与 Audit Core。具体开发就绪依据、任务内验证和验收限制见实施 07 第 1.3、16.3、17 章。
+PF-04 当前入口为[实施 07 V1.1](../implementation/07-Industrial%20Platform%20File%20Notification%20Audit开发实施方案.md)：2026-09-06 蓝图与开发 TODO 整改后已复评为 Core 可派遣（001～009），2026-09-07 Core 已提交、真实验收待补；010 Advanced 后续待细化。蓝图 05 第 7.3 节、30 第 8 章、26 第 20 章及 32 已收束为跨设备续传、持久通知跨端刷新与 Audit Core。具体开发就绪依据、任务内验证和验收限制见实施 07 第 1.3、16.3、17 章。
 
 ReferenceData 当前为一个 Service Host 和七个逻辑模块（原五模块加 StateMachine、UnitOfMeasure），七模块已完成并合入。固定使用一个 `referencedata_db`、一个 `reference_data` Schema、模块表前缀、一个服务级 Migration/Ledger、一个带 `ModuleKey` 的服务级 Outbox 与共享基础设施；只有出现真实入站事件消费者时才增加服务级 Inbox/Checkpoint，只有形成独立持久化生命周期时才拆分初始化单元。测试项目与门禁统一读取蓝图 29：常规测试按服务/部署角色收敛，真实基础设施进入统一 IntegrationTests，发布验证分别覆盖 Gateway 分布式入口和 UnifiedHost 统一入口。
 
@@ -55,6 +55,8 @@ ReferenceData 管理字典、参数、动态配置、元数据、编码规则、
 | 29 | [自动化测试体系](29-Industrial%20Platform自动化测试体系.md) | 已确认 V1.1 | 01, 12 | 当前测试分层与门禁母版 |
 | 30 | [日志审计与可观测性平台设计](30-Industrial%20Platform日志审计与可观测性平台设计.md) | 已整理 | 01 | 规划 |
 | 31 | [权限体系与安全架构设计](31-Industrial%20Platform权限体系与安全架构设计.md) | 已整理 | 01, 13 | 规划 |
-| 32 | [Service Host 与内部模块边界](32-Industrial%20Platform%20Service%20Host与内部模块边界.md) | 已确认 V1.3 | 01, 05, 09 | Service Host、模块、初始化单元、部署角色权威母版 |
+| 32 | [Service Host 与内部模块边界](32-Industrial%20Platform%20Service%20Host与内部模块边界.md) | 已确认 V1.4 | 01, 05, 09 | Service Host、模块、初始化单元、部署角色权威母版 |
 | 33 | [SystemData 服务初始化编排与环境引导](33-Industrial%20Platform%20SystemData数据库编排与环境引导.md) | 已确认 V3.2 | 05, 06, 07, 20, 27, 30, 31, 32 | SystemData 控制面与服务初始化所有权母版；V3.2 只增补 PF-03 模块摘要，不改变 V3.1 初始化协议 |
+| 34 | [终端运行时与客户端架构](34-Industrial%20Platform终端运行时与客户端架构.md) | 新增设计基线，未实施 | 04, 05, 32 | PF-06A / 实施 09A，PF-05/06 Web 后执行 |
+| 35 | [标签管理平台设计](35-Industrial%20Platform标签管理平台设计.md) | 新增设计基线，待设备/客户契约核验 | 32, 33, 34 | PF-10B / 实施 13B，先于 PF-11 |
 | 后续设计 | [后续设计](后续设计.md) | 路线参考 | 01–33 | 后续章节生成提示词与路线参考 |

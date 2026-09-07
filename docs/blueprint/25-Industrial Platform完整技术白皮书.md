@@ -238,11 +238,13 @@ Industrial Platform
 
 ├── OperationsCenter Service
 
+├── Label Service（PF-10B，规划）
+
 └── IoTCollector Service
 
 ```
 
-七个宿主的内部模块、阶段映射和未来拆分规则见蓝图 32。MasterData、OperationalData、Planning、WorkOrder、Weighting、Trace、BatchRecord 与 Industrial Data 等名称保留为 MES 后续阶段或长期可拆分目标，不计入当前平台基础层七宿主。
+八个规划宿主的内部模块、阶段映射和未来拆分规则见蓝图 32。MasterData、OperationalData、Planning、WorkOrder、Weighting、Trace、BatchRecord 与 Industrial Data 等名称保留为 MES 后续阶段或长期可拆分目标，不计入当前平台基础层八个规划宿主。
 
 `SystemData.Service` 同时提供后续服务数据库编排/环境引导控制面。新服务以 manifest 声明数据库与迁移期望，SystemData 负责 plan、异步 provision/apply、最小角色/授权、Operation 状态和审计；业务服务仍拥有领域 Schema 与迁移产物。SystemData 自身数据库由 PostgreSQL 18 基础设施最小引导，不新增 Database Migrator 核心宿主，完整边界见蓝图 33。
 
@@ -1263,3 +1265,5 @@ Industrial Platform最终形成：
 > 用软件工程、工业知识和AI技术，打造下一代制造业数字化基础设施。
 
 ---
+
+> 2026-09-07 路线增量：新增 Label.Service 为第八个规划核心 Host；PF-05/06 Web 后执行 PF-06A 终端专项，PF-10B 标签平台先于 PF-11 IoTCollector。详细映射以蓝图 32、总 Todo 为准，设计见蓝图 34/35；不代表新宿主或客户端已实现。

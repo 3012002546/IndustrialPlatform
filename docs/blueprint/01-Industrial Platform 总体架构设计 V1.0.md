@@ -221,7 +221,7 @@ SystemData 负责行政组织、岗位、菜单导航、功能开关、服务目
 
 平台基础功能、工业合规聊天、远程协助、主题体系和独立模块边界详见 `05-Industrial Platform平台基础功能与独立模块设计.md`。
 
-当前平台基础层固定为七个核心 Service Host：`Identity.Service`、`SystemData.Service`、`ReferenceData.Service`、`Collaboration.Service`、`PlatformStudio.Service`、`OperationsCenter.Service`、`IoTCollector.Service`。Worker、Agent、Screego、TURN 与本地模型运行时属于辅助部署单元，不计入核心 Service Host 数量。
+当前平台基础层固定为八个规划核心 Service Host：`Identity.Service`、`SystemData.Service`、`ReferenceData.Service`、`Collaboration.Service`、`PlatformStudio.Service`、`OperationsCenter.Service`、`Label.Service`、`IoTCollector.Service`。Worker、Agent、Screego、TURN 与本地模型运行时属于辅助部署单元，不计入核心 Service Host 数量。
 
 ---
 
@@ -1295,3 +1295,5 @@ Industrial Data
 * 开发路线规划
 
 的基础版本。
+
+> 2026-09-07 路线增量：新增 Label.Service 为第八个规划核心 Host；PF-05/06 Web 后执行 PF-06A 终端专项，PF-10B 标签平台先于 PF-11 IoTCollector。详细映射以蓝图 32、总 Todo 为准，设计见蓝图 34/35；不代表新宿主或客户端已实现。

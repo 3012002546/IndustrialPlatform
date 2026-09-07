@@ -4,15 +4,17 @@
 
 > 当前里程碑范围：PF-05 创建 `Collaboration.Service`，交付登录用户之间的一对一文本、图片和文件聊天；本阶段只设计 Messaging、Presence、AttachmentIntegration，不实现 PF-06 RemoteAssistance、群聊、语音、音视频会议、机器人或外部联系人。详细设计已获确认，后续开发已获原则许可；但当前会话明确只完成设计文档定稿，不开发、不派遣、不构建、不测试、不提交。
 
-版本：V1.0
+版本：V1.2
 
-日期：2026-08-13
+> 2026-09-07 派遣前细化增量：[PF05-数据接口与页面规格.md](details/PF05-数据接口与页面规格.md)是本文数据字典、接口字段/样例、页面线框与任务操作步骤的唯一明细源，须在任务执行前读取指定章节；[派遣前详细设计与页面验收规则](STANDARD-派遣前详细设计与页面验收.md)适用于PF05起后续阶段。当前派遣状态统一为“待派遣”，设计就绪度另列；G05-1～3未关闭不得派遣相关生产范围。本文没有记录实际派遣或实施。
+
+日期：2026-09-07
 
 确认日期：2026-08-14
 
 阶段：PF-05 Collaboration
 
-阶段状态：完整详细设计与九字段任务卡已于 2026-08-14 获用户全文最终确认，后续开发已获原则许可；当前会话明确不开发、不派遣、不构建、不测试、不提交。全部任务卡继续保持“待细化/任务待确认”，其含义是尚未完成前置依赖核验与实际派遣，不得据此宣称任务已派遣或开发已启动。
+阶段状态：完整详细设计与九字段任务卡已于 2026-08-14 获用户全文最终确认，后续开发已获原则许可；当前会话明确不开发、不派遣、不构建、不测试、不提交。2026-09-07 起任务派遣状态统一为“待派遣”，设计就绪度另列“待前置核验”；完成字段/接口/线框图细化不等于前置已验收或任务已派遣。
 
 模块或服务：
 
@@ -31,16 +33,16 @@ PF-05 创建 Collaboration.Service
 PF-06 后续加入：RemoteAssistance
 ```
 
-阶段不等于微服务。三个内部模块独立建模、独立公开契约、独立权限资源、独立 Schema 或表前缀、独立迁移单元/账本和独立测试；禁止跨模块直读 Repository 或数据表，禁止建立跨模块数据库外键，并保留未来物理拆分能力。
+阶段不等于微服务。三个内部模块独立建模、独立公开契约、独立权限资源、逻辑数据命名空间、服务级迁移/账本和按模块隔离的测试；禁止跨模块直读 Repository 或数据表，禁止建立跨模块数据库外键，并保留未来物理拆分能力。
 
 数据库初始化与环境引导：
 
 ```text
 ServiceKey：collaboration
-Provider：Development 云端调试默认 PostgreSQL；显式关闭 RemoteDevelopment 时允许 SQLite 回退
+Provider：Development 云端调试默认 PostgreSQL；显式选择 IndustrialPlatform:DevelopmentInfrastructureMode=Sqlite 时使用 SQLite
 LogicalDatabaseName：collaboration_db
-MigrationUnit：collaboration.messaging / collaboration.presence / collaboration.attachment-integration
-物理目标：仅由受信 DatabaseTopology 与 SystemData 控制面解析
+InitializationUnitKey：collaboration（服务级）；ModuleKey 保留 messaging / presence / attachment-integration
+物理目标：平台由受信 DatabaseTopology 编排；外部嵌入由本地受控配置调用同一初始化器
 Development：默认 Shared，可显式 PerService
 Test / Staging / Production：仅 PerService
 ```
@@ -51,7 +53,7 @@ Test / Staging / Production：仅 PerService
 .NET 10 WebAPI / Clean Architecture / DDD
 SqlSugar / PostgreSQL 18 / SQLite Development fallback
 SignalR / Redis（多实例背板与短期 Presence）
-RabbitMQ / Outbox / Inbox
+平台 RabbitMQ；外部单实例可使用本地 Dispatcher / 服务级 Outbox / 按真实消费者启用 Inbox
 Vue 3 / TypeScript / Pinia / PC-PDA-Mobile 统一前端
 ```
 
@@ -80,7 +82,7 @@ Vue 3 / TypeScript / Pinia / PC-PDA-Mobile 统一前端
 - `docs/implementation/07-Industrial Platform File Notification Audit开发实施方案.md`
 - `docs/implementation/TEMPLATE-开发实施方案.md`
 
-实施 07 当前为 `V1.0-draft` 且任务未确认、未开发，File 与 Audit 接口只作为动态依赖和适配端口，不作为已实现稳定契约。PF-05 进入开发前必须重新核验 File 与 Audit 的已批准契约和真实验收状态。
+PF-04 Core 已见于 2026-09-07 HEAD `8625efb`，File/Audit Contracts 与应用服务存在；真实浏览器、ClamAV、外部中间件、多实例证据仍有缺口，见 `docs/evidence/PF-04.md`。代码存在不等于 PF-05 所需契约已验收。
 
 ---
 
@@ -94,21 +96,19 @@ Vue 3 / TypeScript / Pinia / PC-PDA-Mobile 统一前端
 
 ## 1.2 当前输入状态
 
-- 首次盘点分支为 `develop`，HEAD 为 `48c5374`，与 `origin/develop` 对齐。
-- 当前仓库没有 `Collaboration.Service`、Messaging、Presence、AttachmentIntegration、SignalR Hub、SignalR Redis 背板或 `FileNId` 消费实现。
-- 当前代码中的 `messaging` 仅表示云开发基础设施 RabbitMQ profile，不是 Collaboration Messaging 领域模块。
-- Identity 当前代码已提供字符串 `UserNId` 和可信租户声明；现有 `ICurrentUser` 的租户属性仍名为 `TenantId`。PF-05 领域和公开契约统一使用 `TenantNId`，接入层负责适配现有声明命名，不将其误建模为新的租户实体。
-- PF-01 平台外壳与 Identity 当前提交可作为现有代码基线；PF-02 SystemData 正在工作树中并行实现，未提交内容不作为稳定契约。
-- 实施 07 已进入当前 HEAD，但仍明确为设计草案、任务待确认、未开发；PF-05 仅定义 File/Audit 适配端口和依赖门禁。
-- 工作树中的 `CLAUDE.md`、`README.md`、`src/DEBUGGING.md`、SystemData/Gateway/解决方案/测试改动均属于并行工作，本文件不得覆盖、暂存、回退或提交这些改动。
-- 本轮没有运行构建、测试或环境联调；历史测试数字不是 PF-05 的新鲜验证证据。
+- 2026-09-07 只读盘点：`develop`，HEAD `8625efb`；开始时 `git status --porcelain=v1 --untracked-files=all` 无文件条目。
+- PF-03 已合入；PF-02 仍 active，以 CURRENT 与阶段 evidence 为准，不重新判定已完成项。
+- PF-04 File/Audit 代码已存在：`IndustrialPlatform.SystemData.Contracts/Files/FileContracts.cs`、`Auditing/AuditContracts.cs`，以及 Application 的 Files/Auditing 服务。历史测试和真实环境限制见 PF-04 evidence，本轮没有重新测试。
+- 未发现 Collaboration 后端宿主或生产聊天模块；现有 SignalR 用于 Notification，不能当作 PF-05 聊天完成。未发现公共 Device Runtime、Electron/Capacitor 工程。
+- 当前 `FileObjectV1` 提供 FileNId、ScanStatus、Restricted、DeletionStatus、RetentionUntil；未见本方案所需 FileStateVersion/条件保留令牌，具体授权与保全适配须在 PF05-004/007 验证，不能假设跨服务原子能力。
+- 2026-08-14 HEAD/前置状态属于历史盘点，原批准范围保留；本轮只修订文档，不派遣、不开发、不运行 PoC、不构建、不提交推送。
 
 ## 1.3 已确认设计记录
 
 | 日期 | 设计范围 | 结论 |
 | --- | --- | --- |
-| 2026-08-13 | 宿主、三个模块迁移单元与分层 readiness | 已确认，写入第 4 章 |
-| 2026-08-13 | 调试基础设施默认值 | 本地调试默认使用云端 Docker 基础设施；显式关闭 `RemoteDevelopment.Enabled` 时才使用 Development SQLite 回退 |
+| 2026-08-13 | 三模块迁移单元历史方案 | 历史批准；2026-09-07 按已生效蓝图 32/33 改为服务级治理，逻辑所有权不变 |
+| 2026-08-13 | 调试基础设施默认值 | 本地调试默认使用云端 Docker 基础设施；显式选择 `IndustrialPlatform__DevelopmentInfrastructureMode=Sqlite` 时才使用 Development SQLite（2026-09-07依当前本地配置规则修正） |
 | 2026-08-13 | 一对一会话与发起资格 | 同租户有效用户默认互相可见；会话按规范化参与人对唯一，写入第 5 章 |
 | 2026-08-13 | 消息、顺序、幂等与撤回 | 会话内服务端严格递增序列；普通用户发送后 2 分钟内可撤回，写入第 6 章 |
 | 2026-08-13 | 未读、已读、个人隐藏与离线补拉 | 用户级单调已读游标，不逐消息写扩散；隐藏不删历史，新消息自动恢复，写入第 7 章 |
@@ -134,7 +134,7 @@ Vue 3 / TypeScript / Pinia / PC-PDA-Mobile 统一前端
 
 ## 2.2 不负责
 
-- Identity 拥有用户、角色、权限、登录、令牌和会话；Collaboration 不复制或修改 Identity 数据。
+- 平台 Identity 或外部可信宿主拥有用户、登录、令牌与原系统权限；Collaboration 只作必要身份/权限映射，不复制或修改其人员数据。
 - SystemData 拥有行政组织；Collaboration 不建立自己的组织树。
 - File 拥有文件二进制、隔离、扫描、对象存储和授权下载；Messaging 只保存 `FileNId` 与必要展示快照。
 - Audit 拥有统一追加型合规事实；Messaging 保留业务消息事实并通过可靠 Outbox 提交审计事实，不直写 Audit 表。
@@ -165,57 +165,57 @@ SignalR 不作为消息事实源。连接、推送失败或重复不得改变持
 
 ---
 
-# 4. 总体架构、数据库迁移单元与 readiness
+# 4. 总体架构、宿主适配、初始化与 readiness
 
 ## 4.1 宿主与模块边界
 
-```text
-Collaboration.Service
-├── Collaboration.Api（宿主装配、认证、路由、Hub、健康汇总）
-├── Messaging
-│   ├── Domain / Application / Contracts / Infrastructure
-│   ├── PostgreSQL schema: collaboration_messaging
-│   ├── SQLite prefix: collaboration_messaging_
-│   └── ledger: collaboration_messaging_schema_migrations
-├── Presence
-│   ├── Domain / Application / Contracts / Infrastructure
-│   ├── 单实例内存状态；多实例 Redis 派生状态
-│   └── 独立迁移单元与账本，首版允许没有领域表
-└── AttachmentIntegration
-    ├── Domain / Application / Contracts / Infrastructure
-    ├── PostgreSQL schema: collaboration_attachment
-    ├── SQLite prefix: collaboration_attachment_
-    └── ledger: collaboration_attachment_schema_migrations
-```
+一个 `Collaboration.Service`，内部 Messaging 拥有 Conversation、Member、Message、ChatAttachment、合规与保留事实；Presence 只拥有短期租约；AttachmentIntegration 提供 File 防腐适配，不另持有消息绑定表。PF-06 的 RemoteAssistance 后续加入同宿主。
 
-Presence 的 PostgreSQL Schema、SQLite 前缀和 migration ledger 必须保留独立声明，即使首版迁移产物只建立账本或空版本标记。这样可以独立报告版本、readiness 和未来持久化扩展，同时禁止为了“有表”而保存无业务价值的在线历史。
+采用一个 `collaboration_db`、服务级迁移/seed 双账本及带 ModuleKey 的 Outbox；Messaging 使用 `collaboration_messaging` Schema / SQLite `collaboration_messaging_` 前缀。Presence 不建空 Schema、空迁移或永久在线表；AttachmentIntegration 不建重复绑定库。只为真实持久入站消费者建立 Inbox，以 ConsumerName 隔离。禁止跨模块 Repository/表访问；逻辑模块注册、权限、契约、诊断和测试边界继续保留。
 
-## 4.2 SystemData 登记与迁移编排
+## 4.2 两种装配与初始化
 
-- 宿主稳定登记为 `ServiceKey=collaboration`、`LogicalDatabaseName=collaboration_db`。
-- 宿主 Manifest 包含 `collaboration.messaging`、`collaboration.presence`、`collaboration.attachment-integration` 三个必需模块迁移单元；每个单元独立声明 MigrationAssembly/Bundle、不可变版本/checksum、Owner、DesiredState、AutoMigrate 请求、Schema/前缀和 ledger。
-- Provider、Owner 和自动策略的实际配置值由未来执行任务依照已批准平台清单登记；Manifest 不包含物理服务器地址、密码、私钥、管理员连接串或可还原 Secret。
-- `PhysicalDatabaseName` 只能由受信 `DatabaseTopology` 解析。Development 默认 Shared、可显式 PerService；Test、Staging、Production 只允许 PerService。
-- Shared 只共享物理目标；三个模块的 Schema/表前缀、迁移产物、migration ledger、Repository、权限和数据所有权不得合并。
-- 同一物理目标的 PostgreSQL DDL 使用 physical-target advisory lock 或等效锁串行执行；每个模块仍独立记录迁移和 readiness。
-- 拓扑变化不得隐式 copy、rename、merge 或 split；已有数据时必须报告 drift，并走显式迁移/import。
-- SystemData 不可用、目标错误、迁移失败、版本不一致或 drift 时保持 NotReady；禁止管理员凭据自行建库、`EnsureCreated` 和静默切换数据库。
-- 生产执行 `plan → 审批 → 备份 → apply → verify`，并以 `OperationId` 贯穿计划、执行、日志、Trace、指标和审计。
+| 项目 | Platform 平台原生版 | Embedded 外部 MES 精简版 |
+| --- | --- | --- |
+| 身份/目录 | Identity 公开契约 | 一个主要可信身份源，宿主认证与目录适配 |
+| Web 外壳 | 顶栏、抽屉、完整页、工作区 | 同一核心的轻量嵌入页/面板，无独立门户前置 |
+| 文本/可靠同步 | 必须 | 必须 |
+| Presence | 必须，登录后应用级连接 | 默认保留；按宿主实际连接覆盖范围说明 |
+| 附件/协助 | File 必须；协助由 PF-06 加入 | 可关闭；启用后遵守相同授权/安全要求 |
+| 审计/合规 | 统一 Audit；保留已批准合规范围 | 本地真实持久审计或批准适配；增强管理 UI 可裁剪 |
+| 初始化 | SystemData 编排本服务初始化器 | 本地受控配置和维护入口调用相同产物 |
+| 运行依赖 | 平台批准数据库与中间件 | PostgreSQL + 本服务 + 可信宿主；不强制整套平台 |
+
+平台与嵌入共用代码，不另拆微服务。Embedded 单实例不强制 Redis/RabbitMQ，本地 Dispatcher 从事务 Outbox 执行实时投影、审计和启用的适配任务，保留确认、租约、重试、失败可见性；增加副本前必须验证全局连接与 Presence 协调。
+
+初始化固定为 `Inspect → Plan → Apply → Verify → 本地 Ledger/readiness`，ServiceKey/InitializationUnitKey 为 collaboration。平台登记模块能力，实际迁移单元不按模块机械拆分；同物理目标锁、checksum drift、RequiredSeed、Secret Provider 和 Standard/Advanced 策略服从蓝图 33。外部版无需启动 SystemData，但不能自行使用管理员凭据建库、切库、隐式搬数据或 `EnsureCreated`。
+
+已初始化且可信配置/本地事实有效时，控制面暂不可达不阻断运行；首次初始化失败、目标错误、版本/账本不一致、必要配置失效仍 NotReady。`Disabled`、`Unsupported`、`Degraded` 分开表达；裁剪同步约束服务端路由/权限与 UI，不能删除历史数据或解除已有保全。
+
+## 4.2.1 可信身份和目录端口
+
+共用宿主端口负责：确认当前主体、搜索可见人员、按稳定标识获取用户、核验启停、安全版本、映射必要权限、注销/停用传播。平台映射现有 TenantId 声明到 TenantNId；外部映射键为 `(IdentitySourceNId, ExternalTenantNId, ExternalSubject)`，本地仅存稳定 UserNId 映射和最小展示投影，不复制密码、组织树或角色实体。
+
+认证与目录独立：未打开过聊天的同事也能由目录查找并邀请。不得以姓名、登录名、邮箱自动合并；改名保持历史归属，重建同名账户不能继承旧消息；原 MES 管理员不自动取得聊天合规权限。
+
+参考宿主使用后端可信登录交接，绑定 issuer/audience/租户/有效期/nonce 并防重放；不得接受浏览器自报 UserNId、用户 JSON 或任意旧 JWT。客户只有读目录能力不等于支持 SSO，实际 OIDC/票据等协议在 G05-1 派遣前核验并写回。停用传播上限与缓存有效期必须记录；身份源故障按受信期限失败关闭，不无限沿用陈旧授权，也不自动改用同名本地账号。
+
+注销、换人或权限失效时 stop 旧连接、清内存草稿/缓存/订阅/附件授权，并以主体 epoch 拒绝迟到响应。当前不建设独立账号系统、多身份源联合管理或长期离线消息库。
 
 ## 4.3 调试环境默认值
 
 - 本地调试默认使用云端 Docker 基础设施。`RemoteDevelopment.Enabled=true` 时，Collaboration 使用私有本地配置所提供的云端 PostgreSQL 18、Redis、RabbitMQ、对象存储/File 端点和可观测性端点；私有地址与凭据不得进入仓库、日志、Trace、审计或 API。
 - 云端调试仍属于 Development 环境，默认 `DatabaseTopology.Mode=Shared`；显式验证时可以选择 PerService。是否远程连接与 Shared/PerService 是两个独立配置维度。
-- 只有显式设置 `RemoteDevelopment.Enabled=false` 或私有配置不存在时才使用 Development SQLite 回退；回退仍使用显式版本化迁移、三个独立 ledger 和相同逻辑版本语义。
-- 远程模式下 SystemData 或云端数据库不可用时，Collaboration 保持 NotReady，不得自动切换到 SQLite。Redis、RabbitMQ 或 File 的故障按第 4.4 节分层处理。
+- 只有显式设置 `IndustrialPlatform__DevelopmentInfrastructureMode=Sqlite` 才使用 Development SQLite；回退仍使用显式版本化迁移、服务级 schema/seed ledger 和相同逻辑版本语义。
+- 远程模式下核心数据库不可用或本地初始化事实无效时，Collaboration 保持 NotReady；SystemData 暂不可达不改变有效本地 Ready，不得自动切换到 SQLite。Redis、RabbitMQ 或 File 的故障按第 4.4 节分层处理。
 
 ## 4.4 分层 readiness 与降级
 
 | 状态 | 条件 | 对外行为 |
 | --- | --- | --- |
-| 宿主 NotReady | SystemData 握手失败、身份认证配置无效、物理目标错误、Messaging 迁移失败/drift/版本不符 | `/health/ready` 返回 503，禁止接受聊天业务命令 |
+| 宿主 NotReady | 本地初始化/可信配置无效、身份认证配置无效、物理目标错误、Messaging 迁移失败/drift/版本不符 | `/health/ready` 返回 503，禁止接受聊天业务命令 |
 | Messaging Ready | 消息库、迁移、事务与 Outbox 可用 | REST 文本发送、历史、游标和离线补拉可用 |
-| Attachment Degraded | File/扫描不可用或 AttachmentIntegration 迁移/适配失败 | 文本聊天继续；附件创建、发送或下载返回稳定降级错误，不把未扫描文件显示为可用 |
+| Attachment Degraded | File/扫描不可用或 附件适配失败 | 文本聊天继续；附件创建、发送或下载返回稳定降级错误，不把未扫描文件显示为可用 |
 | Audit Buffered | 中央 Audit 暂不可用但 Messaging 本地 Audit Outbox 可可靠写入 | 普通聊天可完成并等待重投；合规查看、导出、法律保全等高风险操作失败关闭 |
 | Single-instance Realtime Degraded | 单实例 Redis 不可用 | 可使用实例内 SignalR/Presence；REST 事实不受影响，明确报告 Redis 降级 |
 | Multi-instance Realtime NotReady/Degraded | 部署声明多实例但 Redis 背板或全局 Presence 不可用 | 禁止把本地连接误报为全局在线；实时能力按发布门禁停止接流量或明确降级，REST 消息事实按独立健康结果继续 |
@@ -269,7 +269,7 @@ LastReadOn
 
 ## 5.3 用户搜索、可见性与发起资格
 
-首期采用已确认的企业内部目录规则：同一可信租户内的有效登录用户默认可以互相搜索并发起会话。
+平台首期采用已确认的企业内部目录规则：同一可信租户内的有效登录用户默认可以互相搜索并发起会话。外部嵌入还必须服从宿主返回的可见人员范围，不能因同租户而扩大原系统目录权限；后文 Identity 适配在 Embedded 模式对应第 4.2.1 节的可信宿主端口。
 
 发起会话必须同时满足：
 
@@ -294,8 +294,8 @@ LastReadOn
 ## 5.5 数据一致性与索引
 
 - 会话创建事务同时写入 `Conversation`、两条 `ConversationMember`、本地审计 Outbox 和必要集成 Outbox。
-- 数据库使用活动记录唯一约束保证规范化参与人对唯一；应用层先查后建只用于正常路径，数据库冲突后重新读取既有会话作为并发收敛结果。
-- `ConversationMember` 是 Conversation 同库子实体，使用模板规定的 `(Conversation_Id, Conversation_IsDeleted) → Conversation(Id, IsDeleted)` 复合外键和双重软删除过滤。
+- 数据库以 TenantNId+规范化参与人对的全生命周期唯一约束保证唯一；个人隐藏不删除会话，应用层先查后建只用于正常路径，冲突后读取既有会话收敛。
+- `ConversationMember` 是 Conversation 同库子实体，默认使用普通 ConversationId 外键并由聚合维护成员生命周期；当前没有传播父软删除的独立需求，不机械套复合软删除外键。
 - `UserNId` 是跨服务引用，不建立数据库外键，也不复制 Identity 实体生命周期字段。
 - 会话列表按成员本地投影查询，索引至少覆盖 `TenantNId + UserNId + VisibilityState + LastMessageOn + ConversationNId`；最终索引必须以 PostgreSQL `EXPLAIN (ANALYZE, BUFFERS)` 和目标数据量验证，不能仅凭本设计机械创建。
 
@@ -329,7 +329,7 @@ ClientMessageNId
 MessageType
 TextContent
 ReplyToMessageNId（可空）
-AttachmentNId（可空，引用 AttachmentIntegration 本地绑定身份）
+AttachmentNId（可空，引用 Messaging 自有绑定身份）
 AcceptedOn
 RetractedOn（可空）
 RetractedByUserNId（可空）
@@ -363,7 +363,7 @@ PF-06 RemoteAssistance 后续可以通过 Messaging 公开扩展契约投递邀�
 - 每个 Conversation 独立维护从 1 开始严格递增的 `Sequence`；服务端在消息事务内分配，客户端时间、接收时间和 `ClientMessageNId` 均不决定顺序。
 - `Conversation.LastMessageSequence` 与消息写入在同一事务、同一并发控制下推进；同一会话并发发送必须串行分配不同 Sequence。
 - 不要求不同 Conversation 之间存在全局顺序，也不使用数据库内部 `Id` 作为游标。
-- 序列一经分配不复用。撤回、隐藏、保留清理或合规处置均不能重排后续消息。
+- 已提交消息的序列不可复用；未提交事务回滚时连同计数器回滚，不消耗可见序号。撤回、隐藏、保留清理或合规处置均不能重排后续消息。
 - SignalR 事件携带 ConversationNId、MessageNId、Sequence 和最小提示字段。客户端发现 `Sequence > localSequence + 1` 时必须通过 REST 补拉缺口，不能把实时到达顺序当作最终顺序。
 
 ## 6.4 发送幂等
@@ -379,7 +379,7 @@ PF-06 RemoteAssistance 后续可以通过 Messaging 公开扩展契约投递邀�
 - 图片和文件必须先由 PF-04 File 完成隔离、校验和扫描，并由 AttachmentIntegration 确认达到可发送状态。
 - 上传中、隔离中、扫描中、扫描未知或拒绝状态不创建 Message，也不占用 Sequence。前端把这些状态显示为本地附件草稿，不得显示为已发送消息。
 - File 达到可发送状态后，客户端以原 `ClientMessageNId` 提交附件消息；Message、附件绑定快照和 Messaging Outbox 在同一 Messaging 事务中完成。
-- File 在预检与提交之间失效、冻结或状态变化时，发送事务拒绝并返回稳定错误；不得先创建占位消息后异步替换为附件。
+- 预检发现 File 不可用时拒绝发送；预检后变化不能靠本地事务原子阻止。提交后按第 9.4 节重新授权、事件/查询校正和对账禁用附件，显示“已发送，附件随后不可用”；不得先建占位消息再替换。
 - 文本与附件首期不混合在同一消息。用户可以先发文本再发附件，二者拥有独立 MessageNId、ClientMessageNId 和 Sequence，从而避免附件失败造成文本语义不确定。
 
 ## 6.6 服务端与客户端状态
@@ -403,7 +403,7 @@ PF-06 RemoteAssistance 后续可以通过 Messaging 公开扩展契约投递邀�
 - 历史查询以 `Sequence` 为稳定锚点，默认倒序取得较旧页并在 DTO 中按显示顺序返回；不得使用 offset 分页。
 - API 对外使用签名/完整性保护的不透明游标，至少绑定 TenantNId、UserNId、ConversationNId、方向、锚定 Sequence、查询投影版本和有效期，禁止跨用户或跨会话复用。
 - 断线补拉使用 `afterSequence` 语义向前读取；响应返回连续消息、`NextAfterSequence` 和服务端当前 `HighWatermarkSequence`。
-- 单页大小采用受控默认值和上限；具体数值在 API 契约章节统一冻结。客户端必须循环补拉直至本地游标达到 HighWatermark，不能假设一次响应覆盖全部离线消息。
+- 单页大小采用细化规格§3的明确默认值和上限。客户端必须循环补拉直至本地游标达到 HighWatermark，不能假设一次响应覆盖全部离线消息。
 
 ## 6.9 稳定错误边界
 
@@ -453,11 +453,11 @@ LastReadOn
 
 ## 7.3 已读命令与回执范围
 
-- 客户端使用幂等命令推进 `LastReadSequence`，提交 ConversationNId、目标 Sequence 和成员并发版本。
+- 客户端使用幂等命令推进 `LastReadSequence`，提交 ConversationNId 和目标 Sequence；服务端原子执行合法可见范围内的 max(LastReadSequence, requested)。
 - 已读更新与成员游标、未读投影、本地审计 Outbox 在同一事务提交。
 - 首期向对方仅展示会话级“已读至某条”的派生状态，不生成逐消息永久回执。发送方可根据对方 LastReadSequence 判断自己的某条消息是否已被越过。
 - SignalR 的 `ReadCursorAdvanced` 只携带 ConversationNId、ReaderUserNId、LastReadSequence、ReadOn 和版本，不携带消息正文；丢失后可由会话详情查询恢复。
-- 用户停用、会话非成员或并发版本冲突时拒绝推进；跨租户和非成员统一按会话不可见处理。
+- 用户停用、会话非成员或超出可见高水位时拒绝推进；多设备旧游标幂等成功，不因旧成员版本制造冲突；跨租户和非成员统一按会话不可见处理。
 
 ## 7.4 个人隐藏
 
@@ -475,24 +475,17 @@ HiddenThroughSequence
 - 隐藏会话仍可通过稳定 ConversationNId 访问，但必须经过成员身份和权限校验。普通列表默认排除 Hidden；可提供“已隐藏会话”筛选用于恢复，不实现回收站语义。
 - 重复隐藏和重复恢复均幂等。隐藏与新消息并发时，以较高 Sequence 的新消息恢复规则为准，禁止新消息被竞争条件继续隐藏。
 
-## 7.5 离线补拉
+## 7.5 初始化、重连与旧状态恢复
 
-客户端对每个已知会话保存“已连续接收 Sequence”，该值只是本地同步位置，不等于服务端 LastReadSequence。同步流程：
+最小方案采用“新序号补拉 + 已加载窗口重新取当前投影 + 会话摘要刷新”，不引入第二套持久变更流。每条 Message DTO/实时投影包含 `MessageStateVersion`；消息撤回、处置、附件可见状态改变都在 Messaging 内单调推进它。`SchemaVersion` 只表示协议，不能用来判断业务状态新旧。
 
-```text
-初次进入/重连/SignalR 缺口
-→ 获取会话摘要与 HighWatermarkSequence
-→ GET messages?after={localContiguousSequence}
-→ 校验响应连续性并合并去重
-→ 持续读取 NextAfterSequence
-→ localContiguousSequence == HighWatermarkSequence
-```
+1. 建立并确认服务端授权订阅后开始缓冲事件，再读取会话列表、未读和高水位；订阅确认前不能把初始快照视为最终同步。
+2. 按 `afterSequence` 循环补齐至本次高水位；分页返回 NextAfterSequence、HighWatermarkSequence、EarliestAvailableSequence。
+3. 对内存已加载的历史窗口用 `fromSequence/toSequence` 分页重取当前投影；未加载页不缓存旧内容，打开时实时查询。摘要/未读/已读同时重取。
+4. 以 MessageNId/Sequence 定位，按更高 MessageStateVersion 合并快照和缓冲事件；同版本不同内容是完整性错误，更高版本墓碑覆盖正文。重复或晚到的旧 Accepted 不恢复原文。
+5. 断线、应用恢复、切回前台、ResyncRequired、检测缺口都重跑；订阅/快照过程中再断线则废弃该轮完成标记。在线当前窗口每 30 秒有界校正，避免只丢失一个旧状态事件而永久过期。刷新失败显示同步中/状态待确认。
 
-- SignalR 只发送变化提示；即使推送重复、乱序或丢失，REST 补拉仍能恢复完整持久消息。
-- 客户端以 MessageNId 和 Sequence 双重去重。相同 Sequence 对应不同 MessageNId 或相同 MessageNId 对应不同内容时视为协议/完整性错误，停止推进并上报 TraceId。
-- 游标必须绑定租户、用户、会话、方向和投影版本；签名无效、过期、跨用户/跨会话复用或锚点超范围时返回稳定错误，不静默重置到最新位置。
-- 墓碑占用原 Sequence，因此撤回不会形成游标空洞。补拉取得的是当前授权投影；合规原文不通过普通消息 API 返回。
-- 一个会话积压超过单页上限时分批补拉，并设置服务端页大小、请求速率和响应体上限，避免断线恢复造成突发负载。
+API 历史默认 50 条、上限 100 条；窗口刷新分页并限制并发，不让恢复请求无限增长。保留清理按 410 与最早边界重建；新消息仍按已提交连续 Sequence 排序。同步位置与 LastReadSequence 分离，后台同步不得自动已读。
 
 ## 7.6 保留边界后的同步
 
@@ -508,7 +501,7 @@ HiddenThroughSequence
 | 已读 Sequence 超出可见高水位 | 400 | `COLLAB_READ_CURSOR_INVALID` |
 | 游标签名无效、过期或作用域不符 | 400 | `COLLAB_SYNC_CURSOR_INVALID` |
 | 会话不存在、跨租户或非成员 | 404 | `COLLAB_CONVERSATION_NOT_FOUND` |
-| 已读/隐藏成员并发版本冲突 | 409 | `COLLAB_MEMBER_CONCURRENCY_CONFLICT` |
+| 隐藏/恢复成员并发版本冲突 | 409 | `COLLAB_MEMBER_CONCURRENCY_CONFLICT` |
 | 请求位置早于普通历史保留边界 | 410 | `COLLAB_MESSAGE_HISTORY_EXPIRED` |
 
 ---
@@ -559,7 +552,7 @@ LeaseExpiresOn
 - 客户端正常情况下每 20 秒发送一次应用级心跳或触发等价连接活性续租。
 - 每条连接租约 TTL 为 60 秒。续租必须原子校验租约所有者、ServerInstanceNId 和当前身份，禁止旧连接覆盖新连接租约。
 - 正常客户端断开时立即移除连接租约，但用户级状态允许 15 秒抖动宽限；异常断开、进程崩溃或网络丢失依靠 TTL 自动过期。
-- 心跳周期、TTL 和宽限是首期默认值，可由受信配置收紧，但必须满足 `Heartbeat < Grace < LeaseTtl` 的安全关系并在启动时校验；客户端不能覆盖。
+- 心跳周期、TTL 和宽限是首期默认值，可由受信配置收紧，但启动时校验 `0 < Heartbeat < LeaseTtl`、`0 <= Grace < LeaseTtl`；Grace 是正常断开去抖，与心跳没有大小约束。默认 20/60/15 秒保持不变，异常失联最晚在末次续租后 60 秒加扫描调度误差转离线，不再额外叠加 15 秒；客户端不能覆盖。
 - 服务端使用单调计时处理进程内超时，跨实例记录使用 UTC `DateTimeOffset`；不得用客户端时钟决定在线状态。
 
 ## 8.5 用户级在线聚合
@@ -606,7 +599,7 @@ Presence 可以在用户从 Online 转为 Offline 时保留短期 `LastActiveOn`
 - Redis channel/背板消息至少一次或可能丢失，客户端和服务端均依赖 revision 与重新查询恢复，而不是假设每个变化只到达一次。
 - 限制单用户、单设备、单 IP 的并发连接数和心跳速率；超过策略时拒绝最旧连接或新连接的具体规则由安全配置固定并审计，不允许无限占用租约。
 - Hub 日志不记录 Access Token、完整 ConnectionNId、IP 明文或用户目录正文；指标标签不得包含 UserNId、DeviceNId、ConnectionNId 等高基数字段。
-- Presence 不接受客户端设置“忙碌、离开、隐身”等自定义状态；首期只有 Online/Offline 与粗粒度离线活动投影。
+- Presence 不接受客户端设置“忙碌、离开、隐身”等自定义状态；首期显示 Online/Offline；查询失败、全局状态失效或超过 freshness 期限显示 Unknown/状态不可用，不能伪报离线；粗粒度活动可按策略省略。
 
 ## 8.9 稳定错误边界
 
@@ -625,7 +618,7 @@ Presence 可以在用户从 Online 转为 Offline 时保留短期 `LastActiveOn`
 
 ## 9.1 契约成熟度与防腐层
 
-PF-04 实施 07 当前为 `V1.0-draft`，其中 `UploadSession`、`POST /files/upload-sessions` 和完成上传端点是候选详细设计，不是已批准、已实现或已验收的稳定契约。PF-05 不冻结 File 的最终路由、DTO、传输方式或内部状态枚举。
+PF-04 Core Contracts 已进入 HEAD `8625efb`，当前实现与真实验收缺口见第 1.2 节。PF-05 通过公开契约适配，不能沿用 2026-08-14 草案或把源码存在当作完整集成证据。
 
 AttachmentIntegration 在 Collaboration 内定义 `IChatFileGateway` 应用端口，只冻结聊天所需的业务语义：
 
@@ -638,13 +631,13 @@ AttachmentIntegration 在 Collaboration 内定义 `IChatFileGateway` 应用端�
 消费 File 状态变化
 ```
 
-未来基础设施适配器把该端口映射到 PF-04 验收后的 File Contracts/API/事件。若最终 File 不使用“上传会话”命名或路由，AttachmentIntegration 只替换适配器，不改变 Messaging 领域模型。PF-05 开发准入前必须核验 PF-04 已批准的 FileNId、状态、上传、引用、下载授权、保留和法律保全契约；未知项不得用猜测 DTO 落地。
+基础设施适配器把该端口映射到 PF-04 真实 File Contracts/API/事件并完成消费侧验收。若最终 File 不使用“上传会话”命名或路由，AttachmentIntegration 只替换适配器，不改变 Messaging 领域模型。PF-05 开发准入前必须核验 PF-04 已批准的 FileNId、状态、上传、引用、下载授权、保留和法律保全契约；未知项不得用猜测 DTO 落地。
 
 ## 9.2 上传与本地附件绑定
 
 - 二进制上传由客户端使用 PF-04 File 最终公开上传契约完成。Collaboration 不代理文件流、不接触对象存储、不持有 Bucket、长期下载 URL、扫描器或对象存储凭据。
 - 创建上传意图时，通过适配端口声明受控用途 `CollaborationMessageAttachment`、TenantNId、ConversationNId、SenderUserNId、期望文件名/大小/hash 和幂等键。File 是否接受并签发上传能力由 File 自身安全策略决定。
-- AttachmentIntegration 创建本地 `ChatAttachment` 绑定，稳定身份为 `AttachmentNId`，主要业务字段：
+- Messaging 创建自有 `ChatAttachment` 绑定，稳定身份为 `AttachmentNId`，主要业务字段：
 
 ```text
 TenantNId
@@ -658,7 +651,8 @@ MediaTypeSnapshot
 SizeBytesSnapshot
 ContentHashSnapshot
 FileStateProjection
-FileStateVersion
+FileStateVersion（源契约提供时可空）
+FileObservedOn
 ReferenceState
 RetentionState
 LastSynchronizedOn
@@ -666,7 +660,7 @@ LastSynchronizedOn
 
 - 快照只用于消息历史展示、幂等指纹和 File 短暂不可用时的安全降级，不是 File 状态、扫描结论或下载授权的权威来源。
 - `FileNId` 是跨模块稳定引用，不建立跨 Schema/跨数据库外键，不复制 File 内部 Id、对象路径、预签名 URL、扫描报告或生命周期公共字段。
-- AttachmentIntegration 与 Messaging 通过公开应用契约协作。Messaging 只保存 AttachmentNId；不得直接读取 AttachmentIntegration Repository 或表。
+- Messaging 在本地事务内拥有 ChatAttachment 及其 MessageNId 绑定；AttachmentIntegration 只返回 File 校验/访问结果，经 Messaging 公开命令更新投影，不持有或跨写绑定 Repository。
 
 ## 9.3 首期文件策略
 
@@ -684,26 +678,26 @@ LastSynchronizedOn
 2. File 的 TenantNId、用途、上传者与 ChatAttachment 声明一致。
 3. 当前发送者仍为 Conversation 成员、用户有效且具有发送附件权限。
 4. File 大小、类型与 Collaboration 首期策略一致。
-5. FileStateVersion 不早于本地已知版本，且文件未被冻结、隔离、拒绝、删除待定或处于法律限制下的不可发送状态。
+5. 若契约具备 FileStateVersion 则不得早于本地已知版本；当前无版本时使用受权即时查询并记录观察时刻，不伪造源版本。文件未被冻结、隔离、拒绝、删除待定或处于法律限制下的不可发送状态。
 
 满足条件后，在一个 Messaging 数据库事务内创建 Message、固化附件安全展示快照、把 ChatAttachment 绑定到 MessageNId、登记待发布的业务引用命令/Outbox，并写 Messaging Outbox。跨 File 的引用登记不能加入本地事务，采用 Outbox、幂等命令和对账实现最终一致性。
 
-上传中、隔离中、扫描中、结果未知或被拒绝时不创建 Message、不占用 Sequence。File 在预检与事务提交之间发生状态变化时，后续 File 事件必须使附件投影立即不可下载；发送适配器还应使用 File 提供的状态版本/授权令牌降低检查与提交竞态。
+上传中、隔离中、扫描中、结果未知或被拒绝时不创建 Message、不占用 Sequence。File 在预检后变化无法由本地事务保证原子拒绝。访问时必须重新授权；可用事件触发禁用并推进 MessageStateVersion，缺失事件由有界查询与对账恢复。仅在 File 实际提供条件授权/保留契约时使用，当前 FileObjectV1 无该保证。文件已发送但随后受限时保留消息及不可用提示，不能承诺事件即时到达。
 
 ## 9.5 下载重新授权
 
 - 普通客户端不保存永久下载 URL。每次下载或图片加载前，都向 Collaboration 请求附件访问授权。
 - Collaboration 校验可信 TenantNId/UserNId、会话成员、消息当前普通投影可见、消息未撤回/处置、附件用途和本地状态，再通过 `IChatFileGateway` 请求 File 最终授权。
-- File 重新校验文件当前状态、租户、业务引用、冻结/保留策略和调用主体后，返回短期、最小权限、一次性或等价受限的下载能力。
+- File 重新校验文件当前状态、租户、业务引用、冻结/保留策略和调用主体后，返回受控授权下载响应或明确有效期的最小权限下载能力；PF-04 Core 的授权代理是当前优先路径，一次兑换不等于生成的 URL 只可下载一次。
 - Collaboration 响应不得记录或长期缓存完整预签名 URL。下载失败不能把文件存在性、对象路径、扫描器详情或其他租户信息泄露给调用方。
 - 个人隐藏不撤销成员的历史访问权；用户重新打开隐藏会话后仍按当前权限重新授权。消息撤回或合规处置后，普通用户不得取得原附件下载授权。
 
 ## 9.6 File 状态变化与 Inbox
 
-AttachmentIntegration 通过版本化 File 状态事件或等价公开变更契约维护安全投影。每个事件至少具有 EventNId、FileNId、TenantNId、状态、FileStateVersion、OccurredOn、Producer、CorrelationNId 和 TraceId。
+AttachmentIntegration 将 File 公开查询/事件转交 Messaging 的投影命令。当前 FileObjectV1 未提供源状态版本，先用权限查询校验当前状态并记录观察时间，不把旧无版本事件正文当权威；事件仅触发重查。若后续提供版本化事件，消费契约应包含 EventNId、FileNId、TenantNId、状态、FileStateVersion、OccurredOn、Producer 和 TraceId。
 
-- Inbox 以 EventNId + ConsumerName 幂等；相同 FileNId 只接受更高 FileStateVersion，重复或乱序事件不得让状态倒退。
-- File 变为 Quarantined、Rejected/Malicious、Frozen、DeletionPending、Deleted 或其他不可下载状态时，立即把 ChatAttachment 投影标记为不可用，并使后续授权失败。
+- 有版本事件的 Inbox 以 EventNId + ConsumerName 幂等且只接受更高 FileStateVersion；无版本通知只触发串行/单飞重查，不按通知到达顺序改安全状态。Messaging 只在安全投影变化时推进 MessageStateVersion。
+- File 变为 Quarantined、Rejected/Malicious、Frozen、DeletionPending、Deleted 或其他不可下载状态时，Messaging 收到可信校验结果后把自有 ChatAttachment 投影标记为不可用，并使后续授权失败。
 - File 恢复 Available 时可以恢复普通下载，但必须保留所有状态历史和审计，且不得自动恢复已被消息撤回或合规处置屏蔽的访问。
 - 永久失败进入死信/隔离与人工恢复流程并告警；定期对账主动查询近期活跃、状态不确定和事件积压涉及的 FileNId，不能只依赖事件永不丢失的假设。
 
@@ -777,7 +771,7 @@ POST /api/v1/conversations/{conversationNId}/hide      个人隐藏
 POST /api/v1/conversations/{conversationNId}/restore   恢复显示
 
 POST /api/v1/conversations/{conversationNId}/messages  发送文本/图片/文件消息
-GET  /api/v1/conversations/{conversationNId}/messages  历史分页或 afterSequence 补拉
+GET  /api/v1/conversations/{conversationNId}/messages  历史分页、afterSequence 补拉或 fromSequence/toSequence 窗口校正
 GET  /api/v1/messages/by-client/{clientMessageNId}      查询不确定发送结果
 POST /api/v1/messages/{messageNId}/retract             发送者 2 分钟内撤回
 PUT  /api/v1/conversations/{conversationNId}/read-cursor 推进用户级已读游标
@@ -787,7 +781,7 @@ GET  /api/v1/attachments/{attachmentNId}               查询附件安全状态�
 POST /api/v1/attachments/{attachmentNId}/authorizations 请求一次性下载/展示授权
 ```
 
-附件适配入口的最终请求/响应必须映射 PF-04 已验收 Contracts；上述 Collaboration 路由不冻结 File 内部路由。所有列表使用不透明游标、受控默认页大小与最大页大小；具体 DTO 字段、默认值和上限在最终契约表统一冻结。
+附件适配入口的最终请求/响应必须映射 PF-04 已验收 Contracts；上述 Collaboration 路由不冻结 File 内部路由。所有列表使用不透明游标、受控默认页大小与最大页大小；DTO字段、默认值和上限以细化规格§3为派遣前基线；外部File实际映射须在派遣前核验。
 
 所有普通请求从可信上下文取得 TenantNId/UserNId。会话、消息或附件不存在、跨租户、非成员或调用方不可见时统一返回 404，避免资源枚举。
 
@@ -795,13 +789,13 @@ POST /api/v1/attachments/{attachmentNId}/authorizations 请求一次性下载/�
 
 - 消息发送以 ClientMessageNId 为领域幂等权威，同时接受统一 `Idempotency-Key` 作为 HTTP 重放保护。
 - 创建会话以规范化参与人对自然幂等；附件上传意图、引用、保留、法律保全等跨服务写操作必须带稳定幂等键。
-- 已读、隐藏、恢复和撤回是幂等命令，并携带调用方读取到的双版本并发令牌。重复相同结果返回成功；语义冲突返回稳定 409。
+- 已读采用合法范围内的原子最大值推进；隐藏、恢复和撤回携带调用方读取到的双版本并发令牌，均为幂等命令。重复相同结果返回成功；语义冲突返回稳定 409。
 - REST 成功响应只能在本地事务提交后返回。若提交成功但响应丢失，客户端使用相同幂等标识查询或重试恢复，不能生成新发送意图。
 - API 使用统一 `ApiResult<T>`/`PageResult<T>` 信封、TraceId、稳定错误码和带偏移 ISO 8601 时间，不暴露数据库 Id 或内部堆栈。
 
 ## 10.4 SignalR Hub 与安全分组
 
-Hub 候选内部路径为 `/hubs/collaboration-v1`，Gateway 映射后的公开路径由 Gateway 契约冻结。Hub 协议显式版本化；不兼容变更使用新协议版本/路径或协商版本，不能原位破坏旧客户端。
+Hub内部路径为 `/hubs/collaboration-v1`，公开路径为 `/collaboration/hubs/collaboration-v1`，派遣前核对Gateway/UnifiedHost的注册映射。Hub 协议显式版本化；不兼容变更使用新协议版本/路径或协商版本，不能原位破坏旧客户端。
 
 服务端分组：
 
@@ -828,7 +822,8 @@ TextContent（仅规范化纯文本）
 ReplyToMessageNId
 AttachmentDisplaySnapshot（AttachmentNId、安全文件名、媒体类型、大小、当前可用提示）
 AcceptedOn
-ProjectionVersion
+SchemaVersion
+MessageStateVersion
 ```
 
 安全投影不得包含：
@@ -864,7 +859,7 @@ REST SendMessage
 → 若缺口/乱序/未知投影版本：调用 REST afterSequence 补拉
 ```
 
-- 客户端连接成功或重连后，先取得服务端会话摘要/HighWatermark，再从本地连续 Sequence 补拉；不能等待服务器重放所有 SignalR 事件。
+- 初次连接、重连先确认订阅并缓冲，再按第 7.5 节补新消息、刷新旧窗口/摘要、合并高版本；afterSequence 不能独自恢复旧消息状态。
 - SignalR 可以重复、乱序或丢失。REST Message DTO 是当前普通授权投影的权威校正来源。
 - 如果实时投影先到而发送 REST 响应后到，发送端用 MessageNId/ClientMessageNId 合并本地临时项，不能显示重复消息。
 - `ResyncRequiredV1` 只提示哪些会话/资源需要校正，不携带缺失正文，也不能代替 REST 补拉。
@@ -896,11 +891,11 @@ TraceParent / CorrelationNId
 - 发布使用 Publisher Confirm 或目标通道的明确确认。只有确认成功才写 PublishedOn；进程在发布成功、落账失败之间崩溃时允许重复发布，由消费者幂等消化。
 - 重试使用带抖动的指数退避，区分可重试基础设施错误与永久契约/安全错误。最大尝试次数和退避参数由受信配置冻结并纳入测试，不由业务请求控制。
 - 超过阈值或永久失败进入模块独立隔离/DLQ 状态，保留脱敏错误、事件摘要和恢复操作，不删除原 Outbox 记录；积压年龄/数量超过门限使模块 Degraded/NotReady 并告警。
-- SignalR 推送处理器消费已提交 Outbox 投影，不直接从 RabbitMQ consumer 或其他模块读取 Messaging Repository 重新拼装正文。
+- Outbox 的普通推送任务仅记录消息标识/版本和路由，不保存可直接重放的正文载荷。发布时调用 Messaging 自己的安全投影查询，重验授权并读取当前 MessageStateVersion；已撤回则只推墓碑，无法校验则重试。禁止从其他模块 Repository 拼正文。已在途旧包由客户端版本合并和窗口刷新校正，不承诺收件人从未看过撤回前内容。
 
-## 10.8 模块独立 Inbox
+## 10.8 按实际消费者启用 Inbox
 
-Messaging、Presence、AttachmentIntegration 分别拥有 Inbox/消费位点语义；即使共享宿主，也不得合并成可跨模块访问的 Repository 或账本。
+服务级 Inbox 按 ConsumerName/ModuleKey 隔离真实持久消费者；业务更新与成功位点同事务。Presence 短期 revision 不为形式建立数据库 Inbox，AttachmentIntegration 通过 Messaging 命令消费 File 变化，不跨写其表。
 
 ```text
 InboxEventNId
@@ -922,7 +917,7 @@ LastErrorCode
 
 ## 10.9 RabbitMQ 与同宿主协作
 
-- RabbitMQ 用于跨 Service Host 的可靠集成事件，以及需要持久重试/解耦的跨模块协调；不用于替代一对一聊天的持久消息事实。
+- 平台 RabbitMQ 用于跨 Service Host 的可靠集成事件，不替代聊天持久事实；同宿主优先公开契约与本地 Outbox Dispatcher，不为模块边界强制内部消息总线。Embedded 无 RabbitMQ 时按第 4.2 节提供持久投递与失败恢复。
 - 同宿主模块优先调用公开 Application Contract。若调用结果需要跨事务可靠完成，发起模块写 Outbox，目标模块通过自身 Inbox 处理；禁止分布式事务。
 - Routing key 使用稳定领域/聚合/过去式事件语义，事件类型和 payload 版本化；旧版本在兼容窗口内不可原位修改。
 - 队列、重试和 DLQ 按消费者模块隔离。Presence 的高频心跳不进入 RabbitMQ；只传播去抖后的必要用户级变化。
@@ -1075,7 +1070,7 @@ ReleaseRequestedByUserNId / ReleaseApprovedByUserNId / ReleasedOn
 
 - 创建法律保全只需专用权限、短时提权、必填案件依据和明确范围，提交后立即进入 `ActivePendingReview` 并阻止相关消息/附件清理，避免等待审批期间发生不可逆删除。
 - 创建后必须在受控期限内由另一名合规主体复核，转为 `ActiveReviewed`。逾期未复核不自动解除保全，而是升级告警和管理处置。
-- 保全范围支持整个会话、明确时间范围或消息集合；范围快照不可静默扩大/缩小，变更创建新版本并重新复核。
+- 保全范围支持整个会话、明确时间范围或消息集合；范围快照不可静默扩大/缩小。首版按细化规格§2.6通过新Case表达范围变化，保留同一外部案件引用，先建立新保全再按独立审批释放旧Case，不覆盖旧快照；未来需要同Case多Revision时另行扩展版本历史。
 - Collaboration 通过可靠 Outbox/`IChatFileGateway` 为关联 FileNId 建立保全引用。任一附件保全登记失败时 Case 保持活动但 Operation 未完成、清理继续失败关闭并告警。
 - 解除保全必须双人或等价审批，申请者不得批准自己的解除请求。审批绑定 Case version、范围 checksum 和当前保全状态；任何变化使批准失效。
 - 释放只解除本 Case 的保全引用，不直接物理删除消息或文件；随后由普通保留流程重新评估其他 Case、引用和期限。
@@ -1161,17 +1156,17 @@ src/frontend/src
 布局：
 
 ```text
-┌────────────────┬────────────────────────────┬──────────────────┐
-│ 会话列表       │ 消息历史与输入             │ 会话信息（可收起）│
-│ 搜索/筛选/未读 │ 日期分隔/墓碑/新消息提示   │ 对方/Presence     │
-│ 隐藏管理入口   │ 文本/图片/文件             │ 隐藏/附件摘要     │
-└────────────────┴────────────────────────────┴──────────────────┘
+┌────────────────┬─────────────────────────────────────────┐
+│ 会话列表       │ 对方/Presence                  详情 更多 │
+│ 搜索/筛选/未读 │ 消息历史：日期/墓碑/新消息提示           │
+│ 隐藏管理入口   │ 输入：文本/图片/文件；详情经抽屉打开     │
+└────────────────┴─────────────────────────────────────────┘
 ```
 
 - 完整页提供同租户用户搜索并发起会话、会话列表、未读筛选、已隐藏会话恢复、深度历史加载和会话级附件摘要。
 - 用户搜索明确显示当前有效用户和最小目录字段，不展示全租户导出或精确在线时间。
 - 直接访问 ConversationNId 时先校验成员/权限；不可见统一显示资源不可用状态，不泄露对方或会话是否存在。
-- 右侧信息区只展示普通成员可见信息，不放合规原文、精确 Presence、连接设备或 Audit 详情。
+- 详情抽屉只展示普通成员可见信息，不放合规原文、精确 Presence、连接设备或 Audit 详情。
 - PC 工作区使用稳定 workspace identity，避免同一会话重复打开多个标签；抽屉“完整页打开”聚焦既有标签。
 
 ## 12.4 PDA 与 Mobile
@@ -1185,7 +1180,7 @@ src/frontend/src
 /mobile/collaboration/conversations/{conversationNId}
 ```
 
-- PDA/Mobile 使用会话列表 → 全屏消息页的分层导航，不复制 PC 三栏或侧抽屉。
+- PDA/Mobile 使用会话列表 → 全屏消息页的分层导航，不复制 PC 分栏或侧抽屉。
 - 输入区固定在安全可见区域，适配软键盘、横竖屏和 safe area；消息历史区域独立滚动，切换键盘不能丢失未发送草稿。
 - PDA 触控目标不小于 48px，Mobile 不小于 44px；附件按钮、发送、撤回菜单和“新消息”按钮均满足目标尺寸和间距。
 - 支持文本、图片、文件选择/上传、扫描等待、发送和授权下载；不提供合规导出、法律保全、内容批量处置或租户在线名单。
@@ -1266,6 +1261,22 @@ src/frontend/src
 
 ---
 
+## 12.12 应用级宿主连接与三端 Web
+
+登录后由应用级协作管理器 start，页面开关只控制 UI；路由切换不重建连接或订阅。PC 顶栏未读、快捷抽屉和完整页共享同一 Vue 实例的 Store/内存草稿，稳定 WorkspaceKey 聚焦已有标签；新消息不抢焦点，阅读历史不强制滚到底。Messaging 是聊天未读唯一权威，不逐条复制到 Notification 收件箱。
+
+外部宿主建议公共布局加载轻连接、聊天页懒加载；若仅点击 iframe 时连接，Presence 只表示聊天页面连通，不代表 MES 全部登录用户在线。单实例复用连接管理器，跨标签/设备允许多连接并由服务端聚合；服务故障显示 Unknown，自己的断线状态与对方在线分开。会话列表和标题附近同时显示在线文字/图标，不泄露设备数、IP 或精确活动时间。
+
+PC/PDA/Mobile 都交付搜索建会话、文本/图片/文件、在线、已读/未读、撤回、隐藏恢复、历史、重试与补拉。PDA/Mobile 采用列表→全屏聊天导航，验证软键盘、安全区、横竖屏、返回和触控；PDA 扫码回车不默认发送，不抢业务焦点、不接管全局扫码。
+
+当前 Web 适配集中实现 start/stop/resume、退出清理、文件选择/预览/下载、应用内提醒与打开会话、浏览器捕获边界；只为真实调用建立端口。PC/PDA/Mobile 是布局维度，Web/Electron/Capacitor 是容器维度；跨进程/窗口仅共享代码和协议，不共享一个内存 Store。安装包、系统通知/推送、托盘、安全存储、原生前后台、SDK 和更新在 PF-06A，不作为本阶段门禁；不得承诺 WebView 永久后台在线。
+
+## 12.13 合规范围分层
+
+PF05-007 内部分为基础授权/必要审计/保留与合规查看/导出/法律保全增强。平台原批准增强范围继续保留；PF-04 Core 不等于已提供完整双人审批、短时提权和每 Case 保全接口，这些进入真实依赖核验。外部精简版可不交付增强 UI，但保全保护、必要持久审计、成员授权不可裁剪。365 天/3 年是本平台默认策略，不是全部客户的固定法定要求，独立版登记策略来源及受权变更。
+
+若提出把平台增强部分延期，应记录理由、受影响任务/依赖与新验收范围并另行确认；当前仍为未完成范围，不因“聊天简单”自动移除。
+
 # 13. 自动化测试与验收设计
 
 ## 13.1 测试层次
@@ -1294,18 +1305,18 @@ Frontend Unit / Component
 
 - 只有一个 `Collaboration.Service`，PF-05 不创建 Messaging/Presence/AttachmentIntegration 独立 Host，也不实现 RemoteAssistance。
 - 三模块 Domain/Application/Contracts/Infrastructure 边界可识别；Contracts 不引用 Infrastructure，模块间无 Domain/Infrastructure/Repository/表直连。
-- Messaging、Presence、AttachmentIntegration 使用独立 Schema/表前缀、迁移产物、ledger、权限和测试；无跨模块数据库外键。
+- Messaging 自有持久化命名空间，服务级迁移/seed ledger；Presence 无空持久化，AttachmentIntegration 无重复绑定表；三模块权限和测试隔离；无跨模块数据库外键。
 - FileNId、UserNId 等跨服务引用只保存稳定 NId 和必要快照，无 Identity/File 内部 Id 或生命周期复制。
 - 无 `EnsureCreated`、管理员自建库、静默 SQLite 回退、物理目标请求输入或隐式拓扑数据移动。
 
 数据库测试覆盖：
 
 1. Development Shared 默认和显式 PerService；Test/Staging/Production 拒绝 Shared。
-2. `ServiceKey=collaboration`、`LogicalDatabaseName=collaboration_db` 与三个 MigrationUnit 独立版本/readiness。
-3. Shared 物理目标只 provision 一次，三 ledger 独立，DDL 按物理目标锁串行。
-4. SystemData 不可用、错误目标、drift、任一必要迁移失败时正确 NotReady；Attachment 单元失败只关闭附件能力的分层门禁按第 4.4 节验证。
+2. `ServiceKey=collaboration`、`LogicalDatabaseName=collaboration_db` 与服务级初始化版本/ledger 及模块能力诊断。
+3. Shared 物理目标只 provision 一次，服务级 ledger 及模块所有权隔离，DDL 按物理目标锁串行。
+4. 已初始化时 SystemData 不可用仍 Ready；错误目标、drift、必要迁移失败时 NotReady；附件适配失败只关闭附件能力的分层门禁按第 4.4 节验证。
 5. PostgreSQL 与 SQLite 显式迁移从空库、逐版本升级、失败回滚/恢复、幂等重跑结果一致。
-6. 会话参与人对唯一、会话内 Sequence 并发严格递增、ClientMessageNId 唯一、父子复合外键和软删除双重过滤真实生效。
+6. 会话参与人对全生命周期唯一、Sequence 并发严格递增、ClientMessageNId 唯一、普通父子外键与成员所有权真实生效。
 7. 消息、Outbox、未读投影、成员游标和本地 Audit Outbox 的事务原子性。
 
 ## 13.3 Messaging 测试矩阵
@@ -1313,12 +1324,12 @@ Frontend Unit / Component
 - 会话：同租户用户、反向参与人顺序、重复/并发发起、自聊拒绝、跨租户 404、目标停用、Identity 不可用。
 - 文本：Unicode NFC、Unicode 标量 4,000 上限、换行规范化、空白、控制字符、双向控制、HTML/XSS 和日志正文扫描。
 - 幂等：响应丢失重试、同键同语义、同键不同会话/文本/附件冲突、REST 回执与 SignalR 先后竞态。
-- 顺序：同会话高并发、跨会话独立、事务失败不复用 Sequence、SignalR 乱序/重复/缺口与 REST 校正。
+- 顺序：同会话高并发、跨会话独立、事务失败回滚计数器、不消耗可见 Sequence、SignalR 乱序/重复/缺口与 REST 校正。
 - 撤回：2 分钟边界前后、服务端 UTC、重复撤回、非发送者、并发版本、墓碑原 Sequence、附件下载失效和法律保全不受影响。
 - 已读：只能前进、不超过高水位、多设备同步、后台预取不推进、会话级回执、不逐消息写扩散。
 - 未读：本人消息、对方消息、撤回未读消息、投影重建、计数不为负、Redis 缓存失效后数据库一致。
 - 隐藏：隐藏不已读、不删除、新消息/本人发送自动恢复、隐藏与新消息并发、恢复幂等。
-- 补拉：游标签名/过期/跨用户、分页连续性、重复合并、ProjectionVersion 不支持、2,000 条历史、410 保留边界。
+- 补拉：游标签名/过期/跨用户、分页连续性、重复合并、SchemaVersion 不支持/MessageStateVersion 乱序、2,000 条历史、410 保留边界。
 
 ## 13.4 Presence 测试矩阵
 
@@ -1334,7 +1345,7 @@ Frontend Unit / Component
 
 - `IChatFileGateway` 使用 PF-04 最终 Contract fixture 验证，不把实施 07 草案 DTO 直接固化。
 - 50MB 边界、八类允许格式、双扩展、MIME/魔数冲突、宏文档、脚本、可执行文件、压缩包和恶意结果。
-- Uploading/Scanning/Unknown 不占 Sequence；Available/Clean 才发送；预检后状态改变拒绝或立即阻止下载。
+- Uploading/Scanning/Unknown 不占 Sequence；Available/Clean 才发送；预检后变化按第 9.4 节访问时拒绝、投影校正与对账处理。
 - FileNId 的租户、用途、上传者、会话匹配；跨模块无外键；每消息单附件、文本附件不混合。
 - 下载每次重新授权；撤回/处置后拒绝；个人隐藏仍可重新授权；URL 不持久化、不进日志。
 - File 状态事件重复/乱序/版本倒退、Inbox 原子性、事件积压和主动对账。
@@ -1347,7 +1358,7 @@ Frontend Unit / Component
 - SignalR protocol fixture 锁定 Hub 路径/版本和 `MessageAcceptedV1` 等安全投影；验证不包含下载 URL、扫描详情、精确 Presence 或合规原文。
 - REST 成功后推送失败、推送先于 REST 回执、重连、重复、乱序、缺口、未知事件和 `ResyncRequiredV1`。
 - Outbox 多副本领取、租约过期、Publisher Confirm、发布后落账前崩溃、退避、DLQ、人工重放和积压门禁。
-- 三模块 Inbox 独立、Manual ACK、业务事务原子、重复/乱序/永久失败隔离。
+- 服务级 Inbox 按实际 ConsumerName/ModuleKey 隔离、Manual ACK、业务事务原子、重复/乱序/永久失败隔离。
 - RabbitMQ 中断恢复、Redis 背板中断恢复、File/Audit/Identity 超时与熔断；错误响应和 Trace 不泄露凭据。
 
 ## 13.7 权限、合规与保留测试
@@ -1399,191 +1410,180 @@ Frontend Unit / Component
 # 14. 开发任务依赖
 
 ```text
-PF-02 数据库编排稳定契约 + Identity/PF-01 已验收基线
-    → TASK-PF05-001 宿主、模块边界与三迁移单元
-        ├→ TASK-PF05-002 Messaging 领域、数据与应用用例
-        ├→ TASK-PF05-003 Presence 与 SignalR 连接治理
-        └→ TASK-PF05-004 AttachmentIntegration（依赖 PF-04 File 稳定契约）
-
-TASK-PF05-002 + 003 + 004 + PF-04 Audit 稳定契约
-    → TASK-PF05-005 REST/SignalR/事件/权限与可靠集成
-        ├→ TASK-PF05-006 PC/PDA/Mobile 前端
-        └→ TASK-PF05-007 合规、保留、安全与可观测性
-
-TASK-PF05-001～007
-    → TASK-PF05-008 契约、E2E、2C4G 与阶段验收
+001 宿主/可信身份目录/服务级初始化
+ → 002 建会话与文本闭环 + 005 对应 API/本地可靠审计 + 006 对应 Web 页面
+ → 002 已读/撤回/恢复同步 + 003 应用级 Presence + 005/006 联动
+ → 004 真实 File 适配 + 005/006 三端附件闭环
+ → 007 基础安全/保留及平台已批准合规增强
+ → 008 平台/外部嵌入、三端 Web、可靠性、容量验收
+ → PF-06 → PF-06A 终端化
 ```
 
-- TASK-PF05-002、003 可在 001 后并行；004 必须等待 PF-04 File 契约批准，不能用实施 07 草案 DTO 直接开发。
-- 005 的 Audit 适配必须等待 PF-04 Audit 稳定契约；前置未满足时只能完成端口/fixture，不能标记任务完成。
-- 006 与 007 可在 005 契约冻结后并行，但共享路由、权限清单、错误码和前端合规 Store 的文件必须由单一任务负责或明确协调，避免覆盖并行改动。
-- 008 只修复 PF-05 验收阻塞缺陷，不扩张群聊、RemoteAssistance、语音、会议或机器人。
-
----
+父任务 001～008 保留；同一 PF 内按上述纵向步骤连续交付，不逐子步骤派遣/提交。派遣前按细化规格固定契约和完成所派范围的前置核验；实现时002/003可用已批准端口fixture隔离测试，文本不等待004完工。005随002实现已定文本契约，附件真实实现随004，006同步交付对应页面。fixture不能把真实Identity/File/Audit接入标记完成。共享文件由一个执行者顺序修改。
 
 # 15. 开发任务拆分
 
-> 以下全部是九字段设计卡，状态统一为“待细化/任务待确认”。建议提交仅表达未来原子提交意图，不授权派遣、开发、测试、提交或发布。开发前必须重新核验工作树、PF-02/PF-04/Identity 的真实提交和验收状态。
+> 以下全部是九字段设计卡，派遣状态统一为“待派遣”，设计就绪度为“待前置核验”。字段、接口与线框图已在细化规格中展开；相关Gate未关闭不得实际派遣生产范围。建议提交仅表达未来主题意图，不授权派遣、开发、测试、提交或发布。
 
-## TASK-PF05-001 创建 Collaboration 宿主与三个独立迁移单元
+## TASK-PF05-001 创建 Collaboration 宿主、服务级初始化与两种装配
 
-**状态：** 待细化/任务待确认
+**状态：** 待派遣；设计就绪度：待前置核验（见细化规格§6 G05-1～3），未实施
 
-**目标：** 创建 `Collaboration.Service` 五层宿主骨架，接入 SystemData registration/manifest、三个独立 MigrationUnit/ledger、分层 readiness、云端 Docker 默认调试和 SQLite 显式回退。
+**目标：** 创建 `Collaboration.Service` 五层宿主骨架，接入 SystemData registration/manifest、服务级 Migration/seed ledger、分层 readiness、云端 Docker 默认调试和 SQLite 显式回退。
 
-**输入文档：** 本文第 1～4、13.2 节；蓝图 07/32/33；PF-02 已验收数据库编排契约。
+**输入文档：** 本文第 1～4、13.2 节；蓝图 07/32/33；PF-02 已验收数据库编排契约；[派遣前细化规格](details/PF05-数据接口与页面规格.md) §1/2.10～2.12、§5本任务行；共同规则§2～6。
 
-**依赖：** PF-02 数据库控制面、消费者握手和模块迁移单元扩展契约已稳定；Identity JWT 校验基线可用。
+**依赖：** 平台装配核对 PF-02 服务级初始化稳定契约与 Identity；外部装配核对本地受控初始化/可信参考宿主，不依赖整套平台在线。
 
 **允许修改范围：** 新建 Collaboration 后端/测试项目、解决方案登记、经协调的 Gateway 路由、Collaboration 配置和测试；禁止修改 PF-02 控制面实现、PF-04 模块、Identity 领域和其他并行文件。
 
-**预期输出：** Api/Application/Contracts/Domain/Infrastructure、三模块边界、`collaboration_db` Manifest、PostgreSQL Schema/SQLite 前缀、三个 ledger、Operation/readiness、Secret 隔离和架构测试。
+**预期输出：** Api/Application/Contracts/Domain/Infrastructure、三模块边界、`collaboration_db` Manifest、PostgreSQL Schema/SQLite 前缀、服务级 schema/seed ledger、Operation/readiness、Secret 隔离和架构测试；按细化规格§5本任务行逐步交付，不在编码中重新决定字段/路由/布局。
 
-**验证与证据：** 第 13.2 节数据库/架构门禁，SQLite/PostgreSQL 18 空库与升级、Shared/PerService、错误目标/drift/SystemData 不可用、`diff --check` 和敏感信息扫描。
+**验证与证据：** 第 13.2 节数据库/架构门禁，SQLite/PostgreSQL 18 空库与升级、Shared/PerService、错误目标/drift/SystemData 不可用、`diff --check` 和敏感信息扫描。 内部步骤：宿主装配与能力矩阵 → 可信身份/目录 → 同一初始化器的平台/本地受控入口；验收控制面失联不误停机、首次初始化失败关闭。 另覆盖细化规格§5本任务断言；涉及页面先按已画线框实现，再走真实菜单/局部加载/重复提交/中英主题验收。
 
 **结果回写：** 回写实际项目路径、ServiceKey/UnitKey、Schema/前缀/ledger、Manifest DTO、配置键、健康标签、测试数、提交和待验收项。
 
-**建议提交：** `feat(collaboration): scaffold host and migration units`
+**提交策略：** 阶段整体交付，由总控按当前协议处理；以下仅为提交主题建议，不逐卡提交： `feat(collaboration): scaffold host and migration units`
 
 ## TASK-PF05-002 实现 Messaging 领域、持久化与应用用例
 
-**状态：** 待细化/任务待确认
+**状态：** 待派遣；设计就绪度：待前置核验（见细化规格§6 G05-1～3），未实施
 
 **目标：** 实现一对一会话、成员、消息、严格 Sequence、ClientMessageNId 幂等、未读/已读、撤回墓碑、个人隐藏、游标补拉和本地 Outbox/Audit 原子事务。
 
-**输入文档：** 本文第 5～7、10.3、10.7、11.4、13.3 节。
+**输入文档：** 本文第 5～7、10.3、10.7、11.4、13.3 节；[派遣前细化规格](details/PF05-数据接口与页面规格.md) §2.1～2.5/§3 A05-01～10、§5本任务行；共同规则§2～6。
 
 **依赖：** TASK-PF05-001；Identity 用户目录/状态公开契约稳定或以批准 fixture 隔离。
 
-**允许修改范围：** Messaging Domain/Application/Contracts/Infrastructure、迁移和对应测试；禁止实现 Presence、File 二进制、统一 Audit、前端或 RemoteAssistance。
+**允许修改范围：** Messaging Domain/Application/Contracts/Infrastructure、迁移和对应测试；禁止实现 Presence、File 二进制、统一 Audit 或 RemoteAssistance；对应 API/前端分别归 005/006 同步交付。
 
-**预期输出：** Conversation/Member/Message/Disposition 模型、Repository、事务 Sequence、幂等指纹、未读投影、已读/隐藏/撤回用例、opaque cursor、Messaging Outbox 和对账修复端口。
+**预期输出：** Conversation/Member/Message/Disposition 模型、Repository、事务 Sequence、幂等指纹、未读投影、已读/隐藏/撤回用例、opaque cursor、Messaging Outbox 和对账修复端口；按细化规格§5本任务行逐步交付，不在编码中重新决定字段/路由/布局。
 
-**验证与证据：** 第 13.3 节全矩阵，尤其并发发起、并发 Sequence、幂等冲突、2 分钟边界、投影重建、历史 410 和正文敏感扫描。
+**验证与证据：** 第 13.3 节全矩阵，尤其并发发起、并发 Sequence、幂等冲突、2 分钟边界、投影重建、历史 410 和正文敏感扫描。 内部步骤：建会话/文本 → max 已读/撤回/隐藏 → 新序号与旧窗口恢复。补验失败事务无序号空洞、快照订阅竞态、旧 Accepted 积压不泄露撤回正文、版本乱序与响应丢失。 另覆盖细化规格§5本任务断言；涉及页面先按已画线框实现，再走真实菜单/局部加载/重复提交/中英主题验收。
 
-**结果回写：** 回写最终字段/表/索引、状态、API 输入端口、错误码、事务算法、测试/性能数据、提交和偏差。
+**结果回写：** 回写实现对照的字段/表/索引、状态、API 输入端口、错误码、事务算法、测试/性能数据、提交和偏差。
 
-**建议提交：** `feat(collaboration): implement one-to-one messaging core`
+**提交策略：** 阶段整体交付，由总控按当前协议处理；以下仅为提交主题建议，不逐卡提交： `feat(collaboration): implement one-to-one messaging core`
 
 ## TASK-PF05-003 实现 Presence 与 SignalR 连接治理
 
-**状态：** 待细化/任务待确认
+**状态：** 待派遣；设计就绪度：待前置核验（见细化规格§6 G05-1～3），未实施
 
 **目标：** 实现可信 SignalR 连接、多设备/多标签页租约、用户级 Online/Offline 聚合、粗粒度最后活动、单实例内存和多实例 Redis 背板边界。
 
-**输入文档：** 本文第 4.4、8、10.4～10.6、13.4 节。
+**输入文档：** 本文第 4.4、8、10.4～10.6、13.4 节；[派遣前细化规格](details/PF05-数据接口与页面规格.md) §2.12/§3 Hub、§5本任务行；共同规则§2～6。
 
 **依赖：** TASK-PF05-001；Identity 令牌/撤销/用户停用契约；多实例验证依赖 Redis。
 
 **允许修改范围：** Presence 模块、Collaboration Hub 连接层、Redis 适配、配置、健康/指标和测试；禁止创建消息事实、修改 Messaging Repository 或实现 RemoteAssistance 信令。
 
-**预期输出：** ConnectionLease、20s/60s/15s 配置校验、服务端安全分组、revision 聚合、隐私 DTO、单/多实例策略、限流与故障降级。
+**预期输出：** ConnectionLease、20s/60s/15s 配置校验、服务端安全分组、revision 聚合、隐私 DTO、单/多实例策略、限流与故障降级；按细化规格§5本任务行逐步交付，不在编码中重新决定字段/路由/布局。
 
-**验证与证据：** 第 13.4 节矩阵、可控时钟、多设备、Token 失效、Redis 故障、两副本短时功能验证、日志/指标高基数扫描。
+**验证与证据：** 第 13.4 节矩阵、可控时钟、多设备、Token 失效、Redis 故障、两副本短时功能验证、日志/指标高基数扫描。 补验登录后不打开聊天仍在线/收提醒、多连接关闭不误离线、20/60/15 秒边界、Unknown、外部 iframe 在线覆盖及换人清理。 另覆盖细化规格§5本任务断言；涉及页面先按已画线框实现，再走真实菜单/局部加载/重复提交/中英主题验收。
 
 **结果回写：** 回写 Hub 路径/协议版本、租约键、默认时长、分组算法、隐私投影、指标/健康、测试数和待扩展限制。
 
-**建议提交：** `feat(collaboration): add presence and realtime connection governance`
+**提交策略：** 阶段整体交付，由总控按当前协议处理；以下仅为提交主题建议，不逐卡提交： `feat(collaboration): add presence and realtime connection governance`
 
 ## TASK-PF05-004 实现 AttachmentIntegration 防腐层
 
-**状态：** 待细化/任务待确认
+**状态：** 待派遣；设计就绪度：待前置核验（见细化规格§6 G05-1～3），未实施
 
-**目标：** 基于 PF-04 已验收 File Contracts 实现 `IChatFileGateway` 适配、ChatAttachment 投影、可发送校验、状态 Inbox、下载重新授权、引用/保留/法律保全协调和文本聊天降级。
+**目标：** 基于 PF-04 真实 File Contracts 实现 `IChatFileGateway` 适配和 Messaging 自有 ChatAttachment 投影、可发送校验、状态 Inbox、下载重新授权、引用/保留/法律保全协调和文本聊天降级。
 
-**输入文档：** 本文第 6.5、9、13.5 节；PF-04 File 最终批准的 Contract、状态与错误语义。
+**输入文档：** 本文第 6.5、9、13.5 节；PF-04 File 最终批准的 Contract、状态与错误语义；[派遣前细化规格](details/PF05-数据接口与页面规格.md) §2.4/§3 A05-11～13、§5本任务行；共同规则§2～6。
 
 **依赖：** TASK-PF05-001、002；PF-04 File 稳定契约和真实验收。实施 07 草案接口本身不满足依赖。
 
-**允许修改范围：** AttachmentIntegration Domain/Application/Contracts/Infrastructure、迁移、File adapter 和对应测试；禁止修改 File 内部实现、代理二进制、持有对象存储凭据或读取 File Repository。
+**允许修改范围：** AttachmentIntegration 端口/适配器、Messaging 自有 ChatAttachment 用例/迁移及对应测试；禁止修改 File 内部实现、代理二进制、持有对象存储凭据或读取 File Repository。
 
-**预期输出：** `IChatFileGateway`、ChatAttachment、允许类型/50MB 策略、File 状态版本 Inbox、一次性授权、引用/保全 Outbox、对账和稳定降级错误。
+**预期输出：** `IChatFileGateway`、Messaging 自有 ChatAttachment、允许类型/50MB 策略、File事件触发授权重查Inbox（源版本可空）、一次性授权、引用/保全 Outbox、对账和稳定降级错误；按细化规格§5本任务行逐步交付，不在编码中重新决定字段/路由/布局。
 
-**验证与证据：** 第 13.5 节矩阵、PF-04 Contract fixture、扫描竞态、事件乱序、撤回下载、多个保全 Case、File 故障下文本聊天和 URL/Secret 扫描。
+**验证与证据：** 第 13.5 节矩阵、PF-04 Contract fixture、扫描竞态、事件乱序、撤回下载、多个保全 Case、File 故障下文本聊天和 URL/Secret 扫描。 先核对 FileObjectV1/授权/引用实际语义；ChatAttachment 归 Messaging 单事务，预检后竞态不承诺跨服务原子性，补验发送后失效、授权代理和对账。 另覆盖细化规格§5本任务断言；涉及页面先按已画线框实现，再走真实菜单/局部加载/重复提交/中英主题验收。
 
 **结果回写：** 回写真实 PF-04 Contract 版本/路径映射、状态映射、字段/表、API 端口、事件、测试数、外部依赖和偏差。
 
-**建议提交：** `feat(collaboration): integrate secure chat attachments`
+**提交策略：** 阶段整体交付，由总控按当前协议处理；以下仅为提交主题建议，不逐卡提交： `feat(collaboration): integrate secure chat attachments`
 
-## TASK-PF05-005 冻结 REST、SignalR、事件、权限与可靠集成
+## TASK-PF05-005 实现已定 REST、SignalR、事件、权限与可靠集成
 
-**状态：** 待细化/任务待确认
+**状态：** 待派遣；设计就绪度：待前置核验（见细化规格§6 G05-1～3），未实施
 
-**目标：** 装配三个模块，冻结 v1 REST/Hub/事件/错误/权限，完成安全消息投影、Outbox/Inbox、Identity/File/Audit 适配和 Gateway 路由。
+**目标：** 按细化规格装配三个模块，实现 v1 REST/Hub/事件/错误/权限，完成安全消息投影、Outbox/Inbox、Identity/File/Audit 适配和 Gateway 路由。
 
-**输入文档：** 本文第 3、10～11、13.6～13.7 节；TASK-PF05-002～004 输出；PF-04 Audit 稳定契约。
+**输入文档：** 本文第 3、10～11、13.6～13.7 节；TASK-PF05-002～004 输出；PF-04 Audit 稳定契约；[派遣前细化规格](details/PF05-数据接口与页面规格.md) §3 API/Hub/合规、§5本任务行；共同规则§2～6。
 
-**依赖：** TASK-PF05-002、003、004；Identity、File、Audit 已批准公开契约。
+**依赖：** 文本随 002、在线随 003、附件随 004 分段集成；真实宿主身份/目录及审计不可省略，整项完成仍须所有启用能力的契约证据。
 
 **允许修改范围：** Collaboration Api/Contracts/组合根、Gateway 协调文件、三个模块集成适配、权限清单、OpenAPI/Hub/Event/Contract 测试；禁止跨模块 Repository、PF-06 字段和其他服务内部改造。
 
-**预期输出：** `/collaboration` 路由、REST v1 DTO、Hub v1、安全投影、模块独立 Outbox/Inbox、retry/DLQ、服务身份、权限/提权端口、稳定错误和降级门禁。
+**预期输出：** `/collaboration` 路由、REST v1 DTO、Hub v1、安全投影、服务级 Outbox/按实际消费者启用 Inbox、retry/DLQ、服务身份、权限/提权端口、稳定错误和降级门禁；按细化规格§5本任务行逐步交付，不在编码中重新决定字段/路由/布局。
 
-**验证与证据：** 第 13.6～13.7 节契约/权限/故障矩阵，OpenAPI/JSON/Hub snapshots、Publisher Confirm、重复/乱序/重连、跨租户和敏感载荷扫描。
+**验证与证据：** 第 13.6～13.7 节契约/权限/故障矩阵，OpenAPI/JSON/Hub snapshots、Publisher Confirm、重复/乱序/重连、跨租户和敏感载荷扫描。 按已冻结API随文本/在线/附件分批实现，补齐 Platform/Embedded 身份、目录、审计与本地 Outbox Dispatcher；普通推送发布前取当前安全投影。 另覆盖细化规格§5本任务断言；涉及页面先按已画线框实现，再走真实菜单/局部加载/重复提交/中英主题验收。
 
-**结果回写：** 回写最终路由、DTO、事件名/版本/routing key、权限、错误码、重试参数、健康状态、测试数和前端消费契约。
+**结果回写：** 回写已冻结路由的实现映射、DTO、事件名/版本/routing key、权限、错误码、重试参数、健康状态、测试数和前端消费契约。
 
-**建议提交：** `feat(collaboration): expose reliable messaging contracts`
+**提交策略：** 阶段整体交付，由总控按当前协议处理；以下仅为提交主题建议，不逐卡提交： `feat(collaboration): expose reliable messaging contracts`
 
 ## TASK-PF05-006 实现 PC/PDA/Mobile Collaboration 页面
 
-**状态：** 待细化/任务待确认
+**状态：** 待派遣；设计就绪度：待前置核验（见细化规格§6 G05-1～3），未实施
 
 **目标：** 在 PF-01 统一壳上实现 PC 顶栏/快捷抽屉/完整页、PDA/Mobile 全屏聊天、SignalR 合并、附件交互和普通用户完整状态体验。
 
-**输入文档：** 本文第 7～10、12、13.8 节；TASK-PF05-005 前端契约；PF-01 已验收组件/主题/工作区契约。
+**输入文档：** 本文第 7～10、12、13.8 节；TASK-PF05-005 前端契约；PF-01 已验收组件/主题/工作区契约；[派遣前细化规格](details/PF05-数据接口与页面规格.md) §4 W05-01～03、§5本任务行；共同规则§2～6。
 
-**依赖：** TASK-PF05-005；PF-01、Identity、File 前端公开适配稳定。
+**依赖：** 随 005 已冻结的文本/在线/附件契约分段推进；平台外壳与宿主适配先接文本，三端附件最终依赖 004。
 
-**允许修改范围：** Collaboration 前端 api/stores/realtime/components/pages/routes/tests 及经协调的 PF-01 顶栏插槽装配；禁止重写平台壳、Identity/File 页面、合规后端或创建独立前端项目。
+**允许修改范围：** Collaboration 前端 api/stores/realtime/components/pages/routes/tests 及经协调的 PF-01 顶栏插槽装配；禁止重写平台壳、Identity/File 页面、合规后端；允许同一共享核心的轻量嵌入构建入口，不新建独立门户或第二套聊天核心。
 
-**预期输出：** PC 抽屉和完整页、三端会话页、用户搜索、消息/游标 Store、临时项合并、附件状态/下载、Presence、墓碑、降级、可访问性和截图基线。
+**预期输出：** PC 抽屉和完整页、三端会话页、用户搜索、消息/游标 Store、临时项合并、附件状态/下载、Presence、墓碑、降级、可访问性和截图基线；按细化规格§5本任务行逐步交付，不在编码中重新决定字段/路由/布局。
 
-**验证与证据：** 第 13.8 节 unit/component/E2E、三主题/暗色/密度、目标视口、键盘/ARIA/触控、断线补拉、权限负例、控制台和敏感缓存扫描。
+**验证与证据：** 第 13.8 节 unit/component/E2E、三主题/暗色/密度、目标视口、键盘/ARIA/触控、断线补拉、权限负例、控制台和敏感缓存扫描。 内部步骤：平台 PC 文本 → PDA/Mobile 文本 → 三端附件与全部状态 → 轻量外部嵌入；每步消费相应 005 契约。验收登录后未开窗提醒、标题 Presence、扫码回车不误发、换人迟到事件隔离。 另覆盖细化规格§5本任务断言；涉及页面先按已画线框实现，再走真实菜单/局部加载/重复提交/中英主题验收。
 
-**结果回写：** 回写最终路由、组件/Store、终端差异、状态映射、截图/报告、覆盖率、测试数、真机待验收和偏差。
+**结果回写：** 回写已冻结路由的实现映射、组件/Store、终端差异、状态映射、截图/报告、覆盖率、测试数、真机待验收和偏差。
 
-**建议提交：** `feat(frontend): add collaboration chat experience`
+**提交策略：** 阶段整体交付，由总控按当前协议处理；以下仅为提交主题建议，不逐卡提交： `feat(frontend): add collaboration chat experience`
 
 ## TASK-PF05-007 实现合规、保留、安全与可观测性闭环
 
-**状态：** 待细化/任务待确认
+**状态：** 待派遣；设计就绪度：待前置核验（见细化规格§6 G05-1～3），未实施
 
 **目标：** 实现合规查看/处置、异步导出、法律保全、365 天清理协调、3 年 Audit 分类、短时提权、双人审批、指标/Trace/告警和 PC 合规页面。
 
-**输入文档：** 本文第 11～13.8 节；PF-04 File/Audit 稳定契约；TASK-PF05-005/006 输出。
+**输入文档：** 本文第 11～13.8 节；PF-04 File/Audit 稳定契约；TASK-PF05-005/006 输出；[派遣前细化规格](details/PF05-数据接口与页面规格.md) §2.5～2.9/§3合规/§4 W05-04、§5本任务行；共同规则§2～6。
 
 **依赖：** TASK-PF05-005；前端部分依赖 006；PF-04 File/Audit 和 Identity 提权/服务身份契约稳定。
 
 **允许修改范围：** Collaboration Compliance/Retention/Operations、后台 Worker、适配器、PC 合规页面和对应测试/运行手册；禁止修改 Audit/File 内部表、创建 Scheduler 领域或扩张普通聊天范围。
 
-**预期输出：** ComplianceDisposition、Export Operation、LegalHoldCase、审批 checksum、File 保全/导出适配、可恢复清理、审计/指标/告警、受保护诊断和合规 UI。
+**预期输出：** ComplianceDisposition、Export Operation、LegalHoldCase、审批 checksum、File 保全/导出适配、可恢复清理、审计/指标/告警、受保护诊断和合规 UI；按细化规格§5本任务行逐步交付，不在编码中重新决定字段/路由/布局。
 
-**验证与证据：** 第 13.7～13.8 节全部场景、权限/提权、再审计失败关闭、双人审批、多个 Case、保留边界、故障注入、Secret/正文扫描和恢复演练。
+**验证与证据：** 第 13.7～13.8 节全部场景、权限/提权、再审计失败关闭、双人审批、多个 Case、保留边界、故障注入、Secret/正文扫描和恢复演练。 内部步骤：基础安全/持久审计/保留 → 已批准平台合规增强；按 12.13 分层验收。外部版裁剪增强 UI 不删除必要审计和保全；拟延期平台增强仍待决策。 另覆盖细化规格§5本任务断言；涉及页面先按已画线框实现，再走真实菜单/局部加载/重复提交/中英主题验收。
 
 **结果回写：** 回写状态机、默认/可配期限、Operation/审批契约、指标/告警、运行步骤、测试数、外部待验收和合规偏差。
 
-**建议提交：** `feat(collaboration): add compliance retention and observability`
+**提交策略：** 阶段整体交付，由总控按当前协议处理；以下仅为提交主题建议，不逐卡提交： `feat(collaboration): add compliance retention and observability`
 
 ## TASK-PF05-008 完成契约、E2E、2C4G 与阶段验收
 
-**状态：** 待细化/任务待确认
+**状态：** 待派遣；设计就绪度：待前置核验（见细化规格§6 G05-1～3），未实施
 
 **目标：** 在真实云端 Docker、Gateway、Identity、SystemData、PostgreSQL、Redis、RabbitMQ、File、Audit 和浏览器环境验证 PF-05 全链，冻结 PF-06 可消费契约。
 
-**输入文档：** 本文全部章节；TASK-PF05-001～007 输出；各前置阶段真实验收记录。
+**输入文档：** 本文全部章节；TASK-PF05-001～007 输出；各前置阶段真实验收记录；[派遣前细化规格](details/PF05-数据接口与页面规格.md) §5全部断言、§5本任务行；共同规则§2～6。
 
 **依赖：** TASK-PF05-001～007 全部完成；PF-02 数据库门禁、PF-04 File/Audit 稳定契约和真实环境可用。
 
 **允许修改范围：** PF-05 验收测试、fixture、性能/故障脚本、报告、运行说明和本文执行记录；只修复验收阻塞缺陷，不扩张业务范围，不修改其他实施文档的设计结论。
 
-**预期输出：** 全量测试/覆盖率、数据库拓扑、OpenAPI/Hub/Event snapshots、真实两用户/多设备/附件/合规 E2E、2C4G 最低门禁、两实例短时扩展正确性、故障恢复、截图与阶段报告。
+**预期输出：** 全量测试/覆盖率、数据库拓扑、OpenAPI/Hub/Event snapshots、真实两用户/多设备/附件/合规 E2E、2C4G 最低门禁、两实例短时扩展正确性、故障恢复、截图与阶段报告；按细化规格§5本任务行逐步交付，不在编码中重新决定字段/路由/布局。
 
-**验证与证据：** 第 13 章全部适用矩阵；记录真实命令、退出码、数量、覆盖率、容器/提交、资源曲线、拐点、报告路径和任何跳过/外部限制。
+**验证与证据：** 第 13 章全部适用矩阵；记录真实命令、退出码、数量、覆盖率、容器/提交、资源曲线、拐点、报告路径和任何跳过/外部限制。 平台完整集成与不启动整套平台的参考宿主嵌入分别验收；真实客户适配另记。覆盖三端 Web、多设备、旧撤回校正、响应丢失、2C4G 基线及应用级全部连接容量；无实机明确待验收，不把响应式截图当实机。 另覆盖细化规格§5本任务断言；涉及页面先按已画线框实现，再走真实菜单/局部加载/重复提交/中英主题验收。
 
 **结果回写：** 仅在用户明确授权的未来执行阶段回写本文第 16～18 节及总 Todo；未满足项保持阻塞/待验收，不伪装完成。
 
-**建议提交：** `test(collaboration): verify pf05 collaboration stage`
+**提交策略：** 阶段整体交付，由总控按当前协议处理；以下仅为提交主题建议，不逐卡提交： `test(collaboration): verify pf05 collaboration stage`
 
 ---
 
@@ -1592,7 +1592,7 @@ TASK-PF05-001～007
 ## 16.1 宿主、模块与数据
 
 - `Collaboration.Service` 创建且只包含 PF-05 三模块；RemoteAssistance 仍未实现。
-- 三模块独立公开契约、权限、Schema/前缀、迁移产物、ledger、readiness 和测试，无跨模块 Repository/表/外键。
+- 三模块独立公开契约、权限、诊断和测试；持久数据有明确所有者，共用服务级迁移/账本，无跨模块 Repository/表/外键。
 - SystemData logical-to-physical、Shared/PerService、OperationId、锁、drift、NotReady、生产 plan/审批/备份/apply/verify 和 SQLite 显式回退通过。
 - 会话参与人对唯一、严格 Sequence、ClientMessageNId 幂等、消息/Outbox/Audit 原子、已读游标、未读投影、墓碑、隐藏和补拉符合本文。
 
@@ -1615,7 +1615,13 @@ TASK-PF05-001～007
 - PC 抽屉支持文本/图片/文件；用户搜索建会话、深历史和合规管理在完整页/独立路由。
 - 三主题、明暗、密度、目标视口、键盘/ARIA/触控、减少动画、错误/空/降级/保留边界通过。
 
-## 16.5 自动化与环境
+## 16.5 两种装配与宿主边界
+
+- 平台登录后未开聊天仍接收提醒，列表/标题 Presence、多连接与 Unknown 正确；三端 Web 不延期。
+- 外部参考宿主在未启动整套平台时完成认证、完整可见目录、退出/停用、文本/恢复和真实持久审计；附件/协助/合规 UI 裁剪不绕过核心权限。
+- 真实客户未提供接口时只能声明参考适配完成，不能宣称客户上线；原生能力交给 PF-06A。平台批准合规增强未确认延期前仍是未完成门禁。
+
+## 16.6 自动化与环境
 
 - Domain、Application、Infrastructure、API、SignalR、Contract/Event、Frontend Component 和 E2E 有新鲜证据。
 - 2 核 4GB 共享云端 Docker 环境通过第 13.9 节最低门禁，记录资源曲线、恢复和已验证容量拐点。
@@ -1626,16 +1632,18 @@ TASK-PF05-001～007
 
 # 17. 执行记录
 
+2026-09-07：V1.1 文档整改；001～008 保留未实施状态，未派遣。新范围及验收增量已写回任务九字段，文档检查见 `docs/evidence/2026-09-07-platform-roadmap-docs.md`。
+
 | 任务 | 状态 | 执行者/任务 | 提交 | 验证证据 | 结果回写 |
 | --- | --- | --- | --- | --- | --- |
-| TASK-PF05-001 | 待细化/任务待确认 | - | - | - | - |
-| TASK-PF05-002 | 待细化/任务待确认 | - | - | - | - |
-| TASK-PF05-003 | 待细化/任务待确认 | - | - | - | - |
-| TASK-PF05-004 | 待细化/任务待确认 | - | - | - | - |
-| TASK-PF05-005 | 待细化/任务待确认 | - | - | - | - |
-| TASK-PF05-006 | 待细化/任务待确认 | - | - | - | - |
-| TASK-PF05-007 | 待细化/任务待确认 | - | - | - | - |
-| TASK-PF05-008 | 待细化/任务待确认 | - | - | - | - |
+| TASK-PF05-001 | 待派遣（待前置核验） | - | - | - | - |
+| TASK-PF05-002 | 待派遣（待前置核验） | - | - | - | - |
+| TASK-PF05-003 | 待派遣（待前置核验） | - | - | - | - |
+| TASK-PF05-004 | 待派遣（待前置核验） | - | - | - | - |
+| TASK-PF05-005 | 待派遣（待前置核验） | - | - | - | - |
+| TASK-PF05-006 | 待派遣（待前置核验） | - | - | - | - |
+| TASK-PF05-007 | 待派遣（待前置核验） | - | - | - | - |
+| TASK-PF05-008 | 待派遣（待前置核验） | - | - | - | - |
 
 截至 2026-08-14，已完成只读证据盘点、用户逐节确认、全文最终确认和实施文档 08 定稿。用户允许后续进入开发，但明确要求当前会话不做开发；因此本会话未派遣任务，未修改生产代码或测试代码，未运行构建/测试/性能验收，未提交 Git。工作树中的 SystemData、Gateway、配置、测试和其他并行改动均保持原状。
 
@@ -1671,16 +1679,16 @@ Compliance
 
 PF-06 必须自行设计 RemoteAssistanceSession、参与人白名单、一次性凭证、邀请接受/拒绝、WebRTC/Screego/TURN、超时/终止和屏幕共享审计。PF-05 不承诺 WebRTC 房间、远程控制、录屏、共享媒体保存或 RemoteAssistance 数据表。
 
-PF-04 File/Audit 契约在 PF-05 开发前仍需按实际批准版本替换候选适配；本文的 `IChatFileGateway` 与 Audit 端口表达所需语义，不证明实施 07 草案路由已经稳定或实现。
+PF-04 File/Audit 以 HEAD 中真实 Contracts 与后续验收证据映射；条件授权、会话成员下载、保全和提权缺口必须列明。端口 fixture 不替代真实集成。PF-06 后进入 PF-06A（实施 09A）终端化；当前仅交付三端 Web 与必要宿主适配。
 
 ---
 
-# 19. 文档自审清单
+# 19. 2026-08-14 历史文档自审记录（不作为 V1.1 验证）
 
 - [x] 指定蓝图、总 Todo、模板、实施 01/03/04/05/06/07、Git 和当前代码结构已核对。
 - [x] PF-02 并行未提交实现和 PF-04 draft 未写成稳定实现。
 - [x] 一个 Collaboration Host、三个独立模块；PF-06 RemoteAssistance 未越界实现。
-- [x] Shared/PerService、Manifest、三迁移单元/账本、OperationId、锁、drift、NotReady 和云端 Docker 默认调试完整。
+- [x] Shared/PerService、Manifest、服务级初始化/账本、OperationId、锁、drift、NotReady 和云端 Docker 默认调试完整。
 - [x] 会话、消息、Sequence、幂等、已读/未读、撤回、隐藏、Presence 和附件边界一致。
 - [x] REST、SignalR 安全投影、Outbox/Inbox、重试/DLQ 和 REST 校正恢复前后一致。
 - [x] File/Audit 仅通过动态公开契约适配，无跨模块 Repository、表或外键。

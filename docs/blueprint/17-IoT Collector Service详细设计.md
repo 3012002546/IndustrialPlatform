@@ -1,5 +1,7 @@
 继续输出：
 
+> 2026-09-07 执行前置：PF-10B 标签管理平台在 PF-11 之前，详见总 Todo 与蓝图 35/实施 13B。IoTCollector 只复用 Device Agent/Runtime 的受限设备连接与诊断语义，不依赖 Label 任务/模板/数据库；采集点、时序质量、边缘缓存仍由本服务拥有。
+
 # 17-IoT Collector Service详细设计.md
 
 > Industrial Platform

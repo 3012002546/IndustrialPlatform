@@ -1,6 +1,6 @@
 # Industrial Platform 开发总 TodoList
 
-版本：V2.1
+版本：V2.2
 状态：持续维护
 用途：总体阶段编排、独立会话派遣、阶段门禁和结果回写
 蓝图依据：`01-Industrial Platform 总体架构设计 V1.0.md`、`05-Industrial Platform平台基础功能与独立模块设计.md`、`32-Industrial Platform Service Host与内部模块边界.md`
@@ -41,11 +41,13 @@
 07  PF-04 File / Notification / Audit
 08  PF-05 Collaboration
 09  PF-06 RemoteAssistance
+09A PF-06A 终端运行时与客户端打包
 10  PF-07 Scheduler / Platform Health
 11  PF-08 Low Code
 12  PF-09 Dashboard & Report
 13  PF-10 ServerMonitor
 13A PF-10A Operations Center Knowledge & Assistant
+13B PF-10B 标签管理平台
 14  PF-11 IoT Collector
 15  MES-01 MasterData（原05）
 16  MES-02 OperationalData（原06）
@@ -61,11 +63,11 @@
 
 ## 2.3 阶段与 Service Host
 
-阶段不等于微服务。PF-02～PF-11（含 PF-10A）的宿主创建/扩展映射固定读取蓝图 32：PF-02/04/07 共用 `SystemData.Service`，PF-05/06 共用 `Collaboration.Service`，PF-08/09 共用 `PlatformStudio.Service`；PF-03 使用 `ReferenceData.Service`；PF-10 创建 `OperationsCenter.Service` 并只处理 ServerMonitor，PF-10A 再加入知识、问题与助手模块；PF-11 创建 `IoTCollector.Service`。`Service Host != Domain Module != Initialization Unit != Deployment Unit`；同宿主模块必须独立建模、使用明确的 Schema/模块表前缀逻辑命名空间及契约/权限/测试边界，但只有独立持久化生命周期才拆分初始化单元和物理治理设施。
+阶段不等于微服务。PF-02～PF-11（含 PF-10A）的宿主创建/扩展映射固定读取蓝图 32：PF-02/04/07 共用 `SystemData.Service`，PF-05/06 共用 `Collaboration.Service`，PF-08/09 共用 `PlatformStudio.Service`；PF-03 使用 `ReferenceData.Service`；PF-10 创建 `OperationsCenter.Service` 并只处理 ServerMonitor，PF-10A 再加入知识、问题与助手模块；PF-10B 创建 `Label.Service`，然后 PF-11 创建 `IoTCollector.Service`；PF-06A 是客户端/运行时专项，不增加核心 Host。`Service Host != Domain Module != Initialization Unit != Deployment Unit`；同宿主模块必须独立建模、使用明确的 Schema/模块表前缀逻辑命名空间及契约/权限/测试边界，但只有独立持久化生命周期才拆分初始化单元和物理治理设施。
 
 # 3. 当前真实基线
 
-截至 2026-09-02：
+截至 2026-09-07（本轮只核对文档、提交和代码，历史验收不重跑）：
 
 | 范围 | 状态 | 证据与说明 |
 | --- | --- | --- |
@@ -77,6 +79,9 @@
 | PF-02 SystemData | 收束验收中 / 26项证据状态已回写 | 2026-09-04已知整改缺陷复验关闭；24项部分、ORG-02/03隔离通过/真实HTTP待补；014完整UI与200%、015真实链、016外部门禁保留；017本轮回写完成，013/PF-02继续active，不进入PF-03 |
 | ReferenceData | 已完成并合入 | PF-03 七模块、共享治理、七个 PC 页面与真实链路验收已完成；见 `docs/evidence/PF-03.md` |
 | 架构收敛整改 | 已完成 | 四个已批准工作包完成，结果已纳入当前架构基线 |
+| PF-04 Core | 已有代码提交，真实验收待补 | HEAD `8625efb`；`docs/evidence/PF-04.md` 有历史自测及外部缺口，不能当作本轮新鲜验证 |
+| PF-05/PF-06 | 字段/接口/线框已细化，待派遣/待前置核验 | 实施08/09 V1.2；原批准范围和PoC门禁保留 |
+| PF-06A/PF-10B | 核心规格已细化，待派遣/待实际目标核验 | 实施09A/13B V1.1；没有原生或Label工程 |
 | MasterData | 暂缓 | 实施方案存在，本轮不进入开发 |
 | OperationalData | 暂缓 | 实施方案存在，本轮不进入开发 |
 
@@ -104,6 +109,8 @@ PF-05 Collaboration
                     ↓
 PF-06 RemoteAssistance 验证与试点
                     ↓
+PF-06A 终端运行时与客户端打包
+                    ↓
 PF-07 Scheduler / Platform Health
                     ↓
 PF-08 Low Code
@@ -113,6 +120,8 @@ PF-09 Dashboard & Report
 PF-10 ServerMonitor
                     ↓
 PF-10A Operations Center Knowledge & Assistant
+                    ↓
+PF-10B 标签管理平台
                     ↓
 PF-11 IoT Collector
                     ↓
@@ -127,11 +136,12 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 
 - PF-01 的设计会话可以在 PF-00 后半段开始，但真实 Identity 契约未稳定前不得完成集成验收。
 - PF-02 与 PF-03 的后端设计可以并行，页面必须共同遵循 PF-01。
-- PF-04 使用一个阶段管理会话，File、Notification、Audit 分开建模，整个 PF 统一派遣、内部任务连续执行；Collaboration 开发前至少需要 Audit Core 与 File 稳定契约，并落实其已定扫描/保留/法律保全要求。
+- PF-04 使用一个阶段管理会话，File、Notification、Audit 分开建模，整个 PF 统一派遣、内部任务连续执行；Collaboration 文本可基于可信身份/目录/本地持久审计先闭环，附件集成再消费 File 稳定契约；完整阶段验收仍落实扫描/保留/法律保全。
 - PF-07 使用一个阶段管理会话，Scheduler 与 Platform Health 分开建模和派遣。
 - PF-09 使用一个阶段管理会话，Dashboard 与 Report 共享数据集契约但保持产品边界。
 - PF-10 先创建 `OperationsCenter.Service` 并独立交付 ServerMonitor；PF-10A 才向同一宿主加入项目知识、问题与助手模块。
-- Operations Center 与 IoT Collector 不互为领域依赖；PF-11 的实际启动条件由阶段管理任务根据 PF-10A 的设计进度复核，不得把知识闭环未完成误报为已设计。
+- Operations Center、Label 与 IoT Collector 不互为领域数据依赖；排期上 PF-10B 的独立标签/设备闭环先于 PF-11。不得把 PF-10A 的知识闭环未完成误报为已设计。
+- PF-06A 在 PF-05/06 三端 Web 验收后实施原生包；PF-10B 在 IoTCollector 前实施标签服务和 Device Agent，既有 PF-07～PF-11 不重编号。
 
 # 5. 单阶段单管理会话工作流
 
@@ -157,7 +167,7 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 阶段状态：
 
 ```text
-待启动 → 设计中 → 任务待确认 → 可派遣 → 派遣中 → 待验收 → 已完成
+待启动 → 设计中 → 待前置核验 → 待派遣（已就绪） → 派遣中 → 待验收 → 已完成
 ```
 
 发现跨阶段冲突时：
@@ -169,7 +179,8 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 任务状态继续使用实施规范：
 
 ```text
-待细化 → 可派遣 → 已派遣 → 开发中 → 待验收 → 已完成
+设计就绪度：待细化 → 待前置核验 → 已就绪
+派遣状态：待派遣 → 已派遣 → 开发中 → 待验收 → 已完成
 ```
 
 # 7. PF-00 Identity
@@ -286,7 +297,7 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 
 # 11. PF-04 File / Notification / Audit
 
-**状态：** 2026-09-06 蓝图与开发 TODO 整改后已完成开发就绪复评，PF-04 Core（001～009）已整包派遣并进入开发；功能开发任务 `01a076d2-a8d3-7163-8721-8cae51393d92`，独立验收任务 `01a076d3-3abf-7921-a367-9b70749d0780`。实施入口：[07 V1.1](../implementation/07-Industrial%20Platform%20File%20Notification%20Audit开发实施方案.md)。010 为后续增强待细化。
+**状态：** 2026-09-06 完成开发就绪复评并整包派遣 PF-04 Core（001～009）；截至 2026-09-07，Core 已提交 `8625efb`，真实验收待补。功能开发任务 `01a076d2-a8d3-7163-8721-8cae51393d92`，独立验收任务 `01a076d3-3abf-7921-a367-9b70749d0780` 保持不变。实施入口：[07 V1.1](../implementation/07-Industrial%20Platform%20File%20Notification%20Audit开发实施方案.md)。010 为后续增强待细化。
 
 **Service Host：** 三个逻辑模块加入现有 SystemData.Service，沿用服务级迁移/账本与可靠设施，数据命名空间/公开契约独立；不新增三个 Host、四 Unit 硬前置或重复 PF-02 数据库治理。当前 PF-02 仍 active，PF-03 已完成合入；前置按所消费的具体契约和证据核验，不沿用旧“全部尚不存在”。
 
@@ -317,29 +328,19 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 
 Audit Advanced（010）包含哈希链、签名 checkpoint、外部锚点、完整 Legal Hold 审批、解密和复杂合规导出，按明确需求再决策，不是 Core 验收或 File/Notification 前置。蓝图 05 第 8.1 节已确定的扫描、保留和法律保全要求继续有效，PF-05 启用相关内容前落实保全保护，不能因审批 UI 后置而允许删除。
 
-001～009 的设计与九字段说明已具备开发条件。组件/扫描/存储/服务身份等事项按实施 07 第 1.3、17 章分别纳入任务内核验和功能验收，不作为整个 Core 的设计阻塞。2026-09-06 已落实专用工作线、开发/验收负责人和共享文件边界；从 001 按依赖连续执行，003 内先做最小技术验证。当前没有 PF-04 功能验收结果，进入开发中不代表功能完成。
+001～009 的设计与九字段说明已具备开发条件。组件/扫描/存储/服务身份等事项按实施 07 第 1.3、17 章分别纳入任务内核验和功能验收，不作为整个 Core 的设计阻塞。2026-09-06 已落实专用工作线、开发/验收负责人和共享文件边界；原执行安排从 001 按依赖连续执行，003 内先做最小技术验证。截至 2026-09-07，已有 Core 提交与历史自测记录，仍缺真实浏览器、ClamAV、外部中间件和多实例等验收证据；提交不代表功能验收完成。
 
 # 12. PF-05 Collaboration
 
-**状态：** 待启动
-**Service Host：** 创建 `Collaboration.Service`；内部模块至少保持 Messaging、Presence、AttachmentIntegration 分界。
-**建议会话标题：** `PF-05 Collaboration阶段管理`
-**输入：** 蓝图 05；PF-00、PF-01、PF-04 稳定契约。
-**目标：** 交付登录用户之间的一对一文本、图片和文件聊天。
-**依赖：** Identity、Audit、File；可消费 Notification/Realtime 基础。
-**禁止范围：** 群聊、语音、视频会议、外部联系人、机器人和远程控制。
-
-**设计会话必须解决：**
-
-- 会话、消息、参与人、游标、已读和撤回模型；
-- REST 与 SignalR 分工、幂等和离线补拉；
-- Outbox、顺序、重复、断线和多实例；
-- 附件隔离和扫描状态；
-- 365 天内容、3 年合规访问审计和法律保全；
-- 合规查看权限、原因和再审计；
-- PC 抽屉/完整页、PDA/Mobile 全屏页面。
-
-**完成门禁：** 两名登录用户可跨断线完成文字和合规附件聊天；权限、保留、审计、契约和关键 E2E 通过。
+**状态：** 2026-09-07 已补充 V1.2 字段/接口/线框图规格；任务待派遣、就绪度待前置核验，未实施。
+**实施文档：** [实施 08](../implementation/08-Industrial%20Platform%20Collaboration开发实施方案.md)。
+**Service Host：** 一个 Collaboration.Service，Messaging/Presence/AttachmentIntegration 分责；默认服务级初始化，Presence 不建空账本。
+**目标：** 平台原生优先、外部 MES 可信身份嵌入；三端 Web 一对一文本/图片/文件、在线、已读未读、撤回、隐藏恢复与可靠同步。
+**依赖：** 身份/目录与必要持久审计先支持文本；File 按实际契约后接，完整真实集成仍验收。PF-04 代码存在不代表所有消费契约已稳定。
+**内部顺序：** 001 两模式宿主/身份 → 002 文本用例与 005/006 对应 API/页面 → 003 在线/可靠同步 → 004 附件与 005/006 三端联动 → 007 基础及平台已批准合规 → 008 两模式完整验收。
+**关键修订：** 已提交 Sequence 连续且失败回滚不占号；新消息补拉与旧窗口状态刷新分开；MessageStateVersion 合并；发布前安全投影；Messaging 自有附件绑定；已读原子 max；Presence 20/60/15 秒语义明确并展示 Unknown。
+**完成门禁：** 平台登录未打开聊天也接收提醒、抽屉/页签共享状态；外部不启动整套平台完成参考宿主认证/目录/退出/裁剪闭环；三端 Web、多设备、故障恢复、保留/合规与已批准 2C4G 门禁。客户/真机缺口如实记录。
+**边界：** 不引入完整 IM 引擎，不做群聊/会议/独立人员主数据，不提前打包；平台已批准合规增强未决定延期前仍保留为未完成范围。
 
 # 13. PF-06 RemoteAssistance
 
@@ -349,7 +350,7 @@ Audit Advanced（010）包含哈希链、签名 checkpoint、外部锚点、完�
 **实施文档：** `docs/implementation/09-Industrial Platform RemoteAssistance开发实施方案.md`
 **输入：** 蓝图 05；PF-05 会话契约；Screego 官方仓库和部署配置。
 **目标：** 先验证现场网络中的 WebRTC 屏幕共享，再决定 Screego 适配或自研轻量信令路线。
-**依赖：** PF-05；验证环境需具备内部 HTTPS、WebSocket 和可配置网络策略。
+**依赖：** 技术 PoC 只需实验网络/浏览器/证书等；产品集成依赖 PF-05 真实契约、可信身份与必要 Audit；客户上线另需现场证据，详见实施 09 §1.4。
 **禁止范围：** 远程鼠标键盘、无人值守、默认录屏。
 
 **验证会话必须解决：**
@@ -364,7 +365,17 @@ Audit Advanced（010）包含哈希链、签名 checkpoint、外部锚点、完�
 
 **决策门禁：** 形成带证据的采用、适配或自研结论。验证失败时功能开关保持关闭，不阻塞 Collaboration。
 **已确认方向（2026-08-14）：** 平台原生 RemoteAssistance 控制面与最小原生 WebRTC 信令作为推荐生产候选，未修改 Screego 仅作独立基准 PoC；先执行 `TASK-PF06-001` 双 PoC、现场网络与 GPL-3.0 交付门禁，证据和用户确认通过后才允许 `TASK-PF06-002～008` 进入领域、契约、适配、页面、部署与验收开发。当前未派遣、未开发、未构建、未测试。
-**产品完成门禁：** 从聊天发起、邀请、接受、共享、终止和元数据审计闭环通过。
+**产品完成门禁：** 三端 Web 从聊天发起、逐人邀请/授权/拒绝、共享、离开/终止和元数据审计闭环；第 2/3 人无原聊天历史权限；数据库票据唯一消费、响应丢失补发、真实撤权断流及强制 TURN 通过。外部嵌入复用宿主适配，协助故障不影响聊天；不含原生安装包。
+
+# 13A. PF-06A 终端运行时与客户端打包
+
+**状态：** 核心字段/接口/页面线框图已细化；待派遣、待实际目标核验，未实施。
+**设计/实施：** [蓝图 34](34-Industrial%20Platform终端运行时与客户端架构.md)、[实施 09A](../implementation/09A-Industrial%20Platform终端运行时与客户端打包开发实施方案.md)。
+**前置/顺序：** PF-05/PF-06 Web 完成后、PF-07 前；不占用已有 PF-07 编号。
+**目标：** 同一 Vue3 业务层 → Web/Electron Windows/Capacitor Android PDA；扫码/相机/BLE、受限桥接、协作生命周期、完整升级与 PDA Bundle 热更新。
+**任务：** TASK-PF06A-001～008：能力矩阵→Runtime→PC/PDA容器→更新→协作→设备交接→真机验收。
+**完成门禁：** 一台真实 PDA、一种广播、相机扫码、一种 BLE；PC/Bundle/APK 各一次升级、兼容/签名/回退与业务保护；原生聊天/共享/换人恢复。Mobile 原生平台范围在 001 明确，未知不当完成。
+**边界：** 不重写消息核心、不创建标签队列、不做全品牌/MDM/永久后台；具体版本/许可/硬件与发布环境必须核验。
 
 # 14. PF-07 Scheduler / Platform Health
 
@@ -442,12 +453,23 @@ PF-09 只使用一个阶段管理会话，输出实施文档 12。Dashboard 与 
 **禁止范围：** 在闭环确认前生成开发任务卡或派遣实现；ServerMonitor 的既有领域模型不得被知识/问题模块直接读取。
 **完成门禁：** 在阶段管理会话中补齐详细设计后另行定义，不得在本总 Todo 中预设表、API 或页面。
 
+# 17B. PF-10B 标签管理平台
+
+**状态：** 核心数据/接口/页面线框已细化，待派遣/待客户设备与独立适配核验，未实施。
+**设计/实施：** [蓝图 35](35-Industrial%20Platform标签管理平台设计.md)、[实施 13B](../implementation/13B-Industrial%20Platform标签管理平台开发实施方案.md)。
+**前置/顺序：** PF-06A 提供容器能力；排在 PF-10A 后、PF-11 IoTCollector 前，并先于正式 MES 业务。外部项目数据契约可独立接入，不等待 MasterData 开发。
+**宿主：** 独立 Label.Service + 必要数据库/文件存储 + 按需 Device Agent；完全独立、外部 MES 接入、平台集成三模式。Agent 为辅助部署单元，Label 是新增第八个规划核心 Host。
+**任务：** TASK-PF10B-001～010：样本/设备→独立基础→数据契约/绑定/快照→模板→任务调度→Windows/PDA执行→页面/客户接入→恢复试点→验收。
+**完成门禁：** 物料/容器/设备及自定义模板；底稿/指令；客户保密映射、明细/份数、固定预览快照；真实 Windows 工位与 PDA 蓝牙直连；历史/受控重打、未知结果不自动重打、恢复对账、一个真实项目交付。
+**边界：** 不宣称全打印机兼容，候选组件未定；不让称量/IoT 依赖标签任务，不建设通用规则引擎/完整离线业务。
+
 # 18. PF-11 IoT Collector
 
 **状态：** 待启动
 **Service Host：** 创建 `IoTCollector.Service`；内部模块为 Driver、DeviceConnection、Point、CollectionTask、EdgeManagement。
 **建议会话标题：** `PF-11 IoT Collector阶段管理`
 **输入：** 蓝图 05、08、17、20、30；PF-07/10 可观测契约。
+**执行前置：** 按路线先完成 PF-10B 标签平台；消费其设备连接/诊断公开语义，不依赖 Label 任务表。原 PF-11 编号保持。
 **目标：** 复核并实施驱动、连接、点位、采集任务、边缘缓存、断线续传和数据质量。
 **边界：** 不承担 MasterData、报表和 MES 规则；设备业务档案仍归 MasterData。
 **完成门禁：** 选择一个首期协议完成连接、采集、缓存、断线恢复、幂等写入和监控闭环；其余协议按适配器任务追加。
@@ -458,7 +480,7 @@ PF-09 只使用一个阶段管理会话，输出实施文档 12。Dashboard 与 
 
 **状态：** 暂缓
 **现有实施文档：** `docs/implementation/15-Industrial Platform MasterData Service开发实施方案.md`
-**恢复门禁：** PF-00～PF-07 完成；PF-08/09 是否前置由产品需要决定；必须新开会话复核现有设计与 SystemData、ReferenceData、File、Audit 和主题契约。
+**恢复门禁：** 按第 4 章先收束平台基础至 PF-11，包含 PF-06A 终端化和 PF-10B 标签平台；未经新的排期决定不提前进入 MES；必须新开会话复核现有设计与 SystemData、ReferenceData、File、Audit 和主题契约。
 
 ## 19.2 MES-02 OperationalData
 
@@ -494,14 +516,16 @@ WorkOrder、Weighting、Trace、BatchRecord 和生产闭环分别开会话设计
 | PF-02 SystemData | 收束验收中 / 真实矩阵受环境限制 | PF-02 主工作区顺序交接 | 蓝图 05、07、33 V3.1 | `docs/implementation/05-Industrial Platform SystemData开发实施方案.md` | 001～010 已完成；011～012 待收束；014/016 已交付并关闭已报告缺陷；015 待真实验收；017 已回写；013 未关闭 | `docs/evidence/PF-02.md` 第五轮；后端1378通过/3跳过、独立探针8项达到预期；七页/三端/十三门禁真实矩阵仍待验收，不进入 PF-03 |
 | 架构收敛整改 | 已完成 | 当前计划 | 已批准整改设计 | 已批准四工作包计划 | WP1～WP4 已完成 | 结果已纳入当前架构基线 |
 | PF-03 ReferenceData | 已完成并合入 | 开发/验收任务已归档；原专用工作树与分支已清理 | 蓝图 07、21、26、32、33；七模块与单位/状态机所有权已确认 | 实施 06 V2.7；`docs/tasks/archive/PF-03.md` | `969ee156`；合并 `e9452b47` | `docs/evidence/PF-03.md`；独立验收 PASS，主工作树门禁通过 |
-| PF-04 File / Notification / Audit | 开发中；独立验收预检中 | 当前 PF-04 设计优化任务；开发 `01a076d2-a8d3-7163-8721-8cae51393d92`；验收 `01a076d3-3abf-7921-a367-9b70749d0780` | 蓝图 05、26、30、31、32/33 | [实施 07 V1.1](../implementation/07-Industrial%20Platform%20File%20Notification%20Audit开发实施方案.md) | 001～009 已整包派遣并按依赖连续执行；010 后续待细化；未提交 | 2026-09-06 开发就绪复评见实施 07 第 1.3/16.3；接入/组件为任务内验证，验收等待稳定开发交接，当前无功能验收结论 |
-| PF-05 Collaboration | 待启动 | 待创建 | 蓝图 05 | 实施 08 待创建 | - | - |
+| PF-04 File / Notification / Audit | Core 已提交，真实验收待补 | 原开发/验收任务保留 | 蓝图 05/26/30/32/33 | 实施 07 V1.1 | `8625efb`，001～009 已有实现；010 后续待细化 | `docs/evidence/PF-04.md` 历史自测；真实浏览器/ClamAV/中间件/多实例仍待验收 |
+| PF-05 Collaboration | V1.2 规格细化，待派遣/待前置核验 | 未新增任务 | 蓝图 04/05/32/33 | [实施 08](../implementation/08-Industrial%20Platform%20Collaboration开发实施方案.md) | 001～008 待派遣 | 仅文档检查，无功能验收 |
 | PF-06 RemoteAssistance | 详细设计已确认，PoC 门禁待派遣 | 当前 PF-06 阶段管理会话 | 蓝图 05、32、33；Screego/W3C 官方证据 | `docs/implementation/09-Industrial Platform RemoteAssistance开发实施方案.md` | 推荐平台原生控制面/最小信令，Screego 仅未修改基准 PoC | TASK-PF06-001 待另行派遣；002～008 门禁阻塞，未开发/未测试 |
+| PF-06A 终端运行时与客户端打包 | 待派遣/待设备核验 | 未新增任务 | 蓝图 34 | [实施 09A](../implementation/09A-Industrial%20Platform终端运行时与客户端打包开发实施方案.md) | 001～008 未派遣 | 无原生/真机验收 |
 | PF-07 Scheduler / Platform Health | 待启动 | 待创建 | 蓝图 05、30 | 实施 10 待创建 | - | - |
 | PF-08 Low Code | 待启动 | 待创建 | 蓝图 21 待复核 | 实施 11 待创建 | - | - |
 | PF-09 Dashboard & Report | 待启动 | 待创建 | 蓝图 22 待复核 | 实施 12 待创建 | - | - |
 | PF-10 ServerMonitor | 待启动 | 待创建 | 蓝图 02、32 待复核 | 实施 13 待创建 | - | - |
 | PF-10A Operations Center Knowledge & Assistant | 设计待确认 | 待创建 | 蓝图 32 第 5.4 节 | 实施 13A 待创建 | - | - |
+| PF-10B 标签管理平台 | 待派遣/待客户设备核验 | 未新增任务 | 蓝图 35 | [实施 13B](../implementation/13B-Industrial%20Platform标签管理平台开发实施方案.md) | 001～010 未派遣 | 无客户/设备验收 |
 | PF-11 IoT Collector | 待启动 | 待创建 | 蓝图 17 待复核 | 实施 14 待创建 | - | - |
 | MES-01 MasterData | 暂缓 | 待恢复时创建 | 蓝图 14 待复核 | 实施 15 暂缓 | - | - |
 | MES-02 OperationalData | 暂缓 | 待恢复时创建 | 蓝图 14A 待复核 | 实施 16 暂缓 | - | - |
@@ -532,3 +556,14 @@ WorkOrder、Weighting、Trace、BatchRecord 和生产闭环分别开会话设计
 - 删除旧的固定 MES Sprint 路线，改为阶段门禁和单阶段单管理会话。
 - 每个 PF 阶段（含 PF-10A）一个管理会话；PF-04、PF-07、PF-09 在同一阶段会话内保持模块分开建模和任务拆分。
 - 在 PF-03 前插入一个不新增 PF 编号的“架构收敛整改”阶段，仅按已批准计划执行四个工作包；不增加额外设计范围。
+
+## 23.1 2026-09-07 路线整改
+
+PF-05/06 本次只改设计和九字段任务；新增 PF-06A/09A 与 PF-10B/13B，不重编号已有阶段。需求—设计—任务—验收映射、来源、变更分类与证据缺口见 `docs/evidence/2026-09-07-platform-roadmap-docs.md`。原八张父卡分别保留，内部纵向步骤连续执行，任务排期不是本轮开发/派遣授权。
+
+
+## PF05起任务细化与派遣输入（2026-09-07增量）
+
+统一遵守[派遣前详细设计与页面验收](../implementation/STANDARD-派遣前详细设计与页面验收.md)。PF05/PF06/PF06A/PF10B的完整字段字典、接口样例、页面线框与任务断言已经写入各实施方案链接的details文件；[待派遣索引](../tasks/pending/README.md)记录待派遣包与前置缺口。生产范围全部D01～D08已就绪后才能派遣，不能在开发任务中临时设计字段或布局。原34张内部卡保持，按已定规格纵向连续实现，不逐卡新增会话或提交。
+
+尚无实施方案的PF07/08/09/10/10A/11按共同规则§7逐阶段补齐全部设计后才进入待派遣；MES原暂缓不变。本轮未创建或发送外部任务，PF02/04现有工作线不受此文档更新影响。

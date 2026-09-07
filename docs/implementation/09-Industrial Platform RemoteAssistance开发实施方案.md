@@ -4,15 +4,17 @@
 
 > 当前里程碑范围：PF-06 在 `Collaboration.Service` 中加入独立 RemoteAssistance 模块。先完成现场网络、浏览器、许可和双 PoC 决策门禁；门禁通过后才允许进入领域、契约、适配、页面、部署和验收开发。首期只做一名共享者与一至三名白名单观看者的浏览器屏幕共享，不录屏、不保存画面、不远程控制、不无人值守、不默认启用音视频会议。
 
-版本：V1.0
+版本：V1.2
 
-日期：2026-08-14
+> 2026-09-07 派遣前细化增量：[PF06-数据接口与页面规格.md](details/PF06-数据接口与页面规格.md)是本文数据字典、接口字段/样例、页面线框与任务操作步骤的唯一明细源，须在任务执行前读取指定章节；[派遣前详细设计与页面验收规则](STANDARD-派遣前详细设计与页面验收.md)适用于PF05起后续阶段。当前派遣状态统一为“待派遣”，设计就绪度另列；G06-1～2未关闭不得派遣相关生产范围。本文没有记录实际派遣或实施。
+
+日期：2026-09-07
 
 确认日期：2026-08-14
 
 阶段：PF-06 RemoteAssistance
 
-阶段状态：详细设计和九字段任务卡已确认；开发、任务派遣、构建、测试和提交均未获本轮授权。`TASK-PF06-001` 为唯一首发任务，只有其决策门禁通过并由用户再次批准后，后续任务才可转为可派遣。
+阶段状态：详细设计和九字段任务卡已确认并补充字段/接口/线框规格；全部待派遣，设计就绪度单列。开发、派遣、构建、测试和提交均未获本轮授权。`TASK-PF06-001` 为唯一首发PoC范围，实际环境输入核验后再派；只有其决策门禁通过并按既有批准要求确认生产路线后，002～008才可标为已就绪。
 
 模块或服务：
 
@@ -56,8 +58,8 @@ Provider: PostgreSQL 18 / SQLite Development fallback
 - `TenantBaseline`：只有最终确认由本模块拥有的默认租户策略；默认功能关闭，不复制 SystemData 功能开关事实。
 - `EnvironmentSample`：仅 Development/Test 显式启用的演示策略，registration、plan、apply 三层禁止 Staging/Production。
 - 本模块不声明 `SecretBootstrap`。TURN shared secret、Screego cookie secret、TLS 私钥由部署 Secret Provider 注入，不进入种子、SystemData、数据库、API、日志、Trace 或审计。
-- 模块拥有签名 migration/seed/initializer 产物及本地双账本；SystemData 只保存 registration、plan、Operation 和脱敏 observation。
-- SystemData 不可用、迁移/RequiredSeed 未完成、checksum drift、目标错误或环境策略拒绝时 RemoteAssistance 保持 NotReady 且功能开关关闭；Messaging/Presence 不因此整体 NotReady。
+- 模块拥有 migration/seed/initializer 产物（签名在 Advanced 或环境强制时要求）及本地双账本；SystemData 只保存 registration、plan、Operation 和脱敏 observation。
+- 本地初始化/可信配置无效、迁移/RequiredSeed 未完成、checksum drift、目标错误或环境策略拒绝时 RemoteAssistance 保持 NotReady 且功能开关关闭；Messaging/Presence 不因此整体 NotReady。
 
 技术：
 
@@ -65,7 +67,7 @@ Provider: PostgreSQL 18 / SQLite Development fallback
 .NET 10 / Clean Architecture / DDD / SqlSugar
 PostgreSQL 18 / SQLite Development fallback
 REST / SignalR or dedicated WSS signaling / WebRTC
-Redis（短期票据消费与多实例信令协调，持久授权事实仍在数据库）
+Redis（仅按多实例信令协调需要启用；票据消费以数据库条件更新为唯一权威）
 RabbitMQ / Outbox / Inbox
 独立 TURN（生产候选）/ Screego（未修改基准 PoC）
 Vue 3 / TypeScript / Pinia / Edge / Chrome
@@ -101,14 +103,11 @@ Vue 3 / TypeScript / Pinia / Edge / Chrome
 
 ## 1.2 当前输入状态
 
-- 当前分支 `develop` 的 HEAD 为 `61753dc`，相对 `origin/develop` 领先一个提交。
-- 当前仓库没有 `Collaboration.Service`、Messaging、Presence、AttachmentIntegration 或 RemoteAssistance 生产代码。
-- PF-05 实施 08 是已确认详细设计，但任务未派遣、未开发；其公开契约只能作为前置形状，PF-06 开发前必须按真实实现重新核验。
-- PF-04 实施 07 已形成设计，但 File/Audit 尚未开发；PF-06 只声明所需适配语义。
-- Identity 已实现可信 `sub=UserNId`、`tenant_id=TenantNId`、权限求值和会话撤销基础；没有现成的一次性 RemoteAssistance JoinTicket。
-- SystemData migration-only Runner 已提交；Seed/Bootstrap 通用扩展处于并行未提交开发，不能当作已验收能力。
-- Screego 官方当前认证为静态 bcrypt 用户文件和自身 Cookie Session；配置只提供 `all/turn/none` 登录模式，没有平台 Identity、一次性票据或会话参与人白名单扩展契约。
-- 本轮只完成只读证据核对和文档设计，未运行构建、测试、PoC 或现场网络验证。
+- 2026-09-07 只读盘点 `develop` / HEAD `8625efb`；PF-05/06 生产模块尚未发现。
+- PF-04 Core 已有 File/Audit Contracts/应用代码，真实环境验收仍有缺口；PF-02 仍 active，PF-03 已合入。详见 CURRENT 和 PF-04 evidence，不沿用 2026-08-14 “全部未开发”判断。
+- PF-05 V1.1 是本轮修订的设计契约，产品集成必须核对未来实际交付；不能把 Notification SignalR 当作聊天契约。
+- 原 Screego 认证/许可结论是 2026-08-14 基准记录；在 PF06-001 固定版本重新核验，不宣称已部署或适配生产。
+- 本轮只改文档；未运行双 PoC、浏览器、现场网络、构建或功能测试，未提交推送。
 
 ## 1.3 已确认设计记录
 
@@ -122,19 +121,13 @@ Vue 3 / TypeScript / Pinia / Edge / Chrome
 
 ## 1.4 执行前置
 
-```text
-PF-05 真实契约与 Collaboration.Service 可用
-PF-04 Audit 稳定接收契约可用
-Identity 用户/权限/会话契约稳定
-SystemData 通用初始化链可用
-内部 HTTPS/WSS、可信证书与可配置现场网络
-    ↓
-TASK-PF06-001 双 PoC、现场网络与许可门禁
-    ↓ 用户确认生产路线并批准后续开发
-TASK-PF06-002～008
-    ↓
-PF-07 Platform Health 消费脱敏健康摘要
-```
+| 门禁 | 依赖 | 输出 |
+| --- | --- | --- |
+| 技术 PoC（001） | 独立实验网络、浏览器、HTTPS/WSS 证书、TURN 主机、许可核验；不依赖 PF-05 完成 | 保留原双 PoC，固定引擎版本与授权/画质/网络差距 |
+| 产品集成（002～008） | 001 生产路线决策通过并获授权；PF-05 真实契约、可信身份/目录、必要 Audit 与初始化能力 | 平台与启用协助的外部嵌入闭环 |
+| 客户上线 | 目标客户浏览器/网络/证书/终端实测与交付许可 | 现场支持矩阵；实验室或 Mock 不代替 |
+
+主线为 PF-05 Web → PF-06 Web → PF-06A 终端运行时与客户端打包（实施 09A）→ PF-07。001 可在原批准范围另行提前派遣；本轮文档整改不授权运行 PoC。原双 PoC/生产路线不得因组件没有同名授权接口而被静默替换。
 
 ---
 
@@ -252,11 +245,11 @@ TURN：独立地址、端口范围、证书、Secret 和容量监控
 
 | 状态 | 行为 |
 | --- | --- |
-| RemoteAssistance 初始化未完成/SystemData 不可用 | 模块 NotReady、功能开关关闭；Collaboration 其他模块继续 |
+| RemoteAssistance 本地初始化/可信配置无效 | 模块 NotReady、功能开关关闭；Collaboration 其他模块继续 |
 | Identity 无法确认目标用户 | 新邀请失败关闭；已有媒体连接按会话撤销策略终止 |
 | Messaging 不可用 | 不能从聊天发起；不得绕过为公开房间链接 |
 | Audit 中央不可用且本地 Outbox 可写 | 普通会话可继续并重投；高风险管理员操作失败关闭 |
-| Signaling 不可用 | 新连接/恢复失败，已有 P2P 连接按浏览器状态运行；状态可见 |
+| Signaling 不可用 | 新连接/恢复失败，已有媒体按短租约撤销策略停止，不能无限继续；见 5.6 |
 | TURN 不可用 | 允许 direct 的环境可尝试直连；强制 relay 环境立即失败，不降级泄露地址 |
 | 浏览器拒绝/停止共享 | 结束媒体轨；会话进入暂停或终止，不伪报仍在共享 |
 
@@ -282,22 +275,24 @@ TURN：独立地址、端口范围、证书、Secret 和容量监控
 
 ```text
 Draft → Invited → Accepted → Connecting → Sharing
-  └→ Cancelled   └→ Declined/Expired
+  └→ Cancelled   └→ Declined/Expired（仅全部邀请终结且无人接受时）
 Accepted/Connecting/Sharing → Suspended → Connecting/Sharing
 任意非终态 → Terminated
 ```
 
-`Suspended` 只允许在短暂断线窗口内恢复信令；捕获轨已结束时共享者必须再次主动授权。终态为 `Declined/Expired/Cancelled/Terminated`。
+单个 Invitation Declined 不使 Session 进入 Declined；至少一人接受即可进入 Accepted/Connecting/Sharing，其余待响应邀请继续有效。全部拒绝且无接受者才 Declined；无人接受且全部过期才 Expired；混合拒绝/过期归 Expired。最后一个 Viewer 离开后 Session 进入 Suspended 等待既有有效邀请/受控重入，超过恢复期限 Terminated。
+
+`Suspended` 允许在受控恢复期限内等待有效观看者或恢复信令；捕获轨已结束时共享者必须再次主动授权。终态为 `Declined/Expired/Cancelled/Terminated`。
 
 ## 5.2 Invitation
 
 字段：`TenantNId`、`NId`、`SessionNId`、`InviteeUserNId`、`Role`、`State`、`IssuedOn`、`ExpiresOn`、`RespondedOn`、`ResponseReason`、`CardContractVersion`、`MessageNId`。
 
-状态：`Pending → Accepted/Declined/Revoked/Expired`。接受、拒绝和撤销均幂等；过期后不得签发票据。MessageNId 是 Messaging 返回的跨模块标识，不建立外键。
+状态：`Pending → Accepted/Declined/Revoked/Expired`。接受、拒绝和撤销均幂等；过期后不得签发票据。MessageNId 是 Messaging 返回的跨模块标识，不建立外键。Invitation 还保存 DeliveryConversationNId；根 Session.ConversationNId 仅表示最初来源，不能授权其他 Viewer 读取它。
 
 ## 5.3 ParticipantGrant
 
-字段：`TenantNId`、`NId`、`SessionNId`、`UserNId`、`Role`、`GrantState`、`GrantedOn`、`RevokedOn`、`RevocationReason`、`LastJoinedOn`、`LastLeftOn`。
+字段：`TenantNId`、`NId`、`SessionNId`、`UserNId`、`Role`、`GrantEpoch`、`GrantState`、`GrantedOn`、`RevokedOn`、`RevocationReason`、`LastJoinedOn`、`LastLeftOn`。
 
 角色只有 `Sharer`、`Viewer`。授权不能从 Presence 推导。被撤销、Identity 会话失效、用户禁用或跨租户时不得建立或恢复媒体连接。
 
@@ -313,11 +308,23 @@ Accepted/Connecting/Sharing → Suspended → Connecting/Sharing
 
 ## 5.5 EngineLease 与连接观察
 
-`EngineLease` 保存平台签发的短期引擎访问授权摘要：`NId`、`SessionNId`、`ParticipantGrantNId`、`EngineKind`、`EngineSessionReferenceHash`、`ExpiresOn`、`RevokedOn`。不保存 TURN 明文凭据、SDP 或 ICE candidate。
+`EngineLease` 保存平台签发的短期引擎访问授权摘要：`NId`、`SessionNId`、`ParticipantGrantNId`、`EngineKind`、`EngineSessionReferenceHash`、`GrantEpoch`、`ConnectionNId`、`ExpiresOn`、`RevokedOn`。不保存 TURN 明文凭据、SDP 或 ICE candidate。
 
 连接观察只保存元数据：连接/断开时间、候选类别 `host/srflx/relay`、传输 `udp/tcp/tls`、浏览器家族/版本、共享范围类别、分辨率档位、匿名化网络摘要、错误类别、RTT/丢包/码率聚合。禁止保存画面、音频、SDP 全文、私网地址或完整 User-Agent/IP。
 
 ---
+
+## 5.6 多人邀请、票据恢复与真实媒体撤销
+
+共享者从初始一对一聊天选择首名 Viewer，再从有权可见的同租户目录选择第 2/3 名。服务端验证共享者邀请权限与每名目标资格，通过 Messaging 公开端口分别取得“共享者—该 Viewer”的一对一会话并投递个人 InvitationNId 卡片；每份投递以 InvitationNId 幂等。新增 Viewer 只能读自己的投递会话和授权协助投影，不获得原聊天历史。
+
+Invitation 分别接受/拒绝，Session 按 5.1 聚合；Viewer leave 仅撤销自己的 Grant/票据/租约，Sharer stop 或有权管理员 terminate 才终止全会话。各命令授权与 UI 独立校验。
+
+JoinTicket 在数据库以 `ConsumedOn is null AND RevokedOn is null AND ExpiresOn > now` 加主体/Grant/nonce 条件原子消费，消费与 EngineLease 创建同事务；Redis 不是第二个消费权威。接受命令可幂等查询已接受状态，但原票据仅存哈希，不能原样返回。签发/兑换响应丢失后先查本人安全状态，再经 join-tickets 补发；补发原子递增 GrantEpoch、撤销旧票据和旧 EngineLease，并触发旧媒体撤权。相同补发请求返回当前状态，不猜测原 Secret；仍丢失时用新的请求 nonce 发起下一次受控补发。
+
+媒体租约建议 30 秒、每 10 秒受权续租，绑定 GrantEpoch/ConnectionNId。对每个 Viewer 使用可单独关闭的 PeerConnection；撤销即通知共享端关闭对应连接和观看端停止播放，禁止停止其他 Viewer 共用的捕获轨。全会话终止时共享端关闭所有连接并 stop 捕获轨。双方在租约到期不能续租时 fail-closed；共享端恢复/挂起唤醒必须先校验租约才能发送画面。
+
+数据库 Terminated、信令断开或 TURN 凭据过期都不是断流证据。验收用持续变化测试画面/接收字节观测“撤权后不再有新帧”，记录正常撤权和失联超时延迟；建议基线为正常 5 秒内、失联不超过租约 30 秒加已测调度误差，最终阈值在 001 固定。客户端不可信或现场要求服务端强制切断时，必须验证受控媒体路径和引擎/中继主动断连能力；纯 P2P 不宣称已满足，缺证据保持该部署不支持，不自动扩大为新媒体服务器项目。
 
 # 6. 数据、事务与初始化设计
 
@@ -326,15 +333,15 @@ Accepted/Connecting/Sharing → Suspended → Connecting/Sharing
 | 表 | 主要业务字段/约束 |
 | --- | --- |
 | `remote_assistance_session` | TenantNId+NId 全历史唯一；共享者活动会话部分唯一；状态/过期索引 |
-| `remote_assistance_invitation` | SessionNId+InviteeUserNId 唯一；Pending+ExpiresOn 索引 |
-| `remote_assistance_participant_grant` | SessionNId+UserNId 唯一；角色/撤销索引 |
+| `remote_assistance_invitation` | 物理 SessionId+InviteeUserNId 唯一，对外父引用为SessionNId；Pending+ExpiresOn 索引 |
+| `remote_assistance_participant_grant` | 物理 SessionId+UserNId 唯一，对外父引用为SessionNId；角色/撤销索引 |
 | `remote_assistance_join_ticket` | TokenHash 全局唯一；ExpiresOn/ConsumedOn 索引 |
-| `remote_assistance_engine_lease` | SessionNId+ParticipantGrantNId+活动状态索引 |
-| `remote_assistance_connection_observation` | SessionNId+CreatedOn、候选类别和错误类别索引 |
-| `remote_assistance_outbox` | EventId 唯一；PublishedOn+CreatedOn 索引 |
-| `remote_assistance_inbox` | Consumer+EventId 唯一；处理状态/重试索引 |
+| `remote_assistance_engine_lease` | 物理ParticipantGrantId+GrantEpoch+ExpiresOn索引；对外NId不暴露Id |
+| `remote_assistance_connection_observation` | TenantNId+SessionNId+ObservedOn索引；仅安全聚合元数据 |
+| `remote_assistance_outbox` | EventNId 唯一；PublishedOn+NextAttemptOn索引 |
+| `remote_assistance_inbox` | ConsumerName+EventNId 唯一；处理/重试按细化规格 |
 
-Session 是父聚合；本模块内部子表按 `(Session_Id, Session_IsDeleted) → (Id, IsDeleted)` 复合外键和双重删除过滤。Identity、Messaging、Audit、SystemData 只保存 NId，不建外键。
+Session 是父聚合；普通子对象默认使用 SessionId 外键，由聚合保证生命周期；票据、租约、Outbox/Inbox 是最小技术记录，不机械套软删除复合外键。Identity、Messaging、Audit、SystemData 只保存 NId，不建外键。
 
 ## 6.2 事务与 Outbox
 
@@ -346,7 +353,7 @@ Session 是父聚合；本模块内部子表按 `(Session_Id, Session_IsDeleted)
 
 ## 6.3 初始化清单
 
-InitializationManifest 至少声明 ModuleKey、逻辑库、表前缀、迁移/种子产物 version/checksum/signature、Owner、DesiredState、数据库最小角色、锁范围、备份策略和环境策略。验证覆盖首次 apply、重复 apply、并发多副本、升级、drift、部分失败、Shared 多 ModuleKey 隔离、管理员维护策略不被覆盖和 SystemData 不可用 NotReady。
+InitializationManifest 至少声明 ModuleKey、逻辑库、表前缀、迁移/种子产物 version/checksum、适用时 signature、Owner、DesiredState、数据库最小角色、锁范围、备份策略和环境策略。验证覆盖首次 apply、重复 apply、并发多副本、升级、drift、部分失败、Shared 多 ModuleKey 隔离、管理员维护策略不被覆盖和 控制面失联而本地事实有效仍 Ready；本地事实无效 NotReady。
 
 ---
 
@@ -354,7 +361,7 @@ InitializationManifest 至少声明 ModuleKey、逻辑库、表前缀、迁移/�
 
 ## 7.1 REST 路由
 
-Gateway 前缀：`/api/remote-assistance/v1`；服务内部前缀保持稳定并由 Gateway 映射。
+外部路径：`/collaboration/api/v1/remote-assistance`；内部路径：`/api/v1/remote-assistance`。Gateway 只剥离 `/collaboration`，UnifiedHost 组合保持相同外部路径；外部嵌入经受信反代使用同一路由语义。
 
 | Method/Path | 用途 | 权限/幂等 |
 | --- | --- | --- |
@@ -363,7 +370,9 @@ Gateway 前缀：`/api/remote-assistance/v1`；服务内部前缀保持稳定并
 | `POST /sessions/{sessionNId}/accept` | 接受邀请并生成票据 | 被邀请人；幂等 |
 | `POST /sessions/{sessionNId}/decline` | 拒绝邀请 | 被邀请人；幂等 |
 | `POST /sessions/{sessionNId}/cancel` | 发起人取消 | `remote-assistance.session.cancel`；并发版本 |
-| `POST /sessions/{sessionNId}/terminate` | 终止会话 | 参与人或管理权限；并发版本 |
+| `POST /sessions/{sessionNId}/terminate` | 终止整个会话 | Sharer 或具 session.terminate 权限的管理员；并发版本 |
+| `POST /sessions/{sessionNId}/leave` | Viewer 离开 | 只撤销自己的授权/媒体连接；不结束其他人 |
+| `POST /sessions/{sessionNId}/join-tickets` | 当前参与人补发票据 | 幂等请求、新 nonce、当前 Grant 与授权校验 |
 | `POST /sessions/{sessionNId}/participants/{userNId}/revoke` | 撤销观看者 | `remote-assistance.participant.manage` |
 | `POST /join-tickets/exchange` | 单次兑换 EngineAccess/ICE | 已认证且绑定用户；原子单次 |
 | `POST /sessions/{sessionNId}/heartbeat` | 会话/共享端活动摘要 | 参与人绑定；限流 |
@@ -373,7 +382,7 @@ Gateway 前缀：`/api/remote-assistance/v1`；服务内部前缀保持稳定并
 
 ## 7.2 信令契约
 
-生产候选使用独立 `/hubs/remote-assistance` 或 `/ws/remote-assistance/v1`，最终选择由 PoC 决策记录冻结。握手必须携带短期 EngineAccess，不接受长期平台 Access Token 作为房间万能凭据。每个信令消息含 `ContractVersion`、`SessionNId`、`SenderGrantNId`、`MessageNId`、`Sequence`、`Type`、`Payload`；服务端验证角色和目标白名单后转发。
+生产候选使用独立 Hub/WSS，最终由 PoC 冻结。浏览器 WebSocket 不能假设可自定义 Authorization header：优先 HTTPS 兑换后同站 HttpOnly/Secure 短期 Cookie，或建立后首帧短期 EngineAccess 认证；首帧认证前禁止房间订阅/Offer/ICE，超时立即关闭。SignalR 如需 query access_token 必须限定端点/短寿命并覆盖反代与框架日志脱敏，不能当作无条件默认。所有路径校验 Origin、当前 GrantEpoch、audience、nonce 和期限；长期平台 Access Token 不能作为房间万能凭据。每个信令消息含 `ContractVersion`、`SessionNId`、`SenderGrantNId`、`MessageNId`、`Sequence`、`Type`、`Payload`；服务端验证角色和目标白名单后转发。
 
 允许消息类型：Offer、Answer、IceCandidate、Renegotiate、ParticipantReady、TrackEnded、KeepAlive、Terminate。Payload 有大小/频率限制；不记录 SDP/ICE 正文。未知版本返回稳定不支持错误并关闭连接。
 
@@ -467,7 +476,13 @@ PC 支持当前平台标签或用户主动打开安全新窗口；`window.open` 
 - 1～3 观看者布局优先保证主画面文字可读，不自动生成视频会议网格。
 - 页面不提供下载、录制、截图或远程控制入口。
 
-## 8.4 安全响应头与可访问性
+## 8.4 宿主适配与终端边界
+
+平台继续聊天卡片→独立路由/安全新窗口；外部 MES 复用 PF-05 的可信身份、目录、必要持久审计与导航适配。协助可以 Disabled/Unsupported/Degraded，不影响正常聊天；不建设另一套“仅远程协助”产品。非聊天来源及可空来源关联仅为未来扩展点。跨域 iframe 不是默认捕获生产路径。
+
+当前三端交付 Web，捕获实现集中在 Web 适配，Session/Grant 与捕获 API 解耦。Electron 捕获、托盘、原生生命周期和 Capacitor 安装包验收属于 PF-06A，不加入 001/008 的前置。
+
+## 8.5 安全响应头与可访问性
 
 - CSP 使用显式 `default-src/script-src/connect-src/frame-src` allowlist；生产不允许任意 `*`、`unsafe-eval` 或不受控外域。
 - CORS 与 WebSocket Origin 只允许平台及批准的独立域名；Cookie 场景使用严格 SameSite/Secure/HttpOnly 和 CSRF Token，Bearer/票据仍防止跨 Origin 滥用。
@@ -485,7 +500,7 @@ PC 支持当前平台标签或用户主动打开安全新窗口；`window.open` 
 - EngineAccess 与 TURN 临时凭据最小寿命；长期 TURN secret 只在服务端 Secret Provider。
 - ICE 策略可配置 `all/relay`；强制 relay 环境不能悄悄回退 direct。
 - 限制邀请、接受、票据兑换、信令消息、ICE candidate 和心跳速率；异常关闭连接并审计。
-- 不保存媒体，不启用 MediaRecorder，不在服务端转发/解码/截帧。
+- 业务后端不解码、录制、截帧或存储媒体；TURN 可按批准路径中继。强制 relay 不得回退 direct；不承诺阻止观看者用其他软件或设备记录屏幕。
 - Screego PoC 固定镜像 digest/版本、独立网络和域名；不得使用默认 Secret，不向公网开放未认证房间。
 
 ## 9.2 审计
@@ -536,7 +551,7 @@ PC 支持当前平台标签或用户主动打开安全新窗口；`window.open` 
 - 原生 PoC 满足安全、1080p、30 分钟、1～3 观看者和目标网络门禁：采用平台原生信令 + 独立 TURN。
 - 原生 PoC 不满足而未修改 Screego 明显满足：暂停后续任务，提交 Screego 独立适配或 fork 的许可、安全、维护和交付评审，不自动采用。
 - 两者均不满足：功能开关保持关闭，记录网络/浏览器/容量阻塞，不阻塞 Collaboration。
-- 现场网络、许可证、证书或浏览器证据缺失：阶段只能标记待验收，不能进入生产开发结论。
+- 实验环境的关键网络、许可、证书或浏览器证据缺失时不能冻结生产路线；具体客户证据缺失保持该现场待验收，不把实验室通过宣传为该客户上线完成。
 
 ---
 
@@ -546,7 +561,7 @@ PC 支持当前平台标签或用户主动打开安全新窗口；`window.open` 
 
 - Domain：会话/邀请/授权/票据状态机、人数、并发、过期和终态不变量。
 - Application：同租户、Identity 有效性、Messaging 成员、权限、幂等、Outbox 和失败策略。
-- Infrastructure：PostgreSQL/SQLite、双账本、Redis 原子消费、SignalR/WSS、TURN 凭据、防腐层。
+- Infrastructure：PostgreSQL/SQLite、双账本、数据库原子票据消费、SignalR/WSS、TURN 凭据、防腐层。
 - API/Contract/Event：OpenAPI、CardV1、事件版本、错误码、Origin/CORS/CSRF/CSP 和敏感字段扫描。
 - Frontend：三端状态、浏览器拒绝/停止、旧卡片降级、安全新窗口和可访问性。
 - E2E：邀请→接受→主动授权→共享→1～3 观看→断线恢复→终止；非白名单和重放负例。
@@ -554,7 +569,7 @@ PC 支持当前平台标签或用户主动打开安全新窗口；`window.open` 
 
 ## 11.2 初始化门禁
 
-覆盖首次初始化、重复 apply、并发副本、迁移/种子升级、checksum drift、部分失败、生产未审批/未备份、EnvironmentSample 环境拒绝、Shared 多 ModuleKey 隔离、管理员维护策略不被覆盖、SystemData 不可用 NotReady 和 SQLite/PostgreSQL 等价语义。本模块不声明 SecretBootstrap，并验证 TURN/TLS Secret 不进入 SystemData。
+覆盖首次初始化、重复 apply、并发副本、迁移/种子升级、checksum drift、部分失败、生产 Advanced 适用时未审批/未备份拒绝、EnvironmentSample 环境拒绝、Shared 多 ModuleKey 隔离、管理员维护策略不被覆盖、控制面失联而本地事实有效仍 Ready；本地事实无效 NotReady 和 SQLite/PostgreSQL 等价语义。本模块不声明 SecretBootstrap，并验证 TURN/TLS Secret 不进入 SystemData。
 
 ## 11.3 安全门禁
 
@@ -564,7 +579,18 @@ PC 支持当前平台标签或用户主动打开安全新窗口；`window.open` 
 - 日志、Trace、审计、事件、错误和指标中无票据、凭据、SDP/ICE、画面、完整 IP/User-Agent。
 - 强制 TURN 不产生 host/srflx 媒体路径；TURN 不可用时失败关闭。
 
-## 11.4 验收证据格式
+## 11.4 新增授权与恢复场景
+
+| 场景 | 预期与任务 |
+| --- | --- |
+| 第 2/3 人邀请、单人拒绝、最后一人离开 | 每人独立卡片/授权，无原聊天历史泄露；003/005/006/008 |
+| Viewer leave、Sharer stop、管理员 terminate | 各自权限及作用范围准确；003/006/008 |
+| 接受/签发/兑换响应丢失、并发兑换、补发 | 数据库唯一消费权威，旧 epoch/票据/租约失效，不返回不可恢复的原票据；003/004/008 |
+| 撤权、断开信令、租约到期 | 真实媒体停止而非仅状态码；001/004/007/008 |
+| 强制 relay、TURN 故障 | 无 direct 回退；不能以凭据到期冒充断流；001/004/008 |
+| 嵌入/新窗口/不支持浏览器/服务故障 | 宿主身份和 Origin 校验，Web 捕获显式授权，正常聊天继续；005/006/008 |
+
+## 11.5 验收证据格式
 
 每项记录命令/操作步骤、退出码、通过/失败/跳过数量、报告/截图/抓包或指标路径、浏览器与 OS 版本、网络拓扑、候选类型、资源曲线、外部限制和 TraceId。历史证据与本轮新鲜证据分开。现场截图必须避免业务敏感内容。
 
@@ -588,7 +614,7 @@ TASK-PF06-007 安全/部署/运维/升级回滚
 TASK-PF06-008 全矩阵与阶段验收
 ```
 
-`TASK-PF06-001` 失败或证据不足时，002～008 保持“待细化”，并在依赖中记录门禁未满足。任何任务都不得修改 PF-00、PF-02/SystemData、PF-04/05 模块内部实现；跨模块差异通过公开契约协商和结果回写解决。
+`TASK-PF06-001` 失败或证据不足时，002～008保持“待派遣 / 待前置核验”，在依赖中记录门禁未满足。任何任务都不得修改 PF-00、PF-02/SystemData、PF-04/05 模块内部实现；跨模块差异先由总控回写规格，再通过公开契约实现。
 
 ---
 
@@ -596,163 +622,163 @@ TASK-PF06-008 全矩阵与阶段验收
 
 ## TASK-PF06-001 完成双 PoC、现场网络与许可决策门禁
 
-**状态：** 可派遣（仅在用户另行明确派遣后执行）
+**状态：** 待派遣；设计就绪度：待前置核验（见细化规格§5 G06-1～2），未实施
 
 **目标：** 在同一验证矩阵中比较未修改 Screego 与平台原生最小信令，形成带现场网络、画质、资源、安全和 GPL 交付证据的生产路线决策。
 
-**输入文档：** 本文第 2.3、4.3、9、10、11.4 节；Screego 官方仓库/配置/auth/LICENSE；W3C Screen Capture/WebRTC。
+**输入文档：** 本文第 2.3、4.3、9、10、11.5 节；Screego 官方仓库/配置/auth/LICENSE；W3C Screen Capture/WebRTC；[派遣前细化规格](details/PF06-数据接口与页面规格.md) §5 G06-1及主文§10 PoC、§5本任务行；共同规则§2～6。
 
 **依赖：** 内部 HTTPS/WSS、可信证书、可控 VLAN/防火墙/代理、目标 Edge/Chrome、TURN 测试主机；不依赖 PF-05 业务实现完成。
 
 **允许修改范围：** 独立 PoC、部署样例、验证脚本和证据目录；禁止修改/合并 Screego 源码，禁止改业务生产代码、CLAUDE.md、PF-00、PF-02/SystemData 和 PF-05。
 
-**预期输出：** 两套可重复 PoC、固定版本/digest/SBOM/配置清单、网络/浏览器/质量/资源/安全矩阵、GPL 交付边界、采用/暂停/放弃决策报告。
+**预期输出：** 两套可重复 PoC、固定版本/digest/SBOM/配置清单、网络/浏览器/质量/资源/安全矩阵、GPL 交付边界、采用/暂停/放弃决策报告；按细化规格§5本任务行逐步交付，不在编码中重新决定字段/路由/布局。
 
-**验证与证据：** 第 10.3、10.4 与 11.4 节；1080p 文字、30 分钟、1～3 观看者、direct/relay、UDP 受限、无互联网、重放/非白名单、CPU/内存/上行/TURN 带宽全部有新鲜证据。
+**验证与证据：** 第 10.3、10.4 与 11.5 节；1080p 文字、30 分钟、1～3 观看者、direct/relay、UDP 受限、无互联网、重放/非白名单、CPU/内存/上行/TURN 带宽全部有新鲜证据。 另覆盖细化规格§5本任务断言；涉及页面先按已画线框实现，再走真实菜单/局部加载/重复提交/中英主题验收。
 
 **结果回写：** 本文引擎路线、配置、端口、容量、已知限制、任务 002～008 状态、执行记录和总 Todo PF-06；失败时明确功能开关关闭且不阻塞 Collaboration。
 
-**建议提交：** `docs(pf-06): record remote assistance poc decision`
+**提交策略：** 阶段整体交付；以下为未来主题建议，不逐卡提交： `docs(pf-06): record remote assistance poc decision`
 
 ## TASK-PF06-002 建立独立模块、初始化单元与领域模型
 
-**状态：** 待细化
+**状态：** 待派遣；设计就绪度：待前置核验（见细化规格§5 G06-1～2），未实施
 
-**目标：** 在已实现 Collaboration.Service 中创建独立 RemoteAssistance 四层模块、Schema/前缀、双账本、Manifest/SeedSets、领域聚合和 readiness。
+**目标：** 在已实现 Collaboration.Service 中创建独立 RemoteAssistance 四层模块、Schema/前缀、已核对的双账本/Manifest/SeedSets、领域聚合和 readiness。
 
-**输入文档：** 本文第 1～6、11.2 节；TASK-PF06-001 已批准路线；PF-05 与 SystemData 真实稳定契约。
+**输入文档：** 本文第 1～6、11.2 节；TASK-PF06-001 已批准路线；PF-05 与 SystemData 真实稳定契约；[派遣前细化规格](details/PF06-数据接口与页面规格.md) §1/2全表、§5本任务行；共同规则§2～6。
 
 **依赖：** TASK-PF06-001 通过；PF-05 宿主和 SystemData 初始化通用链已验收。
 
 **允许修改范围：** Collaboration.Service RemoteAssistance 模块、所属迁移/初始化和独立测试；禁止修改 SystemData、Messaging/Presence Repository、Identity/File/Audit 内部实现。
 
-**预期输出：** Domain/Application/Contracts/Infrastructure、六类核心表、migration/seed 双账本、SystemBaseline、健康与架构边界测试。
+**预期输出：** Domain/Application/Contracts/Infrastructure、六类核心表、migration/seed 双账本、SystemBaseline、健康与架构边界测试；按细化规格§5本任务行逐步交付，不在编码中重新决定字段/路由/布局。
 
-**验证与证据：** 状态机/不变量、PostgreSQL/SQLite、初始化十三项门禁、ModuleKey/表前缀隔离、禁止跨模块引用和 SystemData 不可用局部 NotReady。
+**验证与证据：** 状态机/不变量、PostgreSQL/SQLite、初始化十三项门禁、ModuleKey/表前缀隔离、禁止跨模块引用和 本地事实失效局部 NotReady，控制面暂不可达不误停机。 另覆盖细化规格§5本任务断言；涉及页面先按已画线框实现，再走真实菜单/局部加载/重复提交/中英主题验收。
 
 **结果回写：** 实际目录、表/索引、manifest/seed 版本、OperationId、readiness、偏差和执行记录。
 
-**建议提交：** `feat(remote-assistance): add module domain and initialization`
+**提交策略：** 阶段整体交付；以下为未来主题建议，不逐卡提交： `feat(remote-assistance): add module domain and initialization`
 
 ## TASK-PF06-003 实现会话、邀请、白名单、票据和可靠事务
 
-**状态：** 待细化
+**状态：** 待派遣；设计就绪度：待前置核验（见细化规格§5 G06-1～2），未实施
 
 **目标：** 实现 Session/Invitation/ParticipantGrant/JoinTicket/EngineLease 用例、单次兑换、超时/终止、Outbox/Inbox 和稳定错误。
 
-**输入文档：** 本文第 3、5～7、9 节。
+**输入文档：** 本文第 3、5～7、9 节；[派遣前细化规格](details/PF06-数据接口与页面规格.md) §2.1～2.5/§3 A06-01～10、§5本任务行；共同规则§2～6。
 
 **依赖：** TASK-PF06-002；Identity 与 Messaging 稳定查询/命令端口。
 
 **允许修改范围：** RemoteAssistance Domain/Application/Contracts/Infrastructure 和所属测试；禁止直读跨模块表或保存媒体/Secret。
 
-**预期输出：** REST 用例、原子票据消费、幂等/并发、计时过期、可靠事件/Audit Outbox、权限与错误码。
+**预期输出：** REST 用例、原子票据消费、幂等/并发、计时过期、可靠事件/Audit Outbox、权限与错误码；按细化规格§5本任务行逐步交付，不在编码中重新决定字段/路由/布局。
 
-**验证与证据：** 同租户/白名单/人数、并发创建、重复接受、票据过期/重放/上下文替换、撤销/会话终态、Outbox 重投和敏感数据扫描。
+**验证与证据：** 同租户/白名单/人数、并发创建、重复接受、票据过期/重放/上下文替换、撤销/会话终态、Outbox 重投和敏感数据扫描。 补齐第 5.6、8.4、11.4 节所列本任务场景；001/008 不含原生打包验收。 另覆盖细化规格§5本任务断言；涉及页面先按已画线框实现，再走真实菜单/局部加载/重复提交/中英主题验收。
 
 **结果回写：** DTO/API/事件/权限/错误、状态转换、TTL、哈希与并发策略、执行记录。
 
-**建议提交：** `feat(remote-assistance): add secure session lifecycle`
+**提交策略：** 阶段整体交付；以下为未来主题建议，不逐卡提交： `feat(remote-assistance): add secure session lifecycle`
 
 ## TASK-PF06-004 实现引擎适配、信令与 TURN 策略
 
-**状态：** 待细化
+**状态：** 待派遣；设计就绪度：待前置核验（见细化规格§5 G06-1～2），未实施
 
 **目标：** 按 TASK-PF06-001 已批准路线实现可替换 EngineAdapter、授权信令、ICE/TURN 配置、断线恢复和故障降级。
 
-**输入文档：** 本文第 2.3、4、5.5、7.2、9、10 节及 PoC 决策报告。
+**输入文档：** 本文第 2.3、4、5.5、7.2、9、10 节及 PoC 决策报告；[派遣前细化规格](details/PF06-数据接口与页面规格.md) §3媒体授权/状态迁移、§5本任务行；共同规则§2～6。
 
 **依赖：** TASK-PF06-003；目标 TURN、证书、DNS、代理和防火墙策略可用。
 
 **允许修改范围：** RemoteAssistance Engine/Signaling Infrastructure、独立辅助部署清单和所属测试；禁止把 Screego 源码并入闭源模块，禁止记录 SDP/ICE 正文。
 
-**预期输出：** EngineAdapter、SignalR/WSS 契约、临时 EngineAccess/ICE 凭据、direct/relay/forced-relay、恢复/终止、辅助单元健康和版本固定。
+**预期输出：** EngineAdapter、SignalR/WSS 契约、临时 EngineAccess/ICE 凭据、direct/relay/forced-relay、恢复/终止、辅助单元健康和版本固定；按细化规格§5本任务行逐步交付，不在编码中重新决定字段/路由/布局。
 
-**验证与证据：** 消息授权/顺序/限流、未知版本、TURN UDP/TCP/TLS、强制 relay、代理/WSS、断线恢复、Secret/日志扫描和故障注入。
+**验证与证据：** 消息授权/顺序/限流、未知版本、TURN UDP/TCP/TLS、强制 relay、代理/WSS、断线恢复、Secret/日志扫描和故障注入。 补齐第 5.6、8.4、11.4 节所列本任务场景；001/008 不含原生打包验收。 另覆盖细化规格§5本任务断言；涉及页面先按已画线框实现，再走真实菜单/局部加载/重复提交/中英主题验收。
 
 **结果回写：** 引擎版本、端口、Origin、ICE 策略、超时、容量、升级兼容和执行记录。
 
-**建议提交：** `feat(remote-assistance): add signaling and turn adapter`
+**提交策略：** 阶段整体交付；以下为未来主题建议，不逐卡提交： `feat(remote-assistance): add signaling and turn adapter`
 
-## TASK-PF06-005 冻结 Messaging、Identity、Audit 与 Health 公开适配
+## TASK-PF06-005 实现已定 Messaging、Identity、Audit 与 Health 公开适配
 
-**状态：** 待细化
+**状态：** 待派遣；设计就绪度：待前置核验（见细化规格§5 G06-1～2），未实施
 
 **目标：** 以真实稳定契约完成聊天卡片、会话成员、用户有效性/撤销、审计 Outbox 和 Platform Health 脱敏摘要适配。
 
-**输入文档：** 本文第 2、3、4.4、7.3、9 节；PF-00/04/05 实际已验收契约。
+**输入文档：** 本文第 2、3、4.4、7.3、9 节；PF-00/04/05 实际已验收契约；[派遣前细化规格](details/PF06-数据接口与页面规格.md) §2.7/§3公开集成、§5本任务行；共同规则§2～6。
 
 **依赖：** TASK-PF06-003；PF-04 Audit 与 PF-05 Messaging/Presence 相关契约稳定。
 
 **允许修改范围：** RemoteAssistance adapters/contracts、必要的跨模块公开 Contracts 增量及契约测试；禁止读取/修改相邻模块 Repository/表，禁止用 Presence 授权。
 
-**预期输出：** CardV1 与旧客户端降级、Identity 目录/状态适配、Messaging 命令/事件、AuditFact 投影、Health 摘要和 Inbox 幂等。
+**预期输出：** CardV1 与旧客户端降级、Identity 目录/状态适配、Messaging 命令/事件、AuditFact 投影、Health 摘要和 Inbox 幂等；按细化规格§5本任务行逐步交付，不在编码中重新决定字段/路由/布局。
 
-**验证与证据：** 契约快照、旧/未知版本、跨租户/停用/撤销、Presence 伪造不授权、Audit 不可用策略、重复/乱序事件和架构测试。
+**验证与证据：** 契约快照、旧/未知版本、跨租户/停用/撤销、Presence 伪造不授权、Audit 不可用策略、重复/乱序事件和架构测试。 补齐第 5.6、8.4、11.4 节所列本任务场景；001/008 不含原生打包验收。 另覆盖细化规格§5本任务断言；涉及页面先按已画线框实现，再走真实菜单/局部加载/重复提交/中英主题验收。
 
 **结果回写：** 最终公开契约版本、责任矩阵、降级、兼容窗口、偏差和执行记录。
 
-**建议提交：** `feat(remote-assistance): integrate platform contracts`
+**提交策略：** 阶段整体交付；以下为未来主题建议，不逐卡提交： `feat(remote-assistance): integrate platform contracts`
 
 ## TASK-PF06-006 实现 PC/PDA/Mobile 邀请与独立页面
 
-**状态：** 待细化
+**状态：** 待派遣；设计就绪度：待前置核验（见细化规格§5 G06-1～2），未实施
 
 **目标：** 实现聊天发起、CardV1、平台独立路由/安全新窗口、PC 共享和三端观看的完整安全交互。
 
-**输入文档：** 本文第 3、7、8、11 节；PF-01 主题/外壳与 PF-05 页面真实实现。
+**输入文档：** 本文第 3、7、8、11 节；PF-01 主题/外壳与 PF-05 页面真实实现；[派遣前细化规格](details/PF06-数据接口与页面规格.md) §4 W06-01～02、§5本任务行；共同规则§2～6。
 
 **依赖：** TASK-PF06-003～005。
 
 **允许修改范围：** 前端 remote-assistance 模块、PF-05 公开扩展点、路由和所属 unit/component/E2E；禁止实现录制、远控、无人值守或任意 iframe。
 
-**预期输出：** 三端路由、邀请/接受/拒绝、浏览器前置检查、主动捕获、观看者名单、连接/故障状态、安全新窗口、主题与可访问性。
+**预期输出：** 三端路由、邀请/接受/拒绝、浏览器前置检查、主动捕获、观看者名单、连接/故障状态、安全新窗口、主题与可访问性；按细化规格§5本任务行逐步交付，不在编码中重新决定字段/路由/布局。
 
-**验证与证据：** Edge/Chrome、屏幕/窗口/标签、拒绝/停止/重授权、旧卡片、noopener、CSP/Origin、键盘/ARIA/缩放/触控、三主题明暗截图和关键 E2E。
+**验证与证据：** Edge/Chrome、屏幕/窗口/标签、拒绝/停止/重授权、旧卡片、noopener、CSP/Origin、键盘/ARIA/缩放/触控、三主题明暗截图和关键 E2E。 补齐第 5.6、8.4、11.4 节所列本任务场景；001/008 不含原生打包验收。 另覆盖细化规格§5本任务断言；涉及页面先按已画线框实现，再走真实菜单/局部加载/重复提交/中英主题验收。
 
 **结果回写：** 路由、组件、状态矩阵、浏览器最低版本、视觉证据、限制和执行记录。
 
-**建议提交：** `feat(frontend): add remote assistance experience`
+**提交策略：** 阶段整体交付；以下为未来主题建议，不逐卡提交： `feat(frontend): add remote assistance experience`
 
 ## TASK-PF06-007 完成安全、部署、可观测性与升级回滚
 
-**状态：** 待细化
+**状态：** 待派遣；设计就绪度：待前置核验（见细化规格§5 G06-1～2），未实施
 
 **目标：** 固化 Secret/证书/Origin/代理/防火墙、指标告警、容量、版本升级、数据库回滚和辅助单元恢复手册。
 
-**输入文档：** 本文第 4、6、8.4、9～11 节和 PoC 证据。
+**输入文档：** 本文第 4、6、8.4、9～11 节和 PoC 证据；[派遣前细化规格](details/PF06-数据接口与页面规格.md) §2.6/§3安全、§5本任务行；共同规则§2～6。
 
 **依赖：** TASK-PF06-004～006。
 
 **允许修改范围：** RemoteAssistance 配置/部署/运维文档、辅助单元清单、监控告警和安全/恢复测试；禁止写入真实 Secret，禁止修改 SystemData 实现。
 
-**预期输出：** 环境配置矩阵、TLS/WSS/TURN 端口清单、Secret 轮换、容量/告警、Screego GPL 材料（如最终适用）、expand/contract、备份/恢复/回滚和功能开关 runbook。
+**预期输出：** 环境配置矩阵、TLS/WSS/TURN 端口清单、Secret 轮换、容量/告警、Screego GPL 材料（如最终适用）、expand/contract、备份/恢复/回滚和功能开关 runbook；按细化规格§5本任务行逐步交付，不在编码中重新决定字段/路由/布局。
 
-**验证与证据：** 证书过期/轮换、错误 Origin、代理超时、TURN 宕机/耗尽、版本滚动升级、数据库回滚/恢复、日志脱敏和 Collaboration 不受阻塞。
+**验证与证据：** 证书过期/轮换、错误 Origin、代理超时、TURN 宕机/耗尽、版本滚动升级、数据库回滚/恢复、日志脱敏和 Collaboration 不受阻塞。 补齐第 5.6、8.4、11.4 节所列本任务场景；001/008 不含原生打包验收。 另覆盖细化规格§5本任务断言；涉及页面先按已画线框实现，再走真实菜单/局部加载/重复提交/中英主题验收。
 
 **结果回写：** 配置键、Secret 引用、端口、阈值、升级/回滚步骤、许可交付清单和执行记录。
 
-**建议提交：** `ops(remote-assistance): add secure deployment and recovery`
+**提交策略：** 阶段整体交付；以下为未来主题建议，不逐卡提交： `ops(remote-assistance): add secure deployment and recovery`
 
 ## TASK-PF06-008 完成自动化、现场矩阵与阶段验收
 
-**状态：** 待细化
+**状态：** 待派遣；设计就绪度：待前置核验（见细化规格§5 G06-1～2），未实施
 
-**目标：** 汇总全部契约、安全、三端、网络、30 分钟、1～3 观看者、资源、故障和初始化证据，判定 PF-06 是否可启用。
+**目标：** 汇总平台与启用协助的外部嵌入契约、安全、三端 Web、网络、30 分钟、1～3 观看者、资源、故障和初始化证据，判定 PF-06 是否可启用。
 
-**输入文档：** 本文全部章节；TASK-PF06-001～007 执行记录。
+**输入文档：** 本文全部章节；TASK-PF06-001～007 执行记录；[派遣前细化规格](details/PF06-数据接口与页面规格.md) §5全部断言、§5本任务行；共同规则§2～6。
 
 **依赖：** TASK-PF06-002～007 完成；现场网络、终端、证书和监控环境可用。
 
 **允许修改范围：** RemoteAssistance 测试/证据、验收修复和本文/总 Todo/实施 README 精确回写；禁止扩大首期功能或改受保护并行文件。
 
-**预期输出：** 全层自动化、真实 Edge/Chrome 与现场网络矩阵、资源/带宽报告、安全报告、已知限制、功能开关结论和下一阶段稳定契约。
+**预期输出：** 全层自动化、真实 Edge/Chrome 与现场网络矩阵、资源/带宽报告、安全报告、已知限制、功能开关结论和下一阶段稳定契约；按细化规格§5本任务行逐步交付，不在编码中重新决定字段/路由/布局。
 
-**验证与证据：** 第 10.3、11.1～11.4 节全部可核验；任何外部缺失项标记待验收，关键门禁失败时保持关闭且不伪报完成。
+**验证与证据：** 第 10.3、11.1～11.5 节全部可核验；任何外部缺失项标记待验收，关键门禁失败时保持关闭且不伪报完成。 补齐第 5.6、8.4、11.4 节所列本任务场景；001/008 不含原生打包验收。 另覆盖细化规格§5本任务断言；涉及页面先按已画线框实现，再走真实菜单/局部加载/重复提交/中英主题验收。
 
 **结果回写：** 任务/阶段状态、提交与命令证据、版本/容量/限制、总 Todo、实施 README、PF-07 Health 输入契约。
 
-**建议提交：** `test(remote-assistance): complete pf-06 acceptance`
+**提交策略：** 阶段整体交付；以下为未来主题建议，不逐卡提交： `test(remote-assistance): complete pf-06 acceptance`
 
 ---
 
@@ -760,7 +786,7 @@ TASK-PF06-008 全矩阵与阶段验收
 
 - 双 PoC 和现场矩阵先于生产开发，生产路线由证据和用户确认冻结。
 - RemoteAssistance 在 Collaboration.Service 内保持独立四层、Schema/前缀、双账本、权限、迁移/种子和测试。
-- 一名共享者、1～3 名白名单观看者，会话/邀请/授权/票据状态机和并发不变量通过验证。
+- 一名共享者、1～3 名白名单观看者，会话/逐人邀请/授权/票据状态机和并发不变量通过；原聊天历史不外泄，响应丢失可恢复，撤权/租约到期有真实断流证据。
 - CardV1、REST、信令、事件、错误和兼容策略具备契约测试；旧客户端安全降级。
 - Edge/Chrome 的 1080p 文字、30 分钟、1～3 观看者、同网段/跨 VLAN/无互联网/UDP 受限/强制 TURN 全部有现场证据。
 - PC 共享、PDA/Mobile 观看、主动授权、安全新窗口、三主题/明暗、可访问性和错误状态通过。
@@ -774,16 +800,18 @@ TASK-PF06-008 全矩阵与阶段验收
 
 # 15. 执行记录
 
+2026-09-07：V1.1 仅修订文档；001 仍待原授权下另行派遣，002～008 未解除 PoC/真实集成门禁。检查与需求映射见 `docs/evidence/2026-09-07-platform-roadmap-docs.md`。
+
 | 任务 | 状态 | 执行者/任务 | 提交 | 验证证据 | 结果回写 |
 | --- | --- | --- | --- | --- | --- |
-| TASK-PF06-001 | 可派遣（待用户另行派遣） | - | - | - | - |
-| TASK-PF06-002 | 待细化（PoC 门禁未满足） | - | - | - | - |
-| TASK-PF06-003 | 待细化（PoC 门禁未满足） | - | - | - | - |
-| TASK-PF06-004 | 待细化（PoC 门禁未满足） | - | - | - | - |
-| TASK-PF06-005 | 待细化（PoC 门禁未满足） | - | - | - | - |
-| TASK-PF06-006 | 待细化（PoC 门禁未满足） | - | - | - | - |
-| TASK-PF06-007 | 待细化（PoC 门禁未满足） | - | - | - | - |
-| TASK-PF06-008 | 待细化（PoC 门禁未满足） | - | - | - | - |
+| TASK-PF06-001 | 待派遣（待前置核验） | - | - | - | - |
+| TASK-PF06-002 | 待派遣（待前置核验） | - | - | - | - |
+| TASK-PF06-003 | 待派遣（待前置核验） | - | - | - | - |
+| TASK-PF06-004 | 待派遣（待前置核验） | - | - | - | - |
+| TASK-PF06-005 | 待派遣（待前置核验） | - | - | - | - |
+| TASK-PF06-006 | 待派遣（待前置核验） | - | - | - | - |
+| TASK-PF06-007 | 待派遣（待前置核验） | - | - | - | - |
+| TASK-PF06-008 | 待派遣（待前置核验） | - | - | - | - |
 
 截至 2026-08-14，只完成仓库/官方证据核对、推荐方向确认、详细设计和九字段任务卡。未开发、未派遣、未构建、未测试、未提交。工作树中的 CLAUDE.md、PF-00、PF-02/SystemData、PF-05 及其他并行改动均保持原状。
 
@@ -791,7 +819,7 @@ TASK-PF06-008 全矩阵与阶段验收
 
 # 16. 下一阶段输入契约
 
-PF-07 Platform Health 在 PF-06 真实验收后只能依赖：
+PF-06A（实施 09A）先消费身份/退出、生命周期、文件操作、提醒/导航和捕获适配语义，重新验证原生容器；不把 Web 预留称为原生兼容完成。其后 PF-07 Platform Health 只能依赖：
 
 ```text
 ModuleKey/readiness/OperationId
@@ -805,7 +833,7 @@ Platform Health 不得获取参与人名单、原因、JoinTicket、EngineAccess
 
 ---
 
-# 17. 文档自审清单
+# 17. 2026-08-14 历史文档自审记录（不作为 V1.1 验证）
 
 - [x] 目标文件创建前已确认不存在。
 - [x] 当前仓库、最新提交、工作树保护边界和真实未实现状态已记录。

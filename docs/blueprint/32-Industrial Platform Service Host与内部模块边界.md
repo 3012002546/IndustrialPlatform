@@ -1,8 +1,8 @@
 # Industrial Platform Service Host 与内部模块边界
 
-版本：V1.3
+版本：V1.4
 状态：已确认，平台微服务母版
-生效日期：2026-09-04
+生效日期：2026-09-07
 
 ---
 
@@ -27,7 +27,7 @@
 
 # 3. 当前核心 Service Host
 
-平台基础层当前共七个核心 Service Host：
+平台基础层规划共八个核心 Service Host：
 
 | Service Host | 当前内部模块 |
 | --- | --- |
@@ -37,9 +37,10 @@
 | `Collaboration.Service` | Messaging、Presence、AttachmentIntegration、RemoteAssistance |
 | `PlatformStudio.Service` | DataSource、Dataset、LowCode、Dashboard、Report、Publishing |
 | `OperationsCenter.Service` | ServerMonitor、ProjectWorkspace、KnowledgeBase、IssueTracking、KnowledgeAssistant、DataAssistant、ModelGateway |
+| `Label.Service` | Template、DataPreparation、Rendering、PrintJob、History；PF-10B 新增规划 |
 | `IoTCollector.Service` | Driver、DeviceConnection、Point、CollectionTask、EdgeManagement |
 
-Worker、Agent、Screego、TURN 和本地模型运行时是辅助部署单元，不计入七个核心 Service Host。它们不得反向拥有核心领域数据；其生命周期、密钥、网络和升级策略在对应阶段详细设计。
+Worker、Agent、Screego、TURN 和本地模型运行时是辅助部署单元，不计入八个核心 Service Host。它们不得反向拥有核心领域数据；其生命周期、密钥、网络和升级策略在对应阶段详细设计。
 
 `ReferenceData.Service` 是一个 Service Host，包含 Dictionary、Parameter、DynamicProperty、Metadata、CodingRule、StateMachine、UnitOfMeasure 七个逻辑领域模块。当前固定使用一个逻辑数据库 `referencedata_db`、一个 PostgreSQL Schema `reference_data`、模块表前缀、一个服务级 Migration/Ledger、一个带 `ModuleKey` 的服务级 Outbox 和共享基础设施；没有真实入站事件消费者，不创建 Inbox/Checkpoint。只有某个模块以后形成独立持久化生命周期并完成边界评审，才可成为独立初始化单元；这不改变七个领域模块的契约与数据所有权隔离。
 
@@ -71,11 +72,13 @@ StateMachine 管理 `StateMachineDefinition`、其 `StateNode` 和 `StateTransit
 | 07 / PF-04 | File / Notification / Audit | 加入 `SystemData.Service` | File、Notification、Audit |
 | 08 / PF-05 | Collaboration | 创建 `Collaboration.Service` | Messaging、Presence、AttachmentIntegration |
 | 09 / PF-06 | RemoteAssistance | 加入 `Collaboration.Service` | RemoteAssistance |
+| 09A / PF-06A | 终端运行时与客户端打包 | 不新增 Host；客户端辅助部署单元 | Web/Electron/Capacitor Runtime、设备桥接与更新 |
 | 10 / PF-07 | Scheduler / Platform Health | 加入 `SystemData.Service` | Scheduler、PlatformHealth |
 | 11 / PF-08 | Low Code | 创建 `PlatformStudio.Service` | DataSource、Dataset、LowCode、Publishing 的首期范围 |
 | 12 / PF-09 | Dashboard & Report | 加入 `PlatformStudio.Service` | Dashboard、Report，并复用受控 Dataset 契约 |
 | 13 / PF-10 | ServerMonitor | 创建 `OperationsCenter.Service` | 只交付 ServerMonitor；与知识、问题和助手模块保持隔离 |
 | 13A / PF-10A | Operations Center Knowledge & Assistant | 加入 `OperationsCenter.Service` | ProjectWorkspace、KnowledgeBase、IssueTracking、KnowledgeAssistant、DataAssistant、ModelGateway；进入实施前先补齐第 5.4 节的设计缺口 |
+| 13B / PF-10B | 标签管理平台 | 创建 `Label.Service`，先于 PF-11 | Template、DataPreparation、Rendering、PrintJob、History；独立/外部/平台三模式 |
 | 14 / PF-11 | IoT Collector | 创建 `IoTCollector.Service` | Driver、DeviceConnection、Point、CollectionTask、EdgeManagement |
 
 # 5. Operations Center 母版边界
@@ -130,3 +133,9 @@ PF-10A 的第一个设计门禁是逐项完成并确认以上闭环；在此之�
 - SystemData 管理其他服务的登记、拓扑解析、plan、provision 策略、Operation 状态和脱敏 Observation；各服务通过自己的初始化器管理 Migration、Seed、Bootstrap、Verify、Ledger 和 readiness 事实。
 - SystemData 自身数据库是唯一 bootstrap 例外，由 PostgreSQL 18 基础设施最小引导创建；不得调用自身 API 创建自身数据库。
 - 新服务的 manifest、启动握手、readiness、环境策略、安全和验收统一读取蓝图 33。
+
+## 7.1 PF-05/06 与独立标签产品增量（2026-09-07）
+
+Collaboration 采用同一服务级初始化、seed ledger、Outbox 和必要消费者 Inbox；Messaging 拥有 ChatAttachment 绑定，AttachmentIntegration 只适配 File；Presence 无持久化不建空 Schema/账本。RemoteAssistance 当前继续保留原设计的独立持久化生命周期及模块单元，是否合并该单元需另有设计依据，不因本轮清理 Presence 而自动删除。
+
+平台原生与外部 MES 嵌入共用聊天核心；外部复用可信身份/目录、本地持久审计和本地受控初始化器，不依赖整套平台在线，安全和可靠性不裁剪。Label.Service 则另支持无宿主的最小身份/存储/审计，默认服务级治理；详见蓝图 35。Runtime/Agent 只拥有终端技术能力和执行记录，不拥有 MES/Label 领域事实。

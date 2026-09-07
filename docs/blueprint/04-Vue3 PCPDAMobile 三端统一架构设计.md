@@ -1145,3 +1145,9 @@ UI适配终端
 离线优先
 
 ```
+
+## 三端协作与运行容器增量（2026-09-07）
+
+PF-05 交付 PC/PDA/Mobile 的完整 Web 聊天，PF-06 交付 Web 共享/观看；PDA/Mobile 不是仅缩放 PC 页面。登录后的应用级连接、未读、抽屉/全屏导航、主题/密度/语言、软键盘、安全区、扫码焦点及换人隔离按实施 08/09 验收。
+
+PF-06A 才接 Electron Windows 与 Capacitor Android PDA。布局维度与容器能力分离，共享业务核心经最小 Runtime 调用 Web/原生能力，不在页面直接依赖厂商 SDK。只共享代码/协议，不假设跨窗口共享 Store。终端蓝图与版本/更新/设备规则见[蓝图 34](34-Industrial%20Platform终端运行时与客户端架构.md)。标签 PDA 直连打印与 Windows Agent 接入见[蓝图 35](35-Industrial%20Platform标签管理平台设计.md)，不强制两端相同底层实现。

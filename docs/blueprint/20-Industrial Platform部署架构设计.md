@@ -1577,3 +1577,16 @@ MES微服务
 AI智能应用
 
 ```
+
+## 独立协作、终端与标签部署增量（2026-09-07）
+
+| 交付 | 最小部署与边界 |
+| --- | --- |
+| 平台 Collaboration | 沿平台入口/Identity/File/Audit，运行 Ready 依本地有效初始化事实，SystemData 暂离线不机械停机 |
+| 外部 MES 嵌入 Collaboration | 同一 Collaboration 核心 + PostgreSQL + 可信参考/实际宿主 + 必要本地持久审计；单实例不强制 Redis/RabbitMQ，本地 Outbox Dispatcher 可靠投递；附件/协助按配置启用 |
+| PF-06A 客户端 | Electron Windows、Capacitor Android PDA 是辅助部署单元；签名完整升级及 PDA Bundle 更新受 Native/Web 兼容与业务安全点约束 |
+| PF-10B 独立 Label | Label.Service + PostgreSQL + 必要文件存储 + 按需 Windows Agent/用户助手或 PDA 原生执行端；不强制整套平台基础设施 |
+
+Collaboration 外部嵌入不建设本地完整账号门户；Label 完全独立模式具备最小身份/角色/API 凭据，平台集成则接公共契约。配置不是代码分叉；独立安装调用相同初始化器/账本，不能自动切库或迁数据。远程协助业务后端不解码/录制媒体，TURN 可中继；强制 relay 和服务端强制断流分别提供实际媒体路径证据。
+
+Agent 与 Electron 不建立两套争抢本机打印机的队列；跨工位经标签服务授权调度。备份恢复/Agent 重装暂停自动派发并对账，未知执行结果不自动重打。详细交付/更新/诊断/回退门禁见蓝图 34/35 与实施 09A/13B。

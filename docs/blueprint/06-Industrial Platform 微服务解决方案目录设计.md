@@ -159,7 +159,7 @@ backend
 
 # 5. Services 目录
 
-平台基础层当前按蓝图 32 固定为七个核心 Service Host。阶段不等于微服务；共享宿主内的模块必须保持独立 Schema/表前缀、契约、权限、迁移和测试，禁止跨模块直读 Repository，并预留物理拆分。
+平台基础层当前按蓝图 32 固定为八个规划核心 Service Host。阶段不等于微服务；共享宿主内的模块必须保持独立 Schema/表前缀、契约、权限、迁移和测试，禁止跨模块直读 Repository，并预留物理拆分。
 
 ```
 backend/services
@@ -177,12 +177,13 @@ backend/services
 │
 ├── OperationsCenter.Service
 │
+├── Label.Service（PF-10B，规划）
 ├── IoTCollector.Service
 ```
 
-其中 `ReferenceData.Service` 继续利用现有骨架，其余宿主按 PF 阶段映射创建或扩展。`SystemData.Service` 内含后续服务通用初始化编排/环境引导控制面；其内部 Runner 只以受控一次性隔离任务或执行适配器调度服务自有迁移、种子和 initializer，不新增独立 Migrator/Seeder Service。Worker、Agent、Screego、TURN 和本地模型运行时位于宿主之外，是辅助部署单元，不计入七个核心 Service Host。
+其中 `ReferenceData.Service` 继续利用现有骨架，其余宿主按 PF 阶段映射创建或扩展。`SystemData.Service` 内含后续服务通用初始化编排/环境引导控制面；其内部 Runner 只以受控一次性隔离任务或执行适配器调度服务自有迁移、种子和 initializer，不新增独立 Migrator/Seeder Service。Worker、Agent、Screego、TURN 和本地模型运行时位于宿主之外，是辅助部署单元，不计入八个规划核心 Service Host。
 
-以下制造域服务名保留为后续阶段或未来物理拆分目标，不属于当前平台基础层七宿主计数：
+以下制造域服务名保留为后续阶段或未来物理拆分目标，不属于当前平台基础层八个规划宿主计数：
 
 ```
 backend/services
@@ -1207,3 +1208,5 @@ Docker环境
         +
 MES产品基础工程
 ```
+
+> 2026-09-07 路线增量：新增 Label.Service 为第八个规划核心 Host；PF-05/06 Web 后执行 PF-06A 终端专项，PF-10B 标签平台先于 PF-11 IoTCollector。详细映射以蓝图 32、总 Todo 为准，设计见蓝图 34/35；不代表新宿主或客户端已实现。

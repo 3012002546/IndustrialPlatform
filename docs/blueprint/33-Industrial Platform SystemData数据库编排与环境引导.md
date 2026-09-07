@@ -249,3 +249,9 @@ SchemaMigration → SystemBaseline → TenantBaseline → SecretBootstrap(ADMIN)
 - `ADMIN` 属于 `SecretBootstrap`，由 Identity initializer 自行解析 Secret Provider 或执行其已批准的一次性生成策略。
 - SystemData 只接收非敏感 manifest/observation，不接收 admin 密码、密码哈希、Token 或 Secret 值。
 - Identity 的具体账本、临时密码交付、首次改密和恢复规则以实施 03 的当前并行设计为准；本文不覆盖 PF-00 细则。
+
+## 13.1 独立交付模式的同一初始化器（2026-09-07）
+
+PF-05/06 外部 MES 嵌入与 PF-10B 独立标签模式可用本地可信配置/受控维护入口调用同一服务初始化器，无需同时部署 SystemData。平台集成继续由 SystemData 编排；这不是另建控制面、迁移引擎或生产自动建库许可。两模式都保留目标身份、版本/checksum、最小角色、Secret Provider、锁、RequiredSeed、Ledger、Standard/Advanced 环境门禁和显式升级恢复。
+
+Collaboration 的逻辑 Presence/AttachmentIntegration 不机械成为初始化单元；Messaging 绑定归本服务事务，Presence 只登记能力。Label 使用 ServiceKey/InitializationUnitKey=label、label_db 及服务级 ledger。PF-06A 客户端不是数据库服务，不登记空初始化单元。已初始化服务在控制面暂不可达时依本地有效事实 Ready；首次未初始化/必要配置失效仍失败关闭。

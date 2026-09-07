@@ -85,11 +85,13 @@ PF-03    ReferenceData（现有骨架复核后继续）
 PF-04    File / Notification / Audit（同阶段、分别设计）
 PF-05    Collaboration
 PF-06    RemoteAssistance 验证与试点
+PF-06A   终端运行时与客户端打包
 PF-07    Scheduler / Platform Health（分别设计）
 PF-08    Low Code
 PF-09    Dashboard / Report（分别设计）
 PF-10    ServerMonitor
 PF-10A   Operations Center Knowledge & Assistant（设计待确认）
+PF-10B   标签管理平台
 PF-11    IoT Collector
 MES-01   MasterData（暂缓）
 MES-02   OperationalData（暂缓）
@@ -140,7 +142,7 @@ PF-01 已完成开发详细设计、任务依赖和七张九字段任务卡，�
 → 跟踪、阶段验收和总 TodoList 回写
 ```
 
-阶段不等于微服务。平台基础层当前固定为七个核心 Service Host：`Identity.Service`、`SystemData.Service`、`ReferenceData.Service`、`Collaboration.Service`、`PlatformStudio.Service`、`OperationsCenter.Service`、`IoTCollector.Service`。Worker、Agent、Screego、TURN、本地模型运行时和数据库编排 Runner 是辅助部署单元，不计入核心宿主数量。同宿主模块仍必须独立建模，具有明确的 Schema/模块表前缀逻辑命名空间以及独立契约、权限和测试边界；迁移执行单元按真实持久化生命周期划分，禁止因模块数量机械复制，禁止跨模块直读 Repository。
+阶段不等于微服务。平台基础层当前固定为八个规划核心 Service Host：`Identity.Service`、`SystemData.Service`、`ReferenceData.Service`、`Collaboration.Service`、`PlatformStudio.Service`、`OperationsCenter.Service`、`Label.Service`、`IoTCollector.Service`。Worker、Agent、Screego、TURN、本地模型运行时和数据库编排 Runner 是辅助部署单元，不计入核心宿主数量。同宿主模块仍必须独立建模，具有明确的 Schema/模块表前缀逻辑命名空间以及独立契约、权限和测试边界；迁移执行单元按真实持久化生命周期划分，禁止因模块数量机械复制，禁止跨模块直读 Repository。
 
 PF-02 的最高优先级是 `SystemData.Service` 数据库编排/环境引导控制面：先完成拓扑解析与 bootstrap、服务 registration/plan、provision/migrate/drift、消费者握手/readiness，再开始组织、导航、主题等后续 SystemData 工作。后续服务拥有自己的领域 Schema 和迁移产物；SystemData 负责编排数据库、最小角色/授权与迁移执行。SystemData 自身数据库由 PostgreSQL 18 基础设施最小引导，不创建独立 Migrator Service，不允许业务 API 使用管理员凭据自行建库，也不得使用 `EnsureCreated` 代替版本化迁移。
 
@@ -153,11 +155,13 @@ PF-02 的最高优先级是 `SystemData.Service` 数据库编排/环境引导控
 | PF-04 | 扩展 `SystemData.Service` | File、Notification、Audit，分别建模 |
 | PF-05 | 创建 `Collaboration.Service` | Messaging、Presence、AttachmentIntegration |
 | PF-06 | 扩展 `Collaboration.Service` | RemoteAssistance |
+| PF-06A | 不新增核心 Host | 终端 Runtime、Electron/Capacitor、设备桥接与更新；实施 09A |
 | PF-07 | 扩展 `SystemData.Service` | Scheduler、PlatformHealth，分别建模 |
 | PF-08 | 创建 `PlatformStudio.Service` | DataSource、Dataset、LowCode、Publishing 首期范围 |
 | PF-09 | 扩展 `PlatformStudio.Service` | Dashboard、Report |
 | PF-10 | 创建 `OperationsCenter.Service` | 只交付 ServerMonitor |
 | PF-10A | 扩展 `OperationsCenter.Service` | ProjectWorkspace、KnowledgeBase、IssueTracking、KnowledgeAssistant、DataAssistant、ModelGateway；完整闭环待确认 |
+| PF-10B | 创建 `Label.Service` | 标签模板、数据准备、打印与历史；实施 13B |
 | PF-11 | 创建 `IoTCollector.Service` | Driver、DeviceConnection、Point、CollectionTask、EdgeManagement |
 
 PF-03 ReferenceData 复用重编号后的实施文档 06，但开发前必须由 PF-03 阶段管理会话复核当前骨架、任务状态以及与 SystemData 和主题体系的契约。
@@ -395,12 +399,13 @@ IndustrialPlatform.slnx
 
 ├── OperationsCenter
 
+├── Label（PF-10B，规划）
 ├── IoTCollector
 
 └── MES 后续服务（MasterData、OperationalData、WorkOrder、Weighting、Trace、BatchRecord 等）
 ```
 
-上述是 Solution Folder/项目分组，不表示每个 PF 阶段创建一个进程。七个当前核心 Service Host 及其内部模块映射只读取蓝图 32。
+上述是 Solution Folder/项目分组，不表示每个 PF 阶段创建一个进程。八个规划核心 Service Host 及其内部模块映射只读取蓝图 32。
 
 ---
 
@@ -934,6 +939,7 @@ Gateway 外部路由、服务内部路径、信封、错误码、幂等和异步
 → PF-02 SystemData（设计/任务卡待书面审阅；先数据库编排控制面）+ PF-03 ReferenceData（骨架复核）
 → PF-04～PF-10
 → PF-10A Operations Center Knowledge & Assistant（IssueTracking/KnowledgeBase 完整闭环待确认）
+→ PF-10B 标签管理平台
 → PF-11 IoT Collector
 → MES-01 MasterData
 → MES-02 OperationalData
@@ -1005,3 +1011,5 @@ Gateway 外部路由、服务内部路径、信封、错误码、幂等和异步
 ```
 
 SystemData 自身数据库继续由 PostgreSQL 18 Compose/init 或部署步骤做最小 bootstrap；生产默认执行 `plan → 审批 → 备份 → apply → 验证`。
+
+> 2026-09-07 路线增量：新增 Label.Service 为第八个规划核心 Host；PF-05/06 Web 后执行 PF-06A 终端专项，PF-10B 标签平台先于 PF-11 IoTCollector。详细映射以蓝图 32、总 Todo 为准，设计见蓝图 34/35；不代表新宿主或客户端已实现。
