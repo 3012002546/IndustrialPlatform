@@ -1,8 +1,8 @@
 # 07-Industrial Platform File / Notification / Audit 开发实施方案
 
-版本：V1.1（蓝图与开发 TODO 整改）
-核验日期：2026-09-06（Asia/Taipei）
-阶段：PF-04 Core 开发中（001～009 已整包派遣）；独立验收预检中，尚无功能验收结论。010 为后续增强。
+版本：V1.3（Core 独立离线验收回写）
+核验日期：2026-09-07（Asia/Taipei）
+阶段：PF-04 Core 001～009 开发完成并通过独立离线验收；真实环境项待复验。010 为后续增强。
 依据：[评估上传设计](chatgpt-conversation://6a9d0e0a-ea6c-83e8-a243-072e8022bf65)、仓库现状及现行蓝图。2026-08-13 的设计批准仅作历史记录，不自动授权修改后方案的开发。
 
 # 1. 文档说明
@@ -19,17 +19,17 @@
 
 ## 1.2 当前输入状态与证据
 
-核验基线为 `develop@36e62909105b7751c36085b37acca3043957c9aa`，读取时间为 2026-09-06。工作区存在 ReferenceData、SystemData、共享前端及测试的未提交整改，本轮保留原状；下表的历史验收不覆盖这些后续 WIP，也不是本轮测试结果。下列代码路径均相对仓库根目录。
+核验基线为 `develop@4eefeed044f9fcda6d67274b2a3c0908fa68a261`，读取时间为 2026-09-07。主工作树保留 PF-04 Core 的未提交前端改动；本节只引用本轮新鲜命令，不把历史验收或未运行的真实环境当作通过。下列代码路径均相对仓库根目录。
 
 | 分类 | 核验结论 | 证据位置与限制 |
 | --- | --- | --- |
 | 已实现且有历史验收证据 | SystemData 宿主、初始化器、组织/导航、Outbox 等已存在；PF-01 已交付；PF-03 七模块已完成并合入 | `docs/evidence/PF-02.md`、`docs/evidence/PF-03.md`、实施 04 执行记录、`docs/status/CURRENT.md`；PF-03 功能提交 `969ee156`、合并 `e9452b47` |
-| 已实现但尚未完整验收 | PF-02 仍 active，真实菜单发布、七页/三端及外部门禁未全闭合；当前代码 WIP 不视为已验收 | `docs/tasks/active/PF-02.md`、PF-02 evidence 最新记录；不再把 TASK-SD-001～004 写为“尚未实现” |
+| 已完成并归档 | PF-02 当前功能范围已完成并合入，真实云 Docker/UnifiedHost 与完整视觉矩阵已由用户验证 | `docs/tasks/archive/PF-02.md`、PF-02 evidence 最终收束记录；PF-04 只消费稳定公开契约 |
 | 已有能力，保留并增量接入 | Identity 本地登录/操作审计、SystemData 本地审计与 Outbox、ReferenceData Outbox 均存在；它们不等于中央 Audit Core | `src/backend/src/Services/Identity/IndustrialPlatform.Identity.Infrastructure/Authentication/{LoginAuditSink,OperationAuditSink}.cs`；SystemData Infrastructure 的 `Reliability/{SqlLocalAuditCommand,SqlControlPlaneOutbox,ControlPlaneOutboxDispatcher}.cs`；ReferenceData Infrastructure 的 `Outbox/` |
 | 已有宿主与初始化契约 | UnifiedHost 已组合 SystemData，Gateway 有服务前缀转发；初始化协议是 IServiceInitializer 的 Inspect/Plan/Apply/Verify 与本地状态 | `src/backend/src/Services/SystemData/IndustrialPlatform.SystemData.Api/Modules/SystemDataUnifiedHostModule.cs`；`src/backend/src/Gateway/IndustrialPlatform.Gateway/Configuration/GatewayRouteFactory.cs`；`src/backend/src/BuildingBlocks/IndustrialPlatform.Application.Abstractions/Initialization/ServiceInitializationContracts.cs` |
-| 只有设计、尚未实现 | 本轮在 src/tests/依赖清单中未找到 PF-04 UploadSession、InboxDelivery、AuditFactV1、tus 或扫描器正式实现；已有名字含 Audit/Outbox 的本地设施不算 PF-04 已交付 | 按上述类型、tusdotnet/tus-js-client/IVirusScanner/NotificationMessage 搜索；未发现 PF-04 工作包或验收记录 |
-| 已过时/不一致 | “SystemData、Gateway 路由、PF-01 尚不存在”“PF-03 只有骨架”；四个必需迁移单元、每模块 Outbox 和控制面在线作为日常 readiness 硬前置 | 以当前代码及蓝图 32 V1.3、33 V3.2 替代；旧快照保留在第 16 章 |
-| 当前无法核验 | 上传组件具体版本与适配器、跨实例持久化/锁、扫描引擎与策略部署、服务身份接入以及现有生产者可靠写入的全部故障路径 | 纳入 001/002/003 的接入核验与第 12 章真实验收；没有运行本轮功能测试，不能写“已通过” |
+| 已实现且通过独立离线验收 | PF-04 File/Notification/Audit 后端能力、权限/迁移/导航和 PC/PDA/Mobile 前端入口已在代码中；本轮完成 Shell 通知铃、系统消息、PDA 通知路由、管理页权限门禁/错误/服务端分页/确认动作与 Audit lifecycle UI 收口 | 后端 fresh Release build/test、前端 124 文件/926 测试、类型检查及生产构建均通过，详见 `docs/evidence/PF-04.md` |
+| Core 契约已闭合 | 公告列表返回 page/pageSize/total；FileObjectV1 返回用途、上传者、引用数量/摘要并支持对应服务端筛选；真实浏览器/服务链仍待验收 | 保持现有 DTO 与服务端分页实现；外部环境限制见 evidence |
+| 当前无法核验 | 真实 UnifiedHost/Gateway 登录、权限、菜单发布、浏览器交互、实际 PostgreSQL/Redis/RabbitMQ/ClamAV、多实例文件锁、真实手机/跨设备链路 | 当前机器无所需监听服务和容器运行时；对应矩阵保持待验收，不以 Mock/fixture 替代 |
 
 当前 SystemData 初始化器位于 `src/backend/src/Services/SystemData/IndustrialPlatform.SystemData.Infrastructure/DatabaseOrchestration/Initialization/SystemDataServiceInitializer.cs`，`ServiceKey=systemdata`、初始化 `ModuleKey=systemdata`。本轮采用服务级迁移接入，不能为迎合旧文档把既有控制面、账本或数据迁移重建。
 
@@ -333,7 +333,7 @@ tus 候选与证据见 7.2.3。Audit.NET 仅作采集/Provider 抽象参考，�
 
 ## 12.3 证据要求
 
-上述为未来验收任务，本轮只做文档检查。实现时记录命令、退出码、通过/失败/跳过数、交付标识、Provider/部署模式、报告/截图位置及真实依赖限制。Mock/fixture、浏览器设备模拟、真实手机分别标注；没有真实扫描/存储/服务身份或 Gateway 链路只能对应标待验收，不能用 Mock 证明完成。最终源码发生变更时先新鲜 Release build，再 `dotnet test ... --configuration Release --no-build`；不拿旧编译产物或历史 evidence 冒充当轮通过。
+Core 离线验收已按上述矩阵执行并记录命令、退出码、通过/失败/跳过数和真实依赖限制。Mock/fixture、浏览器设备模拟、真实手机分别标注；没有真实扫描/存储/服务身份或 Gateway 链路只能对应标待验收，不能用 Mock 证明完成。最终源码发生变更时先新鲜 Release build，再 `dotnet test ... --configuration Release --no-build`；不拿旧编译产物或历史 evidence 冒充当轮通过。
 
 # 13. 开发任务依赖
 
@@ -363,9 +363,9 @@ tus 候选与证据见 7.2.3。Audit.NET 仅作采集/Provider 抽象参考，�
 | TASK-PF04-006 | 保留三端页面，增加标准跨设备上传，去除 Advanced 菜单 |
 | TASK-PF04-007 | 保留 Core 安全/恢复/观测，去除锚定/完整法律审批依赖 |
 | TASK-PF04-008 | 保留阶段验收，按第 12 章 Core 矩阵收束 |
-| TASK-PF04-009 / 010 | 新增的 003 安全拆分 / 002 高级后续范围，未实现 |
+| TASK-PF04-009 / 010 | 新增的 003 安全拆分已完成并通过离线验收；002 高级后续范围未实现 |
 
-原八项没有找到开发完成证据，历史状态与本次开发状态分开记录。2026-09-06 复评后 TASK-PF04-001～009 已作为一个 Core 工作包派遣，当前按依赖连续开发；010 保持“待细化（后续增强）”。不改变任何已完成的 PF-00/01/02/03 工作。
+原八项在 2026-09-06 复评时没有开发完成证据，历史状态与本次结果分开记录。TASK-PF04-001～009 随后作为一个 Core 工作包按依赖连续开发，并于 2026-09-07 通过独立离线验收；010 保持“待细化（后续增强）”。不改变任何已完成的 PF-00/01/02/03 工作。
 
 # 14. 开发任务拆分
 
@@ -373,7 +373,7 @@ tus 候选与证据见 7.2.3。Audit.NET 仅作采集/Provider 抽象参考，�
 
 ## TASK-PF04-001 宿主、基础契约与迁移接入
 
-**状态：** 已派遣（Core 工作包开发中；首个内部步骤，接入核验属于本任务）
+**状态：** 开发与独立离线验收通过（首个内部步骤，接入核验已回写）
 
 **目标：** 在现有 SystemData 服务级生命周期接入三个逻辑模块，冻结基础身份/初始化/路由约定。
 
@@ -393,7 +393,7 @@ tus 候选与证据见 7.2.3。Audit.NET 仅作采集/Provider 抽象参考，�
 
 ## TASK-PF04-002 Audit Core 与可靠记录
 
-**状态：** 已派遣（Core 工作包开发中；按依赖执行）
+**状态：** 开发与独立离线验收通过
 
 **目标：** 实现事实/生命周期分离、成功与失败可靠路径、幂等冲突、脱敏查询和 Core 导出。
 
@@ -413,7 +413,7 @@ tus 候选与证据见 7.2.3。Audit.NET 仅作采集/Provider 抽象参考，�
 
 ## TASK-PF04-003 File 上传会话与跨设备续传
 
-**状态：** 已派遣（Core 工作包开发中；任务内先做 tus/store 最小集成验证，再扩展完整续传）
+**状态：** 开发与独立离线验收通过（真实 tus/store、多实例链路仍受环境限制）
 
 **目标：** 在唯一传输路线实现持久会话、强证明、可靠断点和接管旧写入者失效。
 
@@ -433,7 +433,7 @@ tus 候选与证据见 7.2.3。Audit.NET 仅作采集/Provider 抽象参考，�
 
 ## TASK-PF04-004 Notification 持久投递与跨端同步
 
-**状态：** 已派遣（Core 工作包开发中；按依赖执行）
+**状态：** 开发与独立离线验收通过
 
 **目标：** 以三个核心模型交付公告/系统通知/收件箱与旧通知状态刷新。
 
@@ -453,7 +453,7 @@ tus 候选与证据见 7.2.3。Audit.NET 仅作采集/Provider 抽象参考，�
 
 ## TASK-PF04-005 联合契约、权限及现有生产者接入
 
-**状态：** 已派遣（Core 工作包开发中；按依赖执行）
+**状态：** 开发与独立离线验收通过
 
 **目标：** 验证前置已定义的契约与两种宿主入口一致，并增量接入现有审计生产者。
 
@@ -473,7 +473,7 @@ tus 候选与证据见 7.2.3。Audit.NET 仅作采集/Provider 抽象参考，�
 
 ## TASK-PF04-006 三端上传组件、收件箱与管理页
 
-**状态：** 已派遣（Core 工作包开发中；按依赖执行）
+**状态：** 开发与独立离线验收通过（真实浏览器/三端链路仍受环境限制）
 
 **目标：** 交付标准跨设备上传和通知交互，以及 PC 必要 File/公告/Audit Core 页面。
 
@@ -493,7 +493,7 @@ tus 候选与证据见 7.2.3。Audit.NET 仅作采集/Provider 抽象参考，�
 
 ## TASK-PF04-007 Core 作业恢复、安全与可观测性
 
-**状态：** 已派遣（Core 工作包开发中；按依赖执行）
+**状态：** 开发与独立离线验收通过
 
 **目标：** 完成过期/清理/补投/扫描重试、容量保护与局部降级。
 
@@ -513,7 +513,7 @@ tus 候选与证据见 7.2.3。Audit.NET 仅作采集/Provider 抽象参考，�
 
 ## TASK-PF04-008 集成、安全与阶段验收
 
-**状态：** 已派遣（Core 工作包开发中；按依赖执行）
+**状态：** 开发与独立离线验收通过（真实服务与三端链路仍受环境限制）
 
 **目标：** 以真实接入证明 Core 三模块、跨设备用户路径及安全/恢复边界。
 
@@ -533,7 +533,7 @@ tus 候选与证据见 7.2.3。Audit.NET 仅作采集/Provider 抽象参考，�
 
 ## TASK-PF04-009 File 校验、下载、引用与清理
 
-**状态：** 已派遣（Core 工作包开发中；由原 003 拆出，扫描/存储核验在任务内完成）
+**状态：** 开发与独立离线验收通过（真实扫描/存储链仍受环境限制）
 
 **目标：** 将完成的上传安全处理为可用文件，并实现授权使用/引用/保留删除。
 
@@ -610,11 +610,25 @@ tus 候选与证据见 7.2.3。Audit.NET 仅作采集/Provider 抽象参考，�
 
 总 Todo、实施/蓝图索引、CURRENT 和实施前门禁同步此状态。首次整改历史保留；未创建执行任务、工作树或开发工作包，未修改代码、未提交 Git。
 
+## 16.4 Core 开发与独立离线验收回写（2026-09-07）
+
+本轮在 `develop` 主工作树完成 Core 001～009 的实现、前端收口和独立离线验收，结论为 PASS；未提交、未推送、未启动或重启服务。当前 `HEAD=4eefeed044f9fcda6d67274b2a3c0908fa68a261`；未提交改动覆盖 PF-04 后端契约/API/服务/存储、前端 API 与 Shell/PDA/Mobile/PC 页面、路由、语言包及对应测试。
+
+| 层级 | 新鲜结果 | 结论边界 |
+| --- | --- | --- |
+| 后端 | `dotnet build src/backend/IndustrialPlatform.slnx --configuration Release`：0 warning、0 error；随后 `dotnet test ... --configuration Release --no-build`：1,684 通过、0 失败、3 跳过、总计 1,687 | 跳过项是 PostgreSQL/Redis/RabbitMQ 外部依赖条件；不等同真实服务链通过 |
+| 前端定向 | Shell/PDA/navigation/notificationHub 与 PF-04 页面组件回归通过 | 覆盖通知权限、未读/批量已读、安全跳转、PDA 路由、服务端分页、确认动作、消息收件人和幂等键 |
+| 前端全量 | `vitest run --configLoader native`：124 文件、926 测试通过；`vue-tsc --noEmit --pretty false` 通过 | 使用本轮工作树 |
+| 前端构建 | `cmd.exe /d /c pnpm.cmd build` 通过，Vite 2,330 modules；保留既有大 chunk warning | 构建产物为验证输出，不纳入提交 |
+| 差异卫生 | `git diff --check` 通过 | 仅有 Git 报告的 LF/CRLF 转换提示 |
+
+仍待真实环境复验的路径：真实浏览器登录/权限/动态菜单、UnifiedHost/Gateway、PostgreSQL/Redis/RabbitMQ/ClamAV、多实例文件锁、真实手机与跨设备上传。Core 代码契约已明确：公告列表为 page/pageSize/total 服务端分页，FileObjectV1 返回用途/上传者/引用数量/摘要并支持服务端筛选。
+
 # 17. 下一阶段输入契约与待核验事项
 
 以下未验证项是开发任务内的工作或功能验收条件，不是 001～009 继续保持“待细化”的理由；只有实际发现无法满足契约的证据才标记对应路径阻塞。
 
-以下目前都是设计，只有实现并经验收后才可作为稳定输入：AuditFactV1 可靠写入/授权查询；FileMetadataV1、上传会话/发现/证明/接管/完成、受权内容与引用；Notification 发布/收件箱/未读/刷新；服务级初始化增量与模块权限。消费者只保存 FileNId 等外部标识，不依赖 Repository、存储键、分页游标的隐藏同步语义或 Advanced 能力。
+以下 Core 契约已经实现并通过独立离线验收，可作为后续开发输入：AuditFactV1 可靠写入/授权查询；FileMetadataV1、上传会话/发现/证明/接管/完成、受权内容与引用；Notification 发布/收件箱/未读/刷新；服务级初始化增量与模块权限。消费者只保存 FileNId 等外部标识，不依赖 Repository、存储键、分页游标的隐藏同步语义或 Advanced 能力；涉及真实基础设施和终端联动的运行保证仍以完成外部环境复验为准。
 
 | 待核验事项 | 责任/关闭条件 |
 | --- | --- |
@@ -624,6 +638,14 @@ tus 候选与证据见 7.2.3。Audit.NET 仅作采集/Provider 抽象参考，�
 | 大文件全量 hash 的终端耗时/内存 | 003/006：PC/实际 PDA/Mobile 文件规模证据；无 hash 的旧会话不冒险续写 |
 | 扫描引擎/用途政策/存储故障与受保护下载 | 009：实际产品与 F6/F7；扫描不可用保持隔离 |
 | 合规强制项 | 后续总控：需求来源/阶段/作用域明确；保留蓝图 05 Collaboration 已定要求，高级审批后置不豁免保全 |
+
+当前实现与验收交接的具体缺口：
+
+| 项目 | 当前事实 | 处理 |
+| --- | --- | --- |
+| 公告管理列表 | `GET /notifications/announcements` 返回 `NotificationAnnouncementPageV1`，服务端执行 `search/page/pageSize/total` 查询 | 页面通过 AppDataTable loader 消费服务端分页；保持 200 条单页上限 |
+| 文件管理字段 | `FileObjectV1` 返回用途、上传者、活动引用数量/摘要；文件列表支持用途、上传人、扫描状态、限制状态服务端筛选 | 页面展示真实返回字段；引用摘要只含业务 NId、授权人、用途和创建时间 |
+| 真实环境 | 本机当前无 Docker/Podman 与 3310/5432/5672/6379 监听 | 相关 F/N/A/U 真实链路保持待验收，见 `docs/evidence/PF-04.md` |
 
 PF-05/10A 可消费基础 File/Audit/Notification 契约，但各自的业务状态、聊天、知识生命周期及客户合规专项仍自行设计。PF-05 的已定法律保全边界应在启用前落实；不能把 Core 完成解释成完整合规平台已完成。
 
@@ -637,4 +659,4 @@ PF-05/10A 可消费基础 File/Audit/Notification 契约，但各自的业务状
 - [x] Audit 成功/失败路径及事实/lifecycle 分离；Advanced 未混入 Core 表/API/页面/依赖/验收。
 - [x] 原八任务保留 ID，对应新增 009/010；任务具备九字段与阶段整体提交策略。
 - [x] 既有扫描、保留及法律保全要求未静默降低，未知外部依赖有关闭责任。
-- [x] 本轮只整改文档，未功能开发、迁移、派遣或 Git 提交；历史验收不冒充本轮测试。
+- [x] 本轮 Core 开发、自测、独立离线验收、证据与契约缺口已回写；未提交 Git，真实环境项保留待复验。

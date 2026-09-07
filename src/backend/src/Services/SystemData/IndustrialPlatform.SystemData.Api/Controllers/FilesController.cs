@@ -176,10 +176,10 @@ public sealed class FilesController : SystemDataControllerBase
 
     [HttpGet]
     [Authorize(Policy = SystemDataPermissionPolicies.FileRead)]
-    public async Task<ActionResult<FilePageV1>> List([FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 50, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<FilePageV1>> List([FromQuery] string? search, [FromQuery] string? purpose, [FromQuery] string? ownerUserNId, [FromQuery] string? scanStatus, [FromQuery] bool? restricted, [FromQuery] int page = 1, [FromQuery] int pageSize = 50, CancellationToken cancellationToken = default)
     {
         if (!TryGetActorContext(out var tenant, out var user)) return UnauthorizedEnvelope();
-        return await Execute(() => _service.ListFilesAsync(tenant, search, page, pageSize, cancellationToken));
+        return await Execute(() => _service.ListFilesPageAsync(tenant, search, purpose, ownerUserNId, scanStatus, restricted, page, pageSize, cancellationToken));
     }
 
     [HttpGet("{fileNId}")]

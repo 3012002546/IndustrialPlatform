@@ -223,6 +223,18 @@ public sealed class NotificationService : INotificationService
     public async Task<IReadOnlyList<NotificationAnnouncementV1>> ListAnnouncementsAsync(string tenantNId, string? search, CancellationToken cancellationToken) =>
         (await _store.ListAnnouncementsAsync(tenantNId, search, cancellationToken)).Select(ToContract).ToArray();
 
+    public async Task<NotificationAnnouncementPageV1> ListAnnouncementsPageAsync(string tenantNId, string? search, int page, int pageSize, CancellationToken cancellationToken)
+    {
+        var result = await _store.ListAnnouncementsPageAsync(tenantNId, search, Math.Max(page, 1), Math.Clamp(pageSize, 1, 200), cancellationToken);
+        return new NotificationAnnouncementPageV1
+        {
+            Items = result.Items.Select(ToContract).ToArray(),
+            Page = result.Page,
+            PageSize = result.PageSize,
+            Total = result.Total
+        };
+    }
+
     private async Task<IReadOnlyList<string>> ValidateRecipientsAsync(string tenantNId, IReadOnlyList<string>? recipients, CancellationToken cancellationToken)
     {
         IReadOnlyList<string> normalized;

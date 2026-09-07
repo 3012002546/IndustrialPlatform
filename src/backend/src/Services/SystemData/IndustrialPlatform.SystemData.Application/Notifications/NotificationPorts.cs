@@ -20,6 +20,12 @@ public sealed record AnnouncementRecord(
     string? TargetRoute = null,
     string? IdempotencyKey = null);
 
+public sealed record AnnouncementPageRecord(
+    IReadOnlyList<AnnouncementRecord> Items,
+    int Page,
+    int PageSize,
+    long Total);
+
 public sealed record NotificationMessageRecord(
     string TenantNId,
     string NotificationNId,
@@ -51,6 +57,13 @@ public interface INotificationStore
     Task<IReadOnlyList<string>> GetMessageRecipientsAsync(string tenantNId, string notificationNId, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<string>>([]);
     Task<IReadOnlyList<AnnouncementRecord>> ListAnnouncementsAsync(string tenantNId, string? search, CancellationToken cancellationToken);
+    async Task<AnnouncementPageRecord> ListAnnouncementsPageAsync(string tenantNId, string? search, int page, int pageSize, CancellationToken cancellationToken)
+    {
+        var normalizedPage = Math.Max(page, 1);
+        var normalizedPageSize = Math.Clamp(pageSize, 1, 200);
+        var items = await ListAnnouncementsAsync(tenantNId, search, cancellationToken);
+        return new AnnouncementPageRecord(items.Skip((normalizedPage - 1) * normalizedPageSize).Take(normalizedPageSize).ToArray(), normalizedPage, normalizedPageSize, items.Count);
+    }
     Task InsertAnnouncementAsync(AnnouncementRecord announcement, CancellationToken cancellationToken);
     Task UpdateAnnouncementAsync(AnnouncementRecord announcement, CancellationToken cancellationToken);
     Task PublishAnnouncementAsync(AnnouncementRecord announcement, NotificationMessageRecord message, IReadOnlyList<InboxDeliveryRecord> deliveries, CancellationToken cancellationToken);
@@ -73,6 +86,7 @@ public interface INotificationService
     Task<bool> MarkReadAsync(string tenantNId, string userNId, string notificationNId, bool read, CancellationToken cancellationToken);
     Task<int> MarkManyReadAsync(string tenantNId, string userNId, IReadOnlyList<string> notificationNIds, CancellationToken cancellationToken);
     Task<IReadOnlyList<NotificationAnnouncementV1>> ListAnnouncementsAsync(string tenantNId, string? search, CancellationToken cancellationToken);
+    Task<NotificationAnnouncementPageV1> ListAnnouncementsPageAsync(string tenantNId, string? search, int page, int pageSize, CancellationToken cancellationToken);
 }
 
 public interface INotificationNotifier

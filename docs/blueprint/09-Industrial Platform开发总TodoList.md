@@ -84,7 +84,7 @@ PF05/06、PF08/09、PF10/10A、PF10B、PF11统一先兼容Industrial Platform原
 | 统一前端第一批 | 已完成 | `TASK-FE-001～010` 执行记录均已完成 |
 | Identity | 当前范围已完成 | `TASK-ID-001～023` 已完成并完成集成；本地可验证门禁全绿，真实 PostgreSQL/Redis 联合登录链路保留为外部验收项 |
 | PF-01 视觉主题与平台外壳 | 已完成（外部真机项待验收） | 实施 04 `TASK-PF01-001～007` 已完成；真实 Identity 联合验收 real E2E 19/19 |
-| PF-02 SystemData | 收束验收中 / 26项证据状态已回写 | 2026-09-04已知整改缺陷复验关闭；24项部分、ORG-02/03隔离通过/真实HTTP待补；014完整UI与200%、015真实链、016外部门禁保留；017本轮回写完成，013/PF-02继续active，不进入PF-03 |
+| PF-02 SystemData | 已完成并合入 | 七个管理页面、菜单发布、服务初始化与三端运行契约已交付；用户已在真实云 Docker 的 UnifiedHost 环境完成业务验证并清理测试数据，中英/亮暗/200% 视觉矩阵已通过；历史分层证据限制见 PF-02 evidence |
 | ReferenceData | 已完成并合入 | PF-03 七模块、共享治理、七个 PC 页面与真实链路验收已完成；见 `docs/evidence/PF-03.md` |
 | 架构收敛整改 | 已完成 | 四个已批准工作包完成，结果已纳入当前架构基线 |
 | PF-04 Core | 已有代码提交，真实验收待补 | `docs/evidence/PF-04.md` 有历史自测及外部缺口，不能当作本轮新鲜验证 |
@@ -226,7 +226,7 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 
 # 9. PF-02 SystemData
 
-**状态：** 收束验收中（2026-09-03）；`TASK-SD-001～010` 已完成，011～012 待收束，014/016 已交付并关闭已报告缺陷，015 真实矩阵受环境限制，017 已回写证据，013/PF-02 未关闭；不自动进入 PF-03
+**状态：** 已完成并合入（2026-09-07）；`TASK-SD-001～017` 当前功能范围已收束，工作包已归档。真实云 Docker/UnifiedHost 业务验证、测试数据人工清理及完整中英/亮暗/200% 视觉矩阵由用户确认完成。
 **Service Host：** 创建 `SystemData.Service`；本阶段只交付 SystemData 模块。
 **建议会话标题：** `PF-02 SystemData阶段管理`
 **输入：** 蓝图 05、07、13、20、23、27、30、31、32、33；PF-00 身份契约；PF-01 页面规范；PostgreSQL 18 与当前 `deploy/cloud-dev` 最小引导现状。
@@ -236,7 +236,7 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 
 **设计会话必须解决：**
 
-- **当前结果：** 001～010 已完成；011～012 已完成功能开发，但 runtime、页面可用性及真实业务操作仍需收束验收；013 重新打开，统筹 014～017 的阶段关闭门禁。
+- **当前结果：** 001～017 当前功能范围已完成；运行导航、七页管理能力、初始化编排及后续返修均已进入 `develop`，历史分层验收限制保留在 evidence，不再作为阶段开发阻塞。
 
 - 行政组织树、岗位和任职关系的不变量；
 - 菜单、路由、按钮资源与 Identity 权限的所有权和同步；
@@ -254,11 +254,11 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 - SystemData 自身数据库由基础设施最小引导的 bootstrap 例外，不得形成调用自身 API 的循环依赖。
 
 **已交付：** 当前 Git 已包含 SystemData 骨架、Runner、组织/岗位/任职 API，资源导航、Feature、服务目录、主题策略、缓存、审计、Outbox、Identity 对账，以及运行端和七个 PC 管理页的功能代码；已有 build、单元/契约测试、Mock E2E、七页可达性和真实组织/岗位 CRUD 证据继续有效。
-**收束门禁：** 完成七页页面一致性与关键状态验收、真实业务浏览器矩阵、Service Initialization V2 Advanced 闭环和蓝图 33 §12 十三项门禁证据矩阵；逐项记录真实/夹具证据、报告/截图路径和限制。全部 P0 项关闭前 PF-02 不得标记“已完成”。
+**完成结论：** 七页页面一致性、关键状态、菜单发布、Service Initialization V2 和蓝图 33 §12 行为已有自动化覆盖；真实云 Docker/UnifiedHost 与完整视觉矩阵已完成验证。没有留存的历史逐项报告只作为证据完整性限制，不重新打开功能开发。
 
 # 9A. 架构收敛整改（不新增 PF 编号）
 
-**状态：** 执行中；完成后直接继续 PF-03。
+**状态：** 已完成；结果已纳入当前架构基线，PF-03 随后已完成并合入。
 
 **唯一实施计划：** `docs/superpowers/plans/2026-08-20-industrial-platform-architecture-consolidation.md`
 
@@ -297,7 +297,7 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 
 **状态：** 2026-09-06 完成开发就绪复评并整包派遣 PF-04 Core（001～009）；截至 2026-09-07，Core已交付，真实验收待补。功能开发任务 `01a076d2-a8d3-7163-8721-8cae51393d92`，独立验收任务 `01a076d3-3abf-7921-a367-9b70749d0780` 保持不变。实施入口：[实施 07](../implementation/07-Industrial%20Platform%20File%20Notification%20Audit开发实施方案.md)。010 为后续增强待细化。
 
-**Service Host：** 三个逻辑模块加入现有 SystemData.Service，沿用服务级迁移/账本与可靠设施，数据命名空间/公开契约独立；不新增三个 Host、四 Unit 硬前置或重复 PF-02 数据库治理。当前 PF-02 仍 active，PF-03 已完成合入；前置按所消费的具体契约和证据核验，不沿用旧“全部尚不存在”。
+**Service Host：** 三个逻辑模块加入现有 SystemData.Service，沿用服务级迁移/账本与可靠设施，数据命名空间/公开契约独立；不新增三个 Host、四 Unit 硬前置或重复 PF-02 数据库治理。PF-02、PF-03 已完成合入；前置按所消费的具体契约和证据核验，不沿用旧“全部尚不存在”。
 
 ## 11.1 Audit Core
 
@@ -511,7 +511,7 @@ WorkOrder、Weighting、Trace、BatchRecord 和生产闭环分别开会话设计
 | --- | --- | --- | --- | --- | --- | --- |
 | PF-00 Identity | 当前范围已完成 | PF-00 固定工作线 | 蓝图 13、31、33 | 实施 03 | TASK-ID-001～023 已完成；集成交付见PF00 evidence | `docs/evidence/PF-00.md`；本地门禁全绿，真实 PostgreSQL/Redis 联合链路为外部验收项 |
 | PF-01 视觉主题 | 已完成（外部真机项待验收） | 现有 PF-01 会话继续 | 已批准 PF-01 规格 | `docs/implementation/04-Industrial Platform视觉主题与平台外壳开发实施方案.md` | 设计与实现交付标识见阶段evidence | TASK-PF01-001～007 完成；静态门禁全绿、mock E2E 102/102、真实 Identity E2E 19/19 |
-| PF-02 SystemData | 收束验收中 / 真实矩阵受环境限制 | PF-02 主工作区顺序交接 | 蓝图 05、07、33 V3.1 | `docs/implementation/05-Industrial Platform SystemData开发实施方案.md` | 001～010 已完成；011～012 待收束；014/016 已交付并关闭已报告缺陷；015 待真实验收；017 已回写；013 未关闭 | `docs/evidence/PF-02.md` 第五轮；后端1378通过/3跳过、独立探针8项达到预期；七页/三端/十三门禁真实矩阵仍待验收，不进入 PF-03 |
+| PF-02 SystemData | 已完成并合入 | 工作包已归档 | 蓝图 05、07、33 V3.1 | `docs/implementation/05-Industrial Platform SystemData开发实施方案.md` | 001～017 当前功能范围已完成 | `docs/evidence/PF-02.md`；真实云 Docker/UnifiedHost、数据清理和完整视觉矩阵由用户确认，当前自动化门禁见 CURRENT |
 | 架构收敛整改 | 已完成 | 当前计划 | 已批准整改设计 | 已批准四工作包计划 | WP1～WP4 已完成 | 结果已纳入当前架构基线 |
 | PF-03 ReferenceData | 已完成并合入 | 开发/验收任务已归档；原工作安排已归档 | 蓝图 07、21、26、32、33；七模块与单位/状态机所有权已确认 | 实施 06；`docs/tasks/archive/PF-03.md` | 具体交付与集成标识见阶段evidence | `docs/evidence/PF-03.md`；独立验收 PASS，主工作树门禁通过 |
 | PF-04 File / Notification / Audit | Core 已提交，真实验收待补 | 原开发/验收任务保留 | 蓝图 05/26/30/32/33 | 实施 07 | 001～009已有实现；010 后续待细化 | `docs/evidence/PF-04.md` 历史自测；真实浏览器/ClamAV/中间件/多实例仍待验收 |

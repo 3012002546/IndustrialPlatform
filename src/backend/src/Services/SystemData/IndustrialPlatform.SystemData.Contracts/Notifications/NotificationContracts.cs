@@ -51,6 +51,14 @@ public sealed record NotificationAnnouncementV1
     public string? TargetRoute { get; init; }
 }
 
+public sealed record NotificationAnnouncementPageV1
+{
+    public IReadOnlyList<NotificationAnnouncementV1> Items { get; init; } = [];
+    public int Page { get; init; }
+    public int PageSize { get; init; }
+    public long Total { get; init; }
+}
+
 public sealed record NotificationInboxItemV1
 {
     public string NotificationNId { get; init; } = string.Empty;

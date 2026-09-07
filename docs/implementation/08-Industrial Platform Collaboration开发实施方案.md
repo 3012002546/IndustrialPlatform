@@ -99,7 +99,7 @@ Vue 3 / TypeScript / Pinia / PC-PDA-Mobile 统一前端
 ## 1.2 当前输入状态
 
 - 执行前按当前环境核对Identity、初始化、File/Audit公开能力及修改范围；代码提交与工作树状态记录在evidence，不作为本Todo绑定条件。
-- PF-03 已合入；PF-02 仍 active，以 CURRENT 与阶段 evidence 为准，不重新判定已完成项。
+- PF-02、PF-03 均已完成并合入；以 CURRENT 与阶段 evidence 为准，不重新实现已完成前置。
 - PF-04 File/Audit 代码已存在：`IndustrialPlatform.SystemData.Contracts/Files/FileContracts.cs`、`Auditing/AuditContracts.cs`，以及 Application 的 Files/Auditing 服务。历史测试和真实环境限制见 PF-04 evidence，本轮没有重新测试。
 - 未发现 Collaboration 后端宿主或生产聊天模块；现有 SignalR 用于 Notification，不能当作 PF-05 聊天完成。未发现公共 Device Runtime、Electron/Capacitor 工程。
 - 当前 `FileObjectV1` 提供 FileNId、ScanStatus、Restricted、DeletionStatus、RetentionUntil；未见本方案所需 FileStateVersion/条件保留令牌，具体授权与保全适配须在 PF05-004/007 验证，不能假设跨服务原子能力。

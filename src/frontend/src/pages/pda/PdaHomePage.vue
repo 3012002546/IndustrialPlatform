@@ -26,7 +26,10 @@ const deviceStore = useDeviceStore()
 const authMode = loadRuntimeConfig().authMode
 const locale = usePlatformLocale()
 const copy = computed(() => systemDataPageCopy(locale.value, 'terminalFeatureMenu'))
-const hasUploadFeature = computed(() => authStore.hasPermission(PERMISSIONS.systemDataFileRead))
+const hasFeature = computed(() =>
+  authStore.hasPermission(PERMISSIONS.systemDataFileRead) ||
+  authStore.hasPermission(PERMISSIONS.systemDataNotificationInboxRead),
+)
 
 const displayName = computed(() => authStore.user?.displayName ?? '')
 // 终端文案单事实源:显式路由 meta.terminal 优先,无显式路由回退设备建议(§7.11)。
@@ -61,7 +64,7 @@ const authModeLabel = computed(() => (authMode === 'mock' ? copy.value.mockMode 
     </dl>
 
     <TerminalFeatureMenu terminal="pda" />
-    <AppEmptyState v-if="!hasUploadFeature" :title="copy.pdaEmptyTitle" :description="copy.pdaEmptyDescription" />
+    <AppEmptyState v-if="!hasFeature" :title="copy.pdaEmptyTitle" :description="copy.pdaEmptyDescription" />
   </AppPage>
 </template>
 

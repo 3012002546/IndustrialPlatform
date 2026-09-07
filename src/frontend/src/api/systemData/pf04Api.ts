@@ -2,8 +2,10 @@ import type { HttpClient } from '@/api/httpClient'
 
 import type {
   AnnouncementDto,
+  AnnouncementPageDto,
   AuditFactDto,
   AuditFactPageDto,
+  AuditLifecycleRequest,
   FileObjectDto,
   FilePageDto,
   FileUploadDiscoveryDto,
@@ -16,7 +18,7 @@ import type {
 const BASE = '/systemdata/api/v1'
 const id = (value: string): string => encodeURIComponent(value)
 
-function query(params: Record<string, string | number | undefined> = {}): string {
+function query(params: Record<string, string | number | boolean | undefined> = {}): string {
   const entries = Object.entries(params).filter(([, value]) => value !== undefined && value !== '')
   return entries.length === 0
     ? ''
@@ -25,7 +27,8 @@ function query(params: Record<string, string | number | undefined> = {}): string
 
 export function createPf04Api(client: HttpClient): Pf04Api {
   return {
-    listFiles: (search, page = 1, pageSize = 50) => client.get<FilePageDto>(`${BASE}/files${query({ search, page, pageSize })}`),
+    listFiles: (search, page = 1, pageSize = 50, purpose, ownerUserNId, scanStatus, restricted) =>
+      client.get<FilePageDto>(`${BASE}/files${query({ search, purpose, ownerUserNId, scanStatus, restricted, page, pageSize })}`),
     createUploadSession: (request) => client.post<UploadSessionDto>(`${BASE}/files/upload-sessions`, request),
     discoverUpload: (request) => client.post<FileUploadDiscoveryDto>(`${BASE}/files/upload-sessions/discover`, request),
     getUploadSession: (sessionNId) => client.get<UploadSessionDto>(`${BASE}/files/upload-sessions/${id(sessionNId)}`),
@@ -63,8 +66,8 @@ export function createPf04Api(client: HttpClient): Pf04Api {
       if (client.getBlob === undefined) throw new Error('当前 HTTP 客户端不支持文件下载')
       return client.getBlob(`${BASE}/files/${id(fileNId)}/content`)
     },
-    listAnnouncements: (search) =>
-      client.get<AnnouncementDto[]>(`${BASE}/notifications/announcements${query({ search })}`),
+    listAnnouncements: (search, page = 1, pageSize = 50) =>
+      client.get<AnnouncementPageDto>(`${BASE}/notifications/announcements${query({ search, page, pageSize })}`),
     createAnnouncement: (request) =>
       client.post<AnnouncementDto>(`${BASE}/notifications/announcements`, request),
     updateAnnouncement: (announcementNId, request) =>
@@ -88,5 +91,7 @@ export function createPf04Api(client: HttpClient): Pf04Api {
       if (client.getBlob === undefined) throw new Error('当前 HTTP 客户端不支持文件下载')
       return client.getBlob(`${BASE}/audits/exports${query(params)}`)
     },
+    updateAuditLifecycle: (producerServiceKey, auditEventNId, request: AuditLifecycleRequest) =>
+      client.post<void>(`${BASE}/audits/facts/${id(producerServiceKey)}/${id(auditEventNId)}/lifecycle`, request),
   }
 }

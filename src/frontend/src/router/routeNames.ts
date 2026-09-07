@@ -42,6 +42,7 @@ export const ROUTE_NAMES = {
   uiBaseline: 'ui-baseline',
   pdaHome: 'pda-home',
   pdaFiles: 'pda-files',
+  pdaNotifications: 'pda-notifications',
   mobileHome: 'mobile-home',
   mobileMy: 'mobile-my',
   mobileFiles: 'mobile-files',

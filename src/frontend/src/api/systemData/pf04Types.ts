@@ -26,6 +26,10 @@ export interface FileObjectDto {
   sha256: string
   scanStatus: string
   restricted: boolean
+  purpose: string | null
+  ownerUserNId: string | null
+  referenceCount: number
+  referenceSummary: FileReferenceSummaryDto[]
   deletionStatus: string
   createdOn: string
   retentionUntil: string | null
@@ -64,6 +68,13 @@ export interface AnnouncementDto {
   expiresOn: string | null
   resourceNId?: string | null
   targetRoute?: string | null
+}
+
+export interface AnnouncementPageDto {
+  items: AnnouncementDto[]
+  page: number
+  pageSize: number
+  total: number
 }
 
 export interface NotificationInboxItemDto {
@@ -110,8 +121,22 @@ export interface AuditFactPageDto {
   total: number
 }
 
+export interface FileReferenceSummaryDto {
+  referenceNId: string
+  ownerUserNId: string
+  purpose: string
+  createdOn: string
+}
+
+export interface AuditLifecycleRequest {
+  state: 'Active' | 'Archived' | 'Deleted'
+  retentionUntil?: string
+  legalHold?: boolean
+  legalHoldReason?: string
+}
+
 export interface Pf04Api {
-  listFiles(search?: string, page?: number, pageSize?: number): Promise<FilePageDto>
+  listFiles(search?: string, page?: number, pageSize?: number, purpose?: string, ownerUserNId?: string, scanStatus?: string, restricted?: boolean): Promise<FilePageDto>
   createUploadSession(request: Record<string, unknown>): Promise<UploadSessionDto>
   discoverUpload(request: Record<string, unknown>): Promise<FileUploadDiscoveryDto>
   getUploadSession(sessionNId: string): Promise<UploadSessionDto>
@@ -127,7 +152,7 @@ export interface Pf04Api {
   requestFileDeletion(fileNId: string): Promise<FileObjectDto>
   setFileRestriction(fileNId: string, restricted: boolean): Promise<FileObjectDto>
   downloadFile(fileNId: string): Promise<Blob>
-  listAnnouncements(search?: string): Promise<AnnouncementDto[]>
+  listAnnouncements(search?: string, page?: number, pageSize?: number): Promise<AnnouncementPageDto>
   createAnnouncement(request: Record<string, unknown>): Promise<AnnouncementDto>
   updateAnnouncement(announcementNId: string, request: Record<string, unknown>): Promise<AnnouncementDto>
   publishAnnouncement(announcementNId: string): Promise<AnnouncementDto>
@@ -139,4 +164,5 @@ export interface Pf04Api {
   listAudits(params?: Record<string, string | number | undefined>): Promise<AuditFactPageDto>
   getAudit(producerServiceKey: string, auditEventNId: string): Promise<AuditFactDto>
   exportAudits(params?: Record<string, string | number | undefined>): Promise<Blob>
+  updateAuditLifecycle(producerServiceKey: string, auditEventNId: string, request: AuditLifecycleRequest): Promise<void>
 }

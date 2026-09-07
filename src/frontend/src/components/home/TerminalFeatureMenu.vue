@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Document } from '@element-plus/icons-vue'
+import { Bell, Document } from '@element-plus/icons-vue'
 import { RouterLink } from 'vue-router'
 
 import { systemDataPageCopy } from '@/localization/systemData'
@@ -15,6 +15,9 @@ const authStore = useAuthStore()
 const locale = usePlatformLocale()
 const copy = computed(() => systemDataPageCopy(locale.value, 'terminalFeatureMenu'))
 const canUpload = computed(() => authStore.hasPermission(PERMISSIONS.systemDataFileRead))
+const canReadNotifications = computed(() => authStore.hasPermission(PERMISSIONS.systemDataNotificationInboxRead))
+const showNotification = computed(() => props.terminal === 'pda' && canReadNotifications.value)
+const hasFeature = computed(() => canUpload.value || showNotification.value)
 const fileRouteName = computed(() =>
   props.terminal === 'pda' ? ROUTE_NAMES.pdaFiles : ROUTE_NAMES.mobileFiles,
 )
@@ -22,7 +25,7 @@ const fileRouteName = computed(() =>
 
 <template>
   <section
-    v-if="canUpload"
+    v-if="hasFeature"
     class="terminal-feature-menu"
     data-testid="terminal-feature-menu"
     :aria-labelledby="`terminal-feature-menu-title-${terminal}`"
@@ -49,6 +52,25 @@ const fileRouteName = computed(() =>
       <span class="terminal-feature-menu__item-copy">
         <strong>{{ copy.fileUpload }}</strong>
         <span>{{ copy.fileUploadDescription }}</span>
+      </span>
+      <span class="terminal-feature-menu__arrow" aria-hidden="true">→</span>
+    </RouterLink>
+
+    <div v-if="showNotification" class="terminal-feature-menu__group">
+      <h3>{{ copy.notificationGroup }}</h3>
+      <p>{{ copy.notificationGroupDescription }}</p>
+    </div>
+
+    <RouterLink
+      v-if="showNotification"
+      class="terminal-feature-menu__item"
+      data-testid="terminal-feature-menu-notifications"
+      :to="{ name: ROUTE_NAMES.pdaNotifications }"
+    >
+      <span class="terminal-feature-menu__icon" aria-hidden="true"><Bell :size="24" /></span>
+      <span class="terminal-feature-menu__item-copy">
+        <strong>{{ copy.notification }}</strong>
+        <span>{{ copy.notificationDescription }}</span>
       </span>
       <span class="terminal-feature-menu__arrow" aria-hidden="true">→</span>
     </RouterLink>

@@ -110,6 +110,18 @@ describe('PdaHomePage', () => {
     expect(router.currentRoute.value.name).toBe('pda-files')
   })
 
+  it('有收件箱权限时在 PDA 可用功能菜单显示通知并进入通知中心', async () => {
+    const { wrapper, router } = await mountHomeWithRouter([
+      'platform.pda.view',
+      PERMISSIONS.systemDataNotificationInboxRead,
+    ])
+    const notificationLink = wrapper.get('[data-testid="terminal-feature-menu-notifications"]')
+    expect(notificationLink.text()).toContain('通知')
+    await notificationLink.trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.name).toBe('pda-notifications')
+  })
+
   it('没有文件读取权限时不显示功能菜单并保留 PDA 空状态', async () => {
     const wrapper = await mountHome(['platform.pda.view'])
     expect(wrapper.find('[data-testid="terminal-feature-menu"]').exists()).toBe(false)

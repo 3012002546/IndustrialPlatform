@@ -101,15 +101,56 @@ public sealed class Pf04Store : IFileStore, INotificationStore, IAuditStore
 
     public async Task<FilePageV1> ListFilesAsync(string tenantNId, string? search, int page, int pageSize, CancellationToken cancellationToken)
     {
+        return await ListFilesPageAsync(tenantNId, search, null, null, null, null, page, pageSize, cancellationToken);
+    }
+
+    public async Task<FilePageV1> ListFilesPageAsync(string tenantNId, string? search, string? purpose, string? ownerUserNId, string? scanStatus, bool? restricted, int page, int pageSize, CancellationToken cancellationToken)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 200);
         var query = _dbContext.SqlSugar.Queryable<FileObjectTable>().Where(t => t.TenantNId == tenantNId && t.DeletionStatus != "Deleted");
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim();
             query = query.Where(t => t.FileNId.Contains(term) || t.FileName.Contains(term));
         }
+        if (!string.IsNullOrWhiteSpace(ownerUserNId)) query = query.Where(t => t.OwnerUserNId == ownerUserNId.Trim());
+        if (!string.IsNullOrWhiteSpace(scanStatus)) query = query.Where(t => t.ScanStatus == scanStatus.Trim());
+        if (restricted is not null) query = query.Where(t => t.Restricted == restricted.Value);
+        if (!string.IsNullOrWhiteSpace(purpose))
+        {
+            var sessionNIds = await _dbContext.SqlSugar.Queryable<FileUploadSessionTable>()
+                .Where(t => t.TenantNId == tenantNId && t.Purpose == purpose.Trim())
+                .Select(t => t.SessionNId)
+                .ToListAsync(cancellationToken);
+            if (sessionNIds.Count == 0) return new FilePageV1 { Page = page, PageSize = pageSize, Total = 0 };
+            query = query.Where(t => sessionNIds.Contains(t.UploadSessionNId));
+        }
         var total = await query.CountAsync(cancellationToken);
         var rows = await query.OrderBy(t => t.CreatedOn, SqlSugar.OrderByType.Desc).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(cancellationToken);
-        return new FilePageV1 { Items = rows.Select(row => ToContract(ToRecord(row)!)).ToArray(), Page = page, PageSize = pageSize, Total = total };
+        var fileRecords = rows.Select(row => ToRecord(row)!).ToArray();
+        var fileNIds = fileRecords.Select(file => file.FileNId).ToArray();
+        var sessionRecords = fileRecords.Length == 0
+            ? []
+            : (await _dbContext.SqlSugar.Queryable<FileUploadSessionTable>()
+                .Where(t => t.TenantNId == tenantNId && fileRecords.Select(file => file.UploadSessionNId).Contains(t.SessionNId))
+                .ToListAsync(cancellationToken)).Select(ToRecord).Where(value => value is not null).Select(value => value!).ToArray();
+        var referenceRecords = fileNIds.Length == 0
+            ? []
+            : (await _dbContext.SqlSugar.Queryable<FileReferenceGrantTable>()
+                .Where(t => t.TenantNId == tenantNId && fileNIds.Contains(t.FileNId) && t.DeletedOn == null)
+                .ToListAsync(cancellationToken)).Select(ToRecord).Where(value => value is not null).Select(value => value!).ToArray();
+        var purposes = sessionRecords.ToDictionary(value => value.SessionNId, value => value.Purpose, StringComparer.Ordinal);
+        var references = referenceRecords.GroupBy(value => value.FileNId).ToDictionary(
+            group => group.Key,
+            group => (IReadOnlyList<FileReferenceSummaryRecord>)group.Select(value => new FileReferenceSummaryRecord(value.ReferenceNId, value.OwnerUserNId, value.Purpose, value.CreatedOn)).ToArray(),
+            StringComparer.Ordinal);
+        var items = fileRecords.Select(file => ToContract(file with
+        {
+            Purpose = purposes.GetValueOrDefault(file.UploadSessionNId),
+            ReferenceSummary = references.GetValueOrDefault(file.FileNId) ?? []
+        })).ToArray();
+        return new FilePageV1 { Items = items, Page = page, PageSize = pageSize, Total = total };
     }
 
     public async Task<FileObjectRecord?> CompleteSessionAsync(FileUploadSessionRecord completedSession, FileObjectRecord file, long expectedOffset, int expectedEpoch, CancellationToken cancellationToken)
@@ -207,13 +248,23 @@ public sealed class Pf04Store : IFileStore, INotificationStore, IAuditStore
 
     public async Task<IReadOnlyList<AnnouncementRecord>> ListAnnouncementsAsync(string tenantNId, string? search, CancellationToken cancellationToken)
     {
+        var result = await ListAnnouncementsPageAsync(tenantNId, search, 1, 200, cancellationToken);
+        return result.Items;
+    }
+
+    public async Task<AnnouncementPageRecord> ListAnnouncementsPageAsync(string tenantNId, string? search, int page, int pageSize, CancellationToken cancellationToken)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 200);
         var query = _dbContext.SqlSugar.Queryable<NotificationAnnouncementTable>().Where(t => t.TenantNId == tenantNId);
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim();
             query = query.Where(t => t.AnnouncementNId.Contains(term) || t.Title.Contains(term));
         }
-        return (await query.OrderBy(t => t.CreatedOn, SqlSugar.OrderByType.Desc).Take(200).ToListAsync(cancellationToken)).Select(row => ToRecord(row)!).ToArray();
+        var total = await query.CountAsync(cancellationToken);
+        var rows = await query.OrderBy(t => t.CreatedOn, SqlSugar.OrderByType.Desc).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(cancellationToken);
+        return new AnnouncementPageRecord(rows.Select(row => ToRecord(row)!).ToArray(), page, pageSize, total);
     }
 
     public async Task InsertAnnouncementAsync(AnnouncementRecord announcement, CancellationToken cancellationToken) =>
@@ -544,7 +595,30 @@ public sealed class Pf04Store : IFileStore, INotificationStore, IAuditStore
     private static AuditFactTable ToTable(AuditFactRecord value) => new() { Id = Guid.NewGuid(), TenantNId = value.TenantNId, ProducerServiceKey = value.ProducerServiceKey, AuditEventNId = value.AuditEventNId, OccurredOn = value.OccurredOn, ReceivedOn = value.ReceivedOn, ActorUserNId = value.ActorUserNId, Action = value.Action, ObjectType = value.ObjectType, ObjectNId = value.ObjectNId, PayloadJson = value.PayloadJson, PayloadHash = value.PayloadHash, TraceId = value.TraceId, Severity = value.Severity, SourceIp = value.SourceIp, UserAgent = value.UserAgent };
     private static AuditFactRecord? ToRecord(AuditFactTable? value) => value is null ? null : new(value.TenantNId, value.ProducerServiceKey, value.AuditEventNId, value.OccurredOn, value.ReceivedOn, value.ActorUserNId, value.Action, value.ObjectType, value.ObjectNId, value.PayloadJson, value.PayloadHash, value.TraceId, value.Severity, value.SourceIp, value.UserAgent);
     private static AuditLifecycleRecord? ToLifecycleRecord(AuditLifecycleTable? value) => value is null ? null : new(value.TenantNId, value.ProducerServiceKey, value.AuditEventNId, value.State, value.RetentionUntil, value.LegalHold, value.LegalHoldReason, value.ChangedOn);
-    private static FileObjectV1 ToContract(FileObjectRecord value) => new() { TenantNId = value.TenantNId, FileNId = value.FileNId, FileName = value.FileName, ContentType = value.ContentType, Length = value.ContentLength, Sha256 = value.Sha256, ScanStatus = value.ScanStatus, Restricted = value.Restricted, DeletionStatus = value.DeletionStatus, CreatedOn = value.CreatedOn, RetentionUntil = value.RetentionUntil };
+    private static FileObjectV1 ToContract(FileObjectRecord value) => new()
+    {
+        TenantNId = value.TenantNId,
+        FileNId = value.FileNId,
+        FileName = value.FileName,
+        ContentType = value.ContentType,
+        Length = value.ContentLength,
+        Sha256 = value.Sha256,
+        ScanStatus = value.ScanStatus,
+        Restricted = value.Restricted,
+        Purpose = value.Purpose,
+        OwnerUserNId = value.OwnerUserNId,
+        ReferenceCount = value.ReferenceSummary?.Count ?? 0,
+        ReferenceSummary = value.ReferenceSummary?.Select(reference => new FileReferenceSummaryV1
+        {
+            ReferenceNId = reference.ReferenceNId,
+            OwnerUserNId = reference.OwnerUserNId,
+            Purpose = reference.Purpose,
+            CreatedOn = reference.CreatedOn
+        }).ToArray() ?? [],
+        DeletionStatus = value.DeletionStatus,
+        CreatedOn = value.CreatedOn,
+        RetentionUntil = value.RetentionUntil
+    };
     private static AuditFactV1 ToContract(AuditFactRecord value) => new() { TenantNId = value.TenantNId, ProducerServiceKey = value.ProducerServiceKey, AuditEventNId = value.AuditEventNId, OccurredOn = value.OccurredOn, ReceivedOn = value.ReceivedOn, ActorUserNId = value.ActorUserNId, Action = value.Action, ObjectType = value.ObjectType, ObjectNId = value.ObjectNId, PayloadJson = value.PayloadJson, TraceId = value.TraceId ?? string.Empty, Severity = value.Severity };
 
     private static string? Limit(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim()[..Math.Min(value.Trim().Length, 1000)];

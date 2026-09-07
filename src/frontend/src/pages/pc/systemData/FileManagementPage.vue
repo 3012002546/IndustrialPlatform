@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElDropdown, ElDropdownItem, ElDropdownMenu } from 'element-plus'
 import AppDataTable from '@/components/management/AppDataTable.vue'
 import AppFormDrawer from '@/components/management/AppFormDrawer.vue'
 import AppPage from '@/components/base/AppPage.vue'
@@ -10,13 +11,19 @@ import { PERMISSIONS } from '@/permissions'
 import { getPf04Api } from '@/api/systemData/pf04Registry'
 import type { FileObjectDto, UploadSessionDto } from '@/api/systemData/pf04Types'
 import { useLocalizationStore } from '@/stores/localizationStore'
+import { useAuthStore } from '@/stores/authStore'
+import type { AppDataTableRequest } from '@/components/management/AppDataTable'
 import { sampleFingerprint, sha256File } from '@/utils/sha256File'
 
 const localization = useLocalizationStore()
-const api = getPf04Api()
+const authStore = useAuthStore()
 const rows = ref<FileObjectDto[]>([])
 const total = ref(0)
 const search = ref('')
+const purpose = ref('')
+const ownerUserNId = ref('')
+const scanStatus = ref('')
+const restrictedFilter = ref('')
 const loading = ref(false)
 const uploadOpen = ref(false)
 const selectedFile = ref<File | null>(null)
@@ -28,6 +35,14 @@ const candidateOpen = ref(false)
 const paused = ref(false)
 const uploadError = ref('')
 const errorMessage = ref('')
+const pageIndex = ref(1)
+const pageSize = ref(25)
+let activeUploadController: AbortController | null = null
+const canDownload = computed(() => authStore.hasPermission(PERMISSIONS.systemDataFileDownload))
+const canRead = computed(() => authStore.hasPermission(PERMISSIONS.systemDataFileRead))
+const canManage = computed(() => authStore.hasPermission(PERMISSIONS.systemDataFileManage))
+const canDelete = computed(() => authStore.hasPermission(PERMISSIONS.systemDataFileDelete))
+const hasRowActions = computed(() => canDownload.value || canManage.value || canDelete.value)
 const title = computed(() => (localization.locale === 'zh-CN' ? '文件管理' : 'File management'))
 const description = computed(() =>
   localization.locale === 'zh-CN' ? '分片上传、完整性校验与安全扫描状态。' : 'Resumable uploads, integrity checks, and scan state.',
@@ -36,22 +51,39 @@ const columns = computed(() => [
   { field: 'fileName', title: localization.locale === 'zh-CN' ? '文件名' : 'File', minWidth: 220 },
   { field: 'length', title: localization.locale === 'zh-CN' ? '大小' : 'Size', width: 110 },
   { field: 'scanStatus', title: localization.locale === 'zh-CN' ? '扫描状态' : 'Scan', width: 130 },
+  { field: 'purpose', title: localization.locale === 'zh-CN' ? '用途' : 'Purpose', minWidth: 140 },
+  { field: 'ownerUserNId', title: localization.locale === 'zh-CN' ? '上传人' : 'Uploader', minWidth: 140 },
+  { field: 'referenceCount', title: localization.locale === 'zh-CN' ? '引用数' : 'References', width: 100 },
   { field: 'sha256', title: 'SHA-256', minWidth: 220 },
   { field: 'createdOn', title: localization.locale === 'zh-CN' ? '创建时间' : 'Created', minWidth: 180 },
   { field: 'actions', title: localization.locale === 'zh-CN' ? '操作' : 'Actions', width: 250 },
 ])
 
 async function load(): Promise<void> {
+  pageIndex.value = 1
+  await loadPage(pageIndex.value, pageSize.value)
+}
+
+async function loadPage(page: number, size: number): Promise<void> {
+  if (!canRead.value) { rows.value = []; total.value = 0; return }
+  const api = getPf04Api()
   if (api === null) return
   loading.value = true
   try {
-    const page = await api.listFiles(search.value)
-    rows.value = page.items
-    total.value = page.total
+    const result = await api.listFiles(search.value, page, size, purpose.value, ownerUserNId.value, scanStatus.value, restrictedFilter.value === '' ? undefined : restrictedFilter.value === 'true')
+    rows.value = result.items
+    total.value = result.total
+    pageIndex.value = result.page
+    pageSize.value = result.pageSize
     errorMessage.value = ''
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : (localization.locale === 'zh-CN' ? '文件加载失败，请重试。' : 'Unable to load files.')
   } finally { loading.value = false }
+}
+
+async function loadTable(request: AppDataTableRequest): Promise<{ items: FileObjectDto[]; total: number; pageIndex: number; pageSize: number }> {
+  await loadPage(request.pageIndex, request.pageSize)
+  return { items: rows.value, total: total.value, pageIndex: pageIndex.value, pageSize: pageSize.value }
 }
 
 function selectFile(event: Event): void {
@@ -60,6 +92,7 @@ function selectFile(event: Event): void {
 }
 
 async function upload(): Promise<void> {
+  const api = getPf04Api()
   if (api === null || selectedFile.value === null) return
   busy.value = true
   try {
@@ -78,7 +111,11 @@ async function upload(): Promise<void> {
 }
 
 async function startUpload(candidate: UploadSessionDto | null, takeover = false): Promise<void> {
+  const api = getPf04Api()
   if (api === null || selectedFile.value === null) return
+  const controller = new AbortController()
+  activeUploadController?.abort()
+  activeUploadController = controller
   busy.value = true
   uploadError.value = ''
   try {
@@ -102,7 +139,7 @@ async function startUpload(candidate: UploadSessionDto | null, takeover = false)
     while (ready.offset < file.size && !paused.value) {
       const offset = ready.offset
       const chunk = file.slice(offset, Math.min(offset + chunkSize, file.size))
-      ready = await api.uploadChunk(ready.transportId, chunk, offset, ready.writerEpoch, ready.resumeTicket ?? '')
+      ready = await api.uploadChunk(ready.transportId, chunk, offset, ready.writerEpoch, ready.resumeTicket ?? '', controller.signal)
       currentSession.value = ready
     }
     if (paused.value) return
@@ -112,8 +149,11 @@ async function startUpload(candidate: UploadSessionDto | null, takeover = false)
     currentSession.value = null; uploadHash.value = ''; candidates.value = []
     await load()
   } catch (error) {
-    uploadError.value = error instanceof Error ? error.message : '上传失败，请重试。'
-  } finally { busy.value = false }
+    if (!controller.signal.aborted) uploadError.value = error instanceof Error ? error.message : '上传失败，请重试。'
+  } finally {
+    if (activeUploadController === controller) activeUploadController = null
+    busy.value = false
+  }
 }
 
 async function continueCandidate(candidate: UploadSessionDto, takeover = false): Promise<void> {
@@ -122,43 +162,73 @@ async function continueCandidate(candidate: UploadSessionDto, takeover = false):
 }
 
 async function pauseCurrent(): Promise<void> {
+  const api = getPf04Api()
   if (api === null || currentSession.value === null) return
   paused.value = true
-  currentSession.value = await api.pauseUpload(currentSession.value.sessionNId)
+  activeUploadController?.abort()
+  try { currentSession.value = await api.pauseUpload(currentSession.value.sessionNId) } catch (error) {
+    uploadError.value = error instanceof Error ? error.message : '暂停失败，请重试。'
+  }
 }
 
 async function resumeCurrent(): Promise<void> {
+  const api = getPf04Api()
   if (api === null || selectedFile.value === null || currentSession.value === null) return
   currentSession.value = await api.getUploadSession(currentSession.value.sessionNId)
   await startUpload(currentSession.value)
 }
 
 async function cancelCurrent(): Promise<void> {
+  const api = getPf04Api()
   if (api === null || currentSession.value === null) return
   paused.value = true
+  activeUploadController?.abort()
   await api.cancelUpload(currentSession.value.sessionNId, 'user-cancelled')
   currentSession.value = null; paused.value = false
 }
 
 async function download(row: FileObjectDto): Promise<void> {
-  if (api === null || row.scanStatus !== 'Clean') return
+  const api = getPf04Api()
+  if (!canDownload.value || api === null || row.scanStatus !== 'Clean') return
   const blob = await api.downloadFile(row.fileNId)
   const url = URL.createObjectURL(blob); const anchor = document.createElement('a')
   anchor.href = url; anchor.download = row.fileName; anchor.click(); URL.revokeObjectURL(url)
 }
 
 async function requestDeletion(row: FileObjectDto): Promise<void> {
-  if (api === null) return
+  const api = getPf04Api()
+  if (!canDelete.value || api === null) return
   await api.requestFileDeletion(row.fileNId); await load()
 }
 
 async function toggleRestriction(row: FileObjectDto): Promise<void> {
-  if (api === null) return
+  const api = getPf04Api()
+  if (!canManage.value || api === null) return
   await api.setFileRestriction(row.fileNId, !row.restricted); await load()
 }
+async function confirmRestriction(row: FileObjectDto): Promise<void> {
+  if (!canManage.value) return
+  try {
+    await ElMessageBox.confirm(row.restricted ? '确认解除该文件限制吗？' : '确认限制该文件吗？', '文件限制确认', { type: 'warning' })
+    await toggleRestriction(row)
+  } catch { /* 用户取消或业务失败由当前页面状态保留 */ }
+}
+async function confirmDeletion(row: FileObjectDto): Promise<void> {
+  if (!canDelete.value) return
+  try {
+    await ElMessageBox.confirm('删除请求会受保留期和活动引用约束，确认继续吗？', '文件删除确认', { type: 'warning' })
+    await requestDeletion(row)
+  } catch { /* 用户取消或业务失败由当前页面状态保留 */ }
+}
+function handleFileAction(row: FileObjectDto, command: string | number | object): void {
+  if (command === 'download') void download(row)
+  if (command === 'restrict') void confirmRestriction(row)
+  if (command === 'delete') void confirmDeletion(row)
+}
+defineExpose({ confirmRestriction, confirmDeletion })
 
 onMounted(() => void load())
-onBeforeUnmount(() => { paused.value = true })
+onBeforeUnmount(() => { paused.value = true; activeUploadController?.abort() })
 </script>
 
 <template>
@@ -168,15 +238,26 @@ onBeforeUnmount(() => { paused.value = true })
         <el-button type="primary" @click="uploadOpen = true">{{ localization.locale === 'zh-CN' ? '上传文件' : 'Upload' }}</el-button>
       </PermissionGate>
     </template>
-    <AppQueryPanel :title="localization.locale === 'zh-CN' ? '查询' : 'Query'" show-actions @submit="load" @reset="search = ''; load()">
+    <AppQueryPanel :title="localization.locale === 'zh-CN' ? '查询' : 'Query'" show-actions @submit="load" @reset="search = ''; purpose = ''; ownerUserNId = ''; scanStatus = ''; restrictedFilter = ''; load()">
       <el-input v-model="search" clearable :placeholder="localization.locale === 'zh-CN' ? '文件名 / 标识' : 'File name / id'" />
+      <el-input v-model="purpose" clearable :placeholder="localization.locale === 'zh-CN' ? '用途' : 'Purpose'" />
+      <el-input v-model="ownerUserNId" clearable :placeholder="localization.locale === 'zh-CN' ? '上传人 NId' : 'Uploader NId'" />
+      <el-select v-model="scanStatus" clearable :placeholder="localization.locale === 'zh-CN' ? '扫描状态' : 'Scan status'"><el-option label="PendingScan" value="PendingScan" /><el-option label="Clean" value="Clean" /><el-option label="Malicious" value="Malicious" /><el-option label="Error" value="Error" /></el-select>
+      <el-select v-model="restrictedFilter" clearable :placeholder="localization.locale === 'zh-CN' ? '限制状态' : 'Restriction'"><el-option :label="localization.locale === 'zh-CN' ? '已限制' : 'Restricted'" value="true" /><el-option :label="localization.locale === 'zh-CN' ? '未限制' : 'Available'" value="false" /></el-select>
     </AppQueryPanel>
-    <p v-if="errorMessage" role="alert" class="pf04-error">{{ errorMessage }}</p>
-    <AppDataTable table-key="systemdata-files" route-key="systemdata-files" row-key="fileNId" :rows="rows" :total="total" :columns="columns" :loading="loading">
+    <p v-if="errorMessage" role="alert" class="pf04-error">{{ errorMessage }} <el-button link type="danger" @click="load">{{ localization.locale === 'zh-CN' ? '重试' : 'Retry' }}</el-button></p>
+    <AppDataTable table-key="systemdata-files" route-key="systemdata-files" row-key="fileNId" :rows="rows" :total="total" :columns="columns" :loading="loading" :loader="loadTable" :initial-page-index="pageIndex" :page-size="pageSize" @query-change="(request) => { pageIndex = request.pageIndex; pageSize = request.pageSize }">
       <template #cell-actions="{ row }">
-        <el-button link type="primary" :disabled="row.scanStatus !== 'Clean'" @click="download(row)">下载</el-button>
-        <el-button link @click="toggleRestriction(row)">{{ row.restricted ? '解除限制' : '限制' }}</el-button>
-        <el-button link type="danger" @click="requestDeletion(row)">删除</el-button>
+        <ElDropdown v-if="hasRowActions" trigger="click" @command="(command) => handleFileAction(row, command)">
+          <el-button link data-testid="file-row-more">{{ localization.locale === 'zh-CN' ? '更多' : 'More' }}</el-button>
+          <template #dropdown>
+            <ElDropdownMenu>
+              <ElDropdownItem v-if="canDownload" command="download" :disabled="row.scanStatus !== 'Clean'">{{ localization.locale === 'zh-CN' ? '下载' : 'Download' }}</ElDropdownItem>
+              <ElDropdownItem v-if="canManage" command="restrict">{{ row.restricted ? (localization.locale === 'zh-CN' ? '解除限制' : 'Remove restriction') : (localization.locale === 'zh-CN' ? '限制' : 'Restrict') }}</ElDropdownItem>
+              <ElDropdownItem v-if="canDelete" command="delete" divided>{{ localization.locale === 'zh-CN' ? '删除' : 'Delete' }}</ElDropdownItem>
+            </ElDropdownMenu>
+          </template>
+        </ElDropdown>
       </template>
     </AppDataTable>
   </AppPage>
