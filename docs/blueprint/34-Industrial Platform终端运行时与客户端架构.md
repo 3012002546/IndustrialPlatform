@@ -16,7 +16,7 @@ Runtime 不新增核心 Service Host，不拥有聊天、标签任务或称量�
 
 ## 3. 扫码与工业设备
 
-统一扫码结果至少包含 value、source、可选 symbology、receivedOn、sessionNId；来源为 keyboard-wedge、broadcast、vendor-sdk、camera。输入所有权由当前业务会话显式取得/释放；结束符、去重窗口、连续输入与失焦策略可配置并在真机验证。聊天输入不能把全局扫码回车当发送。
+统一扫码结果采用 ScanResultV1：contractVersion、eventNId、value、source、可选 symbology、receivedOn、sessionNId、subjectEpoch。首版 source 为 keyboard、broadcast、camera；键盘楔入（keyboard-wedge）映射为 keyboard，vendor-sdk 是后续厂商适配路线，不是首版公开枚举。输入所有权由当前业务会话显式取得/释放；结束符、连续输入与失焦策略在真机验证。按 eventNId 排除同一事件重放，不按条码值或全局时间窗口丢弃连续相同条码。聊天输入不能把全局扫码回车当发送。字段和方法见[运行时细化规格](../implementation/details/PF06A-运行时字段与页面规格.md)。
 
 Android 广播接收与 Kotlin/Java 插件隔离厂商协议，按实际 SDK 版本确认导出权限、来源验证与生命周期。后置相机支持一次扫码兜底。HID 是键盘输入，BLE GATT 与 Bluetooth Classic SPP 是不同适配；验证一种 BLE 设备不代表已支持 SPP 蓝牙打印机。
 
@@ -30,7 +30,7 @@ Android 广播接收与 Kotlin/Java 插件隔离厂商协议，按实际 SDK 版
 | PDA Capacitor | Web Bundle 更新 + APK 完整升级 | 原生插件变化必须升级 APK |
 | Web | 原有 Web 发布机制 | 不冒充原生升级 |
 
-维护 NativeVersion、WebVersion、BridgeContractVersion、MinNativeVersion 和发布通道。更新清单/产物需受信签名与 hash 校验；先下载到暂存区，校验兼容性后切换，首次启动健康确认失败回退最后良好版本。禁止降级到不满足安全下限的包；离线保留当前可用版本并明确状态。
+维护 NativeVersion、WebVersion、BridgeContractVersion、MinNativeVersion 和发布通道。更新清单/产物需受信签名与 hash 校验；先下载到暂存区，校验兼容性后切换。PDA Web Bundle 的启动健康窗口为60秒，每包最多自动激活一次，失败回退最后良好包；不得把客户网络不通判为包损坏。PC安装包/APK受系统安装规则约束，回退可能需要操作员介入，不承诺静默降级。禁止降级到不满足安全下限的包；没有安全可回版本进入 RecoveryRequired，离线保留当前可用版本并明确状态。
 
 更新不能中断打印、称量确认、文件传输或屏幕共享；繁忙状态由能力所有者报告，安全点才激活。不得将“等待安全点”变成无限强制重启。后台通知、锁屏与恢复、托盘和进程退出分别定义，不承诺 WebView 长连接永久在线。
 
@@ -44,8 +44,8 @@ Capacitor 按需请求相机/蓝牙权限，处理拒绝、撤销、锁屏、进
 
 ## 6. 核验来源与待决策
 
-路线来自参考对话《寻找PDA打包方案》的最终采纳结论；本轮只编排文档。技术边界核验于 2026-09-07：[Capacitor Plugins](https://capacitorjs.com/docs/plugins) 提供 Web 到原生 API 的桥接；[Electron 安全指南](https://www.electronjs.org/docs/latest/tutorial/security)用于约束上下文隔离和受限 IPC。具体插件、版本、许可、更新服务或自托管方案在 001/005 用设备与部署证据固定，候选不能当作现成依赖。
+路线来自参考对话《寻找PDA打包方案》的最终采纳结论；本轮只编排文档。技术边界核验于 2026-09-07：[Capacitor Plugins](https://capacitorjs.com/docs/plugins) 提供 Web 到原生 API 的桥接；[Electron 安全指南](https://www.electronjs.org/docs/latest/tutorial/security)用于约束上下文隔离和受限 IPC。具体插件、版本、许可、更新服务或自托管方案在 PF06A-001 用设备与部署证据核验并补齐规格，005实现已明确的更新路径；候选不能当作现成依赖。
 
-未确定：实际 PDA 厂家/系统/SDK、BLE 与 SPP 设备、内网证书和分发权限、APK 安装权限、Mobile 原生范围、推送渠道与后台能力。任务可以设计和按端口实施；缺失真实设备或发布条件时相应项保持待验收。
+未确定：实际 PDA 厂家/系统/SDK、BLE 与 SPP 设备、内网证书和分发权限、APK 安装权限、Mobile 原生范围、推送渠道与后台能力。可先派001受控核验；会影响接口、设备字段或更新路线的输入未明确前，相关生产实现保持待派遣。实现完成后仍缺实机验收证据的项保持待验收，两类状态不得混用。
 
 组件核验优先沿已采纳讨论路线：Electron + electron-vite + electron-builder/electron-updater；PDA Capacitor + Kotlin/Java 薄桥接，Bundle 更新先评估 Cap-go/capacitor-updater。DataWedge 插件/demo、官方相机扫码、Headwind MDM、XUpdate 仅按适用范围参考，MDM 不作为首版门禁。

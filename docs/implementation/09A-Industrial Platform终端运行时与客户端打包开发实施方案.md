@@ -8,7 +8,7 @@
 
 本方案是终端运行时、客户端打包、设备桥接与更新的唯一实施/Todo 维护源。设计依据为[蓝图 34](../blueprint/34-Industrial%20Platform终端运行时与客户端架构.md)、三端蓝图 04、服务边界 32、统一实施模板和参考对话《寻找PDA打包方案》的最终采纳结论。
 
-2026-09-07 只读检查 develop / HEAD `8625efb`：现有 Vue3 工程和共享 API/Store/外壳存在，未发现公共 Device Runtime 或 Electron/Capacitor 原生工程；SystemData runtime 是控制面配置消费，不是硬件运行时。PF-05/06 尚未实施。本轮只写文档，目标目录不是已存在的代码，不创建安装包或运行设备测试。
+执行前置：共享Vue3/API/Store/外壳可复用，PF05/06 Web已完成验收和公开契约交接，目标PDA/Windows、设备协议与发布条件满足Gate。SystemData runtime是控制面配置消费，不是硬件运行时。目标目录表达待实现职责，不因代码提交变化自动宣称客户端已完成；本轮不创建安装包或运行设备测试。
 
 执行位置：PF-05 Web → PF-06 Web → **PF-06A** → PF-07。Mobile 三端 Web 不延期，Mobile 原生平台范围由 001 明确；当前确定的容器是 Windows Electron 和 Android PDA Capacitor。
 

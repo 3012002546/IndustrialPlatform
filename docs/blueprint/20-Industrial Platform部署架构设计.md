@@ -538,7 +538,7 @@ etcd
 
 # 数据库策略
 
-当前按 Service Host 隔离数据库或数据库凭据；同宿主模块至少使用独立 Schema 或表前缀、独立迁移，禁止跨模块直读 Repository。下列服务数据库名称是 `LogicalDatabaseName`，图示表达 Test/Staging/Production 的每服务物理数据库拓扑，物理目标由 SystemData 解析；Development 可使用配置的共享 PostgreSQL `industrial_platform_dev` 或共享 SQLite 文件，但仍禁止跨服务表访问和合并迁移账本。完整契约见蓝图 07、蓝图 33。未来拆分后可迁移为独立数据库：
+当前按 Service Host 隔离数据库或数据库凭据；同宿主模块使用明确Schema/表前缀和数据所有权；迁移/账本默认服务级共享，独立持久化生命周期才拆单元，禁止跨模块直读Repository。下列服务数据库名称是 `LogicalDatabaseName`，图示表达 Test/Staging/Production 的每服务物理数据库拓扑，物理目标由 SystemData 解析；Development 可使用配置的共享 PostgreSQL `industrial_platform_dev` 或共享 SQLite 文件，但仍禁止跨服务表访问和合并迁移账本。完整契约见蓝图 07、蓝图 33。未来拆分后可迁移为独立数据库：
 
 ```
 industrial_identity
@@ -574,7 +574,7 @@ DDD Bound Context
 - Development/测试可按策略自动 provision + migrate；生产默认 `plan → 审批 → 备份 → apply`。
 - provisioning 管理凭据由 Secret Provider/环境注入，并与 SystemData 普通运行连接分离；API、日志和审计不得返回或记录凭据。
 - SystemData 不可用或迁移失败时，目标服务保持 NotReady；禁止静默连接到错误数据库或自行建库。
-- `RemoteDevelopment.Enabled=false` 时服务仍按蓝图 33 的 Development `DatabaseTopology` 使用 SQLite：默认 Shared，PerService 仅作显式验证；启用云端时使用 SystemData 编排的 PostgreSQL。完整流程读取蓝图 33。
+- SQLite必须显式选择`IndustrialPlatform__DevelopmentInfrastructureMode=Sqlite`，物理目标按Development的DatabaseTopology解析：默认Shared，PerService仅作显式验证。关闭RemoteDevelopment或缺少私有配置不是自动切库许可；PostgreSQL沿受信拓扑与初始化器接入。完整流程读取蓝图33及本地配置说明。
 
 ---
 

@@ -74,14 +74,14 @@
 | BuildingBlocks | 已完成 | 原基础能力和 `TASK-BB-010` 已完成 |
 | 可运行基线 | 基本完成，Docker 实机待验收 | `TASK-BASE-001/003/004/005/006` 完成，`TASK-BASE-002` 待 Docker 环境验收 |
 | 统一前端第一批 | 已完成 | `TASK-FE-001～010` 执行记录均已完成 |
-| Identity | 当前范围已完成 | `TASK-ID-001～023` 已完成并合入 `develop`；本地可验证门禁全绿，真实 PostgreSQL/Redis 联合登录链路保留为外部验收项 |
+| Identity | 当前范围已完成 | `TASK-ID-001～023` 已完成并完成集成；本地可验证门禁全绿，真实 PostgreSQL/Redis 联合登录链路保留为外部验收项 |
 | PF-01 视觉主题与平台外壳 | 已完成（外部真机项待验收） | 实施 04 `TASK-PF01-001～007` 已完成；真实 Identity 联合验收 real E2E 19/19 |
 | PF-02 SystemData | 收束验收中 / 26项证据状态已回写 | 2026-09-04已知整改缺陷复验关闭；24项部分、ORG-02/03隔离通过/真实HTTP待补；014完整UI与200%、015真实链、016外部门禁保留；017本轮回写完成，013/PF-02继续active，不进入PF-03 |
 | ReferenceData | 已完成并合入 | PF-03 七模块、共享治理、七个 PC 页面与真实链路验收已完成；见 `docs/evidence/PF-03.md` |
 | 架构收敛整改 | 已完成 | 四个已批准工作包完成，结果已纳入当前架构基线 |
-| PF-04 Core | 已有代码提交，真实验收待补 | HEAD `8625efb`；`docs/evidence/PF-04.md` 有历史自测及外部缺口，不能当作本轮新鲜验证 |
-| PF-05/PF-06 | 字段/接口/线框已细化，待派遣/待前置核验 | 实施08/09 V1.2；原批准范围和PoC门禁保留 |
-| PF-06A/PF-10B | 核心规格已细化，待派遣/待实际目标核验 | 实施09A/13B V1.1；没有原生或Label工程 |
+| PF-04 Core | 已有代码提交，真实验收待补 | `docs/evidence/PF-04.md` 有历史自测及外部缺口，不能当作本轮新鲜验证 |
+| PF-05/PF-06 | 字段/接口/线框已细化，待派遣/待前置核验 | 实施08/09；原批准范围和PoC门禁保留 |
+| PF-06A/PF-10B | 核心规格已细化，待派遣/待实际目标核验 | 实施09A/13B；没有原生或Label工程 |
 | MasterData | 暂缓 | 实施方案存在，本轮不进入开发 |
 | OperationalData | 暂缓 | 实施方案存在，本轮不进入开发 |
 
@@ -188,7 +188,7 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 **状态：** 当前范围已完成
 **现有实施文档：** `docs/implementation/03-Industrial Platform Identity Service开发实施方案.md`
 **目标：** 完成用户、角色、权限、本地登录、令牌、会话、企业 SSO 边界和三端真实登录闭环。
-**当前进度：** `TASK-ID-001～023` 已完成并合入 `develop`。PF-00 本地门禁包括后端 Release 构建、Identity 五工程测试、SystemData Contract 测试以及前端 typecheck/lint/unit/build；真实 PostgreSQL/Redis 联合登录 E2E 仍作为外部验收项保留。
+**当前进度：** `TASK-ID-001～023` 已完成并完成集成。PF-00 本地门禁包括后端 Release 构建、Identity 五工程测试、SystemData Contract 测试以及前端 typecheck/lint/unit/build；真实 PostgreSQL/Redis 联合登录 E2E 仍作为外部验收项保留。
 **前置：** BuildingBlocks、可运行基线、统一前端第一批。
 **禁止范围：** SystemData 行政组织、菜单所有权、聊天、业务数据权限模型扩张。
 
@@ -202,7 +202,7 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 
 **后续：** 当前补强范围不再派遣；后续契约变更另立范围。
 
-**证据：** `docs/evidence/PF-00.md`；集成提交 `9f48d89`，状态回写提交 `8dc8b91`。
+**证据：** `docs/evidence/PF-00.md`；具体交付与验证标识由该evidence维护。
 
 # 8. PF-01 视觉、主题与平台外壳
 
@@ -275,7 +275,7 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 
 # 10. PF-03 ReferenceData
 
-**状态：** 已完成并合入 `develop`（2026-09-05，独立验收 PASS）
+**状态：** 已完成并完成集成（2026-09-05，独立验收 PASS）
 **Service Host：** 继续利用现有 `ReferenceData.Service` 骨架；内部模块为 Dictionary、Parameter、Metadata、DynamicProperty、CodingRule、StateMachine、UnitOfMeasure。
 **建议会话标题：** `PF-03 ReferenceData阶段管理`
 **现有实施文档：** `docs/implementation/06-Industrial Platform ReferenceData Service开发实施方案.md`
@@ -286,7 +286,7 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 
 **文档收敛结果：**
 
-- 原五模块保留，新增 StateMachine 与 UnitOfMeasure；实施 06 V2.7 调整为 `TASK-RD-001～010` 十个顺序步骤，计量单位先于 Metadata，仍不独立派遣或提交；
+- 原五模块保留，新增 StateMachine 与 UnitOfMeasure；实施 06 调整为 `TASK-RD-001～010` 十个顺序步骤，计量单位先于 Metadata，仍不独立派遣或提交；
 - StateMachine 只拥有定义、版本和路径合法性，业务实例/权限/前置条件/事务仍归业务服务；通用单位与换算由 ReferenceData 唯一维护，MasterData 保留物料单位选用及专属比例；
 - SystemData 与 ReferenceData 参数所有权边界保持不变；
 - 七模块领域、应用、基础设施、API、权限、PC 页面、统一初始化/readiness、缓存与服务级 Outbox 已完成；
@@ -297,7 +297,7 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 
 # 11. PF-04 File / Notification / Audit
 
-**状态：** 2026-09-06 完成开发就绪复评并整包派遣 PF-04 Core（001～009）；截至 2026-09-07，Core 已提交 `8625efb`，真实验收待补。功能开发任务 `01a076d2-a8d3-7163-8721-8cae51393d92`，独立验收任务 `01a076d3-3abf-7921-a367-9b70749d0780` 保持不变。实施入口：[07 V1.1](../implementation/07-Industrial%20Platform%20File%20Notification%20Audit开发实施方案.md)。010 为后续增强待细化。
+**状态：** 2026-09-06 完成开发就绪复评并整包派遣 PF-04 Core（001～009）；截至 2026-09-07，Core已交付，真实验收待补。功能开发任务 `01a076d2-a8d3-7163-8721-8cae51393d92`，独立验收任务 `01a076d3-3abf-7921-a367-9b70749d0780` 保持不变。实施入口：[07 V1.1](../implementation/07-Industrial%20Platform%20File%20Notification%20Audit开发实施方案.md)。010 为后续增强待细化。
 
 **Service Host：** 三个逻辑模块加入现有 SystemData.Service，沿用服务级迁移/账本与可靠设施，数据命名空间/公开契约独立；不新增三个 Host、四 Unit 硬前置或重复 PF-02 数据库治理。当前 PF-02 仍 active，PF-03 已完成合入；前置按所消费的具体契约和证据核验，不沿用旧“全部尚不存在”。
 
@@ -332,7 +332,7 @@ Audit Advanced（010）包含哈希链、签名 checkpoint、外部锚点、完�
 
 # 12. PF-05 Collaboration
 
-**状态：** 2026-09-07 已补充 V1.2 字段/接口/线框图规格；任务待派遣、就绪度待前置核验，未实施。
+**状态：** 2026-09-07 已补充字段/接口/线框图规格；任务待派遣、就绪度待前置核验，未实施。
 **实施文档：** [实施 08](../implementation/08-Industrial%20Platform%20Collaboration开发实施方案.md)。
 **Service Host：** 一个 Collaboration.Service，Messaging/Presence/AttachmentIntegration 分责；默认服务级初始化，Presence 不建空账本。
 **目标：** 平台原生优先、外部 MES 可信身份嵌入；三端 Web 一对一文本/图片/文件、在线、已读未读、撤回、隐藏恢复与可靠同步。
@@ -497,7 +497,7 @@ WorkOrder、Weighting、Trace、BatchRecord 和生产闭环分别开会话设计
 任一阶段只有同时满足以下条件才能标记“已完成”：
 
 - 阶段书面规格经用户评审并提交；
-- 独立实施方案和可派遣任务卡已提交；
+- 独立实施方案、任务卡和前置条件已完整，就绪核验通过；
 - 所有任务执行记录完整；
 - 代码、迁移、契约、页面和文档与实现一致；
 - 单元、集成、契约和关键路径 E2E 有新鲜证据；
@@ -511,13 +511,13 @@ WorkOrder、Weighting、Trace、BatchRecord 和生产闭环分别开会话设计
 
 | 阶段 | 状态 | 阶段管理会话 | 设计依据 | 实施方案 | 派遣/提交 | 验收证据 |
 | --- | --- | --- | --- | --- | --- | --- |
-| PF-00 Identity | 当前范围已完成 | PF-00 固定工作线 | 蓝图 13、31、33 | 实施 03 | TASK-ID-001～023 已完成；PF-00 集成提交 `9f48d89` | `docs/evidence/PF-00.md`；本地门禁全绿，真实 PostgreSQL/Redis 联合链路为外部验收项 |
-| PF-01 视觉主题 | 已完成（外部真机项待验收） | 现有 PF-01 会话继续 | 已批准 PF-01 规格 | `docs/implementation/04-Industrial Platform视觉主题与平台外壳开发实施方案.md` | 设计提交 `e2d24a4`、`d7ef889`、`efb3b35`；开发未提交(按协作约定) | TASK-PF01-001～007 完成；静态门禁全绿、mock E2E 102/102、真实 Identity E2E 19/19 |
+| PF-00 Identity | 当前范围已完成 | PF-00 固定工作线 | 蓝图 13、31、33 | 实施 03 | TASK-ID-001～023 已完成；集成交付见PF00 evidence | `docs/evidence/PF-00.md`；本地门禁全绿，真实 PostgreSQL/Redis 联合链路为外部验收项 |
+| PF-01 视觉主题 | 已完成（外部真机项待验收） | 现有 PF-01 会话继续 | 已批准 PF-01 规格 | `docs/implementation/04-Industrial Platform视觉主题与平台外壳开发实施方案.md` | 设计与实现交付标识见阶段evidence | TASK-PF01-001～007 完成；静态门禁全绿、mock E2E 102/102、真实 Identity E2E 19/19 |
 | PF-02 SystemData | 收束验收中 / 真实矩阵受环境限制 | PF-02 主工作区顺序交接 | 蓝图 05、07、33 V3.1 | `docs/implementation/05-Industrial Platform SystemData开发实施方案.md` | 001～010 已完成；011～012 待收束；014/016 已交付并关闭已报告缺陷；015 待真实验收；017 已回写；013 未关闭 | `docs/evidence/PF-02.md` 第五轮；后端1378通过/3跳过、独立探针8项达到预期；七页/三端/十三门禁真实矩阵仍待验收，不进入 PF-03 |
 | 架构收敛整改 | 已完成 | 当前计划 | 已批准整改设计 | 已批准四工作包计划 | WP1～WP4 已完成 | 结果已纳入当前架构基线 |
-| PF-03 ReferenceData | 已完成并合入 | 开发/验收任务已归档；原专用工作树与分支已清理 | 蓝图 07、21、26、32、33；七模块与单位/状态机所有权已确认 | 实施 06 V2.7；`docs/tasks/archive/PF-03.md` | `969ee156`；合并 `e9452b47` | `docs/evidence/PF-03.md`；独立验收 PASS，主工作树门禁通过 |
-| PF-04 File / Notification / Audit | Core 已提交，真实验收待补 | 原开发/验收任务保留 | 蓝图 05/26/30/32/33 | 实施 07 V1.1 | `8625efb`，001～009 已有实现；010 后续待细化 | `docs/evidence/PF-04.md` 历史自测；真实浏览器/ClamAV/中间件/多实例仍待验收 |
-| PF-05 Collaboration | V1.2 规格细化，待派遣/待前置核验 | 未新增任务 | 蓝图 04/05/32/33 | [实施 08](../implementation/08-Industrial%20Platform%20Collaboration开发实施方案.md) | 001～008 待派遣 | 仅文档检查，无功能验收 |
+| PF-03 ReferenceData | 已完成并合入 | 开发/验收任务已归档；原工作安排已归档 | 蓝图 07、21、26、32、33；七模块与单位/状态机所有权已确认 | 实施 06；`docs/tasks/archive/PF-03.md` | 具体交付与集成标识见阶段evidence | `docs/evidence/PF-03.md`；独立验收 PASS，主工作树门禁通过 |
+| PF-04 File / Notification / Audit | Core 已提交，真实验收待补 | 原开发/验收任务保留 | 蓝图 05/26/30/32/33 | 实施 07 | 001～009已有实现；010 后续待细化 | `docs/evidence/PF-04.md` 历史自测；真实浏览器/ClamAV/中间件/多实例仍待验收 |
+| PF-05 Collaboration | 规格细化，待派遣/待前置核验 | 未新增任务 | 蓝图 04/05/32/33 | [实施 08](../implementation/08-Industrial%20Platform%20Collaboration开发实施方案.md) | 001～008 待派遣 | 仅文档检查，无功能验收 |
 | PF-06 RemoteAssistance | 详细设计已确认，PoC 门禁待派遣 | 当前 PF-06 阶段管理会话 | 蓝图 05、32、33；Screego/W3C 官方证据 | `docs/implementation/09-Industrial Platform RemoteAssistance开发实施方案.md` | 推荐平台原生控制面/最小信令，Screego 仅未修改基准 PoC | TASK-PF06-001 待另行派遣；002～008 门禁阻塞，未开发/未测试 |
 | PF-06A 终端运行时与客户端打包 | 待派遣/待设备核验 | 未新增任务 | 蓝图 34 | [实施 09A](../implementation/09A-Industrial%20Platform终端运行时与客户端打包开发实施方案.md) | 001～008 未派遣 | 无原生/真机验收 |
 | PF-07 Scheduler / Platform Health | 待启动 | 待创建 | 蓝图 05、30 | 实施 10 待创建 | - | - |

@@ -82,7 +82,7 @@ Vue 3 / TypeScript / Pinia / PC-PDA-Mobile 统一前端
 - `docs/implementation/07-Industrial Platform File Notification Audit开发实施方案.md`
 - `docs/implementation/TEMPLATE-开发实施方案.md`
 
-PF-04 Core 已见于 2026-09-07 HEAD `8625efb`，File/Audit Contracts 与应用服务存在；真实浏览器、ClamAV、外部中间件、多实例证据仍有缺口，见 `docs/evidence/PF-04.md`。代码存在不等于 PF-05 所需契约已验收。
+执行前置：PF04 File/Audit公开契约能够满足聊天文件授权、引用/保全和可靠审计要求，并有相应真实集成证据；具体缺口见 `docs/evidence/PF-04.md`及细化规格Gate。代码存在不等于所需契约已验收。
 
 ---
 
@@ -96,12 +96,12 @@ PF-04 Core 已见于 2026-09-07 HEAD `8625efb`，File/Audit Contracts 与应用�
 
 ## 1.2 当前输入状态
 
-- 2026-09-07 只读盘点：`develop`，HEAD `8625efb`；开始时 `git status --porcelain=v1 --untracked-files=all` 无文件条目。
+- 执行前按当前环境核对Identity、初始化、File/Audit公开能力及修改范围；代码提交与工作树状态记录在evidence，不作为本Todo绑定条件。
 - PF-03 已合入；PF-02 仍 active，以 CURRENT 与阶段 evidence 为准，不重新判定已完成项。
 - PF-04 File/Audit 代码已存在：`IndustrialPlatform.SystemData.Contracts/Files/FileContracts.cs`、`Auditing/AuditContracts.cs`，以及 Application 的 Files/Auditing 服务。历史测试和真实环境限制见 PF-04 evidence，本轮没有重新测试。
 - 未发现 Collaboration 后端宿主或生产聊天模块；现有 SignalR 用于 Notification，不能当作 PF-05 聊天完成。未发现公共 Device Runtime、Electron/Capacitor 工程。
 - 当前 `FileObjectV1` 提供 FileNId、ScanStatus、Restricted、DeletionStatus、RetentionUntil；未见本方案所需 FileStateVersion/条件保留令牌，具体授权与保全适配须在 PF05-004/007 验证，不能假设跨服务原子能力。
-- 2026-08-14 HEAD/前置状态属于历史盘点，原批准范围保留；本轮只修订文档，不派遣、不开发、不运行 PoC、不构建、不提交推送。
+- 历史盘点与批准范围保留在记录中；本轮只修订文档，不派遣、不开发、不运行 PoC、不构建、不提交推送。
 
 ## 1.3 已确认设计记录
 
@@ -618,7 +618,7 @@ Presence 可以在用户从 Online 转为 Offline 时保留短期 `LastActiveOn`
 
 ## 9.1 契约成熟度与防腐层
 
-PF-04 Core Contracts 已进入 HEAD `8625efb`，当前实现与真实验收缺口见第 1.2 节。PF-05 通过公开契约适配，不能沿用 2026-08-14 草案或把源码存在当作完整集成证据。
+PF04消费前置与真实验收缺口见第1.2节及细化规格Gate。PF-05 通过公开契约适配，不能沿用 2026-08-14 草案或把源码存在当作完整集成证据。
 
 AttachmentIntegration 在 Collaboration 内定义 `IChatFileGateway` 应用端口，只冻结聊天所需的业务语义：
 
@@ -1679,11 +1679,11 @@ Compliance
 
 PF-06 必须自行设计 RemoteAssistanceSession、参与人白名单、一次性凭证、邀请接受/拒绝、WebRTC/Screego/TURN、超时/终止和屏幕共享审计。PF-05 不承诺 WebRTC 房间、远程控制、录屏、共享媒体保存或 RemoteAssistance 数据表。
 
-PF-04 File/Audit 以 HEAD 中真实 Contracts 与后续验收证据映射；条件授权、会话成员下载、保全和提权缺口必须列明。端口 fixture 不替代真实集成。PF-06 后进入 PF-06A（实施 09A）终端化；当前仅交付三端 Web 与必要宿主适配。
+PF04 File/Audit以执行时实际公开Contracts与验收证据映射；条件授权、会话成员下载、保全和提权缺口必须列明。端口 fixture 不替代真实集成。PF-06 后进入 PF-06A（实施 09A）终端化；当前仅交付三端 Web 与必要宿主适配。
 
 ---
 
-# 19. 2026-08-14 历史文档自审记录（不作为 V1.1 验证）
+# 19. 2026-08-14 历史文档自审记录（不作为当前实现验收）
 
 - [x] 指定蓝图、总 Todo、模板、实施 01/03/04/05/06/07、Git 和当前代码结构已核对。
 - [x] PF-02 并行未提交实现和 PF-04 draft 未写成稳定实现。

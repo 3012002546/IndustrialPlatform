@@ -39,17 +39,17 @@ PF05起分开维护设计就绪度（待细化/待前置核验/已就绪）与�
 | 03 | [Identity Service实施方案](03-Industrial%20Platform%20Identity%20Service开发实施方案.md) | `TASK-ID-001～023` 当前范围已完成并合入；真实 PostgreSQL/Redis 联合登录链路保留为外部验收项 |
 | 04 | [PF-01 视觉主题与平台外壳实施方案](04-Industrial%20Platform视觉主题与平台外壳开发实施方案.md) | `TASK-PF01-001～007` 已完成；真实 Identity 联合验收 real E2E 19/19；外部真机 safe-area 待验收 |
 | 05 | [PF-02 SystemData实施方案](05-Industrial%20Platform%20SystemData开发实施方案.md) | 已有控制面及管理能力，PF-02 仍 active；真实菜单发布、七页/三端及外部门禁按 CURRENT/阶段 evidence 收束。PF-04 只核验所消费的稳定契约，不重做已完成前置 |
-| 06 | [PF-03 ReferenceData实施方案](06-Industrial%20Platform%20ReferenceData%20Service开发实施方案.md) | 七模块已于 2026-09-05 完成并经独立验收 PASS，功能 969ee156 / 合并 e9452b47；当前后续 WIP 不包含在历史验收内，证据见 docs/evidence/PF-03.md |
-| 07 | [PF-04 File / Notification / Audit实施方案](07-Industrial%20Platform%20File%20Notification%20Audit开发实施方案.md) | Core 已提交 `8625efb`；历史自测及真实环境缺口见 PF-04 evidence，不能仅凭提交标记整阶段验收通过 |
-| 08 | [PF-05 Collaboration实施方案](08-Industrial%20Platform%20Collaboration开发实施方案.md) | V1.2，字段/接口/线框图已细化；001～008 待派遣、待前置核验 |
-| 09 | [PF-06 RemoteAssistance实施方案](09-Industrial%20Platform%20RemoteAssistance开发实施方案.md) | V1.2，字段/接口/线框已细化；双PoC待派遣，生产002～008保持门禁阻塞；未开发、未测试 |
-| 09A | [PF-06A 终端运行时与客户端打包](09A-Industrial%20Platform终端运行时与客户端打包开发实施方案.md) | PF-05/06 完成后执行；V1.1，共用字段/线框已细化，待派遣/待目标设备核验，无原生工程 |
+| 06 | [PF-03 ReferenceData实施方案](06-Industrial%20Platform%20ReferenceData%20Service开发实施方案.md) | 七模块已于 2026-09-05 完成并经独立验收 PASS，当前后续 WIP 不包含在历史验收内，证据见 docs/evidence/PF-03.md |
+| 07 | [PF-04 File / Notification / Audit实施方案](07-Industrial%20Platform%20File%20Notification%20Audit开发实施方案.md) | Core已交付；历史自测及真实环境缺口见 PF-04 evidence，不能仅凭提交标记整阶段验收通过 |
+| 08 | [PF-05 Collaboration实施方案](08-Industrial%20Platform%20Collaboration开发实施方案.md) | 字段/接口/线框图已细化；001～008 待派遣、待前置核验 |
+| 09 | [PF-06 RemoteAssistance实施方案](09-Industrial%20Platform%20RemoteAssistance开发实施方案.md) | 字段/接口/线框已细化；双PoC待派遣，生产002～008保持门禁阻塞；未开发、未测试 |
+| 09A | [PF-06A 终端运行时与客户端打包](09A-Industrial%20Platform终端运行时与客户端打包开发实施方案.md) | PF-05/06 完成后执行；共用字段/线框已细化，待派遣/待目标设备核验，无原生工程 |
 | 10 | PF-07 Scheduler / Platform Health实施方案（待 PF-07 会话创建） | 两个模块分开建模，在同一阶段管理会话协调和派遣 |
 | 11 | PF-08 Low Code实施方案（待 PF-08 会话创建） | 待阶段管理会话设计和派遣 |
 | 12 | PF-09 Dashboard & Report实施方案（待 PF-09 会话创建） | 两个产品边界分开建模，在同一阶段管理会话协调和派遣 |
 | 13 | PF-10 ServerMonitor实施方案（待 PF-10 会话创建） | 创建 `OperationsCenter.Service`，本阶段只处理 ServerMonitor |
 | 13A | PF-10A Operations Center Knowledge & Assistant实施方案（待 PF-10A 会话创建） | 设计待确认；先补齐 IssueTracking 与 KnowledgeBase 完整数据闭环，不提前创建文档 |
-| 13B | [PF-10B 标签管理平台](13B-Industrial%20Platform标签管理平台开发实施方案.md) | PF-11 前；独立产品/数据规则/设备/打印闭环；V1.1，核心字段/线框已细化，待派遣/待客户设备核验 |
+| 13B | [PF-10B 标签管理平台](13B-Industrial%20Platform标签管理平台开发实施方案.md) | PF-11 前；独立产品/数据规则/设备/打印闭环；核心字段/线框已细化，待派遣/待客户设备核验 |
 | 14 | PF-11 IoT Collector实施方案（待 PF-11 会话创建） | 待阶段管理会话复核蓝图并派遣 |
 | 15 | [MES-01 MasterData实施方案](15-Industrial%20Platform%20MasterData%20Service开发实施方案.md) | 暂缓；保留现有设计和未提交调整，恢复前复核 |
 | 16 | [MES-02 OperationalData实施方案](16-Industrial%20Platform%20OperationalData%20Service开发实施方案.md) | 暂缓；恢复前按母版重构和复核 |

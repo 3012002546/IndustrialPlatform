@@ -194,12 +194,12 @@ SystemData 本地先通过自己的初始化器执行 Schema migration 与最小
 
 # 10. 本地回退
 
-- `RemoteDevelopment.Enabled=false` 时，SQLite 物理目标仍按受信 `DatabaseTopology` 解析。
+- SQLite仅在显式选择`IndustrialPlatform__DevelopmentInfrastructureMode=Sqlite`时使用，物理目标按受信`DatabaseTopology`解析；关闭RemoteDevelopment、私有配置缺失或数据库不可用均不能自动切换数据库。
 - 启用远程开发/云端环境时，各服务通过受控配置和 SystemData 使用 PostgreSQL 18。
 - 本地 SQLite 与云端 PostgreSQL 必须使用等价的版本语义和显式迁移，不得用 `EnsureCreated` 掩盖差异。
 - SystemData 不可用会阻止新的拓扑编排或升级 Operation，但不会改变已初始化服务基于本地数据库事实计算的 readiness；不得回退到另一个数据库或管理员自建库。
 
-Shared SQLite（`SharedSqliteFile`）是 Development 默认；`PerService` SQLite 仅作为显式验证模式，且各服务继续使用自己的本地迁移路径。
+显式选择SQLite后，Shared SQLite（`SharedSqliteFile`）是该Development模式的默认；`PerService` SQLite 仅作为显式验证模式，且各服务继续使用自己的本地迁移路径。
 
 SQLite 与 PostgreSQL 均适用同一规范化目标、Shared 一次物理 provision、按服务的迁移 ledger/readiness、物理目标 DDL 串行化及 drift/显式迁移/import 规则。
 

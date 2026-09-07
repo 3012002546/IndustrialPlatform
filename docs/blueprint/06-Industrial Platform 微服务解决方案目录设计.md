@@ -441,7 +441,7 @@ Persistence
 └── SqlSugar
 ```
 
-`Migrations`、`Seed` 和 `InitializerAdapter` 由当前服务/模块拥有并输出签名、不可变、版本化产物。每个模块强制声明 `ModuleKey`，使用独立表前缀、`<module>_schema_migrations`、`<module>_seed_ledger`、SeedKey/checksum 范围；共享宿主禁止宿主级模糊初始化大包。`DatabaseProvisioning` 只承载向 SystemData 登记、查询 Operation 和 readiness 门禁的客户端适配，不包含管理员凭据、自行建库、任意 SQL 或 Secret 传输逻辑。初始化器从本服务 Secret Provider 解析 Secret，只向 SystemData 回报脱敏 version/checksum/status/TraceId。SystemData 自身由基础设施最小引导后本地执行 Schema migration 与最小 SystemBaseline；其他服务读取蓝图 33。
+`Migrations`、`Seed` 和 `InitializerAdapter` 由当前服务/模块拥有并输出签名、不可变、版本化产物。每个逻辑模块声明`ModuleKey`和数据/权限命名空间；迁移、seed ledger与可靠设施默认按服务持久化生命周期共享，只有独立持久化生命周期才建立独立初始化单元和账本。Presence等无持久化模块不建空Schema/账本；服务级清单明确模块归属，不做模糊初始化大包。`DatabaseProvisioning` 只承载向 SystemData 登记、查询 Operation 和 readiness 门禁的客户端适配，不包含管理员凭据、自行建库、任意 SQL 或 Secret 传输逻辑。初始化器从本服务 Secret Provider 解析 Secret，只向 SystemData 回报脱敏 version/checksum/status/TraceId。SystemData 自身由基础设施最小引导后本地执行 Schema migration 与最小 SystemBaseline；其他服务读取蓝图 33。
 
 ---
 
