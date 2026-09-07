@@ -41,6 +41,7 @@ export const ROUTE_NAMES = {
   workspaceTabsSandbox: 'workspace-tabs-sandbox',
   uiBaseline: 'ui-baseline',
   pdaHome: 'pda-home',
+  pdaFiles: 'pda-files',
   mobileHome: 'mobile-home',
   mobileMy: 'mobile-my',
   mobileFiles: 'mobile-files',

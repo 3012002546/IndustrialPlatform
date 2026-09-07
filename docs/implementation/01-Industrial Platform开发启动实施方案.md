@@ -2,7 +2,7 @@
 
 # Industrial Platform开发启动实施方案
 
-> 本文保留启动期设计与历史快照；当前阶段状态统一以 `docs/blueprint/09-Industrial Platform开发总TodoList.md`、各 PF 实施方案执行记录、`docs/evidence/**` 和 `docs/status/CURRENT.md` 为准。PF-02 SystemData在2026-09-04已关闭已知功能整改缺陷，完成26项分层证据与017状态回写；完整真实矩阵、200%及外部门禁仍待验收，013/PF-02保持active，PF-03未启动。下文“尚未开发”等仅为启动期历史快照。
+> 本文维护启动依赖、工程约定和目标路线。当前阶段状态只在总Todo/CURRENT及阶段执行记录维护，完成范围由evidence证明；不在本方案重复旧暂停点或将早期骨架状态当作当前进度。
 
 版本：V1.1
 阶段：Development Implementation Phase
@@ -72,16 +72,16 @@ IndustrialPlatform
 
 # 2. 开发阶段总体规划
 
-当前进度以总 Todo、实施文档执行记录、提交和新鲜验证证据为准：BuildingBlocks、可运行基线和统一前端第一批已经完成主要范围，Docker 实机验收仍有保留项；Identity 已暂停在 `TASK-ID-007`；PF-01 开发设计已完成但尚未开发；PF-02 SystemData 的详细设计和任务卡已形成、待书面审阅且尚未开发；ReferenceData 代码只有服务骨架；MasterData 和 OperationalData 暂缓。
+下表仅表达总体依赖顺序，具体已完成范围、正在收束的验收和暂缓项读取总Todo第3章及CURRENT。进入下一阶段前检查所消费能力的真实契约，不按旧任务暂停点重启已完成工作。
 
 当前执行顺序：
 
 ```text
-已完成  BuildingBlocks / Entity 调整 / 可运行基线主要范围 / 统一前端第一批
-PF-00    Identity 登录与权限闭环（已暂停，停在 TASK-ID-007）
-PF-01    视觉、主题与平台外壳（开发设计已完成，任务待确认）
-PF-02    SystemData（详细设计与任务卡已形成，数据库编排优先，尚未开发）
-PF-03    ReferenceData（现有骨架复核后继续）
+前置     BuildingBlocks / Entity / 可运行基线 / 统一前端第一批
+PF-00    Identity 登录与权限闭环
+PF-01    视觉、主题与平台外壳
+PF-02    SystemData（数据库编排能力先行）
+PF-03    ReferenceData
 PF-04    File / Notification / Audit（同阶段、分别设计）
 PF-05    Collaboration
 PF-06    RemoteAssistance 验证与试点
@@ -100,7 +100,7 @@ MES-03+  生产闭环服务
 
 ## Phase 0 BuildingBlocks 原基础搭建（已完成）
 
-已完成 SharedKernel、Application.Abstractions、Infrastructure、EventBus、Logging、Security、Web 共享能力。完成证据和关键技术决策由 `CLAUDE.md` 维护，不再派遣本阶段任务。
+已完成SharedKernel、Application.Abstractions、Infrastructure、EventBus、Logging、Security、Web共享能力；完成范围查实施02执行记录与evidence，后续直接核验所消费的公开能力，不重新派遣基础搭建。
 
 ## Phase 0A Entity 生命周期与并发调整
 
@@ -124,13 +124,13 @@ MES-03+  生产闭环服务
 
 ## PF-00 Identity 登录闭环
 
-当前已暂停。`TASK-ID-001～006` 已完成，恢复时从 `TASK-ID-007` 继续；`TASK-ID-007～016` 仍未开发。后续范围继续完成服务端 RBAC、权限缓存、用户上下文、管理 API、审计/Outbox、真实前端、SSO 和联合验收，不得把暂停状态表述为阶段完成。
+本阶段提供服务端RBAC、权限缓存、用户上下文、管理API、审计/Outbox、真实前端、SSO及联合验收契约。当前范围与外部真实验收缺口读取实施03执行记录和总Todo，不再以历史TASK-ID-007作为恢复前置。
 
 ## PF-01～PF-11（含 PF-10A）平台基础和独立模块
 
 详细边界读取 `docs/blueprint/05-Industrial Platform平台基础功能与独立模块设计.md`，当前 Service Host 与内部模块读取蓝图 32，数据库拓扑与初始化控制面读取蓝图 07/33，执行顺序、阶段任务卡和阶段管理会话入口读取总 Todo。
 
-PF-01 已完成开发详细设计、任务依赖和七张九字段任务卡，但尚未执行开发任务。任务确认后才能派遣；其中最终 Identity 联合集成验收仍等待 PF-00 恢复并稳定前端契约。
+PF01提供后续阶段共享外壳、主题和页面规则；后续消费实际交付能力及相关验收记录，不重新要求PF00恢复或PF01首次派遣。
 
 每个阶段都遵循：
 
@@ -151,7 +151,7 @@ PF-02 的最高优先级是 `SystemData.Service` 数据库编排/环境引导控
 | 阶段 | Service Host 动作 | 本阶段范围 |
 | --- | --- | --- |
 | PF-02 | 创建 `SystemData.Service` | SystemData，数据库编排/环境引导最高优先 |
-| PF-03 | 继续利用 `ReferenceData.Service` 骨架 | Dictionary、Parameter、Metadata、DynamicProperty、CodingRule、StateMachine、UnitOfMeasure |
+| PF-03 | 使用 `ReferenceData.Service` | Dictionary、Parameter、Metadata、DynamicProperty、CodingRule、StateMachine、UnitOfMeasure |
 | PF-04 | 扩展 `SystemData.Service` | File、Notification、Audit，分别建模 |
 | PF-05 | 创建 `Collaboration.Service` | Messaging、Presence、AttachmentIntegration |
 | PF-06 | 扩展 `Collaboration.Service` | RemoteAssistance |
@@ -164,7 +164,7 @@ PF-02 的最高优先级是 `SystemData.Service` 数据库编排/环境引导控
 | PF-10B | 创建 `Label.Service` | 标签模板、数据准备、打印与历史；实施 13B |
 | PF-11 | 创建 `IoTCollector.Service` | Driver、DeviceConnection、Point、CollectionTask、EdgeManagement |
 
-PF-03 ReferenceData 复用重编号后的实施文档 06，但开发前必须由 PF-03 阶段管理会话复核当前骨架、任务状态以及与 SystemData 和主题体系的契约。
+ReferenceData后续变更继续维护实施06并核验SystemData和共享UI公开契约；历史七模块交付不因本启动方案而重新派遣。
 
 ## MES-01 MasterData 与 MES-02 OperationalData
 
@@ -319,7 +319,7 @@ Solution：
 IndustrialPlatform.slnx
 ```
 
-当前 Solution 已包含 BuildingBlocks、Gateway、Identity 和 ReferenceData 骨架；后续按阶段扩展的目标 Service Host 结构为：
+下列为按阶段扩展的目标Service Host结构，不是当前Solution完成度清单；实际注册与已验收范围读取当前工程和阶段记录：
 
 ```
 IndustrialPlatform.slnx
@@ -875,11 +875,15 @@ Gateway 外部路由、服务内部路径、信封、错误码、幂等和异步
 目标：在已建立的可运行产品骨架上，先完成平台基础和独立模块，再恢复工业生产闭环。
 
 ```text
-已完成：BuildingBlocks / Entity 调整 / 可运行基线主要范围 / 统一前端第一批
-→ PF-00 Identity（已暂停，停在 TASK-ID-007）
-→ PF-01 视觉、主题与平台外壳（设计完成、尚未开发）
-→ PF-02 SystemData（设计/任务卡待书面审阅；先数据库编排控制面）+ PF-03 ReferenceData（骨架复核）
-→ PF-04～PF-10
+BuildingBlocks / Entity / 可运行基线 / 统一前端第一批
+→ PF-00 Identity
+→ PF-01 视觉、主题与平台外壳
+→ PF-02 SystemData + PF-03 ReferenceData
+→ PF-04 File / Notification / Audit
+→ PF-05 Collaboration → PF-06 RemoteAssistance
+→ PF-06A 终端运行时与客户端打包
+→ PF-07 Scheduler / Platform Health → PF-08 Low Code
+→ PF-09 Dashboard & Report → PF-10 ServerMonitor
 → PF-10A Operations Center Knowledge & Assistant（IssueTracking/KnowledgeBase 完整闭环待确认）
 → PF-10B 标签管理平台
 → PF-11 IoT Collector
@@ -892,38 +896,11 @@ Gateway 外部路由、服务内部路径、信封、错误码、幂等和异步
 
 ---
 
-# 19. 当前进度与下一步
+# 19. 进度入口与下一步前置
 
-## 已完成
+本启动方案维护启动依赖与路线，不复制持续变化的阶段进度。当前进度读取[开发总Todo第3章](../blueprint/09-Industrial%20Platform开发总TodoList.md)与[CURRENT服务状态](../status/CURRENT.md)，实际完成范围由对应evidence证明。旧Identity暂停点、PF01未开发、PF02尚无运行代码等快照已删除，不能据此重派已完成工作。
 
-- Git 仓库、解决方案和后端目录骨架。
-- BuildingBlocks 共享组件及测试。
-- 可运行基线主要范围；Docker 实机项仍保留待验收。
-- 统一前端第一批 `TASK-FE-001～010`。
-- Identity、ReferenceData 服务骨架与健康检查。
-
-## 当前暂停项
-
-- PF-00 Identity：`TASK-ID-001～006` 已完成，暂停点为 `TASK-ID-007`；等待用户明确恢复。
-
-## 当前待确认项
-
-- PF-01 视觉、主题与平台外壳：实施文档 04 的开发详细设计、依赖图和七张九字段任务卡已完成；尚未开发，等待任务确认/派遣。
-- PF-02 SystemData：实施文档 05 的详细设计和任务卡已形成、待书面审阅；尚无运行时代码或测试证据，不能标记为已开发。
-- PF-10A Operations Center Knowledge & Assistant：原则边界已确认到 DataAssistant，但 IssueTracking 与 KnowledgeBase 的问题处理、人工转知识、审核发布、索引和助手引用闭环仍待详细设计。
-
-## 当前最高优先级
-
-- PF-02 先完成 `TASK-SD-001～004` 数据库拓扑 resolver/bootstrap、registration/plan、provision/migrate/drift 和 consumer handshake/readiness 的书面审阅、派遣与验收门禁；未满足前不得启动 `TASK-SD-005+` 行政组织、菜单、主题等能力。
-- PF-03 可并行复核 ReferenceData 实施文档 06，但必须消费 PF-02 数据库编排 manifest/readiness 契约，不能沿用服务自行建库或旧迁移启动方式。
-
-## 后续顺序
-
-- PF-04～PF-11（含 PF-10A）按总 TodoList 的阶段门禁推进。
-- PF-10 只处理 ServerMonitor；PF-10A 单独补齐知识、问题与助手闭环，二者不能合并为一个阶段。
-- MasterData 和 OperationalData 暂缓，达到 MES 恢复门禁后分别复核。
-
-实施文档执行记录、提交和新鲜验证证据共同构成进度依据；`CLAUDE.md` 可以记录协作过程，但不替代正式验收。
+后续执行核验已交付公开契约及实际验收缺口，不能把历史自测等同于真实集成完成。PF05/06、PF08/09、PF10/10A、PF10B、PF11先完成平台兼容与相对独立交付清单，再按范围派遣；具体清单见蓝图32§2.1～2.2及实施STANDARD。PF10与PF10A保持分责，知识/问题闭环仍需先细化；MES业务按总Todo的恢复条件执行。Todo不绑定代码分支或某个提交。
 
 ---
 

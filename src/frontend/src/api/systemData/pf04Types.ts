@@ -121,7 +121,7 @@ export interface Pf04Api {
   pauseUpload(sessionNId: string): Promise<UploadSessionDto>
   resumeUpload(sessionNId: string, writerEpoch: number, proof: string): Promise<UploadSessionDto>
   cancelUpload(sessionNId: string, reason?: string): Promise<UploadSessionDto>
-  uploadChunk(transportId: string, body: Blob, offset: number, epoch: number, resumeTicket: string): Promise<UploadSessionDto>
+  uploadChunk(transportId: string, body: Blob, offset: number, epoch: number, resumeTicket: string, signal?: AbortSignal): Promise<UploadSessionDto>
   completeUpload(sessionNId: string): Promise<FileObjectDto>
   getFile(fileNId: string): Promise<FileObjectDto>
   requestFileDeletion(fileNId: string): Promise<FileObjectDto>

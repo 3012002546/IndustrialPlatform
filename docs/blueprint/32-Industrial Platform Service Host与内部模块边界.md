@@ -25,6 +25,39 @@
 - 服务日常启动与 runtime readiness 只依赖本服务核心数据库身份、本地 ledger 和必需 bootstrap 事实；SystemData 是否在线不改变已经初始化服务的本地 Ready 结论。Redis、消息代理和日志/可观测性后端默认属于 capability health，故障时报告 `Degraded` 并按既定降级策略运行，不机械把整个宿主判为 `NotReady`；只有公开能力契约明确要求该依赖不可替代时才可成为 readiness 门禁。
 - 初始化策略分为 `Standard` 与 `Advanced`。普通功能默认采用 Standard；审批、备份证据、签名和漂移恢复只在环境或风险要求时进入 Advanced。
 
+## 2.1 平台原生优先与相对独立交付
+
+PF-05、PF-06、PF-08、PF-09、PF-10、PF-10A、PF-10B、PF-11都属于Industrial Platform自身能力，首先满足平台兼容和原生集成，再将同一业务核心按需独立部署并接入其他MES。外部适配边界在设计时一起明确；实现先打通平台纵向业务链，再验外部宿主和无宿主场景，不能先复制一套独立产品、最后返接平台。
+
+“相对独立”要求明确业务/数据所有权、公开接口、最小依赖、可选择的功能集合和交付方式；不代表零依赖、不代表每个PF一个进程，也不要求每个功能自建用户库或支持所有部署组合。当前八个Host及PF排期保持；产品装配清单定义要加载的模块，未选模块不注册页面/后台任务/种子，必要依赖不能假禁用。同一共享初始化单元暂不能安全裁剪时，明确整单元是当前最小安装边界，先设计裁剪/迁移再宣称可单装，不能复制或改写已应用迁移来“拆包”。
+
+| 运行形态 | 身份与公共能力 | 页面与交付 |
+| --- | --- | --- |
+| 平台原生（默认、首要验收） | 复用平台可信身份/租户、权限、File/Audit、菜单、初始化与可观测公开契约 | 使用平台共享UI、路由/菜单、主题/语言和Runtime；可按当前拓扑统一或独立Host运行 |
+| 独立部署 + 外部MES嵌入 | 信任已配置外部身份发行者，适配目录/租户映射和业务上下文；必要公共能力由精简复用部署或等价适配提供 | 使用同一页面/应用核心的嵌入入口或独立入口；明确SSO/退出/导航契约，不强制启动整套Industrial Platform |
+| 无外部宿主的独立使用 | 只在该产品明确范围内提供最小登录/管理员引导；复用成熟身份能力，不给每模块新建账号域 | 精简外壳/独立入口；Label已含此范围，其他PF须各自明确，不因“独立”一词自动扩张 |
+
+身份、租户、权限、文件引用/保全、审计、初始化和业务数据源通过消费方公开端口接入。平台装配优先复用现有实现；同进程用公开Application契约，跨进程用API/事件。外部适配允许替换实现，但保留同等授权、数据隔离、幂等和恢复语义；缺少必要能力就阻止该操作并报告，不用空审计、跳扫描或浏览器自报权限冒充兼容。可选通知/定时/助手等功能须显式标注启用依赖与禁用行为。
+
+外部嵌入是完整集成契约，不能只证明iframe能显示：身份须服务端验证issuer/audience/时效并映射稳定租户/主体；页面参数不得作为授权依据；认证失效不能降级成同名本地账号。导航、主题/语言、退出、令牌续期与跨域/CSP/嵌入权限需按目标宿主验证。可选iframe或路由入口，具体方式在阶段设计中确定，不承诺任意MES即插即用。
+
+## 2.2 各功能的最小边界与兼容前置
+
+以下是必须细化的交付边界，不表示安装包或外部适配已实现；精确字段、接口和装配清单由所属阶段在派遣前补齐。
+
+| 阶段 | 平台内优先兼容 | 相对独立边界/最小依赖 |
+| --- | --- | --- |
+| PF-05 Collaboration | 平台登录/目录、全局连接、聊天入口、文件与审计 | 聊天核心+可信身份/目录+必要持久审计/文件能力；外部宿主适配，不复制人员主数据 |
+| PF-06 RemoteAssistance | 从PF05聊天邀请、逐人授权、共享与审计 | 协助控制面+已验证媒体/网络依赖；身份/参与人/邀请走公开端口。首版聊天集成仍依赖PF05；未来脱离聊天须先补宿主邀请端口，不能暗中要求全量聊天历史 |
+| PF-08 Low Code | 平台权限、主题、路由、受控数据源、发布 | PlatformStudio选定的DataSource/Dataset/LowCode/Publishing；设计器与运行入口范围明确，不依赖Dashboard/Report自动启用 |
+| PF-09 Dashboard & Report | 平台受控Dataset、行列授权、File、通知/定时能力 | Dashboard/Report及所需Dataset运行能力；不强制低代码设计器。报告导出、定时报表分别声明存储/调度/通知的必需或可选适配 |
+| PF-10 ServerMonitor | 平台节点权限、告警/通知、审计和健康摘要 | ServerMonitor+Agent+指标/告警存储及必要公共适配；不依赖知识库、问题和模型运行时 |
+| PF-10A Operations Center | 平台项目/用户范围、文件/知识/问题闭环及受控Dataset | 项目/问题/知识核心与按需助手组合；声明索引、模型和数据源依赖，关闭助手不应阻断基本问题/知识管理；不强制安装ServerMonitor |
+| PF-10B Label | 平台身份/权限、菜单/黄金页、File/Audit、SystemData初始化、Runtime及业务来源端口 | Label核心+数据库+必要文件/审计/身份能力+按需Agent/PDA；先平台闭环，再外部MES与无宿主模式；不依赖IoT或MES领域表 |
+| PF-11 IoTCollector | 平台设备引用/权限、采集质量/时标、健康与事件契约 | 采集核心+已选驱动/边缘执行与持久缓存；通过API/事件接目标MES，不强制Label、报表或完整MES。PF10B是排期前置，不是运行依赖 |
+
+每阶段派遣输入必须给：①平台装配及真实兼容链；②支持的独立/嵌入形态和明确暂缓项；③必需/可选依赖、缺失行为、最小模块/进程/数据库清单；④身份/数据/公共能力适配和页面入口；⑤同一数据模型/迁移/权限/API的兼容测试；⑥启停、升级、备份恢复与支持矩阵。平台原生链先验，已批准的外部交付范围另验，不能互相替代；阶段排期前置与产品运行依赖分栏记录。
+
 # 3. 当前核心 Service Host
 
 平台基础层规划共八个核心 Service Host：
@@ -78,7 +111,7 @@ StateMachine 管理 `StateMachineDefinition`、其 `StateNode` 和 `StateTransit
 | 12 / PF-09 | Dashboard & Report | 加入 `PlatformStudio.Service` | Dashboard、Report，并复用受控 Dataset 契约 |
 | 13 / PF-10 | ServerMonitor | 创建 `OperationsCenter.Service` | 只交付 ServerMonitor；与知识、问题和助手模块保持隔离 |
 | 13A / PF-10A | Operations Center Knowledge & Assistant | 加入 `OperationsCenter.Service` | ProjectWorkspace、KnowledgeBase、IssueTracking、KnowledgeAssistant、DataAssistant、ModelGateway；进入实施前先补齐第 5.4 节的设计缺口 |
-| 13B / PF-10B | 标签管理平台 | 创建 `Label.Service`，先于 PF-11 | Template、DataPreparation、Rendering、PrintJob、History；独立/外部/平台三模式 |
+| 13B / PF-10B | 标签管理平台 | 创建 `Label.Service`，先于 PF-11 | Template、DataPreparation、Rendering、PrintJob、History；先平台原生，再外部MES/无宿主同核心装配 |
 | 14 / PF-11 | IoT Collector | 创建 `IoTCollector.Service` | Driver、DeviceConnection、Point、CollectionTask、EdgeManagement |
 
 # 5. Operations Center 母版边界
@@ -138,4 +171,4 @@ PF-10A 的第一个设计门禁是逐项完成并确认以上闭环；在此之�
 
 PF05的Messaging/Presence/AttachmentIntegration采用同一服务级初始化、seed ledger、Outbox和必要消费者Inbox；Messaging 拥有 ChatAttachment 绑定，AttachmentIntegration 只适配 File；Presence 无持久化不建空 Schema/账本。RemoteAssistance 当前继续保留原设计的独立持久化生命周期及模块单元，是否合并该单元需另有设计依据，不因本轮清理 Presence 而自动删除。
 
-平台原生与外部 MES 嵌入共用聊天核心；外部复用可信身份/目录、本地持久审计和本地受控初始化器，不依赖整套平台在线，安全和可靠性不裁剪。Label.Service 则另支持无宿主的最小身份/存储/审计，默认服务级治理；设备注册/绑定是Label服务的受控配置能力，Agent只消费绑定并拥有本地连接/执行账本；详见蓝图35。Runtime/Agent 只拥有终端技术能力和执行记录，不拥有 MES/Label 领域事实。
+平台原生与外部 MES 嵌入共用聊天核心，平台原生优先；外部复用可信身份/目录、本地持久审计和本地受控初始化器，不依赖整套平台在线，安全和可靠性不裁剪。Label.Service先兼容平台身份/文件/审计/初始化，再以同一核心支持外部宿主和无宿主的最小装配，默认服务级治理；设备注册/绑定是Label服务的受控配置能力，Agent只消费绑定并拥有本地连接/执行账本；详见蓝图35。Runtime/Agent 只拥有终端技术能力和执行记录，不拥有 MES/Label 领域事实。

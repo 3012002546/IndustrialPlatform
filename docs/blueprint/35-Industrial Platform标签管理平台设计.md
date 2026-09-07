@@ -4,9 +4,9 @@
 
 ## 1. 产品与执行位置
 
-工业标签平台是独立可交付产品，支持完全独立录入/导入、接入 OP/EBR/其他 MES、集成 Industrial Platform 三种模式。新增 **PF-10B**，排在 PF-11 IoTCollector 之前、正式 MES 业务之前；实施与唯一开发 TodoList 见[实施 13B](../implementation/13B-Industrial%20Platform标签管理平台开发实施方案.md)。PF-06A 先交付运行容器，PF-10B 再验证真实打印设备。
+工业标签平台首先是Industrial Platform的原生功能，同时具备相对独立交付能力。设计优先级为：**平台原生兼容 → 同一核心独立部署并嵌入OP/EBR/其他MES → 已批准的无宿主录入/导入模式**；外部适配边界先设计，实际平台链先实现和验收。统一原则见[Host母版§2.1～2.2](32-Industrial%20Platform%20Service%20Host与内部模块边界.md)。新增 **PF-10B**，排在 PF-11 IoTCollector 之前、正式 MES 业务之前；实施与唯一开发 TodoList 见[实施 13B](../implementation/13B-Industrial%20Platform标签管理平台开发实施方案.md)。PF-06A 先交付运行容器，PF-10B 再验证真实打印设备。
 
-独立模式不要求整个 Industrial Platform 启动，也不强制平台网关、Identity、SystemData、Redis、RabbitMQ。首版部署为 `Label.Service` + PostgreSQL + 必要文件存储 + 按需设备执行端；平台集成时适配统一身份、菜单、文件、审计与初始化。一个核心版本，不为不同客户维护独立业务分支。
+平台装配默认接入现有身份/租户/权限、菜单与共享页面、File/Audit、SystemData初始化及Runtime；Label通过公开端口消费业务来源，不复制平台账号库、文件服务或审计实现。独立部署为 `Label.Service` + PostgreSQL + 必要身份/文件/审计能力 + 按需设备执行端，可精简复用公共组件或使用等价适配，不要求整个Industrial Platform启动，也不强制平台网关、Identity/SystemData完整Host或全部中间件。共用业务模型、API、迁移与页面核心，模式只改变宿主装配和适配，不能先做本地替代再补平台兼容。
 
 ## 2. 服务与模块边界
 
@@ -96,6 +96,6 @@ PDA 通过 Capacitor 原生插件直接连接蓝牙打印机，可无需 Windows
 
 参考用户 OP 的打印机/模板/历史流程、EBR 工位客户端接入理念；候选包括 pdfme、vue-plugin-hiprint、QZ Tray、JSPrintManager、PrintNode。当前均不是已采用生产依赖。2026-09-07 查阅 [pdfme 官方文档](https://pdfme.com/docs/getting-started) 的 PDF 底稿/字段模型，仅作为候选设计输入；具体版本、许可、字体/条码、服务端渲染和真机效果在 PF10B-001 核验。
 
-首版必须有三类内置标签、基础自定义设计、底稿覆盖和一条指令模板链、业务数据契约/绑定、独立身份/存储/审计、Windows 固定工位打印、PDA 蓝牙直连、历史/受控重打/恢复，以及一个真实项目接入。能力分步交付，不能只完成画布就宣布平台完成。
+首版必须先有真实平台身份/权限/菜单/File/Audit/初始化兼容，以及三类内置标签、基础自定义设计、底稿覆盖和一条指令模板链、业务数据契约/绑定、Windows固定工位打印、PDA蓝牙直连、历史/受控重打/恢复；再完成同一核心的外部MES嵌入、无宿主最小装配及一个真实项目接入。能力分步交付，不能只完成独立画布就宣布平台完成，也不能以平台通过替代已批准外部范围验收。
 
 全品牌、任意 PDF 编辑、多设计器并行、全数据库支持、完整离线业务、跨厂集群、通用规则引擎、设备插件市场、称量业务后续再议。串口防爆/Wi-Fi/共享等按已选型号分批验收；未有型号、协议、样本或客户接口时明确待验证，不虚构已兼容。

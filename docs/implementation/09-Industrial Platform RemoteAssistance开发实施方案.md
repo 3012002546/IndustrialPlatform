@@ -2,6 +2,8 @@
 
 # Industrial Platform RemoteAssistance开发实施方案
 
+平台兼容与相对独立交付前置见[蓝图32§2.1～2.2](../blueprint/32-Industrial%20Platform%20Service%20Host与内部模块边界.md)：先PF05平台聊天邀请/逐人授权与真实媒体审计闭环，再验外部宿主同等契约。相对独立指协助控制面/媒体边界明确，不取消首版PF05集成依赖；未来脱离聊天须先定义宿主邀请适配，不以同Host或iframe代替解耦设计。
+
 > 当前里程碑范围：PF-06 在 `Collaboration.Service` 中加入独立 RemoteAssistance 模块。先完成现场网络、浏览器、许可和双 PoC 决策门禁；门禁通过后才允许进入领域、契约、适配、页面、部署和验收开发。首期只做一名共享者与一至三名白名单观看者的浏览器屏幕共享，不录屏、不保存画面、不远程控制、不无人值守、不默认启用音视频会议。
 
 版本：V1.2
@@ -283,6 +285,8 @@ Accepted/Connecting/Sharing → Suspended → Connecting/Sharing
 单个 Invitation Declined 不使 Session 进入 Declined；至少一人接受即可进入 Accepted/Connecting/Sharing，其余待响应邀请继续有效。全部拒绝且无接受者才 Declined；无人接受且全部过期才 Expired；混合拒绝/过期归 Expired。最后一个 Viewer 离开后 Session 进入 Suspended 等待既有有效邀请/受控重入，超过恢复期限 Terminated。
 
 `Suspended` 允许在受控恢复期限内等待有效观看者或恢复信令；捕获轨已结束时共享者必须再次主动授权。终态为 `Declined/Expired/Cancelled/Terminated`。
+
+取消仅限发起者对StartedOn仍为空的非终态会话操作；共享过后即使已Suspended也走terminate，不能把运行终止记录成未开始取消。邀请等待过期按无人接受/全部邀请终结规则进入Expired，运行或恢复超时才进入Terminated；细化规格的API与迁移表采用相同条件。
 
 ## 5.2 Invitation
 

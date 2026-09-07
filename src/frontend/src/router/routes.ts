@@ -581,6 +581,17 @@ export const routes: RouteRecordRaw[] = [
           terminal: 'pda',
         },
       },
+      {
+        path: 'files',
+        name: ROUTE_NAMES.pdaFiles,
+        component: FileUploadPage,
+        meta: {
+          title: '文件',
+          requiresAuth: true,
+          permission: PERMISSIONS.systemDataFileRead,
+          terminal: 'pda',
+        },
+      },
     ],
   },
   {

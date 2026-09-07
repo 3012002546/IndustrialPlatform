@@ -1,6 +1,6 @@
 /**
  * Mobile 关键路径 E2E(FE-009,§17):
- * 显式 Mobile 路由可达、底部导航 Tab 切换与高亮、我的页用户信息与退出、
+ * 显式 Mobile 路由可达、首页功能菜单、底部导航 Tab 切换与高亮、我的页用户信息与退出、
  * 44px 触控目标几何验收、目标视口(360×800 / 390×844)无横向滚动并截图、
  * 键盘操作与无任务/消息/审批假入口。Playwright 经 Vite dev server 提供应用。
  */
@@ -23,18 +23,21 @@ async function login(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\/pc\/home/)
 }
 
-test('显式 Mobile 路由可达并渲染业务空状态', async ({ page }) => {
+test('显式 Mobile 路由可达并渲染可用功能菜单', async ({ page }) => {
   await login(page)
   await page.goto('/mobile/home')
   await expect(page).toHaveURL(/\/mobile\/home/)
-  await expect(page.getByRole('heading', { name: '业务功能将在后续阶段接入' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '可用功能' })).toBeVisible()
+  await expect(page.getByTestId('terminal-feature-menu-file')).toBeVisible()
 })
 
-test('底部导航只含首页/我的两个 Tab,当前 Tab 高亮', async ({ page }) => {
+test('底部导航固定含首页/通知/我的三个 Tab,当前 Tab 高亮', async ({ page }) => {
   await login(page)
   await page.goto('/mobile/home')
   await expect(page.getByRole('link', { name: '首页' })).toHaveAttribute('aria-current', 'page')
+  await expect(page.getByRole('link', { name: '通知' })).not.toHaveAttribute('aria-current', 'page')
   await expect(page.getByRole('link', { name: '我的' })).not.toHaveAttribute('aria-current', 'page')
+  await expect(page.getByRole('link', { name: '文件' })).toHaveCount(0)
 
   await page.getByRole('link', { name: '我的' }).click()
   await expect(page).toHaveURL(/\/mobile\/my/)
@@ -43,6 +46,14 @@ test('底部导航只含首页/我的两个 Tab,当前 Tab 高亮', async ({ pag
 
   await page.getByRole('link', { name: '首页' }).click()
   await expect(page).toHaveURL(/\/mobile\/home/)
+})
+
+test('Mobile 首页可进入文件上传页', async ({ page }) => {
+  await login(page)
+  await page.goto('/mobile/home')
+  await page.getByTestId('terminal-feature-menu-file').click()
+  await expect(page).toHaveURL(/\/mobile\/files/)
+  await expect(page.getByRole('heading', { name: '文件上传' })).toBeVisible()
 })
 
 test('「我的」页展示当前用户并可从底部导航返回首页', async ({ page }) => {
@@ -72,7 +83,7 @@ test('44px 触控目标:主题入口、底部导航 Tab 与退出按钮几何高
   expect(theme).not.toBeNull()
   expect(theme!.width).toBeGreaterThanOrEqual(44)
   expect(theme!.height).toBeGreaterThanOrEqual(44)
-  for (const link of ['首页', '我的']) {
+  for (const link of ['首页', '通知', '我的']) {
     const box = await page.getByRole('link', { name: link }).boundingBox()
     expect(box).not.toBeNull()
     expect(box!.height).toBeGreaterThanOrEqual(44)
@@ -85,13 +96,15 @@ test('44px 触控目标:主题入口、底部导航 Tab 与退出按钮几何高
 test('键盘操作:Tab 依次可达跳过链接、主题入口与底部导航,Enter 触发「我的」', async ({ page }) => {
   await login(page)
   await page.goto('/mobile/home')
-  // 顶栏右区主题入口先于底部导航:跳过链接 → 主题入口 → 底部导航「首页」→「我的」
+  // 顶栏右区主题入口先于底部导航:跳过链接 → 主题入口 → 底部导航「首页」→「通知」→「我的」
   await page.keyboard.press('Tab')
   await expect(page.getByRole('link', { name: '跳到主内容' })).toBeFocused()
   await page.keyboard.press('Tab')
   await expect(page.getByTestId('theme-control-trigger')).toBeFocused()
   await page.keyboard.press('Tab')
   await expect(page.getByRole('link', { name: '首页' })).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(page.getByRole('link', { name: '通知' })).toBeFocused()
   await page.keyboard.press('Tab')
   await expect(page.getByRole('link', { name: '我的' })).toBeFocused()
   await page.keyboard.press('Enter')
@@ -104,7 +117,7 @@ test('Mobile 目标视口无横向滚动并保存截图', async ({ page }) => {
   // 360×800
   await page.setViewportSize({ width: 360, height: 800 })
   await page.goto('/mobile/home')
-  await expect(page.getByRole('heading', { name: '业务功能将在后续阶段接入' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '可用功能' })).toBeVisible()
   // 显式路由 meta.terminal='mobile' 是终端文案单事实源:无 override 时显示 Mobile(PF-01 §7.11)。
   await expect(page.getByTestId('terminal-info')).toContainText('Mobile')
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
@@ -115,7 +128,7 @@ test('Mobile 目标视口无横向滚动并保存截图', async ({ page }) => {
   // 390×844
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/mobile/home')
-  await expect(page.getByRole('heading', { name: '业务功能将在后续阶段接入' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '可用功能' })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   )

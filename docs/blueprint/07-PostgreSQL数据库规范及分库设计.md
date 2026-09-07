@@ -1106,7 +1106,7 @@ Migrations
 
 ---
 
-启动时不得由各业务 API 使用管理员凭据直接执行 `DatabaseInitializer` 建库。后续服务通过声明式 manifest 与 `SystemData.Service` 数据库编排 API 握手：先登记/查询期望状态，再由 SystemData 生成 plan，并按环境策略异步 provision/apply；服务在目标迁移版本确认前保持 NotReady。`DatabaseName` 是稳定逻辑身份，完整的 `DatabaseTopology` 及其拓扑切换、drift 和 Shared 规则以蓝图 33 为准。
+启动时不得由业务API使用管理员凭据直接执行 `DatabaseInitializer` 建库。平台装配由SystemData根据声明式manifest编排登记/plan/provision/apply，并调用服务自有初始化器；首次必要迁移未完成、本地账本无效或数据库身份不符时NotReady。已经初始化的服务按本地事实判断Ready，不要求每次启动都与SystemData在线握手。已批准独立装配通过受控本地维护入口调用同一Inspect/Plan/Apply/Verify及账本，不能另建初始化实现。`DatabaseName`是稳定逻辑身份；具体DatabaseTopology、drift、Shared及环境策略见蓝图33，独立交付边界见蓝图32§2.1～2.2。
 
 每个服务仍独立拥有 Migration Assembly/Bundle、迁移历史语义、expand/contract 说明和恢复方案。SystemData 只编排数据库、最小角色、授权、并发锁与迁移执行，不维护业务表定义。
 

@@ -4,15 +4,18 @@
  * 不出现扫码/称量/工单等不可用业务按钮,不伪造生产数值。
  */
 
-import { mount, type VueWrapper } from '@vue/test-utils'
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
+import { nextTick } from 'vue'
 
 import { persistAuthSession } from '../fixtures/session'
 import PdaHomePage from '@/pages/pda/PdaHomePage.vue'
+import { PERMISSIONS } from '@/permissions'
 import { routes } from '@/router/routes'
 import { useAuthStore } from '@/stores/authStore'
+import { useLocalizationStore } from '@/stores/localizationStore'
 
 async function mountHome(permissions: string[] = ['platform.pda.view']): Promise<VueWrapper> {
   // 终端文案单事实源为路由 meta.terminal(/pda/home = 'pda',PF-01 §7.11),
@@ -25,6 +28,18 @@ async function mountHome(permissions: string[] = ['platform.pda.view']): Promise
   await router.push('/pda/home')
   await router.isReady()
   return mount(PdaHomePage, { global: { plugins: [pinia, router] } })
+}
+
+async function mountHomeWithRouter(permissions: string[]): Promise<{ wrapper: VueWrapper; router: ReturnType<typeof createRouter> }> {
+  const pinia = createPinia()
+  setActivePinia(pinia)
+  persistAuthSession(permissions)
+  await useAuthStore().restore()
+  const router = createRouter({ history: createMemoryHistory(), routes })
+  await router.push('/pda/home')
+  await router.isReady()
+  const wrapper = mount(PdaHomePage, { global: { plugins: [pinia, router] } })
+  return { wrapper, router }
 }
 
 describe('PdaHomePage', () => {
@@ -70,7 +85,7 @@ describe('PdaHomePage', () => {
     const wrapper = await mountHome()
     expect(wrapper.get('[data-testid="terminal"]').text()).toBe('PDA')
     expect(wrapper.get('[data-testid="auth-mode"]').text()).toContain('Mock')
-    expect(wrapper.get('[data-testid="data-source"]').text()).toContain('Mock')
+    expect(wrapper.get('[data-testid="data-source"]').text()).toBe('演示数据')
   })
 
   it('展示现场任务空状态,不出现任何可点击的扫码/称量/工单入口', async () => {
@@ -81,6 +96,40 @@ describe('PdaHomePage', () => {
       const interactive = wrapper.findAll('button, a').filter((w) => w.text().includes(label))
       expect(interactive).toHaveLength(0)
     }
+  })
+
+  it('有文件读取权限时显示文件上传功能并进入 PDA 文件路由', async () => {
+    const { wrapper, router } = await mountHomeWithRouter([
+      'platform.pda.view',
+      PERMISSIONS.systemDataFileRead,
+    ])
+    const fileLink = wrapper.get('[data-testid="terminal-feature-menu-file"]')
+    expect(fileLink.text()).toContain('文件上传')
+    await fileLink.trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.name).toBe('pda-files')
+  })
+
+  it('没有文件读取权限时不显示功能菜单并保留 PDA 空状态', async () => {
+    const wrapper = await mountHome(['platform.pda.view'])
+    expect(wrapper.find('[data-testid="terminal-feature-menu"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('现场任务将在业务阶段接入')
+  })
+
+  it('首页基础文案随语言切换显示英文', async () => {
+    const wrapper = await mountHome(['platform.pda.view'])
+    useLocalizationStore().setLocale('en-US')
+    await nextTick()
+    expect(wrapper.get('[data-testid="welcome-description"]').text()).toContain(
+      'Field workspace status and available features',
+    )
+    expect(wrapper.findAll('dt').map((item) => item.text())).toEqual([
+      'Current terminal',
+      'Authentication mode',
+      'Data source',
+    ])
+    expect(wrapper.get('[data-testid="auth-mode"]').text()).toBe('Mock (demo mode)')
+    expect(wrapper.get('[data-testid="data-source"]').text()).toBe('Demo data')
   })
 
   it('不伪造任何生产数值', async () => {

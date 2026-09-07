@@ -41,7 +41,7 @@ export function createPf04Api(client: HttpClient): Pf04Api {
     pauseUpload: (sessionNId) => client.post<UploadSessionDto>(`${BASE}/files/upload-sessions/${id(sessionNId)}/pause`),
     resumeUpload: (sessionNId, writerEpoch, proof) => client.post<UploadSessionDto>(`${BASE}/files/upload-sessions/${id(sessionNId)}/resume`, { writerEpoch, proof }),
     cancelUpload: (sessionNId, reason) => client.post<UploadSessionDto>(`${BASE}/files/upload-sessions/${id(sessionNId)}/cancel`, { reason }),
-    uploadChunk: async (transportId, body, offset, epoch, resumeTicket) => {
+    uploadChunk: async (transportId, body, offset, epoch, resumeTicket, signal) => {
       if (client.patch === undefined) throw new Error('当前 HTTP 客户端不支持断点上传')
       return client.patch<UploadSessionDto>(`${BASE}/files/uploads/${id(transportId)}`, body, {
         headers: {
@@ -51,6 +51,7 @@ export function createPf04Api(client: HttpClient): Pf04Api {
           'Tus-Resumable': '1.0.0',
           'X-Upload-Resume-Ticket': resumeTicket,
         },
+        ...(signal === undefined ? {} : { signal }),
       })
     },
     completeUpload: (sessionNId) =>
