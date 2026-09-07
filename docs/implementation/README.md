@@ -6,7 +6,7 @@
 
 所有 PF 阶段还必须读取 `docs/blueprint/32-Industrial Platform Service Host与内部模块边界.md`。阶段编号不等于 Service Host；后续阶段可以向前一阶段创建的宿主增加独立模块，但不得合并 Schema/表前缀、契约、权限或测试，也不得跨模块直读 Repository。
 
-PF-02 及其后的新服务必须以 `docs/blueprint/07-PostgreSQL数据库规范及分库设计.md` 与蓝图 33 V3.2 为权威初始化来源，并以实施 05 为 PF-02 控制面计划。V3.2 只增补 PF-03 七模块摘要，V3.1 的初始化协议不变。SystemData 提供通用 Service Initialization Pipeline；后续服务必须交付 ServiceKey/ModuleKey、InitializationManifest/SeedSets、服务自有 migration/seed/initializer 产物、服务级或真实独立持久化单元的 schema/seed 双账本、本地 readiness、最小角色、备份登记和可观测 `OperationId`。不得自行持有管理员凭据建库、向 SystemData 传 Secret、使用 `EnsureCreated`，或让共享宿主使用模糊初始化大包。
+PF-02 及其后的新服务必须以 `docs/blueprint/07-PostgreSQL数据库规范及分库设计.md` 与蓝图 33 为权威初始化来源，并以实施 05 为 PF-02 控制面计划；引用文件与章节，不绑定文档修订号。SystemData 提供通用 Service Initialization Pipeline；后续服务必须交付 ServiceKey/ModuleKey、InitializationManifest/SeedSets、服务自有 migration/seed/initializer 产物、服务级或真实独立持久化单元的 schema/seed 双账本、本地 readiness、最小角色、备份登记和可观测 `OperationId`。不得自行持有管理员凭据建库、向 SystemData 传 Secret、使用 `EnsureCreated`，或让共享宿主使用模糊初始化大包。
 
 ## 协作边界
 

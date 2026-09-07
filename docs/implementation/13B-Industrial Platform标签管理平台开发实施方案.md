@@ -48,7 +48,7 @@ SystemBaseline 提供权限/策略目录；TenantBaseline 提供三类可复制�
 | --- | --- |
 | LabelCategory/TemplateRevision | NId、CategoryNId、Revision、State、尺寸/单位、字段绑定、渲染格式；发布后不可变 |
 | DataContractRevision/BindingRevision | 字段类型/权威来源/人工权限/敏感级别、映射/客户规则/版本，唯一匹配 |
-| PreparedJob | NId、SourceSystemNId、BusinessRef、模板/契约/绑定/客户映射版本、InputHash、SnapshotHash、ArtifactHash、ExpiresOn；不可悄悄重取数 |
+| PreparedJob | NId、SourceSystemNId、BusinessRef、模板/契约/绑定/CustomerMappingRevisionNId、RenderProfileSnapshot/Hash、InputHash、SnapshotHash、ArtifactHash、ExpiresOn；不可悄悄重取数或换打印配置 |
 | PrintJob/PrintItem | NId、PreparedJobNId、业务明细标识、Copies、目标打印机/工位、状态；不同容器独立明细 |
 | PrintAttempt | Job/ItemNId、ExecutionNId/Epoch、执行节点、提交时间、确认来源、结果/错误、原重打关联；追加记录 |
 | Printer/ExecutorBinding | 设备标识、连接类型、协议/驱动、型号/DPI、绑定节点/权限、支持回执层级；凭据仅 Secret 引用 |
@@ -66,9 +66,9 @@ SystemBaseline 提供权限/策略目录；TenantBaseline 提供三类可复制�
 | GET/POST `/templates`、POST `/templates/{nId}/revisions` | 模板读取/草稿管理，label.template.read/manage |
 | POST `/templates/{nId}/revisions/{revision}/publish` | 发布不可变版本，label.template.publish + 并发版本 |
 | GET/POST `/data-contracts`、`/bindings` | 字段与映射版本，label.data.manage |
-| POST `/prepared-jobs` | 输入来源/业务标识或标准字段/版本/明细，label.print.prepare；RequestNId 幂等 |
+| POST `/prepared-jobs` | 输入来源/业务标识或标准字段/版本/明细及renderPrinterNId，服务端固定DPI/介质/格式配置；label.print.prepare；RequestNId 幂等 |
 | GET `/prepared-jobs/{nId}`、`/prepared-jobs/{nId}/preview` | 受权快照/预览，屏蔽不允许下发字段 |
-| POST `/print-jobs` | PreparedJobNId+checksum+目标/份数，label.print.submit；再次校验权限/有效期 |
+| POST `/print-jobs` | PreparedJobNId+snapshotHash+目标/份数，label.print.submit；再次校验权限/有效期/来源状态及目标渲染配置兼容性 |
 | GET `/print-jobs`、`/print-jobs/{nId}` | 历史/逐明细/确认来源，label.history.read |
 | POST `/print-jobs/{nId}/cancel`、`/print-jobs/{nId}/reprints` | 取消/原快照重打，独立权限与原因 |
 | GET/POST `/printers`、`/executors` | 设备绑定与状态，label.device.manage |
