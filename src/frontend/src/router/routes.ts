@@ -592,6 +592,17 @@ export const routes: RouteRecordRaw[] = [
           terminal: 'pda',
         },
       },
+      {
+        path: 'notifications',
+        name: ROUTE_NAMES.pdaNotifications,
+        component: NotificationCenterPage,
+        meta: {
+          title: '通知',
+          requiresAuth: true,
+          permission: PERMISSIONS.systemDataNotificationInboxRead,
+          terminal: 'pda',
+        },
+      },
     ],
   },
   {

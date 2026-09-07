@@ -39,7 +39,15 @@ public sealed record FileObjectRecord(
     DateTimeOffset LastUpdatedOn,
     DateTimeOffset? DeletedOn,
     DateTimeOffset? RetentionUntil,
-    string? OwnerUserNId = null);
+    string? OwnerUserNId = null,
+    string? Purpose = null,
+    IReadOnlyList<FileReferenceSummaryRecord>? ReferenceSummary = null);
+
+public sealed record FileReferenceSummaryRecord(
+    string ReferenceNId,
+    string OwnerUserNId,
+    string Purpose,
+    DateTimeOffset CreatedOn);
 
 public sealed record FileReferenceRecord(
     string TenantNId,
@@ -93,6 +101,18 @@ public interface IFileStore
     Task<IReadOnlyList<FileObjectRecord>> ListDeletionCandidatesAsync(DateTimeOffset now, int limit, CancellationToken cancellationToken);
     Task MarkFileDeletedAsync(FileObjectRecord file, DateTimeOffset deletedOn, CancellationToken cancellationToken);
     Task<FilePageV1> ListFilesAsync(string tenantNId, string? search, int page, int pageSize, CancellationToken cancellationToken);
+    async Task<FilePageV1> ListFilesPageAsync(string tenantNId, string? search, string? purpose, string? ownerUserNId, string? scanStatus, bool? restricted, int page, int pageSize, CancellationToken cancellationToken)
+    {
+        var normalizedPage = Math.Max(page, 1);
+        var normalizedPageSize = Math.Clamp(pageSize, 1, 200);
+        var result = await ListFilesAsync(tenantNId, search, 1, 200, cancellationToken);
+        var filtered = result.Items.Where(item =>
+            (string.IsNullOrWhiteSpace(purpose) || string.Equals(item.Purpose, purpose.Trim(), StringComparison.OrdinalIgnoreCase))
+            && (string.IsNullOrWhiteSpace(ownerUserNId) || string.Equals(item.OwnerUserNId, ownerUserNId.Trim(), StringComparison.Ordinal))
+            && (string.IsNullOrWhiteSpace(scanStatus) || string.Equals(item.ScanStatus, scanStatus.Trim(), StringComparison.OrdinalIgnoreCase))
+            && (restricted is null || item.Restricted == restricted.Value)).ToArray();
+        return new FilePageV1 { Items = filtered.Skip((normalizedPage - 1) * normalizedPageSize).Take(normalizedPageSize).ToArray(), Page = normalizedPage, PageSize = normalizedPageSize, Total = filtered.Length };
+    }
     Task<FileObjectRecord?> CompleteSessionAsync(FileUploadSessionRecord completedSession, FileObjectRecord file, long expectedOffset, int expectedEpoch, CancellationToken cancellationToken);
     Task AddScanAttemptAsync(string tenantNId, string fileNId, string status, string detail, CancellationToken cancellationToken);
     Task<FileReferenceRecord?> GetReferenceAsync(string tenantNId, string referenceNId, CancellationToken cancellationToken);
@@ -132,6 +152,7 @@ public interface IFileService
     Task<FileObjectV1?> GetFileAsync(string tenantNId, string fileNId, CancellationToken cancellationToken);
     Task<Stream> OpenFileContentAsync(string tenantNId, string userNId, string fileNId, string? referenceNId, CancellationToken cancellationToken);
     Task<FilePageV1> ListFilesAsync(string tenantNId, string? search, int page, int pageSize, CancellationToken cancellationToken);
+    Task<FilePageV1> ListFilesPageAsync(string tenantNId, string? search, string? purpose, string? ownerUserNId, string? scanStatus, bool? restricted, int page, int pageSize, CancellationToken cancellationToken);
     Task<FileReferenceRecord> AddReferenceAsync(string tenantNId, string userNId, string fileNId, FileReferenceRequest request, CancellationToken cancellationToken);
     Task DeleteReferenceAsync(string tenantNId, string userNId, string referenceNId, CancellationToken cancellationToken);
     Task DeleteReferenceAsync(string tenantNId, string userNId, string fileNId, string referenceNId, CancellationToken cancellationToken);

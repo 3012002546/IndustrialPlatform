@@ -19,10 +19,10 @@ public sealed class NotificationsController : SystemDataControllerBase
 
     [HttpGet("announcements")]
     [Authorize(Policy = SystemDataPermissionPolicies.NotificationAnnouncementRead)]
-    public async Task<ActionResult<IReadOnlyList<NotificationAnnouncementV1>>> ListAnnouncements([FromQuery] string? search, CancellationToken cancellationToken)
+    public async Task<ActionResult<NotificationAnnouncementPageV1>> ListAnnouncements([FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 50, CancellationToken cancellationToken = default)
     {
         if (!TryGetActorContext(out var tenant, out _)) return UnauthorizedEnvelope();
-        return await Execute(() => _service.ListAnnouncementsAsync(tenant, search, cancellationToken));
+        return await Execute(() => _service.ListAnnouncementsPageAsync(tenant, search, page, pageSize, cancellationToken));
     }
 
     [HttpPost("announcements")]

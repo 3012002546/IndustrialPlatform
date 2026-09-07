@@ -38,7 +38,7 @@ PF05起分开维护设计就绪度（待细化/待前置核验/已就绪）与�
 | 02B | [统一前端第一批开发 TODO](02B-Industrial%20Platform统一前端第一批开发实施方案.md) | `TASK-FE-001～010` 已完成 |
 | 03 | [Identity Service实施方案](03-Industrial%20Platform%20Identity%20Service开发实施方案.md) | `TASK-ID-001～023` 当前范围已完成并合入；真实 PostgreSQL/Redis 联合登录链路保留为外部验收项 |
 | 04 | [PF-01 视觉主题与平台外壳实施方案](04-Industrial%20Platform视觉主题与平台外壳开发实施方案.md) | `TASK-PF01-001～007` 已完成；真实 Identity 联合验收 real E2E 19/19；外部真机 safe-area 待验收 |
-| 05 | [PF-02 SystemData实施方案](05-Industrial%20Platform%20SystemData开发实施方案.md) | 已有控制面及管理能力，PF-02 仍 active；真实菜单发布、七页/三端及外部门禁按 CURRENT/阶段 evidence 收束。PF-04 只核验所消费的稳定契约，不重做已完成前置 |
+| 05 | [PF-02 SystemData实施方案](05-Industrial%20Platform%20SystemData开发实施方案.md) | 已完成并合入；真实云 Docker/UnifiedHost、测试数据清理和完整视觉矩阵已确认，工作包已归档。后续阶段只消费稳定契约，不重做已完成前置 |
 | 06 | [PF-03 ReferenceData实施方案](06-Industrial%20Platform%20ReferenceData%20Service开发实施方案.md) | 七模块已于 2026-09-05 完成并经独立验收 PASS，当前后续 WIP 不包含在历史验收内，证据见 docs/evidence/PF-03.md |
 | 07 | [PF-04 File / Notification / Audit实施方案](07-Industrial%20Platform%20File%20Notification%20Audit开发实施方案.md) | Core已交付；历史自测及真实环境缺口见 PF-04 evidence，不能仅凭提交标记整阶段验收通过 |
 | 08 | [PF-05 Collaboration实施方案](08-Industrial%20Platform%20Collaboration开发实施方案.md) | 字段/接口/线框图已细化；001～008 待派遣、待前置核验 |

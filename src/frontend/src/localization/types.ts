@@ -479,10 +479,22 @@ export interface PlatformLocaleMessages {
       profile: string
       clearCache: string
       notification: string
-      notificationUnavailable: string
       notificationEmpty: string
+      notificationLoading: string
+      notificationLoadFailed: string
+      notificationRetry: string
+      notificationMarkRead: string
+      notificationMarkAllRead: string
+      notificationOpen: string
+      notificationRead: string
+      notificationUnread: string
       sendMessage: string
-      sendMessageUnavailable: string
+      sendMessageRecipient: string
+      sendMessageTitleLabel: string
+      sendMessageBodyLabel: string
+      sendMessageRequired: string
+      sendMessageSuccess: string
+      sendMessageFailed: string
       onlineUsersDescription: string
       onlineUsersEmpty: string
       revokeSession: string

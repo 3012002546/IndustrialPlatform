@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import { ElAlert, ElButton, ElDrawer, ElEmpty, ElMessage, ElMessageBox } from 'element-plus'
+import { ElAlert, ElButton, ElDialog, ElDrawer, ElEmpty, ElMessage, ElMessageBox } from 'element-plus'
 import { Bell, Promotion, Refresh, UserFilled } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 
 import { getManagementApi } from '@/api/identity/managementRegistry'
 import type { IdentityActiveSessionDto } from '@/api/identity/management/types'
+import { createNotificationRealtime, type NotificationRealtime } from '@/api/systemData/notificationHub'
+import { getPf04Api } from '@/api/systemData/pf04Registry'
+import type { NotificationInboxItemDto } from '@/api/systemData/pf04Types'
 import AppDataTable from '@/components/management/AppDataTable.vue'
 import type { AppDataTableColumn } from '@/components/management/AppDataTable'
 import { localeMessages } from '@/localization/i18n'
@@ -26,6 +29,19 @@ const notificationOpen = ref(false)
 const notificationTrigger = ref<HTMLButtonElement | null>(null)
 const notificationPanel = ref<HTMLElement | null>(null)
 const notificationPanelStyle = ref<Record<string, string>>({})
+const notificationItems = ref<NotificationInboxItemDto[]>([])
+const notificationUnreadCount = ref(0)
+const notificationLoading = ref(false)
+const notificationError = ref(false)
+let notificationPollTimer: number | undefined
+let notificationRealtime: NotificationRealtime | null = null
+const sendMessageOpen = ref(false)
+const sendMessageBusy = ref(false)
+const sendMessageError = ref('')
+const sendMessageTarget = ref<IdentityActiveSessionDto | null>(null)
+const sendMessageTitle = ref('')
+const sendMessageBody = ref('')
+let sendMessageIdempotencyKey = ''
 
 interface ActiveSessionTableRow extends IdentityActiveSessionDto {
   index: number
@@ -37,6 +53,8 @@ interface ActiveSessionTableRow extends IdentityActiveSessionDto {
 
 const canViewSessions = computed(() => authStore.hasPermission(PERMISSIONS.sessionView))
 const canRevokeSessions = computed(() => authStore.hasPermission(PERMISSIONS.sessionRevoke))
+const canViewNotifications = computed(() => authStore.hasPermission(PERMISSIONS.systemDataNotificationInboxRead))
+const canSendMessages = computed(() => authStore.hasPermission(PERMISSIONS.systemDataNotificationSystemSend))
 
 function formatDate(value: string): string {
   const date = new Date(value)
@@ -86,6 +104,123 @@ async function openSessions(): Promise<void> {
   await loadSessions()
 }
 
+function safeNotificationRoute(route: string | null | undefined): string | null {
+  if (route === undefined || route === null || !route.startsWith('/') || route.startsWith('//')) return null
+  if (/[\u0000-\u001f\u007f]/.test(route)) return null
+  return route
+}
+
+async function loadNotifications(): Promise<void> {
+  if (!canViewNotifications.value) return
+  const api = getPf04Api()
+  if (api === null) {
+    notificationError.value = true
+    return
+  }
+  notificationLoading.value = true
+  notificationError.value = false
+  try {
+    const result = await api.getInbox(1, 20)
+    notificationItems.value = result.items
+    notificationUnreadCount.value = result.unreadCount
+  } catch {
+    notificationError.value = true
+  } finally {
+    notificationLoading.value = false
+  }
+}
+
+function openNotificationTarget(route: string | null | undefined): void {
+  const safeRoute = safeNotificationRoute(route)
+  if (safeRoute !== null) void router.push(safeRoute)
+}
+
+async function markNotificationRead(item: NotificationInboxItemDto): Promise<void> {
+  if (item.isRead) return
+  const api = getPf04Api()
+  if (api === null) return
+  try {
+    await api.markRead(item.notificationNId)
+    await loadNotifications()
+  } catch {
+    notificationError.value = true
+  }
+}
+
+async function markAllNotificationsRead(): Promise<void> {
+  const api = getPf04Api()
+  const ids = notificationItems.value.filter((item) => !item.isRead).map((item) => item.notificationNId)
+  if (api === null || ids.length === 0) return
+  try {
+    await api.batchRead(ids)
+    await loadNotifications()
+  } catch {
+    notificationError.value = true
+  }
+}
+
+function toggleNotifications(): void {
+  if (!canViewNotifications.value) return
+  notificationOpen.value = !notificationOpen.value
+  if (notificationOpen.value) {
+    void loadNotifications()
+    void nextTick(() => {
+      positionNotificationPanel()
+      notificationPanel.value?.focus()
+    })
+  }
+}
+
+function openSendMessage(row: IdentityActiveSessionDto): void {
+  if (!canSendMessages.value) return
+  sendMessageTarget.value = row
+  sendMessageTitle.value = ''
+  sendMessageBody.value = ''
+  sendMessageError.value = ''
+  sendMessageIdempotencyKey = `shell-${row.userNId}-${crypto.randomUUID?.() ?? `${Date.now()}`}`
+  sendMessageOpen.value = true
+}
+
+function closeSendMessage(): void {
+  if (sendMessageBusy.value) return
+  sendMessageOpen.value = false
+  sendMessageTarget.value = null
+  sendMessageError.value = ''
+}
+
+async function submitSendMessage(): Promise<void> {
+  const target = sendMessageTarget.value
+  const api = getPf04Api()
+  if (api === null || target === null || sendMessageBusy.value) return
+  if (sendMessageTitle.value.trim() === '' || sendMessageBody.value.trim() === '') {
+    sendMessageError.value = copy.value.sendMessageRequired
+    return
+  }
+  sendMessageBusy.value = true
+  sendMessageError.value = ''
+  try {
+    await api.sendSystemMessage({
+      title: sendMessageTitle.value.trim(),
+      body: sendMessageBody.value.trim(),
+      recipientUserNIds: [target.userNId],
+      idempotencyKey: sendMessageIdempotencyKey,
+    })
+    ElMessage.success(copy.value.sendMessageSuccess)
+    sendMessageBusy.value = false
+    closeSendMessage()
+  } catch {
+    sendMessageError.value = copy.value.sendMessageFailed
+    ElMessage.error(sendMessageError.value)
+  } finally {
+    sendMessageBusy.value = false
+  }
+}
+
+function beforeCloseSendMessage(done: () => void): void {
+  if (sendMessageBusy.value) return
+  done()
+}
+
 function positionNotificationPanel(): void {
   const triggerRect = notificationTrigger.value?.getBoundingClientRect()
   if (triggerRect === undefined) return
@@ -98,16 +233,6 @@ function positionNotificationPanel(): void {
     ? below
     : Math.max(gap, triggerRect.top - panelHeight - gap)
   notificationPanelStyle.value = { top: `${top}px`, left: `${left}px` }
-}
-
-function toggleNotifications(): void {
-  notificationOpen.value = !notificationOpen.value
-  if (notificationOpen.value) {
-    void nextTick(() => {
-      positionNotificationPanel()
-      notificationPanel.value?.focus()
-    })
-  }
 }
 
 function closeNotifications(restoreFocus = false): void {
@@ -156,17 +281,31 @@ onMounted(() => {
   document.addEventListener('pointerdown', onDocumentPointerDown)
   window.addEventListener('resize', positionNotificationPanel)
   window.addEventListener('scroll', positionNotificationPanel, true)
+  if (canViewNotifications.value) {
+    void loadNotifications()
+    notificationRealtime = createNotificationRealtime({
+      getAccessToken: () => authStore.session?.accessToken ?? null,
+      onRefresh: loadNotifications,
+    })
+    void notificationRealtime.start()
+    notificationPollTimer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void loadNotifications()
+    }, 15000)
+  }
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', onDocumentPointerDown)
   window.removeEventListener('resize', positionNotificationPanel)
   window.removeEventListener('scroll', positionNotificationPanel, true)
+  if (notificationPollTimer !== undefined) window.clearInterval(notificationPollTimer)
+  if (notificationRealtime !== null) void notificationRealtime.stop()
 })
 </script>
 
 <template>
   <button
+    v-if="canViewNotifications"
     ref="notificationTrigger"
     type="button"
     class="ip-shell-action ip-shell-message"
@@ -174,10 +313,13 @@ onBeforeUnmount(() => {
     :aria-label="copy.notification"
     :aria-expanded="notificationOpen"
     aria-haspopup="dialog"
-    :title="copy.notificationUnavailable"
+    :title="copy.notification"
     @click="toggleNotifications"
   >
     <Bell aria-hidden="true" />
+    <span v-if="notificationUnreadCount > 0" class="ip-shell-notification-badge" data-testid="shell-notification-unread-count">
+      {{ notificationUnreadCount > 99 ? '99+' : notificationUnreadCount }}
+    </span>
   </button>
 
   <Teleport to="body">
@@ -192,8 +334,33 @@ onBeforeUnmount(() => {
       :style="notificationPanelStyle"
       @keydown="onNotificationKeydown"
     >
-      <div class="ip-shell-notifications-panel__title">{{ copy.notification }}</div>
-      <ElEmpty :description="copy.notificationEmpty" />
+      <div class="ip-shell-notifications-panel__header">
+        <div class="ip-shell-notifications-panel__title">{{ copy.notification }}</div>
+        <ElButton link :loading="notificationLoading" :aria-label="copy.notificationRetry" @click="loadNotifications">
+          <Refresh aria-hidden="true" />
+        </ElButton>
+      </div>
+      <p v-if="notificationLoading" class="ip-shell-notifications-panel__state">{{ copy.notificationLoading }}</p>
+      <ElAlert v-else-if="notificationError" type="error" :closable="false" show-icon>
+        {{ copy.notificationLoadFailed }}
+        <ElButton data-testid="shell-notification-retry" link type="danger" @click="loadNotifications">{{ copy.notificationRetry }}</ElButton>
+      </ElAlert>
+      <ElEmpty v-else-if="notificationItems.length === 0" :description="copy.notificationEmpty" />
+      <div v-else class="ip-shell-notifications-list">
+        <article v-for="item in notificationItems" :key="item.notificationNId" class="ip-shell-notification-item" :class="{ 'is-unread': !item.isRead }">
+          <div class="ip-shell-notification-item__content">
+            <strong>{{ item.title }}</strong>
+            <p>{{ item.body }}</p>
+            <time :datetime="item.deliveredOn">{{ formatDate(item.deliveredOn) }}</time>
+            <span>{{ item.isRead ? copy.notificationRead : copy.notificationUnread }}</span>
+          </div>
+          <div class="ip-shell-notification-item__actions">
+            <ElButton v-if="!item.isRead" :data-testid="`shell-notification-read-${item.notificationNId}`" link @click="markNotificationRead(item)">{{ copy.notificationMarkRead }}</ElButton>
+            <ElButton v-if="safeNotificationRoute(item.targetRoute) !== null" :data-testid="`shell-notification-open-${item.notificationNId}`" link @click="openNotificationTarget(item.targetRoute)">{{ copy.notificationOpen }}</ElButton>
+          </div>
+        </article>
+        <ElButton v-if="notificationItems.some((item) => !item.isRead)" data-testid="shell-notification-mark-all-read" link type="primary" @click="markAllNotificationsRead">{{ copy.notificationMarkAllRead }}</ElButton>
+      </div>
     </div>
   </Teleport>
   <button
@@ -245,11 +412,12 @@ onBeforeUnmount(() => {
         </template>
         <template #actions="{ row }">
           <ElButton
+            v-if="canSendMessages"
             link
-            disabled
-            :title="copy.sendMessageUnavailable"
-            :aria-label="copy.sendMessageUnavailable"
+            :title="copy.sendMessage"
+            :aria-label="copy.sendMessage"
             data-testid="shell-send-message"
+            @click="openSendMessage(row as IdentityActiveSessionDto)"
           >
             <Promotion aria-hidden="true" />
           </ElButton>
@@ -265,10 +433,30 @@ onBeforeUnmount(() => {
       </AppDataTable>
     </div>
   </ElDrawer>
+
+  <ElDialog v-if="sendMessageOpen" v-model="sendMessageOpen" :title="copy.sendMessage" width="min(520px, calc(100vw - 32px))" destroy-on-close data-testid="shell-send-message-dialog" :before-close="beforeCloseSendMessage" @close="closeSendMessage">
+    <el-form label-width="90px" @submit.prevent="submitSendMessage">
+      <el-form-item :label="copy.sendMessageRecipient">
+        <el-input data-testid="shell-send-message-recipient" :model-value="sendMessageTarget?.name || sendMessageTarget?.loginName || ''" disabled />
+      </el-form-item>
+      <el-form-item :label="copy.sendMessageTitleLabel">
+        <el-input v-model="sendMessageTitle" data-testid="shell-send-message-title" />
+      </el-form-item>
+      <el-form-item :label="copy.sendMessageBodyLabel">
+        <el-input v-model="sendMessageBody" data-testid="shell-send-message-body" type="textarea" :rows="5" />
+      </el-form-item>
+      <p v-if="sendMessageError" role="alert" class="ip-shell-send-message-error">{{ sendMessageError }}</p>
+    </el-form>
+    <template #footer>
+      <ElButton :disabled="sendMessageBusy" @click="closeSendMessage">{{ common.action.cancel }}</ElButton>
+      <ElButton data-testid="shell-send-message-submit" type="primary" :loading="sendMessageBusy" @click="submitSendMessage">{{ common.action.confirm }}</ElButton>
+    </template>
+  </ElDialog>
 </template>
 
 <style scoped>
 .ip-shell-action {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -298,6 +486,20 @@ onBeforeUnmount(() => {
   height: 18px;
 }
 
+.ip-shell-notification-badge {
+  position: absolute;
+  top: 0;
+  right: -2px;
+  min-width: 16px;
+  padding: 0 4px;
+  color: var(--ip-color-on-primary);
+  background: var(--ip-color-danger);
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+}
+
 .ip-shell-notifications-panel {
   position: fixed;
   z-index: 2200;
@@ -315,6 +517,63 @@ onBeforeUnmount(() => {
 .ip-shell-notifications-panel__title {
   font-size: var(--ip-font-size-md);
   font-weight: 650;
+}
+
+.ip-shell-notifications-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ip-shell-notifications-panel__state {
+  margin: var(--ip-space-4) 0;
+  color: var(--ip-color-text-secondary);
+}
+
+.ip-shell-notifications-list {
+  display: grid;
+  gap: var(--ip-space-2);
+  margin-top: var(--ip-space-3);
+}
+
+.ip-shell-notification-item {
+  display: grid;
+  gap: var(--ip-space-2);
+  padding: var(--ip-space-3);
+  border: 1px solid var(--ip-color-border);
+  border-radius: var(--ip-radius-md);
+}
+
+.ip-shell-notification-item.is-unread {
+  border-color: var(--ip-color-primary);
+}
+
+.ip-shell-notification-item__content {
+  display: grid;
+  gap: var(--ip-space-1);
+}
+
+.ip-shell-notification-item__content p,
+.ip-shell-notification-item__content time,
+.ip-shell-notification-item__content span {
+  margin: 0;
+  color: var(--ip-color-text-secondary);
+  font-size: var(--ip-font-size-xs);
+}
+
+.ip-shell-notification-item__content p {
+  white-space: pre-wrap;
+}
+
+.ip-shell-notification-item__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ip-space-2);
+}
+
+.ip-shell-send-message-error {
+  margin: var(--ip-space-3) 0 0;
+  color: var(--ip-color-danger);
 }
 
 .ip-shell-notifications-panel :deep(.el-empty) {

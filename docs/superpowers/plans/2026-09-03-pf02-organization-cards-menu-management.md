@@ -1,7 +1,7 @@
 # PF-02 行政组织、菜单与管理员初始化修改计划
 
 > 状态：2026-09-03 用户已要求“分发任务开始执行”，本计划转入实施；尚未宣称实现或验收通过。执行轮次：`PF02-20260903-功能整改`。
-> 执行者须先读取 `industrial-platform-task-collaboration`、`industrial-platform-management-page` 及选型引用。复用原开发与独立验收任务，稳定交接，不创建逐步骤派遣卡、不逐项询问用户；允许文件及旧纯样式边界的精确例外以 `docs/tasks/active/PF-02.md` 末尾最新执行补充为准。
+> 执行者须先读取 `industrial-platform-task-collaboration`、`industrial-platform-management-page` 及选型引用。复用原开发与独立验收任务，稳定交接，不创建逐步骤派遣卡、不逐项询问用户；历史执行边界见 `docs/tasks/archive/PF-02.md`。
 
 **Goal:** 修复企业登录源、租户主题策略和服务初始化编排的阻断问题，补齐固定管理员专用的表结构与基础数据初始化，再完成行政组织卡片、可配置菜单及平台入口整理。
 
@@ -193,7 +193,7 @@ SystemData 的共同缺口已可从调用链确定：
 
 ### 阶段 1：稳定基线与失败场景
 
-**文件：** 本计划；读取 `docs/tasks/active/PF-02.md`、`docs/evidence/PF-02.md`、`docs/status/CURRENT.md`；读取黄金页和受影响组件。
+**文件：** 本计划；读取 `docs/tasks/archive/PF-02.md`、`docs/evidence/PF-02.md`、`docs/status/CURRENT.md`；读取黄金页和受影响组件。
 
 - [ ] 接收现有纯视觉返修的稳定交接，记录最新 HEAD、dirty diff、已完成按钮/页壳增量与剩余风险；不因本计划回退这些改动。
 - [x] 主控已在原 PF-02 工作包明确新增“三页错误、固定管理员初始化、组织卡片、菜单完整用例、默认入口分区”和精确跨域边界；仅此项为派遣文档完成，不代表代码完成。

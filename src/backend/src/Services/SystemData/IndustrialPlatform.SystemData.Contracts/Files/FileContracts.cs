@@ -84,9 +84,21 @@ public sealed record FileObjectV1
     public string Sha256 { get; init; } = string.Empty;
     public string ScanStatus { get; init; } = string.Empty;
     public bool Restricted { get; init; }
+    public string? Purpose { get; init; }
+    public string? OwnerUserNId { get; init; }
+    public int ReferenceCount { get; init; }
+    public IReadOnlyList<FileReferenceSummaryV1> ReferenceSummary { get; init; } = [];
     public string DeletionStatus { get; init; } = string.Empty;
     public DateTimeOffset CreatedOn { get; init; }
     public DateTimeOffset? RetentionUntil { get; init; }
+}
+
+public sealed record FileReferenceSummaryV1
+{
+    public string ReferenceNId { get; init; } = string.Empty;
+    public string OwnerUserNId { get; init; } = string.Empty;
+    public string Purpose { get; init; } = string.Empty;
+    public DateTimeOffset CreatedOn { get; init; }
 }
 
 public sealed record FilePageV1

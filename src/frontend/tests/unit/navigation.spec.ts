@@ -35,6 +35,17 @@ describe('pcNavigationGroups', () => {
     })
   })
 
+  it('注册 PDA 通知中心路由并声明终端与收件箱权限元数据', () => {
+    const pda = routes.find((record) => record.path === '/pda')
+    const notifications = pda?.children?.find((record) => record.name === ROUTE_NAMES.pdaNotifications)
+    expect(notifications?.path).toBe('notifications')
+    expect(notifications?.meta).toMatchObject({
+      permission: PERMISSIONS.systemDataNotificationInboxRead,
+      terminal: 'pda',
+      requiresAuth: true,
+    })
+  })
+
   it('每个静态分组与菜单项都有稳定文案键和保底文案', () => {
     for (const group of pcNavigationGroups) {
       expect(group.labelKey).toBe(`shell.navigation.group.${group.id}`)

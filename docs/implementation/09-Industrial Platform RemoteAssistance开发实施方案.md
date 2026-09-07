@@ -106,7 +106,7 @@ Vue 3 / TypeScript / Pinia / Edge / Chrome
 ## 1.2 当前输入状态
 
 - 执行前置：PoC需要明确的网络/浏览器/引擎输入；生产集成需要已验收的PF05宿主、身份、个人邀请与审计契约，不绑定代码提交。
-- PF-04 Core 已有 File/Audit Contracts/应用代码，真实环境验收仍有缺口；PF-02 仍 active，PF-03 已合入。详见 CURRENT 和 PF-04 evidence，不沿用 2026-08-14 “全部未开发”判断。
+- PF-04 Core 已有 File/Audit Contracts/应用代码，真实环境验收仍有缺口；PF-02、PF-03 已完成并合入。详见 CURRENT 和 PF-04 evidence，不沿用 2026-08-14 “全部未开发”判断。
 - PF05实施方案及细化规格定义所需设计契约，产品集成必须核对未来实际交付；不能把 Notification SignalR 当作聊天契约。
 - 原 Screego 认证/许可结论是 2026-08-14 基准记录；在 PF06-001 固定版本重新核验，不宣称已部署或适配生产。
 - 本轮只改文档；未运行双 PoC、浏览器、现场网络、构建或功能测试，未提交推送。

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElDropdown, ElDropdownItem, ElDropdownMenu } from 'element-plus'
 import AppDataTable from '@/components/management/AppDataTable.vue'
 import AppFormDrawer from '@/components/management/AppFormDrawer.vue'
 import AppPage from '@/components/base/AppPage.vue'
@@ -10,6 +11,7 @@ import { PERMISSIONS } from '@/permissions'
 import { getPf04Api } from '@/api/systemData/pf04Registry'
 import { createNotificationRealtime, type NotificationRealtime } from '@/api/systemData/notificationHub'
 import type { AnnouncementDto, NotificationInboxItemDto } from '@/api/systemData/pf04Types'
+import type { AppDataTableRequest } from '@/components/management/AppDataTable'
 import { useLocalizationStore } from '@/stores/localizationStore'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
@@ -17,7 +19,6 @@ import { systemDataPageCopy } from '@/localization/systemData'
 
 const localization = useLocalizationStore()
 const router = useRouter()
-const api = getPf04Api()
 const authStore = useAuthStore()
 const copy = computed(() => {
   const page = systemDataPageCopy(localization.locale, 'notificationsManagement')
@@ -54,9 +55,11 @@ const copy = computed(() => {
     draftUpdatedPublished: text('draftUpdatedPublished'),
     draftSaved: text('draftSaved'),
     systemMessageSent: text('systemMessageSent'),
+    retry: text('retry'),
   }
 })
 const announcements = ref<AnnouncementDto[]>([])
+const announcementTotal = ref(0)
 const inbox = ref<NotificationInboxItemDto[]>([])
 const inboxTotal = ref(0)
 const search = ref('')
@@ -67,6 +70,14 @@ const editingId = ref<string | null>(null)
 let pollTimer: number | undefined
 let realtime: NotificationRealtime | null = null
 const errorMessage = ref('')
+const loading = ref(false)
+const canReadInbox = computed(() => authStore.hasPermission(PERMISSIONS.systemDataNotificationInboxRead))
+const canReadAnnouncements = computed(() => authStore.hasPermission(PERMISSIONS.systemDataNotificationAnnouncementRead))
+const canManageAnnouncements = computed(() => authStore.hasPermission(PERMISSIONS.systemDataNotificationAnnouncementManage))
+const canPublishAnnouncements = computed(() => authStore.hasPermission(PERMISSIONS.systemDataNotificationAnnouncementPublish))
+const canSendSystemMessages = computed(() => authStore.hasPermission(PERMISSIONS.systemDataNotificationSystemSend))
+const unsafeRouteCharacterPattern = /[\u0000-\u001f\u007f]/
+let mutationIdempotencyKey = ''
 const columns = computed(() => [
   { field: 'title', title: copy.value.titleColumn, minWidth: 220 },
   { field: 'status', title: copy.value.status, width: 120 },
@@ -81,34 +92,67 @@ const inboxColumns = computed(() => [
   { field: 'deliveredOn', title: copy.value.delivered, minWidth: 180 },
 ])
 async function load(): Promise<void> {
+  const api = getPf04Api()
   if (api === null) return
+  loading.value = true
   try {
-    announcements.value = await api.listAnnouncements(search.value)
-    const inboxPage = await api.getInbox()
-    inbox.value = inboxPage.items
-    inboxTotal.value = inboxPage.total
+    const tasks: Promise<unknown>[] = []
+    if (canReadAnnouncements.value) {
+      tasks.push(loadAnnouncementsPage({ pageIndex: 1, pageSize: 25 } as AppDataTableRequest))
+    } else {
+      announcements.value = []; announcementTotal.value = 0
+    }
+    if (canReadInbox.value) {
+      tasks.push(loadInboxPage({ pageIndex: 1, pageSize: 25 } as AppDataTableRequest))
+    } else {
+      inbox.value = []
+      inboxTotal.value = 0
+    }
+    await Promise.all(tasks)
     errorMessage.value = ''
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : copy.value.loadFailed
-  }
+  } finally { loading.value = false }
+}
+
+async function loadAnnouncementsPage(request: AppDataTableRequest): Promise<{ items: AnnouncementDto[]; total: number; pageIndex: number; pageSize: number }> {
+  const api = getPf04Api()
+  if (api === null || !canReadAnnouncements.value) return { items: [], total: 0, pageIndex: request.pageIndex, pageSize: request.pageSize }
+  const result = await api.listAnnouncements(search.value, request.pageIndex, request.pageSize)
+  announcements.value = result.items
+  announcementTotal.value = result.total
+  return { items: result.items, total: result.total, pageIndex: result.page, pageSize: result.pageSize }
+}
+
+async function loadInboxPage(request: AppDataTableRequest): Promise<{ items: NotificationInboxItemDto[]; total: number; pageIndex: number; pageSize: number }> {
+  const api = getPf04Api()
+  if (api === null || !canReadInbox.value) return { items: [], total: 0, pageIndex: request.pageIndex, pageSize: request.pageSize }
+  const result = await api.getInbox(request.pageIndex, request.pageSize)
+  inbox.value = result.items
+  inboxTotal.value = result.total
+  return { items: result.items, total: result.total, pageIndex: result.page, pageSize: result.pageSize }
 }
 function reset(): void { search.value = ''; void load() }
 async function create(): Promise<void> {
+  const api = getPf04Api()
   if (api === null || busy.value) return
+  if (form.mode === 'system' && !canSendSystemMessages.value) return
+  if (form.mode === 'announcement' && !canManageAnnouncements.value) return
   busy.value = true
   try {
     const recipients = form.recipients.split(',').map((value) => value.trim()).filter(Boolean)
+    const publish = form.publish && canPublishAnnouncements.value
     if (form.mode === 'system') {
-      await api.sendSystemMessage({ title: form.title, body: form.body, recipientUserNIds: recipients, idempotencyKey: `ui-${Date.now()}` })
+      await api.sendSystemMessage({ title: form.title, body: form.body, recipientUserNIds: recipients, idempotencyKey: mutationIdempotencyKey })
       ElMessage.success(copy.value.systemMessageSent)
     } else if (editingId.value !== null) {
       await api.updateAnnouncement(editingId.value, { title: form.title, body: form.body, ...(recipients.length ? { recipientUserNIds: recipients } : {}) })
-      if (form.publish) await api.publishAnnouncement(editingId.value)
-      ElMessage.success(form.publish ? copy.value.draftUpdatedPublished : copy.value.draftSaved)
+      if (publish) await api.publishAnnouncement(editingId.value)
+      ElMessage.success(publish ? copy.value.draftUpdatedPublished : copy.value.draftSaved)
     } else {
-      const announcement = await api.createAnnouncement({ title: form.title, body: form.body, recipientUserNIds: recipients, idempotencyKey: `ui-${Date.now()}` })
-      if (form.publish) await api.publishAnnouncement(announcement.announcementNId)
-      ElMessage.success(form.publish ? copy.value.announcementPublished : copy.value.draftSaved)
+      const announcement = await api.createAnnouncement({ title: form.title, body: form.body, recipientUserNIds: recipients, idempotencyKey: mutationIdempotencyKey })
+      if (publish) await api.publishAnnouncement(announcement.announcementNId)
+      ElMessage.success(publish ? copy.value.announcementPublished : copy.value.draftSaved)
     }
     open.value = false; editingId.value = null; Object.assign(form, { title: '', body: '', recipients: '', mode: 'announcement', publish: true }); await load()
   } catch (error) {
@@ -117,30 +161,43 @@ async function create(): Promise<void> {
     open.value = true
   } finally { busy.value = false }
 }
-async function markRead(item: NotificationInboxItemDto): Promise<void> { if (api !== null && !item.isRead) { await api.markRead(item.notificationNId); await load() } }
-async function revoke(row: AnnouncementDto): Promise<void> { if (api !== null && row.status === 'Published') { await api.revokeAnnouncement(row.announcementNId); await load() } }
-async function markAllRead(): Promise<void> { if (api !== null) { const ids = inbox.value.filter((item) => !item.isRead).map((item) => item.notificationNId); if (ids.length) { await api.batchRead(ids); await load() } } }
-function edit(row: AnnouncementDto): void { editingId.value = row.announcementNId; Object.assign(form, { title: row.title, body: row.body, recipients: '', mode: 'announcement', publish: false }); open.value = true }
-function openTarget(route: string | null | undefined): void { if (route && route.startsWith('/') && !route.startsWith('//') && !/[\r\n]/.test(route)) void router.push(route) }
+async function markRead(item: NotificationInboxItemDto): Promise<void> { const api = getPf04Api(); if (api !== null && canReadInbox.value && !item.isRead) { await api.markRead(item.notificationNId); await load() } }
+async function revoke(row: AnnouncementDto): Promise<void> { const api = getPf04Api(); if (api !== null && canManageAnnouncements.value && row.status === 'Published') { await api.revokeAnnouncement(row.announcementNId); await load() } }
+async function confirmRevoke(row: AnnouncementDto): Promise<void> {
+  if (!canManageAnnouncements.value || row.status !== 'Published') return
+  try {
+    await ElMessageBox.confirm('撤回后该公告不再作为有效通知继续展示，确认撤回吗？', '撤回公告确认', { type: 'warning' })
+    await revoke(row)
+  } catch { /* 用户取消或业务失败时保留当前页面状态 */ }
+}
+async function markAllRead(): Promise<void> { const api = getPf04Api(); if (api !== null && canReadInbox.value) { const ids = inbox.value.filter((item) => !item.isRead).map((item) => item.notificationNId); if (ids.length) { await api.batchRead(ids); await load() } } }
+function openAnnouncement(): void { if (!canManageAnnouncements.value) return; mutationIdempotencyKey = `ui-${crypto.randomUUID?.() ?? Date.now()}`; form.mode = 'announcement'; editingId.value = null; open.value = true }
+function openSystemMessage(): void { if (!canSendSystemMessages.value) return; mutationIdempotencyKey = `ui-${crypto.randomUUID?.() ?? Date.now()}`; form.mode = 'system'; editingId.value = null; open.value = true }
+function edit(row: AnnouncementDto): void { mutationIdempotencyKey = `ui-${crypto.randomUUID?.() ?? Date.now()}`; editingId.value = row.announcementNId; Object.assign(form, { title: row.title, body: row.body, recipients: '', mode: 'announcement', publish: false }); open.value = true }
+function handleAnnouncementAction(row: AnnouncementDto, command: string | number | object): void { if (command === 'edit') edit(row); if (command === 'revoke') void confirmRevoke(row) }
+defineExpose({ confirmRevoke })
+function safeNotificationRoute(route: string | null | undefined): string | null { if (route === undefined || route === null || !route.startsWith('/') || route.startsWith('//') || unsafeRouteCharacterPattern.test(route)) return null; return route }
+function openTarget(route: string | null | undefined): void { const safeRoute = safeNotificationRoute(route); if (safeRoute !== null) void router.push(safeRoute) }
 onMounted(() => {
   void load()
-  realtime = createNotificationRealtime({ getAccessToken: () => authStore.session?.accessToken ?? null, onRefresh: load })
-  void realtime.start()
-  pollTimer = window.setInterval(() => { if (document.visibilityState === 'visible') void load() }, 15000)
+  if (canReadInbox.value) {
+    realtime = createNotificationRealtime({ getAccessToken: () => authStore.session?.accessToken ?? null, onRefresh: load })
+    void realtime.start()
+    pollTimer = window.setInterval(() => { if (document.visibilityState === 'visible') void load() }, 15000)
+  }
 })
 onBeforeUnmount(() => { if (pollTimer !== undefined) window.clearInterval(pollTimer); if (realtime !== null) void realtime.stop() })
 </script>
 
 <template>
   <AppPage :title="copy.title" :description="copy.description">
-    <template #actions><PermissionGate :permission-n-id="PERMISSIONS.systemDataNotificationAnnouncementManage"><el-button type="primary" @click="form.mode = 'announcement'; editingId = null; open = true">{{ copy.newAnnouncement }}</el-button><el-button @click="form.mode = 'system'; editingId = null; open = true">{{ copy.sendSystemMessage }}</el-button></PermissionGate></template>
+    <template #actions><PermissionGate :permission-n-id="PERMISSIONS.systemDataNotificationAnnouncementManage"><el-button type="primary" data-testid="notification-new-announcement" @click="openAnnouncement">{{ copy.newAnnouncement }}</el-button></PermissionGate><PermissionGate :permission-n-id="PERMISSIONS.systemDataNotificationSystemSend"><el-button data-testid="notification-send-system" @click="openSystemMessage">{{ copy.sendSystemMessage }}</el-button></PermissionGate></template>
     <AppQueryPanel :title="copy.announcementQuery" show-actions @submit="load" @reset="reset"><el-input v-model="search" clearable /></AppQueryPanel>
-    <p v-if="errorMessage" class="pf04-error" role="alert">{{ errorMessage }}</p>
-    <AppDataTable table-key="systemdata-announcements" route-key="systemdata-notifications" row-key="announcementNId" :rows="announcements" :total="announcements.length" :columns="columns"><template #cell-actions="{ row }"><el-button v-if="row.status === 'Draft'" link type="primary" @click="edit(row)">{{ copy.edit }}</el-button><el-button v-if="row.status === 'Published'" link type="danger" @click="revoke(row)">{{ copy.revoke }}</el-button></template></AppDataTable>
-    <h2 class="pf04-section-title">{{ copy.myInbox }}</h2>
-    <el-button v-if="inbox.some((item) => !item.isRead)" @click="markAllRead">{{ copy.markAllRead }}</el-button><AppDataTable table-key="systemdata-notification-inbox" route-key="systemdata-notifications" row-key="notificationNId" :rows="inbox" :total="inboxTotal" :columns="inboxColumns"><template #cell-isRead="{ row }"><el-button v-if="!row.isRead" link type="primary" @click="markRead(row)">{{ copy.markRead }}</el-button><el-button v-if="row.targetRoute" link @click="openTarget(row.targetRoute)">{{ copy.open }}</el-button><span v-else>✓</span></template></AppDataTable>
+    <p v-if="errorMessage" class="pf04-error" role="alert">{{ errorMessage }} <el-button link type="danger" @click="load">{{ copy.retry }}</el-button></p>
+    <AppDataTable table-key="systemdata-announcements" route-key="systemdata-notifications" row-key="announcementNId" :rows="announcements" :total="announcementTotal" :columns="columns" :loading="loading" :loader="loadAnnouncementsPage"><template #cell-actions="{ row }"><ElDropdown v-if="canManageAnnouncements && (row.status === 'Draft' || row.status === 'Published')" trigger="click" @command="(command) => handleAnnouncementAction(row, command)"><el-button link data-testid="notification-row-more">{{ copy.actions }}</el-button><template #dropdown><ElDropdownMenu><ElDropdownItem v-if="row.status === 'Draft'" command="edit">{{ copy.edit }}</ElDropdownItem><ElDropdownItem v-if="row.status === 'Published'" command="revoke" divided>{{ copy.revoke }}</ElDropdownItem></ElDropdownMenu></template></ElDropdown></template></AppDataTable>
+    <template v-if="canReadInbox"><h2 class="pf04-section-title">{{ copy.myInbox }}</h2><el-button v-if="inbox.some((item) => !item.isRead)" @click="markAllRead">{{ copy.markAllRead }}</el-button><AppDataTable table-key="systemdata-notification-inbox" route-key="systemdata-notifications" row-key="notificationNId" :rows="inbox" :total="inboxTotal" :columns="inboxColumns" :loading="loading" :loader="loadInboxPage"><template #cell-isRead="{ row }"><el-button v-if="!row.isRead" link type="primary" @click="markRead(row)">{{ copy.markRead }}</el-button><el-button v-if="safeNotificationRoute(row.targetRoute) !== null" link @click="openTarget(row.targetRoute)">{{ copy.open }}</el-button><span v-else>✓</span></template></AppDataTable></template>
   </AppPage>
-  <AppFormDrawer v-model="open" :busy="busy" :title="form.mode === 'system' ? copy.sendSystemMessage : (editingId ? copy.edit : copy.newAnnouncement)" @submit="create"><el-form label-width="100px"><el-form-item :label="copy.titleLabel"><el-input v-model="form.title" /></el-form-item><el-form-item :label="copy.bodyLabel"><el-input v-model="form.body" type="textarea" :rows="6" /></el-form-item><el-form-item :label="copy.usersLabel"><el-input v-model="form.recipients" :placeholder="copy.usersPlaceholder" /></el-form-item><el-checkbox v-if="form.mode === 'announcement'" v-model="form.publish">{{ copy.publish }}</el-checkbox></el-form></AppFormDrawer>
+  <AppFormDrawer v-model="open" :busy="busy" :title="form.mode === 'system' ? copy.sendSystemMessage : (editingId ? copy.edit : copy.newAnnouncement)" @submit="create"><el-form label-width="100px"><el-form-item :label="copy.titleLabel"><el-input v-model="form.title" /></el-form-item><el-form-item :label="copy.bodyLabel"><el-input v-model="form.body" type="textarea" :rows="6" /></el-form-item><el-form-item :label="copy.usersLabel"><el-input v-model="form.recipients" :placeholder="copy.usersPlaceholder" /></el-form-item><el-checkbox v-if="form.mode === 'announcement' && canPublishAnnouncements" v-model="form.publish">{{ copy.publish }}</el-checkbox></el-form></AppFormDrawer>
 </template>
 
 <style scoped>.pf04-section-title { margin: 24px 0 12px; color: var(--ip-color-text-primary); }</style>

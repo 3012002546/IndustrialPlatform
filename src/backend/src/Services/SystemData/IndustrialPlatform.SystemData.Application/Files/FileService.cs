@@ -269,6 +269,9 @@ public sealed class FileService : IFileService
     public Task<FilePageV1> ListFilesAsync(string tenantNId, string? search, int page, int pageSize, CancellationToken cancellationToken) =>
         _store.ListFilesAsync(tenantNId, search, Math.Max(page, 1), Math.Clamp(pageSize, 1, 200), cancellationToken);
 
+    public Task<FilePageV1> ListFilesPageAsync(string tenantNId, string? search, string? purpose, string? ownerUserNId, string? scanStatus, bool? restricted, int page, int pageSize, CancellationToken cancellationToken) =>
+        _store.ListFilesPageAsync(tenantNId, search, purpose, ownerUserNId, scanStatus, restricted, Math.Max(page, 1), Math.Clamp(pageSize, 1, 200), cancellationToken);
+
     public async Task<FileReferenceRecord> AddReferenceAsync(string tenantNId, string userNId, string fileNId, FileReferenceRequest request, CancellationToken cancellationToken)
     {
         _ = await _store.GetFileAsync(tenantNId, fileNId, cancellationToken) ?? throw Error("FILE_NOT_FOUND", "文件不存在。", 404);
@@ -437,6 +440,16 @@ public sealed class FileService : IFileService
         Sha256 = file.Sha256,
         ScanStatus = file.ScanStatus,
         Restricted = file.Restricted,
+        Purpose = file.Purpose,
+        OwnerUserNId = file.OwnerUserNId,
+        ReferenceCount = file.ReferenceSummary?.Count ?? 0,
+        ReferenceSummary = file.ReferenceSummary?.Select(reference => new FileReferenceSummaryV1
+        {
+            ReferenceNId = reference.ReferenceNId,
+            OwnerUserNId = reference.OwnerUserNId,
+            Purpose = reference.Purpose,
+            CreatedOn = reference.CreatedOn
+        }).ToArray() ?? [],
         DeletionStatus = file.DeletionStatus,
         CreatedOn = file.CreatedOn,
         RetentionUntil = file.RetentionUntil
