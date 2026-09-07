@@ -11,6 +11,8 @@
 
 本文是 Industrial Platform 开发顺序和阶段状态的唯一总体维护源，不替代各模块详细设计和实施方案。
 
+开发Todo只写能力、契约、环境与授权前置，不绑定代码分支、提交哈希或工作树版本；依赖文档引用文件/章节，不复制修订号。业务数据版本、并发控制、迁移checksum和客户端兼容版本仍按各自契约维护。本轮同步核对见[蓝图与Todo一致性检查记录](../evidence/2026-09-07-blueprint-todo-sync.md)。
+
 本文负责：
 
 - 记录当前真实进度；
@@ -297,7 +299,7 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 
 # 11. PF-04 File / Notification / Audit
 
-**状态：** 2026-09-06 完成开发就绪复评并整包派遣 PF-04 Core（001～009）；截至 2026-09-07，Core已交付，真实验收待补。功能开发任务 `01a076d2-a8d3-7163-8721-8cae51393d92`，独立验收任务 `01a076d3-3abf-7921-a367-9b70749d0780` 保持不变。实施入口：[07 V1.1](../implementation/07-Industrial%20Platform%20File%20Notification%20Audit开发实施方案.md)。010 为后续增强待细化。
+**状态：** 2026-09-06 完成开发就绪复评并整包派遣 PF-04 Core（001～009）；截至 2026-09-07，Core已交付，真实验收待补。功能开发任务 `01a076d2-a8d3-7163-8721-8cae51393d92`，独立验收任务 `01a076d3-3abf-7921-a367-9b70749d0780` 保持不变。实施入口：[实施 07](../implementation/07-Industrial%20Platform%20File%20Notification%20Audit开发实施方案.md)。010 为后续增强待细化。
 
 **Service Host：** 三个逻辑模块加入现有 SystemData.Service，沿用服务级迁移/账本与可靠设施，数据命名空间/公开契约独立；不新增三个 Host、四 Unit 硬前置或重复 PF-02 数据库治理。当前 PF-02 仍 active，PF-03 已完成合入；前置按所消费的具体契约和证据核验，不沿用旧“全部尚不存在”。
 
@@ -344,7 +346,7 @@ Audit Advanced（010）包含哈希链、签名 checkpoint、外部锚点、完�
 
 # 13. PF-06 RemoteAssistance
 
-**状态：** 详细设计已确认，PoC 决策门禁待派遣
+**状态：** 核心字段/接口/线框已细化；待派遣、就绪度待PoC与集成前置核验，未实施。
 **Service Host：** RemoteAssistance 作为独立内部模块加入 `Collaboration.Service`，并保留未来物理拆分能力。
 **建议会话标题：** `PF-06 RemoteAssistance阶段管理`
 **实施文档：** `docs/implementation/09-Industrial Platform RemoteAssistance开发实施方案.md`

@@ -43,7 +43,7 @@
 | --- | --- |
 | capabilities | 容器、OS、NativeVersion/WebVersion/BridgeContractVersion 与 Supported/Unsupported/PermissionRequired 状态 |
 | lifecycle | start/stop/resume、前后台/休眠、主体换人清理；resume 必须恢复权威状态 |
-| scanner | acquire/release 当前输入会话；ScanResult(value, source, symbology?, receivedOn, sessionNId) |
+| scanner | acquire/release 当前输入会话；ScanResultV1(contractVersion, eventNId, value, source, symbology?, receivedOn, sessionNId, subjectEpoch)，source=keyboard/broadcast/camera；按eventNId去重，连续相同条码不丢弃 |
 | camera/bluetooth | 权限请求、取消、一次扫描、受权设备连接/读写/断连；不开放任意命令 |
 | files/printer | 受限选择/预览/保存和批准打印能力，按实际支持说明；标签任务后续接 Agent |
 | notifications/navigation | 应用/系统提醒、受权打开会话；点击后重新鉴权 |
@@ -63,9 +63,9 @@
 
 ## 9. 更新详细流程
 
-受信清单包含 Channel、NativeVersion/WebVersion、BridgeContractVersion、MinNativeVersion、ArtifactHash、Signature、下载位置和安全最低版本。校验清单来源与产物签名，限制下载目标；离线停留最后良好版本。下载→校验→暂存→等待安全点→激活→启动健康确认，任何失败回退并记录原因。Web 包不能调用当前原生没有的 bridge；插件、JAR/AAR、权限清单变化走 APK 完整升级。
+受信清单维护发布通道、客户端兼容范围、产物hash/签名、下载位置和安全最低版本，精确JSON字段以细化规格§1为准。校验清单来源与产物签名，限制下载目标；离线停留最后良好版本。下载→校验→暂存→等待安全点→激活→启动健康确认；PDA Bundle按细化规格§3的60秒健康窗口回退安全的最后良好包，PC安装包/APK按系统规则恢复，必要时操作员介入，不承诺任何失败均可自动降级。Web 包不能调用当前原生没有的 bridge；插件、JAR/AAR、权限清单变化走 APK 完整升级。
 
-PC 首版完整安装包更新；PDA 分别做 Bundle 与 APK。实施 001/005 评估 electron-builder/electron-updater、Capacitor 更新插件或自托管方案的版本/许可/离线可用性，尚未锁定不能写已采用。
+PC 首版完整安装包更新；PDA 分别做 Bundle 与 APK。001先核验 electron-builder/electron-updater、Capacitor 更新插件或自托管方案的版本/许可/离线可用性并回写规格，005实施已明确路线，尚未核验不能写已采用。
 
 ## 10. 验收矩阵
 

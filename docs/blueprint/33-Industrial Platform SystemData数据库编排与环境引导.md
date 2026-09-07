@@ -125,7 +125,7 @@ SystemData 不直接编写、推断或长期维护业务表/种子定义，不�
 
 ## 5.3 双账本与幂等
 
-每个服务或具有独立持久化生命周期的初始化单元拥有 migration/seed ledger；逻辑模块不因领域拆分机械创建独立账本。ReferenceData 的七个模块共享一个 `referencedata_db`、`reference_data` Schema 及服务级双账本；骨架当前遗留 `reference_data_schema_migrations` 与 `reference_data_seed_ledger` CodeFirst 占位表，PF-03 正式目标统一为 `reference_data.schema_migrations` 与 `reference_data.seed_ledger`。seed ledger 至少记录：
+每个服务或具有独立持久化生命周期的初始化单元拥有 migration/seed ledger；逻辑模块不因领域拆分机械创建独立账本。ReferenceData 的七个模块共享一个 `referencedata_db`、`reference_data` Schema 及服务级双账本；正式契约为 `reference_data.schema_migrations` 与 `reference_data.seed_ledger`。历史骨架的 CodeFirst 占位名称只用于升级排查，是否仍存在须Inspect实际目标，不作为新模块复制模板。seed ledger 至少记录：
 
 ```text
 TenantNId / ModuleKey / SeedKey / SeedVersion / Checksum / Scope

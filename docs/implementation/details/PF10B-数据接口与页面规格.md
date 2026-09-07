@@ -144,7 +144,7 @@ UQ(tenant_n_id,binding_n_id,revision)。同一来源/客户/契约用于新准�
 | TenantNId / `tenant_n_id` | key | 可信租户 |
 | RequestedByUserNId / `requested_by_user_n_id` | key | 操作人/调用主体 |
 | RequestNId / `request_n_id` | nid | 准备幂等 |
-| RequestHash / `request_hash` | hash | 来源/业务引用/版本/输入/客户/明细身份摘要 |
+| RequestHash / `request_hash` | hash | 原始受权请求的规范摘要：来源/业务引用/显式版本/输入/客户/renderPrinterNId/明细身份；重试先匹配原请求，不重新解析最新配置 |
 | SourceSystemNId / `source_system_n_id` | key | 来源系统 |
 | BusinessRef / `business_ref` | str(200) | 业务引用，不作为隐式全局唯一键 |
 | SourceVersion / `source_version` | str(128)? | 来源支持时必填；无版本的限制登记 |
@@ -152,15 +152,18 @@ UQ(tenant_n_id,binding_n_id,revision)。同一来源/客户/契约用于新准�
 | TemplateRevisionNId / `template_revision_n_id` | nid | 跨模板版本无FK |
 | ContractRevisionNId / `contract_revision_n_id` | nid | 固定契约版本 |
 | BindingRevisionNId / `binding_revision_n_id` | nid | 固定映射版本 |
+| CustomerMappingRevisionNId / `customer_mapping_revision_n_id` | key? | 服务端按绑定解析并冻结；无客户映射时NULL，保密映射使用时必填 |
+| RenderProfileSnapshot / `render_profile_snapshot` | json | §3声明的不可变打印配置快照，含来源打印机配置版本、DPI/介质/格式/协议 |
+| RenderProfileHash / `render_profile_hash` | hash | 规范化RenderProfileSnapshot摘要，纳入SnapshotHash；与原始请求的RequestHash分开 |
 | InputHash / `input_hash` | hash | 原始受权输入规范摘要 |
-| SnapshotHash / `snapshot_hash` | hash | 全部PreparedItem按itemKey排序摘要 |
+| SnapshotHash / `snapshot_hash` | hash | 固定版本集合、RenderProfileHash及全部PreparedItem按itemKey排序摘要 |
 | ArtifactHash / `artifact_hash` | hash | 整个产物清单摘要 |
 | CreatedOn / `created_on` | time | 服务UTC |
 | ExpiresOn / `expires_on` | time | 创建后15分钟；只限制新提交，不影响已正式任务历史 |
 | State / `state` | str(16) | Preparing / Ready / Failed / Expired |
 | ErrorCode / `error_code` | str(96)? | 失败字段路径可另安全返回，不带保密原文 |
 
-技术快照；UQ(tenant_n_id,requested_by_user_n_id,request_n_id)，IX(state,expires_on)。Ready后输入/版本/明细/产物不可变。过期同键查询仍返回原过期状态，新准备必须新requestNId。未正式使用的准备包默认保留24小时，正式引用跟随打印历史365天或项目保全，不能因ExpiresOn已到直接删。
+技术快照；UQ(tenant_n_id,requested_by_user_n_id,request_n_id)，IX(state,expires_on)。Ready后输入/版本/明细/产物不可变。SnapshotHash覆盖来源版本、模板/契约/绑定/客户映射版本、RenderProfileHash及按itemKey排序的明细快照hash；版本集合变化不能保持相同准备摘要。过期同键查询仍返回原过期状态，新准备必须新requestNId。未正式使用的准备包默认保留24小时，正式引用跟随打印历史365天或项目保全，不能因ExpiresOn已到直接删。
 
 ### 2.7 data_prepared_item
 
@@ -312,7 +315,9 @@ Windows/PDA执行端使用私有SQLite `execution_ledger`（技术表）：`exec
 
 `MappingsJson={schemaVersion:1,sourceAdapterKey:string,customerMappingRevisionNId?:string,fields:[{targetKey,sourcePath?:string,constant?:typedValue,transform:'Identity'|'FormatDate'|'FormatDecimal'|'CustomerMaterialMap',format?:string}]}`。sourcePath只允许注册DTO属性路径；sourcePath/constant互斥；模板不能执行JS/SQL/任意网络请求。CustomerMaterialMap要求匹配当前客户+内部稳定物料标识，缺失阻断，禁止用内部name兜底。
 
-`SchemaJson={schemaVersion:1,elements:[{elementNId:string32,kind:'Text'|'Barcode'|'QrCode'|'Image'|'Line',xMm:decimal-string,yMm:decimal-string,widthMm:decimal-string,heightMm:decimal-string,fieldKey?:string,staticText?:string,rotation:0|90|180|270,fontRef?:string,barcodeFormat?:string}]}`。最多500元素；位置与尺寸须在画布内；fieldKey必须存在且权限允许；条码格式/字符集由渲染adapter验证，不将用户内容直接拼ZPL。底稿hash/字体/编码版本纳入SchemaHash，预览与打印同产物。
+`SchemaJson={schemaVersion:1,elements:[{elementNId:string32,kind:'Text'|'Barcode'|'QrCode'|'Image'|'Line'|'Rectangle',xMm:decimal-string,yMm:decimal-string,widthMm:decimal-string,heightMm:decimal-string,fieldKey?:string,staticText?:string,rotation:0|90|180|270,fontRef?:string,barcodeFormat?:string}]}`。最多500元素；位置非负，Rectangle及普通元素宽高>0，Line允许宽或高为0但不得同时为0；旋转后边界须在画布内。首版Line/Rectangle为无填充黑色0.2mm描边，若需配置描边先扩展schema；fieldKey必须存在且权限允许；条码格式/字符集由渲染adapter验证，不将用户内容直接拼ZPL。底稿hash/字体/编码版本纳入SchemaHash，预览与打印同产物。
+
+`RenderProfileSnapshot={schemaVersion:1,printerNId:string32,printerConfigVersion:decimal-string,dpi:203|300|600,widthMm:decimal-string,heightMm:decimal-string,renderFormat:'Pdf'|'Raster'|'Zpl',protocol:device_printer.Protocol,connectionProfileRef:string<=128}`。准备请求只指定已授权的renderPrinterNId；服务端从设备配置读取dpi/协议/受控配置引用及OptimisticVersion，从模板版本读取介质尺寸/格式，核验兼容后保存本快照，客户端不得覆盖这些派生字段。connectionProfileRef不含秘密；配置引用对应的受控参数改变必须推进设备配置版本。绑定引用的客户映射版本必须同样可追溯，不能在渲染中再次查询“最新映射”。提交和执行前比较目标能力/介质/格式及有效配置；不同目标只能使用已验证兼容配置，不能静默缩放或重渲染。
 
 首个样例：同一物料两只容器 C001/C002 → 两个PreparedItem，分别有containerNId、customerMaterialName、lot、quantity:decimal-string、unitNId和printedOn；Copies=2表示每个明细两份，不能把C001/C002压成一个明细两份。保密样例：没有客户物料名→400 `LABEL_CUSTOMER_MAPPING_REQUIRED`，预览/日志/产物均不得含内部物料名。
 
@@ -326,8 +331,8 @@ Windows/PDA执行端使用私有SQLite `execution_ledger`（技术表）：`exec
 | A10B-02 POST templates/{nId}/revisions | {baseRevision?:string,widthMm:string,heightMm:string,renderFormat,backgroundFileNId?,dataContractRevisionNId,schemaJson,双版本} | {revisionNId,revision:string,state,双版本}；template.manage；编辑Draft另PUT同revision路径 |
 | A10B-03 POST templates/{nId}/revisions/{revision}/publish | {schemaHash,requestNId,双版本} | Published版本；template.publish；变化/过期版本409 |
 | A10B-04 GET/POST data-contracts或bindings | 配置查询 / §2.4或2.5业务字段（不接生命周期） | 当前版本摘要；data.manage；修订/发布分别`/{nId}/revisions`与`/{nId}/publish`，带checksum/双版本 |
-| A10B-05 POST prepared-jobs | {requestNId,sourceSystemNId,businessRef,sourceVersion?,customerNId?,templateRevisionNId,bindingRevisionNId,items:[{itemKey,businessItemRef,values:typedObject}]} | 202 {preparedJobNId,state}，完成GET取Ready；prepare权限；最多100明细/总body1MiB |
-| A10B-06 GET prepared-jobs/{nId}及/{nId}/preview | 无body；preview指定itemKey | {state,snapshotHash,artifactHash,expiresOn,items:[{itemKey,safeFields,artifactHash}]} / 受权二进制；不再次取业务源 |
+| A10B-05 POST prepared-jobs | {requestNId,sourceSystemNId,businessRef,sourceVersion?,customerNId?,templateRevisionNId,bindingRevisionNId,renderPrinterNId,items:[{itemKey,businessItemRef,values:typedObject}]} | 202 {preparedJobNId,state}，完成GET取Ready；prepare权限；最多100明细/总body1MiB |
+| A10B-06 GET prepared-jobs/{nId}及/{nId}/preview | 无body；preview指定itemKey | {state,snapshotHash,artifactHash,renderProfileHash,renderProfile:{dpi,widthMm,heightMm,renderFormat},expiresOn,items:[{itemKey,safeFields,artifactHash}]} / 受权二进制；不再次取业务源 |
 | A10B-07 POST print-jobs | {requestNId,preparedJobNId,snapshotHash,items:[{itemKey,copies:number,printerNId,executorNId}]} | 202 {jobNId,state,items:[{itemNId,state}]}；submit；到期410、hash冲突409 |
 | A10B-08 GET print-jobs及/{nId} | 受控query / 无body | 历史/逐明细/attempt/确认来源/原重打关联；history.read |
 | A10B-09 POST print-jobs/{nId}/cancel | {requestNId,reason,双版本} | 逐条取消/不可取消结果；print.cancel；不能取消已物理提交结果 |
@@ -338,7 +343,11 @@ Windows/PDA执行端使用私有SQLite `execution_ledger`（技术表）：`exec
 | A10B-14 POST executions/{nId}/receipts | {receiptNId,epoch:string,eventKind,outcome,confirmationSource,errorCode?,deviceOccurredOn?} | {accepted:boolean,currentState}；认证节点/归属/epoch；同键异载荷409 |
 | A10B-15 POST executions/{nId}/heartbeat | {epoch:string,executorNId} | {leaseExpiresOn,state}；每10s，过期按§2.14恢复规则，不自动重发物理操作 |
 
-错误稳定码：LABEL_VALIDATION_FAILED(400)、LABEL_CUSTOMER_MAPPING_REQUIRED(400)、LABEL_NOT_FOUND(404)、LABEL_VERSION_CONFLICT(409)、LABEL_IDEMPOTENCY_CONFLICT(409)、LABEL_SOURCE_CHANGED(409)、LABEL_PREPARED_EXPIRED(410)、LABEL_DEVICE_UNAVAILABLE(503)。OutcomeUnknown是200查询中的业务状态，不作为5xx诱导HTTP自动重试。权限前缀统一`label.`；公开预览/产物每次校验租户/客户/用途，短期访问并不取消服务端权威。
+错误稳定码：LABEL_VALIDATION_FAILED(400)、LABEL_CUSTOMER_MAPPING_REQUIRED(400)、LABEL_NOT_FOUND(404)、LABEL_VERSION_CONFLICT(409)、LABEL_IDEMPOTENCY_CONFLICT(409)、LABEL_SOURCE_CHANGED(409)、LABEL_RENDER_PROFILE_MISMATCH(409)、LABEL_PREPARED_EXPIRED(410)、LABEL_DEVICE_UNAVAILABLE(503)、LABEL_SOURCE_UNAVAILABLE(503)。OutcomeUnknown是200查询中的业务状态，不作为5xx诱导HTTP自动重试。权限前缀统一`label.`；公开预览/产物每次校验租户/客户/用途，短期访问并不取消服务端权威。
+
+准备、提交及发送前经注册来源公开适配端口检查可打印条件/来源版本，禁止跨业务库查询；来源返回撤销或版本变化则阻止发送并记录LABEL_SOURCE_CHANGED，不修改原快照。来源暂不可用时发送前失败关闭，恢复后须重新复核；已持久SubmitIntent后的不确定结果按OutcomeUnknown对账，不能当普通503重发。独立人工来源检查本地受权输入和有效性。客户不提供版本/撤销查询时，G10B-1必须明确可保证的时效范围，不能声称实时撤单阻断；复核与物理I/O之间仍存在外部竞态，不能承诺撤回已发送纸张。
+
+Job汇总优先级：存在OutcomeUnknown即OutcomeUnknown；否则尚有Queued/Claimed/Submitting/Submitted则Queued（全部Queued）或Running；全部Confirmed才Succeeded；全Cancelled为Cancelled；终结集合含Confirmed及Failed/Cancelled为PartiallySucceeded；其余终结失败为Failed。SpoolerAccepted保持Item=Submitted，直到可信DeviceConfirmed或授权OperatorVerified；长期缺回执按核实流程处理，不自动转为成功或重新打印。
 
 ```json
 {"requestNId":"fcdb71383b62403b896b97aa3a652006","preparedJobNId":"caaad64b409847fcb614e729e586ee36","snapshotHash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","items":[{"itemKey":"C001","copies":2,"printerNId":"73933a8024094c789bcc901eb7c1b021","executorNId":"09b93b17950c496a8897c8d4c67ba734"},{"itemKey":"C002","copies":2,"printerNId":"73933a8024094c789bcc901eb7c1b021","executorNId":"09b93b17950c496a8897c8d4c67ba734"}]}
@@ -388,7 +397,7 @@ Windows/PDA执行端使用私有SQLite `execution_ledger`（技术表）：`exec
 ```text
 PC /pc/label/print
 ┌ 打印标签：1业务输入 → 2固定预览 → 3提交结果             ┐
-│ 来源/业务引用/模板版本                    准备标签     │
+│ 来源/业务引用/模板/打印配置(DPI/介质)       准备标签     │
 ├ 业务明细表（itemKey/数量/单位/份数） ┬ 当前明细固定预览 ┤
 │ 单选当前预览，不代表只打印这一条     │ 版本/校验/有效期 │
 │ 逐行份数1～100，不同容器单独一行     │ 不重新取数       │
@@ -401,7 +410,7 @@ PDA /pda/label/print
 └ 无法确认是否出纸：核实，不能默认“重试打印”             ┘
 ```
 
-业务输入变更即作废当前Prepared引用并提示重新准备，不能保留旧hash继续提交。准备/提交各自guard；409/410保留业务选择，提供重新准备；“未知”不显示默认自动重试。详情选择single/compact但提交集合由明确作业明细决定，不把预览选中行当批量打印范围。A10B-05～07/11，print.prepare/submit/resolve独立权限。
+PC/PDA都在准备前选择打印配置；目标步骤可换为授权且已验证兼容的工位，改变DPI/介质/格式须重新准备和确认。业务输入变更即作废当前Prepared引用并提示重新准备，不能保留旧hash继续提交。准备/提交各自guard；409/410保留业务选择，提供重新准备；“未知”不显示默认自动重试。详情选择single/compact但提交集合由明确作业明细决定，不把预览选中行当批量打印范围。A10B-05～07/11，print.prepare/submit/resolve独立权限。
 
 ### 5.4 W10B-05 历史与W10B-06 设备
 
@@ -428,9 +437,9 @@ PDA /pda/label/print
 | --- | --- | --- |
 | PF10B-001 | §3样例+G10B-1/2/3，客户字段/保密/设备/身份适配核验先完成，回写最终映射后派生产 | 缺字段、客户映射/设备回执不明均显式阻塞，不交给开发猜 |
 | PF10B-002 | §1/2.14，独立Host/初始化/身份文件审计公开端口 | 不启动全平台可认证并真实持久审计；平台切换只替适配；真实私有配置不出库 |
-| PF10B-003 | §2.4～2.7/§3/§4 A04～06 | 字段type/precision/权威/保密校验；两容器不同Item；同键异输入409；源变化不偷换快照 |
-| PF10B-004 | §2.1～2.3/§3/§5 W01，模板版本/底稿/渲染 | 发布不可改；预览hash等于实际打印产物；条码转义/背景坐标/字体固定 |
-| PF10B-005 | §2.8～2.10/§4 A07～11/13～15，提交→领取→回执 | 并发只一个epoch；未确认不Succeeded；未知不自动重试；部分成功逐条可见 |
+| PF10B-003 | §2.4～2.7/§3/§4 A04～06 | 字段type/precision/权威/保密校验；两容器不同Item；同键异输入409；配置变化后重试仍返回原准备；映射/渲染配置纳入快照，源变化不偷换快照 |
+| PF10B-004 | §2.1～2.3/§3/§5 W01，模板版本/底稿/渲染 | 发布不可改；Text/Barcode/QrCode/Image/Line/Rectangle逐类验证；预览hash等于实际打印产物；条码转义/背景坐标/字体固定 |
+| PF10B-005 | §2.8～2.10/§4 A07～11/13～15，提交→领取→回执 | 并发只一个epoch；提交/发送前复核来源与配置，拒绝不兼容目标；未确认不Succeeded；未知不自动重试；部分成功逐条可见 |
 | PF10B-006 | §2.11～2.14，Windows服务+用户态助手+私有ledger | 真实工位同执行路径；SubmitIntent后崩溃Unknown；Electron复用同Agent |
 | PF10B-007 | 同一DTO接PDA原生adapter，明确BLE与SPP | 真机出纸、断连/权限/重复请求、跨工位不得越权 |
 | PF10B-008 | §5全部线框+§4 API，按模板/数据/作业/历史/设备纵向接页 | 真实菜单、客户保密负例、copies/Item区分、主从选择、错误保留输入 |
