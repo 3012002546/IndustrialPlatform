@@ -28,6 +28,9 @@ export const ROUTE_NAMES = {
   systemDataServices: 'systemdata-services',
   systemDataThemes: 'systemdata-themes',
   systemDataServiceInitialization: 'systemdata-service-initialization',
+  systemDataFiles: 'systemdata-files',
+  systemDataNotifications: 'systemdata-notifications',
+  systemDataAudits: 'systemdata-audits',
   referenceDataDictionaries: 'reference-data-dictionaries',
   referenceDataParameters: 'reference-data-parameters',
   referenceDataDynamicProperties: 'reference-data-dynamic-properties',
@@ -40,6 +43,8 @@ export const ROUTE_NAMES = {
   pdaHome: 'pda-home',
   mobileHome: 'mobile-home',
   mobileMy: 'mobile-my',
+  mobileFiles: 'mobile-files',
+  mobileNotifications: 'mobile-notifications',
   notFound: 'not-found',
 } as const
 

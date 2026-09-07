@@ -15,8 +15,11 @@ using IndustrialPlatform.SystemData.Infrastructure.Persistence.SystemData;
 using IndustrialPlatform.SystemData.Infrastructure.Topology;
 using IndustrialPlatform.SystemData.Infrastructure.Reliability;
 using IndustrialPlatform.SystemData.Infrastructure.Identity;
+using IndustrialPlatform.SystemData.Infrastructure.Files;
 using IndustrialPlatform.SystemData.Application.Auditing;
 using IndustrialPlatform.SystemData.Application.Authorization;
+using IndustrialPlatform.SystemData.Application.Files;
+using IndustrialPlatform.SystemData.Application.Notifications;
 using IndustrialPlatform.SharedKernel.Topology;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -65,6 +68,25 @@ public static class DependencyInjection
         services.AddHostedService(sp => sp.GetRequiredService<SystemDataBaselineSeedRunner>());
         services.AddSingleton<IControlPlaneOutbox, SqlControlPlaneOutbox>();
         services.AddSingleton<ILocalAuditCommand, SqlLocalAuditCommand>();
+        services.AddSingleton<ISystemDataWriteTransaction, SqlSystemDataWriteTransaction>();
+        services.AddSingleton<Pf04Store>();
+        services.AddSingleton<IFileStore>(sp => sp.GetRequiredService<Pf04Store>());
+        services.AddSingleton<INotificationStore>(sp => sp.GetRequiredService<Pf04Store>());
+        services.AddSingleton<INotificationTargetValidator, NotificationTargetValidator>();
+        services.AddSingleton<IAuditStore>(sp => sp.GetRequiredService<Pf04Store>());
+        services.AddOptions<AuditFailureSpoolOptions>()
+            .Bind(configuration.GetSection(AuditFailureSpoolOptions.SectionName));
+        services.AddSingleton<IAuditFailureSink, FileAuditFailureSink>();
+        services.AddOptions<SystemDataFileStorageOptions>()
+            .Bind(configuration.GetSection(SystemDataFileStorageOptions.SectionName));
+        services.AddSingleton<IFileContentStore, LocalFileContentStore>();
+        services.AddSingleton<IFileUploadCoordinator, LocalFileUploadCoordinator>();
+        services.AddSingleton<IFileScanner, ClamAvFileScanner>();
+        services.AddHostedService<FileLifecycleHostedService>();
+        services.AddHostedService<NotificationExpiryHostedService>();
+        services.AddHostedService<AuditLifecycleHostedService>();
+        services.AddHostedService<AuditIngressFailureRecoveryHostedService>();
+        services.AddHostedService<AuditOutboxDispatcher>();
 
         // 受信任环境的数据库拓扑选项(05 方案 §2.3/§7.1),供拓扑解析与编排使用。
         services.AddOptions<DatabaseTopologyOptions>()

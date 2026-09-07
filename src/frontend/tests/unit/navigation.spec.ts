@@ -140,9 +140,9 @@ describe('pcNavigationGroups', () => {
     }
   })
 
-  it('只注册真实 PC 工作台路由,不含 SystemData/通知/聊天等假入口', () => {
+  it('只注册真实 PC 工作台路由,不含聊天等假入口', () => {
     const labels = pcNavigationGroups.flatMap((g) => g.items).map((i) => i.label)
-    const fakeKeywords = ['SystemData', '通知', '聊天', '消息', '协作']
+    const fakeKeywords = ['SystemData', '聊天', '消息', '协作']
     for (const keyword of fakeKeywords) {
       expect(
         labels.some((l) => l.includes(keyword)),

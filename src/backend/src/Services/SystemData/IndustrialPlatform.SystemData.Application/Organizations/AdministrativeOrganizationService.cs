@@ -19,16 +19,19 @@ public sealed class AdministrativeOrganizationService : IAdministrativeOrganizat
 {
     private readonly IAdministrativeOrganizationStore _store;
     private readonly ILocalAuditCommand _audit;
+    private readonly ISystemDataWriteTransaction _transaction;
 
     /// <summary>初始化行政组织管理用例。</summary>
     public AdministrativeOrganizationService(
         IAdministrativeOrganizationStore store,
-        ILocalAuditCommand audit)
+        ILocalAuditCommand audit,
+        ISystemDataWriteTransaction? transaction = null)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(audit);
         _store = store;
         _audit = audit;
+        _transaction = transaction ?? new NoopSystemDataWriteTransaction();
     }
 
     /// <inheritdoc />
@@ -132,9 +135,11 @@ public sealed class AdministrativeOrganizationService : IAdministrativeOrganizat
             }
 
             organization.ClearDomainEvents();
-            await AdministrationWriteGuard.ExecuteAsync(() => _store.AddAsync(organization, cancellationToken));
-            await RecordAuditAsync(tenantNId, actorUserNId, traceId, "organization.create", "Organization", organization.NId,
-                request.ParentOrganizationNId is { } parentAuditNId ? $"父={parentAuditNId}" : "根公司", null, ToSummary(organization));
+            await ExecuteWriteWithAuditAsync(
+                () => AdministrationWriteGuard.ExecuteAsync(() => _store.AddAsync(organization, cancellationToken)),
+                new LocalAuditEntry(tenantNId, actorUserNId, "organization.create", "Organization", organization.NId,
+                    request.ParentOrganizationNId is { } parentAuditNId ? $"父={parentAuditNId}" : "根公司", null, ToSummary(organization), traceId),
+                cancellationToken);
             return ToDetailV1(organization);
         }
         catch (ValidationException ex)
@@ -171,8 +176,11 @@ public sealed class AdministrativeOrganizationService : IAdministrativeOrganizat
             organization.Rename(name);
             organization.ChangeDisplayOrder(displayOrder);
             organization.ClearDomainEvents();
-            await AdministrationWriteGuard.ExecuteAsync(() =>
-                _store.UpdateAsync(organization, expectedOptimisticVersion, expectedConcurrencyVersion, cancellationToken));
+            await ExecuteWriteWithAuditAsync(
+                () => AdministrationWriteGuard.ExecuteAsync(() =>
+                    _store.UpdateAsync(organization, expectedOptimisticVersion, expectedConcurrencyVersion, cancellationToken)),
+                new LocalAuditEntry(tenantNId, actorUserNId, "organization.update", "Organization", organization.NId, null, before, ToSummary(organization), traceId),
+                cancellationToken);
         }
         catch (ValidationException ex)
         {
@@ -183,7 +191,6 @@ public sealed class AdministrativeOrganizationService : IAdministrativeOrganizat
             throw new AdministrationConcurrencyConflictException(ex.Message);
         }
 
-        await RecordAuditAsync(tenantNId, actorUserNId, traceId, "organization.update", "Organization", organization.NId, null, before, ToSummary(organization));
         return ToDetailV1(organization);
     }
 
@@ -286,8 +293,11 @@ public sealed class AdministrativeOrganizationService : IAdministrativeOrganizat
                 targetParent.Status == OrganizationStatus.Active,
                 subtreeNIds);
             organization.ClearDomainEvents();
-            await AdministrationWriteGuard.ExecuteAsync(() =>
-                _store.UpdateAsync(organization, expectedOptimisticVersion, expectedConcurrencyVersion, cancellationToken));
+            await ExecuteWriteWithAuditAsync(
+                () => AdministrationWriteGuard.ExecuteAsync(() =>
+                    _store.UpdateAsync(organization, expectedOptimisticVersion, expectedConcurrencyVersion, cancellationToken)),
+                new LocalAuditEntry(tenantNId, actorUserNId, "organization.move", "Organization", organization.NId, request.Reason, before, ToSummary(organization), traceId),
+                cancellationToken);
         }
         catch (ValidationException ex)
         {
@@ -298,7 +308,6 @@ public sealed class AdministrativeOrganizationService : IAdministrativeOrganizat
             throw MapMoveBusinessException(ex, subtreeNIds, targetParentNId);
         }
 
-        await RecordAuditAsync(tenantNId, actorUserNId, traceId, "organization.move", "Organization", organization.NId, request.Reason, before, ToSummary(organization));
         return ToDetailV1(organization);
     }
 
@@ -346,8 +355,12 @@ public sealed class AdministrativeOrganizationService : IAdministrativeOrganizat
             }
 
             organization.ClearDomainEvents();
-            await AdministrationWriteGuard.ExecuteAsync(() =>
-                _store.UpdateAsync(organization, expectedOptimisticVersion, expectedConcurrencyVersion, cancellationToken));
+            var action = status == OrganizationStatus.Inactive ? "organization.deactivate" : "organization.activate";
+            await ExecuteWriteWithAuditAsync(
+                () => AdministrationWriteGuard.ExecuteAsync(() =>
+                    _store.UpdateAsync(organization, expectedOptimisticVersion, expectedConcurrencyVersion, cancellationToken)),
+                new LocalAuditEntry(tenantNId, actorUserNId, action, "Organization", organization.NId, request.Reason, before, ToSummary(organization), traceId),
+                cancellationToken);
         }
         catch (ValidationException ex)
         {
@@ -358,8 +371,6 @@ public sealed class AdministrativeOrganizationService : IAdministrativeOrganizat
             throw new AdministrationConcurrencyConflictException(ex.Message);
         }
 
-        var action = status == OrganizationStatus.Inactive ? "organization.deactivate" : "organization.activate";
-        await RecordAuditAsync(tenantNId, actorUserNId, traceId, action, "Organization", organization.NId, request.Reason, before, ToSummary(organization));
         return ToDetailV1(organization);
     }
 
@@ -416,6 +427,13 @@ public sealed class AdministrativeOrganizationService : IAdministrativeOrganizat
             new LocalAuditEntry(tenantNId, actorUserNId, action, objectType, objectNId, reason, before, after, traceId),
             CancellationToken.None);
     }
+
+    private Task ExecuteWriteWithAuditAsync(Func<Task> write, LocalAuditEntry audit, CancellationToken cancellationToken) =>
+        _transaction.ExecuteAsync(async () =>
+        {
+            await write();
+            await _audit.RecordAsync(audit, cancellationToken);
+        }, cancellationToken);
 
     /// <summary>审计摘要:名称@类型#状态/父/顺序。</summary>
     private static string ToSummary(AdministrativeOrganization organization) =>

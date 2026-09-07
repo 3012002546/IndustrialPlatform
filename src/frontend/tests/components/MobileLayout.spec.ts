@@ -1,6 +1,6 @@
 /**
  * Mobile 壳布局测试(FE-009,§17):
- * 骨架渲染、跳到主内容、底部导航双 Tab(首页/我的)、Tab 高亮、
+ * 骨架渲染、跳到主内容、底部导航入口、Tab 高亮、
  * 44px 触控目标结构与安全区域适配。
  * 真实几何尺寸(≥44px)与 env(safe-area-inset-bottom)由 E2E/真机验收。
  */
@@ -87,12 +87,13 @@ describe('MobileLayout', () => {
     expect(focusables[0]?.attributes('href')).toBe('#main-content')
   })
 
-  it('底部导航只包含「首页」「我的」两个 Tab', async () => {
+  it('底部导航包含首页、通知与我的真实入口', async () => {
     const { wrapper } = await mountLayout()
     const tabs = wrapper.findAll('nav.ip-mobile-nav a')
-    expect(tabs).toHaveLength(2)
+    expect(tabs).toHaveLength(3)
     expect(tabs[0]?.text()).toContain('首页')
-    expect(tabs[1]?.text()).toContain('我的')
+    expect(tabs[1]?.text()).toContain('通知')
+    expect(tabs[2]?.text()).toContain('我的')
   })
 
   it('当前路由 Tab 高亮(首页)并带 aria-current', async () => {

@@ -116,6 +116,18 @@ const BUILTIN_NAVIGATION_TEXT = new Map<string, { labelKey: string; fallbackLabe
       fallbackLabel: '状态机定义',
     },
   ],
+  [
+    'navigation.link.systemdata-files',
+    { labelKey: 'shell.navigation.item.systemdata-files', fallbackLabel: '文件管理' },
+  ],
+  [
+    'navigation.link.systemdata-notifications',
+    { labelKey: 'shell.navigation.item.systemdata-notifications', fallbackLabel: '通知与公告' },
+  ],
+  [
+    'navigation.link.systemdata-audits',
+    { labelKey: 'shell.navigation.item.systemdata-audits', fallbackLabel: '审计查询' },
+  ],
 ])
 
 function runtimeText(node: NavigationRuntimeNodeDto): {

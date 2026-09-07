@@ -38,6 +38,10 @@ internal static class SerilogConfigurationBuilder
 
         configuration
             .MinimumLevel.Is(ParseLevel(options.MinimumLevel))
+            // ASP.NET Hosting.Diagnostics formats the full request target before it
+            // reaches application middleware. Suppress that category centrally;
+            // RequestLoggingMiddleware emits the safe, redacted request record.
+            .MinimumLevel.Override("Microsoft.AspNetCore.Hosting.Diagnostics", LogEventLevel.Fatal)
             .Enrich.FromLogContext()
             .Enrich.With(new TraceIdEnricher())
             .Enrich.WithProperty("Service", options.ServiceName);

@@ -21,7 +21,7 @@ public sealed partial class RequestLoggingMiddleware
     public async Task InvokeAsync(HttpContext context)
     {
         var method = context.Request.Method;
-        var path = context.Request.Path + context.Request.QueryString;
+        var path = RequestLogPathRedactor.Redact(context.Request.Path, context.Request.Query);
         var stopwatch = Stopwatch.StartNew();
 
         try

@@ -1,5 +1,7 @@
 using System.Diagnostics;
+using System.Globalization;
 using IndustrialPlatform.Logging.Enrichers;
+using IndustrialPlatform.Logging.Internal;
 using IndustrialPlatform.Logging.Options;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -50,6 +52,39 @@ public sealed class SerilogOptionsTests
 
         Assert.Contains(services, service => service.ServiceType == typeof(Logger));
         Assert.Contains(services, service => service.ServiceType == typeof(Serilog.ILogger));
+    }
+
+    [Fact]
+    public void Configure_Suppresses_AspNetHosting_RequestTargetLogs()
+    {
+        var sink = new CollectingSink();
+        var options = new SerilogOptions
+        {
+            MinimumLevel = "Information",
+            Console = new() { Enabled = false },
+            File = new() { Enabled = false },
+            Seq = null,
+        };
+
+        using var logger = SerilogConfigurationBuilder.Configure(new Serilog.LoggerConfiguration(), options)
+            .WriteTo.Sink(sink)
+            .CreateLogger();
+
+        logger.ForContext(Constants.SourceContextPropertyName, "Microsoft.AspNetCore.Hosting.Diagnostics")
+            .Information("Request starting {Target}", "/hub/notifications?access_token=eyJhbGciOiJIUzI1NiJ9.secret");
+        logger.ForContext(Constants.SourceContextPropertyName, "IndustrialPlatform.Web.RequestLoggingMiddleware")
+            .Information("Request completed {Target}", "/hub/notifications?page=1");
+
+        Assert.Single(sink.Events);
+        Assert.DoesNotContain("access_token", sink.Events[0].RenderMessage(CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("page=1", sink.Events[0].RenderMessage(CultureInfo.InvariantCulture), StringComparison.Ordinal);
+    }
+
+    private sealed class CollectingSink : ILogEventSink
+    {
+        public List<LogEvent> Events { get; } = [];
+
+        public void Emit(LogEvent logEvent) => Events.Add(logEvent);
     }
 }
 

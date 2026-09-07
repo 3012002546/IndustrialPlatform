@@ -36,6 +36,7 @@ export interface HttpClient {
   getBlob?(path: string, options?: RequestOptions): Promise<Blob>
   getWithMeta<T>(path: string, options?: RequestOptions): Promise<HttpResponseMeta<T>>
   post<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T>
+  patch?<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T>
   put<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T>
   /** DELETE 支持可选请求体(§29A.5 安全删除要求原因+双版本);不传 body 保持纯路径删除。 */
   delete<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T>
@@ -84,7 +85,7 @@ export function createHttpClient(deps: HttpClientDeps): HttpClient {
   let expiredNotified = false
 
   async function request<T>(
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
     path: string,
     body: unknown,
     options: RequestOptions,
@@ -197,6 +198,7 @@ export function createHttpClient(deps: HttpClientDeps): HttpClient {
 
   /** 2xx 信封解包;非法信封与 success=false 抛对应 ApiError。 */
   function unwrap<T>(status: number, data: unknown, correlationId: string): T {
+    if (status === 204) return undefined as T
     if (status >= 200 && status < 300) {
       const envelope = parseEnvelope(data)
       if (envelope.valid && envelope.success) {
@@ -253,6 +255,8 @@ export function createHttpClient(deps: HttpClientDeps): HttpClient {
       request<T>('GET', path, undefined, options, true) as Promise<HttpResponseMeta<T>>,
     post: <T>(path: string, body?: unknown, options: RequestOptions = {}) =>
       request<T>('POST', path, body, options) as Promise<T>,
+    patch: <T>(path: string, body?: unknown, options: RequestOptions = {}) =>
+      request<T>('PATCH', path, body, options) as Promise<T>,
     put: <T>(path: string, body?: unknown, options: RequestOptions = {}) =>
       request<T>('PUT', path, body, options) as Promise<T>,
     delete: <T>(path: string, body?: unknown, options: RequestOptions = {}) =>

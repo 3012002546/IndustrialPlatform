@@ -111,6 +111,22 @@ public static class SystemDataPermissionPolicies
     /// <summary>取消模块级操作。</summary>
     public const string ServiceInitializationCancel = Prefix + "systemdata.service-initialization.cancel";
 
+    // ===== 文件 / 通知 / 审计 Core(PF-04) =====
+    public const string FileUpload = Prefix + "systemdata.file.upload";
+    public const string FileRead = Prefix + "systemdata.file.read";
+    public const string FileDownload = Prefix + "systemdata.file.download";
+    public const string FileManage = Prefix + "systemdata.file.manage";
+    public const string FileDelete = Prefix + "systemdata.file.delete";
+    public const string NotificationInboxRead = Prefix + "systemdata.notification.inbox.read";
+    public const string NotificationAnnouncementRead = Prefix + "systemdata.notification.announcement.read";
+    public const string NotificationAnnouncementManage = Prefix + "systemdata.notification.announcement.manage";
+    public const string NotificationAnnouncementPublish = Prefix + "systemdata.notification.announcement.publish";
+    public const string NotificationSystemSend = Prefix + "systemdata.notification.system.send";
+    public const string AuditWrite = Prefix + "systemdata.audit.write";
+    public const string AuditRead = Prefix + "systemdata.audit.read";
+    public const string AuditExport = Prefix + "systemdata.audit.export";
+    public const string AuditRetentionManage = Prefix + "systemdata.audit.retention.manage";
+
     /// <summary>本任务登记的权限 NId 集合(§9.3 三组 + v1/v2 初始化兼容权限)。</summary>
     private static readonly string[] RegisteredPermissionNIds =
     [
@@ -150,6 +166,20 @@ public static class SystemDataPermissionPolicies
         "systemdata.service-initialization.approve",
         "systemdata.service-initialization.backup",
         "systemdata.service-initialization.cancel",
+        "systemdata.file.upload",
+        "systemdata.file.read",
+        "systemdata.file.download",
+        "systemdata.file.manage",
+        "systemdata.file.delete",
+        "systemdata.notification.inbox.read",
+        "systemdata.notification.announcement.read",
+        "systemdata.notification.announcement.manage",
+        "systemdata.notification.announcement.publish",
+        "systemdata.notification.system.send",
+        "systemdata.audit.write",
+        "systemdata.audit.read",
+        "systemdata.audit.export",
+        "systemdata.audit.retention.manage",
     ];
 
     /// <summary>由权限 NId 生成策略名。</summary>

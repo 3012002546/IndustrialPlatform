@@ -34,7 +34,7 @@ public sealed class UserAssignmentAdvisoryLock : IUserAssignmentAdvisoryLock
             return await AcquirePostgreSqlAsync(sugar, tenantNId, userNId, cancellationToken);
         }
 
-        return await AcquireSqliteAsync(tenantNId, userNId, cancellationToken);
+        return await AcquireSqliteAsync(sugar, tenantNId, userNId, cancellationToken);
     }
 
     /// <summary>PostgreSQL:开启事务并执行事务级 advisory lock,锁键为 (tenant, user) 哈希。</summary>
@@ -61,6 +61,7 @@ public sealed class UserAssignmentAdvisoryLock : IUserAssignmentAdvisoryLock
 
     /// <summary>SQLite 替身:进程内按用户信号量等待(串行化同一进程内的同用户关键区)。</summary>
     private static async Task<IUserAssignmentLockHandle> AcquireSqliteAsync(
+        ISqlSugarClient sugar,
         string tenantNId,
         string userNId,
         CancellationToken cancellationToken)
@@ -132,7 +133,10 @@ public sealed class UserAssignmentAdvisoryLock : IUserAssignmentAdvisoryLock
 
         public ValueTask DisposeAsync()
         {
-            Release();
+            if (Interlocked.Exchange(ref _released, 1) == 0)
+            {
+                _semaphore.Release();
+            }
             return ValueTask.CompletedTask;
         }
 

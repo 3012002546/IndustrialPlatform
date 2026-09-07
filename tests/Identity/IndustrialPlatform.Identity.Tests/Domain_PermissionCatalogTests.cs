@@ -79,6 +79,20 @@ public sealed class PermissionCatalogTests
         "systemdata.service-initialization.approve",
         "systemdata.service-initialization.backup",
         "systemdata.service-initialization.cancel",
+        "systemdata.file.upload",
+        "systemdata.file.read",
+        "systemdata.file.download",
+        "systemdata.file.manage",
+        "systemdata.file.delete",
+        "systemdata.notification.inbox.read",
+        "systemdata.notification.announcement.read",
+        "systemdata.notification.announcement.manage",
+        "systemdata.notification.announcement.publish",
+        "systemdata.notification.system.send",
+        "systemdata.audit.write",
+        "systemdata.audit.read",
+        "systemdata.audit.export",
+        "systemdata.audit.retention.manage",
         "referencedata.dictionary.view",
         "referencedata.dictionary.create",
         "referencedata.dictionary.update",
@@ -122,7 +136,7 @@ public sealed class PermissionCatalogTests
     [Fact]
     public void FirstBatch_HasIdentityAndSystemDataPermissions()
     {
-        Assert.Equal(107, PermissionCatalog.FirstBatchNIds.Count);
+        Assert.Equal(121, PermissionCatalog.FirstBatchNIds.Count);
     }
 
     [Fact]

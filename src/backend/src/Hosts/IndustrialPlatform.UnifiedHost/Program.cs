@@ -35,6 +35,7 @@ foreach (var module in UnifiedHostModuleCatalog.Modules)
 builder.Services.AddSingleton<ISystemDataPermissionEvaluator, InProcessSystemDataPermissionEvaluator>();
 builder.Services.AddScoped<IndustrialPlatform.ReferenceData.Application.Authorization.IReferenceDataPermissionEvaluator, InProcessReferenceDataPermissionEvaluator>();
 builder.Services.AddSingleton<IIdentityPermissionRegistry, InProcessIdentityPermissionRegistry>();
+builder.Services.AddSingleton<IndustrialPlatform.SystemData.Application.IdentityDirectory.IIdentityUserDirectory, InProcessIdentityUserDirectory>();
 // Identity 与 SystemData 使用相同的 permission:* 策略名；组合宿主明确让 SystemData 路由
 // 使用 SystemData requirement，防止首次注册的 Identity 策略遮蔽其专用适配器。
 builder.Services.PostConfigure<AuthorizationOptions>(SystemDataPermissionPolicies.AddPermissionPolicies);
@@ -70,6 +71,7 @@ app.Use(async (context, next) =>
     {
         if (context.Request.Path.StartsWithSegments(prefix, out var remaining))
         {
+            context.Request.PathBase = context.Request.PathBase.Add(prefix);
             context.Request.Path = remaining.HasValue ? remaining : "/";
             break;
         }

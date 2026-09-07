@@ -195,9 +195,9 @@ public sealed class IdentityMigrationTests : IDisposable
 
         // Identity 33 项 + SystemData 36 项 + ReferenceData 38 项、SYSTEM_ADMIN 系统角色、无默认用户;
         // 两个不可变目录种子账本记录,重复执行不新增。
-        Assert.Equal(107, first.PermissionCount);
+        Assert.Equal(121, first.PermissionCount);
         Assert.Equal(1, first.RoleCount);
-        Assert.Equal(107, first.RolePermissionCount);
+        Assert.Equal(121, first.RolePermissionCount);
         Assert.Equal(0, first.UserCount);
         Assert.Equal(2, first.LedgerCount);
         Assert.Equal(first, second);

@@ -140,6 +140,20 @@ public static class PermissionCatalog
     public const string SystemDataServiceInitializationApprove = "systemdata.service-initialization.approve";
     public const string SystemDataServiceInitializationBackup = "systemdata.service-initialization.backup";
     public const string SystemDataServiceInitializationCancel = "systemdata.service-initialization.cancel";
+    public const string SystemDataFileUpload = "systemdata.file.upload";
+    public const string SystemDataFileRead = "systemdata.file.read";
+    public const string SystemDataFileDownload = "systemdata.file.download";
+    public const string SystemDataFileManage = "systemdata.file.manage";
+    public const string SystemDataFileDelete = "systemdata.file.delete";
+    public const string SystemDataNotificationInboxRead = "systemdata.notification.inbox.read";
+    public const string SystemDataNotificationAnnouncementRead = "systemdata.notification.announcement.read";
+    public const string SystemDataNotificationAnnouncementManage = "systemdata.notification.announcement.manage";
+    public const string SystemDataNotificationAnnouncementPublish = "systemdata.notification.announcement.publish";
+    public const string SystemDataNotificationSystemSend = "systemdata.notification.system.send";
+    public const string SystemDataAuditWrite = "systemdata.audit.write";
+    public const string SystemDataAuditRead = "systemdata.audit.read";
+    public const string SystemDataAuditExport = "systemdata.audit.export";
+    public const string SystemDataAuditRetentionManage = "systemdata.audit.retention.manage";
 
     public const string ReferenceDataDictionaryView = "referencedata.dictionary.view";
     public const string ReferenceDataDictionaryCreate = "referencedata.dictionary.create";
@@ -252,6 +266,20 @@ public static class PermissionCatalog
         SystemDataServiceInitializationApprove,
         SystemDataServiceInitializationBackup,
         SystemDataServiceInitializationCancel,
+        SystemDataFileUpload,
+        SystemDataFileRead,
+        SystemDataFileDownload,
+        SystemDataFileManage,
+        SystemDataFileDelete,
+        SystemDataNotificationInboxRead,
+        SystemDataNotificationAnnouncementRead,
+        SystemDataNotificationAnnouncementManage,
+        SystemDataNotificationAnnouncementPublish,
+        SystemDataNotificationSystemSend,
+        SystemDataAuditWrite,
+        SystemDataAuditRead,
+        SystemDataAuditExport,
+        SystemDataAuditRetentionManage,
         ReferenceDataDictionaryView,
         ReferenceDataDictionaryCreate,
         ReferenceDataDictionaryUpdate,

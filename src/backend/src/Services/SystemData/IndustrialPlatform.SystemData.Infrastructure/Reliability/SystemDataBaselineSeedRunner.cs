@@ -24,6 +24,9 @@ public sealed partial class SystemDataBaselineSeedRunner : BackgroundService
         "systemdata.feature.view", "systemdata.feature.manage", "systemdata.service-catalog.view", "systemdata.service-catalog.manage", "systemdata.theme-policy.view", "systemdata.theme-policy.manage",
         "systemdata.database-orchestration.view", "systemdata.database-orchestration.register", "systemdata.database-orchestration.plan", "systemdata.database-orchestration.apply", "systemdata.database-orchestration.approve", "systemdata.database-orchestration.backup", "systemdata.database-orchestration.cancel",
         "systemdata.service-initialization.view", "systemdata.service-initialization.register", "systemdata.service-initialization.plan", "systemdata.service-initialization.apply", "systemdata.service-initialization.approve", "systemdata.service-initialization.backup", "systemdata.service-initialization.cancel",
+        "systemdata.file.upload", "systemdata.file.read", "systemdata.file.download", "systemdata.file.manage", "systemdata.file.delete",
+        "systemdata.notification.inbox.read", "systemdata.notification.announcement.read", "systemdata.notification.announcement.manage", "systemdata.notification.announcement.publish", "systemdata.notification.system.send",
+        "systemdata.audit.write", "systemdata.audit.read", "systemdata.audit.export", "systemdata.audit.retention.manage",
         "platform.home.view", "platform.pda.view", "platform.mobile.view",
         "identity.user.view", "identity.user-group.view", "identity.role.view", "identity.permission.view", "identity.audit.login.view", "identity.sso.view",
     ];
@@ -56,6 +59,9 @@ public sealed partial class SystemDataBaselineSeedRunner : BackgroundService
         ("systemdata.navigation.systemdata-themes", "租户主题策略", "systemdata-themes", "systemdata.theme-policy.view"),
         ("systemdata.navigation.systemdata-services", "服务目录", "systemdata-services", "systemdata.service-catalog.view"),
         ("systemdata.navigation.systemdata-service-initialization", "服务初始化编排", "systemdata-service-initialization", "systemdata.service-initialization.view"),
+        ("systemdata.navigation.systemdata-files", "文件管理", "systemdata-files", "systemdata.file.read"),
+        ("systemdata.navigation.systemdata-notifications", "通知公告", "systemdata-notifications", "systemdata.notification.announcement.read"),
+        ("systemdata.navigation.systemdata-audits", "审计查询", "systemdata-audits", "systemdata.audit.read"),
     ];
     private static readonly (string NId, string Name, string RouteName, string PermissionNId)[] ReferenceDataResources = [
         ("referencedata.navigation.dictionaries", "字典管理", "reference-data-dictionaries", "referencedata.dictionary.view"),
@@ -67,9 +73,9 @@ public sealed partial class SystemDataBaselineSeedRunner : BackgroundService
         ("referencedata.navigation.state-machines", "状态机定义", "reference-data-state-machines", "referencedata.state-machine.view"),
     ];
     internal const string CurrentManifestSeedKey = "SDM-017";
-    internal const string CurrentManifestVersion = "2";
+    internal const string CurrentManifestVersion = "3";
     internal const string ResourceConsistencySeedKey = "SDM-018";
-    internal const string ResourceConsistencySeedVersion = "1";
+    internal const string ResourceConsistencySeedVersion = "2";
     internal const string ReferenceDataManifestSeedKey = "SDM-019";
     internal const string ReferenceDataManifestVersion = "3";
     internal const string RequiredFeatureNId = "systemdata.control-plane";
@@ -225,7 +231,7 @@ public sealed partial class SystemDataBaselineSeedRunner : BackgroundService
             }, cancellationToken);
             // SDM-017 是扩展后的基线声明。新 seed 不依赖旧 SDM-013 ledger，
             // 因而旧租户也会补齐新增资源并更新当前 manifest/receipt；已有自定义资源保持不变。
-            await ApplySeedAsync(tenantNId, CurrentManifestSeedKey, "1", ["permissions", "resources", "navigation"], state =>
+            await ApplySeedAsync(tenantNId, CurrentManifestSeedKey, CurrentManifestVersion, ["permissions", "resources", "navigation"], state =>
             {
                 var manifest = new ModuleManifestState(
                     tenantNId,

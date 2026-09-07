@@ -44,10 +44,15 @@ import FeaturesPage from '@/pages/pc/systemData/FeaturesPage.vue'
 import ServicesPage from '@/pages/pc/systemData/ServicesPage.vue'
 import ThemesPage from '@/pages/pc/systemData/ThemesPage.vue'
 import ServiceInitializationPage from '@/pages/pc/systemData/ServiceInitializationPage.vue'
+import FileManagementPage from '@/pages/pc/systemData/FileManagementPage.vue'
+import NotificationManagementPage from '@/pages/pc/systemData/NotificationManagementPage.vue'
+import AuditManagementPage from '@/pages/pc/systemData/AuditManagementPage.vue'
+import NotificationCenterPage from '@/pages/mobile/NotificationCenterPage.vue'
 import WorkspaceTabsSandboxPage from '@/pages/dev/WorkspaceTabsSandboxPage.vue'
 import PdaHomePage from '@/pages/pda/PdaHomePage.vue'
 import MobileHomePage from '@/pages/mobile/MobileHomePage.vue'
 import MobileMyPage from '@/pages/mobile/MobileMyPage.vue'
+import FileUploadPage from '@/pages/mobile/FileUploadPage.vue'
 import { PERMISSIONS } from '@/permissions'
 import { ROUTE_NAMES } from './routeNames'
 
@@ -483,6 +488,48 @@ export const routes: RouteRecordRaw[] = [
           workspace: 'business',
         },
       },
+      {
+        path: 'systemdata/files',
+        name: ROUTE_NAMES.systemDataFiles,
+        component: FileManagementPage,
+        meta: {
+          title: '文件管理',
+          titleKey: 'shell.navigation.item.systemdata-files',
+          fallbackTitle: '文件管理',
+          requiresAuth: true,
+          permission: PERMISSIONS.systemDataFileRead,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
+      {
+        path: 'systemdata/notifications',
+        name: ROUTE_NAMES.systemDataNotifications,
+        component: NotificationManagementPage,
+        meta: {
+          title: '通知与公告',
+          titleKey: 'shell.navigation.item.systemdata-notifications',
+          fallbackTitle: '通知与公告',
+          requiresAuth: true,
+          permission: PERMISSIONS.systemDataNotificationAnnouncementRead,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
+      {
+        path: 'systemdata/audits',
+        name: ROUTE_NAMES.systemDataAudits,
+        component: AuditManagementPage,
+        meta: {
+          title: '审计查询',
+          titleKey: 'shell.navigation.item.systemdata-audits',
+          fallbackTitle: '审计查询',
+          requiresAuth: true,
+          permission: PERMISSIONS.systemDataAuditRead,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
       // DEV-only 工作区沙箱:仅注册于 DEV/E2E,生产构建不含此路由与导航入口。
       // 无权限门槛,供 12→13 上限阻断/关闭/复用/恢复 E2E 使用。
       ...(import.meta.env.DEV
@@ -561,6 +608,18 @@ export const routes: RouteRecordRaw[] = [
           permission: PERMISSIONS.platformMobileView,
           terminal: 'mobile',
         },
+      },
+      {
+        path: 'files',
+        name: ROUTE_NAMES.mobileFiles,
+        component: FileUploadPage,
+        meta: { title: '文件', requiresAuth: true, permission: PERMISSIONS.systemDataFileRead, terminal: 'mobile' },
+      },
+      {
+        path: 'notifications',
+        name: ROUTE_NAMES.mobileNotifications,
+        component: NotificationCenterPage,
+        meta: { title: '通知', requiresAuth: true, permission: PERMISSIONS.systemDataNotificationInboxRead, terminal: 'mobile' },
       },
     ],
   },

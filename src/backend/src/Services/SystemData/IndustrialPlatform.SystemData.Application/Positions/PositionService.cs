@@ -22,13 +22,15 @@ public sealed class PositionService : IPositionService
     private readonly IAdministrativeOrganizationStore _organizationStore;
     private readonly IUserAssignmentStore _assignmentStore;
     private readonly ILocalAuditCommand _audit;
+    private readonly ISystemDataWriteTransaction _transaction;
 
     /// <summary>初始化岗位管理用例。</summary>
     public PositionService(
         IPositionStore store,
         IAdministrativeOrganizationStore organizationStore,
         IUserAssignmentStore assignmentStore,
-        ILocalAuditCommand audit)
+        ILocalAuditCommand audit,
+        ISystemDataWriteTransaction? transaction = null)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(organizationStore);
@@ -38,6 +40,7 @@ public sealed class PositionService : IPositionService
         _organizationStore = organizationStore;
         _assignmentStore = assignmentStore;
         _audit = audit;
+        _transaction = transaction ?? new NoopSystemDataWriteTransaction();
     }
 
     /// <inheritdoc />
@@ -104,8 +107,10 @@ public sealed class PositionService : IPositionService
                 description,
                 displayOrder);
             position.ClearDomainEvents();
-            await AdministrationWriteGuard.ExecuteAsync(() => _store.AddAsync(position, cancellationToken));
-            await RecordAuditAsync(tenantNId, actorUserNId, traceId, "position.create", "Position", position.NId, $"组织={organizationNId}", null, ToSummary(position));
+            await ExecuteWriteWithAuditAsync(
+                () => AdministrationWriteGuard.ExecuteAsync(() => _store.AddAsync(position, cancellationToken)),
+                new LocalAuditEntry(tenantNId, actorUserNId, "position.create", "Position", position.NId, $"组织={organizationNId}", null, ToSummary(position), traceId),
+                cancellationToken);
             return ToV1(position, organization.Name);
         }
         catch (ValidationException ex)
@@ -144,8 +149,11 @@ public sealed class PositionService : IPositionService
             position.ChangeDescription(description);
             position.ChangeDisplayOrder(displayOrder);
             position.ClearDomainEvents();
-            await AdministrationWriteGuard.ExecuteAsync(() =>
-                _store.UpdateAsync(position, expectedOptimisticVersion, expectedConcurrencyVersion, cancellationToken));
+            await ExecuteWriteWithAuditAsync(
+                () => AdministrationWriteGuard.ExecuteAsync(() =>
+                    _store.UpdateAsync(position, expectedOptimisticVersion, expectedConcurrencyVersion, cancellationToken)),
+                new LocalAuditEntry(tenantNId, actorUserNId, "position.update", "Position", position.NId, null, before, ToSummary(position), traceId),
+                cancellationToken);
         }
         catch (ValidationException ex)
         {
@@ -157,7 +165,6 @@ public sealed class PositionService : IPositionService
         }
 
         var organizationName = await OrganizationNameAsync(tenantNId, position.OrganizationNId, cancellationToken);
-        await RecordAuditAsync(tenantNId, actorUserNId, traceId, "position.update", "Position", position.NId, null, before, ToSummary(position));
         return ToV1(position, organizationName);
     }
 
@@ -197,8 +204,12 @@ public sealed class PositionService : IPositionService
             }
 
             position.ClearDomainEvents();
-            await AdministrationWriteGuard.ExecuteAsync(() =>
-                _store.UpdateAsync(position, expectedOptimisticVersion, expectedConcurrencyVersion, cancellationToken));
+            var action = status == PositionStatus.Inactive ? "position.deactivate" : "position.activate";
+            await ExecuteWriteWithAuditAsync(
+                () => AdministrationWriteGuard.ExecuteAsync(() =>
+                    _store.UpdateAsync(position, expectedOptimisticVersion, expectedConcurrencyVersion, cancellationToken)),
+                new LocalAuditEntry(tenantNId, actorUserNId, action, "Position", position.NId, request.Reason, before, ToSummary(position), traceId),
+                cancellationToken);
         }
         catch (ValidationException ex)
         {
@@ -209,9 +220,7 @@ public sealed class PositionService : IPositionService
             throw new AdministrationConcurrencyConflictException(ex.Message);
         }
 
-        var action = status == PositionStatus.Inactive ? "position.deactivate" : "position.activate";
         var organizationName = await OrganizationNameAsync(tenantNId, position.OrganizationNId, cancellationToken);
-        await RecordAuditAsync(tenantNId, actorUserNId, traceId, action, "Position", position.NId, request.Reason, before, ToSummary(position));
         return ToV1(position, organizationName);
     }
 
@@ -286,6 +295,13 @@ public sealed class PositionService : IPositionService
             new LocalAuditEntry(tenantNId, actorUserNId, action, objectType, objectNId, reason, before, after, traceId),
             CancellationToken.None);
     }
+
+    private Task ExecuteWriteWithAuditAsync(Func<Task> write, LocalAuditEntry audit, CancellationToken cancellationToken) =>
+        _transaction.ExecuteAsync(async () =>
+        {
+            await write();
+            await _audit.RecordAsync(audit, cancellationToken);
+        }, cancellationToken);
 
     /// <summary>审计摘要:名称@组织#状态/序。</summary>
     private static string ToSummary(Position position) =>

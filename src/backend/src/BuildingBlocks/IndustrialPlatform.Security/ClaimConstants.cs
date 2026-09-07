@@ -22,4 +22,7 @@ public static class ClaimConstants
 
     /// <summary>安全版本(用户 AuthVersion,旧会话失效判定,§12/§18)。</summary>
     public const string AuthVersion = "ver";
+
+    /// <summary>受信任服务身份的服务键声明；不可由普通用户请求体伪造。</summary>
+    public const string ServiceKey = "service_key";
 }

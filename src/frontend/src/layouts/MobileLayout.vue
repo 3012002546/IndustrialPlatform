@@ -6,8 +6,10 @@ import MockModeBanner from '@/components/base/MockModeBanner.vue'
 import PlatformBrand from '@/components/brand/PlatformBrand.vue'
 import ThemeControl from '@/components/theme/ThemeControl.vue'
 import { resolveActiveTerminal, type TerminalType } from '@/device'
+import { systemDataPageCopy } from '@/localization/systemData'
 import { ROUTE_NAMES } from '@/router/routes'
 import { useDeviceStore } from '@/stores/deviceStore'
+import { useLocalizationStore } from '@/stores/localizationStore'
 
 const TERMINAL_LABELS: Record<TerminalType, string> = {
   pc: 'PC',
@@ -18,17 +20,29 @@ const TERMINAL_LABELS: Record<TerminalType, string> = {
 interface MobileTab {
   label: string
   routeName: string
-  icon: 'home' | 'user'
+  icon: 'home' | 'user' | 'bell'
 }
 
-/** 第一批底部导航只有「首页」「我的」,不出现任务/消息/审批等假入口(§17)。 */
-const tabs: readonly MobileTab[] = [
-  { label: '首页', routeName: ROUTE_NAMES.mobileHome, icon: 'home' },
-  { label: '我的', routeName: ROUTE_NAMES.mobileMy, icon: 'user' },
-]
-
+/** 底部导航只暴露真实可用页面，通知入口必须可发现。 */
 const route = useRoute()
 const deviceStore = useDeviceStore()
+const localization = useLocalizationStore()
+const copy = computed(() => {
+  const page = systemDataPageCopy(localization.locale, 'mobileShell')
+  return {
+    terminal: page.terminal ?? '',
+    skipToContent: page.skipToContent ?? '',
+    home: page.home ?? '',
+    notifications: page.notifications ?? '',
+    my: page.my ?? '',
+    bottomNavigation: page.bottomNavigation ?? '',
+  }
+})
+const tabs = computed<readonly MobileTab[]>(() => [
+  { label: copy.value.home, routeName: ROUTE_NAMES.mobileHome, icon: 'home' },
+  { label: copy.value.notifications, routeName: ROUTE_NAMES.mobileNotifications, icon: 'bell' },
+  { label: copy.value.my, routeName: ROUTE_NAMES.mobileMy, icon: 'user' },
+])
 
 // 终端文案单事实源:显式路由 meta.terminal 优先,无显式路由回退设备建议(§7.11)。
 const terminalLabel = computed(() => {
@@ -44,7 +58,7 @@ function isActive(tab: MobileTab): boolean {
 
 <template>
   <div class="ip-mobile-layout">
-    <a class="ip-mobile-skip-link" href="#main-content">跳到主内容</a>
+    <a class="ip-mobile-skip-link" href="#main-content">{{ copy.skipToContent }}</a>
 
     <header class="ip-mobile-header">
       <PlatformBrand class="ip-mobile-header__brand" variant="light" />
@@ -66,7 +80,7 @@ function isActive(tab: MobileTab): boolean {
               stroke-linejoin="round"
             />
           </svg>
-          终端 {{ terminalLabel }}
+          {{ copy.terminal }} {{ terminalLabel }}
         </span>
         <MockModeBanner class="ip-mobile-mock" label="Mock" />
 
@@ -78,7 +92,7 @@ function isActive(tab: MobileTab): boolean {
       <RouterView />
     </main>
 
-    <nav class="ip-mobile-nav" aria-label="底部导航">
+    <nav class="ip-mobile-nav" :aria-label="copy.bottomNavigation">
       <template v-for="tab in tabs" :key="tab.routeName">
         <RouterLink
           :to="{ name: tab.routeName }"
@@ -104,7 +118,7 @@ function isActive(tab: MobileTab): boolean {
             />
           </svg>
           <svg
-            v-else
+            v-else-if="tab.icon === 'user'"
             width="20"
             height="20"
             viewBox="0 0 24 24"
@@ -119,6 +133,18 @@ function isActive(tab: MobileTab): boolean {
               stroke-width="2"
               stroke-linecap="round"
             />
+          </svg>
+          <svg
+            v-else
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+            <path d="M10 21h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
           </svg>
           <span>{{ tab.label }}</span>
         </RouterLink>

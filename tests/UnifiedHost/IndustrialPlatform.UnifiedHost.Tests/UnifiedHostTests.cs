@@ -160,7 +160,7 @@ public sealed class UnifiedHostTests : IDisposable
             Assert.Equal(HttpStatusCode.OK, health.StatusCode);
             using var db = CreateReadContext();
             Assert.False(await db.SqlSugar.Queryable<SystemDataUiResourceTable>()
-                .AnyAsync(row => row.OwnerModuleNId == "systemdata" && row.ManifestVersion != "2"));
+                .AnyAsync(row => row.OwnerModuleNId == "systemdata" && row.ManifestVersion != "3"));
             Assert.Equal(1, await db.SqlSugar.Queryable<SystemDataSeedLedgerTable>()
                 .Where(row => row.SeedKey == "SDM-018")
                 .CountAsync());

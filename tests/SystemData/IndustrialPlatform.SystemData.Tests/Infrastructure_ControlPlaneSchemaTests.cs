@@ -49,7 +49,7 @@ public sealed class ControlPlaneSchemaTests
 
         Assert.DoesNotContain("action_resource_n_ids_json", initial, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("ADD COLUMN action_resource_n_ids_json TEXT NOT NULL DEFAULT '[]'", migration, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal("SDM-017-01", SystemDataSchemaMigrations.All[^1].Id);
+        Assert.Equal("PF04-001-12", SystemDataSchemaMigrations.All[^1].Id);
     }
 
     private static string Ddl(string methodName, DbType dbType) =>

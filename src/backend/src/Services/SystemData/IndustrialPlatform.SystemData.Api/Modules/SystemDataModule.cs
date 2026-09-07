@@ -2,11 +2,13 @@ using IndustrialPlatform.Security;
 using IndustrialPlatform.SystemData.Api.Authorization;
 using IndustrialPlatform.SystemData.Api.Health;
 using IndustrialPlatform.SystemData.Application;
+using IndustrialPlatform.SystemData.Application.Notifications;
 using IndustrialPlatform.SystemData.Infrastructure;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using IndustrialPlatform.SystemData.Api.Notifications;
 
 namespace IndustrialPlatform.SystemData.Api.Modules;
 
@@ -39,6 +41,8 @@ public static class SystemDataModule
 
         services.AddSystemDataInfrastructure(configuration, includeStartupMigrationService);
         services.AddEventBus(configuration);
+        services.AddSignalR();
+        services.AddSingleton<INotificationNotifier, SignalRNotificationNotifier>();
         services.AddSystemDataApplication(configuration);
         services.AddSystemDataAuthorization();
         services.AddCurrentUser();
@@ -66,6 +70,7 @@ public static class SystemDataModule
     public static IEndpointRouteBuilder MapSystemDataModule(this IEndpointRouteBuilder endpoints)
     {
         ArgumentNullException.ThrowIfNull(endpoints);
+        endpoints.MapHub<NotificationHub>("/hubs/notifications");
         return endpoints;
     }
 

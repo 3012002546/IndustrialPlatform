@@ -75,6 +75,9 @@ public sealed class ResourceNavigationService : IResourceNavigationService
         new("navigation.link.systemdata-themes", NavigationNodeKind.Link, "租户主题策略", "navigation.group.menu-platform", "systemdata-themes", "systemdata.theme-policy.view", 2),
         new("navigation.link.systemdata-services", NavigationNodeKind.Link, "服务目录", "navigation.group.service-operations", "systemdata-services", "systemdata.service-catalog.view", 0),
         new("navigation.link.systemdata-service-initialization", NavigationNodeKind.Link, "服务初始化编排", "navigation.group.service-operations", "systemdata-service-initialization", "systemdata.service-initialization.view", 1),
+        new("navigation.link.systemdata-files", NavigationNodeKind.Link, "文件管理", "navigation.group.service-operations", "systemdata-files", "systemdata.file.read", 2),
+        new("navigation.link.systemdata-notifications", NavigationNodeKind.Link, "通知与公告", "navigation.group.service-operations", "systemdata-notifications", "systemdata.notification.announcement.read", 3),
+        new("navigation.link.systemdata-audits", NavigationNodeKind.Link, "审计查询", "navigation.group.service-operations", "systemdata-audits", "systemdata.audit.read", 4),
     ];
     private readonly IControlPlaneStore _store;
     private readonly IIdentityPermissionRegistry _permissionRegistry;

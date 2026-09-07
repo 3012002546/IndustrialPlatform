@@ -1,0 +1,140 @@
+using IndustrialPlatform.SystemData.Contracts.Files;
+
+namespace IndustrialPlatform.SystemData.Application.Files;
+
+public sealed record FileUploadSessionRecord(
+    string TenantNId,
+    string SessionNId,
+    string TransportId,
+    string UploaderUserNId,
+    string Purpose,
+    string FileName,
+    string ContentType,
+    long ExpectedLength,
+    string? ExpectedSha256,
+    string? SampleFingerprint,
+    long CurrentOffset,
+    int WriterEpoch,
+    string Status,
+    DateTimeOffset ExpiresOn,
+    DateTimeOffset? CompletedOn,
+    string? FileNId,
+    string? ErrorCode,
+    DateTimeOffset CreatedOn,
+    DateTimeOffset LastUpdatedOn);
+
+public sealed record FileObjectRecord(
+    string TenantNId,
+    string FileNId,
+    string UploadSessionNId,
+    string FileName,
+    string ContentType,
+    long ContentLength,
+    string Sha256,
+    string StorageKey,
+    string ScanStatus,
+    bool Restricted,
+    string DeletionStatus,
+    DateTimeOffset CreatedOn,
+    DateTimeOffset LastUpdatedOn,
+    DateTimeOffset? DeletedOn,
+    DateTimeOffset? RetentionUntil,
+    string? OwnerUserNId = null);
+
+public sealed record FileReferenceRecord(
+    string TenantNId,
+    string ReferenceNId,
+    string FileNId,
+    string OwnerUserNId,
+    string Purpose,
+    DateTimeOffset CreatedOn,
+    DateTimeOffset? DeletedOn);
+
+public sealed record FileScanResult(string Status, string Detail);
+
+public interface IFileScanner
+{
+    Task<FileScanResult> ScanAsync(FileObjectRecord file, Stream content, CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// Coordinates the complete upload critical section (database read/CAS and the
+/// corresponding physical file mutation). Implementations may coordinate across
+/// processes when the content store is shared by multiple service instances.
+/// </summary>
+public interface IFileUploadCoordinator
+{
+    Task<IAsyncDisposable> AcquireAsync(string tenantNId, string sessionNId, CancellationToken cancellationToken);
+}
+
+public sealed class NoopFileUploadCoordinator : IFileUploadCoordinator
+{
+    private sealed class Lease : IAsyncDisposable
+    {
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    public Task<IAsyncDisposable> AcquireAsync(string tenantNId, string sessionNId, CancellationToken cancellationToken) =>
+        Task.FromResult<IAsyncDisposable>(new Lease());
+}
+
+public interface IFileStore
+{
+    Task<FileUploadSessionRecord?> GetSessionAsync(string tenantNId, string sessionNId, CancellationToken cancellationToken);
+    Task<FileUploadSessionRecord?> GetSessionByTransportAsync(string tenantNId, string transportId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<FileUploadSessionRecord>> ExpireSessionsAsync(DateTimeOffset now, CancellationToken cancellationToken);
+    Task<IReadOnlyList<FileUploadSessionRecord>> FindCandidatesAsync(string tenantNId, string uploaderUserNId, string purpose, string sampleFingerprint, long length, CancellationToken cancellationToken);
+    Task InsertSessionAsync(FileUploadSessionRecord session, CancellationToken cancellationToken);
+    Task<bool> UpdateSessionAsync(FileUploadSessionRecord session, long expectedOffset, int expectedEpoch, CancellationToken cancellationToken);
+    Task<bool> UpdateAppendAsync(FileUploadSessionRecord session, long expectedOffset, int expectedEpoch, string expectedStatus, CancellationToken cancellationToken) =>
+        UpdateSessionAsync(session, expectedOffset, expectedEpoch, cancellationToken);
+    Task<FileObjectRecord?> GetFileAsync(string tenantNId, string fileNId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<FileObjectRecord>> ListPendingScanAsync(int limit, CancellationToken cancellationToken);
+    Task<IReadOnlyList<FileObjectRecord>> ListDeletionCandidatesAsync(DateTimeOffset now, int limit, CancellationToken cancellationToken);
+    Task MarkFileDeletedAsync(FileObjectRecord file, DateTimeOffset deletedOn, CancellationToken cancellationToken);
+    Task<FilePageV1> ListFilesAsync(string tenantNId, string? search, int page, int pageSize, CancellationToken cancellationToken);
+    Task<FileObjectRecord?> CompleteSessionAsync(FileUploadSessionRecord completedSession, FileObjectRecord file, long expectedOffset, int expectedEpoch, CancellationToken cancellationToken);
+    Task AddScanAttemptAsync(string tenantNId, string fileNId, string status, string detail, CancellationToken cancellationToken);
+    Task<FileReferenceRecord?> GetReferenceAsync(string tenantNId, string referenceNId, CancellationToken cancellationToken);
+    Task<FileReferenceRecord?> GetReferenceForFileAsync(string tenantNId, string fileNId, string ownerUserNId, CancellationToken cancellationToken);
+    Task<bool> HasActiveReferencesAsync(string tenantNId, string fileNId, CancellationToken cancellationToken);
+    Task InsertReferenceAsync(FileReferenceRecord reference, CancellationToken cancellationToken);
+    Task DeleteReferenceAsync(string tenantNId, string referenceNId, DateTimeOffset deletedOn, CancellationToken cancellationToken);
+    Task UpdateFileAsync(FileObjectRecord file, CancellationToken cancellationToken);
+}
+
+public interface IFileContentStore
+{
+    Task<long> AppendAsync(string storageKey, long expectedOffset, Stream content, CancellationToken cancellationToken);
+    Task<long> EnsureLengthAsync(string storageKey, long expectedLength, CancellationToken cancellationToken) => Task.FromResult(expectedLength);
+    Task<Stream> OpenReadAsync(string storageKey, CancellationToken cancellationToken);
+    Task<string> ComputeSha256Async(string storageKey, CancellationToken cancellationToken);
+    Task DeleteAsync(string storageKey, CancellationToken cancellationToken);
+}
+
+public interface IFileService
+{
+    Task<UploadSessionV1> CreateSessionAsync(string tenantNId, string userNId, CreateUploadSessionRequest request, CancellationToken cancellationToken);
+    Task<FileUploadDiscoveryV1> DiscoverAsync(string tenantNId, string userNId, DiscoverUploadSessionRequest request, CancellationToken cancellationToken);
+    Task<UploadSessionV1> GetSessionAsync(string tenantNId, string sessionNId, CancellationToken cancellationToken);
+    Task<UploadSessionV1> GetSessionAsync(string tenantNId, string userNId, string sessionNId, CancellationToken cancellationToken);
+    Task<UploadSessionV1> GetSessionByTransportAsync(string tenantNId, string transportId, CancellationToken cancellationToken);
+    Task<UploadSessionV1> GetSessionByTransportAsync(string tenantNId, string userNId, string transportId, CancellationToken cancellationToken);
+    Task<UploadSessionV1> SetContentHashAsync(string tenantNId, string sessionNId, string userNId, ContentHashRequest request, CancellationToken cancellationToken);
+    Task<UploadSessionV1> ResumeProofAsync(string tenantNId, string sessionNId, string userNId, ResumeProofRequest request, CancellationToken cancellationToken);
+    Task<UploadSessionV1> TakeoverAsync(string tenantNId, string sessionNId, string userNId, TakeoverUploadRequest request, CancellationToken cancellationToken);
+    Task<UploadSessionV1> PauseAsync(string tenantNId, string sessionNId, string userNId, CancellationToken cancellationToken);
+    Task<UploadSessionV1> ResumeAsync(string tenantNId, string sessionNId, string userNId, ResumeProofRequest request, CancellationToken cancellationToken);
+    Task<UploadSessionV1> CancelAsync(string tenantNId, string sessionNId, string userNId, SetUploadStateRequest request, CancellationToken cancellationToken);
+    Task<UploadSessionV1> AppendAsync(string tenantNId, string transportId, string userNId, long expectedOffset, int epoch, Stream content, CancellationToken cancellationToken);
+    Task<UploadSessionV1> AppendAsync(string tenantNId, string transportId, string userNId, long expectedOffset, int epoch, Stream content, string? resumeTicket, CancellationToken cancellationToken);
+    Task<FileObjectV1> CompleteAsync(string tenantNId, string sessionNId, string userNId, CancellationToken cancellationToken);
+    Task<FileObjectV1?> GetFileAsync(string tenantNId, string fileNId, CancellationToken cancellationToken);
+    Task<Stream> OpenFileContentAsync(string tenantNId, string userNId, string fileNId, string? referenceNId, CancellationToken cancellationToken);
+    Task<FilePageV1> ListFilesAsync(string tenantNId, string? search, int page, int pageSize, CancellationToken cancellationToken);
+    Task<FileReferenceRecord> AddReferenceAsync(string tenantNId, string userNId, string fileNId, FileReferenceRequest request, CancellationToken cancellationToken);
+    Task DeleteReferenceAsync(string tenantNId, string userNId, string referenceNId, CancellationToken cancellationToken);
+    Task DeleteReferenceAsync(string tenantNId, string userNId, string fileNId, string referenceNId, CancellationToken cancellationToken);
+    Task<FileObjectV1> RequestDeletionAsync(string tenantNId, string userNId, string fileNId, CancellationToken cancellationToken);
+    Task<FileObjectV1> SetRestrictionAsync(string tenantNId, string userNId, string fileNId, FileRestrictionRequest request, CancellationToken cancellationToken);
+}

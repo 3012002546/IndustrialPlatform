@@ -85,9 +85,9 @@ public sealed class IdentitySeedRunnerTests : IDisposable
         Assert.Equal(1, await CountAsync("SELECT COUNT(*) FROM identity_seed_ledger WHERE status = 'Applied' AND seed_n_id = 'identity.bootstrap-admin'"));
 
         // Identity 33 项 + SystemData 36 项 + ReferenceData 38 项，SYSTEM_ADMIN 自动获得完整目录。
-        Assert.Equal(107, await CountAsync("SELECT COUNT(*) FROM identity_permission"));
+        Assert.Equal(121, await CountAsync("SELECT COUNT(*) FROM identity_permission"));
         Assert.Equal(1, await CountAsync("SELECT COUNT(*) FROM identity_role WHERE n_id = 'SYSTEM_ADMIN'"));
-        Assert.Equal(107, await CountAsync("SELECT COUNT(*) FROM identity_role_permission"));
+        Assert.Equal(121, await CountAsync("SELECT COUNT(*) FROM identity_role_permission"));
         Assert.Equal(1, await CountAsync("SELECT COUNT(*) FROM identity_user"));
 
         // 一次性凭据:密码满足策略且长度 >= 20
@@ -156,9 +156,9 @@ public sealed class IdentitySeedRunnerTests : IDisposable
 
         await IdentityTestDatabase.ApplyCatalogAsync(_dbContext);
 
-        Assert.Equal(107, await CountAsync("SELECT COUNT(*) FROM identity_permission"));
-        Assert.Equal(36, await CountAsync("SELECT COUNT(*) FROM identity_permission WHERE n_id LIKE 'systemdata.%'"));
-        Assert.Equal(107, await CountAsync("SELECT COUNT(*) FROM identity_role_permission"));
+        Assert.Equal(121, await CountAsync("SELECT COUNT(*) FROM identity_permission"));
+        Assert.Equal(50, await CountAsync("SELECT COUNT(*) FROM identity_permission WHERE n_id LIKE 'systemdata.%'"));
+        Assert.Equal(121, await CountAsync("SELECT COUNT(*) FROM identity_role_permission"));
         Assert.Equal(4, await CountAsync("SELECT COUNT(*) FROM identity_seed_ledger"));
     }
 

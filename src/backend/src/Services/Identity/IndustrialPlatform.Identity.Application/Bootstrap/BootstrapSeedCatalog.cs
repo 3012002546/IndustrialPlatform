@@ -21,7 +21,7 @@ public static class BootstrapSeedCatalog
     public const string BootstrapAdminSeedKey = "identity.bootstrap-admin";
 
     /// <summary>全部种子当前版本;目录内容变化必须递增。</summary>
-    public const string SeedVersion = "1.3.0";
+    public const string SeedVersion = "1.4.0";
 
     /// <summary>系统作用域。</summary>
     public const string SystemScope = "system";
@@ -122,6 +122,20 @@ public static class BootstrapSeedCatalog
         new(PermissionCatalog.SystemDataServiceInitializationApprove, "审批服务初始化", PermissionType.Action),
         new(PermissionCatalog.SystemDataServiceInitializationBackup, "确认服务初始化备份", PermissionType.Action),
         new(PermissionCatalog.SystemDataServiceInitializationCancel, "取消服务初始化", PermissionType.Action),
+        new(PermissionCatalog.SystemDataFileUpload, "上传文件", PermissionType.Action),
+        new(PermissionCatalog.SystemDataFileRead, "查看文件", PermissionType.Page),
+        new(PermissionCatalog.SystemDataFileDownload, "下载文件", PermissionType.Action),
+        new(PermissionCatalog.SystemDataFileManage, "管理文件", PermissionType.Action),
+        new(PermissionCatalog.SystemDataFileDelete, "删除文件", PermissionType.Action),
+        new(PermissionCatalog.SystemDataNotificationInboxRead, "查看通知收件箱", PermissionType.Page),
+        new(PermissionCatalog.SystemDataNotificationAnnouncementRead, "查看公告", PermissionType.Page),
+        new(PermissionCatalog.SystemDataNotificationAnnouncementManage, "管理公告", PermissionType.Action),
+        new(PermissionCatalog.SystemDataNotificationAnnouncementPublish, "发布公告", PermissionType.Action),
+        new(PermissionCatalog.SystemDataNotificationSystemSend, "发送系统消息", PermissionType.Action),
+        new(PermissionCatalog.SystemDataAuditWrite, "写入审计事实", PermissionType.Action),
+        new(PermissionCatalog.SystemDataAuditRead, "查看审计事实", PermissionType.Page),
+        new(PermissionCatalog.SystemDataAuditExport, "导出审计事实", PermissionType.Action),
+        new(PermissionCatalog.SystemDataAuditRetentionManage, "管理审计保留", PermissionType.Action),
         new(PermissionCatalog.ReferenceDataDictionaryView, "字典：view", PermissionType.Page),
         new(PermissionCatalog.ReferenceDataDictionaryCreate, "字典：create", PermissionType.Action),
         new(PermissionCatalog.ReferenceDataDictionaryUpdate, "字典：update", PermissionType.Action),

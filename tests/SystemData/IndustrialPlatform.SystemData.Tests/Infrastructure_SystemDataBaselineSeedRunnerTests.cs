@@ -27,6 +27,28 @@ public sealed class SystemDataBaselineSeedRunnerTests
     static SystemDataBaselineSeedRunnerTests() => Batteries_V2.Init();
 
     [Fact]
+    public async Task Apply_upgrades_an_existing_manifest_seed_from_v2_to_current_version()
+    {
+        using var harness = new BaselineHarness();
+        harness.Store.SeedLegacyCurrentManifest();
+
+        var initial = await harness.Initializer.InspectAsync(harness.Context, CancellationToken.None);
+        await harness.Initializer.ApplyAsync(
+            harness.Context,
+            await harness.Initializer.PlanAsync(harness.Context, initial, CancellationToken.None),
+            CancellationToken.None);
+
+        Assert.True(await harness.Store.SeedAppliedAsync(
+            Tenant,
+            SystemDataBaselineSeedRunner.CurrentManifestSeedKey,
+            SystemDataBaselineSeedRunner.CurrentManifestVersion,
+            SystemDataBaselineSeedRunner.CurrentManifestChecksum,
+            CancellationToken.None));
+        Assert.All(harness.Store.Snapshot.Resources.Where(resource => resource.OwnerModuleNId == "systemdata"), resource =>
+            Assert.Equal(SystemDataBaselineSeedRunner.CurrentManifestVersion, resource.ManifestVersion));
+    }
+
+    [Fact]
     public async Task Apply_upgrades_a_legacy_navigation_resource_and_remains_idempotent()
     {
         using var harness = new BaselineHarness(includeLegacySeed: true);
@@ -207,8 +229,8 @@ public sealed class SystemDataBaselineSeedRunnerTests
                 var migrations = new SchemaMigrationRunner(db, SystemDataSchemaMigrations.All, NullLogger<SchemaMigrationRunner>.Instance);
                 await migrations.ApplyPendingAsync();
                 var store = new SqlControlPlaneStore(db);
-                var legacyChecksum = Checksum("SDM-013");
-                var manifest = new ModuleManifestState(Tenant, "systemdata", "1", legacyChecksum, SystemDataBaselineSeedRunner.RequiredPermissionNIds, "1", legacyChecksum, DateTimeOffset.UtcNow)
+                var legacyChecksum = Checksum(SystemDataBaselineSeedRunner.CurrentManifestSeedKey);
+                var manifest = new ModuleManifestState(Tenant, "systemdata", "2", legacyChecksum, SystemDataBaselineSeedRunner.RequiredPermissionNIds, "2", legacyChecksum, DateTimeOffset.UtcNow)
                 {
                     PermissionDeclarationItems = SystemDataBaselineSeedRunner.RequiredPermissionNIds
                         .Select(permission => new PermissionManifestEntry(permission, permission, "permission", null))
@@ -216,11 +238,26 @@ public sealed class SystemDataBaselineSeedRunnerTests
                 };
                 var legacyResource = UiResource.Create(Tenant, "systemdata.navigation", "systemdata", "1", UiResourceType.Page, "旧导航入口", "/systemdata/navigation", "systemdata.navigation.view", [UiTerminal.Pc]);
                 var customResource = UiResource.Create(Tenant, "tenant.navigation.custom", "tenant-custom", "1", UiResourceType.Page, "租户自定义入口", "tenant-custom", "tenant.custom.view", [UiTerminal.Pc]);
+                var versionTwoResources = SystemDataBaselineSeedRunner.RequiredResourceFacts
+                    .Select(resource => UiResource.Create(
+                        Tenant,
+                        resource.NId,
+                        "systemdata",
+                        "2",
+                        UiResourceType.Page,
+                        resource.Name,
+                        resource.RouteName,
+                        resource.PermissionNId,
+                        [UiTerminal.Pc, UiTerminal.Pda, UiTerminal.Mobile]));
                 var node = NavigationNode.CreateLink(Tenant, "legacy.navigation.node", "旧导航", null, "PLATFORM_NAVIGATION", "systemdata.navigation", null, [UiTerminal.Pc]);
                 await store.CommitAsync(
-                    new ControlPlaneSnapshot(Tenant, 0, [manifest], [legacyResource, customResource], [node], [], null, null, [], [], [], null, [new PermissionReceipt("systemdata", "1", legacyChecksum, true)]),
+                    new ControlPlaneSnapshot(Tenant, 0, [manifest], versionTwoResources.Append(legacyResource).Append(customResource).ToArray(), [node], [], null, null, [], [], [], null, [new PermissionReceipt("systemdata", "2", legacyChecksum, true)]),
                     0,
-                    new ControlPlaneCommit([], [], [new SeedLedgerEntry(Tenant, "SDM-013", "1", legacyChecksum)]),
+                    new ControlPlaneCommit([], [],
+                    [
+                        new SeedLedgerEntry(Tenant, SystemDataBaselineSeedRunner.CurrentManifestSeedKey, "2", legacyChecksum),
+                        new SeedLedgerEntry(Tenant, SystemDataBaselineSeedRunner.ResourceConsistencySeedKey, "1", Checksum(SystemDataBaselineSeedRunner.ResourceConsistencySeedKey)),
+                    ]),
                     CancellationToken.None);
             }
 
@@ -457,6 +494,49 @@ public sealed class SystemDataBaselineSeedRunnerTests
                 PermissionReceipts = [new PermissionReceipt("systemdata", "1", legacyChecksum, true)],
             };
             _seeds.Add(new("SDM-013", "1", legacyChecksum));
+        }
+
+        public void SeedLegacyCurrentManifest()
+        {
+            var checksum = Checksum(SystemDataBaselineSeedRunner.CurrentManifestSeedKey);
+            var permissions = SystemDataBaselineSeedRunner.RequiredPermissionNIds.ToArray();
+            var manifest = new ModuleManifestState(
+                tenantNId,
+                "systemdata",
+                "2",
+                checksum,
+                permissions,
+                "2",
+                checksum,
+                DateTimeOffset.UtcNow)
+            {
+                PermissionDeclarationItems = permissions
+                    .Select(permission => new PermissionManifestEntry(permission, permission, "permission", null))
+                    .ToArray(),
+            };
+            var resources = SystemDataBaselineSeedRunner.RequiredResourceFacts
+                .Select(resource => UiResource.Create(
+                    tenantNId,
+                    resource.NId,
+                    "systemdata",
+                    "2",
+                    UiResourceType.Page,
+                    resource.Name,
+                    resource.RouteName,
+                    resource.PermissionNId,
+                    [UiTerminal.Pc, UiTerminal.Pda, UiTerminal.Mobile]))
+                .ToArray();
+            Snapshot = Snapshot with
+            {
+                Manifests = [manifest],
+                PermissionReceipts = [new PermissionReceipt("systemdata", "2", checksum, true)],
+                Resources = resources,
+            };
+            _seeds.Add(new(SystemDataBaselineSeedRunner.CurrentManifestSeedKey, "2", checksum));
+            _seeds.Add(new(
+                SystemDataBaselineSeedRunner.ResourceConsistencySeedKey,
+                "1",
+                Checksum(SystemDataBaselineSeedRunner.ResourceConsistencySeedKey)));
         }
 
         private static string Checksum(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));

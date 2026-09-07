@@ -27,6 +27,7 @@ public sealed class UserAssignmentService : IUserAssignmentService
     private readonly IIdentityUserDirectory _userDirectory;
     private readonly IUserAssignmentAdvisoryLock _advisoryLock;
     private readonly ILocalAuditCommand _audit;
+    private readonly ISystemDataWriteTransaction _transaction;
     private readonly TimeProvider _timeProvider;
 
     /// <summary>初始化用户任职管理用例。</summary>
@@ -37,7 +38,8 @@ public sealed class UserAssignmentService : IUserAssignmentService
         IIdentityUserDirectory userDirectory,
         IUserAssignmentAdvisoryLock advisoryLock,
         ILocalAuditCommand audit,
-        TimeProvider timeProvider)
+        TimeProvider timeProvider,
+        ISystemDataWriteTransaction? transaction = null)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(positionStore);
@@ -53,6 +55,7 @@ public sealed class UserAssignmentService : IUserAssignmentService
         _advisoryLock = advisoryLock;
         _audit = audit;
         _timeProvider = timeProvider;
+        _transaction = transaction ?? new NoopSystemDataWriteTransaction();
     }
 
     /// <inheritdoc />
@@ -123,10 +126,13 @@ public sealed class UserAssignmentService : IUserAssignmentService
             var candidate = existing.Where(a => a.Id != assignment.Id).Append(assignment).ToList();
             EnsureScheduleValid(candidate);
 
-            await AdministrationWriteGuard.ExecuteAsync(() => _store.AddAsync(assignment, cancellationToken));
+            await _transaction.ExecuteAsync(async () =>
+            {
+                await AdministrationWriteGuard.ExecuteAsync(() => _store.AddAsync(assignment, cancellationToken));
+                await RecordAuditAsync(tenantNId, actorUserNId, traceId, "assignment.create", assignment.NId,
+                    $"岗位={positionNId}/主任职={isPrimary}", null, ToSummary(assignment));
+            }, cancellationToken);
             await handle.CommitAsync(cancellationToken);
-            await RecordAuditAsync(tenantNId, actorUserNId, traceId, "assignment.create", assignment.NId,
-                $"岗位={positionNId}/主任职={isPrimary}", null, ToSummary(assignment));
             return ToV1(assignment, position.Name, now);
         }
         catch (ValidationException ex)
@@ -169,12 +175,15 @@ public sealed class UserAssignmentService : IUserAssignmentService
             var candidate = others.Where(a => a.Id != fresh.Id).Append(fresh).ToList();
             EnsureScheduleValid(candidate);
 
-            await AdministrationWriteGuard.ExecuteAsync(() =>
-                _store.UpdateAsync(fresh, expectedOptimisticVersion, expectedConcurrencyVersion, cancellationToken));
-            await handle.CommitAsync(cancellationToken);
             var positionName = await PositionNameAsync(tenantNId, fresh.PositionNId, cancellationToken);
-            await RecordAuditAsync(tenantNId, actorUserNId, traceId, "assignment.update-scheduled", fresh.NId,
-                "调整未来区间", before, ToSummary(fresh));
+            await _transaction.ExecuteAsync(async () =>
+            {
+                await AdministrationWriteGuard.ExecuteAsync(() =>
+                    _store.UpdateAsync(fresh, expectedOptimisticVersion, expectedConcurrencyVersion, cancellationToken));
+                await RecordAuditAsync(tenantNId, actorUserNId, traceId, "assignment.update-scheduled", fresh.NId,
+                    "调整未来区间", before, ToSummary(fresh));
+            }, cancellationToken);
+            await handle.CommitAsync(cancellationToken);
             return ToV1(fresh, positionName, now);
         }
         catch (ValidationException ex)
@@ -213,12 +222,15 @@ public sealed class UserAssignmentService : IUserAssignmentService
             var candidate = others.Where(a => a.Id != fresh.Id).Append(fresh).ToList();
             EnsurePrimaryCoverage(candidate);
 
-            await AdministrationWriteGuard.ExecuteAsync(() =>
-                _store.UpdateAsync(fresh, expectedOptimisticVersion, expectedConcurrencyVersion, cancellationToken));
-            await handle.CommitAsync(cancellationToken);
             var positionName = await PositionNameAsync(tenantNId, fresh.PositionNId, cancellationToken);
-            await RecordAuditAsync(tenantNId, actorUserNId, traceId, "assignment.end", fresh.NId,
-                "结束当前任职", before, ToSummary(fresh));
+            await _transaction.ExecuteAsync(async () =>
+            {
+                await AdministrationWriteGuard.ExecuteAsync(() =>
+                    _store.UpdateAsync(fresh, expectedOptimisticVersion, expectedConcurrencyVersion, cancellationToken));
+                await RecordAuditAsync(tenantNId, actorUserNId, traceId, "assignment.end", fresh.NId,
+                    "结束当前任职", before, ToSummary(fresh));
+            }, cancellationToken);
+            await handle.CommitAsync(cancellationToken);
             return ToV1(fresh, positionName, now);
         }
         catch (ValidationException ex)
@@ -259,12 +271,15 @@ public sealed class UserAssignmentService : IUserAssignmentService
             var candidate = others.Where(a => a.Id != fresh.Id).Append(fresh).ToList();
             EnsurePrimaryCoverage(candidate);
 
-            await AdministrationWriteGuard.ExecuteAsync(() =>
-                _store.UpdateAsync(fresh, expectedOptimisticVersion, expectedConcurrencyVersion, cancellationToken));
-            await handle.CommitAsync(cancellationToken);
             var positionName = await PositionNameAsync(tenantNId, fresh.PositionNId, cancellationToken);
-            await RecordAuditAsync(tenantNId, actorUserNId, traceId, "assignment.cancel", fresh.NId,
-                request.Reason, before, ToSummary(fresh));
+            await _transaction.ExecuteAsync(async () =>
+            {
+                await AdministrationWriteGuard.ExecuteAsync(() =>
+                    _store.UpdateAsync(fresh, expectedOptimisticVersion, expectedConcurrencyVersion, cancellationToken));
+                await RecordAuditAsync(tenantNId, actorUserNId, traceId, "assignment.cancel", fresh.NId,
+                    request.Reason, before, ToSummary(fresh));
+            }, cancellationToken);
+            await handle.CommitAsync(cancellationToken);
             return ToV1(fresh, positionName, now);
         }
         catch (ValidationException ex)
@@ -308,6 +323,9 @@ public sealed class UserAssignmentService : IUserAssignmentService
                     && a.EffectiveFrom <= effectiveOn
                     && (a.EffectiveTo is null || a.EffectiveTo > effectiveOn));
 
+            string? beforePrimary = null;
+            var primaryExpectedOptimisticVersion = 0L;
+            var primaryExpectedConcurrencyVersion = Guid.Empty;
             if (currentPrimary is not null && currentPrimary.NId != target.NId)
             {
                 if (expectedRevision is { } revision && currentPrimary.OptimisticVersion != revision)
@@ -315,9 +333,9 @@ public sealed class UserAssignmentService : IUserAssignmentService
                     throw new AdministrationConcurrencyConflictException("主任职已被其他操作修改,请刷新后重试。");
                 }
 
-                var beforePrimary = ToSummary(currentPrimary);
-                var primaryExpectedOptimisticVersion = currentPrimary.OptimisticVersion;
-                var primaryExpectedConcurrencyVersion = currentPrimary.ConcurrencyVersion;
+                beforePrimary = ToSummary(currentPrimary);
+                primaryExpectedOptimisticVersion = currentPrimary.OptimisticVersion;
+                primaryExpectedConcurrencyVersion = currentPrimary.ConcurrencyVersion;
                 if (currentPrimary.EffectiveFrom == effectiveOn)
                 {
                     // 新主任职与原主任职同刻生效:直接取消原主任职标记,不产生空区间。
@@ -332,10 +350,6 @@ public sealed class UserAssignmentService : IUserAssignmentService
                 }
 
                 currentPrimary.ClearDomainEvents();
-                await AdministrationWriteGuard.ExecuteAsync(() =>
-                    _store.UpdateAsync(currentPrimary, primaryExpectedOptimisticVersion, primaryExpectedConcurrencyVersion, cancellationToken));
-                await RecordAuditAsync(tenantNId, actorUserNId, traceId, "assignment.primary-split", currentPrimary.NId,
-                    $"切换主任职至 {target.NId},生效 {effectiveOn}", beforePrimary, ToSummary(currentPrimary));
             }
 
             var beforeTarget = ToSummary(target);
@@ -356,11 +370,22 @@ public sealed class UserAssignmentService : IUserAssignmentService
                 && (currentPrimary is null || a.Id != currentPrimary.Id)));
             EnsurePrimaryCoverage(updatedSet);
 
-            await AdministrationWriteGuard.ExecuteAsync(() =>
-                _store.UpdateAsync(target, targetExpectedOptimisticVersion, targetExpectedConcurrencyVersion, cancellationToken));
+            await _transaction.ExecuteAsync(async () =>
+            {
+                if (currentPrimary is not null && currentPrimary.NId != target.NId)
+                {
+                    await AdministrationWriteGuard.ExecuteAsync(() =>
+                        _store.UpdateAsync(currentPrimary, primaryExpectedOptimisticVersion, primaryExpectedConcurrencyVersion, cancellationToken));
+                    await RecordAuditAsync(tenantNId, actorUserNId, traceId, "assignment.primary-split", currentPrimary.NId,
+                        $"切换主任职至 {target.NId},生效 {effectiveOn}", beforePrimary, ToSummary(currentPrimary));
+                }
+
+                await AdministrationWriteGuard.ExecuteAsync(() =>
+                    _store.UpdateAsync(target, targetExpectedOptimisticVersion, targetExpectedConcurrencyVersion, cancellationToken));
+                await RecordAuditAsync(tenantNId, actorUserNId, traceId, "assignment.primary-switch", target.NId,
+                    request.Reason ?? $"切换主任职至 {target.NId},生效 {effectiveOn}", beforeTarget, ToSummary(target));
+            }, cancellationToken);
             await handle.CommitAsync(cancellationToken);
-            await RecordAuditAsync(tenantNId, actorUserNId, traceId, "assignment.primary-switch", target.NId,
-                request.Reason ?? $"切换主任职至 {target.NId},生效 {effectiveOn}", beforeTarget, ToSummary(target));
 
             var refreshed = await _store.GetAssignmentsForUserAsync(tenantNId, userNIdValue, cancellationToken);
             var positionNames = await LoadPositionNamesAsync(tenantNId, refreshed, cancellationToken);
