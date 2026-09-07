@@ -23,6 +23,8 @@ Identity 完成后暂缓 MasterData、OperationalData 和 MES 生产业务扩张
 - 将 Platform Studio、Operations Center、IoT Collector 保持为可独立演进产品，并保持其内部模块边界。
 - 初期允许模块合并部署，但领域、契约和数据归属必须可拆分。
 
+PF05/06、PF08/09、PF10/10A、PF10B、PF11均遵循“平台原生兼容优先，同一业务核心按需独立交付与嵌入外部MES”。身份/数据/公共能力适配和最小依赖在设计时明确，先验平台真实链再验已批准外部形态；不要求每PF独立进程或各建账号/文件/审计服务。按功能的边界与派遣前清单统一见[蓝图32§2.1～2.2](32-Industrial%20Platform%20Service%20Host与内部模块边界.md)。
+
 # 3. 总体模块边界
 
 ## 3.1 平台基础
@@ -144,7 +146,7 @@ Workspace Query 聚合待办与通知、未读聊天、最近访问、快捷入�
 - 元数据和动态属性；
 - 编码规则和取号策略。
 
-ReferenceData 继续使用现有服务骨架和重编号后的实施文档 06，但进入开发前必须在 PF-03 阶段管理会话复核其与本蓝图、SystemData 和主题体系的契约。
+ReferenceData使用实施06维护七模块公开契约；后续变更核验其与本蓝图、SystemData和主题体系的兼容，当前完成范围见总Todo及PF03证据，不按历史骨架描述重新启动阶段。
 
 ## 7.3 File、Notification、Audit
 

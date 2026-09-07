@@ -1,6 +1,6 @@
 /**
  * PDA 关键路径 E2E(FE-008,§16):
- * 显式 PDA 路由可达、现场任务空状态、无扫码/称量/工单等不可用业务按钮、
+ * 显式 PDA 路由可达、可用功能菜单、无扫码/称量/工单等不可用业务按钮、
  * 48px 触控目标几何验收、横竖屏目标视口(480×800 / 800×480)无横向滚动并截图、
  * 键盘操作与退出。Playwright 经 Vite dev server 提供应用(同 pc.spec.ts)。
  */
@@ -23,12 +23,20 @@ async function login(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\/pc\/home/)
 }
 
-test('显式 PDA 路由可达并渲染现场任务空状态', async ({ page }) => {
+test('显式 PDA 路由可达并渲染可用功能菜单', async ({ page }) => {
   await login(page)
   await page.goto('/pda/home')
   await expect(page).toHaveURL(/\/pda\/home/)
-  // 标题与描述均含该文案,用 heading role 精确定位空状态标题(避免 strict mode 冲突)
-  await expect(page.getByRole('heading', { name: '现场任务将在业务阶段接入' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '可用功能' })).toBeVisible()
+  await expect(page.getByTestId('terminal-feature-menu-file')).toBeVisible()
+})
+
+test('PDA 首页可进入文件上传页', async ({ page }) => {
+  await login(page)
+  await page.goto('/pda/home')
+  await page.getByTestId('terminal-feature-menu-file').click()
+  await expect(page).toHaveURL(/\/pda\/files/)
+  await expect(page.getByRole('heading', { name: '文件上传' })).toBeVisible()
 })
 
 test('PDA 首页不出现扫码/称量/工单等不可用业务按钮', async ({ page }) => {
@@ -78,7 +86,7 @@ test('PDA 横竖屏目标视口无横向滚动并保存截图', async ({ page })
   // 竖屏 480×800
   await page.setViewportSize({ width: 480, height: 800 })
   await page.goto('/pda/home')
-  await expect(page.getByRole('heading', { name: '现场任务将在业务阶段接入' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '可用功能' })).toBeVisible()
   // 480px 宽度自动识别为 Mobile 断点(§11.1),但显式路由 meta.terminal='pda'
   // 是终端文案单事实源:无 override 时必须仍显示 PDA(PF-01 §7.11)。
   await expect(page.getByTestId('terminal-info')).toContainText('PDA')
@@ -90,7 +98,7 @@ test('PDA 横竖屏目标视口无横向滚动并保存截图', async ({ page })
   // 横屏 800×480
   await page.setViewportSize({ width: 800, height: 480 })
   await page.goto('/pda/home')
-  await expect(page.getByRole('heading', { name: '现场任务将在业务阶段接入' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '可用功能' })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   )

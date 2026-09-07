@@ -2,6 +2,8 @@
 
 # Industrial Platform Collaboration开发实施方案
 
+平台兼容与相对独立交付前置见[蓝图32§2.1～2.2](../blueprint/32-Industrial%20Platform%20Service%20Host与内部模块边界.md)：先平台真实身份/目录、全局连接、File/Audit和页面闭环，再验同一聊天核心的外部MES嵌入。沿既有宿主适配边界明确最小依赖，不复制人员/账号主数据；外部可用不替代平台兼容。
+
 > 当前里程碑范围：PF-05 创建 `Collaboration.Service`，交付登录用户之间的一对一文本、图片和文件聊天；本阶段只设计 Messaging、Presence、AttachmentIntegration，不实现 PF-06 RemoteAssistance、群聊、语音、音视频会议、机器人或外部联系人。详细设计已获确认，后续开发已获原则许可；但当前会话明确只完成设计文档定稿，不开发、不派遣、不构建、不测试、不提交。
 
 版本：V1.2

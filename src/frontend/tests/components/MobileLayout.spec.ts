@@ -87,13 +87,23 @@ describe('MobileLayout', () => {
     expect(focusables[0]?.attributes('href')).toBe('#main-content')
   })
 
-  it('底部导航包含首页、通知与我的真实入口', async () => {
+  it('底部导航固定包含首页、通知与我的真实入口', async () => {
     const { wrapper } = await mountLayout()
     const tabs = wrapper.findAll('nav.ip-mobile-nav a')
     expect(tabs).toHaveLength(3)
     expect(tabs[0]?.text()).toContain('首页')
     expect(tabs[1]?.text()).toContain('通知')
     expect(tabs[2]?.text()).toContain('我的')
+  })
+
+  it('即使有文件读取权限,底部导航仍固定为首页、通知与我的', async () => {
+    const { wrapper } = await mountLayout('/mobile/home', [
+      'platform.mobile.view',
+      'systemdata.file.read',
+    ])
+    const tabs = wrapper.findAll('nav.ip-mobile-nav a')
+    expect(tabs).toHaveLength(3)
+    expect(tabs.some((tab) => tab.text().includes('文件'))).toBe(false)
   })
 
   it('当前路由 Tab 高亮(首页)并带 aria-current', async () => {

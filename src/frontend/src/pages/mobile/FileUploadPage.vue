@@ -1,49 +1,71 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { ApiError } from '@/api/errors'
 import AppPage from '@/components/base/AppPage.vue'
 import { getPf04Api } from '@/api/systemData/pf04Registry'
 import type { UploadSessionDto } from '@/api/systemData/pf04Types'
 import { sampleFingerprint, sha256File } from '@/utils/sha256File'
 import { platformI18n } from '@/localization/i18n'
 
-const api = getPf04Api()
 const selectedFile = ref<File | null>(null)
 const busy = ref(false)
 const status = ref('')
 const uploadHash = ref('')
 const currentSession = ref<UploadSessionDto | null>(null)
 const candidates = ref<UploadSessionDto[]>([])
-const paused = ref(false)
+const stopped = ref(false)
+const failed = ref(false)
+let activeUploadController: AbortController | null = null
+let uploadRun = 0
 const copy = computed(() => {
   const translate = platformI18n.global as unknown as { t: (key: string, params?: Record<string, unknown>) => unknown }
   const t = (key: string, params?: Record<string, unknown>) => translate.t(`systemData.pages.mobileFileUpload.${key}`, params) as string
   return {
     title: t('title'), description: t('description'), chooseFile: t('chooseFile'), foundSessions: t('foundSessions'),
-    continue: t('continue'), takeover: t('takeover'), newSession: t('newSession'), pause: t('pause'), resume: t('resume'),
-    cancel: t('cancel'), retry: t('retry'), start: t('start'), processing: t('processing'), loadingHash: t('loadingHash'),
+    continue: t('continue'), takeover: t('takeover'), newSession: t('newSession'), stop: t('stop'), resume: t('resume'),
+    retry: t('retry'), start: t('start'), processing: t('processing'), loadingHash: t('loadingHash'),
     waitingChoice: t('waitingChoice'), uploading: (current: number, total: number) => t('uploading', { current, total }),
-    completed: t('completed'), paused: t('paused'), cancelled: t('cancelled'), failed: t('failed'),
+    completed: t('completed'), stopped: t('stopped'), failed: t('failed'),
   }
 })
 
+const progressPercent = computed(() => {
+  const session = currentSession.value
+  if (session === null || session.length <= 0) return 0
+  return Math.min(100, Math.round((session.offset / session.length) * 100))
+})
+
+function isUserAbort(error: unknown): boolean {
+  return error instanceof ApiError && error.kind === 'cancelled'
+}
+
 function selectFile(event: Event): void {
   selectedFile.value = (event.target as HTMLInputElement).files?.[0] ?? null
-  status.value = ''; uploadHash.value = ''; currentSession.value = null; candidates.value = []
+  status.value = ''; uploadHash.value = ''; currentSession.value = null; candidates.value = []; stopped.value = false
+  failed.value = false
 }
 
 async function upload(): Promise<void> {
+  const api = getPf04Api()
   if (api === null || selectedFile.value === null || busy.value) return
   busy.value = true
   try {
     const file = selectedFile.value
+    failed.value = false
     status.value = copy.value.loadingHash
     const hash = uploadHash.value || await sha256File(file)
     uploadHash.value = hash
     const discovery = await api.discoverUpload({ fileName: file.name, length: file.size, sampleFingerprint: await sampleFingerprint(file), purpose: 'systemdata' })
     candidates.value = discovery.candidates
     if (candidates.value.length > 0) {
-      status.value = copy.value.waitingChoice
+      if (candidates.value.length === 1) {
+        const candidate = candidates.value[0]!
+        candidates.value = []
+        await startUpload(candidate)
+      } else {
+        status.value = copy.value.waitingChoice
+      }
       return
     }
     await startUpload(null)
@@ -55,8 +77,15 @@ async function upload(): Promise<void> {
 }
 
 async function startUpload(candidate: UploadSessionDto | null, takeover = false): Promise<void> {
+  const api = getPf04Api()
   if (api === null || selectedFile.value === null) return
+  const run = ++uploadRun
+  const controller = new AbortController()
+  activeUploadController?.abort()
+  activeUploadController = controller
   busy.value = true
+  stopped.value = false
+  failed.value = false
   try {
     const file = selectedFile.value
     const hash = uploadHash.value || await sha256File(file)
@@ -80,23 +109,39 @@ async function startUpload(candidate: UploadSessionDto | null, takeover = false)
       else if (ready.status === 'WaitingForProof') ready = await api.resumeProof(ready.sessionNId, ready.writerEpoch, hash)
     }
     currentSession.value = ready
-    paused.value = false
+    stopped.value = false
     const chunkSize = 1024 * 1024
-    while (ready.offset < file.size && !paused.value) {
+    while (ready.offset < file.size) {
+      if (controller.signal.aborted || run !== uploadRun) return
       const offset = ready.offset
       status.value = copy.value.uploading(Math.min(offset + chunkSize, file.size), file.size)
-      ready = await api.uploadChunk(ready.transportId, file.slice(offset, Math.min(offset + chunkSize, file.size)), offset, ready.writerEpoch, ready.resumeTicket ?? '')
+      ready = await api.uploadChunk(
+        ready.transportId,
+        file.slice(offset, Math.min(offset + chunkSize, file.size)),
+        offset,
+        ready.writerEpoch,
+        ready.resumeTicket ?? '',
+        controller.signal,
+      )
+      if (controller.signal.aborted || run !== uploadRun) return
       currentSession.value = ready
     }
-    if (paused.value) return
+    if (controller.signal.aborted || run !== uploadRun) return
     await api.completeUpload(ready.sessionNId)
     status.value = copy.value.completed
     ElMessage.success(status.value)
     currentSession.value = null; uploadHash.value = ''; candidates.value = []
   } catch (error) {
-    status.value = error instanceof Error ? error.message : copy.value.failed
+    if (run !== uploadRun) return
+    if (controller.signal.aborted || isUserAbort(error)) {
+      status.value = copy.value.stopped
+    } else {
+      failed.value = true
+      status.value = error instanceof Error ? error.message : copy.value.failed
+    }
   } finally {
-    busy.value = false
+    if (activeUploadController === controller) activeUploadController = null
+    if (run === uploadRun) busy.value = false
   }
 }
 
@@ -105,27 +150,25 @@ async function continueCandidate(candidate: UploadSessionDto, takeover = false):
   await startUpload(candidate, takeover)
 }
 
-async function pauseCurrent(): Promise<void> {
-  if (api === null || currentSession.value === null) return
-  paused.value = true
-  currentSession.value = await api.pauseUpload(currentSession.value.sessionNId)
-  status.value = copy.value.paused
-}
-
 async function resumeCurrent(): Promise<void> {
-  if (api === null || currentSession.value === null) return
-  currentSession.value = await api.getUploadSession(currentSession.value.sessionNId)
-  await startUpload(currentSession.value)
+  if (selectedFile.value === null) return
+  await upload()
 }
 
-async function cancelCurrent(): Promise<void> {
-  if (api === null || currentSession.value === null) return
-  paused.value = true
-  await api.cancelUpload(currentSession.value.sessionNId, 'user-cancelled')
-  currentSession.value = null; paused.value = false; status.value = copy.value.cancelled
+function stopCurrent(): void {
+  if (currentSession.value === null) return
+  uploadRun++
+  stopped.value = true
+  failed.value = false
+  activeUploadController?.abort()
+  status.value = copy.value.stopped
+  busy.value = false
 }
 
-onBeforeUnmount(() => { paused.value = true })
+onBeforeUnmount(() => {
+  uploadRun++
+  activeUploadController?.abort()
+})
 </script>
 
 <template>
@@ -134,9 +177,13 @@ onBeforeUnmount(() => { paused.value = true })
       <label><span class="sr-only">{{ copy.chooseFile }}</span><input type="file" :disabled="busy" @change="selectFile" /></label>
       <p v-if="selectedFile">{{ selectedFile.name }} · {{ selectedFile.size }} bytes</p>
       <div v-if="candidates.length" class="upload-candidates"><p>{{ copy.foundSessions }}</p><div v-for="candidate in candidates" :key="candidate.sessionNId"><span>{{ candidate.offset }} / {{ candidate.length }} · epoch {{ candidate.writerEpoch }}</span><button type="button" :disabled="busy" @click="continueCandidate(candidate)">{{ copy.continue }}</button><button type="button" :disabled="busy" @click="continueCandidate(candidate, true)">{{ copy.takeover }}</button></div><button type="button" :disabled="busy" @click="candidates = [] ; void startUpload(null)">{{ copy.newSession }}</button></div>
-      <div v-if="currentSession" class="upload-controls"><button type="button" @click="paused ? resumeCurrent() : pauseCurrent()">{{ paused ? copy.resume : copy.pause }}</button><button type="button" @click="cancelCurrent">{{ copy.cancel }}</button><button v-if="status.includes(copy.failed)" type="button" :disabled="busy" @click="resumeCurrent">{{ copy.retry }}</button></div>
-      <button type="button" :disabled="busy || selectedFile === null || currentSession !== null" @click="upload">
-        {{ busy ? copy.processing : copy.start }}
+      <div v-if="currentSession" class="upload-progress" aria-live="polite">
+        <div class="upload-progress__meta"><span>{{ currentSession.offset }} / {{ currentSession.length }} bytes</span><span>{{ progressPercent }}%</span></div>
+        <div class="upload-progress__track" role="progressbar" :aria-valuenow="progressPercent" aria-valuemin="0" aria-valuemax="100"><span class="upload-progress__value" :style="{ width: `${progressPercent}%` }" /></div>
+      </div>
+      <div v-if="currentSession" class="upload-controls"><button type="button" :disabled="busy && stopped" @click="stopped ? resumeCurrent() : stopCurrent()">{{ stopped ? copy.resume : copy.stop }}</button><button v-if="failed" type="button" :disabled="busy" @click="resumeCurrent">{{ copy.retry }}</button></div>
+      <button type="button" :disabled="busy || selectedFile === null || (currentSession !== null && !stopped)" @click="upload">
+        {{ busy ? copy.processing : stopped ? copy.resume : copy.start }}
       </button>
       <p role="status">{{ status }}</p>
     </section>
@@ -148,4 +195,13 @@ onBeforeUnmount(() => { paused.value = true })
 .mobile-file-upload p { margin: 0; color: var(--ip-color-text-secondary); word-break: break-word; }
 .mobile-file-upload button { min-height: var(--ip-touch-min-size-mobile); border: 1px solid var(--ip-color-primary); border-radius: var(--ip-radius-md); background: var(--ip-color-primary); color: var(--ip-color-text-on-primary); font-size: var(--ip-font-size-md); }
 .mobile-file-upload button:disabled { cursor: not-allowed; opacity: 0.6; }
+.upload-progress { display: grid; gap: var(--ip-space-2); }
+.upload-progress__meta { display: flex; justify-content: space-between; color: var(--ip-color-text-secondary); font-size: var(--ip-font-size-sm); }
+.upload-progress__track { height: 8px; overflow: hidden; border-radius: 999px; background: var(--ip-color-bg-muted); }
+.upload-progress__value { display: block; height: 100%; border-radius: inherit; background: var(--ip-color-primary); transition: width 150ms ease; }
+.upload-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ip-space-3); }
+
+@media (prefers-reduced-motion: reduce) {
+  .upload-progress__value { transition: none; }
+}
 </style>

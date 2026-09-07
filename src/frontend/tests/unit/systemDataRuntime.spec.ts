@@ -10,6 +10,8 @@ import {
 import type { NavigationRuntimeNodeDto, ThemePolicyDto } from '@/api/systemData/types'
 import type { NavigationGroup } from '@/components/navigation/types'
 import { getDefaultPcNavigationGroups } from '@/components/navigation/navigation'
+import { enUS } from '@/locales/en-US'
+import { zhCN } from '@/locales/zh-CN'
 
 const node = (overrides: Partial<NavigationRuntimeNodeDto>): NavigationRuntimeNodeDto => ({
   nodeNId: 'group-1',
@@ -83,7 +85,125 @@ function legacyDefaultNavigation(): NavigationRuntimeNodeDto[] {
   return legacyDeclarations.filter(([parent]) => parent === null).map(build)
 }
 
+function localizedMessage(locale: typeof enUS, key: string): string | undefined {
+  let value: unknown = locale
+  for (const part of key.split('.')) {
+    if (typeof value !== 'object' || value === null || !(part in value)) return undefined
+    value = (value as Record<string, unknown>)[part]
+  }
+  return typeof value === 'string' ? value : undefined
+}
+
+function runtimeDefaults(): NavigationRuntimeNodeDto[] {
+  return getDefaultPcNavigationGroups().map((group) =>
+    node({
+      nodeNId: `navigation.group.${group.id}`,
+      label: group.label,
+      kind: 'Group',
+      children: [
+        ...(group.sections ?? []).map((section) =>
+          node({
+            nodeNId: `navigation.group.${section.id}`,
+            label: section.label,
+            kind: 'Group',
+            children: group.items
+              .filter((item) => item.sectionId === section.id)
+              .map((item) =>
+                node({
+                  nodeNId: `navigation.link.${item.id}`,
+                  kind: 'Link',
+                  label: item.label,
+                  routeName: item.routeName,
+                  children: [],
+                }),
+              ),
+          }),
+        ),
+        ...group.items
+          .filter((item) => item.sectionId === undefined)
+          .map((item) =>
+            node({
+              nodeNId: `navigation.link.${item.id}`,
+              kind: 'Link',
+              label: item.label,
+              routeName: item.routeName,
+              children: [],
+            }),
+          ),
+      ],
+    }),
+  )
+}
+
+function flattenLabels(groups: NavigationGroup[]): Array<{ labelKey: string; fallbackLabel: string }> {
+  return groups.flatMap((group) => [
+      { labelKey: group.labelKey ?? '', fallbackLabel: group.fallbackLabel ?? group.label },
+    ...(group.sections ?? []).map((section) => ({
+      labelKey: section.labelKey ?? '',
+      fallbackLabel: section.fallbackLabel ?? section.label,
+    })),
+    ...group.items.flatMap((item) => [
+      { labelKey: item.labelKey ?? '', fallbackLabel: item.fallbackLabel ?? item.label },
+      ...(item.children ?? []).map((child) => ({
+        labelKey: child.labelKey ?? '',
+        fallbackLabel: child.fallbackLabel ?? child.label,
+      })),
+    ]),
+  ])
+}
+
 describe('SystemData runtime navigation adapter', () => {
+  it('localizes every platform-owned runtime group, section, and item in both locales', () => {
+    const groups = mapRuntimeNavigation(runtimeDefaults())
+    const labels = flattenLabels(groups)
+
+    expect(labels.length).toBeGreaterThan(20)
+    for (const entry of labels) {
+      expect(entry.labelKey).toMatch(/^shell\.navigation\./)
+      expect(localizedMessage(enUS, entry.labelKey)).toBeTruthy()
+      expect(localizedMessage(zhCN, entry.labelKey)).toBeTruthy()
+    }
+  })
+
+  it('uses route metadata for legacy node ids but preserves customized labels', () => {
+    const groups = mapRuntimeNavigation([
+      node({
+        nodeNId: 'tenant.custom.system',
+        label: '自定义系统',
+        children: [
+          node({
+            nodeNId: 'tenant.custom.users',
+            kind: 'Link',
+            label: '自定义用户入口',
+            routeName: 'identity-users',
+          }),
+        ],
+      }),
+      node({
+        nodeNId: 'legacy.users',
+        kind: 'Group',
+        label: '系统管理',
+        children: [
+          node({
+            nodeNId: 'legacy.identity-users',
+            kind: 'Link',
+            label: '用户管理',
+            routeName: 'identity-users',
+          }),
+        ],
+      }),
+    ])
+
+    const customGroup = groups.find((group) => group.id === 'tenant.custom.system')
+    const builtInGroup = groups.find((group) => group.id === 'legacy.users')
+    expect(customGroup?.labelKey).toBe('')
+    expect(customGroup?.items[0]?.labelKey).toBe('')
+    expect(builtInGroup?.items[0]).toMatchObject({
+      labelKey: 'shell.navigation.item.identity-users',
+      fallbackLabel: '用户管理',
+    })
+  })
+
   it('maps the authoritative ReferenceData root and preserves bilingual built-in labels', () => {
     const groups = mapRuntimeNavigation([
       node({

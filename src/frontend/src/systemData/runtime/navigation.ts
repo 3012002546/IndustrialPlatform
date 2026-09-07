@@ -74,68 +74,59 @@ const LEGACY_DEFAULT_NAVIGATION_FINGERPRINT = JSON.stringify([
   ['navigation.link.reference-data-state-machines', { labelKey: 'shell.navigation.item.reference-data-state-machines', fallbackLabel: '状态机定义' }],
 ]) */
 
-const BUILTIN_NAVIGATION_TEXT = new Map<string, { labelKey: string; fallbackLabel: string }>([
-  [
-    'navigation.group.reference-data',
-    { labelKey: 'shell.navigation.group.reference-data', fallbackLabel: '基础配置' },
-  ],
-  [
-    'navigation.link.reference-data-dictionaries',
-    { labelKey: 'shell.navigation.item.reference-data-dictionaries', fallbackLabel: '字典管理' },
-  ],
-  [
-    'navigation.link.reference-data-parameters',
-    { labelKey: 'shell.navigation.item.reference-data-parameters', fallbackLabel: '参数管理' },
-  ],
-  [
-    'navigation.link.reference-data-dynamic-properties',
-    {
-      labelKey: 'shell.navigation.item.reference-data-dynamic-properties',
-      fallbackLabel: '动态属性',
-    },
-  ],
-  [
-    'navigation.link.reference-data-units-of-measure',
-    {
-      labelKey: 'shell.navigation.item.reference-data-units-of-measure',
-      fallbackLabel: '计量单位',
-    },
-  ],
-  [
-    'navigation.link.reference-data-metadata',
-    { labelKey: 'shell.navigation.item.reference-data-metadata', fallbackLabel: '元数据定义' },
-  ],
-  [
-    'navigation.link.reference-data-coding-rules',
-    { labelKey: 'shell.navigation.item.reference-data-coding-rules', fallbackLabel: '编码规则' },
-  ],
-  [
-    'navigation.link.reference-data-state-machines',
-    {
-      labelKey: 'shell.navigation.item.reference-data-state-machines',
-      fallbackLabel: '状态机定义',
-    },
-  ],
-  [
-    'navigation.link.systemdata-files',
-    { labelKey: 'shell.navigation.item.systemdata-files', fallbackLabel: '文件管理' },
-  ],
-  [
-    'navigation.link.systemdata-notifications',
-    { labelKey: 'shell.navigation.item.systemdata-notifications', fallbackLabel: '通知与公告' },
-  ],
-  [
-    'navigation.link.systemdata-audits',
-    { labelKey: 'shell.navigation.item.systemdata-audits', fallbackLabel: '审计查询' },
-  ],
-])
+function builtinNavigationText(): Map<string, { labelKey: string; fallbackLabel: string }> {
+  const result = new Map<string, { labelKey: string; fallbackLabel: string }>()
+
+  const add = (key: string, labelKey: string, fallbackLabel: string): void => {
+    result.set(key, { labelKey, fallbackLabel })
+  }
+  const addItem = (item: NavigationItem): void => {
+    add(
+      `navigation.link.${item.id}`,
+      item.labelKey ?? `shell.navigation.item.${item.id}`,
+      item.fallbackLabel ?? item.label,
+    )
+    if (item.routeName !== undefined) {
+      add(
+        `route:${item.routeName}`,
+        item.labelKey ?? `shell.navigation.item.${item.id}`,
+        item.fallbackLabel ?? item.label,
+      )
+    }
+    item.children?.forEach(addItem)
+  }
+
+  for (const group of defaultGroups) {
+    add(
+      `navigation.group.${group.id}`,
+      group.labelKey ?? `shell.navigation.group.${group.id}`,
+      group.fallbackLabel ?? group.label,
+    )
+    for (const section of group.sections ?? []) {
+      add(
+        `navigation.group.${section.id}`,
+        section.labelKey ?? `shell.navigation.section.${section.id}`,
+        section.fallbackLabel ?? section.label,
+      )
+    }
+    group.items.forEach(addItem)
+  }
+
+  return result
+}
+
+// Build this from the canonical navigation metadata so every platform-owned
+// group/section/item follows the same locale contract as the static shell.
+const BUILTIN_NAVIGATION_TEXT = builtinNavigationText()
 
 function runtimeText(node: NavigationRuntimeNodeDto): {
   label: string
   labelKey: string
   fallbackLabel: string
 } {
-  const builtIn = BUILTIN_NAVIGATION_TEXT.get(node.nodeNId)
+  const builtIn =
+    BUILTIN_NAVIGATION_TEXT.get(node.nodeNId) ??
+    (node.routeName === null ? undefined : BUILTIN_NAVIGATION_TEXT.get(`route:${node.routeName}`))
   if (builtIn === undefined || node.label !== builtIn.fallbackLabel)
     return { label: node.label, labelKey: '', fallbackLabel: node.label }
   return { label: node.label, ...builtIn }

@@ -4,7 +4,7 @@
 
 总体开发优先级和阶段门禁统一读取 `docs/blueprint/09-Industrial Platform开发总TodoList.md`。PF-01～PF-10 对应本目录 04～13；新增 PF-06A 使用 09A，PF-10A 使用 13A，新增 PF-10B 使用 13B，PF-11 使用 14；MES 文档从 15 开始。后缀编号插入执行顺序，不改旧编号。
 
-所有 PF 阶段还必须读取 `docs/blueprint/32-Industrial Platform Service Host与内部模块边界.md`。阶段编号不等于 Service Host；后续阶段可以向前一阶段创建的宿主增加独立模块，但不得合并 Schema/表前缀、契约、权限或测试，也不得跨模块直读 Repository。
+所有PF阶段还必须读取 `docs/blueprint/32-Industrial Platform Service Host与内部模块边界.md`。阶段编号不等于Service Host；同宿主模块可共用物理Schema和服务级迁移/账本，但必须保留明确模块表命名空间、契约、权限与测试边界，不得跨模块直读Repository。只有独立持久化生命周期才拆初始化单元。平台原生优先、最小依赖与外部宿主装配前置见该蓝图§2.1～2.2。
 
 PF-02 及其后的新服务必须以 `docs/blueprint/07-PostgreSQL数据库规范及分库设计.md` 与蓝图 33 为权威初始化来源，并以实施 05 为 PF-02 控制面计划；引用文件与章节，不绑定文档修订号。SystemData 提供通用 Service Initialization Pipeline；后续服务必须交付 ServiceKey/ModuleKey、InitializationManifest/SeedSets、服务自有 migration/seed/initializer 产物、服务级或真实独立持久化单元的 schema/seed 双账本、本地 readiness、最小角色、备份登记和可观测 `OperationId`。不得自行持有管理员凭据建库、向 SystemData 传 Secret、使用 `EnsureCreated`，或让共享宿主使用模糊初始化大包。
 
@@ -49,7 +49,7 @@ PF05起分开维护设计就绪度（待细化/待前置核验/已就绪）与�
 | 12 | PF-09 Dashboard & Report实施方案（待 PF-09 会话创建） | 两个产品边界分开建模，在同一阶段管理会话协调和派遣 |
 | 13 | PF-10 ServerMonitor实施方案（待 PF-10 会话创建） | 创建 `OperationsCenter.Service`，本阶段只处理 ServerMonitor |
 | 13A | PF-10A Operations Center Knowledge & Assistant实施方案（待 PF-10A 会话创建） | 设计待确认；先补齐 IssueTracking 与 KnowledgeBase 完整数据闭环，不提前创建文档 |
-| 13B | [PF-10B 标签管理平台](13B-Industrial%20Platform标签管理平台开发实施方案.md) | PF-11 前；独立产品/数据规则/设备/打印闭环；核心字段/线框已细化，待派遣/待客户设备核验 |
+| 13B | [PF-10B 标签管理平台](13B-Industrial%20Platform标签管理平台开发实施方案.md) | PF-11前；先平台原生兼容/打印闭环，再外部MES与无宿主装配；核心字段/线框已细化，待派遣/待平台契约、客户设备及外部适配核验 |
 | 14 | PF-11 IoT Collector实施方案（待 PF-11 会话创建） | 待阶段管理会话复核蓝图并派遣 |
 | 15 | [MES-01 MasterData实施方案](15-Industrial%20Platform%20MasterData%20Service开发实施方案.md) | 暂缓；保留现有设计和未提交调整，恢复前复核 |
 | 16 | [MES-02 OperationalData实施方案](16-Industrial%20Platform%20OperationalData%20Service开发实施方案.md) | 暂缓；恢复前按母版重构和复核 |

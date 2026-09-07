@@ -18,6 +18,7 @@ export const MOCK_PERMISSIONS = [
   'platform.operation.view',
   'platform.pda.view',
   'platform.mobile.view',
+  'systemdata.file.read',
 ] as const
 
 export const MOCK_USER: AuthUser = {

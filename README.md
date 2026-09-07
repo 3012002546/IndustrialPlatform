@@ -4,6 +4,8 @@
 
 平台采用 Clean Architecture，按业务复杂度使用 DDD，通过明确的模块契约、数据所有权和部署边界，兼顾统一部署的简洁性与后续独立部署的扩展能力。
 
+聊天/远程协助（PF05/06）、低代码/看板报表（PF08/09）、监控/知识问题与助手（PF10/10A）、标签（PF10B）、采集（PF11）都先作为平台原生功能设计和验收，再以同一业务核心按需独立部署、嵌入其他MES。设计时同时明确外部适配边界和最小依赖，复用身份、权限、文件、审计、初始化与共享UI；相对独立不要求每个功能单建微服务或账号体系。各功能装配边界见[Host母版§2.1～2.2](docs/blueprint/32-Industrial%20Platform%20Service%20Host与内部模块边界.md)。
+
 ## 整体架构
 
 ### 统一前端与两种部署入口
@@ -168,7 +170,7 @@ PF-05/06 Web 完成后执行 PF-06A。Runtime 隔离扫码、蓝牙、相机、�
 
 标签平台优先数据规则：业务来源→字段契约→客户映射→校验/快照→渲染→执行。物料/容器/设备预置可扩展；保密客户字段缺失不得回退内部名称；明细与份数分开，预览/打印使用同一准备快照。重试、重打原标签、按最新数据重新生成分别处理；提交队列不代表物理出纸，结果未知不自动重打。
 
-Label.Service 支持独立交付；浏览器和 Electron 共用 Windows Agent，PDA 直接原生蓝牙打印。PF-10B 在 IoTCollector 前完成，称量以后复用设备连接层并自行管理业务。详见[蓝图 35](docs/blueprint/35-Industrial%20Platform标签管理平台设计.md)与[实施 13B](docs/implementation/13B-Industrial%20Platform标签管理平台开发实施方案.md)。
+Label.Service先交付平台真实身份/权限、菜单/页面、文件/审计、初始化与打印闭环，再验证独立部署嵌入外部MES和无宿主录入/导入，同一核心不复制公共平台服务。浏览器和Electron共用Windows Agent，PDA直接原生蓝牙打印。PF-10B在IoTCollector前完成是排期关系，IoT/称量以后复用公开设备连接语义并自行管理业务。详见[蓝图35](docs/blueprint/35-Industrial%20Platform标签管理平台设计.md)与[实施13B](docs/implementation/13B-Industrial%20Platform标签管理平台开发实施方案.md)。
 
 ## 整体规划
 

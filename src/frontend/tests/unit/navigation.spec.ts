@@ -8,6 +8,7 @@ import { isReactive } from 'vue'
 
 import { normalizeNavigationGroups, pcNavigationGroups } from '@/components/navigation/navigation'
 import type { NavigationItem } from '@/components/navigation/types'
+import { PERMISSIONS } from '@/permissions'
 import { ROUTE_NAMES, routes } from '@/router/routes'
 
 /** 从路由表收集所有已注册路由名(仅一层,PC 路由为平铺子路由)。 */
@@ -23,6 +24,17 @@ function registeredRouteNames(): Set<string> {
 }
 
 describe('pcNavigationGroups', () => {
+  it('注册 PDA 文件上传路由并声明终端与读取权限元数据', () => {
+    const pda = routes.find((record) => record.path === '/pda')
+    const files = pda?.children?.find((record) => record.name === ROUTE_NAMES.pdaFiles)
+    expect(files?.path).toBe('files')
+    expect(files?.meta).toMatchObject({
+      permission: PERMISSIONS.systemDataFileRead,
+      terminal: 'pda',
+      requiresAuth: true,
+    })
+  })
+
   it('每个静态分组与菜单项都有稳定文案键和保底文案', () => {
     for (const group of pcNavigationGroups) {
       expect(group.labelKey).toBe(`shell.navigation.group.${group.id}`)
