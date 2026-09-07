@@ -12,8 +12,8 @@
 
 | 所有者 | 负责 | 不负责 |
 | --- | --- | --- |
-| Label.Service | 分类/模板/版本、标签字段契约、数据绑定/客户规则、准备快照、渲染产物、任务/明细、重打、历史、权限/审计 | 工单生产判定、物料主档、包装拆分、串口/蓝牙物理通信 |
-| Device Agent/终端适配 | 设备绑定、连接、互斥、任务领取、持久执行记录、发送、回执、诊断 | 决定业务批次/客户名称、生成包装业务身份、称量业务判定 |
+| Label.Service | 分类/模板/版本、标签字段契约、数据绑定/客户规则、准备快照、渲染产物、任务/明细、重打、历史、设备注册/节点绑定授权、权限/审计 | 工单生产判定、物料主档、包装拆分、串口/蓝牙物理通信 |
+| Device Agent/终端适配 | 按服务端授权绑定本地设备句柄/连接配置、连接、互斥、任务领取、持久执行记录、发送、回执、诊断 | 决定业务批次/客户名称、生成包装业务身份、称量业务判定 |
 | MES/OP/EBR | 业务权威数据、业务可打印条件、包装/批次/序列号 | 标签坐标、设备协议、标签任务历史 |
 | IoTCollector/Weighting（后续） | 通用采集、点位、设备读数；称量质量/稳定性/业务确认 | 依赖标签任务才能读取设备 |
 
@@ -39,25 +39,25 @@
 
 支持后端推送标准 DTO、按业务标识经受控接口取数、独立人工录入/文件导入。模板只绑定稳定标签字段，不读取业务数据库表；取数接口注册目标、认证、超时、允许操作和响应大小，浏览器不能提交任意 URL/SQL。
 
-字段定义包含 NId、业务含义、数据类型、长度、精度/舍入、单位、是否必填、空值/默认值规则、允许来源、人工修改权限与敏感等级。实际净含量、额定容量、包装规格必须用不同字段表达；批次/包装编号/已确认重量/客户编码等权威字段不允许终端任意覆盖。人工更正仅限显式允许字段，单独授权、记录原值/新值与原因。
+契约版本使用 NId；契约内字段使用唯一稳定 key，包含业务含义、数据类型、长度、精度/舍入、单位、是否必填、空值/默认值规则、允许来源、人工修改权限与敏感等级，不给每个 JSON 字段另建实体 NId。实际净含量、额定容量、包装规格必须用不同字段表达；批次/包装编号/已确认重量/客户编码等权威字段不允许终端任意覆盖。人工更正仅限显式允许字段，单独授权、记录原值/新值与原因。
 
 ### 4.2 客户映射与保密
 
 客户物料映射明确唯一权威来源、版本、生效时间、适用组织/客户/模板和停用状态。规则匹配必须唯一，缺失或多条命中阻断准备。保密标签缺少客户编码/名称时不能回退内部值。服务端完成映射，只向模板/执行端下发允许输出字段；二维码、预览、产物、缓存、日志、临时文件、诊断包都遵守相同保密边界。
 
-转换仅允许受控函数（格式、受权单位换算、字段组合、码制约束），不运行用户脚本或通用表达式引擎。业务系统生成包装拆分、尾包、批次和序列号；标签平台不按打印份数生成业务身份。
+首版转换白名单为 Identity、FormatDate、FormatDecimal、CustomerMaterialMap，码制约束由渲染适配验证；单位换算、字段组合若有真实需求，先补类型、精度与授权规则再扩展。不得运行用户脚本或通用表达式引擎。业务系统生成包装拆分、尾包、批次和序列号；标签平台不按打印份数生成业务身份。
 
 ### 4.3 准备、预览、提交和重打
 
-十个不同容器为十条 PrintItem；一个容器贴两张相同标签为一条明细 Copies=2。PrintItem 绑定 BusinessItemNId、快照和份数，不用份数替代业务行。
+十个不同容器为十条 PrintItem；一个容器贴两张相同标签为一条明细 Copies=2。准备明细 ItemKey 是来源业务的稳定行身份，PrintItem 通过 PreparedItemKey 引用该行；BusinessItemRef 用于历史展示，不另要求来源系统提供名为 BusinessItemNId 的字段。不用份数替代业务行。
 
-Prepare 生成 PreparedJobNId、版本集合、有效期、输入/输出快照和产物 hash；人工确认预览后 Submit 引用同一 PreparedJobNId/checksum。过期、订单撤销、权限失效或来源版本变化时拒绝/要求重新准备，不能悄悄换数据。重试相同幂等键返回原任务；同键异载荷冲突。
+Prepare 生成 PreparedJobNId、版本集合、有效期、输入/输出快照和产物 hash；先从授权打印机配置确定 DPI/介质/格式，保存 RenderProfileSnapshot/Hash 与 CustomerMappingRevisionNId。人工确认预览后 Submit 引用同一 PreparedJobNId/snapshotHash。目标可换为能力及渲染配置兼容的授权打印机，改变 DPI/纸张/格式必须重新准备。过期、订单撤销、权限失效或来源版本变化时拒绝/要求重新准备，不能悄悄换数据；服务端提交和发送前经来源公开接口复核可打印条件。重试相同幂等键返回原任务；同键异载荷冲突。
 
 重打原标签：使用原快照/版本/产物，新增关联原明细的受权重打记录、原因和份数；原产物已受保留策略删除时明确“无法原样重打”。按最新业务重新生成：创建新 Prepare/Job，重新取数和校验，与重打分开命名和审计。历史显示当时真实内容与版本，不受今天模板或客户名称修改影响。
 
 ## 5. 打印机与执行端
 
-打印机配置区分连接方式（本地队列/共享队列、网络 TCP/Wi-Fi、串口、蓝牙）与输出协议（驱动 PDF/图像、ZPL、厂商串口帧、SPP/BLE 等）。同连接类型不意味着所有品牌兼容，支持清单记录型号、固件、OS、驱动/SDK、协议、DPI、回执层级和验收证据。
+打印机配置区分连接方式（本地队列/共享队列、网络 TCP/Wi-Fi、串口、蓝牙 Classic SPP/BLE）与输出协议（驱动 PDF/图像、ZPL、已验证厂商指令等）；SPP/BLE 属于连接承载方式。同连接类型不意味着所有品牌兼容，支持清单记录型号、固件、OS、驱动/SDK、协议、DPI、回执层级和验收证据。
 
 Windows 主路线为 Device Agent 服务，必要时由用户态助手处理会话/驱动要求；浏览器扩展不作为默认必装，网络共享只是兼容方式。Agent 主动连服务端取得绑定到本节点的任务，不允许网页自由访问任意本地地址/设备。执行账户和共享凭据按现场配置，测试页必须使用与生产相同账户、路径、内容和协议。
 
@@ -67,7 +67,16 @@ PDA 通过 Capacitor 原生插件直接连接蓝牙打印机，可无需 Windows
 
 ## 6. 状态、可靠性与恢复
 
-业务任务按明细记录 `Prepared → Queued → Leased → Submitting → Submitted → Confirmed`；分支为 FailedBeforeSubmit、OutcomeUnknown、Cancelled、Expired。Submitted 表示提交到队列/设备，Confirmed 必须记录确认来源（Spooler、设备协议、人工），不得统一显示“已物理出纸”。
+状态按所有者分别定义，与[细化规格](../implementation/details/PF10B-数据接口与页面规格.md)使用同一枚举：
+
+| 所有者 | 状态 |
+| --- | --- |
+| PreparedJob | Preparing / Ready / Failed / Expired |
+| PrintJob 汇总 | Queued / Running / PartiallySucceeded / Succeeded / Failed / Cancelled / OutcomeUnknown |
+| PrintItem | Queued → Claimed → Submitting → Submitted → Confirmed；另有 Failed / Cancelled / OutcomeUnknown |
+| Agent 执行账本 | Claimed / SubmitIntent / Submitted / Confirmed / Failed / OutcomeUnknown |
+
+准备完成称 Ready，领取称 Claimed；不额外持久化 Prepared/Leased/FailedBeforeSubmit 枚举。发送前失败由 Failed 与失败阶段/执行记录区分。Submitted 表示已提交队列/设备，SpoolerAccepted 只证明队列接收；Confirmed 只接受已验证设备完成回执或授权人工核实，分别记录 DeviceConfirmed / OperatorVerified。Job 只有全部明细确认才 Succeeded，不能将 Spooler 接收统一显示成“已物理出纸”。
 
 领取采用数据库条件更新与租约/ExecutionEpoch；Agent 在发送前持久记录执行意图，发送后记录回执并可幂等补传。失联租约到期不证明设备已停止；提交后或提交结果不确定进入 OutcomeUnknown，禁止自动重打、换机或将旧任务再次派发。只有能证明尚未提交的失败才可自动重试；租约 fencing 不能撤销已经进入设备缓冲的数据。
 
