@@ -20,6 +20,7 @@ public sealed partial class RabbitMqEventBus : IEventBus, IDisposable
     private readonly ILogger<RabbitMqEventBus> _logger;
     private readonly JsonSerializerOptions _jsonOptions;
     private readonly SemaphoreSlim _syncRoot = new(1, 1);
+    private readonly SemaphoreSlim _publishGate = new(1, 1);
 
     private IChannel? _channel;
     private bool _disposed;
@@ -51,6 +52,9 @@ public sealed partial class RabbitMqEventBus : IEventBus, IDisposable
     {
         ArgumentNullException.ThrowIfNull(integrationEvent);
 
+        // The channel is created with publisher confirmations enabled. In RabbitMQ.Client 7,
+        // BasicPublishAsync completes only after the broker confirms the publish (or throws
+        // PublishException for a nack/mandatory return), so the outbox never advances early.
         var channel = await GetChannelAsync(cancellationToken);
         var eventName = integrationEvent.EventType;
         var body = JsonSerializer.SerializeToUtf8Bytes(integrationEvent, _jsonOptions);
@@ -63,7 +67,15 @@ public sealed partial class RabbitMqEventBus : IEventBus, IDisposable
             DeliveryMode = DeliveryModes.Persistent,
         };
 
-        await channel.BasicPublishAsync(_options.ExchangeName, routingKey ?? eventName, false, properties, body, cancellationToken);
+        await _publishGate.WaitAsync(cancellationToken);
+        try
+        {
+            await channel.BasicPublishAsync(_options.ExchangeName, routingKey ?? eventName, true, properties, body, cancellationToken);
+        }
+        finally
+        {
+            _publishGate.Release();
+        }
 
         LogPublished(eventName, integrationEvent.EventId);
     }
@@ -83,7 +95,7 @@ public sealed partial class RabbitMqEventBus : IEventBus, IDisposable
                 return _channel;
             }
 
-            _channel = await _connection.CreateChannelAsync(cancellationToken);
+            _channel = await _connection.CreateChannelAsync(publisherConfirmationsEnabled: true, cancellationToken);
             await _channel.ExchangeDeclareAsync(_options.ExchangeName, ExchangeType.Topic, true, false, null, false, cancellationToken);
             return _channel;
         }
@@ -103,6 +115,7 @@ public sealed partial class RabbitMqEventBus : IEventBus, IDisposable
 
         _disposed = true;
         _channel?.Dispose();
+        _publishGate.Dispose();
         _syncRoot.Dispose();
     }
 

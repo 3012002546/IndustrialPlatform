@@ -9,7 +9,14 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 import { ElDropdown, ElDropdownItem, ElDropdownMenu, ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, FullScreen, Lock, SwitchButton, UserFilled } from '@element-plus/icons-vue'
+import {
+  ChatDotRound,
+  Delete,
+  FullScreen,
+  Lock,
+  SwitchButton,
+  UserFilled,
+} from '@element-plus/icons-vue'
 
 import MockModeBanner from '@/components/base/MockModeBanner.vue'
 import PlatformBrand from '@/components/brand/PlatformBrand.vue'
@@ -30,9 +37,14 @@ import PlatformSessionControls from '@/components/shell/PlatformSessionControls.
 import ThemeControl from '@/components/theme/ThemeControl.vue'
 import WorkspaceTabLimitDialog from '@/components/shell/WorkspaceTabLimitDialog.vue'
 import AppLockOverlay from '@/components/shell/AppLockOverlay.vue'
+import CollaborationQuickDrawer from '@/components/collaboration/CollaborationQuickDrawer.vue'
 import type { TerminalType } from '@/device/types'
 import { loadRuntimeConfig } from '@/config/runtimeConfig'
+import { getOptionalCollaborationApi } from '@/api/collaborationRegistry'
+import { getCollaborationRealtime } from '@/api/collaborationHub'
+import type { ConversationSummary } from '@/api/collaboration'
 import { useAuthStore } from '@/stores/authStore'
+import { useCollaborationChatStore } from '@/stores/collaborationChatStore'
 import { useDeviceStore } from '@/stores/deviceStore'
 import { useWorkspaceTabsStore } from '@/stores/workspaceTabsStore'
 import { useLockStore } from '@/stores/lockStore'
@@ -64,6 +76,78 @@ const runtimeConfig = loadRuntimeConfig()
 const focusMode = ref(false)
 const browserFullscreen = ref(false)
 const locale = usePlatformLocale()
+const collaborationApi = getOptionalCollaborationApi()
+const collaborationRealtime = collaborationApi === null ? null : getCollaborationRealtime()
+const collaborationChat = useCollaborationChatStore()
+const collaborationUnread = computed(() => collaborationChat.totalUnread)
+const collaborationQuickOpen = ref(false)
+let unsubscribeCollaboration: (() => void) | undefined
+let collaborationRefreshVersion = 0
+let collaborationRefreshPending = false
+let collaborationRefreshActive = false
+let collaborationRefreshInFlight: Promise<void> | undefined
+const canOpenCollaboration = computed(() => authStore.hasPermission('collaboration.messaging.read'))
+const collaborationLabel = computed(() =>
+  resolveLocaleMessage(locale.value, 'shell.navigation.item.collaboration-chat', '聊天'),
+)
+const collaborationShortcutLabel = computed(() => {
+  if (collaborationUnread.value <= 0) return collaborationLabel.value
+  const unreadLabel = collaborationUnread.value > 99 ? '99+' : collaborationUnread.value
+  return `${collaborationLabel.value} (${unreadLabel})`
+})
+
+function canApplyCollaborationRefresh(version: number): boolean {
+  return collaborationRefreshActive && version === collaborationRefreshVersion
+}
+
+async function loadCollaborationUnread(version: number): Promise<void> {
+  if (collaborationApi === null || !canOpenCollaboration.value) {
+    if (canApplyCollaborationRefresh(version))
+      collaborationChat.replaceUnreadConversationProjection([])
+    return
+  }
+  try {
+    const conversations: ConversationSummary[] = []
+    let cursor: string | undefined
+    const cursors = new Set<string>()
+    do {
+      const result = await collaborationApi.listConversations({
+        ...(cursor === undefined ? {} : { cursor }),
+        visibility: 'Visible',
+        unreadOnly: true,
+        pageSize: 100,
+      })
+      if (!canApplyCollaborationRefresh(version)) return
+      conversations.push(...result.items)
+      if (result.nextCursor === null || cursors.has(result.nextCursor)) break
+      cursors.add(result.nextCursor)
+      cursor = result.nextCursor
+    } while (true)
+    if (canApplyCollaborationRefresh(version))
+      collaborationChat.replaceUnreadConversationProjection(conversations)
+  } catch {
+    // The page remains usable when the optional collaboration endpoint is unavailable.
+  }
+}
+
+function refreshCollaborationUnread(): Promise<void> {
+  if (!collaborationRefreshActive) return Promise.resolve()
+  collaborationRefreshVersion += 1
+  collaborationRefreshPending = true
+  if (collaborationRefreshInFlight !== undefined) return collaborationRefreshInFlight
+
+  const drain = async (): Promise<void> => {
+    while (collaborationRefreshActive && collaborationRefreshPending) {
+      collaborationRefreshPending = false
+      await loadCollaborationUnread(collaborationRefreshVersion)
+    }
+  }
+  collaborationRefreshInFlight = drain().finally(() => {
+    collaborationRefreshInFlight = undefined
+    if (collaborationRefreshActive && collaborationRefreshPending) void refreshCollaborationUnread()
+  })
+  return collaborationRefreshInFlight
+}
 
 const authorizedNavigationGroups = computed(() =>
   applyPermissionPolicy(pcNavigationGroups, authStore.user?.permissions ?? []),
@@ -157,11 +241,22 @@ onMounted(() => {
   document.addEventListener('fullscreenchange', onFullscreenChange)
   document.addEventListener('keydown', onDocumentKeydown)
   onFullscreenChange()
+  collaborationRefreshActive = true
+  unsubscribeCollaboration = collaborationRealtime?.subscribe?.({
+    onMessage: () => void refreshCollaborationUnread(),
+    onMessageRetracted: () => void refreshCollaborationUnread(),
+    onReadCursor: () => void refreshCollaborationUnread(),
+  })
+  void refreshCollaborationUnread()
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('fullscreenchange', onFullscreenChange)
   document.removeEventListener('keydown', onDocumentKeydown)
+  collaborationRefreshActive = false
+  collaborationRefreshVersion += 1
+  collaborationRefreshPending = false
+  unsubscribeCollaboration?.()
 })
 
 /** 用户菜单命令:仅处理真实的个人中心、白名单 UI 缓存、锁定与退出。 */
@@ -294,12 +389,16 @@ function onLimitResolve(resolution: TabLimitResolution): void {
 
 <template>
   <div class="ip-pc-layout" :class="{ 'ip-pc-layout--focus': focusMode }">
-    <a class="ip-pc-skip-link" href="#main-content">{{ localeMessages[locale].common.action.skipToContent }}</a>
+    <a class="ip-pc-skip-link" href="#main-content">{{
+      localeMessages[locale].common.action.skipToContent
+    }}</a>
 
     <PlatformTopBar class="ip-pc-chrome">
       <template #brand>
         <PlatformBrand class="ip-pc-brand" variant="dark" />
-        <span class="ip-pc-terminal" data-testid="terminal-info">{{ shellCopy.terminal }} {{ terminalLabel }}</span>
+        <span class="ip-pc-terminal" data-testid="terminal-info"
+          >{{ shellCopy.terminal }} {{ terminalLabel }}</span
+        >
         <PlatformEnvironmentBadge :environment="runtimeConfig.deploymentEnvironment" />
       </template>
 
@@ -321,14 +420,36 @@ function onLimitResolve(resolution: TabLimitResolution): void {
           :unavailable="systemDataRuntime.unavailable"
           @retry="systemDataRuntime.refresh('Pc')"
         />
+        <button
+          v-if="canOpenCollaboration"
+          type="button"
+          class="ip-pc-shell-action ip-pc-shell-action--collaboration"
+          data-testid="collaboration-shortcut"
+          :aria-label="collaborationShortcutLabel"
+          :title="collaborationShortcutLabel"
+          @click="collaborationQuickOpen = true"
+        >
+          <ChatDotRound aria-hidden="true" />
+          <span v-if="collaborationUnread > 0" class="ip-pc-collaboration-badge" aria-hidden="true">
+            {{ collaborationUnread > 99 ? '99+' : collaborationUnread }}
+          </span>
+        </button>
         <PlatformSessionControls />
         <LocaleControl />
         <button
           type="button"
           class="ip-pc-shell-action"
           data-testid="browser-fullscreen"
-          :aria-label="browserFullscreen ? localeMessages[locale].common.action.exitFullscreen : localeMessages[locale].common.action.fullscreen"
-          :title="browserFullscreen ? localeMessages[locale].common.action.exitFullscreen : localeMessages[locale].common.action.fullscreen"
+          :aria-label="
+            browserFullscreen
+              ? localeMessages[locale].common.action.exitFullscreen
+              : localeMessages[locale].common.action.fullscreen
+          "
+          :title="
+            browserFullscreen
+              ? localeMessages[locale].common.action.exitFullscreen
+              : localeMessages[locale].common.action.fullscreen
+          "
           @click="toggleBrowserFullscreen"
         >
           <FullScreen aria-hidden="true" />
@@ -338,10 +459,17 @@ function onLimitResolve(resolution: TabLimitResolution): void {
 
       <template #user>
         <ElDropdown trigger="click" popper-class="ip-pc-user-popper" @command="onUserCommand">
-          <button type="button" class="ip-pc-user" data-testid="user-menu" :aria-label="shellCopy.userMenu">
+          <button
+            type="button"
+            class="ip-pc-user"
+            data-testid="user-menu"
+            :aria-label="shellCopy.userMenu"
+          >
             <span class="ip-pc-user__avatar"><UserFilled aria-hidden="true" /></span>
             <span class="ip-pc-user__copy">
-              <strong class="ip-pc-user__name">{{ displayName || localeMessages[locale].common.state.unauthenticated }}</strong>
+              <strong class="ip-pc-user__name">{{
+                displayName || localeMessages[locale].common.state.unauthenticated
+              }}</strong>
               <small>{{ authStore.user?.username ?? '' }}</small>
             </span>
             <svg
@@ -364,18 +492,35 @@ function onLimitResolve(resolution: TabLimitResolution): void {
           <template #dropdown>
             <ElDropdownMenu>
               <li class="ip-pc-user-menu__summary" role="presentation">
-                <strong>{{ displayName || localeMessages[locale].common.state.unauthenticated }}</strong>
-                <span>{{ authStore.user?.username ?? '' }} · {{ tenant?.name ?? shellCopy.noTenant }}</span>
+                <strong>{{
+                  displayName || localeMessages[locale].common.state.unauthenticated
+                }}</strong>
+                <span
+                  >{{ authStore.user?.username ?? '' }} ·
+                  {{ tenant?.name ?? shellCopy.noTenant }}</span
+                >
               </li>
-              <ElDropdownItem command="profile"><UserFilled aria-hidden="true" />{{ shellCopy.profile }}</ElDropdownItem>
-              <ElDropdownItem command="clear-cache"><Delete aria-hidden="true" />{{ shellCopy.clearCache }}</ElDropdownItem>
-              <ElDropdownItem command="lock"><Lock aria-hidden="true" />{{ shellCopy.lock }}</ElDropdownItem>
-              <ElDropdownItem command="logout" divided class="ip-pc-user-menu__logout"><SwitchButton aria-hidden="true" />{{ localeMessages[locale].common.action.logout }}</ElDropdownItem>
+              <ElDropdownItem command="profile"
+                ><UserFilled aria-hidden="true" />{{ shellCopy.profile }}</ElDropdownItem
+              >
+              <ElDropdownItem command="clear-cache"
+                ><Delete aria-hidden="true" />{{ shellCopy.clearCache }}</ElDropdownItem
+              >
+              <ElDropdownItem command="lock"
+                ><Lock aria-hidden="true" />{{ shellCopy.lock }}</ElDropdownItem
+              >
+              <ElDropdownItem command="logout" divided class="ip-pc-user-menu__logout"
+                ><SwitchButton aria-hidden="true" />{{
+                  localeMessages[locale].common.action.logout
+                }}</ElDropdownItem
+              >
             </ElDropdownMenu>
           </template>
         </ElDropdown>
       </template>
     </PlatformTopBar>
+
+    <CollaborationQuickDrawer v-model="collaborationQuickOpen" />
 
     <div class="ip-pc-body">
       <PlatformToolRail
@@ -559,6 +704,25 @@ function onLimitResolve(resolution: TabLimitResolution): void {
 .ip-pc-shell-action:hover,
 .ip-pc-shell-action:focus-visible {
   background: rgb(255 255 255 / 0.12);
+}
+
+.ip-pc-shell-action--collaboration {
+  position: relative;
+}
+
+.ip-pc-collaboration-badge {
+  position: absolute;
+  top: 1px;
+  right: 0;
+  min-width: 15px;
+  padding: 0 4px;
+  color: var(--ip-color-text-inverse);
+  background: var(--ip-color-danger);
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
 }
 
 .ip-focus-exit {

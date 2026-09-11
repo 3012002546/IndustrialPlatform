@@ -1,4 +1,5 @@
 using SqlSugar;
+using IndustrialPlatform.Infrastructure.Database;
 
 namespace IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations;
 
@@ -42,6 +43,9 @@ public static class IdentitySchemaMigrations
                 "add identity_user.must_change_password column",
                 AddMustChangePasswordColumnAsync),
             CreateTableStep("ID-020-01", "identity_write_idempotency", WriteIdempotencyDdl),
+            CreateTableStep("ID-021-01", "pf05_service_call_nonce", TrustedServiceCallNonceDdl),
+            CreateTableStep("ID-021-02", "pf05_step_up_grant", StepUpGrantDdl),
+            new SchemaMigrationStep("ID-021-03", "extend pf05 step-up grant binding and consumer receipt", ExtendStepUpGrantAsync),
         ];
     }
 
@@ -49,7 +53,16 @@ public static class IdentitySchemaMigrations
         string id,
         string tableName,
         Func<DbType, string> ddlBuilder) =>
-        new(id, $"create {tableName}", (sugar, _) => sugar.Ado.ExecuteCommandAsync(ddlBuilder(sugar.CurrentConnectionConfig.DbType)));
+        new(id, $"create {tableName}", (sugar, _) => sugar.Ado.ExecuteCommandAsync(ddlBuilder(sugar.CurrentConnectionConfig.DbType)),
+            tableName == "identity_user" ? (sugar, _) =>
+            {
+                SchemaPhysicalDriftGuard.Validate(
+                    sugar,
+                    tableName,
+                    ["id", "tenant_n_id", "n_id", "normalized_n_id", "login_name", "normalized_login_name", "name", "password_hash", "status", "auth_version", "must_change_password"],
+                    ["ix_user_status_updated", "ux_user_active_login_name"]);
+                return Task.CompletedTask;
+            } : null);
 
     private static (string G, string T, string B, string Big, string F) TypeWords(DbType dbType) =>
         dbType switch
@@ -578,6 +591,94 @@ public static class IdentitySchemaMigrations
             );
             CREATE UNIQUE INDEX IF NOT EXISTS ux_write_idempotency_active ON identity_write_idempotency (tenant_n_id, actor_user_n_id, idempotency_key) WHERE is_deleted = {f};
             """;
+    }
+
+    private static string TrustedServiceCallNonceDdl(DbType dbType)
+    {
+        var time = dbType switch
+        {
+            DbType.Sqlite => "TEXT",
+            DbType.PostgreSQL => "timestamptz",
+            _ => throw new NotSupportedException($"不支持的目标数据库类型:{dbType}。"),
+        };
+        return $"""
+            CREATE TABLE IF NOT EXISTS pf05_service_call_nonce (
+                issuer TEXT NOT NULL,
+                nonce TEXT NOT NULL,
+                expires_on {time} NOT NULL,
+                created_on {time} NOT NULL,
+                CONSTRAINT pk_pf05_service_call_nonce PRIMARY KEY (issuer, nonce)
+            );
+            CREATE INDEX IF NOT EXISTS ix_pf05_service_call_nonce_expires ON pf05_service_call_nonce (expires_on);
+            """;
+    }
+
+    private static string StepUpGrantDdl(DbType dbType)
+    {
+        var (g, time, _, _, _) = TypeWords(dbType);
+        return $"""
+            CREATE TABLE IF NOT EXISTS pf05_step_up_grant (
+                id {g} PRIMARY KEY NOT NULL,
+                tenant_n_id TEXT NOT NULL,
+                actor_user_n_id TEXT NOT NULL,
+                actor_session_n_id TEXT NOT NULL,
+                actor_security_version TEXT NOT NULL,
+                action TEXT NOT NULL,
+                request_n_id TEXT NOT NULL,
+                scope_checksum TEXT NOT NULL,
+                request_hash TEXT NOT NULL,
+                binding_hash TEXT NOT NULL,
+                proof_hash TEXT NOT NULL,
+                issued_on {time} NOT NULL,
+                expires_on {time} NOT NULL,
+                consumed_on {time} NULL,
+                consumed_by_service TEXT NULL,
+                consumed_receipt_n_id TEXT NULL,
+                CONSTRAINT uq_pf05_step_up_grant_proof UNIQUE (proof_hash)
+            );
+            CREATE INDEX IF NOT EXISTS ix_pf05_step_up_grant_expiry ON pf05_step_up_grant (expires_on);
+            """;
+    }
+
+    private static async Task ExtendStepUpGrantAsync(ISqlSugarClient sugar, CancellationToken cancellationToken)
+    {
+        // ID-021-02 may already be recorded in a legacy database whose physical
+        // table was removed or never created. Re-assert the base table first so
+        // the extension never starts with an ALTER against a missing relation.
+        var dbType = sugar.CurrentConnectionConfig.DbType;
+        await sugar.Ado.ExecuteCommandAsync(
+            StepUpGrantDdl(dbType),
+            parameters: null,
+            cancellationToken: cancellationToken);
+
+        // Do not derive PostgreSQL DDL decisions from a metadata snapshot inside the
+        // migration transaction. A legacy database may already contain only some
+        // columns, and a duplicate ALTER aborts the transaction for every next command.
+        var postgres = dbType == DbType.PostgreSQL;
+        foreach (var (name, definition) in new[]
+        {
+            ("request_hash", "TEXT NOT NULL DEFAULT ''"),
+            ("consumed_receipt_n_id", "TEXT NULL"),
+            ("consumed_by_service", "TEXT NULL"),
+        })
+        {
+            if (postgres)
+            {
+                await sugar.Ado.ExecuteCommandAsync(
+                    $"ALTER TABLE pf05_step_up_grant ADD COLUMN IF NOT EXISTS {name} {definition}",
+                    parameters: null,
+                    cancellationToken: cancellationToken);
+                continue;
+            }
+
+            var exists = sugar.Ado.GetInt(
+                $"SELECT COUNT(*) FROM pragma_table_info('pf05_step_up_grant') WHERE name = '{name}'") == 1;
+            if (!exists)
+                await sugar.Ado.ExecuteCommandAsync(
+                    $"ALTER TABLE pf05_step_up_grant ADD COLUMN {name} {definition}",
+                    parameters: null,
+                    cancellationToken: cancellationToken);
+        }
     }
 
     /// <summary>

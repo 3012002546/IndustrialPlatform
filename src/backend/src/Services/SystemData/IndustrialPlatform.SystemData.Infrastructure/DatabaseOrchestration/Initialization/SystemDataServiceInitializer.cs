@@ -4,6 +4,8 @@ using IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations;
 using IndustrialPlatform.SystemData.Application.ControlPlane;
 using IndustrialPlatform.SystemData.Infrastructure.Reliability;
 using IndustrialPlatform.SystemData.Domain.ControlPlane;
+using System.Security.Cryptography;
+using System.Text;
 using SqlSugar;
 
 namespace IndustrialPlatform.SystemData.Infrastructure.DatabaseOrchestration.Initialization;
@@ -36,22 +38,47 @@ public sealed class SystemDataServiceInitializer : IServiceInitializer
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            var applied = (await _dbContext.SqlSugar.Queryable<SchemaMigrationRecord>()
-                    .Select(record => record.MigrationId)
-                    .ToListAsync(cancellationToken))
-                .ToHashSet(StringComparer.Ordinal);
+            var dbType = _dbContext.SqlSugar.CurrentConnectionConfig.DbType;
+            var ledgerColumns = dbType == DbType.Sqlite
+                ? _dbContext.SqlSugar.Ado.GetDataTable("SELECT name FROM pragma_table_info('system_data_schema_migrations')").Rows.Cast<System.Data.DataRow>().Select(row => row["name"]?.ToString()).Where(name => name is not null).Select(name => name!).ToHashSet(StringComparer.OrdinalIgnoreCase)
+                : _dbContext.SqlSugar.Ado.GetDataTable("SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'system_data_schema_migrations'").Rows.Cast<System.Data.DataRow>().Select(row => row["column_name"]?.ToString()).Where(name => name is not null).Select(name => name!).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var requiredLedgerColumns = new[] { "migration_id", "description", "checksum", "applied_on" };
+            var missingLedgerColumns = requiredLedgerColumns.Where(column => !ledgerColumns.Contains(column)).ToArray();
+            if (missingLedgerColumns.Length > 0)
+                return NotReady(context.DesiredVersion, ledgerColumns.Count == 0
+                    ? "SystemData 本地迁移账本尚未创建。"
+                    : $"SystemData 本地迁移账本缺少列:{string.Join(',', missingLedgerColumns)}，需要执行 Apply 升级。", null);
+
+            var appliedRows = await _dbContext.SqlSugar.Queryable<SchemaMigrationRecord>().ToListAsync(cancellationToken);
+            var applied = appliedRows.ToDictionary(record => record.MigrationId, StringComparer.Ordinal);
             var expected = SystemDataSchemaMigrations.All.Select(step => step.Id).ToArray();
-            var missingMigrations = expected.Where(id => !applied.Contains(id)).ToArray();
+            var missingMigrations = expected.Where(id => !applied.ContainsKey(id)).ToArray();
+            var invalidChecksums = SystemDataSchemaMigrations.All
+                .Where(step => applied.TryGetValue(step.Id, out var row) && !string.Equals(row.Checksum, Checksum(step), StringComparison.OrdinalIgnoreCase))
+                .Select(step => step.Id)
+                .ToArray();
             var missingColumns = await FindMissingCriticalColumnsAsync(cancellationToken);
-            var migrationReady = missingMigrations.Length == 0 && missingColumns.Count == 0;
+            var migrationReady = missingMigrations.Length == 0 && invalidChecksums.Length == 0 && missingColumns.Count == 0;
             if (!migrationReady)
             {
                 var facts = new List<string>();
                 if (missingMigrations.Length > 0) facts.Add($"缺少迁移:{string.Join(',', missingMigrations)}");
+                if (invalidChecksums.Length > 0) facts.Add($"迁移校验失败:{string.Join(',', invalidChecksums)}");
                 if (missingColumns.Count > 0) facts.Add($"缺少列:{string.Join(',', missingColumns)}");
-                var observedVersion = expected.LastOrDefault(applied.Contains);
+                var observedVersion = expected.LastOrDefault(applied.ContainsKey);
                 return NotReady(context.DesiredVersion, $"SystemData 本地架构尚未完成验证({string.Join(';', facts)})。", observedVersion);
             }
+
+            SchemaPhysicalDriftGuard.Validate(
+                _dbContext.SqlSugar,
+                "system_collaboration_file_reference",
+                ["tenant_n_id", "reference_n_id", "file_n_id", "conversation_n_id", "message_n_id", "attachment_n_id", "uploader_user_n_id", "purpose", "owner_service", "status", "version", "created_on", "released_on"],
+                ["ux_system_collaboration_file_reference_attachment_purpose", "ix_system_collaboration_file_reference_file_status"]);
+            SchemaPhysicalDriftGuard.Validate(
+                _dbContext.SqlSugar,
+                "system_collaboration_file_hold",
+                ["tenant_n_id", "case_n_id", "file_n_id", "scope_checksum", "case_revision", "owner_service", "status", "created_on", "updated_on", "released_on"],
+                ["ix_system_collaboration_file_hold_file_status"]);
 
             var seedReady = true;
             var bootstrapReady = true;
@@ -91,7 +118,9 @@ public sealed class SystemDataServiceInitializer : IServiceInitializer
                     && receipt.ManifestVersion == SystemDataBaselineSeedRunner.CurrentManifestVersion
                     && receipt.Checksum.Equals(SystemDataBaselineSeedRunner.CurrentManifestChecksum, StringComparison.OrdinalIgnoreCase)
                     && requiredResourcesReady;
-                bootstrapReady = bootstrapReady && SystemDataBaselineSeedRunner.IsReferenceDataBootstrapReady(controlPlane);
+                bootstrapReady = bootstrapReady
+                    && SystemDataBaselineSeedRunner.IsReferenceDataBootstrapReady(controlPlane)
+                    && SystemDataBaselineSeedRunner.IsCollaborationBootstrapReady(controlPlane);
             }
 
             // 版本按声明的迁移序列计算，而不是按 AppliedOn 或字符串最大值，兼容历史补录旧编号。
@@ -100,6 +129,14 @@ public sealed class SystemDataServiceInitializer : IServiceInitializer
         catch (Exception exception) when (IsMissingLocalTable(exception))
         {
             return NotReady(context.DesiredVersion, "SystemData 本地迁移账本尚未创建。");
+        }
+        catch (Exception exception) when (IsMissingLocalColumn(exception))
+        {
+            return NotReady(context.DesiredVersion, "SystemData 本地架构尚未完成升级，需要执行 Apply。");
+        }
+        catch (InvalidOperationException exception) when (exception.Message.Contains("physical schema drift", StringComparison.OrdinalIgnoreCase))
+        {
+            return NotReady(context.DesiredVersion, $"SystemData 本地物理架构校验失败:{exception.Message}");
         }
     }
 
@@ -198,4 +235,20 @@ public sealed class SystemDataServiceInitializer : IServiceInitializer
 
         return false;
     }
+
+    private static bool IsMissingLocalColumn(Exception exception)
+    {
+        for (var current = exception; current is not null; current = current.InnerException)
+        {
+            var message = current.Message;
+            if (message.Contains("no such column", StringComparison.OrdinalIgnoreCase)
+                || (message.Contains("column", StringComparison.OrdinalIgnoreCase)
+                    && message.Contains("does not exist", StringComparison.OrdinalIgnoreCase)))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static string Checksum(SchemaMigrationStep step) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{step.Id}|{step.Description}"))).ToLowerInvariant();
 }

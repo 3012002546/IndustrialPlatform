@@ -11,6 +11,8 @@ using IndustrialPlatform.SystemData.Infrastructure.Persistence.Entities;
 using IndustrialPlatform.Infrastructure.Database;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
@@ -182,6 +184,38 @@ public sealed class UnifiedHostTests : IDisposable
         // 未认证访问受保护端点 → 401 统一信封
         using var meResponse = await client.GetAsync("/api/v1/auth/me");
         Assert.Equal(HttpStatusCode.Unauthorized, meResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task ComposedRoutes_KeepUserManagementAndCollaborationDistinct()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        var routes = factory.Services.GetRequiredService<EndpointDataSource>().Endpoints
+            .OfType<RouteEndpoint>()
+            .Where(endpoint => endpoint.Metadata.GetMetadata<ControllerActionDescriptor>() is not null)
+            .SelectMany(endpoint => (endpoint.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods ?? ["*"])
+                .Select(method => $"{method} {endpoint.RoutePattern.RawText?.TrimStart('/')!.ToLowerInvariant()}"));
+        var duplicates = routes.GroupBy(route => route).Where(group => group.Count() > 1).Select(group => group.Key).ToArray();
+        Assert.True(duplicates.Length == 0, string.Join("\n", factory.Services.GetRequiredService<EndpointDataSource>().Endpoints
+            .OfType<RouteEndpoint>().Where(endpoint => duplicates.Any(route => route.EndsWith($" {endpoint.RoutePattern.RawText?.TrimStart('/')!.ToLowerInvariant()}", StringComparison.Ordinal)))
+            .Select(endpoint => $"{endpoint.RoutePattern.RawText}: {endpoint.DisplayName}")));
+
+        foreach (var path in new[]
+        {
+            "/api/v1/users", "/identity/api/v1/users", "/identity/api/v1/odata/users",
+            "/identity/api/v1/roles", "/identity/api/v1/permissions/tree",
+            "/collaboration/api/v1/users", "/collaboration/api/v1/conversations",
+            "/collaboration/api/v1/compliance/retention",
+        })
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, path);
+            request.Headers.Add("Origin", "http://localhost:5173");
+            using var response = await client.SendAsync(request);
+            Assert.True(response.StatusCode == HttpStatusCode.Unauthorized,
+                $"{path}: expected 401, received {(int)response.StatusCode}");
+            Assert.Equal("http://localhost:5173", response.Headers.GetValues("Access-Control-Allow-Origin").Single());
+        }
     }
 
     [Fact]
@@ -375,6 +409,15 @@ public sealed class UnifiedHostTests : IDisposable
         Assert.Contains("systemdata.organization.view", permissionNIds);
 
         var jwt = new JsonWebTokenHandler().ReadJsonWebToken(accessToken);
+        var directory = factory.Services.GetRequiredService<IndustrialPlatform.Collaboration.Application.ICollaborationIdentityDirectory>();
+        var actorNId = jwt.GetClaim("sub").Value;
+        var tenantNId = jwt.GetClaim("tenant_id").Value;
+        var actor = await directory.GetAsync(tenantNId, actorNId, CancellationToken.None);
+        var names = await directory.GetDisplayNamesAsync(tenantNId, [actorNId, "missing-user"], CancellationToken.None);
+        Assert.NotNull(actor);
+        Assert.EndsWith(" (ADMIN)", actor.DisplayName);
+        Assert.Equal(actor.DisplayName, Assert.Single(names).Value);
+        Assert.Empty(await directory.GetDisplayNamesAsync("other-tenant", [actorNId], CancellationToken.None));
         var directEvaluation = await factory.Services.GetRequiredService<IPermissionEvaluator>().EvaluateAsync(
             jwt.GetClaim("tenant_id").Value,
             jwt.GetClaim("sub").Value,
@@ -393,6 +436,25 @@ public sealed class UnifiedHostTests : IDisposable
         Assert.True(
             sdResponse.StatusCode == HttpStatusCode.OK,
             $"SystemData expected 200 but returned {(int)sdResponse.StatusCode}: {await sdResponse.Content.ReadAsStringAsync()}");
+
+        foreach (var path in new[]
+        {
+            "/identity/api/v1/users?loginName=admin&pageIndex=1&pageSize=25",
+            "/identity/api/v1/odata/users?$filter=contains(loginName,'admin')&$top=25&$count=true",
+            "/identity/api/v1/roles", "/identity/api/v1/permissions/tree", "/identity/api/v1/user-groups",
+        })
+        {
+            using var query = new HttpRequestMessage(HttpMethod.Get, path);
+            query.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            using var response = await client.SendAsync(query);
+            Assert.True(response.StatusCode == HttpStatusCode.OK,
+                $"{path}: expected 200, received {(int)response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
+            if (path.Contains("users", StringComparison.Ordinal))
+            {
+                using var payload = JsonDocument.Parse(await response.Content.ReadAsStreamAsync());
+                Assert.Contains("admin", payload.RootElement.ToString());
+            }
+        }
     }
 
     /// <summary>内存版刷新会话存储:登录链路替代 Redis,AddAsync 成功即放行。</summary>

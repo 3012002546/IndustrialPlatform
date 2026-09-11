@@ -48,6 +48,7 @@ public sealed class ResourceNavigationService : IResourceNavigationService
         new("navigation.group.workspace", NavigationNodeKind.Group, "工作台", null, null, null, 0),
         new("navigation.link.pc-home", NavigationNodeKind.Link, "首页", "navigation.group.workspace", "pc-home", "platform.home.view", 0),
         new("navigation.link.terminal-preview", NavigationNodeKind.Link, "终端预览", "navigation.group.workspace", "terminal-preview", "platform.pda.view", 1),
+        new("collaboration.nav.pc-chat", NavigationNodeKind.Link, "聊天", "navigation.group.workspace", "collaboration-chat", "collaboration.messaging.read", 2),
         new("navigation.group.reference-data", NavigationNodeKind.Group, "基础配置", null, null, null, 1),
         new("navigation.link.reference-data-dictionaries", NavigationNodeKind.Link, "字典管理", "navigation.group.reference-data", "reference-data-dictionaries", "referencedata.dictionary.view", 0),
         new("navigation.link.reference-data-parameters", NavigationNodeKind.Link, "参数管理", "navigation.group.reference-data", "reference-data-parameters", "referencedata.parameter.view", 1),
@@ -56,7 +57,8 @@ public sealed class ResourceNavigationService : IResourceNavigationService
         new("navigation.link.reference-data-metadata", NavigationNodeKind.Link, "元数据定义", "navigation.group.reference-data", "reference-data-metadata", "referencedata.metadata.view", 4),
         new("navigation.link.reference-data-coding-rules", NavigationNodeKind.Link, "编码规则", "navigation.group.reference-data", "reference-data-coding-rules", "referencedata.coding-rule.view", 5),
         new("navigation.link.reference-data-state-machines", NavigationNodeKind.Link, "状态机定义", "navigation.group.reference-data", "reference-data-state-machines", "referencedata.state-machine.view", 6),
-        new("navigation.group.system", NavigationNodeKind.Group, "系统管理", null, null, null, 2),
+        new("navigation.group.collaboration", NavigationNodeKind.Group, "协作", null, null, null, 2),
+        new("navigation.group.system", NavigationNodeKind.Group, "系统管理", null, null, null, 3),
         new("navigation.group.identity-access", NavigationNodeKind.Group, "身份与访问", "navigation.group.system", null, null, 0),
         new("navigation.group.organization-people", NavigationNodeKind.Group, "组织与人员", "navigation.group.system", null, null, 1),
         new("navigation.group.menu-platform", NavigationNodeKind.Group, "菜单与平台配置", "navigation.group.system", null, null, 2),
@@ -78,6 +80,10 @@ public sealed class ResourceNavigationService : IResourceNavigationService
         new("navigation.link.systemdata-files", NavigationNodeKind.Link, "文件管理", "navigation.group.service-operations", "systemdata-files", "systemdata.file.read", 2),
         new("navigation.link.systemdata-notifications", NavigationNodeKind.Link, "通知与公告", "navigation.group.service-operations", "systemdata-notifications", "systemdata.notification.announcement.read", 3),
         new("navigation.link.systemdata-audits", NavigationNodeKind.Link, "审计查询", "navigation.group.service-operations", "systemdata-audits", "systemdata.audit.read", 4),
+        new("collaboration.nav.pc-compliance-search", NavigationNodeKind.Link, "受控查看", "navigation.group.collaboration", "collaboration-compliance-search", "collaboration.compliance.read", 0),
+        new("collaboration.nav.pc-legal-holds", NavigationNodeKind.Link, "保全案件", "navigation.group.collaboration", "collaboration-legal-holds", "collaboration.compliance.read", 1),
+        new("collaboration.nav.pc-exports", NavigationNodeKind.Link, "导出记录", "navigation.group.collaboration", "collaboration-exports", "collaboration.compliance.read", 2),
+        new("collaboration.nav.pc-retention", NavigationNodeKind.Link, "保留策略", "navigation.group.collaboration", "collaboration-retention", "collaboration.compliance.retention.manage", 3),
     ];
     private readonly IControlPlaneStore _store;
     private readonly IIdentityPermissionRegistry _permissionRegistry;
@@ -253,11 +259,13 @@ public sealed class ResourceNavigationService : IResourceNavigationService
             }
 
             string? resourceNId = null;
+            UiResource? resource = null;
             if (declaration.Kind == NavigationNodeKind.Link)
             {
-                resourceNId = state.Resources.FirstOrDefault(resource =>
-                    string.Equals(resource.RouteName, declaration.RouteName, StringComparison.OrdinalIgnoreCase)
-                    && string.Equals(resource.RequiredPermissionNId, declaration.RequiredPermissionNId, StringComparison.OrdinalIgnoreCase))?.NId;
+                resource = state.Resources.FirstOrDefault(candidate =>
+                    string.Equals(candidate.RouteName, declaration.RouteName, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(candidate.RequiredPermissionNId, declaration.RequiredPermissionNId, StringComparison.OrdinalIgnoreCase));
+                resourceNId = resource?.NId;
                 if (resourceNId is null)
                 {
                     previewItems.Add(DefaultImportItem(declaration, "Blocked", $"缺少受信任资源:{declaration.RouteName}。"));
@@ -267,7 +275,7 @@ public sealed class ResourceNavigationService : IResourceNavigationService
 
             var node = declaration.Kind == NavigationNodeKind.Group
                 ? NavigationNode.CreateGroup(tenantNId, declaration.NodeNId, declaration.Label, declaration.ParentNodeNId, "PLATFORM_NAVIGATION")
-                : NavigationNode.CreateLink(tenantNId, declaration.NodeNId, declaration.Label, declaration.ParentNodeNId, "PLATFORM_NAVIGATION", resourceNId!, null, [UiTerminal.Pc, UiTerminal.Pda, UiTerminal.Mobile]);
+                : NavigationNode.CreateLink(tenantNId, declaration.NodeNId, declaration.Label, declaration.ParentNodeNId, "PLATFORM_NAVIGATION", resourceNId!, null, resource!.SupportedTerminals);
             node.SetDisplayOrder(declaration.DisplayOrder);
             additions.Add(node);
             existing[node.NId] = node;

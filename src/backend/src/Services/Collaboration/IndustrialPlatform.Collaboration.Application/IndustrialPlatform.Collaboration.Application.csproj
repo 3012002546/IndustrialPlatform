@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <ProjectReference Include="..\IndustrialPlatform.Collaboration.Contracts\IndustrialPlatform.Collaboration.Contracts.csproj" />
+    <ProjectReference Include="..\IndustrialPlatform.Collaboration.Domain\IndustrialPlatform.Collaboration.Domain.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\IndustrialPlatform.Application.Abstractions\IndustrialPlatform.Application.Abstractions.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\IndustrialPlatform.Security\IndustrialPlatform.Security.csproj" />
+  </ItemGroup>
+</Project>

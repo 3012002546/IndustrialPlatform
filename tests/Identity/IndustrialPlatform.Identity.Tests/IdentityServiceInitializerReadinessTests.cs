@@ -58,6 +58,21 @@ public sealed class IdentityServiceInitializerReadinessTests
     }
 
     [Fact]
+    public async Task Inspect_maps_missing_legacy_column_to_upgrade_required_without_swallowing_other_failures()
+    {
+        var fake = new FakeBootstrapService
+        {
+            Failure = new InvalidOperationException("PostgreSQL 42703: column must_change_password does not exist"),
+        };
+        var initializer = new IdentityServiceInitializer(null!, fake);
+
+        var state = await initializer.InspectAsync(CreateContext(), CancellationToken.None);
+
+        Assert.False(state.Ready);
+        Assert.Contains("升级", state.Reason, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Inspect_propagates_unexpected_failure()
     {
         var fake = new FakeBootstrapService

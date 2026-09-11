@@ -30,7 +30,9 @@ async function mountHome(permissions: string[] = ['platform.mobile.view']): Prom
   return mount(MobileHomePage, { global: { plugins: [pinia, router] } })
 }
 
-async function mountHomeWithRouter(permissions: string[]): Promise<{ wrapper: VueWrapper; router: ReturnType<typeof createRouter> }> {
+async function mountHomeWithRouter(
+  permissions: string[],
+): Promise<{ wrapper: VueWrapper; router: ReturnType<typeof createRouter> }> {
   const pinia = createPinia()
   setActivePinia(pinia)
   persistAuthSession(permissions)
@@ -110,6 +112,26 @@ describe('MobileHomePage', () => {
     expect(router.currentRoute.value.name).toBe('mobile-files')
   })
 
+  it('仅有聊天权限时显示聊天入口，隐藏文件入口和业务空状态', async () => {
+    const { wrapper, router } = await mountHomeWithRouter([
+      'platform.mobile.view',
+      PERMISSIONS.collaborationMessagingRead,
+    ])
+    expect(wrapper.find('[data-testid="terminal-feature-menu-file"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('业务功能将在后续阶段接入')
+    useLocalizationStore().setLocale('en-US')
+    await nextTick()
+    expect(wrapper.get('[data-testid="terminal-feature-menu-chat"]').text()).toContain(
+      'Collaboration chat',
+    )
+    await wrapper.get('[data-testid="terminal-feature-menu-chat"]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.name).toBe('mobile-collaboration-chat')
+    useAuthStore().$patch({ session: { user: { permissions: ['platform.mobile.view'] } } })
+    await nextTick()
+    expect(wrapper.find('[data-testid="terminal-feature-menu-chat"]').exists()).toBe(false)
+  })
+
   it('没有文件读取权限时不显示功能菜单并保留 Mobile 空状态', async () => {
     const wrapper = await mountHome(['platform.mobile.view'])
     expect(wrapper.find('[data-testid="terminal-feature-menu"]').exists()).toBe(false)
@@ -123,8 +145,12 @@ describe('MobileHomePage', () => {
     ])
     useLocalizationStore().setLocale('en-US')
     await nextTick()
-    expect(wrapper.get('[data-testid="terminal-feature-menu"]').text()).toContain('Available features')
-    expect(wrapper.get('[data-testid="terminal-feature-menu-file"]').text()).toContain('File upload')
+    expect(wrapper.get('[data-testid="terminal-feature-menu"]').text()).toContain(
+      'Available features',
+    )
+    expect(wrapper.get('[data-testid="terminal-feature-menu-file"]').text()).toContain(
+      'File upload',
+    )
     expect(wrapper.get('[data-testid="welcome-description"]').text()).toContain(
       'Mobile workspace status and available features',
     )

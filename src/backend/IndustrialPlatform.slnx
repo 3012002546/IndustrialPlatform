@@ -25,6 +25,9 @@
   <Folder Name="/tests/Identity/">
     <Project Path="..\..\tests\Identity\IndustrialPlatform.Identity.Tests\IndustrialPlatform.Identity.Tests.csproj" />
   </Folder>
+  <Folder Name="/tests/Collaboration/">
+    <Project Path="..\..\tests\Collaboration\IndustrialPlatform.Collaboration.Tests\IndustrialPlatform.Collaboration.Tests.csproj" />
+  </Folder>
   <Folder Name="/src/Services/SystemData/">
     <Project Path="src\Services\SystemData\IndustrialPlatform.SystemData.Contracts\IndustrialPlatform.SystemData.Contracts.csproj" />
     <Project Path="src\Services\SystemData\IndustrialPlatform.SystemData.Domain\IndustrialPlatform.SystemData.Domain.csproj" />
@@ -41,6 +44,13 @@
     <Project Path="src\Services\ReferenceData\IndustrialPlatform.ReferenceData.Application\IndustrialPlatform.ReferenceData.Application.csproj" />
     <Project Path="src\Services\ReferenceData\IndustrialPlatform.ReferenceData.Infrastructure\IndustrialPlatform.ReferenceData.Infrastructure.csproj" />
     <Project Path="src\Services\ReferenceData\IndustrialPlatform.ReferenceData.Api\IndustrialPlatform.ReferenceData.Api.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Collaboration/">
+    <Project Path="src\Services\Collaboration\IndustrialPlatform.Collaboration.Contracts\IndustrialPlatform.Collaboration.Contracts.csproj" />
+    <Project Path="src\Services\Collaboration\IndustrialPlatform.Collaboration.Domain\IndustrialPlatform.Collaboration.Domain.csproj" />
+    <Project Path="src\Services\Collaboration\IndustrialPlatform.Collaboration.Application\IndustrialPlatform.Collaboration.Application.csproj" />
+    <Project Path="src\Services\Collaboration\IndustrialPlatform.Collaboration.Infrastructure\IndustrialPlatform.Collaboration.Infrastructure.csproj" />
+    <Project Path="src\Services\Collaboration\IndustrialPlatform.Collaboration.Api\IndustrialPlatform.Collaboration.Api.csproj" />
   </Folder>
   <Folder Name="/src/Gateway/">
     <Project Path="src\Gateway\IndustrialPlatform.Gateway\IndustrialPlatform.Gateway.csproj" />

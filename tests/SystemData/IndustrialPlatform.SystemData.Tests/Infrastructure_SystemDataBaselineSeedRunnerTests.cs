@@ -92,6 +92,119 @@ public sealed class SystemDataBaselineSeedRunnerTests
     }
 
     [Fact]
+    public async Task Apply_adds_collaboration_chat_after_terminal_preview_and_preserves_custom_navigation()
+    {
+        using var harness = new BaselineHarness();
+        var initial = await harness.Initializer.InspectAsync(harness.Context, CancellationToken.None);
+        await harness.Initializer.ApplyAsync(
+            harness.Context,
+            await harness.Initializer.PlanAsync(harness.Context, initial, CancellationToken.None),
+            CancellationToken.None);
+
+        var collaborationManifest = harness.Store.Snapshot.Manifests.Single(manifest => manifest.ModuleNId == "collaboration");
+        Assert.Equal(SystemDataBaselineSeedRunner.CollaborationManifestVersion, collaborationManifest.ManifestVersion);
+        Assert.Equal(25, collaborationManifest.PermissionNIds.Count);
+        Assert.Equal(7, collaborationManifest.ResourceDeclarations.Count);
+        Assert.Equal(7, harness.Store.Snapshot.Resources.Count(resource => resource.OwnerModuleNId == "collaboration"));
+        Assert.Contains(SystemDataBaselineSeedRunner.CollaborationManifestSeedKey, harness.Store.AppliedSeedKeys);
+        Assert.Contains(SystemDataBaselineSeedRunner.CollaborationNavigationSeedKey, harness.Store.AppliedSeedKeys);
+
+        var customGroup = NavigationNode.CreateGroup(Tenant, "tenant.custom.group", "租户自定义", null, "PLATFORM_NAVIGATION");
+        customGroup.SetDisplayOrder(99);
+        var home = NavigationNode.CreateLink(
+            Tenant,
+            "navigation.link.pc-home",
+            "首页",
+            "navigation.group.workspace",
+            "PLATFORM_NAVIGATION",
+            "systemdata.navigation.pc-home",
+            null,
+            [UiTerminal.Pc]);
+        home.SetDisplayOrder(0);
+        var terminalPreview = NavigationNode.CreateLink(
+            Tenant,
+            "navigation.link.terminal-preview",
+            "终端预览",
+            "navigation.group.workspace",
+            "PLATFORM_NAVIGATION",
+            "systemdata.navigation.terminal-preview",
+            null,
+            [UiTerminal.Pc]);
+        terminalPreview.SetDisplayOrder(1);
+        var customLink = NavigationNode.CreateLink(
+            Tenant,
+            "tenant.custom.link",
+            "租户入口",
+            customGroup.NId,
+            "PLATFORM_NAVIGATION",
+            "systemdata.navigation.pc-home",
+            null,
+            [UiTerminal.Pc]);
+        var navigationService = new ResourceNavigationService(harness.Store, new VerifiedPermissionRegistry());
+        harness.Store.ReplaceSnapshot(harness.Store.Snapshot with
+        {
+            DraftNodes = harness.Store.Snapshot.DraftNodes
+                .Append(home)
+                .Append(terminalPreview)
+                .Append(customGroup)
+                .Append(customLink)
+                .ToArray(),
+        });
+        await navigationService.PublishAsync(Tenant, "acceptance", harness.Store.Snapshot.Revision, CancellationToken.None);
+
+        // Simulate the already-published pre-PF05 tenant: remove only the
+        // Collaboration-owned declaration and nodes, leaving the custom menu,
+        // workspace and published revision history intact.
+        var legacy = harness.Store.Snapshot;
+        var collaborationNodeIds = SystemDataBaselineSeedRunner.RequiredCollaborationNavigationFacts
+            .Select(item => item.NId)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        harness.Store.ReplaceSnapshot(legacy with
+        {
+            Manifests = legacy.Manifests.Where(item => !item.ModuleNId.Equals("collaboration", StringComparison.OrdinalIgnoreCase)).ToArray(),
+            PermissionReceipts = legacy.PermissionReceipts.Where(item => !item.ModuleNId.Equals("collaboration", StringComparison.OrdinalIgnoreCase)).ToArray(),
+            Resources = legacy.Resources.Where(item => !item.OwnerModuleNId.Equals("collaboration", StringComparison.OrdinalIgnoreCase)).ToArray(),
+            DraftNodes = legacy.DraftNodes.Where(item => !collaborationNodeIds.Contains(item.NId)).ToArray(),
+            Snapshots = legacy.Snapshots
+                .Select(snapshot =>
+                {
+                    var nodes = snapshot.Nodes.Where(item => !collaborationNodeIds.Contains(item.NodeNId)).ToArray();
+                    return snapshot with { Nodes = nodes, Checksum = NavigationSnapshotChecksum.Compute(nodes) };
+                })
+                .ToArray(),
+        });
+        harness.Store.RemoveSeed(SystemDataBaselineSeedRunner.CollaborationManifestSeedKey);
+        harness.Store.RemoveSeed(SystemDataBaselineSeedRunner.CollaborationNavigationSeedKey);
+
+        var inspection = await harness.Initializer.InspectAsync(harness.Context, CancellationToken.None);
+        Assert.False(inspection.BootstrapReady);
+        await harness.Initializer.ApplyAsync(
+            harness.Context,
+            await harness.Initializer.PlanAsync(harness.Context, inspection, CancellationToken.None),
+            CancellationToken.None);
+
+        var runtime = await navigationService.RuntimeAsync(Tenant, UiTerminal.Pc, CancellationToken.None);
+        var workspace = runtime.Nodes.Single(node => node.NodeNId == "navigation.group.workspace");
+        Assert.Equal(["navigation.link.pc-home", "navigation.link.terminal-preview", "collaboration.nav.pc-chat"],
+            workspace.Children.Select(node => node.NodeNId).ToArray());
+        var collaboration = runtime.Nodes.Single(node => node.NodeNId == "navigation.group.collaboration");
+        Assert.Equal(
+            ["collaboration.nav.pc-compliance-search", "collaboration.nav.pc-legal-holds", "collaboration.nav.pc-exports", "collaboration.nav.pc-retention"],
+            collaboration.Children.Select(node => node.NodeNId).ToArray());
+        Assert.Contains(runtime.Nodes, node => node.NodeNId == customGroup.NId);
+        Assert.True(SystemDataBaselineSeedRunner.IsCollaborationBootstrapReady(harness.Store.Snapshot));
+
+        var revision = harness.Store.Snapshot.Revision;
+        var commitCount = harness.Store.CommitCount;
+        await harness.Initializer.ApplyAsync(
+            harness.Context,
+            await harness.Initializer.PlanAsync(harness.Context, await harness.Initializer.InspectAsync(harness.Context, CancellationToken.None), CancellationToken.None),
+            CancellationToken.None);
+        Assert.Equal(revision, harness.Store.Snapshot.Revision);
+        Assert.Equal(commitCount, harness.Store.CommitCount);
+    }
+
+    [Fact]
     public async Task Apply_preserves_a_customized_reference_data_resource_title()
     {
         using var harness = new BaselineHarness(includeLegacySeed: true, legacyParameterName: "租户参数入口");
@@ -312,6 +425,102 @@ public sealed class SystemDataBaselineSeedRunnerTests
         }
     }
 
+    [Fact]
+    public async Task Real_sql_store_upgrades_applied_chat_only_seeds_without_rewriting_history()
+    {
+        var dbPath = Path.Combine(Path.GetTempPath(), $"industrial-platform-collaboration-upgrade-{Guid.NewGuid():N}.db");
+        try
+        {
+            const string oldVersion = "1.0.0";
+            var seedKeys = new[] { SystemDataBaselineSeedRunner.CollaborationManifestSeedKey, SystemDataBaselineSeedRunner.CollaborationNavigationSeedKey };
+            long publishedRevision;
+            string? publishedChecksum;
+            using (var db = CreateDbContext(dbPath))
+            {
+                await new SchemaMigrationRunner(db, SystemDataSchemaMigrations.All, NullLogger<SchemaMigrationRunner>.Instance).ApplyPendingAsync();
+                var store = new SqlControlPlaneStore(db);
+                var resources = SystemDataBaselineSeedRunner.RequiredCollaborationResourceFacts
+                    .Where(item => item.NId.EndsWith("-chat", StringComparison.Ordinal))
+                    .Select(item => UiResource.Create(Tenant, item.NId, "collaboration", oldVersion, UiResourceType.Page, item.Name, item.RouteName, item.PermissionNId, [item.Terminal]))
+                    .ToArray();
+                Assert.Equal(3, resources.Length);
+                var manifest = new ModuleManifestState(Tenant, "collaboration", oldVersion, Checksum(seedKeys[0]),
+                    SystemDataBaselineSeedRunner.RequiredCollaborationPermissionNIds, oldVersion, Checksum(seedKeys[0]), DateTimeOffset.UtcNow)
+                {
+                    ResourceDeclarations = resources.Select(item => new ModuleResourceDeclaration(item.NId, oldVersion, nameof(UiResourceType.Page), item.Name, item.RouteName, item.RequiredPermissionNId, item.SupportedTerminals)).ToArray(),
+                };
+                var nodes = SystemDataBaselineSeedRunner.RequiredCollaborationNavigationFacts
+                    .Where(item => item.NId.EndsWith("-chat", StringComparison.Ordinal))
+                    .Select(item =>
+                    {
+                        var node = NavigationNode.CreateLink(Tenant, item.NId, "聊天", item.ParentNId, "PLATFORM_NAVIGATION", item.ResourceNId, null, [item.Terminal]);
+                        node.SetDisplayOrder(item.DisplayOrder);
+                        return node;
+                    })
+                    .Append(NavigationNode.CreateGroup(Tenant, "navigation.group.workspace", "工作台", null, "PLATFORM_NAVIGATION"))
+                    .Append(NavigationNode.CreateGroup(Tenant, "tenant.custom.group", "租户自定义", null, "PLATFORM_NAVIGATION"))
+                    .Append(NavigationNode.CreateLink(Tenant, "tenant.custom.chat", "租户聊天入口", "tenant.custom.group", "PLATFORM_NAVIGATION", "collaboration.page.pc-chat", null, [UiTerminal.Pc]))
+                    .ToArray();
+                await store.CommitAsync(ControlPlaneSnapshot.Empty(Tenant) with
+                {
+                    Manifests = [manifest], Resources = resources, DraftNodes = nodes,
+                    PermissionReceipts = [new PermissionReceipt("collaboration", oldVersion, Checksum(seedKeys[0]), true)],
+                }, 0, new ControlPlaneCommit([], [], seedKeys.Select(key => new SeedLedgerEntry(Tenant, key, oldVersion, Checksum(key))).ToArray()), CancellationToken.None);
+                var navigation = new ResourceNavigationService(store, new VerifiedPermissionRegistry());
+                var legacy = await store.LoadAsync(Tenant, CancellationToken.None);
+                publishedRevision = await navigation.PublishAsync(Tenant, "legacy", legacy.Revision, CancellationToken.None);
+                publishedChecksum = (await store.LoadAsync(Tenant, CancellationToken.None)).Snapshots.Single().Checksum;
+            }
+
+            // Reopen the persisted legacy database, with both old seed ledger rows intact.
+            using (var db = CreateDbContext(dbPath))
+            {
+                var store = new SqlControlPlaneStore(db);
+                using var seeder = new SystemDataBaselineSeedRunner(new ConfigurationBuilder().Build(), store, NullLogger<SystemDataBaselineSeedRunner>.Instance, new VerifiedPermissionRegistry());
+                var initializer = new SystemDataServiceInitializer(new SchemaMigrationRunner(db, SystemDataSchemaMigrations.All, NullLogger<SchemaMigrationRunner>.Instance), db, store, seeder);
+                var context = CreateContext("collaboration-legacy-upgrade");
+                var before = await initializer.InspectAsync(context, CancellationToken.None);
+                Assert.False(before.Ready);
+                var after = await initializer.ApplyAsync(context, await initializer.PlanAsync(context, before, CancellationToken.None), CancellationToken.None);
+                Assert.True(after.Ready, after.Reason);
+
+                var state = await store.LoadAsync(Tenant, CancellationToken.None);
+                Assert.Equal(publishedChecksum, state.Snapshots.Single(item => item.Revision == publishedRevision).Checksum);
+                Assert.Contains(state.DraftNodes, node => node.NId == "tenant.custom.group" && node.Label == "租户自定义");
+                var active = state.Snapshots.Single(item => item.Revision == state.ActiveSnapshotRevision);
+                Assert.Contains(active.Nodes, node => node.NodeNId == "tenant.custom.group" && node.Label == "租户自定义");
+                foreach (var resource in SystemDataBaselineSeedRunner.RequiredCollaborationResourceFacts)
+                    Assert.Contains(active.Nodes, node => node.ResourceNId == resource.NId && node.Label == resource.Name);
+                var navigation = new ResourceNavigationService(store, new VerifiedPermissionRegistry());
+                foreach (var terminal in new[] { UiTerminal.Pda, UiTerminal.Mobile })
+                {
+                    var runtime = await navigation.RuntimeAsync(Tenant, terminal, CancellationToken.None);
+                    var prefix = terminal == UiTerminal.Pda ? "pda" : "mobile";
+                    var chat = Assert.Single(runtime.Nodes, node => node.NodeNId == $"collaboration.nav.{prefix}-chat");
+                    Assert.Equal($"{prefix}-collaboration-chat", chat.RouteName);
+                    Assert.Equal("collaboration.messaging.read", chat.RequiredPermissionNId);
+                    Assert.Equal("聊天", chat.Label);
+                    Assert.DoesNotContain(runtime.Nodes, node => node.NodeNId == "collaboration.nav.pc-chat");
+                }
+                foreach (var key in seedKeys)
+                {
+                    var ledger = await db.SqlSugar.Queryable<SystemDataSeedLedgerTable>().Where(row => row.TenantNId == Tenant && row.SeedKey == key).ToListAsync();
+                    Assert.Equal(2, ledger.Count);
+                    Assert.Contains(ledger, row => row.SeedVersion == oldVersion && row.Checksum == Checksum(key));
+                    Assert.Contains(ledger, row => row.SeedVersion == SystemDataBaselineSeedRunner.CollaborationManifestVersion);
+                }
+                await initializer.ApplyAsync(context, await initializer.PlanAsync(context, after, CancellationToken.None), CancellationToken.None);
+                Assert.Equal(state.Revision, (await store.LoadAsync(Tenant, CancellationToken.None)).Revision);
+                Assert.True((await initializer.VerifyAsync(context, CancellationToken.None)).Ready);
+            }
+        }
+        finally
+        {
+            try { if (File.Exists(dbPath)) File.Delete(dbPath); }
+            catch (IOException) { /* SQLite pooling can briefly retain the temporary file. */ }
+        }
+    }
+
     private static SqlSugarDbContext CreateDbContext(string dbPath) => new(Options.Create(new SqlSugarOptions
     {
         ConnectionString = $"Data Source={dbPath}",
@@ -429,6 +638,8 @@ public sealed class SystemDataBaselineSeedRunnerTests
             Task.FromResult(_seeds.Contains(new(seedKey, seedVersion, checksum)));
 
         public void ReplaceSnapshot(ControlPlaneSnapshot snapshot) => Snapshot = snapshot;
+
+        public void RemoveSeed(string key) => _seeds.RemoveWhere(seed => seed.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
 
         public void SeedLegacyState(string legacyParameterName)
         {

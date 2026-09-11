@@ -26,7 +26,11 @@ const deviceStore = useDeviceStore()
 const authMode = loadRuntimeConfig().authMode
 const locale = usePlatformLocale()
 const copy = computed(() => systemDataPageCopy(locale.value, 'terminalFeatureMenu'))
-const hasUploadFeature = computed(() => authStore.hasPermission(PERMISSIONS.systemDataFileRead))
+const hasFeature = computed(
+  () =>
+    authStore.hasPermission(PERMISSIONS.systemDataFileRead) ||
+    authStore.hasPermission(PERMISSIONS.collaborationMessagingRead),
+)
 
 const displayName = computed(() => authStore.user?.displayName ?? '')
 // 终端文案单事实源:显式路由 meta.terminal 优先,无显式路由回退设备建议(§7.11)。
@@ -34,7 +38,9 @@ const terminalLabel = computed(() => {
   const active = resolveActiveTerminal(route.meta.terminal, deviceStore.terminal)
   return TERMINAL_LABELS[active] ?? active
 })
-const authModeLabel = computed(() => (authMode === 'mock' ? copy.value.mockMode : copy.value.httpMode))
+const authModeLabel = computed(() =>
+  authMode === 'mock' ? copy.value.mockMode : copy.value.httpMode,
+)
 </script>
 
 <template>
@@ -61,7 +67,11 @@ const authModeLabel = computed(() => (authMode === 'mock' ? copy.value.mockMode 
     </dl>
 
     <TerminalFeatureMenu terminal="mobile" />
-    <AppEmptyState v-if="!hasUploadFeature" :title="copy.mobileEmptyTitle" :description="copy.mobileEmptyDescription" />
+    <AppEmptyState
+      v-if="!hasFeature"
+      :title="copy.mobileEmptyTitle"
+      :description="copy.mobileEmptyDescription"
+    />
   </AppPage>
 </template>
 

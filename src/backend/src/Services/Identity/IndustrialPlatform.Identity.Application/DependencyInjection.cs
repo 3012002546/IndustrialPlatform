@@ -1,9 +1,11 @@
 using IndustrialPlatform.Identity.Application.Authentication;
+using IndustrialPlatform.Identity.Application.Collaboration;
 using IndustrialPlatform.Identity.Application.Authorization;
 using IndustrialPlatform.Identity.Application.Bootstrap;
 using IndustrialPlatform.Identity.Application.Management;
 using IndustrialPlatform.Identity.Application.Sso;
 using IndustrialPlatform.Identity.Application.UserGroups;
+using IndustrialPlatform.Identity.Contracts.Collaboration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -39,6 +41,8 @@ public static class DependencyInjection
 
         // 管理用例(TASK-ID-008):用户/角色/权限/审计;持久化端口由基础设施注册。
         services.AddSingleton<IUserManagementService, UserManagementService>();
+        services.AddSingleton<CollaborationDirectoryCursorCodec>();
+        services.AddSingleton<ICollaborationIdentityDirectory, CollaborationIdentityDirectory>();
         services.AddSingleton<IRoleManagementService, RoleManagementService>();
         services.AddSingleton<IPermissionQueryService, PermissionQueryService>();
         services.AddSingleton<IAuditQueryService, AuditQueryService>();

@@ -1,6 +1,8 @@
 using IndustrialPlatform.Infrastructure.Database;
 using Microsoft.Extensions.Logging;
 using SqlSugar;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations;
 
@@ -38,19 +40,30 @@ public sealed class SchemaMigrationRunner : ISchemaMigrationRunner
     {
         var sugar = _dbContext.SqlSugar;
         sugar.CodeFirst.InitTables<SchemaMigrationRecord>();
+        await EnsureChecksumColumnAsync(cancellationToken);
 
-        var appliedIds = await sugar
-            .Queryable<SchemaMigrationRecord>()
-            .Select(record => record.MigrationId)
-            .ToListAsync(cancellationToken);
-        var appliedSet = appliedIds.ToHashSet(StringComparer.Ordinal);
+        var applied = (await sugar.Queryable<SchemaMigrationRecord>().ToListAsync(cancellationToken))
+            .ToDictionary(record => record.MigrationId, StringComparer.Ordinal);
 
         foreach (var step in _steps.OrderBy(step => step.Id, StringComparer.Ordinal))
         {
-            if (!appliedSet.Contains(step.Id))
+            if (!applied.TryGetValue(step.Id, out var record))
             {
                 await ApplyStepAsync(step, cancellationToken);
+                continue;
             }
+            var checksum = Checksum(step);
+            if (record.Checksum is null)
+            {
+                if (!string.Equals(record.Description, step.Description, StringComparison.Ordinal))
+                    throw new InvalidOperationException($"Identity migration description drift detected for '{step.Id}'. Apply a new migration instead of rewriting the applied checksum.");
+                await BackfillChecksumAsync(step.Id, checksum, cancellationToken);
+                record.Checksum = checksum;
+            }
+            else if (!string.Equals(record.Checksum, checksum, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException($"Identity migration checksum drift detected for '{step.Id}'. Apply a new migration instead of rewriting the applied checksum.");
+            if (step.Validate is not null)
+                await step.Validate(sugar, cancellationToken);
         }
     }
 
@@ -65,6 +78,7 @@ public sealed class SchemaMigrationRunner : ISchemaMigrationRunner
             {
                 MigrationId = step.Id,
                 Description = step.Description,
+                Checksum = Checksum(step),
                 AppliedOn = DateTimeOffset.UtcNow,
             }).ExecuteCommandAsync(cancellationToken);
             sugar.Ado.CommitTran();
@@ -77,4 +91,26 @@ public sealed class SchemaMigrationRunner : ISchemaMigrationRunner
             throw;
         }
     }
+
+    private async Task EnsureChecksumColumnAsync(CancellationToken cancellationToken)
+    {
+        var dbType = _dbContext.SqlSugar.CurrentConnectionConfig.DbType;
+        var columns = dbType == DbType.Sqlite
+            ? _dbContext.SqlSugar.Ado.GetDataTable("SELECT name FROM pragma_table_info('identity_schema_migrations')").Rows.Cast<System.Data.DataRow>().Select(row => row["name"]?.ToString()).Where(name => name is not null).Select(name => name!).ToHashSet(StringComparer.OrdinalIgnoreCase)
+            : _dbContext.SqlSugar.Ado.GetDataTable("SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'identity_schema_migrations'").Rows.Cast<System.Data.DataRow>().Select(row => row["column_name"]?.ToString()).Where(name => name is not null).Select(name => name!).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (!columns.Contains("checksum"))
+            await _dbContext.SqlSugar.Ado.ExecuteCommandAsync("ALTER TABLE identity_schema_migrations ADD COLUMN checksum TEXT NULL", parameters: null, cancellationToken: cancellationToken);
+    }
+
+    private Task<int> BackfillChecksumAsync(string migrationId, string checksum, CancellationToken cancellationToken) =>
+        _dbContext.SqlSugar.Ado.ExecuteCommandAsync(
+            "UPDATE identity_schema_migrations SET checksum = @checksum WHERE migration_id = @migrationId AND checksum IS NULL",
+            new SugarParameter[]
+            {
+                new("@checksum", checksum),
+                new("@migrationId", migrationId),
+            },
+            cancellationToken: cancellationToken);
+
+    private static string Checksum(SchemaMigrationStep step) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{step.Id}|{step.Description}"))).ToLowerInvariant();
 }

@@ -1,4 +1,5 @@
 using IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations;
+using IndustrialPlatform.Identity.Infrastructure.Security;
 using IndustrialPlatform.Infrastructure.Database;
 using Microsoft.Extensions.Options;
 using SqlSugar;
@@ -185,6 +186,22 @@ public sealed class IdentityMigrationTests : IDisposable
     }
 
     [Fact]
+    public async Task Trusted_service_nonce_is_replay_safe_across_two_store_instances_and_retains_recent_expiry()
+    {
+        await ApplyAsync();
+        using var secondContext = new SqlSugarDbContext(Options.Create(new SqlSugarOptions
+        {
+            ConnectionString = $"Data Source={_dbPath};Foreign Keys=True",
+            DbType = DbType.Sqlite,
+        }));
+        var first = new TrustedServiceCallNonceStore(_dbContext);
+        var second = new TrustedServiceCallNonceStore(secondContext);
+
+        Assert.True(await first.TryRegisterAsync("collaboration", "nonce-replay", DateTimeOffset.UtcNow.AddSeconds(-1), CancellationToken.None));
+        Assert.False(await second.TryRegisterAsync("collaboration", "nonce-replay", DateTimeOffset.UtcNow.AddMinutes(1), CancellationToken.None));
+    }
+
+    [Fact]
     public async Task ApplyPending_RunTwice_IsIdempotent_SeedCountsStable()
     {
         await ApplyAsync();
@@ -193,11 +210,11 @@ public sealed class IdentityMigrationTests : IDisposable
         await ApplyAsync();
         var second = await ReadSeedCountsAsync();
 
-        // Identity 33 项 + SystemData 36 项 + ReferenceData 38 项、SYSTEM_ADMIN 系统角色、无默认用户;
+        // Identity 33 项 + Collaboration 19 项 + SystemData 50 项 + ReferenceData 38 项、SYSTEM_ADMIN 系统角色、无默认用户;
         // 两个不可变目录种子账本记录,重复执行不新增。
-        Assert.Equal(121, first.PermissionCount);
+        Assert.Equal(146, first.PermissionCount);
         Assert.Equal(1, first.RoleCount);
-        Assert.Equal(121, first.RolePermissionCount);
+        Assert.Equal(146, first.RolePermissionCount);
         Assert.Equal(0, first.UserCount);
         Assert.Equal(2, first.LedgerCount);
         Assert.Equal(first, second);

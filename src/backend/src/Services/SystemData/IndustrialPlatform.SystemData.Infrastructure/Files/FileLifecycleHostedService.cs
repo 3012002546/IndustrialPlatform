@@ -1,4 +1,6 @@
 using System.Text;
+using IndustrialPlatform.EventBus.Abstractions;
+using IndustrialPlatform.EventBus.Events;
 using IndustrialPlatform.SystemData.Application.Files;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -56,13 +58,15 @@ public sealed partial class FileLifecycleHostedService : BackgroundService
                 await using var content = await _contentStore.OpenReadAsync(file.StorageKey, cancellationToken);
                 var result = await ScanWithTimeoutAsync(file, content, cancellationToken);
                 await _store.AddScanAttemptAsync(file.TenantNId, file.FileNId, result.Status, result.Detail, cancellationToken);
-                await _store.UpdateFileAsync(file with { ScanStatus = result.Status, LastUpdatedOn = _clock.GetUtcNow() }, cancellationToken);
+                var updated = file with { ScanStatus = result.Status, LastUpdatedOn = _clock.GetUtcNow() };
+                await _store.UpdateFileAsync(updated, cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
             catch (Exception exception)
             {
                 await _store.AddScanAttemptAsync(file.TenantNId, file.FileNId, "Error", exception.Message, cancellationToken);
-                await _store.UpdateFileAsync(file with { ScanStatus = "Error", LastUpdatedOn = _clock.GetUtcNow() }, cancellationToken);
+                var updated = file with { ScanStatus = "Error", LastUpdatedOn = _clock.GetUtcNow() };
+                await _store.UpdateFileAsync(updated, cancellationToken);
             }
         }
     }
@@ -89,14 +93,17 @@ public sealed partial class FileLifecycleHostedService : BackgroundService
         var now = _clock.GetUtcNow();
         foreach (var file in await _store.ListDeletionCandidatesAsync(now, 20, cancellationToken))
         {
-            if (await _store.HasActiveReferencesAsync(file.TenantNId, file.FileNId, cancellationToken)) continue;
+            if (await _store.HasActiveLegalHoldsAsync(file.TenantNId, file.FileNId, cancellationToken)
+                || await _store.HasActiveReferencesAsync(file.TenantNId, file.FileNId, cancellationToken)) continue;
             await _contentStore.DeleteAsync(file.StorageKey, cancellationToken);
             await _store.MarkFileDeletedAsync(file, now, cancellationToken);
         }
     }
 
+
     [LoggerMessage(EventId = 401, Level = LogLevel.Warning, Message = "文件生命周期处理失败。")]
     private static partial void LogLifecycleFailed(ILogger logger, Exception exception);
+
 }
 
 public sealed class LocalSignatureFileScanner : IFileScanner

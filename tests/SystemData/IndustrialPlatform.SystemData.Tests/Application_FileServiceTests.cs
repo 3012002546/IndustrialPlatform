@@ -134,6 +134,101 @@ public sealed class FileServiceTests
         Assert.Equal("FILE_REFERENCED", referenced.Code);
     }
 
+    [Fact]
+    public async Task Multiple_case_references_are_released_independently_before_deletion()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var store = new FileStoreStub
+        {
+            File = new FileObjectRecord("tenant-1", "file-1", "session-1", "a.txt", "text/plain", 2, Sha256("ab"), "tenant-1/session-1.bin", "Clean", false, "Active", now, now, null, null, "user-1"),
+        };
+        store.References.Add(new FileReferenceRecord("tenant-1", "HOLD-CASE-A-file-1", "file-1", "user-1", "legal-hold", now, null));
+        store.References.Add(new FileReferenceRecord("tenant-1", "HOLD-CASE-B-file-1", "file-1", "user-1", "legal-hold", now, null));
+        var service = new FileService(store, new MemoryContentStore(), TimeProvider.System);
+
+        await Assert.ThrowsAsync<Pf04ServiceException>(() => service.RequestDeletionAsync("tenant-1", "user-1", "file-1", CancellationToken.None));
+
+        await service.DeleteReferenceAsync("tenant-1", "user-1", "file-1", "HOLD-CASE-A-file-1", CancellationToken.None);
+        var stillReferenced = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.RequestDeletionAsync("tenant-1", "user-1", "file-1", CancellationToken.None));
+        Assert.Equal("FILE_REFERENCED", stillReferenced.Code);
+
+        await service.DeleteReferenceAsync("tenant-1", "user-1", "file-1", "HOLD-CASE-B-file-1", CancellationToken.None);
+        var deleted = await service.RequestDeletionAsync("tenant-1", "user-1", "file-1", CancellationToken.None);
+
+        Assert.Equal("DeletionRequested", deleted.DeletionStatus);
+    }
+
+    [Fact]
+    public async Task Collaboration_reference_binding_is_idempotent_and_released_rows_cannot_be_revived()
+    {
+        var store = NewCleanStore();
+        var service = new FileService(store, new MemoryContentStore(), TimeProvider.System);
+        var input = new FileBindingRequest
+        {
+            RequestNId = "REQ-REF-1",
+            FileNId = "file-1",
+            ConversationNId = "conv-1",
+            MessageNId = "msg-1",
+            AttachmentNId = "att-1",
+            UploaderUserNId = "user-1",
+            Purpose = "CollaborationMessageAttachment",
+        };
+
+        var first = await service.BindReferenceAsync("tenant-1", "user-1", "REF-1", input, CancellationToken.None);
+        var retry = await service.BindReferenceAsync("tenant-1", "user-1", "REF-1", input, CancellationToken.None);
+        Assert.Equal(first, retry);
+
+        var conflict = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.BindReferenceAsync("tenant-1", "user-1", "REF-1", input with { MessageNId = "msg-2" }, CancellationToken.None));
+        Assert.Equal("FILE_BUSINESS_REFERENCE_CONFLICT", conflict.Code);
+
+        var released = await service.ReleaseReferenceAsync("tenant-1", "user-1", string.Empty, "REF-1", new FileBindingReleaseRequest { RequestNId = "REQ-REF-2", ExpectedVersion = 0 }, CancellationToken.None);
+        Assert.Equal("Released", released.Status);
+        Assert.Equal(1, released.Version);
+        var revive = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.BindReferenceAsync("tenant-1", "user-1", "REF-1", input, CancellationToken.None));
+        Assert.Equal("FILE_BUSINESS_REFERENCE_CONFLICT", revive.Code);
+    }
+
+    [Fact]
+    public async Task Legal_holds_are_case_scoped_and_block_cleanup_until_every_case_is_released()
+    {
+        var store = NewCleanStore();
+        var service = new FileService(store, new MemoryContentStore(), TimeProvider.System);
+        var checksum = Sha256("scope");
+        await service.PutLegalHoldAsync("tenant-1", "user-1", "CASE-A", "file-1", new FileHoldRequest { RequestNId = "REQ-A", ScopeChecksum = checksum, CaseRevision = 1 }, CancellationToken.None);
+        await service.PutLegalHoldAsync("tenant-1", "user-1", "CASE-B", "file-1", new FileHoldRequest { RequestNId = "REQ-B", ScopeChecksum = checksum, CaseRevision = 1 }, CancellationToken.None);
+
+        var blocked = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.RequestDeletionAsync("tenant-1", "user-1", "file-1", CancellationToken.None));
+        Assert.Equal("FILE_LEGAL_HOLD_ACTIVE", blocked.Code);
+        await service.ReleaseLegalHoldAsync("tenant-1", "user-1", "CASE-A", "file-1", new FileHoldRequest { RequestNId = "REQ-RA", ScopeChecksum = checksum, CaseRevision = 1 }, CancellationToken.None);
+        blocked = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.RequestDeletionAsync("tenant-1", "user-1", "file-1", CancellationToken.None));
+        Assert.Equal("FILE_LEGAL_HOLD_ACTIVE", blocked.Code);
+        await service.ReleaseLegalHoldAsync("tenant-1", "user-1", "CASE-B", "file-1", new FileHoldRequest { RequestNId = "REQ-RB", ScopeChecksum = checksum, CaseRevision = 1 }, CancellationToken.None);
+        Assert.Equal("DeletionRequested", (await service.RequestDeletionAsync("tenant-1", "user-1", "file-1", CancellationToken.None)).DeletionStatus);
+    }
+
+    [Fact]
+    public async Task Legal_hold_scope_or_revision_drift_is_rejected()
+    {
+        var store = NewCleanStore();
+        var service = new FileService(store, new MemoryContentStore(), TimeProvider.System);
+        var checksum = Sha256("scope");
+        await service.PutLegalHoldAsync("tenant-1", "user-1", "CASE-A", "file-1", new FileHoldRequest { RequestNId = "REQ-A", ScopeChecksum = checksum, CaseRevision = 1 }, CancellationToken.None);
+
+        var conflict = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.PutLegalHoldAsync("tenant-1", "user-1", "CASE-A", "file-1", new FileHoldRequest { RequestNId = "REQ-A-2", ScopeChecksum = Sha256("changed"), CaseRevision = 1 }, CancellationToken.None));
+        Assert.Equal("FILE_LEGAL_HOLD_CONFLICT", conflict.Code);
+        conflict = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.ReleaseLegalHoldAsync("tenant-1", "user-1", "CASE-A", "file-1", new FileHoldRequest { RequestNId = "REQ-R", ScopeChecksum = checksum, CaseRevision = 2 }, CancellationToken.None));
+        Assert.Equal("FILE_LEGAL_HOLD_CONFLICT", conflict.Code);
+    }
+
+    private static FileStoreStub NewCleanStore()
+    {
+        var now = DateTimeOffset.UtcNow;
+        return new FileStoreStub
+        {
+            File = new FileObjectRecord("tenant-1", "file-1", "session-1", "a.txt", "text/plain", 2, Sha256("ab"), "tenant-1/session-1.bin", "Clean", false, "Active", now, now, null, null, "user-1"),
+        };
+    }
+
     private static string Sha256(string value) => Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
 
     private sealed class MemoryContentStore : IFileContentStore
@@ -169,6 +264,9 @@ public sealed class FileServiceTests
         private FileObjectRecord? _file;
         public FileObjectRecord? File { get => _file; set => _file = value; }
         public FileReferenceRecord? ActiveReference { get; set; }
+        public List<FileReferenceRecord> References { get; } = [];
+        public Dictionary<string, FileBusinessReferenceRecord> BusinessReferences { get; } = new(StringComparer.Ordinal);
+        public Dictionary<string, FileHoldRecord> LegalHolds { get; } = new(StringComparer.Ordinal);
         public bool FailNextAppendCas { get; set; }
         public Task<FileUploadSessionRecord?> GetSessionAsync(string tenantNId, string sessionNId, CancellationToken cancellationToken) => Task.FromResult(_session is { TenantNId: var t, SessionNId: var s } && t == tenantNId && s == sessionNId ? _session : null);
         public Task<FileUploadSessionRecord?> GetSessionByTransportAsync(string tenantNId, string transportId, CancellationToken cancellationToken) => Task.FromResult(_session is { TenantNId: var t, TransportId: var tr } && t == tenantNId && tr == transportId ? _session : null);
@@ -203,11 +301,41 @@ public sealed class FileServiceTests
             return Task.FromResult<FileObjectRecord?>(file);
         }
         public Task AddScanAttemptAsync(string tenantNId, string fileNId, string status, string detail, CancellationToken cancellationToken) => Task.CompletedTask;
-        public Task<FileReferenceRecord?> GetReferenceAsync(string tenantNId, string referenceNId, CancellationToken cancellationToken) => Task.FromResult(ActiveReference is { TenantNId: var t, ReferenceNId: var r } && t == tenantNId && r == referenceNId ? ActiveReference : null);
-        public Task<FileReferenceRecord?> GetReferenceForFileAsync(string tenantNId, string fileNId, string ownerUserNId, CancellationToken cancellationToken) => Task.FromResult(ActiveReference is { TenantNId: var t, FileNId: var f, OwnerUserNId: var o } && t == tenantNId && f == fileNId && o == ownerUserNId ? ActiveReference : null);
-        public Task<bool> HasActiveReferencesAsync(string tenantNId, string fileNId, CancellationToken cancellationToken) => Task.FromResult(ActiveReference is { TenantNId: var t, FileNId: var f } && t == tenantNId && f == fileNId);
-        public Task InsertReferenceAsync(FileReferenceRecord reference, CancellationToken cancellationToken) => Task.CompletedTask;
-        public Task DeleteReferenceAsync(string tenantNId, string referenceNId, DateTimeOffset deletedOn, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task<FileReferenceRecord?> GetReferenceAsync(string tenantNId, string referenceNId, CancellationToken cancellationToken) => Task.FromResult(AllReferences().FirstOrDefault(reference => reference.TenantNId == tenantNId && reference.ReferenceNId == referenceNId && reference.DeletedOn is null));
+        public Task<FileReferenceRecord?> GetReferenceForFileAsync(string tenantNId, string fileNId, string ownerUserNId, CancellationToken cancellationToken) => Task.FromResult(AllReferences().FirstOrDefault(reference => reference.TenantNId == tenantNId && reference.FileNId == fileNId && reference.OwnerUserNId == ownerUserNId && reference.DeletedOn is null));
+        public Task<bool> HasActiveReferencesAsync(string tenantNId, string fileNId, CancellationToken cancellationToken) => Task.FromResult(AllReferences().Any(reference => reference.TenantNId == tenantNId && reference.FileNId == fileNId && reference.DeletedOn is null));
+        public Task<bool> HasActiveLegalHoldsAsync(string tenantNId, string fileNId, CancellationToken cancellationToken) => Task.FromResult(LegalHolds.Values.Any(hold => hold.TenantNId == tenantNId && hold.FileNId == fileNId && hold.Status == "Active"));
+        public Task InsertReferenceAsync(FileReferenceRecord reference, CancellationToken cancellationToken) { References.Add(reference); return Task.CompletedTask; }
+        public Task DeleteReferenceAsync(string tenantNId, string referenceNId, DateTimeOffset deletedOn, CancellationToken cancellationToken)
+        {
+            var index = References.FindIndex(reference => reference.TenantNId == tenantNId && reference.ReferenceNId == referenceNId && reference.DeletedOn is null);
+            if (index >= 0) References[index] = References[index] with { DeletedOn = deletedOn };
+            if (ActiveReference is { TenantNId: var t, ReferenceNId: var r } && t == tenantNId && r == referenceNId)
+                ActiveReference = ActiveReference with { DeletedOn = deletedOn };
+            return Task.CompletedTask;
+        }
         public Task UpdateFileAsync(FileObjectRecord file, CancellationToken cancellationToken) { _file = file; return Task.CompletedTask; }
+
+        public Task<FileBusinessReferenceRecord?> GetBusinessReferenceAsync(string tenantNId, string referenceNId, CancellationToken cancellationToken) => Task.FromResult(BusinessReferences.Values.FirstOrDefault(value => value.TenantNId == tenantNId && value.ReferenceNId == referenceNId));
+        public Task<FileBusinessReferenceRecord?> GetBusinessReferenceForAttachmentAsync(string tenantNId, string attachmentNId, string purpose, CancellationToken cancellationToken) => Task.FromResult(BusinessReferences.Values.FirstOrDefault(value => value.TenantNId == tenantNId && value.AttachmentNId == attachmentNId && value.Purpose == purpose));
+        public Task InsertBusinessReferenceAsync(FileBusinessReferenceRecord reference, CancellationToken cancellationToken) { BusinessReferences[$"{reference.TenantNId}:{reference.ReferenceNId}"] = reference; return Task.CompletedTask; }
+        public Task<bool> ReleaseBusinessReferenceAsync(string tenantNId, string fileNId, string referenceNId, long expectedVersion, DateTimeOffset releasedOn, CancellationToken cancellationToken)
+        {
+            var key = $"{tenantNId}:{referenceNId}";
+            if (!BusinessReferences.TryGetValue(key, out var current) || current.FileNId != fileNId || current.Status != "Active" || current.Version != expectedVersion) return Task.FromResult(false);
+            BusinessReferences[key] = current with { Status = "Released", Version = current.Version + 1, ReleasedOn = releasedOn };
+            return Task.FromResult(true);
+        }
+        public Task<FileHoldRecord?> GetLegalHoldAsync(string tenantNId, string caseNId, string fileNId, CancellationToken cancellationToken) => Task.FromResult(LegalHolds.GetValueOrDefault($"{tenantNId}:{caseNId}:{fileNId}"));
+        public Task InsertLegalHoldAsync(FileHoldRecord hold, CancellationToken cancellationToken) { LegalHolds[$"{hold.TenantNId}:{hold.CaseNId}:{hold.FileNId}"] = hold; return Task.CompletedTask; }
+        public Task<bool> ReleaseLegalHoldAsync(string tenantNId, string caseNId, string fileNId, string scopeChecksum, long caseRevision, DateTimeOffset releasedOn, CancellationToken cancellationToken)
+        {
+            var key = $"{tenantNId}:{caseNId}:{fileNId}";
+            if (!LegalHolds.TryGetValue(key, out var current) || current.Status != "Active" || current.ScopeChecksum != scopeChecksum || current.CaseRevision != caseRevision) return Task.FromResult(false);
+            LegalHolds[key] = current with { Status = "Released", UpdatedOn = releasedOn, ReleasedOn = releasedOn };
+            return Task.FromResult(true);
+        }
+
+        private IEnumerable<FileReferenceRecord> AllReferences() => ActiveReference is null ? References : References.Append(ActiveReference);
     }
 }

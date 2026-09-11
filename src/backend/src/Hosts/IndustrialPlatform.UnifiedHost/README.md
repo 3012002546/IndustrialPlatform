@@ -15,6 +15,8 @@ UnifiedHost 是当前默认的统一进程部署入口。它在单一 ASP.NET Co
 
 `Program.cs` → `UnifiedHostModuleCatalog`（显式 `Identity` → `SystemData` → `ReferenceData`）→ 各模块自己的服务注册、健康检查和端点映射 → Controller/Application/Infrastructure。请求先由前缀兼容中间件剥离 `/identity`、`/systemdata`、`/referencedata`，再进入各模块原有 `/api/v1` Controller 路由。
 
+Collaboration 加入目录后保留 `/collaboration` 外部前缀（模块 `StripExternalPathPrefix = false`），使用 `/collaboration/api/v1/*` 和 `/collaboration/hubs/collaboration-v1`，避免目录查询与 Identity `/api/v1/users` 冲突。Gateway 的 Collaboration 服务也设置 `StripPathPrefix: false`；其余服务保持原有前缀剥离行为。组合宿主必须检查完整路由集合并回归原有管理查询。
+
 `ModuleMigrationCoordinatorHostedService.cs` 按目录声明的 `identity → systemdata → referencedata` 顺序调用服务自有 `IServiceInitializer`，避免 Shared 数据库并发迁移；宿主只协调，不实现迁移。
 
 生产 SPA 由 `UseStaticFiles` 和 fallback 托管；`/api`、`/health`、`/.well-known` 未知路径保持 404，不回退到 `index.html`。

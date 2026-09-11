@@ -21,6 +21,9 @@ public sealed class SchemaMigrationRecord
     [SugarColumn(ColumnName = "description")]
     public string Description { get; set; } = string.Empty;
 
+    [SugarColumn(ColumnName = "checksum", IsNullable = true)]
+    public string? Checksum { get; set; }
+
     /// <summary>
     /// 迁移应用时间(UTC)。
     /// </summary>

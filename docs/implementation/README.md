@@ -42,7 +42,7 @@ PF05起分开维护设计就绪度（待细化/待前置核验/已就绪）与�
 | 06 | [PF-03 ReferenceData实施方案](06-Industrial%20Platform%20ReferenceData%20Service开发实施方案.md) | 七模块已于 2026-09-05 完成并经独立验收 PASS，当前后续 WIP 不包含在历史验收内，证据见 docs/evidence/PF-03.md |
 | 07 | [PF-04 File / Notification / Audit实施方案](07-Industrial%20Platform%20File%20Notification%20Audit开发实施方案.md) | Core已交付；历史自测及真实环境缺口见 PF-04 evidence，不能仅凭提交标记整阶段验收通过 |
 | 08 | [PF-05 Collaboration实施方案](08-Industrial%20Platform%20Collaboration开发实施方案.md) | 字段/接口/线框图已细化；001～008 待派遣、待前置核验 |
-| 09 | [PF-06 RemoteAssistance实施方案](09-Industrial%20Platform%20RemoteAssistance开发实施方案.md) | 字段/接口/线框已细化；双PoC待派遣，生产002～008保持门禁阻塞；未开发、未测试 |
+| 09 | [PF-06 RemoteAssistance实施方案](09-Industrial%20Platform%20RemoteAssistance开发实施方案.md) | V3.0聊天屏幕＋独立语音；最终数据/共用协商/详细001～011已收敛，001＋009先验证；G06-1～3待实际输入与证据，未实施 |
 | 09A | [PF-06A 终端运行时与客户端打包](09A-Industrial%20Platform终端运行时与客户端打包开发实施方案.md) | PF-05/06 完成后执行；共用字段/线框已细化，待派遣/待目标设备核验，无原生工程 |
 | 10 | PF-07 Scheduler / Platform Health实施方案（待 PF-07 会话创建） | 两个模块分开建模，在同一阶段管理会话协调和派遣 |
 | 11 | PF-08 Low Code实施方案（待 PF-08 会话创建） | 待阶段管理会话设计和派遣 |

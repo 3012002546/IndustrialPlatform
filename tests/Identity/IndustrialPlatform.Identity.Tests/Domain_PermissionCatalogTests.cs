@@ -43,6 +43,31 @@ public sealed class PermissionCatalogTests
         "platform.mobile.view",
         "identity.bootstrap.view",
         "identity.bootstrap.recover",
+        "collaboration.messaging.read",
+        "collaboration.messaging.conversation.start",
+        "collaboration.messaging.write",
+        "collaboration.messaging.read-cursor.update",
+        "collaboration.messaging.conversation.hide",
+        "collaboration.messaging.conversation.restore",
+        "collaboration.messaging.retract",
+        "collaboration.messaging.attachment.send",
+        "collaboration.messaging.attachment.download",
+        "collaboration.compliance.read",
+        "collaboration.compliance.view",
+        "collaboration.compliance.read-original",
+        "collaboration.compliance.dispose",
+        "collaboration.compliance.export.request",
+        "collaboration.compliance.export.download",
+        "collaboration.compliance.export.approve",
+        "collaboration.compliance.legal-hold.create",
+        "collaboration.compliance.legal-hold.review",
+        "collaboration.compliance.legal-hold.release",
+        "collaboration.compliance.legal-hold.release.approve",
+        "collaboration.compliance.retention.manage",
+        "collaboration.compliance.retention.update",
+        "collaboration.presence.connect",
+        "collaboration.presence.read",
+        "collaboration.presence.write",
         "systemdata.organization.view",
         "systemdata.organization.create",
         "systemdata.organization.update",
@@ -136,7 +161,7 @@ public sealed class PermissionCatalogTests
     [Fact]
     public void FirstBatch_HasIdentityAndSystemDataPermissions()
     {
-        Assert.Equal(121, PermissionCatalog.FirstBatchNIds.Count);
+        Assert.Equal(146, PermissionCatalog.FirstBatchNIds.Count);
     }
 
     [Fact]

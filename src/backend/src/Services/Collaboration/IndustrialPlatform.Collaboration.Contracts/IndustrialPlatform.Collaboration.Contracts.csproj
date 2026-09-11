@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\IndustrialPlatform.EventBus\IndustrialPlatform.EventBus.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\IndustrialPlatform.Security\IndustrialPlatform.Security.csproj" />
+  </ItemGroup>
+</Project>

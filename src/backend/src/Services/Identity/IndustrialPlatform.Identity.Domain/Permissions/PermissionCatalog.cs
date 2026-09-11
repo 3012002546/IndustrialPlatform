@@ -104,6 +104,32 @@ public static class PermissionCatalog
     /// <summary>紧急恢复内置 admin(§29A.5):接受一次性恢复引用与审批关联,不接受明文密码。</summary>
     public const string BootstrapRecover = "identity.bootstrap.recover";
 
+    public const string CollaborationMessagingRead = "collaboration.messaging.read";
+    public const string CollaborationMessagingConversationStart = "collaboration.messaging.conversation.start";
+    public const string CollaborationMessagingWrite = "collaboration.messaging.write";
+    public const string CollaborationMessagingReadCursorUpdate = "collaboration.messaging.read-cursor.update";
+    public const string CollaborationMessagingConversationHide = "collaboration.messaging.conversation.hide";
+    public const string CollaborationMessagingConversationRestore = "collaboration.messaging.conversation.restore";
+    public const string CollaborationMessagingRetract = "collaboration.messaging.retract";
+    public const string CollaborationMessagingAttachmentSend = "collaboration.messaging.attachment.send";
+    public const string CollaborationMessagingAttachmentDownload = "collaboration.messaging.attachment.download";
+    public const string CollaborationComplianceRead = "collaboration.compliance.read";
+    public const string CollaborationComplianceView = "collaboration.compliance.view";
+    public const string CollaborationComplianceReadOriginal = "collaboration.compliance.read-original";
+    public const string CollaborationComplianceDispose = "collaboration.compliance.dispose";
+    public const string CollaborationComplianceExportRequest = "collaboration.compliance.export.request";
+    public const string CollaborationComplianceExportDownload = "collaboration.compliance.export.download";
+    public const string CollaborationComplianceExportApprove = "collaboration.compliance.export.approve";
+    public const string CollaborationComplianceLegalHoldCreate = "collaboration.compliance.legal-hold.create";
+    public const string CollaborationComplianceLegalHoldReview = "collaboration.compliance.legal-hold.review";
+    public const string CollaborationComplianceLegalHoldRelease = "collaboration.compliance.legal-hold.release";
+    public const string CollaborationComplianceLegalHoldReleaseApprove = "collaboration.compliance.legal-hold.release.approve";
+    public const string CollaborationComplianceRetentionManage = "collaboration.compliance.retention.manage";
+    public const string CollaborationComplianceRetentionUpdate = "collaboration.compliance.retention.update";
+    public const string CollaborationPresenceConnect = "collaboration.presence.connect";
+    public const string CollaborationPresenceRead = "collaboration.presence.read";
+    public const string CollaborationPresenceWrite = "collaboration.presence.write";
+
     public const string SystemDataOrganizationView = "systemdata.organization.view";
     public const string SystemDataOrganizationCreate = "systemdata.organization.create";
     public const string SystemDataOrganizationUpdate = "systemdata.organization.update";
@@ -230,6 +256,31 @@ public static class PermissionCatalog
         PlatformMobileView,
         BootstrapView,
         BootstrapRecover,
+        CollaborationMessagingRead,
+        CollaborationMessagingConversationStart,
+        CollaborationMessagingWrite,
+        CollaborationMessagingReadCursorUpdate,
+        CollaborationMessagingConversationHide,
+        CollaborationMessagingConversationRestore,
+        CollaborationMessagingRetract,
+        CollaborationMessagingAttachmentSend,
+        CollaborationMessagingAttachmentDownload,
+        CollaborationComplianceRead,
+        CollaborationComplianceView,
+        CollaborationComplianceReadOriginal,
+        CollaborationComplianceDispose,
+        CollaborationComplianceExportRequest,
+        CollaborationComplianceExportDownload,
+        CollaborationComplianceExportApprove,
+        CollaborationComplianceLegalHoldCreate,
+        CollaborationComplianceLegalHoldReview,
+        CollaborationComplianceLegalHoldRelease,
+        CollaborationComplianceLegalHoldReleaseApprove,
+        CollaborationComplianceRetentionManage,
+        CollaborationComplianceRetentionUpdate,
+        CollaborationPresenceConnect,
+        CollaborationPresenceRead,
+        CollaborationPresenceWrite,
         SystemDataOrganizationView,
         SystemDataOrganizationCreate,
         SystemDataOrganizationUpdate,

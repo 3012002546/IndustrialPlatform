@@ -14,7 +14,7 @@ namespace IndustrialPlatform.SystemData.Infrastructure.Persistence.SystemData;
 /// <summary>
 /// PF-04 持久化适配器。文件、通知、审计共享 SystemData 的 SqlSugar 连接与事务边界。
 /// </summary>
-public sealed class Pf04Store : IFileStore, INotificationStore, IAuditStore
+public sealed class Pf04Store : IFileStore, IFileStatusOutbox, INotificationStore, IAuditStore
 {
     private readonly SqlSugarDbContext _dbContext;
 
@@ -77,6 +77,9 @@ public sealed class Pf04Store : IFileStore, INotificationStore, IAuditStore
     public async Task<FileObjectRecord?> GetFileAsync(string tenantNId, string fileNId, CancellationToken cancellationToken) =>
         ToRecord(await _dbContext.SqlSugar.Queryable<FileObjectTable>().Where(t => t.TenantNId == tenantNId && t.FileNId == fileNId && t.DeletionStatus != "Deleted").FirstAsync(cancellationToken));
 
+    public async Task<FileObjectRecord?> GetFileForReconciliationAsync(string tenantNId, string fileNId, CancellationToken cancellationToken) =>
+        ToRecord(await _dbContext.SqlSugar.Queryable<FileObjectTable>().Where(t => t.TenantNId == tenantNId && t.FileNId == fileNId).FirstAsync(cancellationToken));
+
     public async Task<IReadOnlyList<FileObjectRecord>> ListPendingScanAsync(int limit, CancellationToken cancellationToken) =>
         (await _dbContext.SqlSugar.Queryable<FileObjectTable>()
             .Where(t => t.DeletionStatus == "Active" && (t.ScanStatus == "PendingScan" || t.ScanStatus == "Error" || t.ScanStatus == "Unknown"))
@@ -93,10 +96,26 @@ public sealed class Pf04Store : IFileStore, INotificationStore, IAuditStore
 
     public async Task MarkFileDeletedAsync(FileObjectRecord file, DateTimeOffset deletedOn, CancellationToken cancellationToken)
     {
-        await _dbContext.SqlSugar.Updateable<FileObjectTable>()
-            .SetColumns(t => new FileObjectTable { DeletionStatus = "Deleted", DeletedOn = deletedOn, LastUpdatedOn = deletedOn })
-            .Where(t => t.TenantNId == file.TenantNId && t.FileNId == file.FileNId && t.DeletionStatus == "DeletionRequested")
-            .ExecuteCommandAsync(cancellationToken);
+        var sugar = _dbContext.SqlSugar;
+        var ownsTransaction = sugar.Ado.IsNoTran();
+        if (ownsTransaction) sugar.Ado.BeginTran();
+        try
+        {
+            var affected = await sugar.Updateable<FileObjectTable>()
+                .SetColumns(t => new FileObjectTable { DeletionStatus = "Deleted", DeletedOn = deletedOn, LastUpdatedOn = deletedOn })
+                .Where(t => t.TenantNId == file.TenantNId && t.FileNId == file.FileNId && t.DeletionStatus == "DeletionRequested")
+                .ExecuteCommandAsync(cancellationToken);
+            if (affected == 1)
+            {
+                await EnqueueFileStatusAsync(new FileStatusChangeRecord(Guid.NewGuid(), file.TenantNId, file.FileNId, file.ScanStatus, file.Restricted, "Deleted", deletedOn), cancellationToken);
+            }
+            if (ownsTransaction) sugar.Ado.CommitTran();
+        }
+        catch
+        {
+            if (ownsTransaction) sugar.Ado.RollbackTran();
+            throw;
+        }
     }
 
     public async Task<FilePageV1> ListFilesAsync(string tenantNId, string? search, int page, int pageSize, CancellationToken cancellationToken)
@@ -185,6 +204,7 @@ public sealed class Pf04Store : IFileStore, INotificationStore, IAuditStore
                 StartedOn = file.CreatedOn,
                 Detail = "scanner is not configured; download remains blocked"
             }).ExecuteCommandAsync(cancellationToken);
+            await EnqueueFileStatusAsync(new FileStatusChangeRecord(Guid.NewGuid(), file.TenantNId, file.FileNId, file.ScanStatus, file.Restricted, file.DeletionStatus, file.LastUpdatedOn), cancellationToken);
             var affected = await sugar.Updateable(ToTable(completedSession, current.Id))
                 .Where(t => t.TenantNId == completedSession.TenantNId && t.SessionNId == completedSession.SessionNId && t.CurrentOffset == expectedOffset && t.WriterEpoch == expectedEpoch && t.Status != "Completed")
                 .ExecuteCommandAsync(cancellationToken);
@@ -211,8 +231,48 @@ public sealed class Pf04Store : IFileStore, INotificationStore, IAuditStore
     public async Task<FileReferenceRecord?> GetReferenceForFileAsync(string tenantNId, string fileNId, string ownerUserNId, CancellationToken cancellationToken) =>
         ToRecord(await _dbContext.SqlSugar.Queryable<FileReferenceGrantTable>().Where(t => t.TenantNId == tenantNId && t.FileNId == fileNId && t.OwnerUserNId == ownerUserNId && t.DeletedOn == null).FirstAsync(cancellationToken));
 
-    public Task<bool> HasActiveReferencesAsync(string tenantNId, string fileNId, CancellationToken cancellationToken) =>
-        _dbContext.SqlSugar.Queryable<FileReferenceGrantTable>().AnyAsync(t => t.TenantNId == tenantNId && t.FileNId == fileNId && t.DeletedOn == null, cancellationToken);
+    public async Task<bool> HasActiveReferencesAsync(string tenantNId, string fileNId, CancellationToken cancellationToken)
+    {
+        if (await _dbContext.SqlSugar.Queryable<FileReferenceGrantTable>().AnyAsync(t => t.TenantNId == tenantNId && t.FileNId == fileNId && t.DeletedOn == null, cancellationToken)) return true;
+        return await _dbContext.SqlSugar.Queryable<CollaborationFileReferenceTable>().AnyAsync(t => t.TenantNId == tenantNId && t.FileNId == fileNId && t.Status == "Active", cancellationToken);
+    }
+
+    public Task<bool> HasActiveLegalHoldsAsync(string tenantNId, string fileNId, CancellationToken cancellationToken) =>
+        _dbContext.SqlSugar.Queryable<CollaborationFileHoldTable>().AnyAsync(t => t.TenantNId == tenantNId && t.FileNId == fileNId && t.Status == "Active", cancellationToken);
+
+    public async Task<bool> TryRequestDeletionAsync(FileObjectRecord file, CancellationToken cancellationToken)
+    {
+        var sugar = _dbContext.SqlSugar;
+        var ownsTransaction = sugar.Ado.IsNoTran();
+        if (ownsTransaction) sugar.Ado.BeginTran();
+        try
+        {
+            var affected = await sugar.Ado.ExecuteCommandAsync(
+                "UPDATE system_file_object SET deletion_status = @status, last_updated_on = @updatedOn "
+                + "WHERE tenant_n_id = @tenantNId AND file_n_id = @fileNId AND deletion_status = 'Active' "
+                + "AND NOT EXISTS (SELECT 1 FROM system_file_reference_grant r WHERE r.tenant_n_id = @tenantNId AND r.file_n_id = @fileNId AND r.deleted_on IS NULL) "
+                + "AND NOT EXISTS (SELECT 1 FROM system_collaboration_file_reference r WHERE r.tenant_n_id = @tenantNId AND r.file_n_id = @fileNId AND r.status = 'Active') "
+                + "AND NOT EXISTS (SELECT 1 FROM system_collaboration_file_hold h WHERE h.tenant_n_id = @tenantNId AND h.file_n_id = @fileNId AND h.status = 'Active')",
+                new SugarParameter[]
+                {
+                    new SugarParameter("@status", file.DeletionStatus),
+                    new SugarParameter("@updatedOn", file.LastUpdatedOn),
+                    new SugarParameter("@tenantNId", file.TenantNId),
+                    new SugarParameter("@fileNId", file.FileNId),
+                }, cancellationToken: cancellationToken);
+            if (affected == 1)
+            {
+                await EnqueueFileStatusAsync(new FileStatusChangeRecord(Guid.NewGuid(), file.TenantNId, file.FileNId, file.ScanStatus, file.Restricted, file.DeletionStatus, file.LastUpdatedOn), cancellationToken);
+            }
+            if (ownsTransaction) sugar.Ado.CommitTran();
+            return affected == 1;
+        }
+        catch
+        {
+            if (ownsTransaction) sugar.Ado.RollbackTran();
+            throw;
+        }
+    }
 
     public async Task InsertReferenceAsync(FileReferenceRecord reference, CancellationToken cancellationToken) =>
         await _dbContext.SqlSugar.Insertable(ToTable(reference)).ExecuteCommandAsync(cancellationToken);
@@ -220,16 +280,150 @@ public sealed class Pf04Store : IFileStore, INotificationStore, IAuditStore
     public async Task DeleteReferenceAsync(string tenantNId, string referenceNId, DateTimeOffset deletedOn, CancellationToken cancellationToken) =>
         await _dbContext.SqlSugar.Updateable<FileReferenceGrantTable>().SetColumns(t => new FileReferenceGrantTable { DeletedOn = deletedOn }).Where(t => t.TenantNId == tenantNId && t.ReferenceNId == referenceNId && t.DeletedOn == null).ExecuteCommandAsync(cancellationToken);
 
+    public async Task<FileBusinessReferenceRecord?> GetBusinessReferenceAsync(string tenantNId, string referenceNId, CancellationToken cancellationToken) =>
+        ToRecord(await _dbContext.SqlSugar.Queryable<CollaborationFileReferenceTable>()
+            .Where(t => t.TenantNId == tenantNId && t.ReferenceNId == referenceNId).FirstAsync(cancellationToken));
+
+    public async Task<FileBusinessReferenceRecord?> GetBusinessReferenceForAttachmentAsync(string tenantNId, string attachmentNId, string purpose, CancellationToken cancellationToken) =>
+        ToRecord(await _dbContext.SqlSugar.Queryable<CollaborationFileReferenceTable>()
+            .Where(t => t.TenantNId == tenantNId && t.AttachmentNId == attachmentNId && t.Purpose == purpose).FirstAsync(cancellationToken));
+
+    public async Task InsertBusinessReferenceAsync(FileBusinessReferenceRecord reference, CancellationToken cancellationToken)
+    {
+        var affected = await _dbContext.SqlSugar.Ado.ExecuteCommandAsync(
+            "INSERT INTO system_collaboration_file_reference "
+            + "(tenant_n_id, reference_n_id, file_n_id, conversation_n_id, message_n_id, attachment_n_id, uploader_user_n_id, purpose, owner_service, status, version, created_on, released_on) "
+            + "SELECT @tenantNId, @referenceNId, @fileNId, @conversationNId, @messageNId, @attachmentNId, @uploaderUserNId, @purpose, @ownerService, @status, @version, @createdOn, @releasedOn "
+            + "WHERE EXISTS (SELECT 1 FROM system_file_object WHERE tenant_n_id = @tenantNId AND file_n_id = @fileNId AND deletion_status = 'Active') "
+            + "ON CONFLICT DO NOTHING",
+            new SugarParameter[]
+            {
+                new SugarParameter("@tenantNId", reference.TenantNId), new SugarParameter("@referenceNId", reference.ReferenceNId),
+                new SugarParameter("@fileNId", reference.FileNId), new SugarParameter("@conversationNId", reference.ConversationNId),
+                new SugarParameter("@messageNId", reference.MessageNId), new SugarParameter("@attachmentNId", reference.AttachmentNId),
+                new SugarParameter("@uploaderUserNId", reference.UploaderUserNId), new SugarParameter("@purpose", reference.Purpose),
+                new SugarParameter("@ownerService", reference.OwnerService), new SugarParameter("@status", reference.Status),
+                new SugarParameter("@version", reference.Version), new SugarParameter("@createdOn", reference.CreatedOn), new SugarParameter("@releasedOn", reference.ReleasedOn),
+            }, cancellationToken: cancellationToken);
+        if (affected != 1) throw new InvalidOperationException("文件已进入删除流程，不能建立业务文件引用。");
+    }
+
+    public Task<bool> ReleaseBusinessReferenceAsync(string tenantNId, string fileNId, string referenceNId, long expectedVersion, DateTimeOffset releasedOn, CancellationToken cancellationToken) =>
+        _dbContext.SqlSugar.Updateable<CollaborationFileReferenceTable>()
+            .SetColumns(t => new CollaborationFileReferenceTable { Status = "Released", Version = t.Version + 1, ReleasedOn = releasedOn })
+            .Where(t => t.TenantNId == tenantNId && t.FileNId == fileNId && t.ReferenceNId == referenceNId && t.Status == "Active" && t.Version == expectedVersion)
+            .ExecuteCommandAsync(cancellationToken)
+            .ContinueWith(task => task.Result == 1, cancellationToken);
+
+    public async Task<FileHoldRecord?> GetLegalHoldAsync(string tenantNId, string caseNId, string fileNId, CancellationToken cancellationToken) =>
+        ToRecord(await _dbContext.SqlSugar.Queryable<CollaborationFileHoldTable>()
+            .Where(t => t.TenantNId == tenantNId && t.CaseNId == caseNId && t.FileNId == fileNId).FirstAsync(cancellationToken));
+
+    public async Task InsertLegalHoldAsync(FileHoldRecord hold, CancellationToken cancellationToken)
+    {
+        var affected = await _dbContext.SqlSugar.Ado.ExecuteCommandAsync(
+            "INSERT INTO system_collaboration_file_hold "
+            + "(tenant_n_id, case_n_id, file_n_id, scope_checksum, case_revision, owner_service, status, created_on, updated_on, released_on) "
+            + "SELECT @tenantNId, @caseNId, @fileNId, @scopeChecksum, @caseRevision, @ownerService, @status, @createdOn, @updatedOn, @releasedOn "
+            + "WHERE EXISTS (SELECT 1 FROM system_file_object WHERE tenant_n_id = @tenantNId AND file_n_id = @fileNId AND deletion_status = 'Active') "
+            + "ON CONFLICT DO NOTHING",
+            new SugarParameter[]
+            {
+                new SugarParameter("@tenantNId", hold.TenantNId), new SugarParameter("@caseNId", hold.CaseNId), new SugarParameter("@fileNId", hold.FileNId),
+                new SugarParameter("@scopeChecksum", hold.ScopeChecksum), new SugarParameter("@caseRevision", hold.CaseRevision), new SugarParameter("@ownerService", hold.OwnerService),
+                new SugarParameter("@status", hold.Status), new SugarParameter("@createdOn", hold.CreatedOn), new SugarParameter("@updatedOn", hold.UpdatedOn), new SugarParameter("@releasedOn", hold.ReleasedOn),
+            }, cancellationToken: cancellationToken);
+        if (affected != 1) throw new InvalidOperationException("文件已进入删除流程，不能建立 Legal Hold。");
+    }
+
+    public Task<bool> ReleaseLegalHoldAsync(string tenantNId, string caseNId, string fileNId, string scopeChecksum, long caseRevision, DateTimeOffset releasedOn, CancellationToken cancellationToken) =>
+        _dbContext.SqlSugar.Updateable<CollaborationFileHoldTable>()
+            .SetColumns(t => new CollaborationFileHoldTable { Status = "Released", UpdatedOn = releasedOn, ReleasedOn = releasedOn })
+            .Where(t => t.TenantNId == tenantNId && t.CaseNId == caseNId && t.FileNId == fileNId && t.ScopeChecksum == scopeChecksum && t.CaseRevision == caseRevision && t.Status == "Active")
+            .ExecuteCommandAsync(cancellationToken)
+            .ContinueWith(task => task.Result == 1, cancellationToken);
+
     public async Task UpdateFileAsync(FileObjectRecord file, CancellationToken cancellationToken)
     {
-        var existing = await _dbContext.SqlSugar.Queryable<FileObjectTable>()
-            .Where(t => t.TenantNId == file.TenantNId && t.FileNId == file.FileNId)
-            .FirstAsync(cancellationToken);
-        if (existing is null) return;
-        await _dbContext.SqlSugar.Updateable(ToTable(file, existing.Id))
-            .Where(t => t.TenantNId == file.TenantNId && t.FileNId == file.FileNId)
-            .ExecuteCommandAsync(cancellationToken);
+        var sugar = _dbContext.SqlSugar;
+        var ownsTransaction = sugar.Ado.IsNoTran();
+        if (ownsTransaction) sugar.Ado.BeginTran();
+        try
+        {
+            var existing = await sugar.Queryable<FileObjectTable>()
+                .Where(t => t.TenantNId == file.TenantNId && t.FileNId == file.FileNId)
+                .FirstAsync(cancellationToken);
+            if (existing is null)
+            {
+                if (ownsTransaction) sugar.Ado.RollbackTran();
+                return;
+            }
+            await sugar.Updateable(ToTable(file, existing.Id))
+                .Where(t => t.TenantNId == file.TenantNId && t.FileNId == file.FileNId)
+                .ExecuteCommandAsync(cancellationToken);
+            await EnqueueFileStatusAsync(new FileStatusChangeRecord(Guid.NewGuid(), file.TenantNId, file.FileNId, file.ScanStatus, file.Restricted, file.DeletionStatus, file.LastUpdatedOn), cancellationToken);
+            if (ownsTransaction) sugar.Ado.CommitTran();
+        }
+        catch
+        {
+            if (ownsTransaction) sugar.Ado.RollbackTran();
+            throw;
+        }
     }
+
+    public async Task EnqueueAsync(FileStatusChangeRecord item, CancellationToken cancellationToken) => await EnqueueFileStatusAsync(item, cancellationToken);
+
+    public async Task<IReadOnlyList<FileStatusOutboxRecord>> GetPendingAsync(DateTimeOffset now, int limit, CancellationToken cancellationToken) =>
+        (await _dbContext.SqlSugar.Queryable<FileStatusOutboxTable>()
+            .Where(item => item.PublishedOn == null && item.DeadLetteredOn == null && (item.NextAttemptOn == null || item.NextAttemptOn <= now))
+            .OrderBy(item => item.ObservedOn, OrderByType.Asc)
+            .Take(Math.Clamp(limit, 1, 200))
+            .ToListAsync(cancellationToken)).Select(item => ToFileStatusOutboxRecord(item)).ToArray();
+
+    public Task MarkPublishedAsync(Guid eventId, DateTimeOffset publishedOn, CancellationToken cancellationToken) =>
+        _dbContext.SqlSugar.Updateable<FileStatusOutboxTable>()
+            .SetColumns(item => new FileStatusOutboxTable { PublishedOn = publishedOn, LastError = null, NextAttemptOn = null })
+            .Where(item => item.EventId == eventId && item.PublishedOn == null && item.DeadLetteredOn == null)
+            .ExecuteCommandAsync(cancellationToken);
+
+    public async Task<bool> RecordFailureAsync(Guid eventId, int retryCount, string lastError, bool deadLetter, DateTimeOffset nextAttemptOn, CancellationToken cancellationToken) =>
+        await _dbContext.SqlSugar.Updateable<FileStatusOutboxTable>()
+            .SetColumns(item => new FileStatusOutboxTable
+            {
+                RetryCount = Math.Max(0, retryCount),
+                LastError = lastError.Length > 2000 ? lastError.Substring(0, 2000) : lastError,
+                NextAttemptOn = deadLetter ? null : nextAttemptOn,
+                DeadLetteredOn = deadLetter ? nextAttemptOn : null,
+            })
+            .Where(item => item.EventId == eventId && item.PublishedOn == null && item.DeadLetteredOn == null)
+            .ExecuteCommandAsync(cancellationToken) == 1;
+
+    private async Task EnqueueFileStatusAsync(FileStatusChangeRecord item, CancellationToken cancellationToken) =>
+        await _dbContext.SqlSugar.Insertable(new FileStatusOutboxTable
+        {
+            EventId = item.EventId,
+            TenantNId = item.TenantNId,
+            FileNId = item.FileNId,
+            ScanStatus = item.ScanStatus,
+            Restricted = item.Restricted,
+            DeletionStatus = item.DeletionStatus,
+            ObservedOn = item.ObservedOn,
+            RetryCount = 0,
+        }).ExecuteCommandAsync(cancellationToken);
+
+    private static FileStatusOutboxRecord ToFileStatusOutboxRecord(FileStatusOutboxTable item) => new(
+        item.EventId,
+        item.TenantNId,
+        item.FileNId,
+        item.ScanStatus,
+        item.Restricted,
+        item.DeletionStatus,
+        item.ObservedOn,
+        item.RetryCount,
+        item.PublishedOn,
+        item.NextAttemptOn,
+        item.LastError,
+        item.DeadLetteredOn);
 
     public async Task<AnnouncementRecord?> GetAnnouncementAsync(string tenantNId, string announcementNId, CancellationToken cancellationToken) =>
         ToRecord(await _dbContext.SqlSugar.Queryable<NotificationAnnouncementTable>().Where(t => t.TenantNId == tenantNId && t.AnnouncementNId == announcementNId).FirstAsync(cancellationToken));
@@ -585,6 +779,10 @@ public sealed class Pf04Store : IFileStore, INotificationStore, IAuditStore
     private static FileObjectRecord? ToRecord(FileObjectTable? value) => value is null ? null : new(value.TenantNId, value.FileNId, value.UploadSessionNId, value.FileName, value.ContentType, value.ContentLength, value.Sha256, value.StorageKey, value.ScanStatus, value.Restricted, value.DeletionStatus, value.CreatedOn, value.LastUpdatedOn, value.DeletedOn, value.RetentionUntil, value.OwnerUserNId);
     private static FileReferenceGrantTable ToTable(FileReferenceRecord value) => new() { Id = Guid.NewGuid(), TenantNId = value.TenantNId, ReferenceNId = value.ReferenceNId, FileNId = value.FileNId, OwnerUserNId = value.OwnerUserNId, Purpose = value.Purpose, CreatedOn = value.CreatedOn, DeletedOn = value.DeletedOn };
     private static FileReferenceRecord? ToRecord(FileReferenceGrantTable? value) => value is null ? null : new(value.TenantNId, value.ReferenceNId, value.FileNId, value.OwnerUserNId, value.Purpose, value.CreatedOn, value.DeletedOn);
+    private static CollaborationFileReferenceTable ToTable(FileBusinessReferenceRecord value) => new() { TenantNId = value.TenantNId, ReferenceNId = value.ReferenceNId, FileNId = value.FileNId, ConversationNId = value.ConversationNId, MessageNId = value.MessageNId, AttachmentNId = value.AttachmentNId, UploaderUserNId = value.UploaderUserNId, Purpose = value.Purpose, OwnerService = value.OwnerService, Status = value.Status, Version = value.Version, CreatedOn = value.CreatedOn, ReleasedOn = value.ReleasedOn };
+    private static FileBusinessReferenceRecord? ToRecord(CollaborationFileReferenceTable? value) => value is null ? null : new(value.TenantNId, value.ReferenceNId, value.FileNId, value.ConversationNId, value.MessageNId, value.AttachmentNId, value.UploaderUserNId, value.Purpose, value.OwnerService, value.Status, value.Version, value.CreatedOn, value.ReleasedOn);
+    private static CollaborationFileHoldTable ToTable(FileHoldRecord value) => new() { TenantNId = value.TenantNId, CaseNId = value.CaseNId, FileNId = value.FileNId, ScopeChecksum = value.ScopeChecksum, CaseRevision = value.CaseRevision, OwnerService = value.OwnerService, Status = value.Status, CreatedOn = value.CreatedOn, UpdatedOn = value.UpdatedOn, ReleasedOn = value.ReleasedOn };
+    private static FileHoldRecord? ToRecord(CollaborationFileHoldTable? value) => value is null ? null : new(value.TenantNId, value.CaseNId, value.FileNId, value.ScopeChecksum, value.CaseRevision, value.OwnerService, value.Status, value.CreatedOn, value.UpdatedOn, value.ReleasedOn);
     private static NotificationAnnouncementTable ToTable(AnnouncementRecord value) => ToTable(value, Guid.NewGuid());
     private static NotificationAnnouncementTable ToTable(AnnouncementRecord value, Guid id) => new() { Id = id, TenantNId = value.TenantNId, AnnouncementNId = value.AnnouncementNId, Title = value.Title, Body = value.Body, Priority = value.Priority, Status = value.Status, AudienceUserNIdsJson = JsonSerializer.Serialize(value.RecipientUserNIds), PublishedOn = value.PublishedOn, ExpiresOn = value.ExpiresOn, CreatedByUserNId = value.CreatedByUserNId, CreatedOn = value.CreatedOn, LastUpdatedOn = value.LastUpdatedOn, RevokedOn = value.RevokedOn, ResourceNId = value.ResourceNId, TargetRoute = value.TargetRoute, IdempotencyKey = value.IdempotencyKey };
     private static AnnouncementRecord? ToRecord(NotificationAnnouncementTable? value) => value is null ? null : new(value.TenantNId, value.AnnouncementNId, value.Title, value.Body, value.Priority, value.Status, JsonSerializer.Deserialize<string[]>(value.AudienceUserNIdsJson) ?? [], value.PublishedOn, value.ExpiresOn, value.CreatedByUserNId, value.CreatedOn, value.LastUpdatedOn, value.RevokedOn, value.ResourceNId, value.TargetRoute, value.IdempotencyKey);
@@ -617,6 +815,7 @@ public sealed class Pf04Store : IFileStore, INotificationStore, IAuditStore
         }).ToArray() ?? [],
         DeletionStatus = value.DeletionStatus,
         CreatedOn = value.CreatedOn,
+        LastUpdatedOn = value.LastUpdatedOn,
         RetentionUntil = value.RetentionUntil
     };
     private static AuditFactV1 ToContract(AuditFactRecord value) => new() { TenantNId = value.TenantNId, ProducerServiceKey = value.ProducerServiceKey, AuditEventNId = value.AuditEventNId, OccurredOn = value.OccurredOn, ReceivedOn = value.ReceivedOn, ActorUserNId = value.ActorUserNId, Action = value.Action, ObjectType = value.ObjectType, ObjectNId = value.ObjectNId, PayloadJson = value.PayloadJson, TraceId = value.TraceId ?? string.Empty, Severity = value.Severity };

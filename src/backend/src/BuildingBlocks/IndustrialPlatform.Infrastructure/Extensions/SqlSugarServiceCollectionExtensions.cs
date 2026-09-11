@@ -3,6 +3,7 @@ using IndustrialPlatform.Infrastructure.Repository;
 using IndustrialPlatform.Infrastructure.Transaction;
 using IndustrialPlatform.SharedKernel.Interfaces;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
@@ -43,9 +44,9 @@ public static class SqlSugarServiceCollectionExtensions
 
     private static IServiceCollection AddSqlSugarCore(IServiceCollection services)
     {
-        services.AddSingleton<SqlSugarDbContext>();
-        services.AddScoped(typeof(IRepository<>), typeof(BaseRepository<>));
-        services.AddScoped<IUnitOfWork, SqlSugarUnitOfWork>();
+        services.TryAddSingleton<SqlSugarDbContext>();
+        services.TryAddScoped(typeof(IRepository<>), typeof(BaseRepository<>));
+        services.TryAddScoped<IUnitOfWork, SqlSugarUnitOfWork>();
         return services;
     }
 }

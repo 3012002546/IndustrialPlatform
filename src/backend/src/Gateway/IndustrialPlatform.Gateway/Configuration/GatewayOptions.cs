@@ -32,6 +32,9 @@ public sealed class GatewayServiceOptions
     /// <summary>统一入口路径前缀,转发时剥离,如 /identity。</summary>
     public string PathPrefix { get; set; } = string.Empty;
 
+    /// <summary>默认剥离外部前缀；下游使用完整模块路由时设为 false。</summary>
+    public bool StripPathPrefix { get; set; } = true;
+
     /// <summary>下游服务基地址,如 http://localhost:5041。</summary>
     public string DestinationUrl { get; set; } = string.Empty;
 }

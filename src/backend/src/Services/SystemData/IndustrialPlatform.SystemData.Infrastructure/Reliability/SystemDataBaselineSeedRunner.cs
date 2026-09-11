@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging;
 namespace IndustrialPlatform.SystemData.Infrastructure.Reliability;
 
 /// <summary>
-/// SDM-013～019 SystemBaseline/TenantBaseline。只有显式配置 BaselineTenantNId 才运行，
+/// SDM-013～019 及 PF05 Collaboration SystemBaseline/TenantBaseline。只有显式配置 BaselineTenantNId 才运行，
 /// 生产环境还必须显式批准自动写入；每个 seed 与版本/checksum 写入同一控制面事务的 seed ledger。
 /// </summary>
 public sealed partial class SystemDataBaselineSeedRunner : BackgroundService
@@ -39,6 +39,16 @@ public sealed partial class SystemDataBaselineSeedRunner : BackgroundService
         "referencedata.coding-rule.view", "referencedata.coding-rule.create", "referencedata.coding-rule.update", "referencedata.coding-rule.publish", "referencedata.coding-rule.disable", "referencedata.coding-rule.preview", "referencedata.coding-rule.generate",
         "referencedata.state-machine.view", "referencedata.state-machine.create", "referencedata.state-machine.update", "referencedata.state-machine.publish", "referencedata.state-machine.disable",
         "referencedata.platform.manage",
+    ];
+    private static readonly string[] CollaborationPermissions = [
+        "collaboration.messaging.read", "collaboration.messaging.conversation.start", "collaboration.messaging.write",
+        "collaboration.messaging.read-cursor.update", "collaboration.messaging.conversation.hide", "collaboration.messaging.conversation.restore",
+        "collaboration.messaging.retract", "collaboration.messaging.attachment.send", "collaboration.messaging.attachment.download",
+        "collaboration.compliance.read", "collaboration.compliance.view", "collaboration.compliance.read-original", "collaboration.compliance.dispose",
+        "collaboration.compliance.export.request", "collaboration.compliance.export.download", "collaboration.compliance.export.approve",
+        "collaboration.compliance.legal-hold.create", "collaboration.compliance.legal-hold.review", "collaboration.compliance.legal-hold.release",
+        "collaboration.compliance.legal-hold.release.approve", "collaboration.compliance.retention.manage", "collaboration.compliance.retention.update",
+        "collaboration.presence.connect", "collaboration.presence.read", "collaboration.presence.write",
     ];
     private static readonly (string NId, string Name, string RouteName, string PermissionNId)[] DefaultResources = [
         // Keep the legacy systemdata.navigation resource intact; the homepage gets its own
@@ -72,12 +82,35 @@ public sealed partial class SystemDataBaselineSeedRunner : BackgroundService
         ("referencedata.navigation.coding-rules", "编码规则", "reference-data-coding-rules", "referencedata.coding-rule.view"),
         ("referencedata.navigation.state-machines", "状态机定义", "reference-data-state-machines", "referencedata.state-machine.view"),
     ];
+    private static readonly (string NId, string Name, string RouteName, string PermissionNId, UiTerminal Terminal)[] CollaborationResources = [
+        ("collaboration.page.pc-chat", "聊天", "collaboration-chat", "collaboration.messaging.read", UiTerminal.Pc),
+        ("collaboration.page.pda-chat", "聊天", "pda-collaboration-chat", "collaboration.messaging.read", UiTerminal.Pda),
+        ("collaboration.page.mobile-chat", "聊天", "mobile-collaboration-chat", "collaboration.messaging.read", UiTerminal.Mobile),
+        ("collaboration.page.pc-compliance-search", "受控查看", "collaboration-compliance-search", "collaboration.compliance.read", UiTerminal.Pc),
+        ("collaboration.page.pc-legal-holds", "保全案件", "collaboration-legal-holds", "collaboration.compliance.read", UiTerminal.Pc),
+        ("collaboration.page.pc-exports", "导出记录", "collaboration-exports", "collaboration.compliance.read", UiTerminal.Pc),
+        ("collaboration.page.pc-retention", "保留策略", "collaboration-retention", "collaboration.compliance.retention.manage", UiTerminal.Pc),
+    ];
+    private static readonly (string NId, string? ParentNId, string RouteName, string ResourceNId, string PermissionNId, UiTerminal Terminal, int DisplayOrder)[] CollaborationNavigation = [
+        ("collaboration.nav.pc-chat", "navigation.group.workspace", "collaboration-chat", "collaboration.page.pc-chat", "collaboration.messaging.read", UiTerminal.Pc, 2),
+        ("collaboration.nav.pda-chat", null, "pda-collaboration-chat", "collaboration.page.pda-chat", "collaboration.messaging.read", UiTerminal.Pda, 50),
+        ("collaboration.nav.mobile-chat", null, "mobile-collaboration-chat", "collaboration.page.mobile-chat", "collaboration.messaging.read", UiTerminal.Mobile, 50),
+        ("collaboration.nav.pc-compliance-search", "navigation.group.collaboration", "collaboration-compliance-search", "collaboration.page.pc-compliance-search", "collaboration.compliance.read", UiTerminal.Pc, 0),
+        ("collaboration.nav.pc-legal-holds", "navigation.group.collaboration", "collaboration-legal-holds", "collaboration.page.pc-legal-holds", "collaboration.compliance.read", UiTerminal.Pc, 1),
+        ("collaboration.nav.pc-exports", "navigation.group.collaboration", "collaboration-exports", "collaboration.page.pc-exports", "collaboration.compliance.read", UiTerminal.Pc, 2),
+        ("collaboration.nav.pc-retention", "navigation.group.collaboration", "collaboration-retention", "collaboration.page.pc-retention", "collaboration.compliance.retention.manage", UiTerminal.Pc, 3),
+    ];
     internal const string CurrentManifestSeedKey = "SDM-017";
     internal const string CurrentManifestVersion = "3";
     internal const string ResourceConsistencySeedKey = "SDM-018";
     internal const string ResourceConsistencySeedVersion = "2";
     internal const string ReferenceDataManifestSeedKey = "SDM-019";
     internal const string ReferenceDataManifestVersion = "3";
+    internal const string CollaborationManifestSeedKey = "collaboration.baseline";
+    internal const string CollaborationNavigationSeedKey = "collaboration.navigation";
+    // Compliance pages extend the previously applied chat-only seeds. Keep the
+    // 1.0.0 ledger immutable and apply the additive declarations under a new version.
+    internal const string CollaborationManifestVersion = "1.1.0";
     internal const string RequiredFeatureNId = "systemdata.control-plane";
     internal const string RequiredCatalogNId = "systemdata";
     internal static string CurrentManifestChecksum => Checksum(CurrentManifestSeedKey);
@@ -86,6 +119,11 @@ public sealed partial class SystemDataBaselineSeedRunner : BackgroundService
     internal static string ReferenceDataManifestChecksum => Checksum(ReferenceDataManifestSeedKey);
     internal static IReadOnlyCollection<string> RequiredReferenceDataPermissionNIds => ReferenceDataPermissions;
     internal static IReadOnlyCollection<(string NId, string Name, string RouteName, string PermissionNId)> RequiredReferenceDataResourceFacts => ReferenceDataResources;
+    internal static string CollaborationManifestChecksum => Checksum(CollaborationManifestSeedKey);
+    internal static string CollaborationNavigationChecksum => Checksum(CollaborationNavigationSeedKey);
+    internal static IReadOnlyCollection<string> RequiredCollaborationPermissionNIds => CollaborationPermissions;
+    internal static IReadOnlyCollection<(string NId, string Name, string RouteName, string PermissionNId, UiTerminal Terminal)> RequiredCollaborationResourceFacts => CollaborationResources;
+    internal static IReadOnlyCollection<(string NId, string? ParentNId, string RouteName, string ResourceNId, string PermissionNId, UiTerminal Terminal, int DisplayOrder)> RequiredCollaborationNavigationFacts => CollaborationNavigation;
 
     internal static bool IsReferenceDataBootstrapReady(ControlPlaneSnapshot controlPlane)
     {
@@ -113,6 +151,43 @@ public sealed partial class SystemDataBaselineSeedRunner : BackgroundService
             && receipt.ManifestVersion == ReferenceDataManifestVersion
             && receipt.Checksum.Equals(ReferenceDataManifestChecksum, StringComparison.OrdinalIgnoreCase)
             && requiredResourcesReady;
+    }
+
+    internal static bool IsCollaborationBootstrapReady(ControlPlaneSnapshot controlPlane)
+    {
+        var manifest = controlPlane.Manifests.SingleOrDefault(item => item.ModuleNId.Equals("collaboration", StringComparison.OrdinalIgnoreCase));
+        var receipt = controlPlane.PermissionReceipts.SingleOrDefault(item => item.ModuleNId.Equals("collaboration", StringComparison.OrdinalIgnoreCase));
+        var requiredPermissions = CollaborationPermissions.Order(StringComparer.OrdinalIgnoreCase).ToArray();
+        var manifestPermissions = manifest?.PermissionNIds.Order(StringComparer.OrdinalIgnoreCase).ToArray();
+        var requiredResourcesReady = CollaborationResources.All(required =>
+            controlPlane.Resources.Any(resource =>
+                resource.NId.Equals(required.NId, StringComparison.OrdinalIgnoreCase)
+                && resource.OwnerModuleNId.Equals("collaboration", StringComparison.OrdinalIgnoreCase)
+                && resource.Type == UiResourceType.Page
+                && resource.ManifestVersion == CollaborationManifestVersion
+                && resource.RouteName == required.RouteName
+                && resource.RequiredPermissionNId == required.PermissionNId
+                && resource.SupportedTerminals.Count == 1
+                && resource.SupportedTerminals.Contains(required.Terminal)
+                && resource.Status == UiResourceStatus.Active));
+        var activeSnapshot = controlPlane.ActiveSnapshotRevision is { } activeRevision
+            ? controlPlane.Snapshots.SingleOrDefault(item => item.Revision == activeRevision)
+            : null;
+        var navigationReady = CollaborationNavigation.All(required =>
+            controlPlane.DraftNodes.Any(node => node.NId.Equals(required.NId, StringComparison.OrdinalIgnoreCase))
+            && (activeSnapshot is null || activeSnapshot.Nodes.Any(node => node.NodeNId.Equals(required.NId, StringComparison.OrdinalIgnoreCase))));
+        return manifest is not null
+            && manifest.ManifestVersion == CollaborationManifestVersion
+            && manifest.Checksum.Equals(CollaborationManifestChecksum, StringComparison.OrdinalIgnoreCase)
+            && manifestPermissions is not null
+            && manifestPermissions.SequenceEqual(requiredPermissions, StringComparer.OrdinalIgnoreCase)
+            && manifest.PermissionReceiptVersion == CollaborationManifestVersion
+            && string.Equals(manifest.PermissionReceiptChecksum, CollaborationManifestChecksum, StringComparison.OrdinalIgnoreCase)
+            && receipt is { Verified: true }
+            && receipt.ManifestVersion == CollaborationManifestVersion
+            && receipt.Checksum.Equals(CollaborationManifestChecksum, StringComparison.OrdinalIgnoreCase)
+            && requiredResourcesReady
+            && navigationReady;
     }
 
     internal static bool IsCurrentTheme(ThemePolicy? theme) => theme is not null
@@ -206,6 +281,28 @@ public sealed partial class SystemDataBaselineSeedRunner : BackgroundService
                 || !string.Equals(referenceDataPermissionReceipt.Checksum, referenceDataPermissionManifest.Checksum, StringComparison.OrdinalIgnoreCase))
             {
                 throw new InvalidOperationException("Identity permission registry did not verify the ReferenceData baseline manifest.");
+            }
+
+            var collaborationChecksum = CollaborationManifestChecksum;
+            var collaborationPermissionManifest = new PermissionManifestV1(
+                "collaboration",
+                CollaborationManifestVersion,
+                collaborationChecksum,
+                CollaborationPermissions.Select(x => new PermissionManifestEntry(
+                    x,
+                    x,
+                    x.EndsWith(".read", StringComparison.OrdinalIgnoreCase) ? "Page" : "Action",
+                    null)).ToArray());
+            var collaborationPermissionReceipt = _permissionRegistry is null
+                ? null
+                : await _permissionRegistry.VerifyAsync(collaborationPermissionManifest, cancellationToken);
+            if (collaborationPermissionReceipt is null
+                || !collaborationPermissionReceipt.Verified
+                || !string.Equals(collaborationPermissionReceipt.ModuleNId, collaborationPermissionManifest.ModuleNId, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(collaborationPermissionReceipt.ManifestVersion, collaborationPermissionManifest.ManifestVersion, StringComparison.Ordinal)
+                || !string.Equals(collaborationPermissionReceipt.Checksum, collaborationPermissionManifest.Checksum, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("Identity permission registry did not verify the Collaboration baseline manifest.");
             }
 
             await ApplySeedAsync(tenantNId, "SDM-013", "1", ["permissions", "resources", "navigation"], state =>
@@ -345,6 +442,77 @@ public sealed partial class SystemDataBaselineSeedRunner : BackgroundService
                     Resources = resources,
                 };
             }, cancellationToken);
+            await ApplySeedAsync(tenantNId, CollaborationManifestSeedKey, CollaborationManifestVersion, ["permissions", "resources"], state =>
+            {
+                var manifest = new ModuleManifestState(
+                    tenantNId,
+                    "collaboration",
+                    CollaborationManifestVersion,
+                    collaborationChecksum,
+                    CollaborationPermissions,
+                    collaborationPermissionReceipt.ManifestVersion,
+                    collaborationPermissionReceipt.Checksum,
+                    collaborationPermissionReceipt.VerifiedOn)
+                {
+                    PermissionDeclarationItems = collaborationPermissionManifest.Permissions,
+                    ResourceDeclarations = CollaborationResources
+                        .Select(item => new ModuleResourceDeclaration(
+                            item.NId,
+                            CollaborationManifestVersion,
+                            nameof(UiResourceType.Page),
+                            item.Name,
+                            item.RouteName,
+                            item.PermissionNId,
+                            [item.Terminal]))
+                        .ToArray(),
+                };
+                var resources = state.Resources.ToList();
+                foreach (var item in CollaborationResources)
+                {
+                    var resource = UiResource.Create(
+                        tenantNId,
+                        item.NId,
+                        "collaboration",
+                        CollaborationManifestVersion,
+                        UiResourceType.Page,
+                        item.Name,
+                        item.RouteName,
+                        item.PermissionNId,
+                        [item.Terminal]);
+                    var current = resources.FirstOrDefault(existing => existing.NId.Equals(resource.NId, StringComparison.OrdinalIgnoreCase));
+                    if (current is null)
+                    {
+                        resources.Add(resource);
+                        continue;
+                    }
+
+                    if (!current.OwnerModuleNId.Equals("collaboration", StringComparison.OrdinalIgnoreCase))
+                        throw new InvalidOperationException($"Collaboration resource identity collision: {resource.NId}.");
+                    if (current.Type != resource.Type
+                        || !string.Equals(current.Name, resource.Name, StringComparison.Ordinal)
+                        || !string.Equals(current.RouteName, resource.RouteName, StringComparison.Ordinal)
+                        || !string.Equals(current.RequiredPermissionNId, resource.RequiredPermissionNId, StringComparison.OrdinalIgnoreCase)
+                        || !current.SupportedTerminals.ToHashSet().SetEquals(resource.SupportedTerminals))
+                        throw new InvalidOperationException($"Collaboration resource declaration conflict: {resource.NId}.");
+                    if (current.ManifestVersion != CollaborationManifestVersion)
+                        resources[resources.IndexOf(current)] = current.RebindManifestVersion(CollaborationManifestVersion);
+                }
+
+                return state with
+                {
+                    Manifests = state.Manifests
+                        .Where(existing => !existing.ModuleNId.Equals("collaboration", StringComparison.OrdinalIgnoreCase))
+                        .Append(manifest)
+                        .ToArray(),
+                    PermissionReceipts = state.PermissionReceipts
+                        .Where(existing => !existing.ModuleNId.Equals("collaboration", StringComparison.OrdinalIgnoreCase))
+                        .Append(new PermissionReceipt("collaboration", collaborationPermissionReceipt.ManifestVersion, collaborationPermissionReceipt.Checksum, collaborationPermissionReceipt.Verified))
+                        .ToArray(),
+                    Resources = resources,
+                };
+            }, cancellationToken);
+            await ApplySeedAsync(tenantNId, CollaborationNavigationSeedKey, CollaborationManifestVersion, ["navigation"],
+                state => ApplyCollaborationNavigationSeed(state, tenantNId), cancellationToken);
             // SDM-017 updated the manifest/receipt but historical tenants may still
             // carry the v1 resource rows created by SDM-013.  Keep this as a new,
             // idempotent seed so old ledgers remain immutable and only known
@@ -390,6 +558,166 @@ public sealed partial class SystemDataBaselineSeedRunner : BackgroundService
         {
             _applyGate.Release();
         }
+    }
+
+    private static ControlPlaneSnapshot ApplyCollaborationNavigationSeed(ControlPlaneSnapshot state, string tenantNId)
+    {
+        var draftNodes = state.DraftNodes.ToList();
+        foreach (var expected in CollaborationNavigation)
+        {
+            EnsureCollaborationDraftParent(draftNodes, tenantNId, expected.ParentNId);
+            var current = draftNodes.FirstOrDefault(node => node.NId.Equals(expected.NId, StringComparison.OrdinalIgnoreCase));
+            if (current is null)
+            {
+                var node = NavigationNode.CreateLink(
+                    tenantNId,
+                    expected.NId,
+                    CollaborationResources.Single(resource => resource.NId == expected.ResourceNId).Name,
+                    expected.ParentNId,
+                    "PLATFORM_NAVIGATION",
+                    expected.ResourceNId,
+                    null,
+                    [expected.Terminal]);
+                node.SetDisplayOrder(expected.DisplayOrder);
+                draftNodes.Add(node);
+                continue;
+            }
+
+            // An inactive node is an explicit tenant choice (for example a retired
+            // menu entry); preserve it and do not resurrect it during an upgrade.
+            if (current.Status == NavigationNodeStatus.Inactive)
+                continue;
+            EnsureCollaborationNavigationMatches(current, expected);
+        }
+
+        var activeRevision = state.ActiveSnapshotRevision;
+        if (activeRevision is not { } revision)
+            return state with { Revision = state.Revision + 1, DraftNodes = draftNodes };
+
+        var activeSnapshot = state.Snapshots.FirstOrDefault(snapshot => snapshot.Revision == revision)
+            ?? throw new InvalidOperationException("Collaboration navigation seed cannot update a missing active snapshot.");
+        var publishedNodes = activeSnapshot.Nodes.ToList();
+        var changed = false;
+        foreach (var expected in CollaborationNavigation)
+        {
+            var draftNode = draftNodes.First(node => node.NId.Equals(expected.NId, StringComparison.OrdinalIgnoreCase));
+            if (draftNode.Status == NavigationNodeStatus.Inactive)
+                continue;
+
+            EnsurePublishedParent(expected.ParentNId, draftNodes, publishedNodes, ref changed);
+            var existing = publishedNodes.FirstOrDefault(node => node.NodeNId.Equals(expected.NId, StringComparison.OrdinalIgnoreCase));
+            if (existing is not null)
+            {
+                EnsureCollaborationPublishedNavigationMatches(existing, expected);
+                continue;
+            }
+
+            var resource = state.Resources.FirstOrDefault(resource => resource.NId.Equals(expected.ResourceNId, StringComparison.OrdinalIgnoreCase))
+                ?? throw new InvalidOperationException($"Collaboration navigation resource is missing: {expected.ResourceNId}.");
+            publishedNodes.Add(new PublishedNavigationNode(
+                expected.NId,
+                expected.ParentNId,
+                NavigationNodeKind.Link,
+                resource.Name,
+                null,
+                resource.NId,
+                resource.RouteName,
+                resource.RequiredPermissionNId,
+                null,
+                expected.DisplayOrder,
+                [expected.Terminal]));
+            changed = true;
+        }
+
+        if (!changed)
+            return state with { Revision = state.Revision + 1, DraftNodes = draftNodes };
+
+        var nextRevision = state.Revision + 1;
+        var nextSnapshot = new PublishedNavigationSnapshot(
+            nextRevision,
+            DateTimeOffset.UtcNow,
+            publishedNodes,
+            NavigationSnapshotChecksum.Compute(publishedNodes));
+        return state with
+        {
+            Revision = nextRevision,
+            DraftNodes = draftNodes,
+            Snapshots = state.Snapshots.Append(nextSnapshot).ToArray(),
+            ActiveSnapshotRevision = nextRevision,
+            PreviousSnapshotRevision = state.ActiveSnapshotRevision,
+        };
+    }
+
+    private static void EnsureCollaborationDraftParent(List<NavigationNode> draftNodes, string tenantNId, string? parentNId)
+    {
+        if (parentNId is null)
+            return;
+
+        var parent = draftNodes.FirstOrDefault(node => node.NId.Equals(parentNId, StringComparison.OrdinalIgnoreCase));
+        if (parent is not null)
+        {
+            if (parent.Status == NavigationNodeStatus.Inactive || parent.Kind != NavigationNodeKind.Group)
+                throw new InvalidOperationException($"Collaboration navigation parent is not an active group: {parentNId}.");
+            return;
+        }
+
+        var isCollaboration = parentNId.Equals("navigation.group.collaboration", StringComparison.OrdinalIgnoreCase);
+        var group = NavigationNode.CreateGroup(tenantNId, parentNId, isCollaboration ? "协作" : "工作台", null, "PLATFORM_NAVIGATION", isCollaboration ? "chat-dot-round" : "house");
+        group.SetDisplayOrder(isCollaboration ? 2 : 0);
+        draftNodes.Add(group);
+    }
+
+    private static void EnsurePublishedParent(
+        string? parentNId,
+        IReadOnlyCollection<NavigationNode> draftNodes,
+        List<PublishedNavigationNode> publishedNodes,
+        ref bool changed)
+    {
+        if (parentNId is null || publishedNodes.Any(node => node.NodeNId.Equals(parentNId, StringComparison.OrdinalIgnoreCase)))
+            return;
+
+        var parent = draftNodes.FirstOrDefault(node => node.NId.Equals(parentNId, StringComparison.OrdinalIgnoreCase))
+            ?? throw new InvalidOperationException($"Collaboration navigation parent is missing: {parentNId}.");
+        if (parent.Status == NavigationNodeStatus.Inactive || parent.Kind != NavigationNodeKind.Group)
+            throw new InvalidOperationException($"Collaboration navigation parent is not an active group: {parentNId}.");
+        publishedNodes.Add(new PublishedNavigationNode(
+            parent.NId,
+            parent.ParentNodeNId,
+            NavigationNodeKind.Group,
+            parent.Label,
+            parent.IconKey,
+            null,
+            null,
+            null,
+            null,
+            parent.DisplayOrder,
+            parent.VisibleTerminals));
+        changed = true;
+    }
+
+    private static void EnsureCollaborationNavigationMatches(
+        NavigationNode node,
+        (string NId, string? ParentNId, string RouteName, string ResourceNId, string PermissionNId, UiTerminal Terminal, int DisplayOrder) expected)
+    {
+        if (node.Kind != NavigationNodeKind.Link
+            || !string.Equals(node.ParentNodeNId, expected.ParentNId, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(node.ResourceNId, expected.ResourceNId, StringComparison.OrdinalIgnoreCase)
+            || node.DisplayOrder != expected.DisplayOrder
+            || !node.VisibleTerminals.ToHashSet().SetEquals([expected.Terminal]))
+            throw new InvalidOperationException($"Collaboration navigation declaration conflict: {expected.NId}.");
+    }
+
+    private static void EnsureCollaborationPublishedNavigationMatches(
+        PublishedNavigationNode node,
+        (string NId, string? ParentNId, string RouteName, string ResourceNId, string PermissionNId, UiTerminal Terminal, int DisplayOrder) expected)
+    {
+        if (node.Kind != NavigationNodeKind.Link
+            || !string.Equals(node.ParentNodeNId, expected.ParentNId, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(node.RouteName, expected.RouteName, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(node.RequiredPermissionNId, expected.PermissionNId, StringComparison.OrdinalIgnoreCase)
+            || node.DisplayOrder != expected.DisplayOrder
+            || !node.VisibleTerminals.ToHashSet().SetEquals([expected.Terminal]))
+            throw new InvalidOperationException($"Collaboration published navigation declaration conflict: {expected.NId}.");
     }
 
     private static bool IsTrustedReferenceDataDisplayRename(UiResource current, UiResource expected) =>

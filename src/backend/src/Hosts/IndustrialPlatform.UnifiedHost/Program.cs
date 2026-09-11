@@ -12,7 +12,7 @@ using IndustrialPlatform.Web.Configuration;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Authorization;
 
-// UnifiedHost:单一 ASP.NET Core 进程组合当前平台基础模块(Identity/SystemData/ReferenceData)
+// UnifiedHost:单一 ASP.NET Core 进程组合当前平台基础模块(Identity/SystemData/ReferenceData/Collaboration)
 // 与统一认证授权、异常、日志、OpenAPI、健康检查。Gateway 不作为第二个进程嵌入;
 // 直接保持前端当前使用的外部 API 路径兼容(控制器经 api/v1 前缀与独立 Host 相同)。
 // 模块只组合不复制;独立 API Host 继续可单独运行。
@@ -51,10 +51,15 @@ if (builder.Environment.IsDevelopment())
         .AllowAnyMethod()
         .AllowCredentials()));
 }
-// 三个模块的控制器共用同一前缀约定(各独立 Host 的 RoutePrefixConvention 语义一致:api/v1),
+// 各模块控制器共用同一前缀约定(各独立 Host 的 RoutePrefixConvention 语义一致:api/v1),
 // 只注册一次,避免重复前缀或重复 ResultFilter 包装。
-builder.Services.AddIndustrialApi(mvc => mvc.Conventions.Add(new RoutePrefixConvention()));
-// 统一健康检查:各模块检查按模块前缀命名,避免同名覆盖(identity./systemdata./referencedata.)。
+var mvc = builder.Services.AddIndustrialApi(mvcOptions => mvcOptions.Conventions.Add(new RoutePrefixConvention()));
+// 模块适配器与控制器同属各自的 Api 程序集；仅注册显式目录中的模块，避免自动扫描其他程序集。
+foreach (var module in UnifiedHostModuleCatalog.Modules)
+{
+    mvc.AddApplicationPart(module.GetType().Assembly);
+}
+// 统一健康检查:各模块检查按模块前缀命名,避免同名覆盖(identity./systemdata./referencedata./collaboration.)。
 var healthChecks = builder.Services.AddHealthChecks();
 foreach (var module in UnifiedHostModuleCatalog.Modules)
 {
@@ -67,8 +72,9 @@ app.UseIndustrialWeb();
 // 无前缀路由不受影响，独立 Gateway/Api Host 也无需改动。
 app.Use(async (context, next) =>
 {
-    foreach (var prefix in UnifiedHostModuleCatalog.GetExternalPathPrefixes(UnifiedHostModuleCatalog.Modules))
+    foreach (var module in UnifiedHostModuleCatalog.Modules.Where(module => module.StripExternalPathPrefix))
     {
+        var prefix = module.ExternalPathPrefix;
         if (context.Request.Path.StartsWithSegments(prefix, out var remaining))
         {
             context.Request.PathBase = context.Request.PathBase.Add(prefix);

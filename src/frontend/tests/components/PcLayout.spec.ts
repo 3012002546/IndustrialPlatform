@@ -9,7 +9,7 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { ElDropdown, ElMessageBox } from 'element-plus'
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { nextTick } from 'vue'
+import { nextTick, type Component } from 'vue'
 import { createMemoryHistory, createRouter, type Router, RouterView } from 'vue-router'
 
 import { writeAuthSession } from '@/auth'
@@ -20,10 +20,41 @@ import { PERMISSIONS } from '@/permissions'
 import { routes } from '@/router/routes'
 import WorkspaceTabLimitDialog from '@/components/shell/WorkspaceTabLimitDialog.vue'
 import { useAuthStore } from '@/stores/authStore'
+import { useCollaborationChatStore } from '@/stores/collaborationChatStore'
 import { useLocalizationStore } from '@/stores/localizationStore'
 import { useThemeStore } from '@/stores/themeStore'
 import { useWorkspaceTabsStore } from '@/stores/workspaceTabsStore'
 import type { WorkspaceRouteCandidate } from '@/workspace'
+
+const collaborationMocks = vi.hoisted(() => {
+  const state: {
+    handlers?:
+      | {
+          onMessage?: () => void
+          onMessageRetracted?: () => void
+          onReadCursor?: () => void
+        }
+      | undefined
+  } = {}
+  return {
+    state,
+    api: { listConversations: vi.fn() },
+    realtime: {
+      subscribe: vi.fn((handlers: NonNullable<typeof state.handlers>) => {
+        state.handlers = handlers
+        return vi.fn()
+      }),
+    },
+  }
+})
+
+vi.mock('@/api/collaborationRegistry', () => ({
+  getOptionalCollaborationApi: () => collaborationMocks.api,
+}))
+
+vi.mock('@/api/collaborationHub', () => ({
+  getCollaborationRealtime: () => collaborationMocks.realtime,
+}))
 
 /** 旧侧栏折叠键:PF-01 已迁移到 ThemeStore,本组件不应再读写。 */
 const LEGACY_COLLAPSED_KEY = 'industrial-platform.pc.sidebar.collapsed.v1'
@@ -72,7 +103,10 @@ function sandboxCandidate(slot: number): WorkspaceRouteCandidate {
   }
 }
 
-async function mountLayout(permissions: string[] = ALL_PC_PERMISSIONS): Promise<LayoutHarness> {
+async function mountLayout(
+  permissions: string[] = ALL_PC_PERMISSIONS,
+  stubs: Record<string, Component | true> = {},
+): Promise<LayoutHarness> {
   const pinia = createPinia()
   setActivePinia(pinia)
   writeAuthSession(sessionStorage, makeSession(permissions))
@@ -95,7 +129,7 @@ async function mountLayout(permissions: string[] = ALL_PC_PERMISSIONS): Promise<
   useWorkspaceTabsStore().bindUser({ tenantId: 't1', userId: 'u1' })
   const router = createRouter({ history: createMemoryHistory(), routes })
   await router.push('/pc/home')
-  const wrapper = mount(PcLayout, { global: { plugins: [pinia, router] } })
+  const wrapper = mount(PcLayout, { global: { plugins: [pinia, router], stubs } })
   return { wrapper, router, themeStore, localization }
 }
 
@@ -107,10 +141,17 @@ describe('PcLayout', () => {
   })
 
   beforeEach(() => {
+    vi.clearAllMocks()
     sessionStorage.clear()
     localStorage.clear()
     // 组件测试验证 Mock 行为(横幅/演示账号/网关),显式声明 mock,不依赖产品默认(现为 http)。
     vi.stubEnv('VITE_AUTH_MODE', 'mock')
+    collaborationMocks.state.handlers = undefined
+    collaborationMocks.api.listConversations.mockResolvedValue({
+      items: [],
+      nextCursor: null,
+      total: 0,
+    })
   })
 
   afterEach(() => {
@@ -133,7 +174,9 @@ describe('PcLayout', () => {
     const main = wrapper.get('main#main-content')
     expect(router.currentRoute.value.path).toBe('/pc/home')
     expect(window.getComputedStyle(main.element).padding).toBe('16px')
-    expect(pcLayoutSource).toMatch(/\.ip-pc-main\s*\{[\s\S]*display:\s*flex;[\s\S]*flex-direction:\s*column;/)
+    expect(pcLayoutSource).toMatch(
+      /\.ip-pc-main\s*\{[\s\S]*display:\s*flex;[\s\S]*flex-direction:\s*column;/,
+    )
   })
 
   it('页面专注全屏只隐藏平台 chrome，Esc 可退出且不调用浏览器 Fullscreen API', async () => {
@@ -204,8 +247,12 @@ describe('PcLayout', () => {
   it('用户菜单沿用 Element Plus 弹层并固定原型尺寸与图标间距', () => {
     expect(pcLayoutSource).toContain('popper-class="ip-pc-user-popper"')
     expect(pcLayoutSource).toMatch(/:global\(\.ip-pc-user-popper\)\s*\{[\s\S]*?width:\s*192px;/)
-    expect(pcLayoutSource).toMatch(/:global\(\.ip-pc-user-popper\s+\.el-dropdown-menu__item\)\s*\{[\s\S]*?height:\s*36px;[\s\S]*?font-size:\s*13px;/)
-    expect(pcLayoutSource).toMatch(/:global\(\.ip-pc-user-popper\s+\.el-dropdown-menu__item\s+svg\)\s*\{[\s\S]*?width:\s*16px;[\s\S]*?height:\s*16px;/)
+    expect(pcLayoutSource).toMatch(
+      /:global\(\.ip-pc-user-popper\s+\.el-dropdown-menu__item\)\s*\{[\s\S]*?height:\s*36px;[\s\S]*?font-size:\s*13px;/,
+    )
+    expect(pcLayoutSource).toMatch(
+      /:global\(\.ip-pc-user-popper\s+\.el-dropdown-menu__item\s+svg\)\s*\{[\s\S]*?width:\s*16px;[\s\S]*?height:\s*16px;/,
+    )
   })
 
   it('用户菜单包含真实账号摘要,命令项仍保持四项', async () => {
@@ -219,6 +266,147 @@ describe('PcLayout', () => {
   it('顶栏展示 Mock 模式横幅', async () => {
     const { wrapper } = await mountLayout()
     expect(wrapper.text()).toContain('开发 Mock 模式')
+  })
+
+  it('聊天入口紧邻通知且保持相同的 DOM 键盘顺序', async () => {
+    const { wrapper } = await mountLayout(
+      [...ALL_PC_PERMISSIONS, PERMISSIONS.collaborationMessagingRead],
+      {
+        PlatformSessionControls: {
+          template: '<button type="button" data-testid="shell-notifications">通知</button>',
+        },
+      },
+    )
+
+    const actions = wrapper.get('.ip-topbar__actions')
+    const buttons = actions.findAll('button')
+    const chatIndex = buttons.findIndex(
+      (button) => button.attributes('data-testid') === 'collaboration-shortcut',
+    )
+    const notificationIndex = buttons.findIndex(
+      (button) => button.attributes('data-testid') === 'shell-notifications',
+    )
+
+    expect(chatIndex).toBeGreaterThanOrEqual(0)
+    expect(notificationIndex).toBe(chatIndex + 1)
+  })
+
+  it('coalesces collaboration unread refreshes and discards a stale response after read convergence', async () => {
+    let resolveInitial:
+      | ((value: {
+          items: Array<Record<string, unknown>>
+          nextCursor: null
+          total: number
+        }) => void)
+      | undefined
+    let resolveTrailing:
+      | ((value: {
+          items: Array<Record<string, unknown>>
+          nextCursor: null
+          total: number
+        }) => void)
+      | undefined
+    collaborationMocks.api.listConversations
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveInitial = resolve
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveTrailing = resolve
+          }),
+      )
+
+    const { wrapper } = await mountLayout([
+      ...ALL_PC_PERMISSIONS,
+      PERMISSIONS.collaborationMessagingRead,
+    ])
+    await vi.waitFor(() =>
+      expect(collaborationMocks.api.listConversations).toHaveBeenCalledTimes(1),
+    )
+    const chat = useCollaborationChatStore()
+    chat.conversations = [
+      {
+        conversationNId: 'CV-1',
+        peerUserNId: 'U-1',
+        peerDisplayName: 'One',
+        status: 'Active',
+        lastMessageSequence: 3,
+        lastMessageNId: 'MSG-3',
+        lastMessageOn: '2026-09-10T00:00:00.000Z',
+        unreadCount: 0,
+        visibilityState: 'Visible',
+        optimisticVersion: 1,
+        concurrencyVersion: 'v1',
+      },
+      {
+        conversationNId: 'CV-2',
+        peerUserNId: 'U-2',
+        peerDisplayName: 'Two',
+        status: 'Active',
+        lastMessageSequence: 2,
+        lastMessageNId: 'MSG-2',
+        lastMessageOn: '2026-09-10T00:00:00.000Z',
+        unreadCount: 0,
+        visibilityState: 'Visible',
+        optimisticVersion: 1,
+        concurrencyVersion: 'v1',
+      },
+      {
+        conversationNId: 'CV-3',
+        peerUserNId: 'U-3',
+        peerDisplayName: 'Three',
+        status: 'Active',
+        lastMessageSequence: 1,
+        lastMessageNId: 'MSG-1',
+        lastMessageOn: '2026-09-10T00:00:00.000Z',
+        unreadCount: 0,
+        visibilityState: 'Visible',
+        optimisticVersion: 1,
+        concurrencyVersion: 'v1',
+      },
+    ]
+
+    collaborationMocks.state.handlers?.onMessage?.()
+    collaborationMocks.state.handlers?.onMessageRetracted?.()
+    collaborationMocks.state.handlers?.onReadCursor?.()
+    expect(collaborationMocks.api.listConversations).toHaveBeenCalledTimes(1)
+
+    resolveInitial?.({
+      items: [
+        {
+          conversationNId: 'CV-stale',
+          peerUserNId: 'U-2',
+          peerDisplayName: 'Peer',
+          status: 'Active',
+          lastMessageSequence: 2,
+          lastMessageNId: 'MSG-2',
+          lastMessageOn: '2026-09-10T00:00:00.000Z',
+          unreadCount: 1,
+          visibilityState: 'Visible',
+          optimisticVersion: 1,
+          concurrencyVersion: 'v1',
+        },
+      ],
+      nextCursor: null,
+      total: 1,
+    })
+    await vi.waitFor(() =>
+      expect(collaborationMocks.api.listConversations).toHaveBeenCalledTimes(2),
+    )
+
+    resolveTrailing?.({ items: [], nextCursor: null, total: 0 })
+    await flushPromises()
+
+    expect(chat.conversations.map((conversation) => conversation.conversationNId)).toEqual([
+      'CV-1',
+      'CV-2',
+      'CV-3',
+    ])
+    expect(wrapper.find('.ip-pc-collaboration-badge').exists()).toBe(false)
   })
 
   it('用户菜单显示当前用户 displayName', async () => {

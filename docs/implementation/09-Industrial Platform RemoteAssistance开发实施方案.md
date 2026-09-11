@@ -1,854 +1,351 @@
 # 09-Industrial Platform RemoteAssistance开发实施方案
 
-# Industrial Platform RemoteAssistance开发实施方案
+版本：V3.0；日期：2026-09-10。**PF-06主控复审版：设计与任务输入已细化，待派遣；未实施、未运行媒体PoC。**
 
-平台兼容与相对独立交付前置见[蓝图32§2.1～2.2](../blueprint/32-Industrial%20Platform%20Service%20Host与内部模块边界.md)：先PF05平台聊天邀请/逐人授权与真实媒体审计闭环，再验外部宿主同等契约。相对独立指协助控制面/媒体边界明确，不取消首版PF05集成依赖；未来脱离聊天须先定义宿主邀请适配，不以同Host或iframe代替解耦设计。
+在现有一对一聊天中加入屏幕共享与独立语音，复用Vue＋SignalR＋浏览器WebRTC＋coturn。共享与语音分别邀请、授权、开始和结束，可同时使用；保留Screego清晰度、低延迟对照与真实媒体停止验收。
 
-> 当前里程碑范围：PF-06 在 `Collaboration.Service` 中加入独立 RemoteAssistance 模块。先完成现场网络、浏览器、许可和双 PoC 决策门禁；门禁通过后才允许进入领域、契约、适配、页面、部署和验收开发。首期只做一名共享者与一至三名白名单观看者的浏览器屏幕共享，不录屏、不保存画面、不远程控制、不无人值守、不默认启用音视频会议。
+唯一字段/协议/页面/测试细节源：[PF06执行规格](details/PF06-数据接口与页面规格.md)。本文件维护目标、依赖和九字段任务卡；[待派遣包](../tasks/pending/PF-06.md)维护未来实际交接输入。本文及规格替换V1.x/V2.x，不保留尚未实现的旧SignalScreenShare/单次屏幕协商协议。
 
-版本：V1.2
+# 1. 需求与复审结论
 
-> 2026-09-07 派遣前细化增量：[PF06-数据接口与页面规格.md](details/PF06-数据接口与页面规格.md)是本文数据字典、接口字段/样例、页面线框与任务操作步骤的唯一明细源，须在任务执行前读取指定章节；[派遣前详细设计与页面验收规则](STANDARD-派遣前详细设计与页面验收.md)适用于PF05起后续阶段。当前派遣状态统一为“待派遣”，设计就绪度另列；G06-1～2未关闭不得派遣相关生产范围。本文没有记录实际派遣或实施。
+依据用户当前整理及[参考会话](chatgpt-conversation://6aa2603c-d71c-83e8-a197-4f1d4e310c19)，本轮授权为仔细复审、完善文档与TASK，使其他模型可据此执行。未授权实际派遣、开发、部署或提交。
 
-日期：2026-09-07
+复审修正了六类执行空白：
 
-确认日期：2026-08-14
+- 屏幕与语音不再先后使用两套协议；共用MediaContext、SignalMedia和PeerConnection。
+- 语音字段与跨Caller/Callee忙线约束已落定；两个业务表＋一张五列占用表，不新建票据/租约系统。
+- 多端接听、固定端点、初次轨道创建、协商冲突与迟到操作的处理已明确。
+- 已查明当前HttpContext权限适配的限制，双方校验改经现有Identity公开接口；注销/exp/权限变化不能只查目录Active。
+- 已查明当前Outbox只处理既有事件；新增PF06事件投影、稳定Audit事实ID和原发生时间，安全停止不等待中央审计恢复。
+- 主动停止与静默失联分别验收，按媒体轨道统计，另一能力继续的流量不能误判停止失败或成功。
 
-阶段：PF-06 RemoteAssistance
+这是设计复审结论，不能代替代码、浏览器或现场验证。真实接入点以规格§1.2列出的当前代码为依据；PF05状态以CURRENT及其evidence为准。
 
-阶段状态：详细设计和九字段任务卡已确认并补充字段/接口/线框规格；全部待派遣，设计就绪度单列。开发、派遣、构建、测试和提交均未获本轮授权。`TASK-PF06-001` 为唯一首发PoC范围，实际环境输入核验后再派；只有其决策门禁通过并按既有批准要求确认生产路线后，002～008才可标为已就绪。
+# 2. 范围与技术路线
 
-模块或服务：
+首批为平台UnifiedHost单实例与登录Web：PC Edge/Chrome共享和观看；PDA/Mobile仅在实际浏览器支持时开放相应观看/麦克风能力，不宣称移动后台通话支持。现有Collaboration模块内增量实现，不另建服务/程序集/会议系统。
 
-```text
-Collaboration.Service
-└── RemoteAssistance
-    ├── Domain
-    ├── Application
-    ├── Contracts
-    └── Infrastructure
-```
+不包含：第三人、同时双屏、摄像头、系统声音、录音录像、远控、无人值守、公开房间、自动接听、设备接管、分布式媒体恢复、外部MES装配或Electron/Capacitor原生包。后两者保留公开边界供PF06A等后续范围验证。
 
-Service Host 与内部模块：
+SignalR只传业务状态及Offer/Answer/ICE，连续音视频走WebRTC；coturn只做连接中继。Screego仅用固定未修改版本作屏幕效果对照，不作为生产依赖，不承担语音基准。
 
-```text
-PF-05 创建 Collaboration.Service（尚未开发）
-├── Messaging（PF-05）
-├── Presence（PF-05）
-├── AttachmentIntegration（PF-05）
-└── RemoteAssistance（PF-06，本阶段）
+# 3. 用户流程与能力组合
 
-辅助部署单元：Screego PoC、TURN
-```
-
-RemoteAssistance 独立拥有领域、公开契约、权限、Schema/表前缀、迁移/种子账本、readiness 和测试；禁止直读 Messaging、Presence、Identity、Audit、File 或 SystemData Repository/表，不建立跨模块数据库外键，并保留未来物理拆分能力。Screego、TURN 不计入核心 Service Host，不拥有平台会话事实。
-
-服务初始化与环境引导：
-
-```text
-ServiceKey: collaboration
-ModuleKey: remote-assistance
-LogicalDatabaseName: collaboration_db
-PostgreSQL schema: collaboration_remote_assistance
-SQLite prefix: collaboration_remote_assistance_
-Schema ledger: remote_assistance_schema_migrations
-Seed ledger: remote_assistance_seed_ledger
-Provider: PostgreSQL 18 / SQLite Development fallback
-```
-
-- `SystemBaseline`：RemoteAssistance 权限目录和必要系统策略目录，`RequiredForReadiness=true`。
-- `TenantBaseline`：只有最终确认由本模块拥有的默认租户策略；默认功能关闭，不复制 SystemData 功能开关事实。
-- `EnvironmentSample`：仅 Development/Test 显式启用的演示策略，registration、plan、apply 三层禁止 Staging/Production。
-- 本模块不声明 `SecretBootstrap`。TURN shared secret、Screego cookie secret、TLS 私钥由部署 Secret Provider 注入，不进入种子、SystemData、数据库、API、日志、Trace 或审计。
-- 模块拥有 migration/seed/initializer 产物（签名在 Advanced 或环境强制时要求）及本地双账本；SystemData 只保存 registration、plan、Operation 和脱敏 observation。
-- 本地初始化/可信配置无效、迁移/RequiredSeed 未完成、checksum drift、目标错误或环境策略拒绝时 RemoteAssistance 保持 NotReady 且功能开关关闭；Messaging/Presence 不因此整体 NotReady。
-
-技术：
-
-```text
-.NET 10 / Clean Architecture / DDD / SqlSugar
-PostgreSQL 18 / SQLite Development fallback
-REST / SignalR or dedicated WSS signaling / WebRTC
-Redis（仅按多实例信令协调需要启用；票据消费以数据库条件更新为唯一权威）
-RabbitMQ / Outbox / Inbox
-独立 TURN（生产候选）/ Screego（未修改基准 PoC）
-Vue 3 / TypeScript / Pinia / Edge / Chrome
-```
-
-规格与蓝图依据：
-
-- `docs/blueprint/05-Industrial Platform平台基础功能与独立模块设计.md`
-- `docs/blueprint/09-Industrial Platform开发总TodoList.md`
-- `docs/blueprint/20-Industrial Platform部署架构设计.md`
-- `docs/blueprint/27-Industrial Platform API规范.md`
-- `docs/blueprint/28-Industrial Platform前端工程规范.md`
-- `docs/blueprint/29-Industrial Platform自动化测试体系.md`
-- `docs/blueprint/30-Industrial Platform日志审计与可观测性平台设计.md`
-- `docs/blueprint/31-Industrial Platform权限体系与安全架构设计.md`
-- `docs/blueprint/32-Industrial Platform Service Host与内部模块边界.md`
-- `docs/blueprint/33-Industrial Platform SystemData数据库编排与环境引导.md`
-- `docs/implementation/03-Industrial Platform Identity Service开发实施方案.md`
-- `docs/implementation/05-Industrial Platform SystemData开发实施方案.md`
-- `docs/implementation/07-Industrial Platform File Notification Audit开发实施方案.md`
-- `docs/implementation/08-Industrial Platform Collaboration开发实施方案.md`
-- `docs/implementation/TEMPLATE-开发实施方案.md`
-- Screego 官方仓库、`screego.config.example`、`auth/auth.go` 与 GPL-3.0 LICENSE。
-- W3C Screen Capture、W3C WebRTC 与目标 Edge/Chrome 官方兼容资料。
-
----
-
-# 1. 文档说明
-
-## 1.1 文档目的
-
-本文是 PF-06 详细设计、验证门禁、任务依赖、九字段任务卡、验收证据和结果回写的唯一维护源。它先把尚未验证的媒体引擎选择隔离在 PoC 决策门禁，再定义不随引擎变化的平台会话、授权、安全和审计边界。
-
-## 1.2 当前输入状态
-
-- 执行前置：PoC需要明确的网络/浏览器/引擎输入；生产集成需要已验收的PF05宿主、身份、个人邀请与审计契约，不绑定代码提交。
-- PF-04 Core 已有 File/Audit Contracts/应用代码，真实环境验收仍有缺口；PF-02、PF-03 已完成并合入。详见 CURRENT 和 PF-04 evidence，不沿用 2026-08-14 “全部未开发”判断。
-- PF05实施方案及细化规格定义所需设计契约，产品集成必须核对未来实际交付；不能把 Notification SignalR 当作聊天契约。
-- 原 Screego 认证/许可结论是 2026-08-14 基准记录；在 PF06-001 固定版本重新核验，不宣称已部署或适配生产。
-- 本轮只改文档；未运行双 PoC、浏览器、现场网络、构建或功能测试，未提交推送。
-
-## 1.3 已确认设计记录
-
-| 日期 | 决策 | 结论 |
-| --- | --- | --- |
-| 2026-08-14 | 生产候选方向 | 平台原生控制面与最小原生信令为推荐候选；Screego 仅作未修改独立基准 PoC |
-| 2026-08-14 | 决策顺序 | 先双 PoC、现场网络和许可门禁，证据通过后才允许后续开发 |
-| 2026-08-14 | 失败策略 | 任一关键门禁失败时功能开关保持关闭，不阻塞 Collaboration 文本与附件能力 |
-| 2026-08-14 | 媒体边界 | 不录屏、不截帧、不转码、不落盘、不默认音频、不远程控制、不无人值守 |
-| 2026-08-14 | 页面边界 | 流程由聊天发起；接受后进入平台独立路由或安全新窗口，不以跨域 iframe 为生产基线 |
-
-## 1.4 执行前置
-
-| 门禁 | 依赖 | 输出 |
-| --- | --- | --- |
-| 技术 PoC（001） | 独立实验网络、浏览器、HTTPS/WSS 证书、TURN 主机、许可核验；不依赖 PF-05 完成 | 保留原双 PoC，固定引擎版本与授权/画质/网络差距 |
-| 产品集成（002～008） | 001 生产路线决策通过并获授权；PF-05 真实契约、可信身份/目录、必要 Audit 与初始化能力 | 平台与启用协助的外部嵌入闭环 |
-| 客户上线 | 目标客户浏览器/网络/证书/终端实测与交付许可 | 现场支持矩阵；实验室或 Mock 不代替 |
-
-主线为 PF-05 Web → PF-06 Web → PF-06A 终端运行时与客户端打包（实施 09A）→ PF-07。001 可在原批准范围另行提前派遣；本轮文档整改不授权运行 PoC。原双 PoC/生产路线不得因组件没有同名授权接口而被静默替换。
-
----
-
-# 2. 定位、目标与职责边界
-
-## 2.1 负责
-
-- 独立远程协助会话、邀请、共享者与观看者白名单、接受/拒绝/撤销、超时和终止。
-- 一次性短期 JoinTicket、兑换、信令/ICE 会话授权、重放防护和服务端撤销。
-- 一名共享者、1～3 名观看者；PC 主要共享，PDA/Mobile 主要观看。
-- WebRTC 引擎防腐层、信令、ICE/TURN 策略和断线恢复编排。
-- 只记录人员、原因、时间、终端、IP 摘要、共享范围、网络路径、中继、异常和终止原因等元数据审计。
-- PC/PDA/Mobile 独立页面、版本化聊天邀请卡片及旧客户端安全降级。
-
-## 2.2 不负责
-
-- Identity 用户、登录、权限和平台会话；不复制 Identity 用户表。
-- Messaging 消息事实、Presence 在线事实或 AttachmentIntegration 文件事实；不直读其 Repository。
-- Audit 追加事实存储；本模块只在本地事务写 Audit Outbox。
-- 录屏、截图保存、远程鼠标键盘、无人值守、语音/视频会议、外部联系人和跨租户协助。
-- 浏览器授权绕过；每次捕获必须由共享者主动操作并在浏览器选择屏幕、窗口或标签。
-- TURN/Screego 辅助单元的运维数据不得反向成为平台领域权威。
-
-## 2.3 引擎路线
-
-| 路线 | 用途 | 优点 | 风险/结论 |
-| --- | --- | --- | --- |
-| 平台原生控制面 + 最小 WebRTC 信令 + 独立 TURN | 推荐生产候选 | 直接实现平台票据、白名单、权限和审计；无 GPL fork | 需通过画质、资源和网络 PoC |
-| 未修改 Screego 独立部署 | 基准 PoC | 快速验证 WebRTC、画质、多观看者和 TURN | 认证/房间授权不足，不直接作为生产方案 |
-| Screego fork | 仅条件候选 | 可复用其媒体实现并补平台授权 | GPL 交付、源码提供、长期 rebase 和安全维护成本；未经单独许可评审不得采用 |
-
-反向代理加 `SCREEGO_AUTH_MODE=none` 不能替代平台会话级白名单；知道房间标识或持有泛化入口的用户不能因此获得访问权。若双 PoC 证明原生方案不满足门禁，而 Screego 明显满足，必须重新提交“fork/独立适配/放弃首期功能”的决策，不自动转向 fork。
-
----
-
-# 3. 前后端及跨服务协作目标
-
-```text
-Messaging 版本化邀请卡片
-    ↓ 接受邀请
-RemoteAssistance 权威会话/参与人授权
-    ↓ JoinTicket 单次兑换
-EngineAdapter → Signaling/WSS → WebRTC → TURN（按网络策略）
-    ↓
-独立平台路由/安全新窗口
-
-Identity：用户有效性、TenantNId、UserNId、权限、会话撤销
-Presence：仅用于邀请提示，不作为授权依据
-Audit：本地 Outbox → 公开 AuditFactV1
-Platform Health：只消费脱敏 readiness/指标摘要
-```
-
-Messaging 卡片采用公开 `RemoteAssistanceInvitationCardV1`，至少携带 `SchemaVersion`、`SessionNId`、`InvitationNId`、发起人安全展示、观看者数量、过期时间和平台路由目标类型；不携带 JoinTicket、TURN 凭据、房间 Secret 或可直接加入的外部 URL。未知版本客户端只显示“收到远程协助邀请，请升级或在平台中打开”，不得渲染任意 HTML，也不得自动打开外部站点。
-
----
-
-# 4. 总体架构、部署与数据流
-
-## 4.1 模块结构
-
-```text
-Collaboration.Api
-└── Modules/RemoteAssistance
-    ├── Domain
-    ├── Application
-    ├── Contracts
-    └── Infrastructure
-        ├── Persistence
-        ├── Initialization
-        ├── MessagingAdapter
-        ├── IdentityAdapter
-        ├── AuditOutbox
-        ├── EngineAdapter
-        └── Signaling
-
-tests/Collaboration/RemoteAssistance
-src/frontend/src/modules/remote-assistance
-```
-
-Domain 不引用 Messaging/Presence/Identity/Audit/具体媒体引擎。Application 只引用本模块 Contracts 和抽象端口。Infrastructure 适配公开契约。宿主仅负责认证、路由、Hub/WSS 装配、DI 和模块健康汇总。
-
-## 4.2 邀请和加入数据流
-
-```text
-发起人从一对一会话选择观看者与原因
-  → Messaging 公开端口验证会话成员
-  → Identity 公开端口验证同租户有效用户
-  → RemoteAssistance 事务创建 Session/Invitation/ParticipantGrant/Outbox
-  → Messaging 投递 CardV1
-  → 观看者接受
-  → 服务端再次验证身份、白名单、状态、期限和权限
-  → 签发仅存哈希的一次性 JoinTicket
-  → 前端以 POST body 兑换；原票据原子标记 Consumed
-  → 返回短期 EngineAccess + ICE 配置
-  → WSS 信令建立 WebRTC
-```
-
-共享者也必须通过绑定 `Role=Sharer` 的票据进入。客户端不得提交 TenantNId、共享者身份或擅自增加观看者。
-
-## 4.3 部署拓扑
-
-```text
-Browser ─ HTTPS ─ Gateway/Collaboration.Service
-   └──── WSS ─── Signaling
-   └──── WebRTC direct（允许时）
-   └──── TURN UDP/TCP/TLS（跨网段/受限/强制 relay）
-
-Screego PoC：独立域名/证书/容器与版本固定，不并入平台程序集
-TURN：独立地址、端口范围、证书、Secret 和容量监控
-```
-
-生产必须支持内部 DNS、HTTPS/WSS、受信证书链、明确 Origin allowlist 和防火墙规则。代理必须正确处理 WebSocket Upgrade、空闲超时、客户端 IP 信任链和请求大小；只有明确的受信代理地址可提供转发头。
-
-## 4.4 失败和降级
-
-| 状态 | 行为 |
+| 操作 | 必须行为 |
 | --- | --- |
-| RemoteAssistance 本地初始化/可信配置无效 | 模块 NotReady、功能开关关闭；Collaboration 其他模块继续 |
-| Identity 无法确认目标用户 | 新邀请失败关闭；已有媒体连接按会话撤销策略终止 |
-| Messaging 不可用 | 不能从聊天发起；不得绕过为公开房间链接 |
-| Audit 中央不可用且本地 Outbox 可写 | 普通会话可继续并重投；高风险管理员操作失败关闭 |
-| Signaling 不可用 | 新连接/恢复失败，已有媒体按短租约撤销策略停止，不能无限继续；见 5.6 |
-| TURN 不可用 | 允许 direct 的环境可尝试直连；强制 relay 环境立即失败，不降级泄露地址 |
-| 浏览器拒绝/停止共享 | 结束媒体轨；会话进入暂停或终止，不伪报仍在共享 |
+| 共享我的屏幕 | 邀请对方观看；对方接受后共享者主动点选屏幕/窗口 |
+| 请求对方共享 | 对方应用接受并主动选屏；发起人只是观看者 |
+| 语音通话 | 独立呼叫/接听与麦克风授权，不请求摄像头 |
+| 已通话再共享/已共享再通话 | 接受新增能力后复用同一对终端连接；新增失败保留原能力 |
+| 静音 | 只暂停本人声音发送，不释放通话、不等同挂断 |
+| 结束语音 | 双方音频停止并释放麦克风，屏幕继续 |
+| 停止共享/退出观看 | 当前双人屏幕结束并释放捕获，语音继续 |
+| 结束全部 | 结束操作时明确的屏幕/语音ID，文字聊天保留；旧请求重试不能结束新会话 |
 
----
+应用同意和浏览器权限不可互相替代；已有权限不能触发自动接听或自动选屏。屏幕默认audio:false。
 
-# 5. 领域模型与状态机
+# 4. 结构与复用边界
 
-统一应用模板第 6.1 节的 Entity 生命周期字段、NId、`DateTimeOffset/timestamptz`、软删除、并发和跨模块 NId 约束。本章只列业务字段。
+后端现有Collaboration各层的RemoteAssistance子目录承载领域/用例/DTO/存储；已有CollaborationHub扩展专用方法。跨Messaging、Identity、SystemData只调用公开契约。
 
-## 5.1 RemoteAssistanceSession
+前端App认证媒体宿主唯一持有store、控制器与audio元素，位于RouterView之外。Chat/QuickDrawer/video只呈现和操作；切换聊天、收起面板或全屏切换不销毁通话。常驻条可返回媒体所在聊天并结束。
 
-主要业务字段：`TenantNId`、`NId`、`ConversationNId`、`SharerUserNId`、`Reason`、`State`、`EngineKind`、`NetworkPolicy`、`ExpiresOn`、`StartedOn`、`EndedOn`、`EndReason`、`ReconnectDeadlineOn`、`LastActivityOn`、`OptimisticVersion`。
+单实例内存MediaContext保存可信端点和协商代次；数据记录保留业务事实。进程重启不恢复旧媒体，先终结旧记录/释放语音slot/写可靠事实再Ready。运行约束和所有落点见规格§1、2、6、7。
 
-不变量：
+# 5. 最小状态与媒体生命周期
 
-- 创建时只有一名共享者和 1～3 名唯一观看者，全部属于同一可信租户且不能与共享者相同。
-- `ConversationNId` 只保存跨模块稳定标识，不建立数据库外键。
-- 原因必填、去除首尾空格、最大 500 字符；审计使用脱敏摘要。
-- 同一共享者默认只允许一个 Active/Sharing 会话；并发策略由服务端原子约束。
-- 任何终态禁止重新开放；重新协助创建新 SessionNId。
+ScreenShareSession与VoiceCallSession两套状态可并存。语音发起事务占用双方用户slot，避免A→B和C→B同时响铃/接听成功。屏幕按会话和共享者活动唯一；一个连接一次只参与一个聊天媒体上下文。
 
-状态机：
+首次接受原子选择终端，后续能力复用同一对端点；其他端只收到安全状态与停止响铃，不接收媒体信令。重新连接不接管旧媒体，新媒体须新邀请。
 
-```text
-Draft → Invited → Accepted → Connecting → Sharing
-  └→ Cancelled   └→ Declined/Expired（仅全部邀请终结且无人接受时）
-Accepted/Connecting/Sharing → Suspended → Connecting/Sharing
-任意非终态 → Terminated
-```
+固定audio、screenLow、screenHigh三个transceiver槽。Low端建立初始槽并Offer，High映射已有槽；后续Perfect Negotiation处理双方操作，空槽没有业务授权。两项均终止且无启动/协商操作时才释放整个连接。
 
-单个 Invitation Declined 不使 Session 进入 Declined；至少一人接受即可进入 Accepted/Connecting/Sharing，其余待响应邀请继续有效。全部拒绝且无接受者才 Declined；无人接受且全部过期才 Expired；混合拒绝/过期归 Expired。最后一个 Viewer 离开后 Session 进入 Suspended 等待既有有效邀请/受控重入，超过恢复期限 Terminated。
+所有异步采集/协商按会话ID和操作代次防迟到；逐能力replaceTrack(null)、stop捕获/clone、解除播放，最后才按条件close。详细算法及异常见规格§3～5，不再另写一套简化伪协议。
 
-`Suspended` 允许在受控恢复期限内等待有效观看者或恢复信令；捕获轨已结束时共享者必须再次主动授权。终态为 `Declined/Expired/Cancelled/Terminated`。
+# 6. 数据、初始化、权限与审计
 
-取消仅限发起者对StartedOn仍为空的非终态会话操作；共享过后即使已Suspended也走terminate，不能把运行终止记录成未开始取消。邀请等待过期按无人接受/全部邀请终结规则进入Expired，运行或恢复超时才进入Terminated；细化规格的API与迁移表采用相同条件。
+规格§2为完整数据字典，§7为迁移/seed/审计实施步骤。002一次建立屏幕、语音和语音slot最终结构，不能等010再重构生产屏幕模型。
 
-## 5.2 Invitation
+只追加Collaboration服务级迁移，不改PF05历史checksum、不另建初始化账本。权限新增share/join/voice.call三个Action，沿Identity现有目录和seed升级。
 
-字段：`TenantNId`、`NId`、`SessionNId`、`InviteeUserNId`、`Role`、`State`、`IssuedOn`、`ExpiresOn`、`RespondedOn`、`ResponseReason`、`CardContractVersion`、`MessageNId`。
+PF06事务复用现有Outbox；新增事件分支及稳定事实映射是实际待实现工作。中央Audit故障不能阻止本地媒体释放及终止通知。禁止把SDP/ICE、真实媒体或TURN Secret持久化进业务记录/日志。
 
-状态：`Pending → Accepted/Declined/Revoked/Expired`。接受、拒绝和撤销均幂等；过期后不得签发票据。MessageNId 是 Messaging 返回的跨模块标识，不建立外键。Invitation 还保存 DeliveryConversationNId；根 Session.ConversationNId 仅表示最初来源，不能授权其他 Viewer 读取它。
+# 7. 最终公开契约
 
-## 5.3 ParticipantGrant
+规格§4列出完整15个Hub方法、DTO、错误码和事件：屏幕/语音邀请与应答、分项结束、状态查询、绑定、共用信令、Ready/确认、静音、停止回报及EndAll。契约version=1，用十进制string传long，媒体事件仅发送选定端。
 
-字段：`TenantNId`、`NId`、`SessionNId`、`UserNId`、`Role`、`GrantEpoch`、`GrantState`、`GrantedOn`、`RevokedOn`、`RevocationReason`、`LastJoinedOn`、`LastLeftOn`。
+服务端身份取Context.User，端点取可信绑定，参与关系取当前聊天公开用例；不接受客户端tenant/user/target身份覆盖。逐能力权限续验和业务期限见规格§3。停止回报仅是客户端断言，不能当服务端强制断流证据。
 
-角色只有 `Sharer`、`Viewer`。授权不能从 Presence 推导。被撤销、Identity 会话失效、用户禁用或跨租户时不得建立或恢复媒体连接。
+# 8. 聊天内页面
 
-## 5.4 JoinTicket
+规格§6 W06-01/W06-02为页面唯一明细。工具栏三个入口，屏幕邀请卡/观看区与语音条独立；常驻媒体条包含返回聊天、分项结束和结束全部；自动播放受阻时有“点击播放声音”。
 
-字段：`TenantNId`、`NId`、`SessionNId`、`ParticipantGrantNId`、`UserNId`、`Role`、`TokenHash`、`EngineAudience`、`IssuedOn`、`ExpiresOn`、`ConsumedOn`、`RevokedOn`、`ClientNonceHash`、`IpBindingMode`。
+必须覆盖Pending/Ringing、Accepted、Connecting、Active、拒绝、取消、超时、无权限、设备不支持/拒绝授权、播放阻止和终止原因。持续时间从StartedOn算，不能把本地倒计时当服务端状态。三端主题、语言、键盘、窄屏和普通聊天回归都要验证。
 
-- 原始票据使用加密安全随机值，只返回一次；数据库仅保存 SHA-256/HMAC 结果。
-- 建议有效期 60 秒，只允许兑换一次；兑换使用原子条件更新。
-- 绑定 Session、User、Role、Tenant、EngineAudience 和客户端 nonce；IP 只作可配置风险信号，不作为移动网络下的唯一身份。
-- 票据只能在 HTTPS POST body 或受保护 header 中提交，不进入 URL、Referer、日志、Trace、指标或审计。
-- 同键不同上下文、过期、已消费、撤销和重放均拒绝并产生安全审计。
+# 9. 质量与网络
 
-## 5.5 EngineLease 与连接观察
+屏幕以文字清晰与操作跟手为目标，30fps起步、不先压低采集尺寸；比较浏览器默认与能力支持的编码偏好。语音优先Opus，验证回声消除/噪声抑制/自动增益。
 
-`EngineLease` 保存平台签发的短期引擎访问授权摘要：`NId`、`SessionNId`、`ParticipantGrantNId`、`EngineKind`、`EngineSessionReferenceHash`、`GrantEpoch`、`ConnectionNId`、`ExpiresOn`、`RevokedOn`。不保存 TURN 明文凭据、SDP 或 ICE candidate。
+同浏览器/设备/素材/缩放/网络路径对照Screego；指标和候选目标见规格§8.1。语音连续优先、屏幕可读并降低帧率是弱网调优方向，不是已验证承诺。真实direct、TURN、UDP受限TCP/TLS、RelayOnly失败路径必须有记录。
 
-连接观察只保存元数据：连接/断开时间、候选类别 `host/srflx/relay`、传输 `udp/tcp/tls`、浏览器家族/版本、共享范围类别、分辨率档位、匿名化网络摘要、错误类别、RTT/丢包/码率聚合。禁止保存画面、音频、SDP 全文、私网地址或完整 User-Agent/IP。
+# 10. 有限技术验证门禁
 
----
+**001＋009先于生产002。** 用一个遵循最终三槽/协商骨架的最小原生样本，完成屏幕效果、语音双向、两种加入顺序、分项停止和碰撞测试，不先搭两套完整产品。
 
-## 5.6 多人邀请、票据恢复与真实媒体撤销
+环境清单由派遣时填实：版本/终端/HTTPS/账号/网络/TURN和可控操作。缺项标MISSING，仅限制受影响验证。真实技术矛盾交主控定点修改设计，执行者不重选产品或自行放宽质量/停止要求。G06-1～3详见规格§10。
 
-共享者从初始一对一聊天选择首名 Viewer，再从有权可见的同租户目录选择第 2/3 名。服务端验证共享者邀请权限与每名目标资格，通过 Messaging 公开端口分别取得“共享者—该 Viewer”的一对一会话并投递个人 InvitationNId 卡片；每份投递以 InvitationNId 幂等。新增 Viewer 只能读自己的投递会话和授权协助投影，不获得原聊天历史。
+# 11. 验收与停止证据
 
-Invitation 分别接受/拒绝，Session 按 5.1 聚合；Viewer leave 仅撤销自己的 Grant/票据/租约，Sharer stop 或有权管理员 terminate 才终止全会话。各命令授权与 UI 独立校验。
+正常停止目标≤5秒；仅控制通道静默失联为最后有效确认请求发出起点30秒＋最多5秒调度容差。截止后继续观察10秒。先证实有效动态媒体在传输，再停止；统计缺失不是0。
 
-JoinTicket 在数据库以 `ConsumedOn is null AND RevokedOn is null AND ExpiresOn > now` 加主体/Grant/nonce 条件原子消费，消费与 EngineLease 创建同事务；Redis 不是第二个消费权威。接受命令可幂等查询已接受状态，但原票据仅存哈希，不能原样返回。签发/兑换响应丢失后先查本人安全状态，再经 join-tickets 补发；补发原子递增 GrantEpoch、撤销旧票据和旧 EngineLease，并触发旧媒体撤权。相同补发请求返回当前状态，不猜测原 Secret；仍丢失时用新的请求 nonce 发起下一次受控补发。
+视频按SSRC/MID看有效源画面及RTP/帧计数，语音按音轨、收发统计和测试音判定。结束单项时另一项必须持续；PC总流量、UI黑屏、关闭页面、WSS断开、TURN凭据到期均不能独立判PASS。浏览器冻结/恢复另做真实测试，不能承诺恶意P2P端点服务端硬切断。
 
-媒体租约建议 30 秒、每 10 秒受权续租，绑定 GrantEpoch/ConnectionNId。对每个 Viewer 使用可单独关闭的 PeerConnection；撤销即通知共享端关闭对应连接和观看端停止播放，禁止停止其他 Viewer 共用的捕获轨。全会话终止时共享端关闭所有连接并 stop 捕获轨。双方在租约到期不能续租时 fail-closed；共享端恢复/挂起唤醒必须先校验租约才能发送画面。
+A01～A11和V01～V12定义步骤/断言；结果记录设备/版本/配置、实际操作、期望/实际、PASS/FAIL/MISSING及脱敏证据。后台源码变更后先fresh Release build再--no-build tests；完整命令和证据边界见规格§8.4。
 
-数据库 Terminated、信令断开或 TURN 凭据过期都不是断流证据。验收用持续变化测试画面/接收字节观测“撤权后不再有新帧”，记录正常撤权和失联超时延迟；建议基线为正常 5 秒内、失联不超过租约 30 秒加已测调度误差，最终阈值在 001 固定。客户端不可信或现场要求服务端强制切断时，必须验证受控媒体路径和引擎/中继主动断连能力；纯 P2P 不宣称已满足，缺证据保持该部署不支持，不自动扩大为新媒体服务器项目。
+# 12. 任务依赖与执行规则
 
-# 6. 数据、事务与初始化设计
+执行顺序：**001＋009 → 002 → 003 → 004 → 005 → 006 → 007 → 008 → 010 → 011**。编号保留供追踪，不表示009必须排到008之后。
 
-## 6.1 主要表
+002建最终存储；003/004只接屏幕业务但直接实现最终公共契约/媒体控制；005完成身份/审计集成；010接入完整语音业务与UI。002包含语音状态/slot存储测试，不提前实现全部语音用例。003所需权限端口先定义并合同测试，005接真实适配；005完成前功能开关保持关闭，不能将Mock授权交付上线。
 
-| 表 | 主要业务字段/约束 |
-| --- | --- |
-| `remote_assistance_session` | TenantNId+NId 全历史唯一；共享者活动会话部分唯一；状态/过期索引 |
-| `remote_assistance_invitation` | 物理 SessionId+InviteeUserNId 唯一，对外父引用为SessionNId；Pending+ExpiresOn 索引 |
-| `remote_assistance_participant_grant` | 物理 SessionId+UserNId 唯一，对外父引用为SessionNId；角色/撤销索引 |
-| `remote_assistance_join_ticket` | TokenHash 全局唯一；ExpiresOn/ConsumedOn 索引 |
-| `remote_assistance_engine_lease` | 物理ParticipantGrantId+GrantEpoch+ExpiresOn索引；对外NId不暴露Id |
-| `remote_assistance_connection_observation` | TenantNId+SessionNId+ObservedOn索引；仅安全聚合元数据 |
-| `remote_assistance_outbox` | EventNId 唯一；PublishedOn+NextAttemptOn索引 |
-| `remote_assistance_inbox` | ConsumerName+EventNId 唯一；处理/重试按细化规格 |
+内部任务是一个PF工作包的连续步骤，不逐卡派遣、提交或要求用户确认。独立验收在稳定快照上顺序交接，避免与开发修改同一工作树。当前没有指定开发/验收模型，不从其他PF继承型号、权限或工作树例外。
 
-Session 是父聚合；普通子对象默认使用 SessionId 外键，由聚合保证生命周期；票据、租约、Outbox/Inbox 是最小技术记录，不机械套软删除复合外键。Identity、Messaging、Audit、SystemData 只保存 NId，不建外键。
+# 13. 九字段开发任务卡
 
-## 6.2 事务与 Outbox
-
-- 创建 Session、Invitation、ParticipantGrant、邀请卡片命令 Outbox 和 Audit Outbox 同事务提交。
-- 接受邀请、创建/消费 JoinTicket、撤销参与人和终止会话分别使用原子事务与乐观并发。
-- Messaging 卡片投递、Audit 接收和 Identity 状态事件采用至少一次投递；Inbox 按 EventId 幂等。
-- 投递失败不得删除领域事实；达到重试上限进入可观测失败队列并由受权操作恢复。
-- 不跨数据库事务，不直接写 Messaging/Audit 表。
-
-## 6.3 初始化清单
-
-InitializationManifest 至少声明 ModuleKey、逻辑库、表前缀、迁移/种子产物 version/checksum、适用时 signature、Owner、DesiredState、数据库最小角色、锁范围、备份策略和环境策略。验证覆盖首次 apply、重复 apply、并发多副本、升级、drift、部分失败、Shared 多 ModuleKey 隔离、管理员维护策略不被覆盖和 控制面失联而本地事实有效仍 Ready；本地事实无效 NotReady。
-
----
-
-# 7. API、Hub、事件、权限与错误契约
-
-## 7.1 REST 路由
-
-外部路径：`/collaboration/api/v1/remote-assistance`；内部路径：`/api/v1/remote-assistance`。Gateway 只剥离 `/collaboration`，UnifiedHost 组合保持相同外部路径；外部嵌入经受信反代使用同一路由语义。
-
-| Method/Path | 用途 | 权限/幂等 |
-| --- | --- | --- |
-| `POST /sessions` | 从 Conversation 创建邀请 | `remote-assistance.session.create`；`Idempotency-Key` |
-| `GET /sessions/{sessionNId}` | 获取安全会话投影 | 参与人授权或管理权限 |
-| `POST /sessions/{sessionNId}/accept` | 接受邀请并生成票据 | 被邀请人；幂等 |
-| `POST /sessions/{sessionNId}/decline` | 拒绝邀请 | 被邀请人；幂等 |
-| `POST /sessions/{sessionNId}/cancel` | 发起人取消 | `remote-assistance.session.cancel`；并发版本 |
-| `POST /sessions/{sessionNId}/terminate` | 终止整个会话 | Sharer 或具 session.terminate 权限的管理员；并发版本 |
-| `POST /sessions/{sessionNId}/leave` | Viewer 离开 | 只撤销自己的授权/媒体连接；不结束其他人 |
-| `POST /sessions/{sessionNId}/join-tickets` | 当前参与人补发票据 | 幂等请求、新 nonce、当前 Grant 与授权校验 |
-| `POST /sessions/{sessionNId}/participants/{userNId}/revoke` | 撤销观看者 | `remote-assistance.participant.manage` |
-| `POST /join-tickets/exchange` | 单次兑换 EngineAccess/ICE | 已认证且绑定用户；原子单次 |
-| `POST /sessions/{sessionNId}/heartbeat` | 会话/共享端活动摘要 | 参与人绑定；限流 |
-| `GET /sessions/{sessionNId}/diagnostics` | 脱敏诊断 | `remote-assistance.diagnostics.read` |
-
-所有请求从可信上下文取得 TenantNId/UserNId；响应使用统一 ApiResult/TraceId、RFC 3339 时间和版本化 DTO。创建/接受响应不得返回其他参与人的敏感网络信息。
-
-## 7.2 信令契约
-
-生产候选使用独立 Hub/WSS，最终由 PoC 冻结。浏览器 WebSocket 不能假设可自定义 Authorization header：优先 HTTPS 兑换后同站 HttpOnly/Secure 短期 Cookie，或建立后首帧短期 EngineAccess 认证；首帧认证前禁止房间订阅/Offer/ICE，超时立即关闭。SignalR 如需 query access_token 必须限定端点/短寿命并覆盖反代与框架日志脱敏，不能当作无条件默认。所有路径校验 Origin、当前 GrantEpoch、audience、nonce 和期限；长期平台 Access Token 不能作为房间万能凭据。每个信令消息含 `ContractVersion`、`SessionNId`、`SenderGrantNId`、`MessageNId`、`Sequence`、`Type`、`Payload`；服务端验证角色和目标白名单后转发。
+各卡“预期输出”包含执行顺序；精确字段/接口以所引规格章节为准。所有任务当前未派遣、未执行。
 
-允许消息类型：Offer、Answer、IceCandidate、Renegotiate、ParticipantReady、TrackEnded、KeepAlive、Terminate。Payload 有大小/频率限制；不记录 SDP/ICE 正文。未知版本返回稳定不支持错误并关闭连接。
+## TASK-PF06-001 最小原生验证与Screego效果对照
 
-## 7.3 公开事件
+**状态：** 待派遣；未执行；技术/生产门禁见规格§10。
 
-- `RemoteAssistanceInvitationCreatedV1`
-- `RemoteAssistanceInvitationRespondedV1`
-- `RemoteAssistanceSessionStartedV1`
-- `RemoteAssistanceParticipantJoinedV1`
-- `RemoteAssistanceParticipantLeftV1`
-- `RemoteAssistanceSessionSuspendedV1`
-- `RemoteAssistanceSessionEndedV1`
-- `RemoteAssistanceSecurityViolationDetectedV1`
+**目标：** 验证原生路线的屏幕清晰度、延迟与可证实停止。
 
-事件只含稳定 NId、角色、状态、UTC 时间、原因类别、TraceId 和必要安全快照；不含票据、Secret、SDP、ICE、IP 明文、画面或音频。
+**输入文档：** 本文§1～12与执行规格§1.3、5、8.1、8.3。
 
-## 7.4 权限码
+**依赖：** 已填实实验输入；与009共用样本。
 
-```text
-remote-assistance.session.create
-remote-assistance.session.view
-remote-assistance.session.share
-remote-assistance.session.join
-remote-assistance.session.cancel
-remote-assistance.session.terminate
-remote-assistance.participant.manage
-remote-assistance.diagnostics.read
-remote-assistance.audit.read
-remote-assistance.policy.manage
-```
+**允许修改范围：** 独立PoC目录、非秘密实验配置、PF06 evidence；不改生产业务。
 
-权限只给出能力上限，端点还必须验证同租户、会话参与人、邀请状态、ParticipantGrant、角色和 Identity 当前有效性。
+**预期输出：** 1）记录Screego固定版本、设备/缩放/捕获尺寸及实际路径。2）用最终三槽骨架捕获无音屏幕并传输；按素材测三次短场景与30分钟。3）对照可读性、中位数/P95延迟和测量误差、CPU/内存/带宽。4）执行正常停止与仅控制通道丢失，保存逐视频统计。5）列结论、差距和最小参数修正，不接入Screego账号。
 
-## 7.5 稳定错误码
+**验证与证据：** A05/A06/A08/A09；真实两端与同路径对照，失败或测量误差超限不得PASS。
 
-```text
-REMOTE_ASSISTANCE_DISABLED
-REMOTE_ASSISTANCE_NOT_READY
-REMOTE_ASSISTANCE_DEPENDENCY_UNAVAILABLE
-REMOTE_ASSISTANCE_CONVERSATION_NOT_ELIGIBLE
-REMOTE_ASSISTANCE_PARTICIPANT_INVALID
-REMOTE_ASSISTANCE_PARTICIPANT_NOT_ALLOWED
-REMOTE_ASSISTANCE_VIEWER_LIMIT_EXCEEDED
-REMOTE_ASSISTANCE_SESSION_CONFLICT
-REMOTE_ASSISTANCE_SESSION_EXPIRED
-REMOTE_ASSISTANCE_SESSION_ENDED
-REMOTE_ASSISTANCE_INVITATION_EXPIRED
-REMOTE_ASSISTANCE_TICKET_INVALID
-REMOTE_ASSISTANCE_TICKET_EXPIRED
-REMOTE_ASSISTANCE_TICKET_REPLAYED
-REMOTE_ASSISTANCE_SIGNALING_UNAVAILABLE
-REMOTE_ASSISTANCE_TURN_UNAVAILABLE
-REMOTE_ASSISTANCE_BROWSER_UNSUPPORTED
-REMOTE_ASSISTANCE_CAPTURE_DENIED
-REMOTE_ASSISTANCE_CAPTURE_ENDED
-REMOTE_ASSISTANCE_NETWORK_POLICY_BLOCKED
-REMOTE_ASSISTANCE_ENGINE_UNAVAILABLE
-```
+**结果回写：** PF06 evidence的001小节、环境支持矩阵；主控回写G06-1实际值。
 
-401 表示未认证，403 表示权限/参与人授权失败，404 对无权主体统一隐藏资源存在性，409 表示状态/并发/重放冲突，410 表示已过期/终止，422 表示可安全披露的业务校验，429 表示限流，503 表示初始化或依赖不可用。
+**提交策略：** 内部连续执行、整包交付；执行者不暂存/提交/推送，保留修改供总控按仓库协议集成。
 
----
+## TASK-PF06-002 最终领域模型、并发约束与服务级迁移
 
-# 8. 页面与交互设计
+**状态：** 待派遣；未执行；技术/生产门禁见规格§10。
 
-## 8.1 聊天邀请卡片
+**目标：** 一次落地屏幕/语音最终结构和跨角色忙线基础，避免010推倒重做。
 
-- 一对一聊天操作菜单提供“发起远程协助”；仅 PC 默认显示共享入口，PDA/Mobile 主要显示观看入口。
-- 发起抽屉展示观看者、原因、30 分钟默认超时、媒体不录制提示和网络/浏览器前置检查。
-- `RemoteAssistanceInvitationCardV1` 显示发起人、状态、到期时间和接受/拒绝操作；旧客户端安全降级为纯文本提示和平台内部路由。
-- 卡片状态通过事件/安全查询更新，不把 Message 状态当作 Session 权威状态。
+**输入文档：** 本文§1～12与执行规格§2、3.2～3.3、7.1。
 
-## 8.2 独立页面
+**依赖：** 001/009关键实测达标，G06-2工作线及版本核对完成。
 
-推荐路由：
+**允许修改范围：** Collaboration Domain/Contracts/Application/Infrastructure的RemoteAssistance、现有迁移/初始化增量及所属测试。
 
-```text
-/pc/remote-assistance/:sessionNId
-/pda/remote-assistance/:sessionNId
-/mobile/remote-assistance/:sessionNId
-```
+**预期输出：** 1）实现两领域实体、状态/原因枚举、版本和时间字段。2）追加两provider迁移，创建两业务表及五列voice_slot；活动唯一约束不能绕过软删除。3）实现屏幕幂等插入、语音双方slot与Call原子写入/结束释放、CAS及期限查询。4）实现重启Ready前终结/释放与可靠事件记录，复用现有ledger。5）验证Inspect只读、重复Apply、旧库升级、中断重试及相同约束。
 
-PC 支持当前平台标签或用户主动打开安全新窗口；`window.open` 使用 `noopener,noreferrer`，新窗口通过正常平台会话和 POST 兑换进入，不在 URL 传票据。PDA/Mobile 默认只观看，不展示共享按钮，除非后续独立验收明确开放。
+**验证与证据：** A03/A11/V07/V12存储部分；同键50并发仅一事实、互拨/跨角色占用冲突、PG回滚后再查、SQLite有界重试；旧PF05数据与已应用checksum保持。
 
-## 8.3 状态与操作
+**结果回写：** 实际迁移编号/注册、领域版本、测试命令和差异；不得以仅SQLite通过宣称双provider完成。
 
-- 进入前检查 HTTPS、安全上下文、浏览器版本、WSS、网络策略和功能开关。
-- 共享必须由清晰的“选择共享内容”按钮触发 `getDisplayMedia({video:true,audio:false})`。
-- 页面明确展示共享屏幕/窗口/标签类型、观看者名单、连接路径 direct/relay、共享中指示器和“停止共享”。
-- 浏览器拒绝、系统取消、轨结束、断线、TURN 不可用、会话过期、权限撤销分别显示稳定状态，不自动重复弹出授权。
-- 1～3 观看者布局优先保证主画面文字可读，不自动生成视频会议网格。
-- 页面不提供下载、录制、截图或远程控制入口。
+**提交策略：** 内部连续执行、整包交付；执行者不暂存/提交/推送，保留修改供总控按仓库协议集成。
 
-## 8.4 宿主适配与终端边界
+## TASK-PF06-003 屏幕邀请、选定端点与公开业务契约
 
-平台继续聊天卡片→独立路由/安全新窗口；外部 MES 复用 PF-05 的可信身份、目录、必要持久审计与导航适配。协助可以 Disabled/Unsupported/Degraded，不影响正常聊天；不建设另一套“仅远程协助”产品。非聊天来源及可空来源关联仅为未来扩展点。跨域 iframe 不是默认捕获生产路径。
+**状态：** 待派遣；未执行；技术/生产门禁见规格§10。
 
-当前三端交付 Web，捕获实现集中在 Web 适配，Session/Grant 与捕获 API 解耦。Electron 捕获、托盘、原生生命周期和 Capacitor 安装包验收属于 PF-06A，不加入 001/008 的前置。
+**目标：** 完整实现屏幕双向邀请及同一对端点授权状态。
 
-## 8.5 安全响应头与可访问性
+**输入文档：** 本文§1～12与执行规格§1.2、3、4。
 
-- CSP 使用显式 `default-src/script-src/connect-src/frame-src` allowlist；生产不允许任意 `*`、`unsafe-eval` 或不受控外域。
-- CORS 与 WebSocket Origin 只允许平台及批准的独立域名；Cookie 场景使用严格 SameSite/Secure/HttpOnly 和 CSRF Token，Bearer/票据仍防止跨 Origin 滥用。
-- `Permissions-Policy: display-capture=(self)`；若未来 iframe 必须单独安全评审并显式 allow，不作为本阶段默认。
-- 键盘、焦点、ARIA live、对比度、200% 缩放、PDA 48px/Mobile 44px 触控和减少动态效果纳入验收。
+**依赖：** 002存储；真实身份接口签名可用，005补真实适配前仅允许测试环境。
 
----
+**允许修改范围：** Collaboration Application/Contracts/Api的RemoteAssistance、已有CollaborationHub、DI与合同测试。
 
-# 9. 安全、审计与可观测性
+**预期输出：** 1）实现Invite/Respond/EndScreenShare及两种状态查询。2）实现MediaContext与连接反向索引、首次接听选端及绑定幂等，绝不用户组发信令。3）按顺序查认证主体、聊天双方、角色权限和期限。4）实现统一结果/错误、状态事件、重复请求与过期卡片返回。5）定义公共参与端权限/Audit端口合同与替身测试，不重新定义聊天/身份模型。
 
-## 9.1 安全控制
+**验证与证据：** A01～A04；两种方向角色正确；跨tenant/C猜ID/其他标签页/过期版本被拒；拒绝和取消不采集媒体。
 
-- 会话级最小权限、显式白名单和服务端角色校验；客户端 UI 不能构成授权。
-- JoinTicket 单次、短期、绑定、哈希保存、原子消费、撤销和重放告警。
-- EngineAccess 与 TURN 临时凭据最小寿命；长期 TURN secret 只在服务端 Secret Provider。
-- ICE 策略可配置 `all/relay`；强制 relay 环境不能悄悄回退 direct。
-- 限制邀请、接受、票据兑换、信令消息、ICE candidate 和心跳速率；异常关闭连接并审计。
-- 业务后端不解码、录制、截帧或存储媒体；TURN 可按批准路径中继。强制 relay 不得回退 direct；不承诺阻止观看者用其他软件或设备记录屏幕。
-- Screego PoC 固定镜像 digest/版本、独立网络和域名；不得使用默认 Secret，不向公网开放未认证房间。
+**结果回写：** 已实现方法/DTO/事件与规格逐项对应，替身与真实接入缺项分开记录。
 
-## 9.2 审计
+**提交策略：** 内部连续执行、整包交付；执行者不暂存/提交/推送，保留修改供总控按仓库协议集成。
 
-必须审计：创建/接受/拒绝/撤销/过期、参与人增删、票据签发/消费/重放、连接/断线/恢复、开始/停止共享、direct/relay 类别、强制终止、策略/配置变更和诊断访问。
+## TASK-PF06-004 共用媒体控制器、信令与逐项清理
 
-审计禁止：画面、音频、SDP、ICE candidate、TURN 密码、JoinTicket、EngineAccess、Authorization、Cookie、完整 IP/User-Agent、屏幕标题和窗口内容。共享范围只记录 `monitor/window/browser` 类别；IP、终端和 User-Agent 按批准的散列/粗粒度策略处理。
+**状态：** 待派遣；未执行；技术/生产门禁见规格§10。
 
-## 9.3 指标和健康
+**目标：** 先以屏幕生产用例落地最终三槽和共用协商，保留独立语音接入口。
 
-指标至少包括：邀请/接受/拒绝/过期、建连成功率与 P50/P95、direct/relay 比例、ICE 失败类别、重连、活跃会话/观看者、共享端码率/RTT/丢包聚合、TURN 入出带宽、信令连接/消息拒绝、票据重放、Outbox/Inbox 积压和初始化版本。
+**输入文档：** 本文§1～12与执行规格§3.3、4～5、6.1。
 
-健康分层：liveness 不探测下游；module readiness 检查初始化、必要数据库和信令；TURN、Audit、Messaging、Identity 分别报告依赖状态。Platform Health 只消费脱敏摘要、错误码、TraceId 和时间，不获取参与人名单或网络细节。
+**依赖：** 003；009证明目标浏览器的共用协商与停止可行。
 
----
+**允许修改范围：** Collaboration媒体Context/Hub信令、前端media store/composable、api/collaborationHub.ts及生命周期测试。
 
-# 10. PoC 与现场验证决策门禁
+**预期输出：** 1）实现BindMedia/SignalMedia/Ready/KeepAlive/StopReport/EndAll公共路径。2）Low创建首三槽、High映射；实现Perfect Negotiation、逐Context序号/Revision、早到ICE有界队列。3）建立单一客户端媒体控制器与逐能力generation、确认deadline及终态优先。4）逐项detach/stop/解绑播放器，捕获迟到即释放；仅全部结束才close。5）处理新增失败回滚、共同传输失败、Hub重连/exp与浏览器stop；不得stop普通聊天Hub。
 
-## 10.1 PoC A：未修改 Screego 基准
+**验证与证据：** A05～A07/V08/V10；旧SDP/Ready不能复活媒体，重复stop幂等；真实采集证明释放，mock验证await竞态，屏幕/音频样本验证不重建PC。
 
-- 固定官方版本/镜像 digest，记录配置、许可证、SBOM/漏洞扫描和部署拓扑。
-- 使用独立 HTTPS/WSS 域名，验证内置与外部 TURN、1～3 观看者、1080p 文字和 30 分钟稳定性。
-- 证明其静态用户/Cookie 认证和房间授权与平台 Identity/白名单的差距；不得以 `AUTH_MODE=none` 结果证明生产安全可用。
-- 不修改源码；若验证必须修改，立即停止并登记为 fork 路线许可决策输入。
+**结果回写：** 协商和状态轨迹的脱敏摘要、资源清理计数、媒体停止证据；仅记录合法元数据。
 
-## 10.2 PoC B：平台原生最小信令
+**提交策略：** 内部连续执行、整包交付；执行者不暂存/提交/推送，保留修改供总控按仓库协议集成。
 
-- 只实现临时验证用的会话白名单、单次票据、Offer/Answer/ICE 转发和外部 TURN；不提前实现完整业务模块。
-- 与 PoC A 使用同一浏览器、终端、网络、分辨率、观看人数和观测方法。
-- 验证信令可替换性、票据/白名单安全和资源曲线，不将 PoC 代码直接视为生产完成代码。
+## TASK-PF06-005 真实参与端权限、权限种子与可靠审计
 
-## 10.3 验证矩阵
+**状态：** 待派遣；未执行；技术/生产门禁见规格§10。
 
-| 维度 | 场景 | 必须记录 |
-| --- | --- | --- |
-| 网络 | 同网段、跨 VLAN、无互联网 | 候选类别、建连耗时、实际路径、失败原因 |
-| 受限 | UDP 禁止、仅 TCP/TLS、强制 TURN | relay 证明、端口/代理/防火墙证据 |
-| 浏览器 | 受管 Edge/Chrome 当前现场版本 | 屏幕/窗口/标签、权限、停止、重授权 |
-| 质量 | 1080p 文字，1/2/3 观看者 | 可读性截图、帧率、码率、RTT、丢包 |
-| 稳定 | 连续 30 分钟、网络短断 | 断流、恢复、内存增长、异常 |
-| 资源 | PC 共享、PDA/Mobile 观看 | CPU、内存、共享端上行、终端发热/耗电摘要 |
-| TURN | direct 与 relay | 服务端入/出带宽、并发容量和告警阈值 |
-| 安全 | 非白名单、错用户、过期、重复兑换、Origin 伪造 | 全部拒绝、稳定错误、脱敏审计 |
-| 故障 | Signaling/TURN/Audit/SystemData 故障 | fail-open/closed、功能开关和聊天可用性 |
+**目标：** 补齐已发现的公共适配缺口，不把现有Outbox误当已支持新事件。
 
-## 10.4 决策规则
+**输入文档：** 本文§1～12与执行规格§1.2、3.1、7。
 
-- 原生 PoC 满足安全、1080p、30 分钟、1～3 观看者和目标网络门禁：采用平台原生信令 + 独立 TURN。
-- 原生 PoC 不满足而未修改 Screego 明显满足：暂停后续任务，提交 Screego 独立适配或 fork 的许可、安全、维护和交付评审，不自动采用。
-- 两者均不满足：功能开关保持关闭，记录网络/浏览器/容量阻塞，不阻塞 Collaboration。
-- 实验环境的关键网络、许可、证书或浏览器证据缺失时不能冻结生产路线；具体客户证据缺失保持该现场待验收，不把实验室通过宣传为该客户上线完成。
+**依赖：** 003/004端口与用例已定，002迁移可靠事实可用。
 
----
+**允许修改范围：** 现有Collaboration公开适配/Outbox/DI；Identity PermissionCatalog、BootstrapSeedCatalog必要增量和其测试；不改跨模块仓储。
 
-# 11. 自动化测试与阶段验收设计
+**预期输出：** 1）新增三Action及既有seed升级，读取当前版本后追加不覆盖别的PF。2）用保存的双方受认证sid/ver/exp经公开IPermissionEvaluator校验，不能以A的HttpContext验证B。3）已有Outbox新增PF06事件处理分支及WriteFactAsync映射，稳定EventId和原OccurredOn。4）系统动作ActorUserNId=null，用户动作可信本人；投影安全状态并幂等重投。5）验证中央审计不可用时终止事务/本地清理/直达端点仍执行，恢复后事实补齐。
 
-## 11.1 测试层次
+**验证与证据：** A04/V11；真实sid撤销、ver变化/exp到期/单能力撤权；重投不重复事实、不改原时间；日志无SDP/ICE/Secret；背景投递不依赖原HTTP主体。
 
-- Domain：会话/邀请/授权/票据状态机、人数、并发、过期和终态不变量。
-- Application：同租户、Identity 有效性、Messaging 成员、权限、幂等、Outbox 和失败策略。
-- Infrastructure：PostgreSQL/SQLite、双账本、数据库原子票据消费、SignalR/WSS、TURN 凭据、防腐层。
-- API/Contract/Event：OpenAPI、CardV1、事件版本、错误码、Origin/CORS/CSRF/CSP 和敏感字段扫描。
-- Frontend：三端状态、浏览器拒绝/停止、旧卡片降级、安全新窗口和可访问性。
-- E2E：邀请→接受→主动授权→共享→1～3 观看→断线恢复→终止；非白名单和重放负例。
-- 环境：矩阵第 10.3 节与容量/故障注入。
+**结果回写：** 公开适配签名、seed版本/checksum、Outbox故障与恢复证据；Distributed路径保持未验证。
 
-## 11.2 初始化门禁
+**提交策略：** 内部连续执行、整包交付；执行者不暂存/提交/推送，保留修改供总控按仓库协议集成。
 
-覆盖首次初始化、重复 apply、并发副本、迁移/种子升级、checksum drift、部分失败、生产 Advanced 适用时未审批/未备份拒绝、EnvironmentSample 环境拒绝、Shared 多 ModuleKey 隔离、管理员维护策略不被覆盖、控制面失联而本地事实有效仍 Ready；本地事实无效 NotReady 和 SQLite/PostgreSQL 等价语义。本模块不声明 SecretBootstrap，并验证 TURN/TLS Secret 不进入 SystemData。
+## TASK-PF06-006 唯一媒体宿主与聊天屏幕交互
 
-## 11.3 安全门禁
+**状态：** 待派遣；未执行；技术/生产门禁见规格§10。
 
-- 非参与人、跨租户、已禁用用户、被撤销用户、错角色和会话终态全部拒绝。
-- JoinTicket 过期、重复、并发兑换、上下文替换和日志泄漏扫描通过。
-- WebSocket Origin、CORS、CSRF、CSP、Permissions Policy 和新窗口 opener 隔离通过。
-- 日志、Trace、审计、事件、错误和指标中无票据、凭据、SDP/ICE、画面、完整 IP/User-Agent。
-- 强制 TURN 不产生 host/srflx 媒体路径；TURN 不可用时失败关闭。
+**目标：** 在现有聊天与快捷容器实现W06-01，避免组件销毁误断媒体。
 
-## 11.4 新增授权与恢复场景
+**输入文档：** 本文§1～12与执行规格§6、8.2 A10。
 
-| 场景 | 预期与任务 |
-| --- | --- |
-| 第 2/3 人邀请、单人拒绝、最后一人离开 | 每人独立卡片/授权，无原聊天历史泄露；003/005/006/008 |
-| Viewer leave、Sharer stop、管理员 terminate | 各自权限及作用范围准确；003/006/008 |
-| 接受/签发/兑换响应丢失、并发兑换、补发 | 数据库唯一消费权威，旧 epoch/票据/租约失效，不返回不可恢复的原票据；003/004/008 |
-| 撤权、断开信令、租约到期 | 真实媒体停止而非仅状态码；001/004/007/008 |
-| 强制 relay、TURN 故障 | 无 direct 回退；不能以凭据到期冒充断流；001/004/008 |
-| 嵌入/新窗口/不支持浏览器/服务故障 | 宿主身份和 Origin 校验，Web 捕获显式授权，正常聊天继续；005/006/008 |
+**依赖：** 004控制器与005真实授权；010稍后接完整语音条。
 
-## 11.5 验收证据格式
+**允许修改范围：** App.vue唯一认证媒体host、CollaborationChat/QuickDrawer、ScreenSharePanel、媒体store、api订阅、locale及相关测试。
 
-每项记录命令/操作步骤、退出码、通过/失败/跳过数量、报告/截图/抓包或指标路径、浏览器与 OS 版本、网络拓扑、候选类型、资源曲线、外部限制和 TraceId。历史证据与本轮新鲜证据分开。现场截图必须避免业务敏感内容。
+**预期输出：** 1）App RouterView外挂唯一host；chat/drawer只订阅和发动作。2）工具栏共享两入口、邀请卡及Accepted后共享者选屏按钮，gDM在本次手势同步发起。3）提供等比/原始尺寸/全屏和明确分项结束；常驻条可返回媒体聊天。4）切换路由/面板重绑展示、不重复捕获或创建PC；认证主体切换才disposeAll。5）完成三端支持探测、可访问性、主题与语言；预留独立音频容器不与video绑定。
 
----
+**验证与证据：** A01/A02/A07/A10；PC1440/PDA360/Mobile390实际页面；文本/附件/草稿/未读/聊天重连回归；unsupported入口有原因。
 
-# 12. 开发任务依赖
+**结果回写：** W06-01实际页面及操作证据、单宿主/订阅释放检查；不新建管理页或会议路由。
 
-```text
-TASK-PF06-001 双 PoC/网络/许可门禁
-    ↓ 用户确认生产路线并批准继续
-TASK-PF06-002 模块骨架/初始化/领域
-    ↓
-TASK-PF06-003 API/票据/事务/Outbox
-    ├── TASK-PF06-004 引擎适配/信令/TURN
-    └── TASK-PF06-005 Messaging/Identity/Audit/Health 契约适配
-                ↓
-TASK-PF06-006 PC/PDA/Mobile 页面
-                ↓
-TASK-PF06-007 安全/部署/运维/升级回滚
-                ↓
-TASK-PF06-008 全矩阵与阶段验收
-```
+**提交策略：** 内部连续执行、整包交付；执行者不暂存/提交/推送，保留修改供总控按仓库协议集成。
 
-`TASK-PF06-001` 失败或证据不足时，002～008保持“待派遣 / 待前置核验”，在依赖中记录门禁未满足。任何任务都不得修改 PF-00、PF-02/SystemData、PF-04/05 模块内部实现；跨模块差异先由总控回写规格，再通过公开契约实现。
+## TASK-PF06-007 TURN配置与运行边界
 
----
+**状态：** 待派遣；未执行；技术/生产门禁见规格§10。
 
-# 13. 开发任务拆分
+**目标：** 使目标路径可复现，开关和超时具有明确运维语义。
 
-## TASK-PF06-001 完成双 PoC、现场网络与许可决策门禁
+**输入文档：** 本文§1～12与执行规格§1.3、5.3、7、8。
 
-**状态：** 待派遣；设计就绪度：待前置核验（见细化规格§5 G06-1～2），未实施
+**依赖：** 004/005；批准目标网络与secret引用已填实。
 
-**目标：** 在同一验证矩阵中比较未修改 Screego 与平台原生最小信令，形成带现场网络、画质、资源、安全和 GPL 交付证据的生产路线决策。
+**允许修改范围：** 现有Collaboration配置绑定/验证、无秘密配置样例、批准实验的coturn配置说明与相关测试。
 
-**输入文档：** 本文第 2.3、4.3、9、10、11.5 节；Screego 官方仓库/配置/auth/LICENSE；W3C Screen Capture/WebRTC；[派遣前细化规格](details/PF06-数据接口与页面规格.md) §5 G06-1及主文§10 PoC、§5本任务行；共同规则§2～6。
+**预期输出：** 1）实现集中配置验证和两个默认false开关，关单项只停单项。2）短期TURN凭据仅绑定端获取，服务端Secret引用不入库/URL/日志。3）验证All/direct、RelayOnly、UDP受限TURN TCP/TLS；RelayOnly失败不得direct回退。4）记录端口/证书/网络路径和单实例重启行为；配置值不能替代媒体停止。5）记录未覆盖现场支持限制，不擅自安装、改防火墙或重启用户服务。
 
-**依赖：** 内部 HTTPS/WSS、可信证书、可控 VLAN/防火墙/代理、目标 Edge/Chrome、TURN 测试主机；不依赖 PF-05 业务实现完成。
+**验证与证据：** A06/A09/V12；真实候选类别与失败路径、错误提示、聊天连续；TURN凭据过期不能单独判断流。
 
-**允许修改范围：** 独立 PoC、部署样例、验证脚本和证据目录；禁止修改/合并 Screego 源码，禁止改业务生产代码、CLAUDE.md、PF-00、PF-02/SystemData 和 PF-05。
+**结果回写：** 可部署配置清单、目标环境版本/路径和结果；秘密留批准的秘密存储，evidence只引用。
 
-**预期输出：** 两套可重复 PoC、固定版本/digest/SBOM/配置清单、网络/浏览器/质量/资源/安全矩阵、GPL 交付边界、采用/暂停/放弃决策报告；按细化规格§5本任务行逐步交付，不在编码中重新决定字段/路由/布局。
+**提交策略：** 内部连续执行、整包交付；执行者不暂存/提交/推送，保留修改供总控按仓库协议集成。
 
-**验证与证据：** 第 10.3、10.4 与 11.5 节；1080p 文字、30 分钟、1～3 观看者、direct/relay、UDP 受限、无互联网、重放/非白名单、CPU/内存/上行/TURN 带宽全部有新鲜证据。 另覆盖细化规格§5本任务断言；涉及页面先按已画线框实现，再走真实菜单/局部加载/重复提交/中英主题验收。
+## TASK-PF06-008 屏幕基线验收
 
-**结果回写：** 本文引擎路线、配置、端口、容量、已知限制、任务 002～008 状态、执行记录和总 Todo PF-06；失败时明确功能开关关闭且不阻塞 Collaboration。
+**状态：** 待派遣；未执行；技术/生产门禁见规格§10。
 
-**提交策略：** 阶段整体交付；以下为未来主题建议，不逐卡提交： `docs(pf-06): record remote assistance poc decision`
+**目标：** 确认屏幕闭环、真实停止与Screego质量基线。
 
-## TASK-PF06-002 建立独立模块、初始化单元与领域模型
+**输入文档：** 本文§1～12与执行规格§8 A01～A11、§10。
 
-**状态：** 待派遣；设计就绪度：待前置核验（见细化规格§5 G06-1～2），未实施
+**依赖：** 002～007稳定快照；001实际基线。不是语音整包最终完成。
 
-**目标：** 在已实现 Collaboration.Service 中创建独立 RemoteAssistance 四层模块、Schema/前缀、已核对的双账本/Manifest/SeedSets、领域聚合和 readiness。
+**允许修改范围：** PF06测试/evidence及范围内缺陷修复；稳定后再交验，不修改蓝图。
 
-**输入文档：** 本文第 1～6、11.2 节；TASK-PF06-001 已批准路线；PF-05 与 SystemData 真实稳定契约；[派遣前细化规格](details/PF06-数据接口与页面规格.md) §1/2全表、§5本任务行；共同规则§2～6。
+**预期输出：** 1）列本轮源码/工作树/浏览器/配置标识。2）跑新鲜构建与相关自动化，逐项执行A01～A11。3）真实两端复验动态停止、迟到捕获、仅控制通道丢失、TURN、30分钟质量。4）记录源码测试与真实设备证据的区别，修复后只复验受影响路径及必要回归。5）形成屏幕基线结论，保留语音011待验状态。
 
-**依赖：** TASK-PF06-001 通过；PF-05 宿主和 SystemData 初始化通用链已验收。
+**验证与证据：** A01～A11每项PASS/FAIL/MISSING；错误和跳过不折算PASS；停止必须有独立接收端证据。
 
-**允许修改范围：** Collaboration.Service RemoteAssistance 模块、所属迁移/初始化和独立测试；禁止修改 SystemData、Messaging/Presence Repository、Identity/File/Audit 内部实现。
+**结果回写：** PF06 evidence的008结论和支持矩阵，不能提前关闭整个PF06。
 
-**预期输出：** Domain/Application/Contracts/Infrastructure、六类核心表、migration/seed 双账本、SystemBaseline、健康与架构边界测试；按细化规格§5本任务行逐步交付，不在编码中重新决定字段/路由/布局。
+**提交策略：** 内部连续执行、整包交付；执行者不暂存/提交/推送，保留修改供总控按仓库协议集成。
 
-**验证与证据：** 状态机/不变量、PostgreSQL/SQLite、初始化十三项门禁、ModuleKey/表前缀隔离、禁止跨模块引用和 本地事实失效局部 NotReady，控制面暂不可达不误停机。 另覆盖细化规格§5本任务断言；涉及页面先按已画线框实现，再走真实菜单/局部加载/重复提交/中英主题验收。
+## TASK-PF06-009 共用连接与独立语音前置验证
 
-**结果回写：** 实际目录、表/索引、manifest/seed 版本、OperationId、readiness、偏差和执行记录。
+**状态：** 待派遣；未执行；技术/生产门禁见规格§10。
 
-**提交策略：** 阶段整体交付；以下为未来主题建议，不逐卡提交： `feat(remote-assistance): add module domain and initialization`
+**目标：** 在生产模型落地前验证一条连接承载独立能力的关键风险。
 
-## TASK-PF06-003 实现会话、邀请、白名单、票据和可靠事务
+**输入文档：** 本文§1～12与执行规格§2.5、3～6、8.1～8.3。
 
-**状态：** 待派遣；设计就绪度：待前置核验（见细化规格§5 G06-1～2），未实施
+**依赖：** 与001同一已填实实验环境；排在002前，不等待008。
 
-**目标：** 实现 Session/Invitation/ParticipantGrant/JoinTicket/EngineLease 用例、单次兑换、超时/终止、Outbox/Inbox 和稳定错误。
+**允许修改范围：** 001最小样本、非秘密配置与PF06 evidence；不提前扩展生产会议功能。
 
-**输入文档：** 本文第 3、5～7、9 节；[派遣前细化规格](details/PF06-数据接口与页面规格.md) §2.1～2.5/§3 A06-01～10、§5本任务行；共同规则§2～6。
+**预期输出：** 1）增加双向麦克风采集/远端独立audio，优先Opus并记录实际设置。2）纯语音、先语音后屏幕、反向顺序都用同一个PC。3）模拟双方同时Offer/add/stop，验证固定初始槽和Perfect Negotiation。4）分别结束/EndAll、授权拒绝、选屏迟到、静音与播放恢复；观察原能力继续。5）真实TURN与30分钟组合，验证屏幕质量无默认放宽；问题给出复现与最小修订建议。
 
-**依赖：** TASK-PF06-002；Identity 与 Messaging 稳定查询/命令端口。
+**验证与证据：** V02～V09关键媒体路径；固定模型在目标浏览器可运行；停止视频时audio继续、结束voice时video继续的分轨证据。
 
-**允许修改范围：** RemoteAssistance Domain/Application/Contracts/Infrastructure 和所属测试；禁止直读跨模块表或保存媒体/Secret。
+**结果回写：** PF06 evidence的009结论，主控依实际证据更新G06-3；不再留下“生产字段以后再设计”。
 
-**预期输出：** REST 用例、原子票据消费、幂等/并发、计时过期、可靠事件/Audit Outbox、权限与错误码；按细化规格§5本任务行逐步交付，不在编码中重新决定字段/路由/布局。
+**提交策略：** 内部连续执行、整包交付；执行者不暂存/提交/推送，保留修改供总控按仓库协议集成。
 
-**验证与证据：** 同租户/白名单/人数、并发创建、重复接受、票据过期/重放/上下文替换、撤销/会话终态、Outbox 重投和敏感数据扫描。 补齐第 5.6、8.4、11.4 节所列本任务场景；001/008 不含原生打包验收。 另覆盖细化规格§5本任务断言；涉及页面先按已画线框实现，再走真实菜单/局部加载/重复提交/中英主题验收。
+## TASK-PF06-010 独立一对一语音业务与聊天集成
 
-**结果回写：** DTO/API/事件/权限/错误、状态转换、TTL、哈希与并发策略、执行记录。
+**状态：** 待派遣；未执行；技术/生产门禁见规格§10。
 
-**提交策略：** 阶段整体交付；以下为未来主题建议，不逐卡提交： `feat(remote-assistance): add secure session lifecycle`
+**目标：** 使用已完成的最终公共连接和存储，补全语音呼叫体验。
 
-## TASK-PF06-004 实现引擎适配、信令与 TURN 策略
+**输入文档：** 本文§1～12与执行规格§2.3～2.4、3～6、8 V01～V07。
 
-**状态：** 待派遣；设计就绪度：待前置核验（见细化规格§5 G06-1～2），未实施
+**依赖：** 009前置验证已通过；002～007公共实现、008屏幕基线稳定。
 
-**目标：** 按 TASK-PF06-001 已批准路线实现可替换 EngineAdapter、授权信令、ICE/TURN 配置、断线恢复和故障降级。
+**允许修改范围：** Collaboration RemoteAssistance语音用例/Hub、VoiceCallBar、媒体host/store、chat工具栏、locale、合同/组件/生命周期测试。
 
-**输入文档：** 本文第 2.3、4、5.5、7.2、9、10 节及 PoC 决策报告；[派遣前细化规格](details/PF06-数据接口与页面规格.md) §3媒体授权/状态迁移、§5本任务行；共同规则§2～6。
+**预期输出：** 1）实现Invite/Respond/EndVoiceCall、SetVoiceMuted与事件；slot事务让双方跨角色忙线。2）多端只有获选端接麦克风/SDP，其他端停止响铃；互拨冲突显示现有来电，不自动接听。3）明确发起/接听操作授权，实际Accept/Bind后才attach音轨。4）通话时长、静音、挂断、音频播放恢复；UI收屏不销毁audio。5）两种加入顺序、拒绝/无设备/协商失败保持原能力；结束voice释放双方麦克风，屏幕保持。
 
-**依赖：** TASK-PF06-003；目标 TURN、证书、DNS、代理和防火墙策略可用。
+**验证与证据：** V01～V07及A10回归；通话两端音频、三种结束按钮、跨设备竞态、播放受阻恢复；禁止以screen audio:true实现语音。
 
-**允许修改范围：** RemoteAssistance Engine/Signaling Infrastructure、独立辅助部署清单和所属测试；禁止把 Screego 源码并入闭源模块，禁止记录 SDP/ICE 正文。
+**结果回写：** 完整语音方法/UI映射及验证；不另建连接/信令服务，不改002字段来掩盖设计冲突。
 
-**预期输出：** EngineAdapter、SignalR/WSS 契约、临时 EngineAccess/ICE 凭据、direct/relay/forced-relay、恢复/终止、辅助单元健康和版本固定；按细化规格§5本任务行逐步交付，不在编码中重新决定字段/路由/布局。
+**提交策略：** 内部连续执行、整包交付；执行者不暂存/提交/推送，保留修改供总控按仓库协议集成。
 
-**验证与证据：** 消息授权/顺序/限流、未知版本、TURN UDP/TCP/TLS、强制 relay、代理/WSS、断线恢复、Secret/日志扫描和故障注入。 补齐第 5.6、8.4、11.4 节所列本任务场景；001/008 不含原生打包验收。 另覆盖细化规格§5本任务断言；涉及页面先按已画线框实现，再走真实菜单/局部加载/重复提交/中英主题验收。
+## TASK-PF06-011 组合质量、真实停止与最终独立验收
 
-**结果回写：** 引擎版本、端口、Origin、ICE 策略、超时、容量、升级兼容和执行记录。
+**状态：** 待派遣；未执行；技术/生产门禁见规格§10。
 
-**提交策略：** 阶段整体交付；以下为未来主题建议，不逐卡提交： `feat(remote-assistance): add signaling and turn adapter`
+**目标：** 形成PF06范围内可追溯的最终功能支持声明。
 
-## TASK-PF06-005 实现已定 Messaging、Identity、Audit 与 Health 公开适配
+**输入文档：** 本文§1～12与执行规格§8全部、§10及本文件§14。
 
-**状态：** 待派遣；设计就绪度：待前置核验（见细化规格§5 G06-1～2），未实施
+**依赖：** 010与全部范围内修复完成，独立验收者获得稳定快照。
 
-**目标：** 以真实稳定契约完成聊天卡片、会话成员、用户有效性/撤销、审计 Outbox 和 Platform Health 脱敏摘要适配。
+**允许修改范围：** PF06验收/evidence、总控分配的范围内修复；验收期间不与开发并写共享源码。
 
-**输入文档：** 本文第 2、3、4.4、7.3、9 节；PF-00/04/05 实际已验收契约；[派遣前细化规格](details/PF06-数据接口与页面规格.md) §2.7/§3公开集成、§5本任务行；共同规则§2～6。
+**预期输出：** 1）核对源码标识、全部构建/测试结果和未运行项。2）执行A/V完整矩阵，重点V08～V12并发、旧EndAll、审计故障、重启/过期/冻结恢复。3）真实两端跑组合30分钟与direct/TURN/弱网，复验屏幕对照、声音质量、分别停止。4）缺陷交开发定点修复后稳定复验；不自行改指标。5）给出能力×浏览器×网络支持矩阵、尚未验证项、最终验收意见供总控集成。
 
-**依赖：** TASK-PF06-003；PF-04 Audit 与 PF-05 Messaging/Presence 相关契约稳定。
+**验证与证据：** 所有范围内必测项有新鲜结果；真实停止及质量无以mock代验；共同网络失效影响两者须明确而非伪称完全隔离。
 
-**允许修改范围：** RemoteAssistance adapters/contracts、必要的跨模块公开 Contracts 增量及契约测试；禁止读取/修改相邻模块 Repository/表，禁止用 Presence 授权。
+**结果回写：** PF06唯一evidence最终索引，主控更新状态/提交；待现场项与已通过实验室项分开。
 
-**预期输出：** CardV1 与旧客户端降级、Identity 目录/状态适配、Messaging 命令/事件、AuditFact 投影、Health 摘要和 Inbox 幂等；按细化规格§5本任务行逐步交付，不在编码中重新决定字段/路由/布局。
-
-**验证与证据：** 契约快照、旧/未知版本、跨租户/停用/撤销、Presence 伪造不授权、Audit 不可用策略、重复/乱序事件和架构测试。 补齐第 5.6、8.4、11.4 节所列本任务场景；001/008 不含原生打包验收。 另覆盖细化规格§5本任务断言；涉及页面先按已画线框实现，再走真实菜单/局部加载/重复提交/中英主题验收。
-
-**结果回写：** 最终公开契约版本、责任矩阵、降级、兼容窗口、偏差和执行记录。
-
-**提交策略：** 阶段整体交付；以下为未来主题建议，不逐卡提交： `feat(remote-assistance): integrate platform contracts`
-
-## TASK-PF06-006 实现 PC/PDA/Mobile 邀请与独立页面
-
-**状态：** 待派遣；设计就绪度：待前置核验（见细化规格§5 G06-1～2），未实施
-
-**目标：** 实现聊天发起、CardV1、平台独立路由/安全新窗口、PC 共享和三端观看的完整安全交互。
-
-**输入文档：** 本文第 3、7、8、11 节；PF-01 主题/外壳与 PF-05 页面真实实现；[派遣前细化规格](details/PF06-数据接口与页面规格.md) §4 W06-01～02、§5本任务行；共同规则§2～6。
-
-**依赖：** TASK-PF06-003～005。
-
-**允许修改范围：** 前端 remote-assistance 模块、PF-05 公开扩展点、路由和所属 unit/component/E2E；禁止实现录制、远控、无人值守或任意 iframe。
-
-**预期输出：** 三端路由、邀请/接受/拒绝、浏览器前置检查、主动捕获、观看者名单、连接/故障状态、安全新窗口、主题与可访问性；按细化规格§5本任务行逐步交付，不在编码中重新决定字段/路由/布局。
-
-**验证与证据：** Edge/Chrome、屏幕/窗口/标签、拒绝/停止/重授权、旧卡片、noopener、CSP/Origin、键盘/ARIA/缩放/触控、三主题明暗截图和关键 E2E。 补齐第 5.6、8.4、11.4 节所列本任务场景；001/008 不含原生打包验收。 另覆盖细化规格§5本任务断言；涉及页面先按已画线框实现，再走真实菜单/局部加载/重复提交/中英主题验收。
-
-**结果回写：** 路由、组件、状态矩阵、浏览器最低版本、视觉证据、限制和执行记录。
-
-**提交策略：** 阶段整体交付；以下为未来主题建议，不逐卡提交： `feat(frontend): add remote assistance experience`
-
-## TASK-PF06-007 完成安全、部署、可观测性与升级回滚
-
-**状态：** 待派遣；设计就绪度：待前置核验（见细化规格§5 G06-1～2），未实施
-
-**目标：** 固化 Secret/证书/Origin/代理/防火墙、指标告警、容量、版本升级、数据库回滚和辅助单元恢复手册。
-
-**输入文档：** 本文第 4、6、8.4、9～11 节和 PoC 证据；[派遣前细化规格](details/PF06-数据接口与页面规格.md) §2.6/§3安全、§5本任务行；共同规则§2～6。
-
-**依赖：** TASK-PF06-004～006。
-
-**允许修改范围：** RemoteAssistance 配置/部署/运维文档、辅助单元清单、监控告警和安全/恢复测试；禁止写入真实 Secret，禁止修改 SystemData 实现。
-
-**预期输出：** 环境配置矩阵、TLS/WSS/TURN 端口清单、Secret 轮换、容量/告警、Screego GPL 材料（如最终适用）、expand/contract、备份/恢复/回滚和功能开关 runbook；按细化规格§5本任务行逐步交付，不在编码中重新决定字段/路由/布局。
-
-**验证与证据：** 证书过期/轮换、错误 Origin、代理超时、TURN 宕机/耗尽、版本滚动升级、数据库回滚/恢复、日志脱敏和 Collaboration 不受阻塞。 补齐第 5.6、8.4、11.4 节所列本任务场景；001/008 不含原生打包验收。 另覆盖细化规格§5本任务断言；涉及页面先按已画线框实现，再走真实菜单/局部加载/重复提交/中英主题验收。
-
-**结果回写：** 配置键、Secret 引用、端口、阈值、升级/回滚步骤、许可交付清单和执行记录。
-
-**提交策略：** 阶段整体交付；以下为未来主题建议，不逐卡提交： `ops(remote-assistance): add secure deployment and recovery`
-
-## TASK-PF06-008 完成自动化、现场矩阵与阶段验收
-
-**状态：** 待派遣；设计就绪度：待前置核验（见细化规格§5 G06-1～2），未实施
-
-**目标：** 汇总平台与启用协助的外部嵌入契约、安全、三端 Web、网络、30 分钟、1～3 观看者、资源、故障和初始化证据，判定 PF-06 是否可启用。
-
-**输入文档：** 本文全部章节；TASK-PF06-001～007 执行记录；[派遣前细化规格](details/PF06-数据接口与页面规格.md) §5全部断言、§5本任务行；共同规则§2～6。
-
-**依赖：** TASK-PF06-002～007 完成；现场网络、终端、证书和监控环境可用。
-
-**允许修改范围：** RemoteAssistance 测试/证据、验收修复和本文/总 Todo/实施 README 精确回写；禁止扩大首期功能或改受保护并行文件。
-
-**预期输出：** 全层自动化、真实 Edge/Chrome 与现场网络矩阵、资源/带宽报告、安全报告、已知限制、功能开关结论和下一阶段稳定契约；按细化规格§5本任务行逐步交付，不在编码中重新决定字段/路由/布局。
-
-**验证与证据：** 第 10.3、11.1～11.5 节全部可核验；任何外部缺失项标记待验收，关键门禁失败时保持关闭且不伪报完成。 补齐第 5.6、8.4、11.4 节所列本任务场景；001/008 不含原生打包验收。 另覆盖细化规格§5本任务断言；涉及页面先按已画线框实现，再走真实菜单/局部加载/重复提交/中英主题验收。
-
-**结果回写：** 任务/阶段状态、提交与命令证据、版本/容量/限制、总 Todo、实施 README、PF-07 Health 输入契约。
-
-**提交策略：** 阶段整体交付；以下为未来主题建议，不逐卡提交： `test(remote-assistance): complete pf-06 acceptance`
-
----
+**提交策略：** 内部连续执行、整包交付；执行者不暂存/提交/推送，保留修改供总控按仓库协议集成。
 
 # 14. 完成标准
 
-- 双 PoC 和现场矩阵先于生产开发，生产路线由证据和用户确认冻结。
-- RemoteAssistance 在 Collaboration.Service 内保持独立四层、Schema/前缀、双账本、权限、迁移/种子和测试。
-- 一名共享者、1～3 名白名单观看者，会话/逐人邀请/授权/票据状态机和并发不变量通过；原聊天历史不外泄，响应丢失可恢复，撤权/租约到期有真实断流证据。
-- CardV1、REST、信令、事件、错误和兼容策略具备契约测试；旧客户端安全降级。
-- Edge/Chrome 的 1080p 文字、30 分钟、1～3 观看者、同网段/跨 VLAN/无互联网/UDP 受限/强制 TURN 全部有现场证据。
-- PC 共享、PDA/Mobile 观看、主动授权、安全新窗口、三主题/明暗、可访问性和错误状态通过。
-- JoinTicket、EngineAccess、TURN Secret、Origin/CORS/CSRF/CSP、重放、限流和脱敏门禁通过。
-- 无录屏、画面/音频/SDP/ICE 落盘，无远控、无人值守和默认音视频会议。
-- SystemData/RemoteAssistance/引擎/TURN 故障不会阻塞 Collaboration；关键门禁失败时功能开关关闭。
-- Screego 若进入最终交付，必须完成独立 GPL-3.0 法务/源码交付/升级维护评审；否则只保留未修改 PoC 证据。
-- 所有外部环境缺失项保持待验收，不伪报完成。
+在明确批准的设备/网络范围内，A/V必测项、Screego对照和真实停止证据满足；语音与屏幕独立授权/结束、可同时运行；普通聊天无回归；源码构建测试通过。实际缺少的网络/设备结果如实标注，不能把整个产品泛称全端支持。
 
----
+不得用“页面显示结束”“SDP已交换”“代码测试通过”代替媒体/质量验收。功能未验对应开关保持关闭。主控按稳定交付完成最终Release编译与集成，状态更新依据证据，不依据任务卡写完。
 
-# 15. 执行记录
+# 15. 本轮执行记录
 
-2026-09-07：V1.1 仅修订文档；001 仍待原授权下另行派遣，002～008 未解除 PoC/真实集成门禁。检查与需求映射见 `docs/evidence/2026-09-07-platform-roadmap-docs.md`。
+2026-09-10：仅只读核对当前代码与公开接口、重写V3执行规格/九字段TASK/待派遣输入并同步索引。未运行PoC、媒体或源码构建测试；未创建开发/验收任务，未修改生产代码、部署、暂存或提交。
 
-| 任务 | 状态 | 执行者/任务 | 提交 | 验证证据 | 结果回写 |
-| --- | --- | --- | --- | --- | --- |
-| TASK-PF06-001 | 待派遣（待前置核验） | - | - | - | - |
-| TASK-PF06-002 | 待派遣（待前置核验） | - | - | - | - |
-| TASK-PF06-003 | 待派遣（待前置核验） | - | - | - | - |
-| TASK-PF06-004 | 待派遣（待前置核验） | - | - | - | - |
-| TASK-PF06-005 | 待派遣（待前置核验） | - | - | - | - |
-| TASK-PF06-006 | 待派遣（待前置核验） | - | - | - | - |
-| TASK-PF06-007 | 待派遣（待前置核验） | - | - | - | - |
-| TASK-PF06-008 | 待派遣（待前置核验） | - | - | - | - |
+# 16. 参考与冲突处理
 
-截至 2026-08-14，只完成仓库/官方证据核对、推荐方向确认、详细设计和九字段任务卡。未开发、未派遣、未构建、未测试、未提交。工作树中的 CLAUDE.md、PF-00、PF-02/SystemData、PF-05 及其他并行改动均保持原状。
+技术细节依据和全部官方引用集中在执行规格末尾；当前需求可直接由这套文件执行，无需执行模型自行访问ChatGPT会话。派遣/工作线规则依[执行者协议](../agents/EXECUTOR.md)和[共同派遣标准](STANDARD-派遣前详细设计与页面验收.md)。
 
----
-
-# 16. 下一阶段输入契约
-
-PF-06A（实施 09A）先消费身份/退出、生命周期、文件操作、提醒/导航和捕获适配语义，重新验证原生容器；不把 Web 预留称为原生兼容完成。其后 PF-07 Platform Health 只能依赖：
-
-```text
-ModuleKey/readiness/OperationId
-RemoteAssistance 模块可用/降级/关闭状态
-Signaling/TURN 脱敏依赖摘要
-活跃会话数量和建连/失败/relay 聚合指标
-稳定错误码与 TraceId
-```
-
-Platform Health 不得获取参与人名单、原因、JoinTicket、EngineAccess、TURN 凭据、SDP/ICE、IP 明文或媒体内容。其他阶段不得从本文推断录屏、远控、无人值守、音视频会议或跨租户协助能力。
-
----
-
-# 17. 2026-08-14 历史文档自审记录（不作为当前实现验收）
-
-- [x] 目标文件创建前已确认不存在。
-- [x] 当前仓库、最新提交、工作树保护边界和真实未实现状态已记录。
-- [x] 蓝图 05/09/32/33、模板、PF-04/05、Identity 和 SystemData 最新输入已核对。
-- [x] Screego 官方仓库、配置、认证源码和 GPL-3.0 已核对，未把蓝图预设写成采用结论。
-- [x] 双 PoC/现场网络/许可先于领域开发，失败时功能开关关闭且不阻塞 Collaboration。
-- [x] 独立模块、Schema/前缀、ModuleKey、双账本、四类种子、readiness 和 Secret 边界完整。
-- [x] 会话、邀请、参与人、票据、信令、ICE/TURN、状态机、事务和 Outbox/Inbox 完整。
-- [x] Identity、Messaging/Presence、Audit、Health 只通过公开契约，无跨模块 Repository/表/外键。
-- [x] API/Hub/事件/权限/错误、三端页面、安全、审计、可观测性、部署、升级回滚和验收完整。
-- [x] 八张任务卡均且只使用九字段；任务依赖与执行记录一致。
-- [x] 无模糊占位表达。
-- [ ] 用户完成实施文档 09 全文最终审阅。
-- [ ] 如用户另行授权提交，仅精确暂存本任务文档并执行 `git diff --check`。
+发现当前代码签名漂移、设计与真实浏览器冲突时，执行者提交“准确位置＋复现/证据＋最小修订建议”给主控；其余不受影响工作继续。不自行扩大会议平台、替换技术路线或推迟必要停止验证。

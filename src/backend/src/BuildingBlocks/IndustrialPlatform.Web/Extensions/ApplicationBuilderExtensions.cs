@@ -1,4 +1,5 @@
 using IndustrialPlatform.Web.Middleware;
+using Microsoft.AspNetCore.Http;
 
 namespace Microsoft.AspNetCore.Builder;
 
@@ -17,6 +18,15 @@ public static class ApplicationBuilderExtensions
     {
         ArgumentNullException.ThrowIfNull(app);
 
+        // Internal PF05 endpoints validate the exact request body after MVC model binding.
+        // Buffer only requests carrying the service assertion so the validator can rewind
+        // the body without imposing a memory cost on ordinary API traffic.
+        app.Use(async (context, next) =>
+        {
+            if (context.Request.Headers.ContainsKey("X-Industrial-Service-Assertion"))
+                context.Request.EnableBuffering();
+            await next();
+        });
         app.UseMiddleware<RequestLoggingMiddleware>();
         app.UseMiddleware<ExceptionMiddleware>();
 

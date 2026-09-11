@@ -35,6 +35,12 @@ public sealed class RoutePrefixConvention : IApplicationModelConvention
                     continue;
                 }
 
+                if (attributeRoute.Template?.StartsWith("~/", StringComparison.Ordinal) == true)
+                {
+                    attributeRoute.Template = attributeRoute.Template[2..];
+                    continue;
+                }
+
                 attributeRoute.Template = string.IsNullOrWhiteSpace(attributeRoute.Template)
                     ? _prefix
                     : $"{_prefix}/{attributeRoute.Template.TrimStart('/')}";

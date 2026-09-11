@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Security.Cryptography;
 using IndustrialPlatform.Identity.Application.Bootstrap;
 using IndustrialPlatform.Identity.Domain.Passwords;
 using IndustrialPlatform.Identity.Infrastructure.Bootstrap;
@@ -84,6 +85,53 @@ public sealed class SchemaMigrationRunnerTests : IDisposable
             throw new InvalidOperationException("step failed");
         });
 
+    private async Task SeedLegacyIdentityDatabaseAsync(bool checksumColumnExists, string? description = null)
+    {
+        var step = IdentitySchemaMigrations.All.Single(step => step.Id == "ID-004-01");
+        await step.Apply(_dbContext.SqlSugar, CancellationToken.None);
+        await _dbContext.SqlSugar.Ado.ExecuteCommandAsync(
+            """
+            INSERT INTO identity_user
+              (id, is_frozen, is_locked, is_deleted, entity_type, created_on, last_updated_on,
+               optimistic_version, concurrency_version, tenant_n_id, n_id, normalized_n_id,
+               login_name, normalized_login_name, name, password_hash, email, phone, status,
+               failed_login_count, locked_until, auth_version, last_login_on, must_change_password)
+            VALUES
+              ('legacy-user', 0, 0, 0, 'legacy.identity.User', '2026-01-01T00:00:00Z',
+               '2026-01-01T00:00:00Z', 0, 'legacy-concurrency', 'development', 'legacy-user',
+               'LEGACY-USER', 'legacy', 'LEGACY', 'Legacy user', 'legacy-hash', NULL, NULL,
+               0, 0, NULL, 0, NULL, 0)
+            """);
+
+        var checksumColumn = checksumColumnExists ? ", checksum TEXT NULL" : string.Empty;
+        await _dbContext.SqlSugar.Ado.ExecuteCommandAsync($"""
+            CREATE TABLE identity_schema_migrations (
+                migration_id TEXT PRIMARY KEY NOT NULL,
+                description TEXT NOT NULL,
+                applied_on TEXT NOT NULL{checksumColumn}
+            )
+            """);
+
+        var appliedDescription = description ?? step.Description;
+        var columns = checksumColumnExists
+            ? "migration_id, description, applied_on, checksum"
+            : "migration_id, description, applied_on";
+        var values = checksumColumnExists
+            ? "@migrationId, @description, @appliedOn, NULL"
+            : "@migrationId, @description, @appliedOn";
+        await _dbContext.SqlSugar.Ado.ExecuteCommandAsync(
+            $"INSERT INTO identity_schema_migrations ({columns}) VALUES ({values})",
+            new SugarParameter[]
+            {
+                new SugarParameter("@migrationId", step.Id),
+                new SugarParameter("@description", appliedDescription),
+                new SugarParameter("@appliedOn", "2026-01-01T00:00:00Z"),
+            });
+    }
+
+    private static string Checksum(SchemaMigrationStep step) =>
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes($"{step.Id}|{step.Description}"))).ToLowerInvariant();
+
     /// <summary>
     /// 构造后台服务作用域:注册迁移运行器与后台服务依赖的目录种子运行器/配置,
     /// 使 ExecuteAsync 真实执行「迁移 + 目录种子」路径(TASK-ID-019)。
@@ -158,6 +206,33 @@ public sealed class SchemaMigrationRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task StepUpGrantExtension_DoesNotExecuteDuplicateAlterStatementsWhenColumnsAlreadyExist()
+    {
+        var createStep = IdentitySchemaMigrations.All.Single(step => step.Id == "ID-021-02");
+        var extensionStep = IdentitySchemaMigrations.All.Single(step => step.Id == "ID-021-03");
+        await createStep.Apply(_dbContext.SqlSugar, CancellationToken.None);
+
+        var executedSql = new List<string>();
+        _dbContext.SqlSugar.Aop.OnLogExecuting = (sql, _) => executedSql.Add(sql);
+
+        await extensionStep.Apply(_dbContext.SqlSugar, CancellationToken.None);
+
+        Assert.DoesNotContain(executedSql, sql => sql.Contains("ALTER TABLE pf05_step_up_grant", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task StepUpGrantExtension_RecreatesMissingBaseTableBeforeExtendingLegacySchema()
+    {
+        var extensionStep = IdentitySchemaMigrations.All.Single(step => step.Id == "ID-021-03");
+
+        await extensionStep.Apply(_dbContext.SqlSugar, CancellationToken.None);
+
+        Assert.True(await TableExistsAsync("pf05_step_up_grant"));
+        Assert.Equal(3, await _dbContext.SqlSugar.Ado.GetIntAsync(
+            "SELECT COUNT(*) FROM pragma_table_info('pf05_step_up_grant') WHERE name IN ('request_hash', 'consumed_by_service', 'consumed_receipt_n_id')"));
+    }
+
+    [Fact]
     public async Task ApplyPending_FailingStep_RollsBackItsOwnPartialWork_RetryReappliesOnlyFailedStep()
     {
         var runner = CreateRunner(
@@ -225,5 +300,63 @@ public sealed class SchemaMigrationRunnerTests : IDisposable
             NullLogger<SchemaMigrationBackgroundService>.Instance);
 
         await InvokeExecuteAsync(service, CancellationToken.None);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ApplyPending_LegacyLedgerMissingChecksum_BackfillsItAndPreservesBusinessData(bool checksumColumnExists)
+    {
+        var step = IdentitySchemaMigrations.All.Single(step => step.Id == "ID-004-01");
+        await SeedLegacyIdentityDatabaseAsync(checksumColumnExists);
+
+        await CreateRunner(step).ApplyPendingAsync();
+
+        Assert.Equal(
+            Checksum(step),
+            await _dbContext.SqlSugar.Ado.GetStringAsync(
+                "SELECT checksum FROM identity_schema_migrations WHERE migration_id = 'ID-004-01'"));
+        Assert.Equal(1, await _dbContext.SqlSugar.Ado.GetIntAsync(
+            "SELECT COUNT(*) FROM identity_user WHERE id = 'legacy-user'"));
+    }
+
+    [Fact]
+    public async Task ApplyPending_LegacyNullChecksumWithDescriptionDrift_IsRejectedWithoutBackfill()
+    {
+        var step = IdentitySchemaMigrations.All.Single(step => step.Id == "ID-004-01");
+        await SeedLegacyIdentityDatabaseAsync(checksumColumnExists: true, description: "changed description");
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => CreateRunner(step).ApplyPendingAsync());
+
+        Assert.Contains("description", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Null((await _dbContext.SqlSugar.Queryable<SchemaMigrationRecord>().SingleAsync()).Checksum);
+    }
+
+    [Theory]
+    [InlineData("shared")]
+    [InlineData("perservice")]
+    public async Task Full_sqlite_migration_matrix_is_idempotent_and_fails_closed_on_ledger_or_physical_drift(string topology)
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"industrial-platform-identity-{topology}-{Guid.NewGuid():N}.db");
+        using var context = new SqlSugarDbContext(Options.Create(new SqlSugarOptions { ConnectionString = $"Data Source={path}", DbType = DbType.Sqlite }));
+        var runner = new SchemaMigrationRunner(context, IdentitySchemaMigrations.All, NullLogger<SchemaMigrationRunner>.Instance);
+
+        await runner.ApplyPendingAsync();
+        await runner.ApplyPendingAsync();
+        Assert.Equal(IdentitySchemaMigrations.All.Count, await context.SqlSugar.Queryable<SchemaMigrationRecord>().CountAsync());
+
+        await context.SqlSugar.Ado.ExecuteCommandAsync("UPDATE identity_schema_migrations SET checksum = 'drift' WHERE migration_id = 'ID-004-01'");
+        var checksumDrift = await Assert.ThrowsAsync<InvalidOperationException>(() => runner.ApplyPendingAsync());
+        Assert.Contains("checksum drift", checksumDrift.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("drift", await context.SqlSugar.Ado.GetStringAsync(
+            "SELECT checksum FROM identity_schema_migrations WHERE migration_id = 'ID-004-01'"));
+
+        var expectedChecksum = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes("ID-004-01|create identity_user"))).ToLowerInvariant();
+        await context.SqlSugar.Ado.ExecuteCommandAsync($"UPDATE identity_schema_migrations SET checksum = '{expectedChecksum}' WHERE migration_id = 'ID-004-01'");
+        await context.SqlSugar.Ado.ExecuteCommandAsync("DROP INDEX ux_user_active_login_name");
+        var physicalDrift = await Assert.ThrowsAsync<InvalidOperationException>(() => runner.ApplyPendingAsync());
+        Assert.Contains("physical schema drift", physicalDrift.Message, StringComparison.OrdinalIgnoreCase);
+
+        try { if (File.Exists(path)) File.Delete(path); } catch (IOException) { }
     }
 }

@@ -19,6 +19,8 @@ public static class SecurityServiceCollectionExtensions
 
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUser, CurrentUser>();
+        services.AddSingleton<TrustedServiceCallValidator>();
+        services.AddSingleton<ITrustedServiceCallSigner, TrustedServiceCallSigner>();
 
         return services;
     }
