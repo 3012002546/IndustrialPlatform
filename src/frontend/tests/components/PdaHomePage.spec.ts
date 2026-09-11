@@ -30,7 +30,9 @@ async function mountHome(permissions: string[] = ['platform.pda.view']): Promise
   return mount(PdaHomePage, { global: { plugins: [pinia, router] } })
 }
 
-async function mountHomeWithRouter(permissions: string[]): Promise<{ wrapper: VueWrapper; router: ReturnType<typeof createRouter> }> {
+async function mountHomeWithRouter(
+  permissions: string[],
+): Promise<{ wrapper: VueWrapper; router: ReturnType<typeof createRouter> }> {
   const pinia = createPinia()
   setActivePinia(pinia)
   persistAuthSession(permissions)
@@ -120,6 +122,21 @@ describe('PdaHomePage', () => {
     await notificationLink.trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.name).toBe('pda-notifications')
+  })
+
+  it('仅有聊天权限时显示聊天入口，隐藏文件入口和业务空状态', async () => {
+    const { wrapper, router } = await mountHomeWithRouter([
+      'platform.pda.view',
+      PERMISSIONS.collaborationMessagingRead,
+    ])
+    expect(wrapper.find('[data-testid="terminal-feature-menu-file"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('现场任务将在业务阶段接入')
+    await wrapper.get('[data-testid="terminal-feature-menu-chat"]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.name).toBe('pda-collaboration-chat')
+    useAuthStore().$patch({ session: { user: { permissions: ['platform.pda.view'] } } })
+    await nextTick()
+    expect(wrapper.find('[data-testid="terminal-feature-menu-chat"]').exists()).toBe(false)
   })
 
   it('没有文件读取权限时不显示功能菜单并保留 PDA 空状态', async () => {

@@ -1659,7 +1659,7 @@ function clearUiCacheState(event: Event): void {
       })
     | null
   void table?.clearSort?.()
-  void table?.resetCustom?.()
+  void Promise.resolve(table?.resetCustom?.()).catch(() => undefined)
   void nextTick(() => {
     syncNativeHeaderFilterRows(true)
     void table?.recalculate?.(true)

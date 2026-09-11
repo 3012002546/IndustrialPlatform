@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.OpenApi" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.StackExchangeRedis" />
+    <ProjectReference Include="..\IndustrialPlatform.Collaboration.Application\IndustrialPlatform.Collaboration.Application.csproj" />
+    <ProjectReference Include="..\IndustrialPlatform.Collaboration.Contracts\IndustrialPlatform.Collaboration.Contracts.csproj" />
+    <ProjectReference Include="..\IndustrialPlatform.Collaboration.Infrastructure\IndustrialPlatform.Collaboration.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\IndustrialPlatform.Web\IndustrialPlatform.Web.csproj" />
+    <ProjectReference Include="..\..\Identity\IndustrialPlatform.Identity.Api\IndustrialPlatform.Identity.Api.csproj" />
+    <ProjectReference Include="..\..\SystemData\IndustrialPlatform.SystemData.Api\IndustrialPlatform.SystemData.Api.csproj" />
+  </ItemGroup>
+</Project>

@@ -30,6 +30,12 @@ public sealed class ConfigBindingTests
         var systemData = Assert.Single(options.Services, service => service.Name == "systemdata");
         Assert.Equal("/systemdata", systemData.PathPrefix);
         Assert.Equal("http://localhost:5042", systemData.DestinationUrl);
+
+        var collaboration = Assert.Single(options.Services, service => service.Name == "collaboration");
+        Assert.False(collaboration.StripPathPrefix);
+        var collaborationRoute = Assert.Single(GatewayRouteFactory.BuildRoutes(options), route => route.RouteId == "collaboration-route");
+        Assert.Equal("/collaboration/{**catch-all}", collaborationRoute.Match.Path);
+        Assert.Empty(collaborationRoute.Transforms!);
     }
 
     [Fact]

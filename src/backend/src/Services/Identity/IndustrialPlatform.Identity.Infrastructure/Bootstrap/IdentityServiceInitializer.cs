@@ -68,6 +68,18 @@ public sealed class IdentityServiceInitializer : IServiceInitializer
                 false,
                 "Identity 本地初始化账本尚未创建。");
         }
+        catch (Exception exception) when (IsMissingLocalColumn(exception))
+        {
+            return new ServiceInitializationState(
+                ServiceKey,
+                ModuleKey,
+                null,
+                false,
+                false,
+                false,
+                false,
+                "Identity 本地架构尚未完成升级，需要执行 Apply。");
+        }
     }
 
     public Task<ServiceInitializationPlan> PlanAsync(
@@ -152,6 +164,22 @@ public sealed class IdentityServiceInitializer : IServiceInitializer
             var message = current.Message;
             if (message.Contains("no such table", StringComparison.OrdinalIgnoreCase)
                 || (message.Contains("relation", StringComparison.OrdinalIgnoreCase)
+                    && message.Contains("does not exist", StringComparison.OrdinalIgnoreCase)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsMissingLocalColumn(Exception exception)
+    {
+        for (var current = exception; current is not null; current = current.InnerException)
+        {
+            var message = current.Message;
+            if (message.Contains("no such column", StringComparison.OrdinalIgnoreCase)
+                || (message.Contains("column", StringComparison.OrdinalIgnoreCase)
                     && message.Contains("does not exist", StringComparison.OrdinalIgnoreCase)))
             {
                 return true;

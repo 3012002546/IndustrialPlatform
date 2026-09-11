@@ -195,6 +195,46 @@ public sealed class ReferenceDataServiceInitializerTests : IDisposable
     }
 
     [Fact]
+    public async Task Inspect_legacy_seed_ledger_without_checksum_is_read_only_and_requires_apply()
+    {
+        await _dbContext.SqlSugar.Ado.ExecuteCommandAsync($"""
+            CREATE TABLE reference_data_schema_migrations (
+                migration_id TEXT PRIMARY KEY NOT NULL,
+                checksum TEXT NULL,
+                target_identity TEXT NULL,
+                applied_on TEXT NOT NULL
+            );
+            CREATE TABLE reference_data_seed_ledger (
+                seed_key TEXT NOT NULL,
+                seed_version TEXT NOT NULL,
+                scope TEXT NULL,
+                applied_on TEXT NOT NULL,
+                operation_n_id TEXT NOT NULL,
+                trace_id TEXT NOT NULL,
+                PRIMARY KEY (seed_key, seed_version)
+            );
+            INSERT INTO reference_data_schema_migrations (migration_id, checksum, target_identity, applied_on)
+            VALUES ('{ReferenceDataServiceInitializer.BaselineVersion}', NULL, NULL, '2026-09-03T00:00:00.0000000+00:00');
+            INSERT INTO reference_data_seed_ledger (seed_key, seed_version, scope, applied_on, operation_n_id, trace_id)
+            VALUES ('{ReferenceDataServiceInitializer.BaselineSeedKey}', '{ReferenceDataServiceInitializer.BaselineVersion}', NULL,
+                    '2026-09-03T00:00:00.0000000+00:00', 'legacy-operation', 'legacy-trace');
+            """);
+        var context = CreateContext();
+        var inspectedSql = new List<string>();
+        _dbContext.SqlSugar.Aop.OnLogExecuting = (sql, _) => inspectedSql.Add(sql);
+
+        var inspection = await _initializer.InspectAsync(context, CancellationToken.None);
+
+        Assert.False(inspection.Ready);
+        Assert.False(inspection.RequiredSeedReady);
+        Assert.Contains("checksum", inspection.Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.False(HasColumn("reference_data_seed_ledger", "checksum"));
+        Assert.DoesNotContain(inspectedSql, sql => IsWriteSql(sql));
+        var plan = await _initializer.PlanAsync(context, inspection, CancellationToken.None);
+        Assert.True(plan.RequiresApply);
+    }
+
+    [Fact]
     public async Task Apply_old_schema_does_not_overwrite_unknown_seed_checksum()
     {
         const string unknownChecksum = "unknown-legacy-checksum";
@@ -263,6 +303,24 @@ public sealed class ReferenceDataServiceInitializerTests : IDisposable
             .Rows
             .Cast<System.Data.DataRow>()
             .Any(row => string.Equals(row["name"]?.ToString(), "scope", StringComparison.OrdinalIgnoreCase));
+
+    private bool HasColumn(string tableName, string columnName) =>
+        _dbContext.SqlSugar.Ado
+            .GetDataTable($"PRAGMA table_info('{tableName}')")
+            .Rows
+            .Cast<System.Data.DataRow>()
+            .Any(row => string.Equals(row["name"]?.ToString(), columnName, StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsWriteSql(string sql)
+    {
+        var normalized = sql.TrimStart();
+        return normalized.StartsWith("ALTER", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("CREATE", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("DELETE", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("DROP", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("INSERT", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("UPDATE", StringComparison.OrdinalIgnoreCase);
+    }
 
     private async Task CreateLegacySchemaAsync(string checksum)
     {

@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\backend\src\Services\Collaboration\IndustrialPlatform.Collaboration.Application\IndustrialPlatform.Collaboration.Application.csproj" />
+    <ProjectReference Include="..\..\..\src\backend\src\Services\Collaboration\IndustrialPlatform.Collaboration.Api\IndustrialPlatform.Collaboration.Api.csproj" />
+    <ProjectReference Include="..\..\..\src\backend\src\Services\Collaboration\IndustrialPlatform.Collaboration.Contracts\IndustrialPlatform.Collaboration.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\src\backend\src\Services\Collaboration\IndustrialPlatform.Collaboration.Domain\IndustrialPlatform.Collaboration.Domain.csproj" />
+    <ProjectReference Include="..\..\..\src\backend\src\Services\Collaboration\IndustrialPlatform.Collaboration.Infrastructure\IndustrialPlatform.Collaboration.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\src\backend\src\Services\Identity\IndustrialPlatform.Identity.Api\IndustrialPlatform.Identity.Api.csproj" />
+    <ProjectReference Include="..\..\..\src\backend\src\Services\Identity\IndustrialPlatform.Identity.Application\IndustrialPlatform.Identity.Application.csproj" />
+    <ProjectReference Include="..\..\..\src\backend\src\Services\Identity\IndustrialPlatform.Identity.Contracts\IndustrialPlatform.Identity.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\src\backend\src\Services\Identity\IndustrialPlatform.Identity.Domain\IndustrialPlatform.Identity.Domain.csproj" />
+    <ProjectReference Include="..\..\..\src\backend\src\Services\Identity\IndustrialPlatform.Identity.Infrastructure\IndustrialPlatform.Identity.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\src\samples\Collaboration.EmbeddedHost\Collaboration.EmbeddedHost.csproj" />
+    <ProjectReference Include="..\..\..\src\backend\src\BuildingBlocks\IndustrialPlatform.Security\IndustrialPlatform.Security.csproj" />
+  </ItemGroup>
+</Project>

@@ -15,6 +15,7 @@ using IndustrialPlatform.Identity.Infrastructure.Persistence.Repositories;
 using IndustrialPlatform.Identity.Infrastructure.Persistence.Seeds;
 using IndustrialPlatform.Identity.Infrastructure.Security;
 using IndustrialPlatform.Identity.Infrastructure.Sso;
+using IndustrialPlatform.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -73,6 +74,8 @@ public static class DependencyInjection
         services.AddSingleton<IAccessTokenFactory, AccessTokenFactory>();
         services.AddSingleton<IJwksProvider, JwksProvider>();
         services.AddSingleton<IAuthenticationStore, AuthenticationStore>();
+        services.AddSingleton<ITrustedServiceCallNonceStore, TrustedServiceCallNonceStore>();
+        services.AddSingleton<IStepUpGrantStore, StepUpGrantStore>();
         services.AddSingleton<ILoginRateLimiter, LoginRateLimiter>();
         services.AddSingleton<ILoginAuditSink, LoginAuditSink>();
         services.AddSingleton<IRefreshSessionStore, RefreshSessionStore>();

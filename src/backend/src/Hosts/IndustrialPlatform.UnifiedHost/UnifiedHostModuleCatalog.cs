@@ -1,3 +1,4 @@
+using IndustrialPlatform.Collaboration.Api.Modules;
 using IndustrialPlatform.Identity.Api.Modules;
 using IndustrialPlatform.ReferenceData.Api.Modules;
 using IndustrialPlatform.SystemData.Api.Modules;
@@ -15,6 +16,7 @@ public static class UnifiedHostModuleCatalog
         new IdentityUnifiedHostModule(),
         new SystemDataUnifiedHostModule(),
         new ReferenceDataUnifiedHostModule(),
+        new CollaborationUnifiedHostModule(),
     ];
 
     public static IReadOnlyList<string> GetServiceKeys(IEnumerable<IUnifiedHostModule> modules) =>

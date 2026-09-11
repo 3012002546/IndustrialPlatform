@@ -294,8 +294,127 @@ export interface LocalePreferences {
   unitSystem: 'metric'
 }
 
+export interface CollaborationLocaleMessages {
+  title: string
+  quickDrawerTitle: string
+  description: string
+  unread: string
+  searchPeople: string
+  conversations: string
+  filterConversations: string
+  unreadOnly: string
+  hidden: string
+  loading: string
+  directoryLoadFailed: string
+  noPeople: string
+  noConversations: string
+  details: string
+  restore: string
+  hide: string
+  person: string
+  userNId: string
+  presence: string
+  lastMessage: string
+  noMessages: string
+  selectConversation: string
+  selectConversationDescription: string
+  loadEarlier: string
+  retracted: string
+  retract: string
+  messagePlaceholder: string
+  pdaMessagePlaceholder: string
+  attachment: string
+  sending: string
+  send: string
+  messageTooLong: string
+  attachmentSizeInvalid: string
+  fileUnavailable: string
+  hashing: string
+  uploading: string
+  attachmentReady: string
+  attachmentFailed: string
+  loadFailed: string
+  sendFailed: string
+  online: string
+  offline: string
+  unknown: string
+  more: string
+  copyMessage: string
+  deleteForMe: string
+  readByPeer: string
+  controlledViewHint: string
+  invalidTimeRange: string
+  authorizedScope: string
+  complianceTitle: string
+  complianceDescription: string
+  complianceTabs:
+    string | { search: string; legalHolds: string; exports: string; retention: string }
+  controlledView: string
+  legalHolds: string
+  exports: string
+  retention: string
+  query: string
+  conversation: string
+  conversationPlaceholder: string
+  keyword: string
+  keywordPlaceholder: string
+  from: string
+  until: string
+  readOriginal: string
+  masked: string
+  notLoaded: string
+  defaultReason: string
+  saved: string
+  actionFailed: string
+  noData: string
+  confirm: string
+  cancel: string
+  message: string
+  sequence: string
+  sender: string
+  type: string
+  acceptedOn: string
+  createLegalHold: string
+  disposition: string
+  subject: string
+  subjectPlaceholder: string
+  optional: string
+  reason: string
+  create: string
+  id: string
+  state: string
+  createdOn: string
+  actions: string
+  review: string
+  release: string
+  prepareExport: string
+  prepare: string
+  approve: string
+  generateExport: string
+  download: string
+  scopeChecksum: string
+  approvalReason: string
+  messageRetentionDays: string
+  attachmentRetentionDays: string
+  auditRetentionDays: string
+  enabled: string
+  saving: string
+  save: string
+  passwordPrompt: string
+  stepUp: string
+  password: string
+  stepUpActor: string
+  stepUpAction: string
+  stepUpScope: string
+  stepUpUnavailable: string
+  stepUpServiceUnavailable: string
+  stepUpContextInvalid: string
+  stepUpCredentialFailed: string
+}
+
 export interface PlatformLocaleMessages {
   referenceData: ReferenceDataMessages
+  collaboration: CollaborationLocaleMessages
   common: {
     brand: { name: string; description: string }
     action: {

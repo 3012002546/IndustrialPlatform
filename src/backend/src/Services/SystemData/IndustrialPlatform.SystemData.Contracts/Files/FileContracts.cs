@@ -49,6 +49,53 @@ public sealed record FileReferenceRequest
     public string? Purpose { get; init; }
 }
 
+public sealed record FileBindingRequest
+{
+    public string? RequestNId { get; init; }
+    public string? FileNId { get; init; }
+    public string? ConversationNId { get; init; }
+    public string? MessageNId { get; init; }
+    public string? AttachmentNId { get; init; }
+    public string? UploaderUserNId { get; init; }
+    public string? Purpose { get; init; }
+}
+
+public sealed record FileBindingReleaseRequest
+{
+    public string? RequestNId { get; init; }
+    public long? ExpectedVersion { get; init; }
+}
+
+public sealed record FileBindingV1
+{
+    public string TenantNId { get; init; } = string.Empty;
+    public string ReferenceNId { get; init; } = string.Empty;
+    public string FileNId { get; init; } = string.Empty;
+    public string Status { get; init; } = string.Empty;
+    public long Version { get; init; }
+}
+
+public sealed record FileHoldRequest
+{
+    public string? RequestNId { get; init; }
+    public string? ScopeChecksum { get; init; }
+    public long? CaseRevision { get; init; }
+}
+
+public sealed record FileHoldV1
+{
+    public string TenantNId { get; init; } = string.Empty;
+    public string CaseNId { get; init; } = string.Empty;
+    public string FileNId { get; init; } = string.Empty;
+    public string ScopeChecksum { get; init; } = string.Empty;
+    public long CaseRevision { get; init; }
+    public string OwnerService { get; init; } = string.Empty;
+    public string Status { get; init; } = string.Empty;
+    public DateTimeOffset CreatedOn { get; init; }
+    public DateTimeOffset UpdatedOn { get; init; }
+    public DateTimeOffset? ReleasedOn { get; init; }
+}
+
 public sealed record FileRestrictionRequest
 {
     public bool? Restricted { get; init; }
@@ -90,6 +137,7 @@ public sealed record FileObjectV1
     public IReadOnlyList<FileReferenceSummaryV1> ReferenceSummary { get; init; } = [];
     public string DeletionStatus { get; init; } = string.Empty;
     public DateTimeOffset CreatedOn { get; init; }
+    public DateTimeOffset LastUpdatedOn { get; init; }
     public DateTimeOffset? RetentionUntil { get; init; }
 }
 

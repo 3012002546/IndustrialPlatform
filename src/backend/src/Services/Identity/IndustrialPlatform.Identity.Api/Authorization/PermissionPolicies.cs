@@ -112,6 +112,26 @@ public static class PermissionPolicies
     /// <summary>紧急恢复内置 admin(§29A.5)。</summary>
     public const string BootstrapRecover = Prefix + PermissionCatalog.BootstrapRecover;
 
+    public const string CollaborationMessagingRead = Prefix + PermissionCatalog.CollaborationMessagingRead;
+    public const string CollaborationMessagingConversationStart = Prefix + PermissionCatalog.CollaborationMessagingConversationStart;
+    public const string CollaborationMessagingWrite = Prefix + PermissionCatalog.CollaborationMessagingWrite;
+    public const string CollaborationMessagingRetract = Prefix + PermissionCatalog.CollaborationMessagingRetract;
+    public const string CollaborationMessagingAttachmentSend = Prefix + PermissionCatalog.CollaborationMessagingAttachmentSend;
+    public const string CollaborationMessagingAttachmentDownload = Prefix + PermissionCatalog.CollaborationMessagingAttachmentDownload;
+    public const string CollaborationComplianceRead = Prefix + PermissionCatalog.CollaborationComplianceRead;
+    public const string CollaborationComplianceView = Prefix + PermissionCatalog.CollaborationComplianceView;
+    public const string CollaborationComplianceReadOriginal = Prefix + PermissionCatalog.CollaborationComplianceReadOriginal;
+    public const string CollaborationComplianceDispose = Prefix + PermissionCatalog.CollaborationComplianceDispose;
+    public const string CollaborationComplianceExportRequest = Prefix + PermissionCatalog.CollaborationComplianceExportRequest;
+    public const string CollaborationComplianceExportDownload = Prefix + PermissionCatalog.CollaborationComplianceExportDownload;
+    public const string CollaborationComplianceExportApprove = Prefix + PermissionCatalog.CollaborationComplianceExportApprove;
+    public const string CollaborationComplianceLegalHoldCreate = Prefix + PermissionCatalog.CollaborationComplianceLegalHoldCreate;
+    public const string CollaborationComplianceLegalHoldReview = Prefix + PermissionCatalog.CollaborationComplianceLegalHoldReview;
+    public const string CollaborationComplianceLegalHoldRelease = Prefix + PermissionCatalog.CollaborationComplianceLegalHoldRelease;
+    public const string CollaborationComplianceLegalHoldReleaseApprove = Prefix + PermissionCatalog.CollaborationComplianceLegalHoldReleaseApprove;
+    public const string CollaborationComplianceRetentionManage = Prefix + PermissionCatalog.CollaborationComplianceRetentionManage;
+    public const string CollaborationComplianceRetentionUpdate = Prefix + PermissionCatalog.CollaborationComplianceRetentionUpdate;
+
     /// <summary>由权限 NId 生成策略名。</summary>
     public static string PolicyName(string permissionNId) => Prefix + permissionNId;
 

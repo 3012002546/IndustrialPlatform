@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Collections;
 using IndustrialPlatform.EventBus.Abstractions;
 using IndustrialPlatform.EventBus.Connection;
 using IndustrialPlatform.EventBus.Events;
@@ -64,20 +65,73 @@ public sealed partial class EventBusConsumerBackgroundService : BackgroundServic
             return;
         }
 
-        _channel = await _connection.CreateChannelAsync(stoppingToken);
-        await _channel.ExchangeDeclareAsync(_options.ExchangeName, ExchangeType.Topic, true, false, null, false, stoppingToken);
-        await _channel.QueueDeclareAsync(_options.QueueName, true, false, false, null, false, stoppingToken);
-        await _channel.QueueBindAsync(_options.QueueName, _options.ExchangeName, _options.RoutingPattern, null, false, stoppingToken);
-        await _channel.BasicQosAsync(0, _options.PrefetchCount, false, stoppingToken);
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            IChannel? channel = null;
+            try
+            {
+                channel = await _connection.CreateChannelAsync(publisherConfirmationsEnabled: true, stoppingToken);
+                _channel = channel;
+                await channel.ExchangeDeclareAsync(_options.ExchangeName, ExchangeType.Topic, true, false, null, false, stoppingToken);
+                await channel.ExchangeDeclareAsync(_options.RetryExchangeName, ExchangeType.Topic, true, false, null, false, stoppingToken);
+                await channel.ExchangeDeclareAsync(_options.BusyRetryExchangeName, ExchangeType.Topic, true, false, null, false, stoppingToken);
+                await channel.ExchangeDeclareAsync(_options.DeadLetterExchangeName, ExchangeType.Direct, true, false, null, false, stoppingToken);
+                await channel.QueueDeclareAsync(_options.RetryQueueName, true, false, false,
+                    new Dictionary<string, object?>
+                    {
+                        ["x-message-ttl"] = Math.Max(100, _options.RetryDelayMilliseconds),
+                        ["x-dead-letter-exchange"] = _options.ExchangeName,
+                    }, false, stoppingToken);
+                await channel.QueueBindAsync(_options.RetryQueueName, _options.RetryExchangeName, "#", null, false, stoppingToken);
+                await channel.QueueDeclareAsync(_options.BusyRetryQueueName, true, false, false,
+                    new Dictionary<string, object?>
+                    {
+                        ["x-message-ttl"] = Math.Max(100, _options.BusyRetryDelayMilliseconds),
+                        ["x-dead-letter-exchange"] = _options.ExchangeName,
+                    }, false, stoppingToken);
+                await channel.QueueBindAsync(_options.BusyRetryQueueName, _options.BusyRetryExchangeName, "#", null, false, stoppingToken);
+                await channel.QueueDeclareAsync(_options.DeadLetterQueueName, true, false, false, null, false, stoppingToken);
+                await channel.QueueBindAsync(_options.DeadLetterQueueName, _options.DeadLetterExchangeName, _options.DeadLetterRoutingKey, null, false, stoppingToken);
+                await channel.QueueDeclareAsync(_options.QueueName, true, false, false,
+                    new Dictionary<string, object?>
+                    {
+                        ["x-dead-letter-exchange"] = _options.RetryExchangeName,
+                    }, false, stoppingToken);
+                await channel.QueueBindAsync(_options.QueueName, _options.ExchangeName, _options.RoutingPattern, null, false, stoppingToken);
+                await channel.BasicQosAsync(0, _options.PrefetchCount, false, stoppingToken);
 
-        var consumer = new AsyncEventingBasicConsumer(_channel);
-        consumer.ReceivedAsync += OnMessageReceivedAsync;
+                var consumer = new AsyncEventingBasicConsumer(channel);
+                consumer.ReceivedAsync += OnMessageReceivedAsync;
 
-        await _channel.BasicConsumeAsync(_options.QueueName, false, consumer, stoppingToken);
+                await channel.BasicConsumeAsync(_options.QueueName, false, consumer, stoppingToken);
 
-        LogConsumerStarted(_options.QueueName, _options.ExchangeName, _options.RoutingPattern);
+                LogConsumerStarted(_options.QueueName, _options.ExchangeName, _options.RoutingPattern);
 
-        await Task.Delay(Timeout.Infinite, stoppingToken);
+                await Task.Delay(Timeout.Infinite, stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception exception)
+            {
+                LogConsumerUnavailable(exception);
+            }
+            finally
+            {
+                if (ReferenceEquals(_channel, channel))
+                {
+                    _channel = null;
+                }
+
+                channel?.Dispose();
+            }
+
+            if (!stoppingToken.IsCancellationRequested)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+            }
+        }
     }
 
     private async Task OnMessageReceivedAsync(object? sender, BasicDeliverEventArgs args)
@@ -114,7 +168,81 @@ public sealed partial class EventBusConsumerBackgroundService : BackgroundServic
         catch (Exception exception)
         {
             LogHandleFailed(eventName, exception);
-            await _channel!.BasicNackAsync(args.DeliveryTag, false, false, CancellationToken.None);
+            if (exception is IEventBusDeferredRetryFailure)
+            {
+                await DeferForBusyRetryAsync(args);
+                return;
+            }
+
+            var attempt = RabbitDeliveryPolicy.GetDeliveryAttempt(args.BasicProperties.Headers, _options.QueueName);
+            var maxAttempts = Math.Max(1, _options.MaxDeliveryAttempts);
+            if (attempt < maxAttempts)
+            {
+                // Rejecting without requeue routes the message to the retry exchange;
+                // the retry queue's TTL dead-letters it back to the main exchange.
+                await _channel!.BasicNackAsync(args.DeliveryTag, false, false, CancellationToken.None);
+            }
+            else
+            {
+                try
+                {
+                    var deadLetterProperties = new BasicProperties
+                    {
+                        ContentType = args.BasicProperties.ContentType,
+                        Type = args.BasicProperties.Type,
+                        MessageId = args.BasicProperties.MessageId,
+                        DeliveryMode = args.BasicProperties.DeliveryMode,
+                        Headers = args.BasicProperties.Headers is null ? null : new Dictionary<string, object?>(args.BasicProperties.Headers),
+                    };
+                    await _channel!.BasicPublishAsync(
+                        _options.DeadLetterExchangeName,
+                        _options.DeadLetterRoutingKey,
+                        true,
+                        deadLetterProperties,
+                        args.Body,
+                        CancellationToken.None);
+                    await _channel!.BasicAckAsync(args.DeliveryTag, false, CancellationToken.None);
+                }
+                catch
+                {
+                    // Preserve the message when the DLQ publish itself is unavailable.
+                    await _channel!.BasicNackAsync(args.DeliveryTag, false, true, CancellationToken.None);
+                    throw;
+                }
+            }
+        }
+    }
+
+    private async Task DeferForBusyRetryAsync(BasicDeliverEventArgs args)
+    {
+        try
+        {
+            var headers = args.BasicProperties.Headers is null
+                ? new Dictionary<string, object?>()
+                : new Dictionary<string, object?>(args.BasicProperties.Headers);
+            headers["x-industrial-retry-kind"] = "inbox-busy";
+            var properties = new BasicProperties
+            {
+                ContentType = args.BasicProperties.ContentType,
+                Type = args.BasicProperties.Type,
+                MessageId = args.BasicProperties.MessageId,
+                DeliveryMode = args.BasicProperties.DeliveryMode,
+                Headers = headers,
+            };
+            await _channel!.BasicPublishAsync(
+                _options.BusyRetryExchangeName,
+                args.RoutingKey,
+                true,
+                properties,
+                args.Body,
+                CancellationToken.None);
+            await _channel.BasicAckAsync(args.DeliveryTag, false, CancellationToken.None);
+        }
+        catch
+        {
+            // Keep the original delivery when the dedicated retry path is unavailable.
+            await _channel!.BasicNackAsync(args.DeliveryTag, false, true, CancellationToken.None);
+            throw;
         }
     }
 
@@ -133,4 +261,50 @@ public sealed partial class EventBusConsumerBackgroundService : BackgroundServic
 
     [LoggerMessage(EventId = 3, Level = LogLevel.Error, Message = "处理集成事件 {EventName} 失败,消息进入失败处理(重试/DLQ)。")]
     private partial void LogHandleFailed(string eventName, Exception exception);
+
+    [LoggerMessage(EventId = 4, Level = LogLevel.Warning, Message = "RabbitMQ 消费端暂不可用,将在稍后重试。")]
+    private partial void LogConsumerUnavailable(Exception exception);
+}
+
+/// <summary>Reads RabbitMQ's x-death history so retry is bounded across process restarts.</summary>
+public static class RabbitDeliveryPolicy
+{
+    public static int GetDeliveryAttempt(IDictionary<string, object?>? headers, string mainQueueName)
+    {
+        if (headers is null || !headers.TryGetValue("x-death", out var raw) || raw is not IEnumerable deaths)
+            return 0;
+
+        var count = 0;
+        foreach (var death in deaths)
+        {
+            if (death is not IDictionary values
+                || !TryGetValue(values, "queue", out var queue)
+                || !string.Equals(Convert.ToString(queue, System.Globalization.CultureInfo.InvariantCulture), mainQueueName, StringComparison.Ordinal)
+                || !TryGetValue(values, "reason", out var reason)
+                || !string.Equals(Convert.ToString(reason, System.Globalization.CultureInfo.InvariantCulture), "rejected", StringComparison.Ordinal)
+                || !TryGetValue(values, "count", out var countValue))
+            {
+                continue;
+            }
+
+            count += Convert.ToInt32(countValue, System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        return Math.Max(0, count);
+    }
+
+    private static bool TryGetValue(IDictionary values, string key, out object? value)
+    {
+        foreach (DictionaryEntry entry in values)
+        {
+            if (string.Equals(Convert.ToString(entry.Key, System.Globalization.CultureInfo.InvariantCulture), key, StringComparison.OrdinalIgnoreCase))
+            {
+                value = entry.Value;
+                return true;
+            }
+        }
+
+        value = null;
+        return false;
+    }
 }

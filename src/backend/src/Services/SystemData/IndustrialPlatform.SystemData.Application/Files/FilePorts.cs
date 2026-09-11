@@ -58,7 +58,65 @@ public sealed record FileReferenceRecord(
     DateTimeOffset CreatedOn,
     DateTimeOffset? DeletedOn);
 
+public sealed record FileBusinessReferenceRecord(
+    string TenantNId,
+    string ReferenceNId,
+    string FileNId,
+    string ConversationNId,
+    string MessageNId,
+    string AttachmentNId,
+    string UploaderUserNId,
+    string Purpose,
+    string OwnerService,
+    string Status,
+    long Version,
+    DateTimeOffset CreatedOn,
+    DateTimeOffset? ReleasedOn);
+
+public sealed record FileHoldRecord(
+    string TenantNId,
+    string CaseNId,
+    string FileNId,
+    string ScopeChecksum,
+    long CaseRevision,
+    string OwnerService,
+    string Status,
+    DateTimeOffset CreatedOn,
+    DateTimeOffset UpdatedOn,
+    DateTimeOffset? ReleasedOn);
+
 public sealed record FileScanResult(string Status, string Detail);
+
+public sealed record FileStatusChangeRecord(
+    Guid EventId,
+    string TenantNId,
+    string FileNId,
+    string ScanStatus,
+    bool Restricted,
+    string DeletionStatus,
+    DateTimeOffset ObservedOn);
+
+public sealed record FileStatusOutboxRecord(
+    Guid EventId,
+    string TenantNId,
+    string FileNId,
+    string ScanStatus,
+    bool Restricted,
+    string DeletionStatus,
+    DateTimeOffset ObservedOn,
+    int RetryCount,
+    DateTimeOffset? PublishedOn,
+    DateTimeOffset? NextAttemptOn,
+    string? LastError,
+    DateTimeOffset? DeadLetteredOn);
+
+public interface IFileStatusOutbox
+{
+    Task EnqueueAsync(FileStatusChangeRecord item, CancellationToken cancellationToken);
+    Task<IReadOnlyList<FileStatusOutboxRecord>> GetPendingAsync(DateTimeOffset now, int limit, CancellationToken cancellationToken);
+    Task MarkPublishedAsync(Guid eventId, DateTimeOffset publishedOn, CancellationToken cancellationToken);
+    Task<bool> RecordFailureAsync(Guid eventId, int retryCount, string lastError, bool deadLetter, DateTimeOffset nextAttemptOn, CancellationToken cancellationToken);
+}
 
 public interface IFileScanner
 {
@@ -97,6 +155,8 @@ public interface IFileStore
     Task<bool> UpdateAppendAsync(FileUploadSessionRecord session, long expectedOffset, int expectedEpoch, string expectedStatus, CancellationToken cancellationToken) =>
         UpdateSessionAsync(session, expectedOffset, expectedEpoch, cancellationToken);
     Task<FileObjectRecord?> GetFileAsync(string tenantNId, string fileNId, CancellationToken cancellationToken);
+    Task<FileObjectRecord?> GetFileForReconciliationAsync(string tenantNId, string fileNId, CancellationToken cancellationToken) =>
+        GetFileAsync(tenantNId, fileNId, cancellationToken);
     Task<IReadOnlyList<FileObjectRecord>> ListPendingScanAsync(int limit, CancellationToken cancellationToken);
     Task<IReadOnlyList<FileObjectRecord>> ListDeletionCandidatesAsync(DateTimeOffset now, int limit, CancellationToken cancellationToken);
     Task MarkFileDeletedAsync(FileObjectRecord file, DateTimeOffset deletedOn, CancellationToken cancellationToken);
@@ -118,8 +178,23 @@ public interface IFileStore
     Task<FileReferenceRecord?> GetReferenceAsync(string tenantNId, string referenceNId, CancellationToken cancellationToken);
     Task<FileReferenceRecord?> GetReferenceForFileAsync(string tenantNId, string fileNId, string ownerUserNId, CancellationToken cancellationToken);
     Task<bool> HasActiveReferencesAsync(string tenantNId, string fileNId, CancellationToken cancellationToken);
+    Task<bool> HasActiveLegalHoldsAsync(string tenantNId, string fileNId, CancellationToken cancellationToken) => Task.FromResult(false);
+    async Task<bool> TryRequestDeletionAsync(FileObjectRecord file, CancellationToken cancellationToken)
+    {
+        if (await HasActiveLegalHoldsAsync(file.TenantNId, file.FileNId, cancellationToken)
+            || await HasActiveReferencesAsync(file.TenantNId, file.FileNId, cancellationToken)) return false;
+        await UpdateFileAsync(file, cancellationToken);
+        return true;
+    }
     Task InsertReferenceAsync(FileReferenceRecord reference, CancellationToken cancellationToken);
     Task DeleteReferenceAsync(string tenantNId, string referenceNId, DateTimeOffset deletedOn, CancellationToken cancellationToken);
+    Task<FileBusinessReferenceRecord?> GetBusinessReferenceAsync(string tenantNId, string referenceNId, CancellationToken cancellationToken) => Task.FromResult<FileBusinessReferenceRecord?>(null);
+    Task<FileBusinessReferenceRecord?> GetBusinessReferenceForAttachmentAsync(string tenantNId, string attachmentNId, string purpose, CancellationToken cancellationToken) => Task.FromResult<FileBusinessReferenceRecord?>(null);
+    Task InsertBusinessReferenceAsync(FileBusinessReferenceRecord reference, CancellationToken cancellationToken) => Task.FromException(new NotSupportedException("业务文件引用持久化未配置。"));
+    Task<bool> ReleaseBusinessReferenceAsync(string tenantNId, string fileNId, string referenceNId, long expectedVersion, DateTimeOffset releasedOn, CancellationToken cancellationToken) => Task.FromResult(false);
+    Task<FileHoldRecord?> GetLegalHoldAsync(string tenantNId, string caseNId, string fileNId, CancellationToken cancellationToken) => Task.FromResult<FileHoldRecord?>(null);
+    Task InsertLegalHoldAsync(FileHoldRecord hold, CancellationToken cancellationToken) => Task.FromException(new NotSupportedException("文件 Legal Hold 持久化未配置。"));
+    Task<bool> ReleaseLegalHoldAsync(string tenantNId, string caseNId, string fileNId, string scopeChecksum, long caseRevision, DateTimeOffset releasedOn, CancellationToken cancellationToken) => Task.FromResult(false);
     Task UpdateFileAsync(FileObjectRecord file, CancellationToken cancellationToken);
 }
 
@@ -150,10 +225,16 @@ public interface IFileService
     Task<UploadSessionV1> AppendAsync(string tenantNId, string transportId, string userNId, long expectedOffset, int epoch, Stream content, string? resumeTicket, CancellationToken cancellationToken);
     Task<FileObjectV1> CompleteAsync(string tenantNId, string sessionNId, string userNId, CancellationToken cancellationToken);
     Task<FileObjectV1?> GetFileAsync(string tenantNId, string fileNId, CancellationToken cancellationToken);
+    Task<FileObjectV1?> GetFileForReconciliationAsync(string tenantNId, string fileNId, CancellationToken cancellationToken);
     Task<Stream> OpenFileContentAsync(string tenantNId, string userNId, string fileNId, string? referenceNId, CancellationToken cancellationToken);
     Task<FilePageV1> ListFilesAsync(string tenantNId, string? search, int page, int pageSize, CancellationToken cancellationToken);
     Task<FilePageV1> ListFilesPageAsync(string tenantNId, string? search, string? purpose, string? ownerUserNId, string? scanStatus, bool? restricted, int page, int pageSize, CancellationToken cancellationToken);
     Task<FileReferenceRecord> AddReferenceAsync(string tenantNId, string userNId, string fileNId, FileReferenceRequest request, CancellationToken cancellationToken);
+    Task<FileBindingV1> BindReferenceAsync(string tenantNId, string userNId, string referenceNId, FileBindingRequest request, CancellationToken cancellationToken);
+    Task<FileBindingV1> ReleaseReferenceAsync(string tenantNId, string userNId, string fileNId, string referenceNId, FileBindingReleaseRequest request, CancellationToken cancellationToken);
+    Task<FileHoldV1> PutLegalHoldAsync(string tenantNId, string userNId, string caseNId, string fileNId, FileHoldRequest request, CancellationToken cancellationToken);
+    Task<FileHoldV1> ReleaseLegalHoldAsync(string tenantNId, string userNId, string caseNId, string fileNId, FileHoldRequest request, CancellationToken cancellationToken);
+    Task<FileHoldV1?> GetLegalHoldAsync(string tenantNId, string userNId, string caseNId, string fileNId, CancellationToken cancellationToken);
     Task DeleteReferenceAsync(string tenantNId, string userNId, string referenceNId, CancellationToken cancellationToken);
     Task DeleteReferenceAsync(string tenantNId, string userNId, string fileNId, string referenceNId, CancellationToken cancellationToken);
     Task<FileObjectV1> RequestDeletionAsync(string tenantNId, string userNId, string fileNId, CancellationToken cancellationToken);

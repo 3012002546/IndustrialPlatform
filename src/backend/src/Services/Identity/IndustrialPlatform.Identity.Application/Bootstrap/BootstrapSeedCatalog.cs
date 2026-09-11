@@ -21,7 +21,7 @@ public static class BootstrapSeedCatalog
     public const string BootstrapAdminSeedKey = "identity.bootstrap-admin";
 
     /// <summary>全部种子当前版本;目录内容变化必须递增。</summary>
-    public const string SeedVersion = "1.4.0";
+    public const string SeedVersion = "1.5.0";
 
     /// <summary>系统作用域。</summary>
     public const string SystemScope = "system";
@@ -86,6 +86,31 @@ public static class BootstrapSeedCatalog
         new(PermissionCatalog.PlatformMobileView, "移动端页面", PermissionType.Page),
         new(PermissionCatalog.BootstrapView, "查看 bootstrap 状态", PermissionType.Page),
         new(PermissionCatalog.BootstrapRecover, "紧急恢复内置 admin", PermissionType.Action),
+        new(PermissionCatalog.CollaborationMessagingRead, "查看协作消息", PermissionType.Page),
+        new(PermissionCatalog.CollaborationMessagingConversationStart, "发起协作会话", PermissionType.Action),
+        new(PermissionCatalog.CollaborationMessagingWrite, "发送协作消息", PermissionType.Action),
+        new(PermissionCatalog.CollaborationMessagingReadCursorUpdate, "更新协作阅读游标", PermissionType.Action),
+        new(PermissionCatalog.CollaborationMessagingConversationHide, "隐藏协作会话", PermissionType.Action),
+        new(PermissionCatalog.CollaborationMessagingConversationRestore, "恢复协作会话", PermissionType.Action),
+        new(PermissionCatalog.CollaborationMessagingRetract, "撤回协作消息", PermissionType.Action),
+        new(PermissionCatalog.CollaborationMessagingAttachmentSend, "发送协作附件", PermissionType.Action),
+        new(PermissionCatalog.CollaborationMessagingAttachmentDownload, "下载协作附件", PermissionType.Action),
+        new(PermissionCatalog.CollaborationComplianceRead, "查看协作合规数据", PermissionType.Page),
+        new(PermissionCatalog.CollaborationComplianceView, "受控查看协作原文", PermissionType.Action),
+        new(PermissionCatalog.CollaborationComplianceReadOriginal, "查看协作原文", PermissionType.Action),
+        new(PermissionCatalog.CollaborationComplianceDispose, "处置协作消息", PermissionType.Action),
+        new(PermissionCatalog.CollaborationComplianceExportRequest, "申请协作合规导出", PermissionType.Action),
+        new(PermissionCatalog.CollaborationComplianceExportDownload, "下载协作合规导出", PermissionType.Action),
+        new(PermissionCatalog.CollaborationComplianceExportApprove, "审批协作合规导出", PermissionType.Action),
+        new(PermissionCatalog.CollaborationComplianceLegalHoldCreate, "创建协作法律保全", PermissionType.Action),
+        new(PermissionCatalog.CollaborationComplianceLegalHoldReview, "审核协作法律保全", PermissionType.Action),
+        new(PermissionCatalog.CollaborationComplianceLegalHoldRelease, "申请释放协作法律保全", PermissionType.Action),
+        new(PermissionCatalog.CollaborationComplianceLegalHoldReleaseApprove, "审批释放协作法律保全", PermissionType.Action),
+        new(PermissionCatalog.CollaborationComplianceRetentionManage, "管理协作保留策略", PermissionType.Action),
+        new(PermissionCatalog.CollaborationComplianceRetentionUpdate, "更新协作保留策略", PermissionType.Action),
+        new(PermissionCatalog.CollaborationPresenceConnect, "建立协作在线连接", PermissionType.Action),
+        new(PermissionCatalog.CollaborationPresenceRead, "查看协作在线状态", PermissionType.Action),
+        new(PermissionCatalog.CollaborationPresenceWrite, "更新协作在线状态", PermissionType.Action),
         new(PermissionCatalog.SystemDataOrganizationView, "查看行政组织", PermissionType.Page),
         new(PermissionCatalog.SystemDataOrganizationCreate, "创建行政组织", PermissionType.Action),
         new(PermissionCatalog.SystemDataOrganizationUpdate, "更新行政组织", PermissionType.Action),

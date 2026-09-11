@@ -35,9 +35,11 @@ public sealed class Pf04RulesTests
     {
         var first = AuditPayloadRules.ComputeIdempotencyHash("systemdata", "evt-1", DateTimeOffset.UnixEpoch, "u-1", "create", "File", "f-1", "{}", "trace-1", "Info", null, null);
         var retry = AuditPayloadRules.ComputeIdempotencyHash("systemdata", "evt-1", DateTimeOffset.UnixEpoch, "u-1", "create", "File", "f-1", "{}", "trace-1", "Info", null, null);
+        var redelivered = AuditPayloadRules.ComputeIdempotencyHash("systemdata", "evt-1", DateTimeOffset.UnixEpoch.AddMinutes(1), "u-1", "create", "File", "f-1", "{}", "trace-1", "Info", null, null);
         var changed = AuditPayloadRules.ComputeIdempotencyHash("systemdata", "evt-1", DateTimeOffset.UnixEpoch, "u-1", "delete", "File", "f-1", "{}", "trace-1", "Info", null, null);
 
         Assert.Equal(first, retry);
+        Assert.Equal(first, redelivered);
         Assert.NotEqual(first, changed);
     }
 

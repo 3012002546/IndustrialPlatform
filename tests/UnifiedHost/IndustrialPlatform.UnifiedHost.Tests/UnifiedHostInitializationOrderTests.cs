@@ -8,7 +8,7 @@ namespace IndustrialPlatform.UnifiedHost.Tests;
 public sealed class UnifiedHostInitializationOrderTests
 {
     [Fact]
-    public async Task UnifiedHost_runs_initializers_in_identity_systemdata_referencedata_order()
+    public async Task UnifiedHost_runs_initializers_in_identity_systemdata_referencedata_collaboration_order()
     {
         var calls = new List<string>();
         var initializers = new IServiceInitializer[]
@@ -16,6 +16,7 @@ public sealed class UnifiedHostInitializationOrderTests
             new RecordingInitializer("referencedata", calls),
             new RecordingInitializer("systemdata", calls),
             new RecordingInitializer("identity", calls),
+            new RecordingInitializer("collaboration", calls),
         };
 
         var invoker = new InProcessServiceInitializationInvoker(initializers);
@@ -31,6 +32,7 @@ public sealed class UnifiedHostInitializationOrderTests
                 "inspect:identity", "plan:identity", "apply:identity", "verify:identity",
                 "inspect:systemdata", "plan:systemdata", "apply:systemdata", "verify:systemdata",
                 "inspect:referencedata", "plan:referencedata", "apply:referencedata", "verify:referencedata",
+                "inspect:collaboration", "plan:collaboration", "apply:collaboration", "verify:collaboration",
             ],
             calls);
     }
@@ -44,6 +46,7 @@ public sealed class UnifiedHostInitializationOrderTests
             new RecordingInitializer("identity", calls),
             new RecordingInitializer("systemdata", calls),
             new RecordingInitializer("referencedata", calls, verifyReady: false),
+            new RecordingInitializer("collaboration", calls),
         };
         var invoker = new InProcessServiceInitializationInvoker(initializers);
 
@@ -68,6 +71,7 @@ public sealed class UnifiedHostInitializationOrderTests
             new RecordingInitializer("referencedata", calls),
             new RecordingInitializer("systemdata", calls),
             new RecordingInitializer("identity", calls),
+            new RecordingInitializer("collaboration", calls),
         };
         var invoker = new InProcessServiceInitializationInvoker(initializers);
 
@@ -95,6 +99,7 @@ public sealed class UnifiedHostInitializationOrderTests
             new RecordingInitializer("identity", calls),
             new RecordingInitializer("systemdata", calls),
             new RecordingInitializer("referencedata", calls),
+            new RecordingInitializer("collaboration", calls),
         };
         var invoker = new InProcessServiceInitializationInvoker(initializers);
 
@@ -144,6 +149,7 @@ public sealed class UnifiedHostInitializationOrderTests
             "identity" => "ID-020-01",
             "systemdata" => "SDM-006-01",
             "referencedata" => "reference-data-baseline-v1",
+            "collaboration" => "PF05-004",
             _ => throw new InvalidOperationException($"unknown service: {serviceKey}"),
         };
 

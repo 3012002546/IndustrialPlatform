@@ -49,6 +49,23 @@ public sealed class FileObjectTable
     [SugarColumn(ColumnName = "retention_until")] public DateTimeOffset? RetentionUntil { get; set; }
 }
 
+[SugarTable("system_file_status_outbox")]
+public sealed class FileStatusOutboxTable
+{
+    [SugarColumn(ColumnName = "event_id", IsPrimaryKey = true)] public Guid EventId { get; set; }
+    [SugarColumn(ColumnName = "tenant_n_id")] public string TenantNId { get; set; } = string.Empty;
+    [SugarColumn(ColumnName = "file_n_id")] public string FileNId { get; set; } = string.Empty;
+    [SugarColumn(ColumnName = "scan_status")] public string ScanStatus { get; set; } = string.Empty;
+    [SugarColumn(ColumnName = "restricted")] public bool Restricted { get; set; }
+    [SugarColumn(ColumnName = "deletion_status")] public string DeletionStatus { get; set; } = string.Empty;
+    [SugarColumn(ColumnName = "observed_on")] public DateTimeOffset ObservedOn { get; set; }
+    [SugarColumn(ColumnName = "published_on")] public DateTimeOffset? PublishedOn { get; set; }
+    [SugarColumn(ColumnName = "next_attempt_on")] public DateTimeOffset? NextAttemptOn { get; set; }
+    [SugarColumn(ColumnName = "retry_count")] public int RetryCount { get; set; }
+    [SugarColumn(ColumnName = "last_error")] public string? LastError { get; set; }
+    [SugarColumn(ColumnName = "dead_lettered_on")] public DateTimeOffset? DeadLetteredOn { get; set; }
+}
+
 [SugarTable("system_file_scan_attempt")]
 public sealed class FileScanAttemptTable
 {
@@ -74,6 +91,39 @@ public sealed class FileReferenceGrantTable
     [SugarColumn(ColumnName = "purpose")] public string Purpose { get; set; } = string.Empty;
     [SugarColumn(ColumnName = "created_on")] public DateTimeOffset CreatedOn { get; set; }
     [SugarColumn(ColumnName = "deleted_on")] public DateTimeOffset? DeletedOn { get; set; }
+}
+
+[SugarTable("system_collaboration_file_reference")]
+public sealed class CollaborationFileReferenceTable
+{
+    [SugarColumn(ColumnName = "tenant_n_id", IsPrimaryKey = true)] public string TenantNId { get; set; } = string.Empty;
+    [SugarColumn(ColumnName = "reference_n_id", IsPrimaryKey = true)] public string ReferenceNId { get; set; } = string.Empty;
+    [SugarColumn(ColumnName = "file_n_id")] public string FileNId { get; set; } = string.Empty;
+    [SugarColumn(ColumnName = "conversation_n_id")] public string ConversationNId { get; set; } = string.Empty;
+    [SugarColumn(ColumnName = "message_n_id")] public string MessageNId { get; set; } = string.Empty;
+    [SugarColumn(ColumnName = "attachment_n_id")] public string AttachmentNId { get; set; } = string.Empty;
+    [SugarColumn(ColumnName = "uploader_user_n_id")] public string UploaderUserNId { get; set; } = string.Empty;
+    [SugarColumn(ColumnName = "purpose")] public string Purpose { get; set; } = string.Empty;
+    [SugarColumn(ColumnName = "owner_service")] public string OwnerService { get; set; } = "collaboration";
+    [SugarColumn(ColumnName = "status")] public string Status { get; set; } = "Active";
+    [SugarColumn(ColumnName = "version")] public long Version { get; set; }
+    [SugarColumn(ColumnName = "created_on")] public DateTimeOffset CreatedOn { get; set; }
+    [SugarColumn(ColumnName = "released_on")] public DateTimeOffset? ReleasedOn { get; set; }
+}
+
+[SugarTable("system_collaboration_file_hold")]
+public sealed class CollaborationFileHoldTable
+{
+    [SugarColumn(ColumnName = "tenant_n_id", IsPrimaryKey = true)] public string TenantNId { get; set; } = string.Empty;
+    [SugarColumn(ColumnName = "case_n_id", IsPrimaryKey = true)] public string CaseNId { get; set; } = string.Empty;
+    [SugarColumn(ColumnName = "file_n_id", IsPrimaryKey = true)] public string FileNId { get; set; } = string.Empty;
+    [SugarColumn(ColumnName = "scope_checksum")] public string ScopeChecksum { get; set; } = string.Empty;
+    [SugarColumn(ColumnName = "case_revision")] public long CaseRevision { get; set; }
+    [SugarColumn(ColumnName = "owner_service")] public string OwnerService { get; set; } = "collaboration";
+    [SugarColumn(ColumnName = "status")] public string Status { get; set; } = "Active";
+    [SugarColumn(ColumnName = "created_on")] public DateTimeOffset CreatedOn { get; set; }
+    [SugarColumn(ColumnName = "updated_on")] public DateTimeOffset UpdatedOn { get; set; }
+    [SugarColumn(ColumnName = "released_on")] public DateTimeOffset? ReleasedOn { get; set; }
 }
 
 [SugarTable("system_notification_announcement")]

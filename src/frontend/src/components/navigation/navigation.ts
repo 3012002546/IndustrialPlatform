@@ -1,12 +1,12 @@
 /**
  * PC 平台壳导航静态适配器(§7.7 授权导航视图)。
- * 只注册真实存在的 PC 工作台路由:工作台分组 + 系统管理分组(Identity 管理页)。
- * 不注册 SystemData、通知、聊天等假入口;菜单隐藏不替代 Router Guard 授权。
+ * 只注册真实存在的 PC 工作台路由；菜单隐藏不替代 Router Guard 授权。
  * 图标使用正式 Element Plus 图标(@element-plus/icons-vue),禁止 Emoji/文本占位。
  */
 
 import {
   Avatar,
+  ChatDotRound,
   House,
   Lock,
   Monitor,
@@ -44,6 +44,13 @@ const DEFAULT_PC_NAVIGATION_GROUPS: readonly NavigationGroup[] = [
         routeName: 'terminal-preview',
         icon: Monitor,
         anyPermissions: [PERMISSIONS.platformPdaView, PERMISSIONS.platformMobileView],
+      },
+      {
+        id: 'collaboration-chat',
+        label: '聊天',
+        routeName: 'collaboration-chat',
+        icon: ChatDotRound,
+        permission: PERMISSIONS.collaborationMessagingRead,
       },
     ],
   },
@@ -102,6 +109,43 @@ const DEFAULT_PC_NAVIGATION_GROUPS: readonly NavigationGroup[] = [
         routeName: 'reference-data-state-machines',
         icon: Tickets,
         permission: PERMISSIONS.referenceDataStateMachineView,
+      },
+    ],
+  },
+  {
+    id: 'collaboration',
+    label: '协作',
+    labelKey: 'shell.navigation.group.collaboration',
+    fallbackLabel: '协作',
+    icon: ChatDotRound,
+    items: [
+      {
+        id: 'collaboration-compliance-search',
+        label: '受控查看',
+        routeName: 'collaboration-compliance-search',
+        icon: Tickets,
+        permission: PERMISSIONS.collaborationComplianceRead,
+      },
+      {
+        id: 'collaboration-legal-holds',
+        label: '保全案件',
+        routeName: 'collaboration-legal-holds',
+        icon: Tickets,
+        permission: PERMISSIONS.collaborationComplianceRead,
+      },
+      {
+        id: 'collaboration-exports',
+        label: '导出记录',
+        routeName: 'collaboration-exports',
+        icon: Tickets,
+        permission: PERMISSIONS.collaborationComplianceRead,
+      },
+      {
+        id: 'collaboration-retention',
+        label: '保留策略',
+        routeName: 'collaboration-retention',
+        icon: Setting,
+        permission: PERMISSIONS.collaborationComplianceRetentionManage,
       },
     ],
   },

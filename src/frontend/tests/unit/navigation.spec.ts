@@ -37,7 +37,9 @@ describe('pcNavigationGroups', () => {
 
   it('注册 PDA 通知中心路由并声明终端与收件箱权限元数据', () => {
     const pda = routes.find((record) => record.path === '/pda')
-    const notifications = pda?.children?.find((record) => record.name === ROUTE_NAMES.pdaNotifications)
+    const notifications = pda?.children?.find(
+      (record) => record.name === ROUTE_NAMES.pdaNotifications,
+    )
     expect(notifications?.path).toBe('notifications')
     expect(notifications?.meta).toMatchObject({
       permission: PERMISSIONS.systemDataNotificationInboxRead,
@@ -151,6 +153,22 @@ describe('pcNavigationGroups', () => {
     }
   })
 
+  it('聊天仅位于工作台且紧随终端预览之后', () => {
+    const workspace = pcNavigationGroups.find((group) => group.id === 'workspace')
+    const chatMatches = pcNavigationGroups
+      .flatMap((group) => group.items)
+      .filter((item) => item.id === 'collaboration-chat')
+    const workspaceItemIds = workspace?.items.map((item) => item.id) ?? []
+
+    expect(chatMatches).toHaveLength(1)
+    expect(workspaceItemIds.indexOf('collaboration-chat')).toBe(
+      workspaceItemIds.indexOf('terminal-preview') + 1,
+    )
+    expect(pcNavigationGroups.find((group) => group.id === 'collaboration')?.items).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: 'collaboration-chat' })]),
+    )
+  })
+
   it('所有路由都归属某个分组且 id 不重叠', () => {
     const seen = new Set<string>()
     for (const group of pcNavigationGroups) {
@@ -163,9 +181,9 @@ describe('pcNavigationGroups', () => {
     }
   })
 
-  it('只注册真实 PC 工作台路由,不含聊天等假入口', () => {
+  it('只注册真实 PC 工作台路由,不含假入口', () => {
     const labels = pcNavigationGroups.flatMap((g) => g.items).map((i) => i.label)
-    const fakeKeywords = ['SystemData', '聊天', '消息', '协作']
+    const fakeKeywords = ['SystemData']
     for (const keyword of fakeKeywords) {
       expect(
         labels.some((l) => l.includes(keyword)),

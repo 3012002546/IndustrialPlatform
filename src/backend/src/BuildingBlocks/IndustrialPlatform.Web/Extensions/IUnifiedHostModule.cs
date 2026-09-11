@@ -16,6 +16,9 @@ public interface IUnifiedHostModule
 
     string ExternalPathPrefix { get; }
 
+    /// <summary>是否剥离外部服务前缀；具有完整模块路由的服务保留前缀，避免共享路径冲突。</summary>
+    bool StripExternalPathPrefix => true;
+
     void RegisterServices(IServiceCollection services, IConfiguration configuration);
 
     void RegisterHealthChecks(IHealthChecksBuilder healthChecks);

@@ -9,7 +9,7 @@ public sealed class UnifiedHostModuleCatalogTests
     public void Catalog_is_explicit_and_preserves_initialization_order()
     {
         Assert.Equal(
-            ["identity", "systemdata", "referencedata"],
+            ["identity", "systemdata", "referencedata", "collaboration"],
             UnifiedHostModuleCatalog.GetServiceKeys(UnifiedHostModuleCatalog.Modules));
     }
 
@@ -17,7 +17,7 @@ public sealed class UnifiedHostModuleCatalogTests
     public void Catalog_derives_external_prefixes_from_module_metadata()
     {
         Assert.Equal(
-            ["/identity", "/systemdata", "/referencedata"],
+            ["/identity", "/systemdata", "/referencedata", "/collaboration"],
             UnifiedHostModuleCatalog.GetExternalPathPrefixes(UnifiedHostModuleCatalog.Modules));
     }
 
@@ -29,10 +29,10 @@ public sealed class UnifiedHostModuleCatalogTests
             .ToArray();
 
         Assert.Equal(
-            ["identity", "systemdata", "referencedata", "audit"],
+            ["identity", "systemdata", "referencedata", "collaboration", "audit"],
             UnifiedHostModuleCatalog.GetServiceKeys(modules));
         Assert.Equal(
-            ["/identity", "/systemdata", "/referencedata", "/audit"],
+            ["/identity", "/systemdata", "/referencedata", "/collaboration", "/audit"],
             UnifiedHostModuleCatalog.GetExternalPathPrefixes(modules));
     }
 

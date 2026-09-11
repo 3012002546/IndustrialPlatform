@@ -74,7 +74,103 @@ public static class SystemDataSchemaMigrations
             SystemDataMigrationHelpers.CreateRawStep("PF04-001-10", "system_audit_ingress_failure", AuditIngressFailureDdl),
             SystemDataMigrationHelpers.CreateRawStep("PF04-001-11", "system_audit_outbox", AuditOutboxDdl),
             SystemDataMigrationHelpers.CreateRawStep("PF04-001-12", "system_audit_lifecycle legal hold", AuditLifecycleLegalHoldAlterDdl),
+            SystemDataMigrationHelpers.CreateRawStep("PF05-001", "system_trusted_service_call_nonce", TrustedServiceCallNonceDdl),
+            SystemDataMigrationHelpers.CreateRawStep("PF05-002-01", "system_collaboration_file_reference", CollaborationFileReferenceDdl,
+                "system_collaboration_file_reference",
+                ["tenant_n_id", "reference_n_id", "file_n_id", "conversation_n_id", "message_n_id", "attachment_n_id", "uploader_user_n_id", "purpose", "owner_service", "status", "version", "created_on", "released_on"],
+                ["ux_system_collaboration_file_reference_attachment_purpose", "ix_system_collaboration_file_reference_file_status"]),
+            SystemDataMigrationHelpers.CreateRawStep("PF05-002-02", "system_collaboration_file_hold", CollaborationFileHoldDdl,
+                "system_collaboration_file_hold",
+                ["tenant_n_id", "case_n_id", "file_n_id", "scope_checksum", "case_revision", "owner_service", "status", "created_on", "updated_on", "released_on"],
+                ["ix_system_collaboration_file_hold_file_status"]),
+            SystemDataMigrationHelpers.CreateRawStep("PF05-003", "system_file_status_outbox", FileStatusOutboxDdl,
+                "system_file_status_outbox",
+                ["event_id", "tenant_n_id", "file_n_id", "scan_status", "restricted", "deletion_status", "observed_on", "published_on", "next_attempt_on", "retry_count", "last_error", "dead_lettered_on"],
+                ["ix_system_file_status_outbox_pending"]),
         ];
+    }
+
+    private static string FileStatusOutboxDdl(DbType dbType)
+    {
+        var (g, t, b, _, _) = SystemDataMigrationHelpers.TypeWords(dbType);
+        return $"""
+            CREATE TABLE IF NOT EXISTS system_file_status_outbox (
+                event_id {g} PRIMARY KEY NOT NULL,
+                tenant_n_id TEXT NOT NULL,
+                file_n_id TEXT NOT NULL,
+                scan_status TEXT NOT NULL,
+                restricted {b} NOT NULL,
+                deletion_status TEXT NOT NULL,
+                observed_on {t} NOT NULL,
+                published_on {t} NULL,
+                next_attempt_on {t} NULL,
+                retry_count INTEGER NOT NULL,
+                last_error TEXT NULL,
+                dead_lettered_on {t} NULL
+            );
+            CREATE INDEX IF NOT EXISTS ix_system_file_status_outbox_pending ON system_file_status_outbox (published_on, dead_lettered_on, next_attempt_on, observed_on);
+            """;
+    }
+
+    private static string CollaborationFileReferenceDdl(DbType dbType)
+    {
+        var (_, t, _, big, _) = SystemDataMigrationHelpers.TypeWords(dbType);
+        return $"""
+            CREATE TABLE IF NOT EXISTS system_collaboration_file_reference (
+                tenant_n_id TEXT NOT NULL,
+                reference_n_id TEXT NOT NULL,
+                file_n_id TEXT NOT NULL,
+                conversation_n_id TEXT NOT NULL,
+                message_n_id TEXT NOT NULL,
+                attachment_n_id TEXT NOT NULL,
+                uploader_user_n_id TEXT NOT NULL,
+                purpose TEXT NOT NULL,
+                owner_service TEXT NOT NULL,
+                status TEXT NOT NULL,
+                version {big} NOT NULL,
+                created_on {t} NOT NULL,
+                released_on {t} NULL,
+                PRIMARY KEY (tenant_n_id, reference_n_id)
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_system_collaboration_file_reference_attachment_purpose ON system_collaboration_file_reference (tenant_n_id, attachment_n_id, purpose);
+            CREATE INDEX IF NOT EXISTS ix_system_collaboration_file_reference_file_status ON system_collaboration_file_reference (tenant_n_id, file_n_id, status);
+            """;
+    }
+
+    private static string CollaborationFileHoldDdl(DbType dbType)
+    {
+        var (_, t, _, big, _) = SystemDataMigrationHelpers.TypeWords(dbType);
+        return $"""
+            CREATE TABLE IF NOT EXISTS system_collaboration_file_hold (
+                tenant_n_id TEXT NOT NULL,
+                case_n_id TEXT NOT NULL,
+                file_n_id TEXT NOT NULL,
+                scope_checksum TEXT NOT NULL,
+                case_revision {big} NOT NULL,
+                owner_service TEXT NOT NULL,
+                status TEXT NOT NULL,
+                created_on {t} NOT NULL,
+                updated_on {t} NOT NULL,
+                released_on {t} NULL,
+                PRIMARY KEY (tenant_n_id, case_n_id, file_n_id)
+            );
+            CREATE INDEX IF NOT EXISTS ix_system_collaboration_file_hold_file_status ON system_collaboration_file_hold (tenant_n_id, file_n_id, status);
+            """;
+    }
+
+    private static string TrustedServiceCallNonceDdl(DbType dbType)
+    {
+        var (_, t, _, _, _) = SystemDataMigrationHelpers.TypeWords(dbType);
+        return $"""
+            CREATE TABLE IF NOT EXISTS system_trusted_service_call_nonce (
+                issuer TEXT NOT NULL,
+                nonce TEXT NOT NULL,
+                expires_on {t} NOT NULL,
+                created_on {t} NOT NULL,
+                PRIMARY KEY (issuer, nonce)
+            );
+            CREATE INDEX IF NOT EXISTS ix_system_trusted_service_call_nonce_expiry ON system_trusted_service_call_nonce (expires_on);
+            """;
     }
 
     private static string FileUploadSessionDdl(DbType dbType)

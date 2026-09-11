@@ -1,5 +1,7 @@
 using IndustrialPlatform.Web.Filters;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ApplicationParts;
+using Microsoft.AspNetCore.OData.Routing.Controllers;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
@@ -18,10 +20,18 @@ public static class WebServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        return services.AddControllers(options =>
+        var mvc = services.AddControllers(options =>
         {
             options.Filters.Add<ResultFilter>();
             configureOptions?.Invoke(options);
         });
+        // OData is used only as an input parser. Its convention-only metadata
+        // controller would otherwise be discovered and mapped to the global API root.
+        foreach (var part in mvc.PartManager.ApplicationParts.OfType<AssemblyPart>()
+            .Where(part => part.Assembly == typeof(MetadataController).Assembly).ToArray())
+        {
+            mvc.PartManager.ApplicationParts.Remove(part);
+        }
+        return mvc;
     }
 }

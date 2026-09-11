@@ -5,10 +5,13 @@ using IndustrialPlatform.Application.Abstractions.Initialization;
 using IndustrialPlatform.ReferenceData.Infrastructure.Initialization;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
+using IndustrialPlatform.Infrastructure.Database;
 using IndustrialPlatform.Web.Initialization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using IndustrialPlatform.ReferenceData.Infrastructure.Outbox;
 
 namespace IndustrialPlatform.ReferenceData.Tests;
 
@@ -18,15 +21,26 @@ public sealed class InitializationHttpTests
     public async Task Internal_protocol_resolves_local_target_and_returns_raw_plan_and_state()
     {
         var path = Path.Combine(Path.GetTempPath(), $"pf03-http-{Guid.NewGuid():N}.db");
+        WebApplicationFactory<Program>? factory = null;
+        SqlSugarDbContext? dbContext = null;
         try
         {
-            await using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder => builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(new Dictionary<string, string?>
+            factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder => builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["SqlSugar:ConnectionString"] = $"Data Source={path};Pooling=False",
                 ["DatabaseTopology:SharedSqliteFile"] = path,
                 ["InternalInitialization:Key"] = "test-only-initialization-key",
                 ["ReferenceData:Initialization:AutoApply"] = "false",
-            })).ConfigureTestServices(services => services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(path + ".keys")).UseEphemeralDataProtectionProvider()));
+            })).ConfigureTestServices(services =>
+            {
+                services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(path + ".keys")).UseEphemeralDataProtectionProvider();
+                foreach (var descriptor in services.Where(descriptor => descriptor.ServiceType == typeof(IHostedService)
+                    && descriptor.ImplementationType == typeof(ReferenceDataOutboxDispatcher)).ToArray())
+                {
+                    services.Remove(descriptor);
+                }
+            }));
+            dbContext = factory.Services.GetRequiredService<SqlSugarDbContext>();
             using var client = factory.CreateClient();
             var request = new InternalInitializationRequest("TENANT-A", "OP-A", ReferenceDataServiceInitializer.CurrentVersion, ServiceInitializationPolicy.Standard, "TRACE-A");
             using var denied = await client.PostAsJsonAsync("/api/v1/internal/initialization/referencedata/inspect", request);
@@ -50,8 +64,14 @@ public sealed class InitializationHttpTests
         }
         finally
         {
+            dbContext?.Dispose();
+            if (factory is not null) await factory.DisposeAsync();
             Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-            if (File.Exists(path)) File.Delete(path);
+            for (var attempt = 0; attempt < 10 && File.Exists(path); attempt++)
+            {
+                try { File.Delete(path); }
+                catch (IOException) when (attempt < 9) { await Task.Delay(25); }
+            }
             if (Directory.Exists(path + ".keys")) Directory.Delete(path + ".keys", true);
         }
     }

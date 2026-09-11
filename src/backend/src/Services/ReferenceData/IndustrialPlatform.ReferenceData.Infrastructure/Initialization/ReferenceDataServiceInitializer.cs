@@ -37,6 +37,19 @@ public sealed class ReferenceDataServiceInitializer : IServiceInitializer
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
+            var missingLedgerColumns = await _ledger.GetMissingLedgerColumnsAsync(cancellationToken);
+            if (missingLedgerColumns.Count > 0)
+                return new ServiceInitializationState(
+                    ServiceKey,
+                    ModuleKey,
+                    null,
+                    false,
+                    false,
+                    true,
+                    false,
+                    $"ReferenceData 本地初始化账本缺少列:{string.Join(',', missingLedgerColumns)}，需要执行 Apply 升级。",
+                    []);
+
             var migration = await _ledger.GetMigrationAsync(cancellationToken);
             var seed = await _ledger.GetSeedAsync(BaselineSeedKey, BaselineVersion, cancellationToken);
             var unitSeed = await _ledger.GetSeedAsync(UnitOfMeasureSystemSeed.SeedKey, UnitOfMeasureSystemSeed.SeedVersion, cancellationToken);
@@ -89,6 +102,19 @@ public sealed class ReferenceDataServiceInitializer : IServiceInitializer
                 false,
                 "ReferenceData 服务级初始化账本尚未创建。");
         }
+        catch (Exception exception) when (IsMissingLocalColumn(exception))
+        {
+            return new ServiceInitializationState(
+                ServiceKey,
+                ModuleKey,
+                null,
+                false,
+                false,
+                false,
+                false,
+                "ReferenceData 本地架构尚未完成升级，需要执行 Apply。",
+                []);
+        }
     }
 
     public Task<ServiceInitializationPlan> PlanAsync(ServiceInitializationContext context, ServiceInitializationState inspection, CancellationToken cancellationToken) =>
@@ -137,6 +163,20 @@ public sealed class ReferenceDataServiceInitializer : IServiceInitializer
             {
                 return true;
             }
+        }
+
+        return false;
+    }
+
+    private static bool IsMissingLocalColumn(Exception exception)
+    {
+        for (var current = exception; current is not null; current = current.InnerException)
+        {
+            var message = current.Message;
+            if (message.Contains("no such column", StringComparison.OrdinalIgnoreCase)
+                || (message.Contains("column", StringComparison.OrdinalIgnoreCase)
+                    && message.Contains("does not exist", StringComparison.OrdinalIgnoreCase)))
+                return true;
         }
 
         return false;

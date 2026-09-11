@@ -47,12 +47,19 @@ import ServiceInitializationPage from '@/pages/pc/systemData/ServiceInitializati
 import FileManagementPage from '@/pages/pc/systemData/FileManagementPage.vue'
 import NotificationManagementPage from '@/pages/pc/systemData/NotificationManagementPage.vue'
 import AuditManagementPage from '@/pages/pc/systemData/AuditManagementPage.vue'
+import CollaborationPage from '@/pages/pc/collaboration/CollaborationPage.vue'
+import ControlledViewPage from '@/pages/pc/collaboration/ControlledViewPage.vue'
+import LegalHoldsPage from '@/pages/pc/collaboration/LegalHoldsPage.vue'
+import ExportsPage from '@/pages/pc/collaboration/ExportsPage.vue'
+import RetentionPage from '@/pages/pc/collaboration/RetentionPage.vue'
 import NotificationCenterPage from '@/pages/mobile/NotificationCenterPage.vue'
 import WorkspaceTabsSandboxPage from '@/pages/dev/WorkspaceTabsSandboxPage.vue'
 import PdaHomePage from '@/pages/pda/PdaHomePage.vue'
 import MobileHomePage from '@/pages/mobile/MobileHomePage.vue'
 import MobileMyPage from '@/pages/mobile/MobileMyPage.vue'
 import FileUploadPage from '@/pages/mobile/FileUploadPage.vue'
+import PdaCollaborationPage from '@/pages/pda/collaboration/CollaborationPage.vue'
+import MobileCollaborationPage from '@/pages/mobile/collaboration/CollaborationPage.vue'
 import { PERMISSIONS } from '@/permissions'
 import { ROUTE_NAMES } from './routeNames'
 
@@ -530,6 +537,104 @@ export const routes: RouteRecordRaw[] = [
           workspace: 'business',
         },
       },
+      {
+        path: 'collaboration',
+        name: ROUTE_NAMES.collaborationChat,
+        component: CollaborationPage,
+        meta: {
+          title: '协作聊天',
+          titleKey: 'shell.navigation.item.collaboration-chat',
+          fallbackTitle: '协作聊天',
+          requiresAuth: true,
+          permission: PERMISSIONS.collaborationMessagingRead,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
+      {
+        path: 'collaboration/conversations/:conversationNId',
+        name: ROUTE_NAMES.collaborationConversation,
+        component: CollaborationPage,
+        meta: {
+          title: '协作会话',
+          titleKey: 'shell.navigation.item.collaboration-chat',
+          fallbackTitle: '协作会话',
+          requiresAuth: true,
+          permission: PERMISSIONS.collaborationMessagingRead,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
+      {
+        path: 'collaboration/compliance',
+        name: ROUTE_NAMES.collaborationCompliance,
+        redirect: { name: ROUTE_NAMES.collaborationComplianceSearch },
+        meta: {
+          title: '协作合规',
+          titleKey: 'collaboration.complianceTitle',
+          fallbackTitle: '协作合规',
+          requiresAuth: true,
+          permission: PERMISSIONS.collaborationComplianceRead,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
+      {
+        path: 'collaboration/compliance/search',
+        name: ROUTE_NAMES.collaborationComplianceSearch,
+        component: ControlledViewPage,
+        meta: {
+          title: '合规检索',
+          titleKey: 'shell.navigation.item.collaboration-compliance-search',
+          fallbackTitle: '合规检索',
+          requiresAuth: true,
+          permission: PERMISSIONS.collaborationComplianceRead,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
+      {
+        path: 'collaboration/compliance/legal-holds',
+        name: ROUTE_NAMES.collaborationLegalHolds,
+        component: LegalHoldsPage,
+        meta: {
+          title: '法律保全',
+          titleKey: 'shell.navigation.item.collaboration-legal-holds',
+          fallbackTitle: '法律保全',
+          requiresAuth: true,
+          permission: PERMISSIONS.collaborationComplianceRead,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
+      {
+        path: 'collaboration/compliance/exports',
+        name: ROUTE_NAMES.collaborationExports,
+        component: ExportsPage,
+        meta: {
+          title: '合规导出',
+          titleKey: 'shell.navigation.item.collaboration-exports',
+          fallbackTitle: '合规导出',
+          requiresAuth: true,
+          permission: PERMISSIONS.collaborationComplianceRead,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
+      {
+        path: 'collaboration/compliance/retention',
+        name: ROUTE_NAMES.collaborationRetention,
+        component: RetentionPage,
+        meta: {
+          title: '保留策略',
+          titleKey: 'shell.navigation.item.collaboration-retention',
+          fallbackTitle: '保留策略',
+          requiresAuth: true,
+          permission: PERMISSIONS.collaborationComplianceRetentionManage,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
       // DEV-only 工作区沙箱:仅注册于 DEV/E2E,生产构建不含此路由与导航入口。
       // 无权限门槛,供 12→13 上限阻断/关闭/复用/恢复 E2E 使用。
       ...(import.meta.env.DEV
@@ -603,6 +708,32 @@ export const routes: RouteRecordRaw[] = [
           terminal: 'pda',
         },
       },
+      {
+        path: 'collaboration',
+        name: ROUTE_NAMES.pdaCollaborationChat,
+        component: PdaCollaborationPage,
+        meta: {
+          title: '协作聊天',
+          titleKey: 'shell.navigation.item.collaboration-chat',
+          fallbackTitle: '协作聊天',
+          requiresAuth: true,
+          permission: PERMISSIONS.collaborationMessagingRead,
+          terminal: 'pda',
+        },
+      },
+      {
+        path: 'collaboration/conversations/:conversationNId',
+        name: ROUTE_NAMES.pdaCollaborationConversation,
+        component: PdaCollaborationPage,
+        meta: {
+          title: '协作会话',
+          titleKey: 'shell.navigation.item.collaboration-chat',
+          fallbackTitle: '协作会话',
+          requiresAuth: true,
+          permission: PERMISSIONS.collaborationMessagingRead,
+          terminal: 'pda',
+        },
+      },
     ],
   },
   {
@@ -635,13 +766,49 @@ export const routes: RouteRecordRaw[] = [
         path: 'files',
         name: ROUTE_NAMES.mobileFiles,
         component: FileUploadPage,
-        meta: { title: '文件', requiresAuth: true, permission: PERMISSIONS.systemDataFileRead, terminal: 'mobile' },
+        meta: {
+          title: '文件',
+          requiresAuth: true,
+          permission: PERMISSIONS.systemDataFileRead,
+          terminal: 'mobile',
+        },
       },
       {
         path: 'notifications',
         name: ROUTE_NAMES.mobileNotifications,
         component: NotificationCenterPage,
-        meta: { title: '通知', requiresAuth: true, permission: PERMISSIONS.systemDataNotificationInboxRead, terminal: 'mobile' },
+        meta: {
+          title: '通知',
+          requiresAuth: true,
+          permission: PERMISSIONS.systemDataNotificationInboxRead,
+          terminal: 'mobile',
+        },
+      },
+      {
+        path: 'collaboration',
+        name: ROUTE_NAMES.mobileCollaborationChat,
+        component: MobileCollaborationPage,
+        meta: {
+          title: '协作聊天',
+          titleKey: 'shell.navigation.item.collaboration-chat',
+          fallbackTitle: '协作聊天',
+          requiresAuth: true,
+          permission: PERMISSIONS.collaborationMessagingRead,
+          terminal: 'mobile',
+        },
+      },
+      {
+        path: 'collaboration/conversations/:conversationNId',
+        name: ROUTE_NAMES.mobileCollaborationConversation,
+        component: MobileCollaborationPage,
+        meta: {
+          title: '协作会话',
+          titleKey: 'shell.navigation.item.collaboration-chat',
+          fallbackTitle: '协作聊天',
+          requiresAuth: true,
+          permission: PERMISSIONS.collaborationMessagingRead,
+          terminal: 'mobile',
+        },
       },
     ],
   },

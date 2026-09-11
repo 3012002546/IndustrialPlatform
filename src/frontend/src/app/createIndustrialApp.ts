@@ -12,6 +12,9 @@ import '@/styles/base.css'
 import App from '@/App.vue'
 import { createHttpClient, type HttpAuthRefresh } from '@/api/httpClient'
 import { createIdentityAuthApi } from '@/api/identity/identityApi'
+import { createCollaborationApi } from '@/api/collaboration'
+import { registerCollaborationApi } from '@/api/collaborationRegistry'
+import { CollaborationRealtimeManager, registerCollaborationRealtime } from '@/api/collaborationHub'
 import { createReferenceDataApi, registerReferenceDataApi } from '@/api/referenceData'
 import { createIdentityManagementApi } from '@/api/identity/management'
 import { registerManagementApi } from '@/api/identity/managementRegistry'
@@ -44,6 +47,7 @@ import {
 import { createSystemDataRuntimePlugin } from '@/systemData/runtime/coordinator'
 import { createSystemDataTenantUiDefaultsSource } from '@/systemData/runtime/themeSource'
 import { setTenantUiDefaultsSource } from '@/stores/themeStore'
+import { createCollaborationRuntimePlugin } from '@/systemData/runtime/collaborationRuntime'
 
 /** 认证专用路径片段:401 不触发刷新重试(登录/刷新/登出),避免无谓循环。 */
 const AUTH_ENDPOINT_MARKERS = ['/auth/login', '/auth/refresh', '/auth/logout'] as const
@@ -88,6 +92,10 @@ function installAuthGateway(pinia: Pinia, router: Router): void {
     )
     // 管理端 API 与认证共用同一 client(令牌注入 + 401 单飞刷新)。
     registerManagementApi(createIdentityManagementApi(client))
+    registerCollaborationApi(createCollaborationApi(client))
+    registerCollaborationRealtime(
+      new CollaborationRealtimeManager(() => getCurrentSession()?.accessToken ?? null),
+    )
     registerReferenceDataApi(createReferenceDataApi(client))
     registerSystemDataManagementApi(createSystemDataManagementApi(client))
     registerPf04Api(createPf04Api(client))
@@ -127,6 +135,7 @@ export function createIndustrialApp(options: IndustrialAppOptions = {}): VueApp 
   installAuthGateway(pinia, router)
   if (loadRuntimeConfig().authMode === 'http') {
     app.use(createSystemDataRuntimePlugin(pinia))
+    app.use(createCollaborationRuntimePlugin(pinia))
   }
 
   for (const plugin of options.plugins ?? []) {

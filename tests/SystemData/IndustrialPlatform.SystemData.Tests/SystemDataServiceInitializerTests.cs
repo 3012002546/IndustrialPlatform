@@ -3,6 +3,9 @@ using IndustrialPlatform.Infrastructure.Database;
 using IndustrialPlatform.SharedKernel.Topology;
 using IndustrialPlatform.SystemData.Infrastructure.DatabaseOrchestration.Initialization;
 using IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations;
+using System.Security.Cryptography;
+using System.Text;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SqlSugar;
 
@@ -37,6 +40,78 @@ public sealed class SystemDataServiceInitializerTests : IDisposable
             0,
             await _dbContext.SqlSugar.Ado.GetIntAsync(
                 "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='system_data_schema_migrations'"));
+    }
+
+    [Fact]
+    public async Task Inspect_legacy_three_column_ledger_reports_upgrade_without_writing()
+    {
+        await _dbContext.SqlSugar.Ado.ExecuteCommandAsync(
+            """
+            CREATE TABLE system_data_schema_migrations (
+                migration_id TEXT PRIMARY KEY NOT NULL,
+                description TEXT NOT NULL,
+                applied_on TEXT NOT NULL
+            );
+            INSERT INTO system_data_schema_migrations (migration_id, description, applied_on)
+            VALUES ('SDM-001-01', 'legacy migration', '2026-01-01T00:00:00Z');
+            """);
+
+        var inspectedSql = new List<string>();
+        _dbContext.SqlSugar.Aop.OnLogExecuting = (sql, _) => inspectedSql.Add(sql);
+
+        var state = await _initializer.InspectAsync(CreateContext(), CancellationToken.None);
+
+        Assert.False(state.Ready);
+        Assert.Contains("checksum", state.Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(inspectedSql, sql =>
+        {
+            var statement = sql.TrimStart();
+            return statement.StartsWith("ALTER", StringComparison.OrdinalIgnoreCase)
+                || statement.StartsWith("CREATE", StringComparison.OrdinalIgnoreCase)
+                || statement.StartsWith("DELETE", StringComparison.OrdinalIgnoreCase)
+                || statement.StartsWith("DROP", StringComparison.OrdinalIgnoreCase)
+                || statement.StartsWith("INSERT", StringComparison.OrdinalIgnoreCase)
+                || statement.StartsWith("UPDATE", StringComparison.OrdinalIgnoreCase);
+        });
+        Assert.Equal(1, await _dbContext.SqlSugar.Ado.GetIntAsync(
+            "SELECT COUNT(*) FROM system_data_schema_migrations WHERE migration_id = 'SDM-001-01'"));
+    }
+
+    [Fact]
+    public async Task Legacy_three_column_ledger_runs_full_inspect_apply_verify_and_repeat_startup()
+    {
+        var firstStep = SystemDataSchemaMigrations.All[0];
+        await _dbContext.SqlSugar.Ado.ExecuteCommandAsync(
+            $"""
+            CREATE TABLE system_data_schema_migrations (
+                migration_id TEXT PRIMARY KEY NOT NULL,
+                description TEXT NOT NULL,
+                applied_on TEXT NOT NULL
+            );
+            INSERT INTO system_data_schema_migrations (migration_id, description, applied_on)
+            VALUES ('{firstStep.Id}', '{firstStep.Description}', '2026-01-01T00:00:00Z');
+            """);
+        await firstStep.Apply(_dbContext.SqlSugar, CancellationToken.None);
+
+        var initializer = new SystemDataServiceInitializer(
+            new SchemaMigrationRunner(_dbContext, SystemDataSchemaMigrations.All, NullLogger<SchemaMigrationRunner>.Instance),
+            _dbContext);
+        var context = CreateContext(SystemDataSchemaMigrations.All[^1].Id);
+
+        var inspected = await initializer.InspectAsync(context, CancellationToken.None);
+        Assert.False(inspected.Ready);
+        var plan = await initializer.PlanAsync(context, inspected, CancellationToken.None);
+
+        var applied = await initializer.ApplyAsync(context, plan, CancellationToken.None);
+        Assert.True(applied.Ready, applied.Reason);
+        Assert.Equal(SystemDataSchemaMigrations.All[^1].Id, applied.ObservedVersion);
+        Assert.Equal("2026-01-01T00:00:00Z", await _dbContext.SqlSugar.Ado.GetStringAsync(
+            "SELECT applied_on FROM system_data_schema_migrations WHERE migration_id = 'SDM-001-01'"));
+
+        var repeatedInspection = await initializer.InspectAsync(context, CancellationToken.None);
+        var repeatedPlan = await initializer.PlanAsync(context, repeatedInspection, CancellationToken.None);
+        Assert.True(repeatedInspection.Ready, repeatedInspection.Reason);
+        Assert.False(repeatedPlan.RequiresApply);
     }
 
     [Fact]
@@ -168,6 +243,7 @@ public sealed class SystemDataServiceInitializerTests : IDisposable
                 {
                     MigrationId = step.Id,
                     Description = step.Description,
+                    Checksum = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{step.Id}|{step.Description}"))).ToLowerInvariant(),
                     AppliedOn = DateTimeOffset.UtcNow,
                 }).ExecuteCommandAsync(cancellationToken);
             }

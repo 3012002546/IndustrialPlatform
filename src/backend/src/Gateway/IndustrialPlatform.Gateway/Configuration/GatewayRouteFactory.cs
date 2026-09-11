@@ -20,7 +20,9 @@ public static class GatewayRouteFactory
                 RouteId = $"{service.Name}-route",
                 ClusterId = $"{service.Name}-cluster",
                 Match = new RouteMatch { Path = $"{service.PathPrefix}/{{**catch-all}}" },
-                Transforms = [new Dictionary<string, string> { { "PathRemovePrefix", service.PathPrefix } }],
+                Transforms = service.StripPathPrefix
+                    ? [new Dictionary<string, string> { { "PathRemovePrefix", service.PathPrefix } }]
+                    : [],
             })
             .ToArray();
     }

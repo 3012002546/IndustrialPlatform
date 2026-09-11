@@ -26,9 +26,11 @@ const deviceStore = useDeviceStore()
 const authMode = loadRuntimeConfig().authMode
 const locale = usePlatformLocale()
 const copy = computed(() => systemDataPageCopy(locale.value, 'terminalFeatureMenu'))
-const hasFeature = computed(() =>
-  authStore.hasPermission(PERMISSIONS.systemDataFileRead) ||
-  authStore.hasPermission(PERMISSIONS.systemDataNotificationInboxRead),
+const hasFeature = computed(
+  () =>
+    authStore.hasPermission(PERMISSIONS.systemDataFileRead) ||
+    authStore.hasPermission(PERMISSIONS.systemDataNotificationInboxRead) ||
+    authStore.hasPermission(PERMISSIONS.collaborationMessagingRead),
 )
 
 const displayName = computed(() => authStore.user?.displayName ?? '')
@@ -37,7 +39,9 @@ const terminalLabel = computed(() => {
   const active = resolveActiveTerminal(route.meta.terminal, deviceStore.terminal)
   return TERMINAL_LABELS[active] ?? active
 })
-const authModeLabel = computed(() => (authMode === 'mock' ? copy.value.mockMode : copy.value.httpMode))
+const authModeLabel = computed(() =>
+  authMode === 'mock' ? copy.value.mockMode : copy.value.httpMode,
+)
 </script>
 
 <template>
@@ -64,7 +68,11 @@ const authModeLabel = computed(() => (authMode === 'mock' ? copy.value.mockMode 
     </dl>
 
     <TerminalFeatureMenu terminal="pda" />
-    <AppEmptyState v-if="!hasFeature" :title="copy.pdaEmptyTitle" :description="copy.pdaEmptyDescription" />
+    <AppEmptyState
+      v-if="!hasFeature"
+      :title="copy.pdaEmptyTitle"
+      :description="copy.pdaEmptyDescription"
+    />
   </AppPage>
 </template>
 

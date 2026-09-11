@@ -71,12 +71,13 @@ public sealed class ReferenceDataInitializationLedger(SqlSugarDbContext dbContex
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (!await TableExistsAsync("seed_ledger")) return null;
+        var checksum = HasColumn("seed_ledger", "checksum") ? "checksum" : "NULL";
         var scope = HasColumn("seed_ledger", "scope") ? "scope" : "NULL";
         var ado = Db.Ado;
         try
         {
             var rows = await ado.SqlQueryAsync<ReferenceDataSeedLedgerRecord>(
-                $"SELECT seed_key AS SeedKey, seed_version AS SeedVersion, checksum AS Checksum, {scope} AS Scope, applied_on AS AppliedOn, operation_n_id AS OperationNId, trace_id AS TraceId FROM {Table("seed_ledger")} WHERE seed_key=@key AND seed_version=@version",
+                $"SELECT seed_key AS SeedKey, seed_version AS SeedVersion, {checksum} AS Checksum, {scope} AS Scope, applied_on AS AppliedOn, operation_n_id AS OperationNId, trace_id AS TraceId FROM {Table("seed_ledger")} WHERE seed_key=@key AND seed_version=@version",
                 new SugarParameter("@key", seedKey), new SugarParameter("@version", seedVersion));
             return rows.FirstOrDefault();
         }
@@ -85,6 +86,24 @@ public sealed class ReferenceDataInitializationLedger(SqlSugarDbContext dbContex
             if (ado.Transaction is null) ado.Connection.Close();
             throw;
         }
+    }
+
+    public async Task<IReadOnlyList<string>> GetMissingLedgerColumnsAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var missing = new List<string>();
+        foreach (var (table, columns) in new Dictionary<string, string[]>(StringComparer.Ordinal)
+        {
+            ["schema_migrations"] = ["migration_id", "applied_on", "checksum", "target_identity"],
+            ["seed_ledger"] = ["seed_key", "seed_version", "checksum", "scope", "applied_on", "operation_n_id", "trace_id"],
+        })
+        {
+            if (!await TableExistsAsync(table)) continue;
+            foreach (var column in columns.Where(column => !HasColumn(table, column)))
+                missing.Add($"{table}.{column}");
+        }
+
+        return missing;
     }
 
     public async Task<bool> UnitOfMeasureSeedDataReadyAsync(CancellationToken cancellationToken)
@@ -130,7 +149,7 @@ public sealed class ReferenceDataInitializationLedger(SqlSugarDbContext dbContex
                 ReferenceDataServiceInitializer.BaselineVersion, SchemaSql, cancellationToken)) return false;
         foreach (var script in Persistence.ReferenceDataMigrations.Scripts(PostgreSql))
             if (!await MigrationChecksumMatchesAsync(script.Version, script.Sql, cancellationToken)) return false;
-        return true;
+        return await ExistingMigrationPhysicalSchemaReadyAsync(cancellationToken);
     }
 
     public async Task ApplyAsync(ServiceInitializationContext context, CancellationToken cancellationToken)
@@ -150,13 +169,24 @@ public sealed class ReferenceDataInitializationLedger(SqlSugarDbContext dbContex
                 await Db.Ado.ExecuteCommandAsync(SchemaSql);
                 await AddLegacyColumnAsync("schema_migrations", "checksum");
                 await AddLegacyColumnAsync("schema_migrations", "target_identity");
+                await AddLegacyColumnAsync("seed_ledger", "checksum");
                 await AddLegacyColumnAsync("seed_ledger", "scope");
                 await ImportPostgresLegacyAsync();
                 var exists = await Db.Ado.GetIntAsync($"SELECT COUNT(*) FROM {Table("schema_migrations")} WHERE migration_id=@version",
                     new SugarParameter("@version", ReferenceDataServiceInitializer.BaselineVersion));
-                if (exists > 0 && !await MigrationChecksumMatchesAsync(
-                        ReferenceDataServiceInitializer.BaselineVersion, SchemaSql, cancellationToken))
-                    throw new InvalidOperationException("REF-INITIALIZATION-DRIFT");
+                if (exists > 0)
+                {
+                    await BackfillMissingMigrationMetadataAsync(
+                        ReferenceDataServiceInitializer.BaselineVersion,
+                        SchemaChecksum,
+                        cancellationToken);
+                    if (!await MigrationChecksumMatchesAsync(
+                            ReferenceDataServiceInitializer.BaselineVersion, SchemaSql, cancellationToken))
+                        throw new InvalidOperationException("REF-INITIALIZATION-DRIFT");
+                    await EnsureMigrationPhysicalSchemaAsync(
+                        ReferenceDataServiceInitializer.BaselineVersion,
+                        cancellationToken);
+                }
                 if (exists == 0)
                     await Db.Ado.ExecuteCommandAsync(
                         $"INSERT INTO {Table("schema_migrations")} (migration_id,checksum,target_identity,applied_on) VALUES (@version,@checksum,@target,@now)",
@@ -167,9 +197,14 @@ public sealed class ReferenceDataInitializationLedger(SqlSugarDbContext dbContex
                     var count = await Db.Ado.GetIntAsync($"SELECT COUNT(*) FROM {Table("schema_migrations")} WHERE migration_id=@version", new SugarParameter("@version", script.Version));
                     if (count > 0)
                     {
+                        await BackfillMissingMigrationMetadataAsync(
+                            script.Version,
+                            MigrationChecksum(script.Sql),
+                            cancellationToken);
                         if (!await MigrationChecksumMatchesAsync(
                                 script.Version, script.Sql, cancellationToken))
                             throw new InvalidOperationException("REF-INITIALIZATION-DRIFT");
+                        await EnsureMigrationPhysicalSchemaAsync(script.Version, cancellationToken);
                         continue;
                     }
                     await Db.Ado.ExecuteCommandAsync(script.Sql);
@@ -178,10 +213,23 @@ public sealed class ReferenceDataInitializationLedger(SqlSugarDbContext dbContex
                         new SugarParameter("@target", LocalTargetIdentity), new SugarParameter("@now", DateTimeOffset.UtcNow));
                 }
                 var unitSeed = await GetSeedAsync(UnitOfMeasureSystemSeed.SeedKey, UnitOfMeasureSystemSeed.SeedVersion, cancellationToken);
-                if (unitSeed is not null
-                    && (!string.Equals(unitSeed.Checksum, UnitOfMeasureSystemSeed.Checksum, StringComparison.Ordinal)
-                        || !string.Equals(unitSeed.Scope, "System", StringComparison.OrdinalIgnoreCase)))
-                    throw new InvalidOperationException("REF-INITIALIZATION-DRIFT");
+                if (unitSeed is not null)
+                {
+                    if (unitSeed.Checksum is null)
+                    {
+                        await BackfillLegacySeedMetadataAsync(
+                            UnitOfMeasureSystemSeed.SeedKey,
+                            UnitOfMeasureSystemSeed.SeedVersion,
+                            UnitOfMeasureSystemSeed.Checksum,
+                            cancellationToken);
+                        unitSeed = await GetSeedAsync(UnitOfMeasureSystemSeed.SeedKey, UnitOfMeasureSystemSeed.SeedVersion, cancellationToken);
+                        if (unitSeed is null)
+                            throw new InvalidOperationException("REF-INITIALIZATION-DRIFT");
+                    }
+                    if (!string.Equals(unitSeed.Checksum, UnitOfMeasureSystemSeed.Checksum, StringComparison.Ordinal)
+                        || !string.Equals(unitSeed.Scope, "System", StringComparison.OrdinalIgnoreCase))
+                        throw new InvalidOperationException("REF-INITIALIZATION-DRIFT");
+                }
                 await Db.Ado.ExecuteCommandAsync(UnitOfMeasureSystemSeed.Sql(PostgreSql));
                 if (unitSeed is null)
                     await Db.Ado.ExecuteCommandAsync(
@@ -196,6 +244,14 @@ public sealed class ReferenceDataInitializationLedger(SqlSugarDbContext dbContex
                         new SugarParameter("@key", ReferenceDataServiceInitializer.BaselineSeedKey), new SugarParameter("@version", ReferenceDataServiceInitializer.BaselineVersion),
                         new SugarParameter("@checksum", ReferenceDataServiceInitializer.BaselineChecksum), new SugarParameter("@now", DateTimeOffset.UtcNow),
                         new SugarParameter("@operation", context.OperationNId), new SugarParameter("@trace", context.TraceId));
+                else if (seed.Checksum is null)
+                {
+                    await BackfillLegacySeedMetadataAsync(
+                        ReferenceDataServiceInitializer.BaselineSeedKey,
+                        ReferenceDataServiceInitializer.BaselineVersion,
+                        ReferenceDataServiceInitializer.BaselineChecksum,
+                        cancellationToken);
+                }
                 else if (seed.Checksum == ReferenceDataServiceInitializer.BaselineVersion
                     || (seed.Checksum == ReferenceDataServiceInitializer.BaselineChecksum && string.IsNullOrWhiteSpace(seed.Scope)))
                     await Db.Ado.ExecuteCommandAsync(
@@ -245,6 +301,88 @@ public sealed class ReferenceDataInitializationLedger(SqlSugarDbContext dbContex
             new SugarParameter("@raw", raw)) == 1;
     }
 
+    private async Task BackfillMissingMigrationMetadataAsync(
+        string version,
+        string checksum,
+        CancellationToken cancellationToken)
+    {
+        await Db.Ado.ExecuteCommandAsync(
+            $"UPDATE {Table("schema_migrations")} SET checksum=COALESCE(checksum,@checksum), target_identity=COALESCE(target_identity,@target) "
+            + "WHERE migration_id=@version AND (checksum IS NULL OR target_identity IS NULL)",
+            new SugarParameter("@version", version),
+            new SugarParameter("@checksum", checksum),
+            new SugarParameter("@target", LocalTargetIdentity));
+    }
+
+    private async Task BackfillLegacySeedMetadataAsync(
+        string seedKey,
+        string seedVersion,
+        string checksum,
+        CancellationToken cancellationToken)
+    {
+        await Db.Ado.ExecuteCommandAsync(
+            $"UPDATE {Table("seed_ledger")} SET checksum=@checksum, scope='System' "
+            + "WHERE seed_key=@key AND seed_version=@version AND checksum IS NULL",
+            new SugarParameter("@key", seedKey),
+            new SugarParameter("@version", seedVersion),
+            new SugarParameter("@checksum", checksum));
+        await Db.Ado.ExecuteCommandAsync(
+            $"UPDATE {Table("seed_ledger")} SET scope='System' "
+            + "WHERE seed_key=@key AND seed_version=@version AND checksum=@checksum AND (scope IS NULL OR btrim(scope)='')",
+            new SugarParameter("@key", seedKey),
+            new SugarParameter("@version", seedVersion),
+            new SugarParameter("@checksum", checksum));
+    }
+
+    private async Task<bool> ExistingMigrationPhysicalSchemaReadyAsync(CancellationToken cancellationToken)
+    {
+        var versions = new[] { ReferenceDataServiceInitializer.BaselineVersion }
+            .Concat(Persistence.ReferenceDataMigrations.Scripts(PostgreSql).Select(script => script.Version));
+        foreach (var version in versions)
+        {
+            if (await Db.Ado.GetIntAsync(
+                    $"SELECT COUNT(*) FROM {Table("schema_migrations")} WHERE migration_id=@version",
+                    new SugarParameter("@version", version)) == 0)
+                continue;
+            if (!await MigrationPhysicalSchemaReadyAsync(version, cancellationToken))
+                return false;
+        }
+
+        return true;
+    }
+
+    private async Task EnsureMigrationPhysicalSchemaAsync(string version, CancellationToken cancellationToken)
+    {
+        if (!await MigrationPhysicalSchemaReadyAsync(version, cancellationToken))
+            throw new InvalidOperationException($"physical schema drift: ReferenceData migration '{version}' claims to be applied but its tables are missing.");
+    }
+
+    private async Task<bool> MigrationPhysicalSchemaReadyAsync(string version, CancellationToken cancellationToken)
+    {
+        var tables = version switch
+        {
+            var value when value == ReferenceDataServiceInitializer.BaselineVersion => ["schema_migrations", "seed_ledger"],
+            "reference-data-2.7-002" => ["dictionary_definition", "dictionary_item"],
+            "reference-data-2.7-003" => ["parameter_app_domain", "parameter_key", "parameter_multi_value", "parameter_history"],
+            "reference-data-2.7-004" => ["dynamic_property_definition", "dynamic_property_field", "dynamic_property_record", "dynamic_property_value"],
+            "reference-data-2.7-005" => ["unit_of_measure_dimension", "unit_of_measure_unit"],
+            "reference-data-2.7-006" => ["metadata_entity_schema", "metadata_attribute_definition"],
+            "reference-data-2.7-007" => ["coding_rule_definition", "coding_rule_sequence", "coding_rule_idempotency_record"],
+            "reference-data-2.7-008" => ["state_machine_definition", "state_machine_node", "state_machine_transition"],
+            "reference-data-2.7-009" => ["outbox_message"],
+            "reference-data-2.7-010" => ["dictionary_definition"],
+            "reference-data-2.7-011" => ["cache_generation"],
+            _ => Array.Empty<string>(),
+        };
+        foreach (var table in tables)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!await TableExistsAsync(table)) return false;
+        }
+
+        return true;
+    }
+
     private static string MigrationChecksum(string sql) => Hash(sql.ReplaceLineEndings("\n"));
 
     private bool HasColumn(string table, string column)
@@ -284,7 +422,7 @@ public sealed class ReferenceDataSeedLedgerRecord
 {
     public string SeedKey { get; set; } = string.Empty;
     public string SeedVersion { get; set; } = string.Empty;
-    public string Checksum { get; set; } = string.Empty;
+    public string? Checksum { get; set; }
     public string? Scope { get; set; }
     public DateTimeOffset AppliedOn { get; set; }
     public string OperationNId { get; set; } = string.Empty;

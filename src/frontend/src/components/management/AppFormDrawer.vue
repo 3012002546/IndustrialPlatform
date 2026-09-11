@@ -18,8 +18,9 @@ const props = withDefaults(
   defineProps<{
     modelValue: boolean
     title: string
-    size?: 'narrow' | 'medium' | 'wide'
+    size?: 'narrow' | 'medium' | 'wide' | 'chat'
     busy?: boolean
+    hideFooter?: boolean
     mode?: 'drawer' | 'modal'
     allowModeSwitch?: boolean
     storageKey?: string
@@ -27,6 +28,7 @@ const props = withDefaults(
   {
     size: 'medium',
     busy: false,
+    hideFooter: false,
     mode: 'drawer',
     allowModeSwitch: true,
     storageKey: 'industrial-platform:form-surface-mode',
@@ -162,7 +164,7 @@ function onSubmit(): void {
           <div class="app-form-drawer__body">
             <slot />
           </div>
-          <footer class="app-form-drawer__footer">
+          <footer v-if="!hideFooter" class="app-form-drawer__footer">
             <slot name="footer">
               <button
                 type="button"
@@ -233,6 +235,23 @@ function onSubmit(): void {
 
 .app-form-drawer--wide .app-form-drawer__panel {
   width: 720px;
+}
+
+.app-form-drawer--chat {
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.app-form-drawer--chat .app-form-drawer__panel {
+  width: min(960px, calc(100vw - 32px));
+  height: min(680px, calc(100vh - 32px));
+  border-radius: var(--ip-radius-lg);
+}
+
+.app-form-drawer--chat .app-form-drawer__body {
+  overflow: hidden;
+  padding: 0;
 }
 
 .app-form-drawer__panel--handheld {

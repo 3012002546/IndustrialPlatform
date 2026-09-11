@@ -11,4 +11,5 @@ namespace IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations;
 public sealed record SchemaMigrationStep(
     string Id,
     string Description,
-    Func<ISqlSugarClient, CancellationToken, Task> Apply);
+    Func<ISqlSugarClient, CancellationToken, Task> Apply,
+    Func<ISqlSugarClient, CancellationToken, Task>? Validate = null);

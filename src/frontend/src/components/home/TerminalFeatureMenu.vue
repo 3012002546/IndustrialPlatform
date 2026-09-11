@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Bell, Document } from '@element-plus/icons-vue'
+import { Bell, ChatDotRound, Document } from '@element-plus/icons-vue'
 import { RouterLink } from 'vue-router'
 
 import { systemDataPageCopy } from '@/localization/systemData'
 import { usePlatformLocale } from '@/localization/localeContext'
+import { localeMessages } from '@/localization/i18n'
 import { PERMISSIONS } from '@/permissions'
 import { ROUTE_NAMES } from '@/router/routeNames'
 import { useAuthStore } from '@/stores/authStore'
@@ -14,10 +15,17 @@ const props = defineProps<{ terminal: 'pda' | 'mobile' }>()
 const authStore = useAuthStore()
 const locale = usePlatformLocale()
 const copy = computed(() => systemDataPageCopy(locale.value, 'terminalFeatureMenu'))
+const chatCopy = computed(() => localeMessages[locale.value].collaboration)
+const canChat = computed(() => authStore.hasPermission(PERMISSIONS.collaborationMessagingRead))
 const canUpload = computed(() => authStore.hasPermission(PERMISSIONS.systemDataFileRead))
-const canReadNotifications = computed(() => authStore.hasPermission(PERMISSIONS.systemDataNotificationInboxRead))
+const canReadNotifications = computed(() =>
+  authStore.hasPermission(PERMISSIONS.systemDataNotificationInboxRead),
+)
 const showNotification = computed(() => props.terminal === 'pda' && canReadNotifications.value)
-const hasFeature = computed(() => canUpload.value || showNotification.value)
+const hasFeature = computed(() => canUpload.value || showNotification.value || canChat.value)
+const chatRouteName = computed(() =>
+  props.terminal === 'pda' ? ROUTE_NAMES.pdaCollaborationChat : ROUTE_NAMES.mobileCollaborationChat,
+)
 const fileRouteName = computed(() =>
   props.terminal === 'pda' ? ROUTE_NAMES.pdaFiles : ROUTE_NAMES.mobileFiles,
 )
@@ -38,12 +46,13 @@ const fileRouteName = computed(() =>
       </div>
     </div>
 
-    <div class="terminal-feature-menu__group">
+    <div v-if="canUpload" class="terminal-feature-menu__group">
       <h3>{{ copy.fileGroup }}</h3>
       <p>{{ copy.fileGroupDescription }}</p>
     </div>
 
     <RouterLink
+      v-if="canUpload"
       class="terminal-feature-menu__item"
       data-testid="terminal-feature-menu-file"
       :to="{ name: fileRouteName }"
@@ -52,6 +61,22 @@ const fileRouteName = computed(() =>
       <span class="terminal-feature-menu__item-copy">
         <strong>{{ copy.fileUpload }}</strong>
         <span>{{ copy.fileUploadDescription }}</span>
+      </span>
+      <span class="terminal-feature-menu__arrow" aria-hidden="true">→</span>
+    </RouterLink>
+
+    <RouterLink
+      v-if="canChat"
+      class="terminal-feature-menu__item"
+      data-testid="terminal-feature-menu-chat"
+      :to="{ name: chatRouteName }"
+    >
+      <span class="terminal-feature-menu__icon" aria-hidden="true"
+        ><ChatDotRound :size="24"
+      /></span>
+      <span class="terminal-feature-menu__item-copy">
+        <strong>{{ chatCopy.title }}</strong>
+        <span>{{ chatCopy.description }}</span>
       </span>
       <span class="terminal-feature-menu__arrow" aria-hidden="true">→</span>
     </RouterLink>
@@ -83,7 +108,11 @@ const fileRouteName = computed(() =>
   gap: var(--ip-space-4);
   padding: var(--ip-space-5);
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--ip-color-primary) 7%, transparent), transparent 58%),
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--ip-color-primary) 7%, transparent),
+      transparent 58%
+    ),
     var(--ip-color-bg-container);
   border: 1px solid color-mix(in srgb, var(--ip-color-primary) 22%, var(--ip-color-border));
   border-radius: var(--ip-radius-lg);
@@ -143,7 +172,10 @@ const fileRouteName = computed(() =>
   background: var(--ip-color-bg-page);
   border: 1px solid var(--ip-color-border);
   border-radius: var(--ip-radius-md);
-  transition: border-color 150ms ease, background-color 150ms ease, transform 150ms ease;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    transform 150ms ease;
 }
 
 .terminal-feature-menu__item:hover,

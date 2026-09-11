@@ -1,0 +1,503 @@
+{
+  "backend": [
+    {
+      "package": "Azure.Core",
+      "version": "1.38.0",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "Azure.Identity",
+      "version": "1.11.4",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "BCrypt.Net-Next",
+      "version": "4.0.3",
+      "licenseType": "",
+      "license": "",
+      "licenseUrl": "https://github.com/BcryptNet/bcrypt.net/blob/main/licence.txt"
+    },
+    {
+      "package": "Microsoft.AspNetCore.Authentication.JwtBearer",
+      "version": "10.0.10",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "Microsoft.AspNetCore.OData",
+      "version": "9.5.0",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "Microsoft.AspNetCore.OpenApi",
+      "version": "10.0.10",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "Microsoft.Bcl.AsyncInterfaces",
+      "version": "8.0.0",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "Microsoft.Bcl.Cryptography",
+      "version": "10.0.2",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "Microsoft.Data.SqlClient",
+      "version": "5.2.2",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "Microsoft.Data.SqlClient.SNI.runtime",
+      "version": "5.2.0",
+      "licenseType": "file",
+      "license": "LICENSE.txt",
+      "licenseUrl": "https://aka.ms/deprecateLicenseUrl"
+    },
+    {
+      "package": "Microsoft.Data.Sqlite",
+      "version": "10.0.9",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "Microsoft.Data.Sqlite.Core",
+      "version": "10.0.9",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "Microsoft.Extensions.DependencyModel",
+      "version": "10.0.0",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "Microsoft.Identity.Client",
+      "version": "4.61.3",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "Microsoft.Identity.Client.Extensions.Msal",
+      "version": "4.61.3",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "Microsoft.IdentityModel.Abstractions",
+      "version": "8.19.2",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "Microsoft.IdentityModel.JsonWebTokens",
+      "version": "8.19.2",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "Microsoft.IdentityModel.Logging",
+      "version": "8.19.2",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "Microsoft.IdentityModel.Protocols",
+      "version": "8.19.2",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "Microsoft.IdentityModel.Protocols.OpenIdConnect",
+      "version": "8.19.2",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "Microsoft.IdentityModel.Tokens",
+      "version": "8.19.2",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "Microsoft.OData.Core",
+      "version": "8.4.0",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "Microsoft.OData.Edm",
+      "version": "8.4.0",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "Microsoft.OData.ModelBuilder",
+      "version": "2.0.0",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "Microsoft.OpenApi",
+      "version": "2.7.5",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "Microsoft.Spatial",
+      "version": "8.4.0",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "Microsoft.SqlServer.Server",
+      "version": "1.0.0",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "MySqlConnector",
+      "version": "2.2.5",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "Newtonsoft.Json",
+      "version": "13.0.2",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "Npgsql",
+      "version": "5.0.18",
+      "licenseType": "expression",
+      "license": "PostgreSQL",
+      "licenseUrl": "https://licenses.nuget.org/PostgreSQL"
+    },
+    {
+      "package": "Oracle.ManagedDataAccess.Core",
+      "version": "23.8.0",
+      "licenseType": "file",
+      "license": "LICENSE.txt",
+      "licenseUrl": "https://aka.ms/deprecateLicenseUrl"
+    },
+    {
+      "package": "Oscar.Data.SqlClient",
+      "version": "4.0.4",
+      "licenseType": "",
+      "license": "",
+      "licenseUrl": ""
+    },
+    {
+      "package": "RabbitMQ.Client",
+      "version": "7.2.2",
+      "licenseType": "expression",
+      "license": "Apache-2.0 OR MPL-2.0",
+      "licenseUrl": "https://licenses.nuget.org/Apache-2.0%20OR%20MPL-2.0"
+    },
+    {
+      "package": "RESPite",
+      "version": "3.1.3",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "Serilog",
+      "version": "4.3.1",
+      "licenseType": "expression",
+      "license": "Apache-2.0",
+      "licenseUrl": "https://licenses.nuget.org/Apache-2.0"
+    },
+    {
+      "package": "Serilog.AspNetCore",
+      "version": "10.0.0",
+      "licenseType": "expression",
+      "license": "Apache-2.0",
+      "licenseUrl": "https://licenses.nuget.org/Apache-2.0"
+    },
+    {
+      "package": "Serilog.Extensions.Hosting",
+      "version": "10.0.0",
+      "licenseType": "expression",
+      "license": "Apache-2.0",
+      "licenseUrl": "https://licenses.nuget.org/Apache-2.0"
+    },
+    {
+      "package": "Serilog.Extensions.Logging",
+      "version": "10.0.0",
+      "licenseType": "expression",
+      "license": "Apache-2.0",
+      "licenseUrl": "https://licenses.nuget.org/Apache-2.0"
+    },
+    {
+      "package": "Serilog.Formatting.Compact",
+      "version": "3.0.0",
+      "licenseType": "expression",
+      "license": "Apache-2.0",
+      "licenseUrl": "https://licenses.nuget.org/Apache-2.0"
+    },
+    {
+      "package": "Serilog.Settings.Configuration",
+      "version": "10.0.0",
+      "licenseType": "expression",
+      "license": "Apache-2.0",
+      "licenseUrl": "https://licenses.nuget.org/Apache-2.0"
+    },
+    {
+      "package": "Serilog.Sinks.Console",
+      "version": "6.1.1",
+      "licenseType": "expression",
+      "license": "Apache-2.0",
+      "licenseUrl": "https://licenses.nuget.org/Apache-2.0"
+    },
+    {
+      "package": "Serilog.Sinks.Debug",
+      "version": "3.0.0",
+      "licenseType": "expression",
+      "license": "Apache-2.0",
+      "licenseUrl": "https://licenses.nuget.org/Apache-2.0"
+    },
+    {
+      "package": "Serilog.Sinks.File",
+      "version": "7.0.0",
+      "licenseType": "expression",
+      "license": "Apache-2.0",
+      "licenseUrl": "https://licenses.nuget.org/Apache-2.0"
+    },
+    {
+      "package": "Serilog.Sinks.Seq",
+      "version": "9.1.0",
+      "licenseType": "expression",
+      "license": "Apache-2.0",
+      "licenseUrl": "https://licenses.nuget.org/Apache-2.0"
+    },
+    {
+      "package": "SQLitePCLRaw.bundle_e_sqlite3",
+      "version": "2.1.12",
+      "licenseType": "expression",
+      "license": "Apache-2.0",
+      "licenseUrl": "https://licenses.nuget.org/Apache-2.0"
+    },
+    {
+      "package": "SQLitePCLRaw.core",
+      "version": "2.1.12",
+      "licenseType": "expression",
+      "license": "Apache-2.0",
+      "licenseUrl": "https://licenses.nuget.org/Apache-2.0"
+    },
+    {
+      "package": "SQLitePCLRaw.lib.e_sqlite3",
+      "version": "2.1.12",
+      "licenseType": "expression",
+      "license": "Apache-2.0",
+      "licenseUrl": "https://licenses.nuget.org/Apache-2.0"
+    },
+    {
+      "package": "SQLitePCLRaw.provider.e_sqlite3",
+      "version": "2.1.12",
+      "licenseType": "expression",
+      "license": "Apache-2.0",
+      "licenseUrl": "https://licenses.nuget.org/Apache-2.0"
+    },
+    {
+      "package": "SqlSugarCore",
+      "version": "5.1.4.216",
+      "licenseType": "",
+      "license": "",
+      "licenseUrl": "http://www.apache.org/licenses/LICENSE-2.0.html"
+    },
+    {
+      "package": "SqlSugarCore.Dm",
+      "version": "8.8.1",
+      "licenseType": "",
+      "license": "",
+      "licenseUrl": "http://www.apache.org/licenses/LICENSE-2.0.html"
+    },
+    {
+      "package": "SqlSugarCore.Kdbndp",
+      "version": "9.3.8.413",
+      "licenseType": "",
+      "license": "",
+      "licenseUrl": "http://www.apache.org/licenses/LICENSE-2.0.html"
+    },
+    {
+      "package": "StackExchange.Redis",
+      "version": "3.1.3",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "System.ClientModel",
+      "version": "1.0.0",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "System.ComponentModel.Annotations",
+      "version": "4.6.0",
+      "licenseType": "",
+      "license": "",
+      "licenseUrl": "https://github.com/dotnet/corefx/blob/master/LICENSE.TXT"
+    },
+    {
+      "package": "System.Configuration.ConfigurationManager",
+      "version": "8.0.0",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "System.Diagnostics.PerformanceCounter",
+      "version": "8.0.0",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "System.DirectoryServices.Protocols",
+      "version": "8.0.0",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "System.IdentityModel.Tokens.Jwt",
+      "version": "8.19.2",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "System.IO.Hashing",
+      "version": "10.0.5",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "System.Memory.Data",
+      "version": "1.0.2",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "System.Runtime.Caching",
+      "version": "8.0.0",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "System.Security.Cryptography.Pkcs",
+      "version": "8.0.1",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    },
+    {
+      "package": "System.Security.Cryptography.ProtectedData",
+      "version": "8.0.0",
+      "licenseType": "expression",
+      "license": "MIT",
+      "licenseUrl": "https://licenses.nuget.org/MIT"
+    }
+  ],
+  "scope": "Metadata only: existing UnifiedHost obj/project.assets.json plus installed frontend direct runtime packages. No fresh restore; not a complete release SBOM or legal clearance. Empty license values are unresolved, not permission to redistribute.",
+  "frontend": [
+    {
+      "package": "@element-plus/icons-vue",
+      "version": "2.3.2",
+      "license": "MIT",
+      "declared": "2.3.2"
+    },
+    {
+      "package": "@microsoft/signalr",
+      "version": "9.0.19",
+      "license": "MIT",
+      "declared": "^9.0.19"
+    },
+    {
+      "package": "axios",
+      "version": "1.19.0",
+      "license": "MIT",
+      "declared": "^1.19.0"
+    },
+    {
+      "package": "element-plus",
+      "version": "2.14.4",
+      "license": "MIT",
+      "declared": "^2.14.4"
+    },
+    {
+      "package": "pinia",
+      "version": "3.0.4",
+      "license": "MIT",
+      "declared": "^3.0.4"
+    },
+    {
+      "package": "vue",
+      "version": "3.5.41",
+      "license": "MIT",
+      "declared": "^3.5.41"
+    },
+    {
+      "package": "vue-i18n",
+      "version": "11.4.10",
+      "license": "MIT",
+      "declared": "11.4.10"
+    },
+    {
+      "package": "vue-router",
+      "version": "4.6.4",
+      "license": "MIT",
+      "declared": "^4.6.4"
+    },
+    {
+      "package": "vxe-table",
+      "version": "4.15.13",
+      "license": "MIT",
+      "declared": "4.15.13"
+    }
+  ],
+  "date": "2026-09-09"
+}

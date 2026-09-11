@@ -233,7 +233,7 @@ public sealed class FileService : IFileService
         if (!string.Equals(hash, session.ExpectedSha256, StringComparison.OrdinalIgnoreCase)) throw Error("FILE_UPLOAD_CONTENT_MISMATCH", "文件 SHA-256 校验失败。");
 
         var now = _clock.GetUtcNow();
-        var file = new FileObjectRecord(tenantNId, NormalizeNId(null, "file"), session.SessionNId, session.FileName, session.ContentType, session.ExpectedLength, hash, TransportStorageKey(session), "PendingScan", false, "Active", now, now, null, null, session.UploaderUserNId);
+        var file = new FileObjectRecord(tenantNId, NormalizeNId(null, "file"), session.SessionNId, session.FileName, session.ContentType, session.ExpectedLength, hash, TransportStorageKey(session), "PendingScan", false, "Active", now, now, null, null, session.UploaderUserNId, session.Purpose);
         var completed = session with { Status = "Completed", CompletedOn = now, FileNId = file.FileNId, LastUpdatedOn = now };
         FileObjectRecord? stored = null;
         await _transaction.ExecuteAsync(async () =>
@@ -245,8 +245,17 @@ public sealed class FileService : IFileService
         return ToContract(stored!);
     }
 
-    public async Task<FileObjectV1?> GetFileAsync(string tenantNId, string fileNId, CancellationToken cancellationToken) =>
-        ToContractOrNull(await _store.GetFileAsync(tenantNId, fileNId, cancellationToken));
+    public async Task<FileObjectV1?> GetFileAsync(string tenantNId, string fileNId, CancellationToken cancellationToken)
+    {
+        var file = await _store.GetFileAsync(tenantNId, fileNId, cancellationToken);
+        return file is null ? null : ToContract(await RestorePurposeAsync(file, cancellationToken));
+    }
+
+    public async Task<FileObjectV1?> GetFileForReconciliationAsync(string tenantNId, string fileNId, CancellationToken cancellationToken)
+    {
+        var file = await _store.GetFileForReconciliationAsync(tenantNId, fileNId, cancellationToken);
+        return file is null ? null : ToContract(await RestorePurposeAsync(file, cancellationToken));
+    }
 
     public async Task<Stream> OpenFileContentAsync(string tenantNId, string userNId, string fileNId, string? referenceNId, CancellationToken cancellationToken)
     {
@@ -259,9 +268,7 @@ public sealed class FileService : IFileService
         if (file.Restricted || file.DeletionStatus != "Active") throw Error("FILE_ACCESS_RESTRICTED", "文件当前不可下载。", 403);
         if (!string.Equals(file.OwnerUserNId, userNId, StringComparison.Ordinal)
             && (string.IsNullOrWhiteSpace(referenceNId)
-                || await _store.GetReferenceAsync(tenantNId, referenceNId, cancellationToken) is not { } reference
-                || !string.Equals(reference.FileNId, fileNId, StringComparison.Ordinal)
-                || !string.Equals(reference.OwnerUserNId, userNId, StringComparison.Ordinal)))
+                || !await HasDownloadGrantAsync(tenantNId, userNId, fileNId, referenceNId, cancellationToken)))
             throw Error("FILE_ACCESS_DENIED", "当前用户没有该文件的用途授权。", 403);
         return await _contentStore.OpenReadAsync(file.StorageKey, cancellationToken);
     }
@@ -292,6 +299,150 @@ public sealed class FileService : IFileService
         return reference;
     }
 
+    public async Task<FileBindingV1> BindReferenceAsync(string tenantNId, string userNId, string referenceNId, FileBindingRequest request, CancellationToken cancellationToken)
+    {
+        var normalizedReferenceNId = RequireNId(referenceNId, "FILE_BUSINESS_REFERENCE_INVALID", "业务文件引用标识不能为空。");
+        var fileNId = RequireNId(request.FileNId, "FILE_BUSINESS_REFERENCE_INVALID", "业务文件标识不能为空。");
+        var conversationNId = RequireNId(request.ConversationNId, "FILE_BUSINESS_REFERENCE_INVALID", "会话标识不能为空。");
+        var messageNId = RequireNId(request.MessageNId, "FILE_BUSINESS_REFERENCE_INVALID", "消息标识不能为空。");
+        var attachmentNId = RequireNId(request.AttachmentNId, "FILE_BUSINESS_REFERENCE_INVALID", "附件标识不能为空。");
+        var uploaderUserNId = RequireNId(request.UploaderUserNId, "FILE_BUSINESS_REFERENCE_INVALID", "上传者标识不能为空。");
+        var purpose = NormalizeBusinessPurpose(request.Purpose);
+        var file = await RequireFileAsync(tenantNId, fileNId, cancellationToken);
+        // Older file rows do not persist purpose on the object; RestorePurposeAsync
+        // recovers it from the upload session whenever that source still exists.
+        if (file.Purpose is not null && !string.Equals(file.Purpose, purpose, StringComparison.Ordinal))
+            throw Error("FILE_BUSINESS_REFERENCE_INVALID", "业务引用用途与文件上传用途不一致。", 422);
+        if (!string.Equals(file.DeletionStatus, "Active", StringComparison.Ordinal))
+            throw Error("FILE_DELETION_IN_PROGRESS", "文件正在删除或已删除，不能建立业务引用。", 409);
+
+        var existingByReference = await _store.GetBusinessReferenceAsync(tenantNId, normalizedReferenceNId, cancellationToken);
+        var existingByAttachment = await _store.GetBusinessReferenceForAttachmentAsync(tenantNId, attachmentNId, purpose, cancellationToken);
+        var existing = existingByReference ?? existingByAttachment;
+        if (existing is not null)
+        {
+            if (existing.Status != "Active" || !BusinessReferenceMatches(existing, tenantNId, normalizedReferenceNId, fileNId, conversationNId, messageNId, attachmentNId, uploaderUserNId, purpose))
+                throw Error("FILE_BUSINESS_REFERENCE_CONFLICT", "业务文件引用已存在但绑定内容不一致。", 409);
+            return ToBinding(existing);
+        }
+
+        var record = new FileBusinessReferenceRecord(
+            tenantNId, normalizedReferenceNId, fileNId, conversationNId, messageNId, attachmentNId,
+            uploaderUserNId, purpose, "collaboration", "Active", 0, _clock.GetUtcNow(), null);
+        await _transaction.ExecuteAsync(async () =>
+        {
+            try
+            {
+                await _store.InsertBusinessReferenceAsync(record, cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                var raced = await _store.GetBusinessReferenceAsync(tenantNId, normalizedReferenceNId, cancellationToken)
+                    ?? await _store.GetBusinessReferenceForAttachmentAsync(tenantNId, attachmentNId, purpose, cancellationToken);
+                if (raced is not null && raced.Status == "Active" && BusinessReferenceMatches(raced, tenantNId, normalizedReferenceNId, fileNId, conversationNId, messageNId, attachmentNId, uploaderUserNId, purpose))
+                    return;
+                throw Error("FILE_BUSINESS_REFERENCE_CONFLICT", "业务文件引用已存在但绑定内容不一致。", 409);
+            }
+            await _audit.RecordAsync(Audit(tenantNId, userNId, "file.reference.bind", "FileBusinessReference", normalizedReferenceNId, null, $"file={fileNId};attachment={attachmentNId};purpose={purpose}", null), cancellationToken);
+        }, cancellationToken);
+        return ToBinding(await _store.GetBusinessReferenceAsync(tenantNId, normalizedReferenceNId, cancellationToken) ?? record);
+    }
+
+    public async Task<FileBindingV1> ReleaseReferenceAsync(string tenantNId, string userNId, string fileNId, string referenceNId, FileBindingReleaseRequest request, CancellationToken cancellationToken)
+    {
+        var normalizedReferenceNId = RequireNId(referenceNId, "FILE_BUSINESS_REFERENCE_INVALID", "业务文件引用标识不能为空。");
+        var requestNId = RequireNId(request.RequestNId, "FILE_BUSINESS_REFERENCE_INVALID", "请求标识不能为空。");
+        _ = requestNId;
+        var expectedVersion = request.ExpectedVersion ?? -1;
+        if (expectedVersion < 0) throw Error("FILE_BUSINESS_REFERENCE_INVALID", "必须提供非负 expectedVersion。");
+        var existing = await _store.GetBusinessReferenceAsync(tenantNId, normalizedReferenceNId, cancellationToken)
+            ?? throw Error("FILE_BUSINESS_REFERENCE_NOT_FOUND", "业务文件引用不存在。", 404);
+        if (!string.IsNullOrWhiteSpace(fileNId) && !string.Equals(existing.FileNId, fileNId, StringComparison.Ordinal))
+            throw Error("FILE_BUSINESS_REFERENCE_NOT_FOUND", "业务文件引用不存在。", 404);
+        if (existing.Status == "Released") return ToBinding(existing);
+        if (existing.Version != expectedVersion)
+            throw Error("FILE_BUSINESS_REFERENCE_CONFLICT", "业务文件引用版本已变化。", 409);
+        var releasedOn = _clock.GetUtcNow();
+        await _transaction.ExecuteAsync(async () =>
+        {
+            if (!await _store.ReleaseBusinessReferenceAsync(tenantNId, existing.FileNId, normalizedReferenceNId, expectedVersion, releasedOn, cancellationToken))
+            {
+                var current = await _store.GetBusinessReferenceAsync(tenantNId, normalizedReferenceNId, cancellationToken);
+                if (current?.Status != "Released") throw Error("FILE_BUSINESS_REFERENCE_CONFLICT", "业务文件引用版本已变化。", 409);
+            }
+            await _audit.RecordAsync(Audit(tenantNId, userNId, "file.reference.release", "FileBusinessReference", normalizedReferenceNId, "Active", "Released", null), cancellationToken);
+        }, cancellationToken);
+        return ToBinding(await _store.GetBusinessReferenceAsync(tenantNId, normalizedReferenceNId, cancellationToken) ?? existing with { Status = "Released", Version = expectedVersion + 1, ReleasedOn = releasedOn });
+    }
+
+    public async Task<FileHoldV1> PutLegalHoldAsync(string tenantNId, string userNId, string caseNId, string fileNId, FileHoldRequest request, CancellationToken cancellationToken)
+    {
+        var normalizedCaseNId = RequireNId(caseNId, "FILE_LEGAL_HOLD_INVALID", "案件标识不能为空。");
+        var normalizedFileNId = RequireNId(fileNId, "FILE_LEGAL_HOLD_INVALID", "文件标识不能为空。");
+        var requestNId = RequireNId(request.RequestNId, "FILE_LEGAL_HOLD_INVALID", "请求标识不能为空.");
+        _ = requestNId;
+        var checksum = NormalizeChecksum(request.ScopeChecksum);
+        var caseRevision = request.CaseRevision ?? 0;
+        if (caseRevision < 1) throw Error("FILE_LEGAL_HOLD_INVALID", "案件版本必须为正数。");
+        var file = await RequireFileAsync(tenantNId, normalizedFileNId, cancellationToken);
+        if (!string.Equals(file.DeletionStatus, "Active", StringComparison.Ordinal))
+            throw Error("FILE_DELETION_IN_PROGRESS", "文件正在删除或已删除，不能建立 Legal Hold。", 409);
+        var existing = await _store.GetLegalHoldAsync(tenantNId, normalizedCaseNId, normalizedFileNId, cancellationToken);
+        if (existing is not null)
+        {
+            if (!string.Equals(existing.ScopeChecksum, checksum, StringComparison.OrdinalIgnoreCase) || existing.CaseRevision != caseRevision)
+                throw Error("FILE_LEGAL_HOLD_CONFLICT", "文件 Legal Hold 的案件版本或范围校验不一致。", 409);
+            return ToHold(existing);
+        }
+        var record = new FileHoldRecord(tenantNId, normalizedCaseNId, normalizedFileNId, checksum, caseRevision, "collaboration", "Active", _clock.GetUtcNow(), _clock.GetUtcNow(), null);
+        await _transaction.ExecuteAsync(async () =>
+        {
+            try
+            {
+                await _store.InsertLegalHoldAsync(record, cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                var raced = await _store.GetLegalHoldAsync(tenantNId, normalizedCaseNId, normalizedFileNId, cancellationToken);
+                if (raced is not null && string.Equals(raced.ScopeChecksum, checksum, StringComparison.OrdinalIgnoreCase) && raced.CaseRevision == caseRevision)
+                    return;
+                throw Error("FILE_LEGAL_HOLD_CONFLICT", "文件 Legal Hold 已存在但案件范围不一致。", 409);
+            }
+            await _audit.RecordAsync(Audit(tenantNId, userNId, "file.hold.put", "FileLegalHold", $"{normalizedCaseNId}:{normalizedFileNId}", null, checksum, null), cancellationToken);
+        }, cancellationToken);
+        return ToHold(await _store.GetLegalHoldAsync(tenantNId, normalizedCaseNId, normalizedFileNId, cancellationToken) ?? record);
+    }
+
+    public async Task<FileHoldV1> ReleaseLegalHoldAsync(string tenantNId, string userNId, string caseNId, string fileNId, FileHoldRequest request, CancellationToken cancellationToken)
+    {
+        var normalizedCaseNId = RequireNId(caseNId, "FILE_LEGAL_HOLD_INVALID", "案件标识不能为空。");
+        var normalizedFileNId = RequireNId(fileNId, "FILE_LEGAL_HOLD_INVALID", "文件标识不能为空。");
+        var requestNId = RequireNId(request.RequestNId, "FILE_LEGAL_HOLD_INVALID", "请求标识不能为空.");
+        _ = requestNId;
+        var checksum = NormalizeChecksum(request.ScopeChecksum);
+        var caseRevision = request.CaseRevision ?? 0;
+        if (caseRevision < 1) throw Error("FILE_LEGAL_HOLD_INVALID", "案件版本必须为正数。");
+        var existing = await _store.GetLegalHoldAsync(tenantNId, normalizedCaseNId, normalizedFileNId, cancellationToken)
+            ?? throw Error("FILE_LEGAL_HOLD_NOT_FOUND", "文件 Legal Hold 不存在。", 404);
+        if (!string.Equals(existing.ScopeChecksum, checksum, StringComparison.OrdinalIgnoreCase) || existing.CaseRevision != caseRevision)
+            throw Error("FILE_LEGAL_HOLD_CONFLICT", "文件 Legal Hold 的案件版本或范围校验不一致。", 409);
+        if (existing.Status == "Released") return ToHold(existing);
+        var releasedOn = _clock.GetUtcNow();
+        await _transaction.ExecuteAsync(async () =>
+        {
+            if (!await _store.ReleaseLegalHoldAsync(tenantNId, normalizedCaseNId, normalizedFileNId, checksum, caseRevision, releasedOn, cancellationToken))
+            {
+                var current = await _store.GetLegalHoldAsync(tenantNId, normalizedCaseNId, normalizedFileNId, cancellationToken);
+                if (current?.Status != "Released") throw Error("FILE_LEGAL_HOLD_CONFLICT", "文件 Legal Hold 已被其他请求改变。", 409);
+            }
+            await _audit.RecordAsync(Audit(tenantNId, userNId, "file.hold.release", "FileLegalHold", $"{normalizedCaseNId}:{normalizedFileNId}", "Active", "Released", null), cancellationToken);
+        }, cancellationToken);
+        return ToHold(await _store.GetLegalHoldAsync(tenantNId, normalizedCaseNId, normalizedFileNId, cancellationToken) ?? existing with { Status = "Released", UpdatedOn = releasedOn, ReleasedOn = releasedOn });
+    }
+
+    public async Task<FileHoldV1?> GetLegalHoldAsync(string tenantNId, string userNId, string caseNId, string fileNId, CancellationToken cancellationToken) =>
+        (await _store.GetLegalHoldAsync(tenantNId, caseNId, fileNId, cancellationToken)) is { } hold ? ToHold(hold) : null;
+
     public async Task DeleteReferenceAsync(string tenantNId, string userNId, string referenceNId, CancellationToken cancellationToken)
     {
         var reference = await _store.GetReferenceAsync(tenantNId, referenceNId, cancellationToken) ?? throw Error("FILE_REFERENCE_NOT_FOUND", "文件引用不存在。", 404);
@@ -320,11 +471,14 @@ public sealed class FileService : IFileService
     {
         var file = await RequireFileAsync(tenantNId, fileNId, cancellationToken);
         if (file.RetentionUntil is { } retention && retention > _clock.GetUtcNow()) throw Error("FILE_RETENTION_ACTIVE", "文件仍处于保留期。", 409);
-        if (await _store.HasActiveReferencesAsync(tenantNId, fileNId, cancellationToken)) throw Error("FILE_REFERENCED", "文件仍有活动引用。", 409);
         var updated = file with { DeletionStatus = "DeletionRequested", LastUpdatedOn = _clock.GetUtcNow() };
         await _transaction.ExecuteAsync(async () =>
         {
-            await _store.UpdateFileAsync(updated, cancellationToken);
+            if (!await _store.TryRequestDeletionAsync(updated, cancellationToken))
+            {
+                if (await _store.HasActiveLegalHoldsAsync(tenantNId, fileNId, cancellationToken)) throw Error("FILE_LEGAL_HOLD_ACTIVE", "文件存在活动 Legal Hold。", 409);
+                throw Error("FILE_REFERENCED", "文件仍有活动引用。", 409);
+            }
             await _audit.RecordAsync(Audit(tenantNId, userNId, "file.deletion.request", "File", fileNId, file.DeletionStatus, updated.DeletionStatus, null), cancellationToken);
         }, cancellationToken);
         return ToContract(updated);
@@ -367,7 +521,17 @@ public sealed class FileService : IFileService
     }
 
     private async Task<FileObjectRecord> RequireFileAsync(string tenantNId, string fileNId, CancellationToken cancellationToken) =>
-        await _store.GetFileAsync(tenantNId, fileNId, cancellationToken) ?? throw Error("FILE_NOT_FOUND", "文件不存在。", 404);
+        await _store.GetFileAsync(tenantNId, fileNId, cancellationToken) is { } file
+            ? await RestorePurposeAsync(file, cancellationToken)
+            : throw Error("FILE_NOT_FOUND", "文件不存在。", 404);
+
+    private async Task<FileObjectRecord> RestorePurposeAsync(FileObjectRecord file, CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(file.Purpose))
+            return file;
+        var session = await _store.GetSessionAsync(file.TenantNId, file.UploadSessionNId, cancellationToken);
+        return session is null ? file : file with { Purpose = session.Purpose };
+    }
 
     private void EnsureWritable(FileUploadSessionRecord session)
     {
@@ -389,6 +553,49 @@ public sealed class FileService : IFileService
     private static string TransportStorageKey(FileUploadSessionRecord session) => $"{session.TenantNId}/{session.SessionNId}.bin";
 
     private static string NormalizeNId(string? value, string prefix) => string.IsNullOrWhiteSpace(value) ? $"{prefix}-{Guid.NewGuid():N}" : value.Trim();
+
+    private static string RequireNId(string? value, string code, string message)
+    {
+        if (string.IsNullOrWhiteSpace(value)) throw Error(code, message);
+        return value.Trim();
+    }
+
+    private static string NormalizeBusinessPurpose(string? purpose)
+    {
+        var normalized = RequireNId(purpose, "FILE_BUSINESS_REFERENCE_INVALID", "业务文件引用用途不能为空。");
+        return normalized is "CollaborationMessageAttachment" or "CollaborationComplianceExport"
+            ? normalized
+            : throw Error("FILE_BUSINESS_REFERENCE_INVALID", "业务文件引用用途不受支持。");
+    }
+
+    private static string NormalizeChecksum(string? checksum)
+    {
+        var normalized = RequireNId(checksum, "FILE_LEGAL_HOLD_INVALID", "scopeChecksum 不能为空。").ToLowerInvariant();
+        if (normalized.Length != 64 || normalized.Any(character => !Uri.IsHexDigit(character)))
+            throw Error("FILE_LEGAL_HOLD_INVALID", "scopeChecksum 必须是 64 位十六进制值。");
+        return normalized;
+    }
+
+    private async Task<bool> HasDownloadGrantAsync(string tenantNId, string userNId, string fileNId, string referenceNId, CancellationToken cancellationToken)
+    {
+        var reference = await _store.GetReferenceAsync(tenantNId, referenceNId, cancellationToken);
+        if (reference is not null)
+            return string.Equals(reference.FileNId, fileNId, StringComparison.Ordinal)
+                && string.Equals(reference.OwnerUserNId, userNId, StringComparison.Ordinal);
+        var business = await _store.GetBusinessReferenceAsync(tenantNId, referenceNId, cancellationToken);
+        return business is not null
+            && business.Status == "Active"
+            && string.Equals(business.FileNId, fileNId, StringComparison.Ordinal);
+    }
+
+    private static bool BusinessReferenceMatches(FileBusinessReferenceRecord value, string tenantNId, string referenceNId, string fileNId, string conversationNId, string messageNId, string attachmentNId, string uploaderUserNId, string purpose) =>
+        value.TenantNId == tenantNId && value.ReferenceNId == referenceNId && value.FileNId == fileNId
+        && value.ConversationNId == conversationNId && value.MessageNId == messageNId && value.AttachmentNId == attachmentNId
+        && value.UploaderUserNId == uploaderUserNId && value.Purpose == purpose && value.OwnerService == "collaboration";
+
+    private static FileBindingV1 ToBinding(FileBusinessReferenceRecord value) => new() { TenantNId = value.TenantNId, ReferenceNId = value.ReferenceNId, FileNId = value.FileNId, Status = value.Status, Version = value.Version };
+
+    private static FileHoldV1 ToHold(FileHoldRecord value) => new() { TenantNId = value.TenantNId, CaseNId = value.CaseNId, FileNId = value.FileNId, ScopeChecksum = value.ScopeChecksum, CaseRevision = value.CaseRevision, OwnerService = value.OwnerService, Status = value.Status, CreatedOn = value.CreatedOn, UpdatedOn = value.UpdatedOn, ReleasedOn = value.ReleasedOn };
 
     private static string NormalizeText(string? value, string fallback) => string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
 

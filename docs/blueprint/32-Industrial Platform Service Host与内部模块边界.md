@@ -48,7 +48,7 @@ PF-05、PF-06、PF-08、PF-09、PF-10、PF-10A、PF-10B、PF-11都属于Industri
 | 阶段 | 平台内优先兼容 | 相对独立边界/最小依赖 |
 | --- | --- | --- |
 | PF-05 Collaboration | 平台登录/目录、全局连接、聊天入口、文件与审计 | 聊天核心+可信身份/目录+必要持久审计/文件能力；外部宿主适配，不复制人员主数据 |
-| PF-06 RemoteAssistance | 从PF05聊天邀请、逐人授权、共享与审计 | 协助控制面+已验证媒体/网络依赖；身份/参与人/邀请走公开端口。首版聊天集成仍依赖PF05；未来脱离聊天须先补宿主邀请端口，不能暗中要求全量聊天历史 |
+| PF-06 RemoteAssistance | 现有一对一聊天内屏幕共享与独立语音，分别邀请/结束、可同时使用；复用身份/成员/SignalR/审计 | 首版随Collaboration交付，原生WebRTC＋按需TURN；逻辑模块边界保留，复用服务级初始化/账本。外部MES与脱离聊天另验，不要求全量聊天历史 |
 | PF-08 Low Code | 平台权限、主题、路由、受控数据源、发布 | PlatformStudio选定的DataSource/Dataset/LowCode/Publishing；设计器与运行入口范围明确，不依赖Dashboard/Report自动启用 |
 | PF-09 Dashboard & Report | 平台受控Dataset、行列授权、File、通知/定时能力 | Dashboard/Report及所需Dataset运行能力；不强制低代码设计器。报告导出、定时报表分别声明存储/调度/通知的必需或可选适配 |
 | PF-10 ServerMonitor | 平台节点权限、告警/通知、审计和健康摘要 | ServerMonitor+Agent+指标/告警存储及必要公共适配；不依赖知识库、问题和模型运行时 |
@@ -169,6 +169,6 @@ PF-10A 的第一个设计门禁是逐项完成并确认以上闭环；在此之�
 
 ## 7.1 PF-05/06 与独立标签产品增量（2026-09-07）
 
-PF05的Messaging/Presence/AttachmentIntegration采用同一服务级初始化、seed ledger、Outbox和必要消费者Inbox；Messaging 拥有 ChatAttachment 绑定，AttachmentIntegration 只适配 File；Presence 无持久化不建空 Schema/账本。RemoteAssistance 当前继续保留原设计的独立持久化生命周期及模块单元，是否合并该单元需另有设计依据，不因本轮清理 Presence 而自动删除。
+PF05的Messaging/Presence/AttachmentIntegration采用同一服务级初始化、seed ledger、Outbox和必要消费者Inbox；Messaging 拥有 ChatAttachment 绑定，AttachmentIntegration 只适配 File；Presence 无持久化不建空 Schema/账本。2026-09-10用户将RemoteAssistance明确收敛为现有聊天的双人屏幕共享增量：屏幕和新增一对一语音保持必要业务状态，均随Collaboration安装/升级，当前没有独立于该服务的持久化生命周期。因此保留RemoteAssistance逻辑数据/契约/权限/测试边界，表使用collaboration_remote_assistance_前缀，媒体数据迁移追加到Collaboration服务级流，权限种子沿Identity已有目录升级，复用现有账本/Outbox，不再拆独立初始化单元；这项调整依据本次明确范围，未改其他模块生命周期。详见实施09及PF06细化规格。
 
 平台原生与外部 MES 嵌入共用聊天核心，平台原生优先；外部复用可信身份/目录、本地持久审计和本地受控初始化器，不依赖整套平台在线，安全和可靠性不裁剪。Label.Service先兼容平台身份/文件/审计/初始化，再以同一核心支持外部宿主和无宿主的最小装配，默认服务级治理；设备注册/绑定是Label服务的受控配置能力，Agent只消费绑定并拥有本地连接/执行账本；详见蓝图35。Runtime/Agent 只拥有终端技术能力和执行记录，不拥有 MES/Label 领域事实。
