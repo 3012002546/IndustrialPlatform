@@ -2,6 +2,8 @@
 
 本文件保存跨任务复用但不应自动加载的工程陷阱。只有任务卡涉及对应领域时才读取相关条目。
 
+PF06聊天媒体增量开发前，读取 [PF06开发注意事项：减少联调返工](PF06开发注意事项-减少联调返工.md)，复用现有工作包执行顺序和验收矩阵。
+
 ## .NET 与测试环境
 
 - 仓库 `global.json` 使用 feature-band roll-forward；本机 SDK 不匹配时先确认实际解析版本，不要用陈旧产物代替构建。
@@ -17,6 +19,7 @@
 - 新迁移步骤 ID 必须全局唯一，不能多个步骤复用同一账本 ID。
 - ModuleKey 派生数据库标识符必须经过统一 sanitize，不能直接拼接带连字符的键。
 - PostgreSQL `timestamptz` 读回可能改变偏移并截断微秒；幂等时间断言比较时间点并使用小容差。
+- PF05实证：SQLite/SqlSugar无offset的TEXT时间读回可能按本机+08解释；审批截止/执行期限/租约必须做真实仓储UTC round-trip回归。SQLite归一化不得改变PostgreSQL语义，不能用延长时限消除误过期。
 
 ## Identity
 
