@@ -2,6 +2,7 @@ using System.Net.Sockets;
 using System.Text;
 using IndustrialPlatform.SystemData.Application.Files;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 
 namespace IndustrialPlatform.SystemData.Infrastructure.Files;
 
@@ -10,25 +11,32 @@ public sealed class ClamAvOptions
     public const string SectionName = "SystemData:ClamAv";
     public string? Host { get; set; }
     public int Port { get; set; } = 3310;
+    public bool DevelopmentBypass { get; set; }
 }
 
 /// <summary>
 /// Trusted scanner adapter using ClamAV's INSTREAM protocol. When no endpoint
-/// is configured, it fails closed with Unknown; it never treats arbitrary
-/// content as clean.
+/// is configured, it fails closed with Unknown unless the host explicitly
+/// enables the Development-only bypass. Bypass results retain a diagnostic marker.
 /// </summary>
 public sealed class ClamAvFileScanner : IFileScanner
 {
     private readonly ClamAvOptions _options;
 
-    public ClamAvFileScanner(IConfiguration configuration)
+    public ClamAvFileScanner(IConfiguration configuration, IHostEnvironment? environment = null)
     {
         _options = new ClamAvOptions();
         configuration.GetSection(ClamAvOptions.SectionName).Bind(_options);
+        if (_options.DevelopmentBypass && environment?.IsDevelopment() != true)
+            throw new InvalidOperationException("SystemData:ClamAv:DevelopmentBypass 仅允许在 Development 环境启用。");
     }
 
     public async Task<FileScanResult> ScanAsync(FileObjectRecord file, Stream content, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        // Clean 是现有文件链的放行状态；扫描明细保留跳过事实，不代表真实病毒扫描通过。
+        if (_options.DevelopmentBypass)
+            return new FileScanResult("Clean", "DEVELOPMENT_BYPASS：开发环境跳过病毒扫描，仅用于功能测试；不代表真实扫描通过。");
         if (string.IsNullOrWhiteSpace(_options.Host))
             return new FileScanResult("Unknown", "未配置可信 ClamAV 扫描器，文件保持禁止下载状态。");
         if (_options.Port is < 1 or > 65535)

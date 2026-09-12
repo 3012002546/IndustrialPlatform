@@ -3,6 +3,8 @@ using IndustrialPlatform.SystemData.Application.Files;
 using IndustrialPlatform.SystemData.Infrastructure.Files;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.FileProviders;
 using System.Net;
 using System.Net.Sockets;
 
@@ -60,6 +62,56 @@ public sealed class FileScannerTests
         var result = await scanner.ScanAsync(File(), new MemoryStream("ordinary content"u8.ToArray()), CancellationToken.None);
 
         Assert.Equal("Unknown", result.Status);
+    }
+
+    [Fact]
+    public async Task Development_bypass_allows_test_files_and_records_that_no_scan_was_performed()
+    {
+        var scanner = new ClamAvFileScanner(BypassConfiguration(true), new ScannerEnvironment("Development"));
+        await using var content = new MemoryStream("development upload"u8.ToArray());
+        var result = await scanner.ScanAsync(File(), content, CancellationToken.None);
+
+        Assert.Equal("Clean", result.Status);
+        Assert.Contains("DEVELOPMENT_BYPASS", result.Detail, StringComparison.Ordinal);
+        Assert.Equal(0, content.Position);
+    }
+
+    [Theory]
+    [InlineData("Production")]
+    [InlineData("Staging")]
+    public void Development_bypass_is_rejected_outside_development(string environment)
+    {
+        Assert.Throws<InvalidOperationException>(() =>
+            new ClamAvFileScanner(BypassConfiguration(true), new ScannerEnvironment(environment)));
+    }
+
+    [Fact]
+    public void Development_bypass_requires_a_known_host_environment()
+    {
+        Assert.Throws<InvalidOperationException>(() => new ClamAvFileScanner(BypassConfiguration(true)));
+    }
+
+    [Fact]
+    public async Task Disabling_development_bypass_restores_the_real_scanner_gate()
+    {
+        var scanner = new ClamAvFileScanner(BypassConfiguration(false), new ScannerEnvironment("Development"));
+        var result = await scanner.ScanAsync(File(), new MemoryStream("ordinary content"u8.ToArray()), CancellationToken.None);
+
+        Assert.Equal("Unknown", result.Status);
+    }
+
+    private static IConfiguration BypassConfiguration(bool enabled) => new ConfigurationBuilder()
+        .AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["SystemData:ClamAv:DevelopmentBypass"] = enabled.ToString(),
+        }).Build();
+
+    private sealed class ScannerEnvironment(string name) : IHostEnvironment
+    {
+        public string EnvironmentName { get; set; } = name;
+        public string ApplicationName { get; set; } = "ScannerTests";
+        public string ContentRootPath { get; set; } = string.Empty;
+        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
     }
 
     [Fact]

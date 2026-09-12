@@ -8,6 +8,8 @@ Claude Code 与 Harness 是职责等价的编码执行智能体。它们只能�
 
 ## 上下文路由
 
+所有任务开始或恢复时先读取 `docs/agents/开发协作与页面统一约定.md` 最新版本，作为跨PF、页面、后端、配置、修复和文档工作的长期统一约定；领域章节按需应用。主控根据用户新要求与已证实经验持续更新同一文档，不按任务复制规则或套用其他任务的临时授权。
+
 - 当前项目状态：`docs/status/CURRENT.md`
 - 编码智能体公共协议：`docs/agents/EXECUTOR.md`
 - PF 工作包模板：`docs/tasks/TEMPLATE.md`
