@@ -4,9 +4,9 @@ public static class ReferenceDataSharedMigration
 {
     public const string Version = "reference-data-2.7-009";
 
-    public static string Sql(bool postgres)
+    public static string Sql(bool postgres, string schema = "reference_data")
     {
-        var prefix = postgres ? "reference_data." : "reference_data_";
+        var prefix = postgres ? $"{schema}." : "reference_data_";
         var id = postgres ? "uuid" : "TEXT";
         var time = postgres ? "timestamptz" : "TEXT";
         var payload = postgres ? "jsonb" : "TEXT CHECK(json_valid(payload))";
@@ -29,9 +29,9 @@ public static class ReferenceDataSharedMigration
                     OR (status IN ('Pending','Failed') AND published_on IS NULL)),
                 CHECK(status<>'Failed' OR (attempt_count=10 AND next_attempt_on IS NULL))
             );
-            CREATE INDEX reference_data_outbox_pending_ix
+            CREATE INDEX {schema}_outbox_pending_ix
                 ON {prefix}outbox_message(status,next_attempt_on,created_time);
-            CREATE INDEX reference_data_outbox_module_ix
+            CREATE INDEX {schema}_outbox_module_ix
                 ON {prefix}outbox_message(module_key,status);
             """;
     }

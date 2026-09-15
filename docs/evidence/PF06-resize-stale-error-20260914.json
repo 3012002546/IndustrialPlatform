@@ -1,0 +1,81 @@
+{
+  "evidenceId": "PF06-resize-stale-error-20260914",
+  "capturedOn": "2026-09-14",
+  "timezone": "Asia/Taipei",
+  "task": "PF-06 native resize-drag and stale media error cleanup combined independent acceptance",
+  "handoffs": {
+    "D:\\Code\\Industrial Platform\\pf06-resize-drag-handoff.md": "BF1B48AF458133FAC28CD9FE80776DC7187A8F1CDB318A66ED55A6EF21880663",
+    "D:\\Code\\Industrial Platform\\pf06-stale-error-cleanup-handoff.md": "376CC0D87C1C5E86AB0A15299E729CEC45F8AADBCB2367256CABFE47EA39172C"
+  },
+  "delivery": {
+    "repository": "D:\\Code\\Industrial Platform\\IndustrialPlatform",
+    "branch": "develop",
+    "head": "0a77597f94e38873b67565e0b477e120e72a57f8",
+    "worktree": "dirty shared WIP; reviewed files are untracked and frozen by content hash",
+    "snapshotSha256": {
+      "src/frontend/src/components/collaboration/ScreenShareFloatingWindow.vue": "F6E6AEA207F6B5976F22CEA59B8B5ACE5BE99BC021E74676ADAF7E314D374FD1",
+      "src/frontend/src/stores/collaborationMediaStore.ts": "A03505131DB037A58BDB9E5175EB3F3834B8EC0B493344340E3AE92A6FB0D23C",
+      "src/frontend/tests/components/ScreenShareFloatingWindow.spec.ts": "3DA2E152CBA5E7D3C69DF07C99ED2EA16E7E90F8EA73305DA519E98F8F8542F2",
+      "src/frontend/tests/unit/collaborationMediaStore.spec.ts": "A8F5A32692B78E06CC1A145386A9F93504A10112EC5C2F7491F001FD7E454E4C"
+    }
+  },
+  "acceptanceRepair": {
+    "initialFinding": "A deferred mediaReady failure with a captured but stale source fell through to the unscoped error fallback and could repopulate the current global error.",
+    "repair": "When a mediaReady source exists, only a currently matching source may set the error; an existing stale source returns without writing. The unscoped fallback is retained only when no source can be constructed.",
+    "regression": "A deferred old-revision mediaReady failure is released after revision recovery, followed by checks that a current mediaReady failure remains visible and matching capability success clears it.",
+    "productionCodeModifiedByAcceptance": false
+  },
+  "independentStaticVerification": {
+    "method": "Read-only source assertions and control-flow review on the stable WIP snapshot",
+    "checksPassed": 15,
+    "checksTotal": 15,
+    "exitCode": 0,
+    "result": "PASS",
+    "resizeDragConfirmed": [
+      "Drag start reads the actual panel getBoundingClientRect dimensions and position",
+      "Actual DOM width and height are synchronized into the component size before movement",
+      "Movement uses actual offsetWidth and offsetHeight for viewport clamping",
+      "The floating panel uses border-box sizing and viewport maximum width and height",
+      "The regression fixture overrides DOM geometry to 760 by 480 and does not mutate reactive size",
+      "The fixture asserts 760 by 480 is retained after drag and the final left/top are viewport constrained"
+    ],
+    "errorCleanupConfirmed": [
+      "Signal error provenance records lifecycle, media context, context revision, negotiation, and capability",
+      "Late description and ICE failures write only when their captured source remains current",
+      "Revision recovery clears only the tracked stale signal error code and does not clear capability errors",
+      "Capability recovery requires the same media context and capability source",
+      "A captured but stale mediaReady source is ignored instead of falling through to the unscoped fallback",
+      "The regressions cover late old-negotiation failure, current failure recovery, coexistence with another capability error, and deferred stale mediaReady failure"
+    ]
+  },
+  "developerReportedVerification": {
+    "independentlyRerun": false,
+    "resizeDrag": "node_modules/.bin/vitest.cmd run tests/components/ScreenShareFloatingWindow.spec.ts -t \"native resized DOM size\" --configLoader runner reported 1 passed",
+    "signalErrors": "collaborationMediaStore.spec.ts three targeted stale/recovery/coexistence cases reported passed with 20 skipped",
+    "mediaReady": "node_modules/.bin/vitest.cmd run tests/unit/collaborationMediaStore.spec.ts -t \"stale media-ready\" --configLoader runner reported 1 passed / 23 skipped",
+    "typecheck": "pnpm.cmd typecheck reported PASS"
+  },
+  "realUi": {
+    "result": "NOT_RUN",
+    "attempt": "A single read-only browser inventory attempt returned no apps or browsers and nodeRepl.fetch request failed.",
+    "recoveryOrEnvironmentDebug": false,
+    "notVerified": [
+      "Native browser resize gesture followed by title-bar drag",
+      "Disappearance of the stale red MEDIA_CONTEXT_STALE prompt in the real Edge-to-Chrome path"
+    ]
+  },
+  "preservedRuntimeEvidence": [
+    "Standalone screen sharing remains user-confirmed PASS",
+    "Chrome-to-Edge standalone voice remains user-confirmed PASS"
+  ],
+  "verdict": {
+    "resizeDragCode": "PASS",
+    "staleErrorCode": "PASS_AFTER_TARGETED_REPAIR",
+    "developerTests": "REPORTED_PASS_NOT_RERUN",
+    "realUi": "NOT_RUN_TOOL_UNAVAILABLE",
+    "pf06Overall": "PARTIAL",
+    "blockingProductionDefectFoundAfterRepair": false
+  },
+  "scopeBoundary": "No production source edit, commit, stage, push, deployment, service lifecycle action, media matrix rerun, VS/VS Code interference, or cloud Docker action was performed by acceptance.",
+  "privacy": "Contains no credentials, private configuration values, SDP, ICE candidates, IP addresses, media payloads, or user identifiers."
+}

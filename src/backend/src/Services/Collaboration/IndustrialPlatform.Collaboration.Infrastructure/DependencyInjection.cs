@@ -1,4 +1,5 @@
 using IndustrialPlatform.Collaboration.Application;
+using IndustrialPlatform.Collaboration.Application.RemoteAssistance;
 using IndustrialPlatform.Infrastructure.Database;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,6 +14,13 @@ public static class DependencyInjection
         ArgumentNullException.ThrowIfNull(configuration);
         services.AddSqlSugar(configuration);
         services.AddSingleton<ICollaborationRepository, Persistence.SqlCollaborationRepository>();
+        services.AddSingleton<IRemoteAssistanceRepository>(sp => (IRemoteAssistanceRepository)sp.GetRequiredService<ICollaborationRepository>());
+        services.AddSingleton<MediaContextRegistry>();
+        services.AddSingleton<MediaContextCoordinator>();
+        services.AddSingleton<RemoteAssistanceTurnCredentialProvider>();
+        services.AddSingleton<IRemoteAssistanceIceServerProvider>(sp => sp.GetRequiredService<RemoteAssistanceTurnCredentialProvider>());
+        services.Configure<RemoteAssistanceOptions>(configuration.GetSection("Collaboration:Media"));
+        services.AddScoped<IRemoteAssistancePermissionEvaluator, RemoteAssistancePermissionEvaluator>();
         services.AddHttpClient("Collaboration.Identity", client => client.Timeout = TimeSpan.FromSeconds(5));
         services.AddHttpClient("Collaboration.SystemData", client => client.Timeout = TimeSpan.FromSeconds(5));
         if (string.Equals(configuration["Collaboration:Identity:Mode"], "Embedded", StringComparison.OrdinalIgnoreCase))
@@ -41,6 +49,7 @@ public static class DependencyInjection
         services.AddHostedService<CollaborationExportWorker>();
         services.AddHostedService<CollaborationOutboxDispatcher>();
         services.AddHostedService<CollaborationRetentionWorker>();
+        services.AddHostedService<RemoteAssistanceLifecycleWorker>();
         services.AddSingleton<CollaborationServiceInitializer>();
         services.AddSingleton<IndustrialPlatform.Application.Abstractions.Initialization.IServiceInitializer>(sp => sp.GetRequiredService<CollaborationServiceInitializer>());
         return services;

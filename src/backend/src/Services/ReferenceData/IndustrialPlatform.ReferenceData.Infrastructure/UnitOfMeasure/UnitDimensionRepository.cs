@@ -3,6 +3,7 @@ using System.Globalization;
 using IndustrialPlatform.Infrastructure.Database;
 using IndustrialPlatform.ReferenceData.Application.Caching;
 using IndustrialPlatform.ReferenceData.Application.UnitOfMeasure;
+using IndustrialPlatform.ReferenceData.Infrastructure.Persistence;
 using IndustrialPlatform.ReferenceData.Contracts.UnitOfMeasure;
 using IndustrialPlatform.ReferenceData.Contracts.Events;
 using IndustrialPlatform.ReferenceData.Domain.Common;
@@ -17,8 +18,8 @@ public sealed class UnitDimensionRepository(SqlSugarDbContext context) : IUnitDi
 {
     private ISqlSugarClient Db => context.SqlSugar;
     private bool Postgres => Db.CurrentConnectionConfig.DbType == DbType.PostgreSQL;
-    private string Dimensions => Postgres ? "reference_data.unit_of_measure_dimension" : "reference_data_unit_of_measure_dimension";
-    private string Units => Postgres ? "reference_data.unit_of_measure_unit" : "reference_data_unit_of_measure_unit";
+    private string Dimensions => ReferenceDataSqlNames.Table(Db, "unit_of_measure_dimension");
+    private string Units => ReferenceDataSqlNames.Table(Db, "unit_of_measure_unit");
 
     private ISugarQueryable<UnitDimensionRow> Visible(string tenantNId) =>
         Db.Queryable<UnitDimensionRow>().AS(Dimensions)

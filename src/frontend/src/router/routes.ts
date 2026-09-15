@@ -15,6 +15,7 @@ import StandaloneLayout from '@/layouts/StandaloneLayout.vue'
 import ChangePasswordPage from '@/pages/public/ChangePasswordPage.vue'
 import ForbiddenPage from '@/pages/public/ForbiddenPage.vue'
 import LoginPage from '@/pages/public/LoginPage.vue'
+import EmbeddedSessionRequiredPage from '@/pages/public/EmbeddedSessionRequiredPage.vue'
 import NotFoundPage from '@/pages/public/NotFoundPage.vue'
 import SsoCallbackPage from '@/pages/sso/SsoCallbackPage.vue'
 import SsoLoginPage from '@/pages/sso/SsoLoginPage.vue'
@@ -101,6 +102,15 @@ export const routes: RouteRecordRaw[] = [
       title: '登录',
       titleKey: 'login.title',
       fallbackTitle: '登录',
+    },
+  },
+  {
+    path: '/embedded/session-required',
+    name: ROUTE_NAMES.embeddedSessionRequired,
+    component: EmbeddedSessionRequiredPage,
+    meta: {
+      title: 'MES 登录会话不可用',
+      fallbackTitle: 'MES 登录会话不可用',
     },
   },
   {

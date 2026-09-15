@@ -1,0 +1,50 @@
+{
+  "evidence": "PF06 late media result after screen finalization independent acceptance",
+  "date": "2026-09-14",
+  "result": "partial",
+  "repository": {
+    "head": "0a77597f94e38873b67565e0b477e120e72a57f8",
+    "worktree": "shared dirty WIP; acceptance changed evidence only"
+  },
+  "stableArtifacts": {
+    "src/frontend/src/stores/collaborationMediaStore.ts": "7833B639A4D48553B6B2D3D58687724BAED309802399F5CBDE177E56C1B7D06B",
+    "src/frontend/tests/unit/collaborationMediaStore.spec.ts": "A5DE63496F7A7AE712B5FCF66792B28FA52D486D93259778C3803A15B7144082"
+  },
+  "staticAcceptance": {
+    "result": "PASS",
+    "machineChecks": "12 of 12 passed",
+    "findings": [
+      "Screen signal sources require the same active screen session ID; Voice sources require the same active voice call ID",
+      "a late Screen signal or media-ready failure cannot write MEDIA_NOT_ACCEPTED after that Screen capability becomes terminal",
+      "a current active Screen invitation still preserves a real MEDIA_NOT_ACCEPTED response",
+      "performEnsureBinding validates both media lifecycle generation and currentBindingKey before applying a successful result",
+      "late bind failures are rejected by markBindingFailure when the current binding key changed",
+      "finalizeScreen clears only the Screen capability error and a matching Screen signal error",
+      "closePeerIfIdle performs global cleanup only when neither Screen nor Voice remains active",
+      "an active Voice capability and its capability-specific error survive Screen finalization",
+      "the prior capability-neutral ownership for merged Screen and Voice negotiation is preserved"
+    ]
+  },
+  "developerVerificationAcceptedWithoutRerun": {
+    "command": "vitest run --configLoader runner tests/unit/collaborationMediaStore.spec.ts",
+    "result": "1 file, 30 tests passed",
+    "appTypecheck": "exit 0",
+    "nodeTypecheck": "exit 0",
+    "mediaStoreEslint": "exit 0",
+    "reasonNotRerun": "controller requested a hash-bound incremental review without repeating the developer tests"
+  },
+  "layers": {
+    "codeRegression": "PASS",
+    "mockedTimingAndStateMachine": "PASS_DEVELOPER_EVIDENCE",
+    "realHubAndBackendAuthorization": "UNCHANGED_NOT_RERUN",
+    "realMobileHttpsAndTurn": "NOT_RUN"
+  },
+  "boundaries": {
+    "productionCodeModifiedByAcceptance": false,
+    "servicesRestarted": false,
+    "pf06aTouched": false,
+    "hubWrapperChanged": false,
+    "backendAuthorizationChanged": false,
+    "realDevicePassClaimed": false
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "evidenceId": "PF06-pre-peer-fix-20260913",
+  "capturedOn": "2026-09-13",
+  "timezone": "Asia/Taipei",
+  "task": "PF-06 pre-peer frontend repair independent acceptance",
+  "handoff": "D:\\Code\\Industrial Platform\\pf06-pre-peer-fix-handoff.md",
+  "delivery": {
+    "repository": "D:\\Code\\Industrial Platform\\IndustrialPlatform",
+    "branch": "develop",
+    "head": "0a77597f94e38873b67565e0b477e120e72a57f8",
+    "worktree": "dirty shared WIP; the four reviewed files are untracked, so no Git diff baseline exists",
+    "snapshotSha256": {
+      "src/frontend/src/stores/collaborationMediaStore.ts": "9B31EF8165ACC5AD563446E27BAC71981642E5FACB9C2642F9F359048A1A2A42",
+      "src/frontend/src/components/collaboration/CollaborationMediaHost.vue": "DE8AEA390EFCC30E29EB6F3EFE1241576781A22F7EB27DFFC9092D6A21CF3F57",
+      "src/frontend/src/components/collaboration/ScreenShareFloatingWindow.vue": "2B36B54230D67A4347ADFA4B6FE3FB54F9A6CE7DDDF21B4196745F7765674B81",
+      "src/frontend/tests/unit/collaborationMediaStore.spec.ts": "1883D3D9CD7FE8F3F1C30E1C38CA9002984C7315E510A9D01CCC78D052227F3A"
+    }
+  },
+  "scope": {
+    "reviewed": [
+      "BindMedia business failure and promise rejection handling",
+      "per-capability screen/voice error ownership",
+      "preservation of an existing binding and an existing Active capability",
+      "Accepted and Connecting event-triggered binding",
+      "in-flight deduplication, valid-binding skip, and same-target failure retry suppression",
+      "host and floating viewer error presentation",
+      "the two newly reported regression tests"
+    ],
+    "notPerformed": [
+      "No production source changes",
+      "No commit, stage, push, deploy, service start, browser use, or real media call",
+      "No rerun of pnpm.cmd typecheck",
+      "No rerun of pnpm.cmd test:unit -- tests/unit/collaborationMediaStore.spec.ts"
+    ]
+  },
+  "independentStaticVerification": {
+    "method": "Read-only PowerShell source assertions plus manual end-to-end control-flow review",
+    "exitCode": 0,
+    "result": "PASS",
+    "checksPassed": 14,
+    "checksTotal": 14,
+    "confirmed": [
+      "Screen and voice Accepted/Connecting events call ensureBindingIfNeeded",
+      "A valid active-media binding and PeerConnection skip duplicate BindMedia",
+      "The same target shares an in-flight binding promise",
+      "A failed target key suppresses repeated event-driven retries for that lifecycle",
+      "Both business failure and thrown/rejected BindMedia calls enter markBindingFailure",
+      "Failure ownership is determined by comparing current capability IDs with the previous binding",
+      "A failed newly-added capability is marked Error without clearing the previous binding or changing the other capability to Error",
+      "A successful binding clears the failure key and matching capability errors",
+      "A new screen/voice ID clears its stale capability error",
+      "CollaborationMediaHost prefers capability errors over the shared error",
+      "ScreenShareFloatingWindow uses the screen-specific error",
+      "The business-rejection ownership regression asserts screen Active, voice Error, and preserved binding",
+      "The Connecting regression asserts one BindMedia call and one PeerConnection after repeated events"
+    ]
+  },
+  "developerReportedVerification": {
+    "independentlyRerun": false,
+    "typecheck": "pnpm.cmd typecheck reported PASS",
+    "unit": "pnpm.cmd test:unit -- tests/unit/collaborationMediaStore.spec.ts reported 133 files / 994 tests PASS"
+  },
+  "coverageGaps": [
+    "No dedicated unit assertion makes bindMedia itself reject a Promise; the catch path was verified statically only",
+    "No dedicated unit assertion sends repeated Connecting events after a failed BindMedia result; failure-key suppression was verified statically only",
+    "No component-level rendering assertion independently verifies the capability-specific text in the host or floating viewer"
+  ],
+  "runtimeGaps": [
+    "The repair does not establish the unique root cause of the user's field failure",
+    "No running Host configuration load was verified",
+    "No two-party browser, WebRTC PeerConnection, ICE/TURN, screen, voice, or playback path was verified"
+  ],
+  "verdict": {
+    "repairIncrement": "PASS",
+    "testEvidence": "PARTIAL",
+    "realMediaRuntime": "NOT_RUN",
+    "pf06Overall": "PARTIAL",
+    "blockingProductionDefectFound": false
+  },
+  "privacy": "Contains no credentials, private configuration values, SDP, ICE candidates, IP addresses, media payloads, or user identifiers."
+}

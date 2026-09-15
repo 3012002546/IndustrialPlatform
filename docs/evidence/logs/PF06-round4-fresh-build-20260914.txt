@@ -1,0 +1,47 @@
+  正在确定要还原的项目…
+  所有项目均是最新的，无法还原。
+  IndustrialPlatform.Querying -> D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\BuildingBlocks\IndustrialPlatform.Querying\bin\Release\net10.0\IndustrialPlatform.Querying.dll
+  IndustrialPlatform.SharedKernel -> D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\BuildingBlocks\IndustrialPlatform.SharedKernel\bin\Release\net10.0\IndustrialPlatform.SharedKernel.dll
+  IndustrialPlatform.Logging -> D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\BuildingBlocks\IndustrialPlatform.Logging\bin\Release\net10.0\IndustrialPlatform.Logging.dll
+  IndustrialPlatform.SystemData.Contracts -> D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\Services\SystemData\IndustrialPlatform.SystemData.Contracts\bin\Release\net10.0\IndustrialPlatform.SystemData.Contracts.dll
+  IndustrialPlatform.Identity.Domain -> D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\Services\Identity\IndustrialPlatform.Identity.Domain\bin\Release\net10.0\IndustrialPlatform.Identity.Domain.dll
+  IndustrialPlatform.EventBus -> D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\BuildingBlocks\IndustrialPlatform.EventBus\bin\Release\net10.0\IndustrialPlatform.EventBus.dll
+  IndustrialPlatform.Collaboration.Domain -> D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\Services\Collaboration\IndustrialPlatform.Collaboration.Domain\bin\Release\net10.0\IndustrialPlatform.Collaboration.Domain.dll
+  IndustrialPlatform.ReferenceData.Domain -> D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\Services\ReferenceData\IndustrialPlatform.ReferenceData.Domain\bin\Release\net10.0\IndustrialPlatform.ReferenceData.Domain.dll
+  IndustrialPlatform.Application.Abstractions -> D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\BuildingBlocks\IndustrialPlatform.Application.Abstractions\bin\Release\net10.0\IndustrialPlatform.Application.Abstractions.dll
+  IndustrialPlatform.SystemData.Domain -> D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\Services\SystemData\IndustrialPlatform.SystemData.Domain\bin\Release\net10.0\IndustrialPlatform.SystemData.Domain.dll
+  IndustrialPlatform.Security -> D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\BuildingBlocks\IndustrialPlatform.Security\bin\Release\net10.0\IndustrialPlatform.Security.dll
+  IndustrialPlatform.Infrastructure -> D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\BuildingBlocks\IndustrialPlatform.Infrastructure\bin\Release\net10.0\IndustrialPlatform.Infrastructure.dll
+  IndustrialPlatform.ReferenceData.Contracts -> D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\Services\ReferenceData\IndustrialPlatform.ReferenceData.Contracts\bin\Release\net10.0\IndustrialPlatform.ReferenceData.Contracts.dll
+  IndustrialPlatform.SystemData.Application -> D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\Services\SystemData\IndustrialPlatform.SystemData.Application\bin\Release\net10.0\IndustrialPlatform.SystemData.Application.dll
+  IndustrialPlatform.Web -> D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\BuildingBlocks\IndustrialPlatform.Web\bin\Release\net10.0\IndustrialPlatform.Web.dll
+  IndustrialPlatform.ReferenceData.Application -> D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\Services\ReferenceData\IndustrialPlatform.ReferenceData.Application\bin\Release\net10.0\IndustrialPlatform.ReferenceData.Application.dll
+  IndustrialPlatform.SystemData.Infrastructure -> D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\Services\SystemData\IndustrialPlatform.SystemData.Infrastructure\bin\Release\net10.0\IndustrialPlatform.SystemData.Infrastructure.dll
+  IndustrialPlatform.Collaboration.Contracts -> D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\Services\Collaboration\IndustrialPlatform.Collaboration.Contracts\bin\Release\net10.0\IndustrialPlatform.Collaboration.Contracts.dll
+  IndustrialPlatform.Identity.Contracts -> D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\Services\Identity\IndustrialPlatform.Identity.Contracts\bin\Release\net10.0\IndustrialPlatform.Identity.Contracts.dll
+  IndustrialPlatform.ReferenceData.Infrastructure -> D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\Services\ReferenceData\IndustrialPlatform.ReferenceData.Infrastructure\bin\Release\net10.0\IndustrialPlatform.ReferenceData.Infrastructure.dll
+  IndustrialPlatform.BuildingBlocks.Tests -> D:\Code\Industrial Platform\IndustrialPlatform\tests\BuildingBlocks\IndustrialPlatform.BuildingBlocks.Tests\bin\Release\net10.0\IndustrialPlatform.BuildingBlocks.Tests.dll
+  IndustrialPlatform.Gateway -> D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\Gateway\IndustrialPlatform.Gateway\bin\Release\net10.0\IndustrialPlatform.Gateway.dll
+  IndustrialPlatform.SystemData.Api -> D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\Services\SystemData\IndustrialPlatform.SystemData.Api\bin\Release\net10.0\IndustrialPlatform.SystemData.Api.dll
+  IndustrialPlatform.Collaboration.Application -> D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\Services\Collaboration\IndustrialPlatform.Collaboration.Application\bin\Release\net10.0\IndustrialPlatform.Collaboration.Application.dll
+  IndustrialPlatform.ReferenceData.Api -> D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\Services\ReferenceData\IndustrialPlatform.ReferenceData.Api\bin\Release\net10.0\IndustrialPlatform.ReferenceData.Api.dll
+  IndustrialPlatform.Identity.Application -> D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\Services\Identity\IndustrialPlatform.Identity.Application\bin\Release\net10.0\IndustrialPlatform.Identity.Application.dll
+  IndustrialPlatform.Gateway.Tests -> D:\Code\Industrial Platform\IndustrialPlatform\tests\Gateway\IndustrialPlatform.Gateway.Tests\bin\Release\net10.0\IndustrialPlatform.Gateway.Tests.dll
+  IndustrialPlatform.Identity.Infrastructure -> D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\Services\Identity\IndustrialPlatform.Identity.Infrastructure\bin\Release\net10.0\IndustrialPlatform.Identity.Infrastructure.dll
+  IndustrialPlatform.ReferenceData.Tests -> D:\Code\Industrial Platform\IndustrialPlatform\tests\ReferenceData\IndustrialPlatform.ReferenceData.Tests\bin\Release\net10.0\IndustrialPlatform.ReferenceData.Tests.dll
+  IndustrialPlatform.Collaboration.Infrastructure -> D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\Services\Collaboration\IndustrialPlatform.Collaboration.Infrastructure\bin\Release\net10.0\IndustrialPlatform.Collaboration.Infrastructure.dll
+  IndustrialPlatform.SystemData.Tests -> D:\Code\Industrial Platform\IndustrialPlatform\tests\SystemData\IndustrialPlatform.SystemData.Tests\bin\Release\net10.0\IndustrialPlatform.SystemData.Tests.dll
+  IndustrialPlatform.Identity.Api -> D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\Services\Identity\IndustrialPlatform.Identity.Api\bin\Release\net10.0\IndustrialPlatform.Identity.Api.dll
+  IndustrialPlatform.Identity.Tests -> D:\Code\Industrial Platform\IndustrialPlatform\tests\Identity\IndustrialPlatform.Identity.Tests\bin\Release\net10.0\IndustrialPlatform.Identity.Tests.dll
+  IndustrialPlatform.Collaboration.Api -> D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\Services\Collaboration\IndustrialPlatform.Collaboration.Api\bin\Release\net10.0\IndustrialPlatform.Collaboration.Api.dll
+  IndustrialPlatform.Collaboration.EmbeddedHost -> D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\Hosts\IndustrialPlatform.Collaboration.EmbeddedHost\bin\Release\net10.0\IndustrialPlatform.Collaboration.EmbeddedHost.dll
+  IndustrialPlatform.UnifiedHost -> D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\Hosts\IndustrialPlatform.UnifiedHost\bin\Release\net10.0\IndustrialPlatform.UnifiedHost.dll
+  IndustrialPlatform.Collaboration.Tests -> D:\Code\Industrial Platform\IndustrialPlatform\tests\Collaboration\IndustrialPlatform.Collaboration.Tests\bin\Release\net10.0\IndustrialPlatform.Collaboration.Tests.dll
+  IndustrialPlatform.UnifiedHost.Tests -> D:\Code\Industrial Platform\IndustrialPlatform\tests\UnifiedHost\IndustrialPlatform.UnifiedHost.Tests\bin\Release\net10.0\IndustrialPlatform.UnifiedHost.Tests.dll
+  IndustrialPlatform.IntegrationTests -> D:\Code\Industrial Platform\IndustrialPlatform\tests\IntegrationTests\IndustrialPlatform.IntegrationTests\bin\Release\net10.0\IndustrialPlatform.IntegrationTests.dll
+
+已成功生成。
+    0 个警告
+    0 个错误
+
+已用时间 00:00:06.64

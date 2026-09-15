@@ -5,9 +5,9 @@ public static class ReferenceDataCacheGenerationMigration
 {
     public const string Version = "reference-data-2.7-011";
 
-    public static string Sql(bool postgres)
+    public static string Sql(bool postgres, string schema = "reference_data")
     {
-        var table = postgres ? "reference_data.cache_generation" : "reference_data_cache_generation";
+        var table = postgres ? $"{schema}.cache_generation" : "reference_data_cache_generation";
         var time = postgres ? "timestamptz" : "TEXT";
         return $"""
             CREATE TABLE {table} (

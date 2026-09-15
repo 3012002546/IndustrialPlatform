@@ -555,6 +555,10 @@ public sealed record CollaborationFileContent(Stream Content, string ContentType
 public interface ICollaborationAuditPort
 {
     Task WriteAsync(string tenantNId, TrustedCollaborationCall? serviceCall, string actorUserNId, string action, string objectType, string objectNId, object payload, CancellationToken cancellationToken);
+    Task WriteAsync(string tenantNId, TrustedCollaborationCall? serviceCall, string actorUserNId, string action, string objectType, string objectNId, object payload, DateTimeOffset occurredOn, CancellationToken cancellationToken)
+        => WriteAsync(tenantNId, serviceCall, actorUserNId, action, objectType, objectNId, payload, cancellationToken);
+    Task WriteAsync(string tenantNId, TrustedCollaborationCall? serviceCall, string actorUserNId, string action, string objectType, string objectNId, object payload, DateTimeOffset occurredOn, string auditEventNId, CancellationToken cancellationToken)
+        => WriteAsync(tenantNId, serviceCall, actorUserNId, action, objectType, objectNId, payload, occurredOn, cancellationToken);
 }
 
 public interface ICollaborationPresence

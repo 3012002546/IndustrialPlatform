@@ -5,10 +5,10 @@ public static class ReferenceDataIntegrityMigration
 {
     public const string Version = "reference-data-2.7-010";
 
-    public static string Sql(bool postgres)
+    public static string Sql(bool postgres, string schema = "reference_data")
     {
         var definitions = postgres
-            ? "reference_data.dictionary_definition"
+            ? $"{schema}.dictionary_definition"
             : "reference_data_dictionary_definition";
         return $"""
             WITH ranked_drafts AS (

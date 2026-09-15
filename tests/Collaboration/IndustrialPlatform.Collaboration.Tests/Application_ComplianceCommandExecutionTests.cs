@@ -265,6 +265,49 @@ public sealed class ComplianceCommandExecutionTests
     }
 
     [Fact]
+    public async Task Message_page_batches_sender_names_and_dispositions_once_per_page()
+    {
+        var directory = new FakeDirectory
+        {
+            DisplayNames = new Dictionary<string, string>(StringComparer.Ordinal) { ["U-2"] = "Bob (BOB)" },
+        };
+        var oneMessageRepository = MessageRepository(1);
+        var manyMessageRepository = MessageRepository(4, disposedSequence: 3);
+
+        var oneMessagePage = await CreateService(oneMessageRepository, directory: directory)
+            .GetMessagesAsync("T-1", "U-1", "CV-1", "after", 0, 20, CancellationToken.None);
+        var manyMessagePage = await CreateService(manyMessageRepository, directory: directory)
+            .GetMessagesAsync("T-1", "U-1", "CV-1", "after", 0, 20, CancellationToken.None);
+
+        Assert.Single(oneMessagePage.Items);
+        Assert.Equal(4, manyMessagePage.Items.Count);
+        Assert.Equal("Bob (BOB)", manyMessagePage.Items[0].SenderDisplayName);
+        Assert.Equal(["M-1", "M-2", "M-3", "M-4"], manyMessagePage.Items.Select(item => item.MessageNId));
+        Assert.Equal("Disposed", manyMessagePage.Items[2].State);
+        Assert.Null(manyMessagePage.Items[2].TextContent);
+        Assert.Null(manyMessagePage.Items[2].Attachment);
+        Assert.Equal(2, directory.GetDisplayNamesCalls);
+        Assert.Equal(0, directory.GetCalls);
+        Assert.Equal(1, oneMessageRepository.ListDispositionsCalls);
+        Assert.Equal(1, manyMessageRepository.ListDispositionsCalls);
+    }
+
+    [Fact]
+    public async Task Message_page_propagates_the_cancellation_token_from_sender_name_lookup()
+    {
+        var directory = new FakeDirectory { ThrowOnDisplayNames = true };
+        var repository = MessageRepository(1);
+        using var cancellation = new CancellationTokenSource();
+
+        var exception = await Assert.ThrowsAsync<OperationCanceledException>(() => CreateService(repository, directory: directory)
+            .GetMessagesAsync("T-1", "U-1", "CV-1", "after", 0, 20, cancellation.Token));
+
+        Assert.Equal(cancellation.Token, exception.CancellationToken);
+        Assert.Equal(cancellation.Token, directory.LastDisplayNamesToken);
+        Assert.Equal(0, repository.ListDispositionsCalls);
+    }
+
+    [Fact]
     public async Task Two_workers_claim_one_export_and_do_not_duplicate_the_artifact()
     {
         var repository = WorkerRepository(approvalExpiresOn: DateTimeOffset.UtcNow.AddMinutes(5));
@@ -455,9 +498,10 @@ public sealed class ComplianceCommandExecutionTests
     private static CollaborationService CreateService(
         FakeRepository repository,
         FakeFiles? files = null,
-        AllowPermissions? permissions = null) => new(
+        AllowPermissions? permissions = null,
+        FakeDirectory? directory = null) => new(
         repository,
-        new FakeDirectory(),
+        directory ?? new FakeDirectory(),
         files ?? new FakeFiles(),
         new FakeAudit(),
         new FakePresence(),
@@ -466,9 +510,65 @@ public sealed class ComplianceCommandExecutionTests
         permissions ?? new AllowPermissions(),
         new PageCursorCodec("test-signing-key", TimeSpan.FromMinutes(5)));
 
+    private static FakeRepository MessageRepository(int count, int? disposedSequence = null)
+    {
+        var now = DateTimeOffset.UtcNow;
+        return new FakeRepository
+        {
+            Conversation = new ConversationRecord("T-1", "CV-1", "U-1", "U-2", "Active", count, $"M-{count}", now, 0, 1, Guid.NewGuid()),
+            Member = new ConversationMemberRecord("T-1", "CV-1", "U-1", "Alice", now, "Visible", null, 0, 0, null, 0, 1, Guid.NewGuid()),
+            Messages = Enumerable.Range(1, count)
+                .Select(sequence => new MessageRecord(
+                    "T-1",
+                    "CV-1",
+                    $"M-{sequence}",
+                    sequence,
+                    "U-2",
+                    $"CLIENT-{sequence}",
+                    "hash",
+                    "Text",
+                    $"body-{sequence}",
+                    null,
+                    sequence == disposedSequence ? $"ATT-{sequence}" : null,
+                    now,
+                    null,
+                    null,
+                    null,
+                    1,
+                    Guid.NewGuid()))
+                .ToArray(),
+            Dispositions = disposedSequence is int sequence
+                ? [new ComplianceDispositionRecord("T-1", "D-1", "message", $"M-{sequence}", "Active", "policy", "U-9", now, null, 1, Guid.NewGuid())]
+                : [],
+        };
+    }
+
     private sealed class FakeDirectory : ICollaborationIdentityDirectory
     {
-        public Task<DirectoryUser?> GetAsync(string tenantNId, string userNId, CancellationToken cancellationToken) => Task.FromResult<DirectoryUser?>(null);
+        public IReadOnlyDictionary<string, string> DisplayNames { get; init; } = new Dictionary<string, string>(StringComparer.Ordinal);
+        public bool ThrowOnDisplayNames { get; init; }
+        public int GetCalls { get; private set; }
+        public int GetDisplayNamesCalls { get; private set; }
+        public CancellationToken LastDisplayNamesToken { get; private set; }
+
+        public Task<DirectoryUser?> GetAsync(string tenantNId, string userNId, CancellationToken cancellationToken)
+        {
+            GetCalls++;
+            return Task.FromResult<DirectoryUser?>(null);
+        }
+
+        public Task<IReadOnlyDictionary<string, string>> GetDisplayNamesAsync(string tenantNId, IReadOnlyCollection<string> userNIds, CancellationToken cancellationToken)
+        {
+            GetDisplayNamesCalls++;
+            LastDisplayNamesToken = cancellationToken;
+            if (ThrowOnDisplayNames)
+                throw new OperationCanceledException(cancellationToken);
+            IReadOnlyDictionary<string, string> names = DisplayNames
+                .Where(item => userNIds.Contains(item.Key, StringComparer.Ordinal))
+                .ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
+            return Task.FromResult(names);
+        }
+
         public Task<DirectorySearchPage> SearchAsync(string tenantNId, string actorUserNId, string keyword, string? cursor, int pageSize, CancellationToken cancellationToken) => Task.FromResult(new DirectorySearchPage([], null));
     }
 
@@ -700,8 +800,10 @@ public sealed class ComplianceCommandExecutionTests
         public ConversationRecord? Conversation { get; init; }
         public ConversationMemberRecord? Member { get; init; }
         public IReadOnlyList<MessageRecord> Messages { get; init; } = [];
+        public IReadOnlyList<ComplianceDispositionRecord> Dispositions { get; init; } = [];
         public List<LegalHoldRecord> LegalHolds { get; } = [];
         public Dictionary<string, AttachmentRecord> Attachments { get; } = new(StringComparer.Ordinal);
+        public int ListDispositionsCalls { get; private set; }
         public int ClaimSuccessCount { get; private set; }
         private readonly object _claimGate = new();
 
@@ -730,7 +832,11 @@ public sealed class ComplianceCommandExecutionTests
         public Task<AttachmentRecord> UpdateAttachmentAsync(AttachmentRecord attachment, CancellationToken cancellationToken) => Unsupported<AttachmentRecord>();
         public Task<IReadOnlyList<MessageRecord>> SearchComplianceMessagesAsync(string tenantNId, ComplianceScopeDto scope, string? keyword, int page, int pageSize, CancellationToken cancellationToken) => Task.FromResult(Messages);
         public Task<ComplianceDispositionRecord> CreateDispositionAsync(ComplianceDispositionRecord disposition, CancellationToken cancellationToken) => Unsupported<ComplianceDispositionRecord>();
-        public Task<IReadOnlyList<ComplianceDispositionRecord>> ListDispositionsAsync(string tenantNId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<ComplianceDispositionRecord>>([]);
+        public Task<IReadOnlyList<ComplianceDispositionRecord>> ListDispositionsAsync(string tenantNId, CancellationToken cancellationToken)
+        {
+            ListDispositionsCalls++;
+            return Task.FromResult(Dispositions);
+        }
         public Task<LegalHoldRecord> CreateLegalHoldAsync(LegalHoldRecord hold, CancellationToken cancellationToken) => Unsupported<LegalHoldRecord>();
         public Task<IReadOnlyList<LegalHoldRecord>> ListLegalHoldsAsync(string tenantNId, string? status, int page, int pageSize, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<LegalHoldRecord>>(LegalHolds.Where(hold => hold.TenantNId == tenantNId && (string.IsNullOrWhiteSpace(status) || hold.State == status)).ToArray());
         public Task<LegalHoldRecord?> GetLegalHoldAsync(string tenantNId, string holdCaseNId, CancellationToken cancellationToken) => Unsupported<LegalHoldRecord?>();

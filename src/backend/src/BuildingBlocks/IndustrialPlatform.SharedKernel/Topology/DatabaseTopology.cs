@@ -15,4 +15,6 @@ public sealed record DatabaseTopology(
     DatabaseTopologyMode Mode,
     string? SharedDatabaseName,
     string? SharedSqliteFile,
-    IReadOnlyDictionary<string, string> ServiceDatabases);
+    IReadOnlyDictionary<string, string> ServiceDatabases,
+    string? SharedDatabaseSchema = null,
+    bool IsStandalone = false);

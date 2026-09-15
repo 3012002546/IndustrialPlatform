@@ -2,6 +2,7 @@ using System.Data.Common;
 using IndustrialPlatform.Infrastructure.Database;
 using IndustrialPlatform.ReferenceData.Application.Caching;
 using IndustrialPlatform.ReferenceData.Application.Dictionary;
+using IndustrialPlatform.ReferenceData.Infrastructure.Persistence;
 using IndustrialPlatform.ReferenceData.Domain.Common;
 using IndustrialPlatform.ReferenceData.Domain.Dictionary;
 using IndustrialPlatform.ReferenceData.Contracts.Dictionary;
@@ -15,8 +16,8 @@ namespace IndustrialPlatform.ReferenceData.Infrastructure.Dictionary;
 public sealed class DictionaryRepository(SqlSugarDbContext context) : IDictionaryRepository
 {
     private ISqlSugarClient Db => context.SqlSugar;
-    private string Definitions => Db.CurrentConnectionConfig.DbType == DbType.PostgreSQL ? "reference_data.dictionary_definition" : "reference_data_dictionary_definition";
-    private string Items => Db.CurrentConnectionConfig.DbType == DbType.PostgreSQL ? "reference_data.dictionary_item" : "reference_data_dictionary_item";
+    private string Definitions => ReferenceDataSqlNames.Table(Db, "dictionary_definition");
+    private string Items => ReferenceDataSqlNames.Table(Db, "dictionary_item");
 
     private ISugarQueryable<DictionaryRow> Visible(string tenantNId) => Db.Queryable<DictionaryRow>().AS(Definitions)
         .Where(row => !row.IsDeleted && (row.TenantNId == tenantNId || row.TenantNId == null));

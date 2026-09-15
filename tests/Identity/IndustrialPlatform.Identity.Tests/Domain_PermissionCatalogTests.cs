@@ -68,6 +68,9 @@ public sealed class PermissionCatalogTests
         "collaboration.presence.connect",
         "collaboration.presence.read",
         "collaboration.presence.write",
+        "remote-assistance.session.share",
+        "remote-assistance.session.join",
+        "remote-assistance.voice.call",
         "systemdata.organization.view",
         "systemdata.organization.create",
         "systemdata.organization.update",
@@ -161,7 +164,7 @@ public sealed class PermissionCatalogTests
     [Fact]
     public void FirstBatch_HasIdentityAndSystemDataPermissions()
     {
-        Assert.Equal(146, PermissionCatalog.FirstBatchNIds.Count);
+        Assert.Equal(149, PermissionCatalog.FirstBatchNIds.Count);
     }
 
     [Fact]

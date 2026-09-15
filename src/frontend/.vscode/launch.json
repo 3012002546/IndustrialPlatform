@@ -1,0 +1,32 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "局域网 HTTPS：启动 Vite",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/node_modules/vite/bin/vite.js",
+      "args": ["--mode", "lan-https"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "独立协作 HTTPS：启动 Vite",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/node_modules/vite/bin/vite.js",
+      "args": ["--mode", "lan-https-collaboration"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "局域网 HTTPS：Chrome 页面调试",
+      "type": "chrome",
+      "request": "launch",
+      "url": "https://localhost:5173/pc/collaboration",
+      "webRoot": "${workspaceFolder}"
+    }
+  ]
+}

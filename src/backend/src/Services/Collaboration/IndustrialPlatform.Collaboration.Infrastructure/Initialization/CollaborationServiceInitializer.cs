@@ -135,6 +135,9 @@ public sealed class CollaborationServiceInitializer : IServiceInitializer
         await _dbContext.SqlSugar.Queryable<ComplianceViewBudgetTable>().Take(1).ToListAsync(cancellationToken);
         await _dbContext.SqlSugar.Queryable<CollaborationOutboxTable>().Take(1).ToListAsync(cancellationToken);
         await _dbContext.SqlSugar.Queryable<RetentionCheckpointTable>().Take(1).ToListAsync(cancellationToken);
+        await _dbContext.SqlSugar.Queryable<RemoteAssistanceScreenTable>().Take(1).ToListAsync(cancellationToken);
+        await _dbContext.SqlSugar.Queryable<RemoteAssistanceVoiceTable>().Take(1).ToListAsync(cancellationToken);
+        await _dbContext.SqlSugar.Queryable<RemoteAssistanceVoiceSlotTable>().Take(1).ToListAsync(cancellationToken);
         SchemaPhysicalDriftGuard.Validate(
             _dbContext.SqlSugar,
             "collaboration_conversation_member",

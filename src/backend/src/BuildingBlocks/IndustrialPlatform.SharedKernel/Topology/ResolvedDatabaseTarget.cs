@@ -10,6 +10,7 @@ namespace IndustrialPlatform.SharedKernel.Topology;
 /// <param name="LogicalDatabaseName">稳定逻辑库名,如 <c>systemdata_db</c>。</param>
 /// <param name="PhysicalDatabaseName">解析出的物理库名或文件。</param>
 /// <param name="IsSharedPhysicalDatabase">是否与其他服务共享同一物理库。</param>
+/// <param name="IsStandalone">是否由独立宿主显式投影。</param>
 public sealed record ResolvedDatabaseTarget(
     string EnvironmentName,
     DatabaseTopologyMode Mode,
@@ -17,4 +18,6 @@ public sealed record ResolvedDatabaseTarget(
     DatabaseProvider Provider,
     string LogicalDatabaseName,
     string PhysicalDatabaseName,
-    bool IsSharedPhysicalDatabase);
+    bool IsSharedPhysicalDatabase,
+    string? Schema = null,
+    bool IsStandalone = false);

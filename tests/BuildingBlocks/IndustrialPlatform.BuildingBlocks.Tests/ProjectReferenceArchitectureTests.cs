@@ -65,7 +65,7 @@ public sealed class ProjectReferenceArchitectureTests
                 ["IndustrialPlatform.SharedKernel"],
             ["src/backend/src/Services/SystemData/IndustrialPlatform.SystemData.Infrastructure/IndustrialPlatform.SystemData.Infrastructure.csproj"] =
                 ["IndustrialPlatform.EventBus", "IndustrialPlatform.Infrastructure", "IndustrialPlatform.Logging", "IndustrialPlatform.Security", "IndustrialPlatform.SystemData.Application", "IndustrialPlatform.SystemData.Domain"],
-            ["src/samples/Collaboration.EmbeddedHost/Collaboration.EmbeddedHost.csproj"] =
+            ["src/backend/src/Hosts/IndustrialPlatform.Collaboration.EmbeddedHost/IndustrialPlatform.Collaboration.EmbeddedHost.csproj"] =
                 ["IndustrialPlatform.Collaboration.Api", "IndustrialPlatform.Identity.Api", "IndustrialPlatform.ReferenceData.Api", "IndustrialPlatform.SystemData.Api", "IndustrialPlatform.Web"],
         };
 

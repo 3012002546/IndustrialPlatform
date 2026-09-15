@@ -1,0 +1,91 @@
+{
+  "evidenceId": "PF06-direction-combination-scroll-20260913",
+  "capturedOn": "2026-09-13",
+  "timezone": "Asia/Taipei",
+  "task": "PF-06 direction, combined-media revision, and chat initial-scroll independent acceptance",
+  "handoff": {
+    "path": "D:\\Code\\Industrial Platform\\pf06-direction-combination-scroll-handoff.md",
+    "sha256": "46F56B06441C2A31E2AFDB6581E6E8F9B3C50B6A4BA388CCEC9148C67F9F88BF"
+  },
+  "delivery": {
+    "repository": "D:\\Code\\Industrial Platform\\IndustrialPlatform",
+    "branch": "develop",
+    "head": "0a77597f94e38873b67565e0b477e120e72a57f8",
+    "worktree": "dirty shared WIP; reviewed files are not represented by a committed repair diff",
+    "snapshotSha256": {
+      "src/frontend/src/stores/collaborationMediaStore.ts": "962A5845EB17928B303AC8C27BCE942CA4B64F50DB6C40EF399BB14F49B8CB1A",
+      "src/frontend/src/components/collaboration/CollaborationChat.vue": "0C74C2A2692F91535686750BA26C3FBDA640C1675F410FD843CE696BC7C80B62",
+      "src/frontend/tests/unit/collaborationMediaStore.spec.ts": "BD78263939E63C1DBA92302D92DD440418FA2365E74F94358B8307CE683CC37B",
+      "src/frontend/tests/components/CollaborationChat.spec.ts": "B1EFD4692B3153EBC83E4A1B35F01189FC9C54CD809E2FAFA40527CAACAC3E20"
+    }
+  },
+  "acceptanceHistory": {
+    "initialVerdict": "NEEDS_FIX",
+    "initialBlockingFinding": "The first matrix fixture claimed to receive an Answer but only assigned fake signalingState=stable. It did not cover a revision 2 Answer arriving after the capability Bind advanced to revision 3, leaving a Low endpoint vulnerable to an unfinished old local offer.",
+    "repairOwner": "original PF-06 development task",
+    "acceptanceProductionChanges": false,
+    "finalVerdict": "PASS_WITH_RUNTIME_LIMITATIONS"
+  },
+  "confirmedScope": {
+    "mediaRevision": [
+      "Terminal screen/voice history is excluded from the current active capability IDs",
+      "A same-context capability addition or removal may arrive before its local DTO while different known context IDs remain rejected",
+      "Binding revision is advanced monotonically",
+      "A Low endpoint requests a context negotiation restart when the context revision advances",
+      "A Low endpoint also requests restart when a capability Bind changes the active capability set",
+      "Restart cancels the prior negotiation bookkeeping, rolls an unstable PeerConnection back, and negotiates using the latest binding",
+      "A context restart requested during an in-flight offer is consumed from the offer's finally path",
+      "Signal processing retains exact media-context and context-revision checks"
+    ],
+    "matrixFixture": [
+      "Low screen-to-voice",
+      "High screen-to-voice",
+      "Low voice-to-screen",
+      "High voice-to-screen",
+      "The Low fixture now dispatches an actual revision 2 Answer after the revision 3 capability event and Bind",
+      "The Low fixture expects revision 2 and revision 3 Offers and zero rejected outgoing signals"
+    ],
+    "chatScroll": [
+      "A non-background initial message load waits for the message DOM, then scrolls to the latest message",
+      "An empty scroll container deletes rather than stores scrollTop=0 as an anchor",
+      "The fixture holds the message request, triggers a real empty-container scroll event, then releases the message DOM and expects the final scroll position at scrollHeight",
+      "Background refresh and older-history loading remain outside the forced-latest branch"
+    ]
+  },
+  "independentStaticVerification": {
+    "method": "Read-only source assertions and control-flow review on the stable repaired snapshot",
+    "checksPassed": 15,
+    "checksTotal": 15,
+    "exitCode": 0,
+    "result": "PASS"
+  },
+  "developerReportedVerification": {
+    "independentlyRerun": false,
+    "mediaMatrix": "pnpm.cmd exec vitest run tests/unit/collaborationMediaStore.spec.ts -t \"latest revision when\" reported 1 file / 4 passed / 16 skipped",
+    "chatInitialLoad": "pnpm.cmd exec vitest run tests/components/CollaborationChat.spec.ts -t \"first message load\" reported 1 file / 1 passed / 25 skipped",
+    "typecheck": "pnpm.cmd typecheck reported PASS"
+  },
+  "nonBlockingObservation": "The stable code queues a lower-revision incoming signal behind the exact revision gate and discards it during a later flush; it does not literally drop it at receiveSignal as the handoff wording states. The queue is bounded and the repaired latest-revision negotiation does not process the old Answer, so this was not classified as a production blocker.",
+  "runtimeBoundary": {
+    "preservedUserEvidence": [
+      "Standalone screen sharing: user-confirmed PASS",
+      "Chrome-to-Edge standalone voice: user-confirmed PASS"
+    ],
+    "notProven": [
+      "Edge-to-Chrome standalone voice",
+      "bidirectional voice",
+      "screen-to-voice and voice-to-screen combined media in real browsers",
+      "microphone authorization and device activation",
+      "actual remote audio playback or video frame reception"
+    ],
+    "browserOrServiceWorkPerformed": false
+  },
+  "verdict": {
+    "repairIncrement": "PASS",
+    "developerTestEvidence": "REPORTED_PASS_NOT_RERUN",
+    "realCombinedMedia": "NOT_RUN",
+    "pf06Overall": "PARTIAL",
+    "blockingProductionDefectFoundAfterRepair": false
+  },
+  "privacy": "Contains no credentials, private configuration values, SDP, ICE candidates, IP addresses, media payloads, or user identifiers."
+}

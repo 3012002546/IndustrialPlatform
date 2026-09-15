@@ -1,0 +1,46 @@
+D:\Code\Industrial Platform\IndustrialPlatform\tests\Collaboration\IndustrialPlatform.Collaboration.Tests\bin\Release\net10.0\IndustrialPlatform.Collaboration.Tests.dll (.NETCoreApp,Version=v10.0)的测试运行
+D:\Code\Industrial Platform\IndustrialPlatform\tests\BuildingBlocks\IndustrialPlatform.BuildingBlocks.Tests\bin\Release\net10.0\IndustrialPlatform.BuildingBlocks.Tests.dll (.NETCoreApp,Version=v10.0)的测试运行
+D:\Code\Industrial Platform\IndustrialPlatform\tests\ReferenceData\IndustrialPlatform.ReferenceData.Tests\bin\Release\net10.0\IndustrialPlatform.ReferenceData.Tests.dll (.NETCoreApp,Version=v10.0)的测试运行
+D:\Code\Industrial Platform\IndustrialPlatform\tests\UnifiedHost\IndustrialPlatform.UnifiedHost.Tests\bin\Release\net10.0\IndustrialPlatform.UnifiedHost.Tests.dll (.NETCoreApp,Version=v10.0)的测试运行
+D:\Code\Industrial Platform\IndustrialPlatform\tests\IntegrationTests\IndustrialPlatform.IntegrationTests\bin\Release\net10.0\IndustrialPlatform.IntegrationTests.dll (.NETCoreApp,Version=v10.0)的测试运行
+D:\Code\Industrial Platform\IndustrialPlatform\tests\Gateway\IndustrialPlatform.Gateway.Tests\bin\Release\net10.0\IndustrialPlatform.Gateway.Tests.dll (.NETCoreApp,Version=v10.0)的测试运行
+D:\Code\Industrial Platform\IndustrialPlatform\tests\Identity\IndustrialPlatform.Identity.Tests\bin\Release\net10.0\IndustrialPlatform.Identity.Tests.dll (.NETCoreApp,Version=v10.0)的测试运行
+D:\Code\Industrial Platform\IndustrialPlatform\tests\SystemData\IndustrialPlatform.SystemData.Tests\bin\Release\net10.0\IndustrialPlatform.SystemData.Tests.dll (.NETCoreApp,Version=v10.0)的测试运行
+总共 1 个测试文件与指定模式相匹配。
+总共 1 个测试文件与指定模式相匹配。
+总共 1 个测试文件与指定模式相匹配。
+总共 1 个测试文件与指定模式相匹配。
+总共 1 个测试文件与指定模式相匹配。
+总共 1 个测试文件与指定模式相匹配。
+总共 1 个测试文件与指定模式相匹配。总共 1 个测试文件与指定模式相匹配。
+
+[xUnit.net 00:00:00.13]     IndustrialPlatform.IntegrationTests.SystemData.SystemDataControlPlaneDependenciesE2ETests.Redis_control_plane_versioned_snapshot_round_trip_is_real [SKIP]
+[xUnit.net 00:00:00.13]     IndustrialPlatform.IntegrationTests.UnifiedHost.UnifiedHostLegacyPostgreSqlStartupChainTests.PostgreSql_shared_per_service_and_search_path_matrix_isolated [SKIP]
+  已跳过 IndustrialPlatform.IntegrationTests.SystemData.SystemDataControlPlaneDependenciesE2ETests.Redis_control_plane_versioned_snapshot_round_trip_is_real [1 ms]
+  已跳过 IndustrialPlatform.IntegrationTests.UnifiedHost.UnifiedHostLegacyPostgreSqlStartupChainTests.PostgreSql_shared_per_service_and_search_path_matrix_isolated [1 ms]
+[xUnit.net 00:00:00.19]     IndustrialPlatform.IntegrationTests.SystemData.SystemDataControlPlaneDependenciesE2ETests.PostgreSql_control_plane_store_commits_and_reads_real_rows [SKIP]
+[xUnit.net 00:00:00.19]     IndustrialPlatform.IntegrationTests.UnifiedHost.UnifiedHostLegacyPostgreSqlStartupChainTests.Shared_postgresql_legacy_ledgers_are_inspected_read_only_then_upgraded_idempotently [SKIP]
+[xUnit.net 00:00:00.19]     IndustrialPlatform.IntegrationTests.SystemData.SystemDataControlPlaneDependenciesE2ETests.RabbitMq_control_plane_channel_can_be_opened [SKIP]
+[xUnit.net 00:00:00.19]     IndustrialPlatform.IntegrationTests.UnifiedHost.UnifiedHostLegacyPostgreSqlStartupChainTests.PostgreSql_per_service_four_physical_databases_run_owned_initialization_chains [SKIP]
+[xUnit.net 00:00:00.19]     IndustrialPlatform.IntegrationTests.UnifiedHost.UnifiedHostLegacyPostgreSqlStartupChainTests.PostgreSql_drift_and_invalid_ledger_facts_fail_closed_before_next_migration [SKIP]
+  已跳过 IndustrialPlatform.IntegrationTests.SystemData.SystemDataControlPlaneDependenciesE2ETests.PostgreSql_control_plane_store_commits_and_reads_real_rows [1 ms]
+  已跳过 IndustrialPlatform.IntegrationTests.UnifiedHost.UnifiedHostLegacyPostgreSqlStartupChainTests.Shared_postgresql_legacy_ledgers_are_inspected_read_only_then_upgraded_idempotently [1 ms]
+  已跳过 IndustrialPlatform.IntegrationTests.SystemData.SystemDataControlPlaneDependenciesE2ETests.RabbitMq_control_plane_channel_can_be_opened [1 ms]
+  已跳过 IndustrialPlatform.IntegrationTests.UnifiedHost.UnifiedHostLegacyPostgreSqlStartupChainTests.PostgreSql_per_service_four_physical_databases_run_owned_initialization_chains [1 ms]
+  已跳过 IndustrialPlatform.IntegrationTests.UnifiedHost.UnifiedHostLegacyPostgreSqlStartupChainTests.PostgreSql_drift_and_invalid_ledger_facts_fail_closed_before_next_migration [1 ms]
+
+已通过! - 失败:     0，通过:    12，已跳过:     7，总计:    19，持续时间: 1 s - IndustrialPlatform.IntegrationTests.dll (net10.0)
+
+已通过! - 失败:     0，通过:   170，已跳过:     0，总计:   170，持续时间: 2 s - IndustrialPlatform.BuildingBlocks.Tests.dll (net10.0)
+
+已通过! - 失败:     0，通过:    14，已跳过:     0，总计:    14，持续时间: 12 s - IndustrialPlatform.Gateway.Tests.dll (net10.0)
+
+已通过! - 失败:     0，通过:   148，已跳过:     0，总计:   148，持续时间: 21 s - IndustrialPlatform.Collaboration.Tests.dll (net10.0)
+
+已通过! - 失败:     0，通过:   633，已跳过:     0，总计:   633，持续时间: 33 s - IndustrialPlatform.SystemData.Tests.dll (net10.0)
+
+已通过! - 失败:     0，通过:   259，已跳过:     0，总计:   259，持续时间: 1 m 29 s - IndustrialPlatform.ReferenceData.Tests.dll (net10.0)
+
+已通过! - 失败:     0，通过:   621，已跳过:     0，总计:   621，持续时间: 2 m 15 s - IndustrialPlatform.Identity.Tests.dll (net10.0)
+
+已通过! - 失败:     0，通过:    22，已跳过:     0，总计:    22，持续时间: 5 m 24 s - IndustrialPlatform.UnifiedHost.Tests.dll (net10.0)

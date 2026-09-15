@@ -21,7 +21,7 @@ public static class BootstrapSeedCatalog
     public const string BootstrapAdminSeedKey = "identity.bootstrap-admin";
 
     /// <summary>全部种子当前版本;目录内容变化必须递增。</summary>
-    public const string SeedVersion = "1.5.0";
+    public const string SeedVersion = "1.6.0";
 
     /// <summary>系统作用域。</summary>
     public const string SystemScope = "system";
@@ -111,6 +111,9 @@ public static class BootstrapSeedCatalog
         new(PermissionCatalog.CollaborationPresenceConnect, "建立协作在线连接", PermissionType.Action),
         new(PermissionCatalog.CollaborationPresenceRead, "查看协作在线状态", PermissionType.Action),
         new(PermissionCatalog.CollaborationPresenceWrite, "更新协作在线状态", PermissionType.Action),
+        new(PermissionCatalog.RemoteAssistanceSessionShare, "发起屏幕共享", PermissionType.Action),
+        new(PermissionCatalog.RemoteAssistanceSessionJoin, "加入屏幕共享", PermissionType.Action),
+        new(PermissionCatalog.RemoteAssistanceVoiceCall, "发起或加入语音通话", PermissionType.Action),
         new(PermissionCatalog.SystemDataOrganizationView, "查看行政组织", PermissionType.Page),
         new(PermissionCatalog.SystemDataOrganizationCreate, "创建行政组织", PermissionType.Action),
         new(PermissionCatalog.SystemDataOrganizationUpdate, "更新行政组织", PermissionType.Action),

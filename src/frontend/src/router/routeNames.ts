@@ -6,6 +6,7 @@
 export const ROUTE_NAMES = {
   root: 'root',
   login: 'login',
+  embeddedSessionRequired: 'embedded-session-required',
   changePassword: 'change-password',
   ssoLogin: 'sso-login',
   ssoCallback: 'sso-callback',

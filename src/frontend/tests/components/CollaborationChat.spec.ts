@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => {
       markRead: vi.fn(),
       setPresence: vi.fn(),
       getConversation: vi.fn(),
+      sendMessage: vi.fn(),
       setPersonalMessageVisibility: vi.fn(),
       retractMessage: vi.fn(),
     },
@@ -292,6 +293,48 @@ describe('CollaborationChat read cursor convergence', () => {
     },
   )
 
+  it.each(['pda', 'mobile'] as const)(
+    '%s keeps the conversation entry, contact status, and overflow actions on one header row',
+    async (terminal) => {
+      const mounted = mountChat('page', true, terminal)
+      await flushPromises()
+
+      expect(
+        mounted.get('.collaboration-chat__conversation-header').get('.collaboration-chat__back').text(),
+      ).toContain('会话')
+      expect(mounted.get('.collaboration-chat__conversation-identity').text()).toContain('Peer')
+      expect(mounted.get('.collaboration-chat__more-trigger').attributes('aria-expanded')).toBe('false')
+      expect(mounted.find('.collaboration-chat__terminal-action-menu').exists()).toBe(false)
+
+      await mounted.get('.collaboration-chat__more-trigger').trigger('click')
+      expect(mounted.get('.collaboration-chat__more-trigger').attributes('aria-expanded')).toBe('true')
+      const actions = mounted
+        .get('.collaboration-chat__terminal-action-menu')
+        .findAll('[role="menuitem"]')
+        .map((button) => button.text())
+      expect(actions).toEqual(
+        expect.arrayContaining(['语音通话', '共享我的屏幕', '请求对方共享', '会话详情', '隐藏会话']),
+      )
+
+      document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+      await nextTick()
+      expect(mounted.find('.collaboration-chat__terminal-action-menu').exists()).toBe(false)
+
+      await mounted.get('.collaboration-chat__more-trigger').trigger('click')
+      document.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Escape' }))
+      await nextTick()
+      expect(mounted.find('.collaboration-chat__terminal-action-menu').exists()).toBe(false)
+    },
+  )
+
+  it('keeps PC collaboration actions inline', async () => {
+    const mounted = mountChat()
+    await flushPromises()
+
+    expect(mounted.find('.collaboration-chat__more-trigger').exists()).toBe(false)
+    expect(mounted.get('.collaboration-chat__header-actions').findAll('button')).toHaveLength(5)
+  })
+
   it('applies the successful read-cursor response to the active conversation and total', async () => {
     const mounted = mountChat()
     await flushPromises()
@@ -317,6 +360,57 @@ describe('CollaborationChat read cursor convergence', () => {
     await mounted.get('.collaboration-chat__composer-actions > button').trigger('click')
     await flushPromises()
     expect(mocks.realtime.sendMessage).toHaveBeenCalledTimes(1)
+  })
+
+  it('sends through the existing realtime path when randomUUID is unavailable on LAN HTTP', async () => {
+    const getRandomValues = vi.fn((bytes: Uint8Array) => {
+      bytes.fill(0x11)
+      return bytes
+    })
+    vi.stubGlobal('crypto', { getRandomValues })
+    mocks.realtime.sendMessage.mockResolvedValue({ ...message, senderUserNId: 'U-1' })
+    const mounted = mountChat()
+    await flushPromises()
+
+    await mounted.get('textarea').setValue('LAN message')
+    await mounted.get('.collaboration-chat__composer-actions > button').trigger('click')
+    await flushPromises()
+
+    expect(getRandomValues).toHaveBeenCalledOnce()
+    expect(mocks.realtime.sendMessage).toHaveBeenCalledWith(
+      'C-1',
+      expect.objectContaining({
+        clientMessageNId: '11111111111141119111111111111111',
+        idempotencyKey: '11111111111141119111111111111111',
+        textContent: 'LAN message',
+      }),
+    )
+  })
+
+  it('sends through the existing REST fallback when realtime is disconnected and randomUUID is unavailable', async () => {
+    const getRandomValues = vi.fn((bytes: Uint8Array) => {
+      bytes.fill(0x22)
+      return bytes
+    })
+    vi.stubGlobal('crypto', { getRandomValues })
+    mocks.realtime.connection.state = 'Disconnected'
+    mocks.api.sendMessage.mockResolvedValue({ ...message, senderUserNId: 'U-1' })
+    const mounted = mountChat()
+    await flushPromises()
+
+    await mounted.get('textarea').setValue('LAN REST message')
+    await mounted.get('.collaboration-chat__composer-actions > button').trigger('click')
+    await flushPromises()
+
+    expect(getRandomValues).toHaveBeenCalledOnce()
+    expect(mocks.api.sendMessage).toHaveBeenCalledWith(
+      'C-1',
+      expect.objectContaining({
+        clientMessageNId: '2222222222224222a222222222222222',
+        idempotencyKey: '2222222222224222a222222222222222',
+        textContent: 'LAN REST message',
+      }),
+    )
   })
 
   it.each([undefined, 'mobile'] as const)(
@@ -707,6 +801,51 @@ describe('CollaborationChat read cursor convergence', () => {
       'safe one-line preview',
     )
     expect(mocks.api.getMessages).toHaveBeenCalledTimes(1)
+  })
+
+  it('lands the first message load at the latest message after the message DOM is ready', async () => {
+    vi.stubGlobal('MutationObserver', undefined)
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      callback(0)
+      return 0
+    })
+    const originalScrollHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollHeight')
+    const originalScrollTop = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollTop')
+    const scrollTopValues = new WeakMap<Element, number>()
+    Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
+      configurable: true,
+      get() {
+        return this.classList.contains('collaboration-chat__messages')
+          ? (this.querySelectorAll('.collaboration-chat__message').length > 0 ? 420 : 0)
+          : 0
+      },
+    })
+    Object.defineProperty(HTMLElement.prototype, 'scrollTop', {
+      configurable: true,
+      get() { return scrollTopValues.get(this) ?? 0 },
+      set(value: number) { scrollTopValues.set(this, value) },
+    })
+    let resolveMessages: ((value: ReturnType<typeof messagesPage>) => void) | undefined
+    mocks.api.getMessages.mockImplementationOnce(
+      () => new Promise<ReturnType<typeof messagesPage>>((resolve) => { resolveMessages = resolve }),
+    )
+    try {
+      const mounted = mountChat()
+      await flushPromises()
+
+      const scroll = mounted.get('.collaboration-chat__messages').element as HTMLElement
+      await mounted.get('.collaboration-chat__messages').trigger('scroll')
+      resolveMessages?.(messagesPage())
+      await flushPromises()
+      await nextTick()
+
+      expect(scroll.scrollTop).toBe(420)
+    } finally {
+      if (originalScrollHeight) Object.defineProperty(HTMLElement.prototype, 'scrollHeight', originalScrollHeight)
+      else Reflect.deleteProperty(HTMLElement.prototype, 'scrollHeight')
+      if (originalScrollTop) Object.defineProperty(HTMLElement.prototype, 'scrollTop', originalScrollTop)
+      else Reflect.deleteProperty(HTMLElement.prototype, 'scrollTop')
+    }
   })
 
   it('scrolls only the visible surface after a realtime append', async () => {

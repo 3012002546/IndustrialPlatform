@@ -70,6 +70,28 @@ describe('HttpClient — 成功信封', () => {
     expect(auth).toBe('Bearer tok-1')
   })
 
+  it('injects page-scoped embedded session headers without using Authorization', async () => {
+    let captured: Record<string, string | null> | null = null
+    server.use(
+      http.get(`${BASE}/api/embedded`, (info) => {
+        captured = {
+          session: info.request.headers.get('X-Embedded-Session'),
+          binding: info.request.headers.get('X-Embedded-Binding'),
+          authorization: info.request.headers.get('Authorization'),
+        }
+        return okResult(null)
+      }),
+    )
+    await client({
+      getEmbeddedSession: () => ({ token: 'page-token', binding: 'page-binding' }),
+    }).get('/api/embedded')
+    expect(captured).toEqual({
+      session: 'page-token',
+      binding: 'page-binding',
+      authorization: null,
+    })
+  })
+
   it('preserves selected JSON number tokens without IEEE-754 rounding', async () => {
     server.use(
       http.get(

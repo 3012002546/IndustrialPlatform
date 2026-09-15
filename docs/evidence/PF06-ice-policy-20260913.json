@@ -1,0 +1,152 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-09-13",
+  "verifiedAt": "2026-09-13T21:04:03.9933905+08:00",
+  "status": "PARTIAL",
+  "scope": "PF-06 ICE policy configuration increment independent review",
+  "constraints": {
+    "productionSourceModifiedByAcceptance": false,
+    "browserOrServiceStarted": false,
+    "developerCommandsRepeated": false,
+    "privateConfigurationIncluded": false,
+    "credentialsSdpOrIpIncluded": false
+  },
+  "changeSnapshot": {
+    "workspace": "D:\\Code\\Industrial Platform\\IndustrialPlatform",
+    "branchHead": "0a77597f94e38873b67565e0b477e120e72a57f8",
+    "worktree": "existing shared PF-06 WIP; no commit, stage, reset, clean, or push performed by acceptance",
+    "files": [
+      {
+        "path": "src/backend/src/Services/Collaboration/IndustrialPlatform.Collaboration.Application/RemoteAssistance/RemoteAssistanceOptions.cs",
+        "sha256": "51C79D52DB7C3CFFFFCD3810A12952DF55BDD48490DA4930926BDB6642ACFCCD"
+      },
+      {
+        "path": "src/backend/src/Services/Collaboration/IndustrialPlatform.Collaboration.Contracts/RemoteAssistanceContracts.cs",
+        "sha256": "11000D7763FEAB3BB1F635418F0F96BEC1B953228A20884A0C04E6DB3BBD5B04"
+      },
+      {
+        "path": "src/backend/src/Services/Collaboration/IndustrialPlatform.Collaboration.Application/RemoteAssistance/RemoteAssistanceService.cs",
+        "sha256": "C79E3D02341D853F60CF349AD1F9B6460B0088AA10E143AC0B86B2FCD01EC317"
+      },
+      {
+        "path": "src/backend/src/Services/Collaboration/IndustrialPlatform.Collaboration.Infrastructure/RemoteAssistanceTurnCredentialProvider.cs",
+        "sha256": "ED9513747889E08771FD730C6B7C4D6D857F757498A1D1832B5D43E8D7F5EA14"
+      },
+      {
+        "path": "tests/Collaboration/IndustrialPlatform.Collaboration.Tests/Infrastructure_RemoteAssistanceTurnCredentialTests.cs",
+        "sha256": "8833968D90C00445BE3ECB99518DEB1F2C71F1B633592C7A61F7432B02115C07"
+      },
+      {
+        "path": "tests/Collaboration/IndustrialPlatform.Collaboration.Tests/Application_RemoteAssistanceBindConcurrencyTests.cs",
+        "sha256": "2BF66187F6B00836FB104B7A33D817E901474A817EC4653202F8B6C37746F8EB"
+      },
+      {
+        "path": "src/frontend/src/components/collaboration/mediaError.ts",
+        "sha256": "B1258E371AAE6CA584ACE53619FE458865BA5B38212A505AC2BD22983DFAFC5F"
+      },
+      {
+        "path": "src/frontend/src/localization/types.ts",
+        "sha256": "48164018B9B8EDD7B809060FFA3319D8BA1EBC939A60185BB61E64A80B307E22"
+      },
+      {
+        "path": "src/frontend/src/locales/zh-CN.ts",
+        "sha256": "1AA791DB02ACA16A5AD5265A96D90628839F86FED60F20C7F434738FE3EAD758"
+      },
+      {
+        "path": "src/frontend/src/locales/en-US.ts",
+        "sha256": "7B92C0D5D6A8249087A09F56AF903EFD92B1BB54A0CAC12665CEC7FE6E4E118C"
+      },
+      {
+        "path": "src/frontend/tests/unit/collaborationMediaError.spec.ts",
+        "sha256": "D90826A944FCE1DB99F444B4D3F1EF97962B477F6E6F6A87CCA2B7FF570ED10F"
+      }
+    ]
+  },
+  "codeJudgment": {
+    "status": "PASS_AFTER_TARGETED_REPAIR",
+    "checks": [
+      {
+        "item": "Default policy",
+        "result": "PASS",
+        "evidence": "RemoteAssistanceOptions and MediaBindingDto default IcePolicy to canonical All, matching detailed specification section 1.3."
+      },
+      {
+        "item": "Policy normalization",
+        "result": "PASS",
+        "evidence": "GetNormalizedIcePolicy accepts the supported values case-insensitively and returns only canonical All or RelayOnly; Bind returns that canonical value to the frontend."
+      },
+      {
+        "item": "Relay-only fail closed",
+        "result": "PASS",
+        "evidence": "RelayOnly requires at least one TURN/TURNS URL and a credential secret; otherwise MEDIA_ICE_CONFIGURATION is raised."
+      },
+      {
+        "item": "All policy with configured TURN",
+        "result": "PASS",
+        "evidence": "TURN/TURNS entries under All also require the secret and receive short-lived coturn REST credentials; non-TURN entries do not receive credentials."
+      },
+      {
+        "item": "Credential lifetime and secrecy",
+        "result": "PASS",
+        "evidence": "TTL defaults to 300 seconds and is clamped to 30-3600 seconds; the configured signing secret is used only for HMAC generation and is not returned in the DTO."
+      },
+      {
+        "item": "Configuration failure side effect",
+        "result": "PASS_BY_CODE_ORDER",
+        "evidence": "Policy normalization and ICE server generation run before MediaContextRegistry.Bind, so an ICE configuration exception occurs before context mutation."
+      },
+      {
+        "item": "Frontend error presentation",
+        "result": "PASS",
+        "evidence": "MEDIA_ICE_CONFIGURATION maps to dedicated Chinese and English administrator-facing ICE/TURN guidance while retaining the technical code."
+      }
+    ]
+  },
+  "reviewDefect": {
+    "status": "FIXED_AND_STATICALLY_RECHECKED",
+    "problem": "The provider originally accepted RelayOnly case-insensitively while Bind returned the raw configured string and the frontend compared it case-sensitively. Non-canonical casing could therefore make the browser allow direct candidates.",
+    "repair": "The policy is now normalized once to canonical All or RelayOnly before ICE generation and MediaContext mutation, and the canonical value is returned by Bind.",
+    "regressionCoverage": "Application_RemoteAssistanceBindConcurrencyTests contains lowercase and uppercase RelayOnly cases and asserts the Bind DTO returns RelayOnly."
+  },
+  "developerVerification": {
+    "status": "REPORTED_NOT_REPEATED_BY_ACCEPTANCE",
+    "finalDelivery": [
+      "Fresh Release build reported exit code 0 with 0 warnings and 0 errors.",
+      "ICE provider and Bind policy tests reported 7/7 passing after the normalization repair.",
+      "Frontend typecheck reported passing.",
+      "Frontend media error tests reported 3/3 passing."
+    ],
+    "acceptanceNote": "Per dispatch, acceptance did not rerun those commands. The final policy-normalization repair and its two-case Bind contract test were independently inspected against the frozen source; command results remain developer-reported evidence."
+  },
+  "testCoverage": {
+    "covered": [
+      "Default All policy",
+      "RelayOnly without usable TURN configuration fails closed",
+      "RelayOnly produces short-lived TURN credentials",
+      "All with TURN produces short-lived TURN credentials",
+      "Lowercase and uppercase RelayOnly normalize to the canonical Bind DTO value",
+      "Chinese frontend presentation for MEDIA_ICE_CONFIGURATION"
+    ],
+    "notExplicitlyCovered": [
+      "Invalid IcePolicy value returns MEDIA_ICE_CONFIGURATION",
+      "All with a TURN URL but no credential secret returns MEDIA_ICE_CONFIGURATION",
+      "A service-level behavior test that a failing ICE provider leaves MediaContextRegistry unchanged",
+      "English MEDIA_ICE_CONFIGURATION presentation assertion"
+    ],
+    "assessment": "The primary intended branches are covered. The unlisted failure permutations are implemented and statically inspected but remain coverage gaps rather than runtime PASS evidence."
+  },
+  "configurationBoundary": {
+    "controllerReport": "The single development-private configuration was explicitly set to All.",
+    "privateValuesRecorded": false,
+    "runningHostConfirmedLoaded": false,
+    "assessment": "The source/configuration intent is aligned, but the currently running Host has not been confirmed to have loaded this policy."
+  },
+  "unverified": [
+    "Running Host configuration load and effective Bind response",
+    "Actual ICE candidate gathering under All",
+    "Actual TURN credential acceptance and relay connectivity under RelayOnly",
+    "Two-endpoint live screen frames, audio playback, and per-capability stop continuity",
+    "Resolution of the previously observed remote black screen"
+  ],
+  "overall": "The ICE policy source increment passes independent static review after one targeted normalization repair. Runtime loading and real two-endpoint media remain unverified, so PF-06 remains PARTIAL and the black-screen issue is not declared fixed."
+}

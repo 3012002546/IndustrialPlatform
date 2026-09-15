@@ -1,4 +1,5 @@
 using IndustrialPlatform.Collaboration.Application;
+using IndustrialPlatform.Collaboration.Application.RemoteAssistance;
 using IndustrialPlatform.Collaboration.Contracts;
 using IndustrialPlatform.Collaboration.Infrastructure;
 using IndustrialPlatform.Collaboration.Api.Hubs;
@@ -11,8 +12,10 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace IndustrialPlatform.Collaboration.Api.Modules;
@@ -25,8 +28,11 @@ public static class CollaborationModule
         ArgumentNullException.ThrowIfNull(configuration);
         services.AddCollaborationInfrastructure(configuration);
         services.AddCollaborationApplication();
+        services.AddScoped<RemoteAssistanceService>();
         services.AddScoped<ICollaborationPermissionEvaluator, HttpCollaborationPermissionEvaluator>();
+        services.TryAddSingleton<ICollaborationHubSessionValidator, AllowAllCollaborationHubSessionValidator>();
         var signalR = services.AddSignalR();
+        services.Configure<HubOptions>(options => options.AddFilter<CollaborationHubSessionFilter>());
         var redisConnectionString = configuration["Redis:ConnectionString"];
         if (!string.IsNullOrWhiteSpace(redisConnectionString))
         {
@@ -56,6 +62,10 @@ public static class CollaborationModule
                 {
                     context.Token = context.Request.Query["access_token"];
                 }
+                // 独立协作同源多页使用页级不透明凭据；它由前置 EmbeddedSessionAuthenticationMiddleware
+                // 校验，不是 JWT，不能交给 JwtBearer 再解析成平台 Bearer 会话。
+                if (context.Token?.StartsWith("embedded-session:", StringComparison.Ordinal) == true)
+                    context.NoResult();
             };
         });
         return services;

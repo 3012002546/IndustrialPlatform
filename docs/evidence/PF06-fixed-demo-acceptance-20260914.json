@@ -1,0 +1,95 @@
+{
+  "evidence": "PF06 FixedDemo independent acceptance",
+  "date": "2026-09-14",
+  "repository": {
+    "head": "0a77597f94e38873b67565e0b477e120e72a57f8",
+    "worktree": "shared dirty WIP; no production files changed by acceptance"
+  },
+  "scope": {
+    "accepted": [
+      "host relocation to src/backend/src/Hosts/IndustrialPlatform.Collaboration.EmbeddedHost",
+      "FixedDemo user A directory search for users B and C",
+      "conversation creation, message send, and message readback through the existing HTTP API and SQLite repository",
+      "FixedDemo isolation from ordinary platform authentication, HTTP, and Hub branches"
+    ],
+    "notClaimed": [
+      "browser or frontend live demonstration",
+      "real MES endpoint integration",
+      "platform-wide A/B/C user seeding",
+      "legacy embedded handshake or media matrix rerun"
+    ]
+  },
+  "review": {
+    "staticAssertions": {
+      "passed": 16,
+      "failed": 0,
+      "items": [
+        "FixedDemo is an explicit mode",
+        "demo endpoint is conditionally mapped",
+        "FixedDemo requires ReferenceFixture adapters",
+        "demo session reuses the server-side handshake path",
+        "demo session issues cookies only",
+        "configured demo users are exactly A, B, and C",
+        "A is the configured source session",
+        "A has the required collaboration permissions",
+        "FixedDemo uses shared SQLite configuration",
+        "database initialization covers Identity, SystemData, ReferenceData, and Collaboration in order",
+        "all module initializers are verified",
+        "directory search excludes the current actor",
+        "README documents the real A-to-B/C chain and its evidence boundary",
+        "the relocated host has a same-name solution",
+        "the main backend solution references the relocated host",
+        "Collaboration tests reference the relocated host"
+      ]
+    },
+    "runtimeEvidence": {
+      "source": "docs/evidence/PF06-fixed-demo-20260914.json",
+      "sourceSha256": "00E9963370C43F25C9CFA595EF2FC436C51155C016C8E3E010709C12FC8F767B",
+      "verificationScript": "tools/verify-fixed-demo.ps1",
+      "verificationScriptSha256": "9B2542D8BDF95B79F27BF89ADEE7333F4941733D66D56A6532B6A2B98357A8BE",
+      "independentlyRerun": false,
+      "reasonNotRerun": "controller requested final read-only acceptance from the stable evidence without another build, test, or probe",
+      "observed": {
+        "build": "exit 0, 0 warnings, 0 errors",
+        "demoUser": "A",
+        "directoryUsers": [
+          "系统 B",
+          "系统 C"
+        ],
+        "conversationCreated": true,
+        "messageSent": true,
+        "readBackCount": 1,
+        "hostListeningAfterProbe": false,
+        "temporaryDatabaseExistsAfterProbe": false
+      }
+    },
+    "controllerBuildEvidence": {
+      "command": "dotnet build src/backend/IndustrialPlatform.slnx --configuration Release --no-restore",
+      "result": "PASS; 0 warnings; 0 errors",
+      "independentlyRerun": false
+    }
+  },
+  "artifactHashes": {
+    "Program.cs": "E50F20FBD88C1320247ECBCF9F312FC918613FE4FFC8D9AC75CF8AF9BE2F7626",
+    "FixedDemoSessionEndpoint.cs": "520A71F2BF478BB4E2D4054F5D77F348713BB7AAE4D59B05C3FE0E39142F5203",
+    "FixedDemoDatabaseInitializationHostedService.cs": "1EADE9E2C54AE39BD5469EA529A2C57FAF184BAD30D57D68B6123678AE787AD9",
+    "FixedDemoInProcessAdapters.cs": "9B2B9F5F604743AAA01AABEA63E3B90A20AC85613090AF379870333B1D22839D",
+    "EmbeddedAdapters.cs": "116BB299668A383725B6CA77567DD160717045E23EA4B4C6B0F2C2D9A4380570",
+    "appsettings.example.json": "B1E7A60ACDC0FD8510C941F99E5AED70A838B4842A2A2F44747D2DAF7E196EA4",
+    "README.md": "FFB6C946FCB506E40B5AF724118F20E2B59226CE82F87BBBC882533C1CBC6F56",
+    "IndustrialPlatform.Collaboration.EmbeddedHost.csproj": "10EF9825F06E5A4FB549E4E182FDF4ED11B589CF40351E2BC3ED7E681AE7D478",
+    "IndustrialPlatform.Collaboration.EmbeddedHost.slnx": "E1BFAA843A252DE167565611DA9C44BE772F11BAC9ACF69781C2AAA191D9C13D",
+    "src/backend/IndustrialPlatform.slnx": "9D3725CD63CBD6A524092B59DE2B46EB0A345F4C6D31AF182B254CD22632B9F1",
+    "IndustrialPlatform.Collaboration.Tests.csproj": "7AB6FFB51534351063D073D06BB7AFCB1B981EF64F59156EB4F23DF4B266BA4B"
+  },
+  "verdict": {
+    "hostMigration": "PASS",
+    "fixedDemoIsolation": "PASS",
+    "abcDirectory": "PASS",
+    "sqliteHttpChain": "PASS_REUSED_VERIFIED_EVIDENCE",
+    "ordinaryPlatformIsolation": "PASS_STATIC",
+    "currentScope": "PASS",
+    "reworkRequired": false,
+    "userFollowUp": "wire and validate a real MES endpoint when that environment is available"
+  }
+}

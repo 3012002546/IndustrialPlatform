@@ -7,16 +7,23 @@ using IndustrialPlatform.Infrastructure.Database;
 using IndustrialPlatform.SharedKernel.Topology;
 using SqlSugar;
 using IndustrialPlatform.ReferenceData.Infrastructure.UnitOfMeasure;
+using Microsoft.Extensions.Options;
 
 namespace IndustrialPlatform.ReferenceData.Infrastructure.Initialization;
 
 /// <summary>One explicit, checksummed migration stream for the ReferenceData service.</summary>
-public sealed class ReferenceDataInitializationLedger(SqlSugarDbContext dbContext)
+public sealed class ReferenceDataInitializationLedger(
+    SqlSugarDbContext dbContext,
+    IOptions<DatabaseTopologyOptions>? topologyOptions = null)
 {
     private static readonly SemaphoreSlim MigrationGate = new(1, 1);
     private ISqlSugarClient Db => dbContext.SqlSugar;
     private bool PostgreSql => Db.CurrentConnectionConfig.DbType == DbType.PostgreSQL;
-    internal string Table(string name) => PostgreSql ? $"reference_data.{name}" : $"reference_data_{name}";
+    private string PostgresSchema => topologyOptions?.Value.IsStandalone == true
+        ? topologyOptions.Value.SharedDatabaseSchema ?? "public"
+        : "reference_data";
+
+    internal string Table(string name) => PostgreSql ? $"{PostgresSchema}.{name}" : $"reference_data_{name}";
 
     public bool MatchesTarget(ServiceInitializationContext context)
     {
@@ -24,9 +31,10 @@ public sealed class ReferenceDataInitializationLedger(SqlSugarDbContext dbContex
         if (context.ServiceKey != "referencedata" || context.ModuleKey != "referencedata"
             || target.ServiceKey != "referencedata" || target.LogicalDatabaseName != "referencedata_db"
             || target.EnvironmentName != context.EnvironmentName
-            || (target.Mode == DatabaseTopologyMode.Shared && context.EnvironmentName != "Development")
+            || (target.Mode == DatabaseTopologyMode.Shared && context.EnvironmentName != "Development" && !target.IsStandalone)
             || target.IsSharedPhysicalDatabase != (target.Mode == DatabaseTopologyMode.Shared)
             || target.Provider != (PostgreSql ? DatabaseProvider.PostgreSQL : DatabaseProvider.Sqlite)) return false;
+        if (PostgreSql && target.IsStandalone && !string.Equals(target.Schema ?? "public", PostgresSchema, StringComparison.Ordinal)) return false;
         var connection = new DbConnectionStringBuilder { ConnectionString = Db.CurrentConnectionConfig.ConnectionString };
         if (!connection.TryGetValue(PostgreSql ? "Database" : "Data Source", out var value)) return false;
         var actual = Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;
@@ -42,6 +50,11 @@ public sealed class ReferenceDataInitializationLedger(SqlSugarDbContext dbContex
             var connection = new DbConnectionStringBuilder { ConnectionString = Db.CurrentConnectionConfig.ConnectionString };
             var physical = Convert.ToString(connection[PostgreSql ? "Database" : "Data Source"], CultureInfo.InvariantCulture)!;
             if (!PostgreSql) physical = Path.GetFullPath(physical).ToUpperInvariant();
+            if (topologyOptions?.Value.IsStandalone == true)
+                return Hash($"referencedata_db|{Db.CurrentConnectionConfig.DbType}|{physical}|{(PostgreSql ? PostgresSchema : string.Empty)}");
+
+            // Keep the historical platform identity byte-for-byte compatible. The schema
+            // suffix is only a standalone semantic, never a platform/SQLite migration change.
             return Hash($"referencedata_db|{Db.CurrentConnectionConfig.DbType}|{physical}");
         }
     }
@@ -138,7 +151,7 @@ public sealed class ReferenceDataInitializationLedger(SqlSugarDbContext dbContex
     }
 
     private async Task<bool> TableExistsAsync(string name) => PostgreSql
-        ? await Db.Ado.GetIntAsync("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='reference_data' AND table_name=@name", new SugarParameter("@name", name)) == 1
+        ? await Db.Ado.GetIntAsync("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=@schema AND table_name=@name", new SugarParameter("@schema", PostgresSchema), new SugarParameter("@name", name)) == 1
         : await Db.Ado.GetIntAsync("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=@name", new SugarParameter("@name", Table(name))) == 1;
 
     public async Task<bool> MigrationValidAsync(CancellationToken cancellationToken)
@@ -147,7 +160,7 @@ public sealed class ReferenceDataInitializationLedger(SqlSugarDbContext dbContex
         if (!HasColumn("schema_migrations", "checksum") || !HasColumn("schema_migrations", "target_identity")) return false;
         if (!await MigrationChecksumMatchesAsync(
                 ReferenceDataServiceInitializer.BaselineVersion, SchemaSql, cancellationToken)) return false;
-        foreach (var script in Persistence.ReferenceDataMigrations.Scripts(PostgreSql))
+        foreach (var script in Persistence.ReferenceDataMigrations.Scripts(PostgreSql, PostgresSchema))
             if (!await MigrationChecksumMatchesAsync(script.Version, script.Sql, cancellationToken)) return false;
         return await ExistingMigrationPhysicalSchemaReadyAsync(cancellationToken);
     }
@@ -164,7 +177,7 @@ public sealed class ReferenceDataInitializationLedger(SqlSugarDbContext dbContex
                 if (PostgreSql)
                 {
                     await Db.Ado.ExecuteCommandAsync("SELECT pg_advisory_xact_lock(hashtext('industrial-platform-schema-migration'))");
-                    await Db.Ado.ExecuteCommandAsync("CREATE SCHEMA IF NOT EXISTS reference_data");
+                    await Db.Ado.ExecuteCommandAsync($"CREATE SCHEMA IF NOT EXISTS {PostgresSchema}");
                 }
                 await Db.Ado.ExecuteCommandAsync(SchemaSql);
                 await AddLegacyColumnAsync("schema_migrations", "checksum");
@@ -192,7 +205,7 @@ public sealed class ReferenceDataInitializationLedger(SqlSugarDbContext dbContex
                         $"INSERT INTO {Table("schema_migrations")} (migration_id,checksum,target_identity,applied_on) VALUES (@version,@checksum,@target,@now)",
                         new SugarParameter("@version", ReferenceDataServiceInitializer.BaselineVersion), new SugarParameter("@checksum", SchemaChecksum),
                         new SugarParameter("@target", LocalTargetIdentity), new SugarParameter("@now", DateTimeOffset.UtcNow));
-                foreach (var script in Persistence.ReferenceDataMigrations.Scripts(PostgreSql))
+                foreach (var script in Persistence.ReferenceDataMigrations.Scripts(PostgreSql, PostgresSchema))
                 {
                     var count = await Db.Ado.GetIntAsync($"SELECT COUNT(*) FROM {Table("schema_migrations")} WHERE migration_id=@version", new SugarParameter("@version", script.Version));
                     if (count > 0)
@@ -230,7 +243,7 @@ public sealed class ReferenceDataInitializationLedger(SqlSugarDbContext dbContex
                         || !string.Equals(unitSeed.Scope, "System", StringComparison.OrdinalIgnoreCase))
                         throw new InvalidOperationException("REF-INITIALIZATION-DRIFT");
                 }
-                await Db.Ado.ExecuteCommandAsync(UnitOfMeasureSystemSeed.Sql(PostgreSql));
+                await Db.Ado.ExecuteCommandAsync(UnitOfMeasureSystemSeed.Sql(PostgreSql, PostgresSchema));
                 if (unitSeed is null)
                     await Db.Ado.ExecuteCommandAsync(
                         $"INSERT INTO {Table("seed_ledger")} (seed_key,seed_version,checksum,scope,applied_on,operation_n_id,trace_id) VALUES (@key,@version,@checksum,'System',@now,@operation,@trace)",
@@ -337,7 +350,7 @@ public sealed class ReferenceDataInitializationLedger(SqlSugarDbContext dbContex
     private async Task<bool> ExistingMigrationPhysicalSchemaReadyAsync(CancellationToken cancellationToken)
     {
         var versions = new[] { ReferenceDataServiceInitializer.BaselineVersion }
-            .Concat(Persistence.ReferenceDataMigrations.Scripts(PostgreSql).Select(script => script.Version));
+            .Concat(Persistence.ReferenceDataMigrations.Scripts(PostgreSql, PostgresSchema).Select(script => script.Version));
         foreach (var version in versions)
         {
             if (await Db.Ado.GetIntAsync(
@@ -388,7 +401,7 @@ public sealed class ReferenceDataInitializationLedger(SqlSugarDbContext dbContex
     private bool HasColumn(string table, string column)
     {
         var rows = PostgreSql
-            ? Db.Ado.GetDataTable("SELECT column_name AS name FROM information_schema.columns WHERE table_schema='reference_data' AND table_name=@table", new SugarParameter("@table", table))
+            ? Db.Ado.GetDataTable("SELECT column_name AS name FROM information_schema.columns WHERE table_schema=@schema AND table_name=@table", new SugarParameter("@schema", PostgresSchema), new SugarParameter("@table", table))
             : Db.Ado.GetDataTable($"PRAGMA table_info('{Table(table)}')");
         return rows.Rows.Cast<System.Data.DataRow>().Any(row => string.Equals(row["name"]?.ToString(), column, StringComparison.Ordinal));
     }
@@ -403,11 +416,11 @@ public sealed class ReferenceDataInitializationLedger(SqlSugarDbContext dbContex
         if (!PostgreSql) return;
         // Preserve the original ledger; import only its known structural columns.
         if (await Db.Ado.GetIntAsync("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='reference_data_schema_migrations'") == 1)
-            await Db.Ado.ExecuteCommandAsync("INSERT INTO reference_data.schema_migrations (migration_id,applied_on) SELECT migration_id,applied_on FROM public.reference_data_schema_migrations ON CONFLICT DO NOTHING");
+            await Db.Ado.ExecuteCommandAsync($"INSERT INTO {Table("schema_migrations")} (migration_id,applied_on) SELECT migration_id,applied_on FROM public.reference_data_schema_migrations ON CONFLICT DO NOTHING");
         if (await Db.Ado.GetIntAsync("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='reference_data_seed_ledger'") == 1)
         {
             var hasScope = await Db.Ado.GetIntAsync("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='reference_data_seed_ledger' AND column_name='scope'") == 1;
-            await Db.Ado.ExecuteCommandAsync($"INSERT INTO reference_data.seed_ledger (seed_key,seed_version,checksum,scope,applied_on,operation_n_id,trace_id) SELECT seed_key,seed_version,checksum,{(hasScope ? "scope" : "NULL")},applied_on,operation_n_id,trace_id FROM public.reference_data_seed_ledger ON CONFLICT DO NOTHING");
+            await Db.Ado.ExecuteCommandAsync($"INSERT INTO {Table("seed_ledger")} (seed_key,seed_version,checksum,scope,applied_on,operation_n_id,trace_id) SELECT seed_key,seed_version,checksum,{(hasScope ? "scope" : "NULL")},applied_on,operation_n_id,trace_id FROM public.reference_data_seed_ledger ON CONFLICT DO NOTHING");
         }
     }
 }

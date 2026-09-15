@@ -12,6 +12,7 @@ import type {
   ReadCursor,
   SendMessageRequest,
 } from '@/api/collaboration'
+import { createCorrelationId } from '@/api/correlation'
 import { getCollaborationRealtime, type CollaborationRealtime } from '@/api/collaborationHub'
 import { getCollaborationApi } from '@/api/collaborationRegistry'
 import AppPage from '@/components/base/AppPage.vue'
@@ -22,6 +23,10 @@ import { localeMessages } from '@/localization/i18n'
 import { usePlatformLocale } from '@/localization/localeContext'
 import { useAuthStore } from '@/stores/authStore'
 import { useCollaborationChatStore, type KnownReadCursor } from '@/stores/collaborationChatStore'
+import { useCollaborationMediaStore } from '@/stores/collaborationMediaStore'
+import ScreenSharePanel from '@/components/collaboration/ScreenSharePanel.vue'
+import VoiceCallBar from '@/components/collaboration/VoiceCallBar.vue'
+import { formatMediaError } from '@/components/collaboration/mediaError'
 import { sha256File } from '@/utils/sha256File'
 
 const props = withDefaults(
@@ -42,6 +47,8 @@ const isTerminalDetail = computed(() => !!props.terminal && !!route.params.conve
 const locale = usePlatformLocale()
 const copy = computed(() => localeMessages[locale.value].collaboration)
 const chatSession = useCollaborationChatStore()
+const media = useCollaborationMediaStore()
+const mediaErrorText = computed(() => formatMediaError(copy.value.media, media.errorMessage))
 const {
   conversations,
   selectedConversation,
@@ -85,6 +92,8 @@ const conversationFiltersCollapsed = ref(
 const composer = ref<HTMLTextAreaElement | null>(null)
 const actionMenu = ref<HTMLElement | HTMLElement[] | null>(null)
 const actionMenuStyle = ref<Record<string, string>>({})
+const terminalActionArea = ref<HTMLElement | null>(null)
+const terminalActionsOpen = ref(false)
 let directoryTimer: ReturnType<typeof setTimeout> | undefined
 let realtime: CollaborationRealtime | null = null
 let loadVersion = 0
@@ -93,10 +102,19 @@ let readInFlight = false
 let pendingReadSequence = 0
 let shouldStickToLatest = true
 let messageMutationObserver: MutationObserver | undefined
+let forceLatestOnRestoreConversationNId: string | null = null
 
 const isActiveSurface = computed(
   () =>
     props.active && !isTerminalList.value && (props.surface === 'drawer' || !quickDrawerOpen.value),
+)
+
+watch(
+  () => selectedConversation.value?.conversationNId,
+  (conversationNId) => {
+    if (conversationNId) void media.refresh(conversationNId)
+  },
+  { immediate: true },
 )
 
 function isCurrentSession(sessionVersion: number): boolean {
@@ -104,11 +122,39 @@ function isCurrentSession(sessionVersion: number): boolean {
 }
 
 function requestId(): string {
-  return crypto.randomUUID().replaceAll('-', '')
+  return createCorrelationId().replaceAll('-', '')
 }
 
 function currentUserNId(): string {
   return auth.user?.userId ?? ''
+}
+
+function inviteVoiceCall(): void {
+  terminalActionsOpen.value = false
+  void media.inviteVoiceCall()
+}
+
+function inviteScreenShare(direction: string): void {
+  terminalActionsOpen.value = false
+  void media.inviteScreenShare(direction)
+}
+
+function closeTerminalActions(): void {
+  terminalActionsOpen.value = false
+}
+
+function toggleTerminalActions(): void {
+  terminalActionsOpen.value = !terminalActionsOpen.value
+}
+
+function toggleTerminalDetails(): void {
+  closeTerminalActions()
+  detailsOpen.value = !detailsOpen.value
+}
+
+function toggleTerminalHidden(): void {
+  closeTerminalActions()
+  if (selectedConversation.value !== null) void toggleHidden(selectedConversation.value)
 }
 
 function displayConversation(conversation: ConversationSummary): string {
@@ -223,7 +269,19 @@ async function loadMessages(
       if (element !== null && element === scrollBeforeHistory)
         element.scrollTop = previousScrollTop + element.scrollHeight - previousScrollHeight
     }
-    if (cursor === undefined) void markDisplayedRead()
+    if (cursor === undefined) {
+      if (!options.background) {
+        await nextTick()
+        if (
+          isActiveSurface.value &&
+          selectedConversation.value?.conversationNId === conversation.conversationNId
+        ) {
+          forceLatestOnRestoreConversationNId = conversation.conversationNId
+          scrollToLatest()
+        }
+      }
+      void markDisplayedRead()
+    }
   } catch (error) {
     if (version === loadVersion && isCurrentSession(sessionVersion) && !options.background)
       messageError.value = error instanceof Error ? error.message : copy.value.loadFailed
@@ -248,6 +306,7 @@ async function openConversation(conversation: ConversationSummary): Promise<void
 }
 
 function backToConversations(): void {
+  closeTerminalActions()
   detailsOpen.value = false
   void router.push({
     name:
@@ -747,14 +806,19 @@ async function retract(message: Message): Promise<void> {
 const actionMenuMessageNId = ref<string | null>(null)
 
 function onDocumentKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape') actionMenuMessageNId.value = null
+  if (event.key === 'Escape') {
+    actionMenuMessageNId.value = null
+    closeTerminalActions()
+  }
 }
 
 function onDocumentPointerDown(event: PointerEvent): void {
   const target = event.target as Node | null
+  if (terminalActionArea.value?.contains(target)) return
   const menus = Array.isArray(actionMenu.value) ? actionMenu.value : [actionMenu.value]
   if (menus.some((menu) => menu?.contains(target))) return
   actionMenuMessageNId.value = null
+  closeTerminalActions()
 }
 
 function positionActionMenu(): void {
@@ -896,16 +960,24 @@ function scrollToLatest(): void {
 function rememberConversationScroll(): void {
   const conversationNId = selectedConversation.value?.conversationNId
   const element = conversationScroll.value
-  if (conversationNId && element !== null) {
-    shouldStickToLatest = element.scrollTop + element.clientHeight >= element.scrollHeight - 4
-    messageScrollTopByConversation[conversationNId] = element.scrollTop
+  if (!conversationNId || element === null) return
+  if (element.scrollHeight <= 0) {
+    delete messageScrollTopByConversation[conversationNId]
+    return
   }
+  shouldStickToLatest = element.scrollTop + element.clientHeight >= element.scrollHeight - 4
+  messageScrollTopByConversation[conversationNId] = element.scrollTop
 }
 
 function restoreConversationScroll(): void {
   const conversationNId = selectedConversation.value?.conversationNId
   const element = conversationScroll.value
   if (!conversationNId || element === null) return
+  if (forceLatestOnRestoreConversationNId === conversationNId) {
+    forceLatestOnRestoreConversationNId = null
+    scrollToLatest()
+    return
+  }
   const savedScrollTop = messageScrollTopByConversation[conversationNId]
   element.scrollTop = savedScrollTop ?? element.scrollHeight
   shouldStickToLatest =
@@ -1023,6 +1095,7 @@ onBeforeUnmount(() => {
   conversationScroll.value?.removeEventListener('load', onMessageMediaLoad, true)
   messageMutationObserver?.disconnect()
   messageMutationObserver = undefined
+  forceLatestOnRestoreConversationNId = null
   if (directoryTimer !== undefined) clearTimeout(directoryTimer)
   // The shell-level session owns one SignalR subscription and heartbeat for both the page and quick drawer.
   // Keeping it alive preserves the active conversation, drafts, and scroll state when surfaces switch.
@@ -1032,6 +1105,7 @@ watch(
   () => selectedConversation.value?.conversationNId,
   () => {
     actionMenuMessageNId.value = null
+    closeTerminalActions()
     if (typeof requestAnimationFrame === 'function')
       requestAnimationFrame(restoreConversationScroll)
     else setTimeout(restoreConversationScroll, 0)
@@ -1044,7 +1118,10 @@ watch(isActiveSurface, (active) => {
       restoreConversationScroll()
       void markDisplayedRead()
     })
-  else actionMenuMessageNId.value = null
+  else {
+    actionMenuMessageNId.value = null
+    closeTerminalActions()
+  }
 })
 
 watch(
@@ -1079,6 +1156,8 @@ watch(realtimeMessageEvent, (event) => {
       :class="{
         'collaboration-chat--drawer': props.surface === 'drawer',
         'collaboration-chat--terminal': !!props.terminal,
+        'collaboration-chat--pda': props.terminal === 'pda',
+        'collaboration-chat--mobile': props.terminal === 'mobile',
       }"
       :aria-label="copy.title"
     >
@@ -1213,17 +1292,20 @@ watch(realtimeMessageEvent, (event) => {
           @focusin="() => void markDisplayedRead()"
           @pointerdown="() => void markDisplayedRead()"
         >
-          <button
-            v-if="props.terminal"
-            type="button"
-            class="collaboration-chat__back"
-            @click="backToConversations"
-          >
-            ← {{ copy.conversations }}
-          </button>
           <template v-if="selectedConversation !== null">
             <header class="collaboration-chat__conversation-header">
-              <div>
+              <div class="collaboration-chat__conversation-entry">
+                <button
+                  v-if="props.terminal"
+                  type="button"
+                  class="collaboration-chat__back"
+                  :aria-label="copy.conversations"
+                  @click="backToConversations"
+                >
+                  ← {{ copy.conversations }}
+                </button>
+              </div>
+              <div class="collaboration-chat__conversation-identity">
                 <h2>{{ displayConversation(selectedConversation) }}</h2>
                 <span class="collaboration-chat__presence"
                   ><i
@@ -1234,15 +1316,91 @@ watch(realtimeMessageEvent, (event) => {
                   <span>{{ presenceLabel(selectedConversation) }}</span></span
                 >
               </div>
-              <div class="collaboration-chat__header-actions">
-                <button type="button" @click="detailsOpen = !detailsOpen">
-                  {{ copy.details }}
-                </button>
-                <button type="button" @click="toggleHidden(selectedConversation)">
-                  {{ selectedConversation.visibilityState === 'Hidden' ? copy.restore : copy.hide }}
-                </button>
+              <div
+                ref="terminalActionArea"
+                class="collaboration-chat__header-actions"
+                :class="{ 'is-terminal-actions': props.terminal }"
+              >
+                <template v-if="props.terminal">
+                  <button
+                    type="button"
+                    class="collaboration-chat__more-trigger"
+                    :aria-label="copy.more"
+                    aria-haspopup="menu"
+                    :aria-expanded="terminalActionsOpen"
+                    @click="toggleTerminalActions"
+                  >
+                    {{ copy.more }}
+                  </button>
+                  <div
+                    v-if="terminalActionsOpen"
+                    class="collaboration-chat__terminal-action-menu"
+                    role="menu"
+                    :aria-label="copy.more"
+                  >
+                    <PermissionGate :permission-n-id="PERMISSIONS.remoteAssistanceVoiceCall">
+                      <button type="button" role="menuitem" @click="inviteVoiceCall">
+                        {{ copy.voiceCall }}
+                      </button>
+                    </PermissionGate>
+                    <PermissionGate :permission-n-id="PERMISSIONS.remoteAssistanceSessionShare">
+                      <button type="button" role="menuitem" @click="inviteScreenShare('ShareMine')">
+                        {{ copy.shareMyScreen }}
+                      </button>
+                    </PermissionGate>
+                    <PermissionGate :permission-n-id="PERMISSIONS.remoteAssistanceSessionJoin">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        @click="inviteScreenShare('RequestPeer')"
+                      >
+                        {{ copy.requestPeerScreen }}
+                      </button>
+                    </PermissionGate>
+                    <button type="button" role="menuitem" @click="toggleTerminalDetails">
+                      {{ copy.details }}
+                    </button>
+                    <button type="button" role="menuitem" @click="toggleTerminalHidden">
+                      {{
+                        selectedConversation.visibilityState === 'Hidden' ? copy.restore : copy.hide
+                      }}
+                    </button>
+                  </div>
+                </template>
+                <template v-else>
+                  <PermissionGate :permission-n-id="PERMISSIONS.remoteAssistanceVoiceCall">
+                    <button type="button" @click="inviteVoiceCall">{{ copy.voiceCall }}</button>
+                  </PermissionGate>
+                  <PermissionGate :permission-n-id="PERMISSIONS.remoteAssistanceSessionShare">
+                    <button type="button" @click="inviteScreenShare('ShareMine')">
+                      {{ copy.shareMyScreen }}
+                    </button>
+                  </PermissionGate>
+                  <PermissionGate :permission-n-id="PERMISSIONS.remoteAssistanceSessionJoin">
+                    <button type="button" @click="inviteScreenShare('RequestPeer')">
+                      {{ copy.requestPeerScreen }}
+                    </button>
+                  </PermissionGate>
+                  <button type="button" @click="detailsOpen = !detailsOpen">
+                    {{ copy.details }}
+                  </button>
+                  <button type="button" @click="toggleHidden(selectedConversation)">
+                    {{
+                      selectedConversation.visibilityState === 'Hidden' ? copy.restore : copy.hide
+                    }}
+                  </button>
+                </template>
               </div>
             </header>
+            <p
+              v-if="mediaErrorText"
+              class="collaboration-chat__error collaboration-chat__media-error"
+              role="alert"
+            >
+              {{ mediaErrorText }}
+            </p>
+            <ScreenSharePanel :conversation-n-id="selectedConversation.conversationNId" />
+            <VoiceCallBar :conversation-n-id="selectedConversation.conversationNId" />
             <div
               ref="conversationScroll"
               class="collaboration-chat__messages"
@@ -1510,7 +1668,6 @@ watch(realtimeMessageEvent, (event) => {
 .collaboration-chat__conversation-list {
   display: grid;
   min-height: 0;
-  flex: 1;
   gap: var(--ip-space-1);
   overflow: auto;
 }
@@ -1628,6 +1785,7 @@ watch(realtimeMessageEvent, (event) => {
   flex-direction: column;
 }
 .collaboration-chat__conversation-header {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1640,14 +1798,27 @@ watch(realtimeMessageEvent, (event) => {
   overflow-wrap: anywhere;
   font-size: var(--ip-font-size-lg);
 }
-.collaboration-chat__conversation-header div:first-child {
+.collaboration-chat__conversation-entry,
+.collaboration-chat__conversation-identity {
   min-width: 0;
+}
+.collaboration-chat__conversation-entry {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+}
+.collaboration-chat__conversation-identity {
+  flex: 1 1 auto;
 }
 .collaboration-chat__header-actions,
 .collaboration-chat__composer-actions {
   display: flex;
   align-items: center;
   gap: var(--ip-space-2);
+}
+.collaboration-chat__header-actions.is-terminal-actions {
+  position: relative;
+  flex: 0 0 auto;
 }
 .collaboration-chat button {
   font: inherit;
@@ -1663,6 +1834,39 @@ watch(realtimeMessageEvent, (event) => {
   background: var(--ip-color-bg-container);
   color: var(--ip-color-text-secondary);
   cursor: pointer;
+}
+.collaboration-chat__terminal-action-menu {
+  position: absolute;
+  z-index: 12;
+  top: calc(100% + 4px);
+  right: 0;
+  display: grid;
+  min-width: min(248px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
+  padding: var(--ip-space-1);
+  border: 1px solid var(--ip-color-border);
+  border-radius: var(--ip-radius-md);
+  background: var(--ip-color-bg-container);
+  box-shadow: var(--ip-shadow-md);
+}
+.collaboration-chat__terminal-action-menu button {
+  min-height: var(--ip-touch-min-size);
+  padding: 0 var(--ip-space-3);
+  border: 0;
+  background: transparent;
+  color: var(--ip-color-text-primary);
+  text-align: left;
+}
+.collaboration-chat__terminal-action-menu button:hover,
+.collaboration-chat__terminal-action-menu button:focus-visible {
+  background: var(--ip-color-bg-muted);
+}
+.collaboration-chat__more-trigger {
+  min-height: var(--ip-touch-min-size) !important;
+}
+.collaboration-chat--mobile .collaboration-chat__terminal-action-menu button,
+.collaboration-chat--mobile .collaboration-chat__more-trigger {
+  min-height: var(--ip-touch-min-size-mobile) !important;
 }
 .collaboration-chat__read-receipt {
   display: block;
@@ -1923,7 +2127,7 @@ watch(realtimeMessageEvent, (event) => {
   }
   .collaboration-chat__conversation-header {
     padding: var(--ip-space-3);
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: var(--ip-space-2);
   }
   .collaboration-chat__conversation-header h2 {
@@ -1938,6 +2142,21 @@ watch(realtimeMessageEvent, (event) => {
   .collaboration-chat__header-actions,
   .collaboration-chat__composer-actions {
     flex-wrap: wrap;
+  }
+  .collaboration-chat--terminal .collaboration-chat__back {
+    padding: 0 var(--ip-space-2);
+    white-space: nowrap;
+  }
+  .collaboration-chat--terminal .collaboration-chat__conversation-identity {
+    overflow: hidden;
+  }
+  .collaboration-chat--terminal .collaboration-chat__conversation-identity h2,
+  .collaboration-chat--terminal
+    .collaboration-chat__conversation-identity
+    .collaboration-chat__presence {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .collaboration-chat__details {
     inset: 12px;
@@ -1958,9 +2177,8 @@ watch(realtimeMessageEvent, (event) => {
 }
 .collaboration-chat__back {
   flex-shrink: 0;
-  align-self: flex-start;
-  min-height: 48px;
-  margin: var(--ip-space-2);
+  min-height: var(--ip-touch-min-size);
+  margin: 0;
 }
 @media (prefers-reduced-motion: reduce) {
   * {

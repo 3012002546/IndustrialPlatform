@@ -3,6 +3,7 @@ using System.Globalization;
 using IndustrialPlatform.Infrastructure.Database;
 using IndustrialPlatform.ReferenceData.Application.Caching;
 using IndustrialPlatform.ReferenceData.Application.StateMachine;
+using IndustrialPlatform.ReferenceData.Infrastructure.Persistence;
 using IndustrialPlatform.ReferenceData.Contracts.StateMachine;
 using IndustrialPlatform.ReferenceData.Contracts.Events;
 using IndustrialPlatform.ReferenceData.Domain.Common;
@@ -18,14 +19,14 @@ public sealed class StateMachineRepository(SqlSugarDbContext context) : IStateMa
     private ISqlSugarClient Db => context.SqlSugar;
     private bool Postgres => Db.CurrentConnectionConfig.DbType == DbType.PostgreSQL;
     private string Definitions => Postgres
-        ? "reference_data.state_machine_definition"
-        : "reference_data_state_machine_definition";
+        ? ReferenceDataSqlNames.Table(Db, "state_machine_definition")
+        : ReferenceDataSqlNames.Table(Db, "state_machine_definition");
     private string Nodes => Postgres
-        ? "reference_data.state_machine_node"
-        : "reference_data_state_machine_node";
+        ? ReferenceDataSqlNames.Table(Db, "state_machine_node")
+        : ReferenceDataSqlNames.Table(Db, "state_machine_node");
     private string Transitions => Postgres
-        ? "reference_data.state_machine_transition"
-        : "reference_data_state_machine_transition";
+        ? ReferenceDataSqlNames.Table(Db, "state_machine_transition")
+        : ReferenceDataSqlNames.Table(Db, "state_machine_transition");
 
     private ISugarQueryable<StateMachineDefinitionRow> Visible(string tenantNId) =>
         Db.Queryable<StateMachineDefinitionRow>().AS(Definitions)

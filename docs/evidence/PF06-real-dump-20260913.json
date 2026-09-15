@@ -1,0 +1,55 @@
+{
+  "status": "DIAGNOSIS_IN_PROGRESS",
+  "source": "User-provided real Edge sharer / Chrome viewer dumps",
+  "endpoints": [
+    {
+      "role": "sharer",
+      "inputFile": "webrtc_internals_dump.gz",
+      "sha256": "7a779daf422a1a7ca3f31c81aaebeaa480bc4158652ec2db65fdfc46c1abb7ec",
+      "exportUtc": "2026-09-13T13:25:12.653000+00:00",
+      "peerConnectionCount": 0,
+      "mediaEvents": [
+        {
+          "type": "getDisplayMedia",
+          "atUtc": "2026-09-13T13:12:32.106389+00:00",
+          "result": "request",
+          "videoTrackPresent": false,
+          "audioTrackPresent": false,
+          "error": null
+        },
+        {
+          "type": "getDisplayMedia",
+          "atUtc": "2026-09-13T13:12:36.599027+00:00",
+          "result": "success",
+          "videoTrackPresent": true,
+          "audioTrackPresent": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "role": "viewer",
+      "inputFile": "webrtc_internals_dump (1).gz",
+      "sha256": "3f4a8087a299951a3a29801f041b946076649a3780386ae85fdcf73b6ec1290b",
+      "exportUtc": "2026-09-13T13:25:16.313000+00:00",
+      "peerConnectionCount": 0,
+      "mediaEvents": []
+    }
+  ],
+  "established": [
+    "Sharer recorded a successful getDisplayMedia request",
+    "Both exports contain empty PeerConnections maps",
+    "No microphone getUserMedia entries in either export"
+  ],
+  "inference": "Prioritize acceptance/BindMedia/constructor or lifecycle removal before ICE/codec changes; dump alone does not prove PC was never created historically",
+  "limits": [
+    "No Offer/Answer/ICE/RTP evidence in these exports",
+    "An already removed PC may be absent when internals is opened later",
+    "No voice call success or failure can be inferred without a microphone call record"
+  ],
+  "references": {
+    "screego": "https://raw.githubusercontent.com/screego/server/master/ui/src/useRoom.ts",
+    "chromium": "https://raw.githubusercontent.com/chromium/chromium/main/content/browser/webrtc/webrtc_internals.cc"
+  },
+  "next": "Read-only source tracing of pre-peer connection chain; no speculative media patch"
+}

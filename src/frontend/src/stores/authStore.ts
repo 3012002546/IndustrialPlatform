@@ -55,10 +55,31 @@ export const useAuthStore = defineStore('auth', () => {
     return session.value?.user.permissions.includes(permission) ?? false
   }
 
+  function persistSession(value: AuthSession): void {
+    // HttpOnly embedded sessions are the source of truth; never mirror them
+    // as a fake access/refresh token in browser storage.
+    if (value.transport === 'embedded-cookie') {
+      clearAuthSession(defaultStorage(), AUTH_SESSION_HTTP_STORAGE_KEY)
+      return
+    }
+    writeAuthSession(defaultStorage(), value, sessionStorageKey())
+  }
+
   /** 从 sessionStorage 恢复会话;损坏/过期/未知版本视为无效并清理,单飞执行。 */
   async function restore(): Promise<void> {
     if (restorePromise !== null) return restorePromise
     restorePromise = (async () => {
+      if (loadRuntimeConfig().authMode === 'embedded') {
+        try {
+          const bootstrap = getAuthGateway().bootstrapSession
+          commitSession(bootstrap === undefined ? null : await bootstrap())
+        } catch {
+          // A missing/expired host session is intentionally unauthenticated;
+          // the embedded route guard shows the re-entry page, never platform login.
+          commitSession(null)
+        }
+        return
+      }
       const storage = defaultStorage()
       const key = sessionStorageKey()
       const stored = readAuthSession(storage, Date.now(), key)
@@ -66,15 +87,18 @@ export const useAuthStore = defineStore('auth', () => {
         clearAuthSession(storage, key)
       }
       commitSession(stored)
+      const restoredToken = stored?.accessToken
       if (
         stored !== null &&
         loadRuntimeConfig().authMode === 'http' &&
-        restoredAccessToken !== stored.accessToken
+        typeof restoredToken === 'string' &&
+        restoredToken.length > 0 &&
+        restoredAccessToken !== restoredToken
       ) {
         // A route guard can restore the same session repeatedly. Mark this
         // access token before the network call so a transient /auth/me failure
         // cannot turn every SPA navigation into a network timeout.
-        restoredAccessToken = stored.accessToken
+        restoredAccessToken = restoredToken
         try {
           // /auth/me is the authoritative permission snapshot. Refreshing it on
           // restore makes a bootstrap/catalog permission change visible without
@@ -100,13 +124,13 @@ export const useAuthStore = defineStore('auth', () => {
   async function login(command: LoginCommand): Promise<void> {
     const authenticated = await getAuthGateway().login(command)
     commitSession(authenticated)
-    writeAuthSession(defaultStorage(), authenticated, sessionStorageKey())
+    persistSession(authenticated)
   }
 
   /** SSO 票据交换成功后采纳线上会话(§26.5):提交并持久化,不经过 Gateway。 */
   function adoptSession(value: AuthSession): void {
     commitSession(value)
-    writeAuthSession(defaultStorage(), value, sessionStorageKey())
+    persistSession(value)
   }
 
   /** 刷新:单飞;无会话视为未登录;失败视为会话不可续,清理本地会话后抛出。 */
@@ -121,9 +145,19 @@ export const useAuthStore = defineStore('auth', () => {
       )
     }
     refreshPromise = (async () => {
-      const refreshed = await getAuthGateway().refresh(current.refreshToken)
+      const gateway = getAuthGateway()
+      let refreshed: AuthSession
+      if (current.transport === 'embedded-cookie') {
+        if (gateway.refreshEmbeddedSession === undefined)
+          throw createApiError('unauthorized', DEFAULT_ERROR_MESSAGES.unauthorized, createCorrelationId())
+        refreshed = await gateway.refreshEmbeddedSession()
+      } else if (current.refreshToken === undefined) {
+        throw createApiError('unauthorized', DEFAULT_ERROR_MESSAGES.unauthorized, createCorrelationId())
+      } else {
+        refreshed = await gateway.refresh(current.refreshToken)
+      }
       commitSession(refreshed)
-      writeAuthSession(defaultStorage(), refreshed, sessionStorageKey())
+      persistSession(refreshed)
     })()
     try {
       await refreshPromise
@@ -134,6 +168,14 @@ export const useAuthStore = defineStore('auth', () => {
     } finally {
       refreshPromise = null
     }
+  }
+
+  /** 嵌入页面存活心跳：由协作运行时调用，不把短期会话变成永久 Cookie。 */
+  async function keepAliveEmbeddedSession(): Promise<void> {
+    if (session.value?.transport !== 'embedded-cookie') return
+    const keepAlive = getAuthGateway().keepAliveEmbeddedSession
+    if (keepAlive === undefined) return
+    commitSession(await keepAlive())
   }
 
   /** 退出:即使 Gateway 调用失败也必须清理本地会话。 */
@@ -168,6 +210,7 @@ export const useAuthStore = defineStore('auth', () => {
     restore,
     login,
     refresh,
+    keepAliveEmbeddedSession,
     logout,
     clearLocalSession,
     changePassword,

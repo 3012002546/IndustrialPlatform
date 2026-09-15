@@ -1,0 +1,90 @@
+{
+  "evidence": "PF06 PDA/Mobile collaboration header and auth type contract independent acceptance",
+  "date": "2026-09-14",
+  "repository": {
+    "head": "0a77597f94e38873b67565e0b477e120e72a57f8",
+    "worktree": "shared dirty WIP; acceptance changed evidence only"
+  },
+  "stableArtifacts": {
+    "src/frontend/src/components/collaboration/CollaborationChat.vue": "5DEF83F79064B2C971544A098B7C19236C42C5CFE591FEC1175DAEE9DFD0FFE1",
+    "src/frontend/src/stores/authStore.ts": "FA00C10A6851A57DB49C16C03E5E3A35E5D4CC9867546D45E7823D826D107A5B",
+    "src/frontend/tests/contract/authGateway.spec.ts": "935CADF9363FBD4AF486EF38818A51FACB4559D5B5A608856B40C032A440825F"
+  },
+  "staticReview": {
+    "mobileHeader": {
+      "result": "PASS",
+      "checks": [
+        "PDA and Mobile render conversation entry, contact identity/status, and More on one header row",
+        "voice, share-my-screen, request-peer-screen, conversation details, and hide/restore remain available in the terminal menu",
+        "the menu is position:absolute under a position:relative terminal action area and does not participate in message-area layout",
+        "outside pointerdown and Escape close the terminal menu",
+        "existing locale strings and theme variables are reused"
+      ]
+    },
+    "permissionsAndControls": {
+      "result": "PASS",
+      "checks": [
+        "voice, share, and join actions retain their original PermissionGate permissions",
+        "ScreenSharePanel and VoiceCallBar remain mounted after the header, preserving active-session accept/end controls",
+        "PC keeps the five actions inline and does not render the More trigger"
+      ]
+    },
+    "userActivationPath": {
+      "result": "PASS_STATIC",
+      "checks": [
+        "menu clicks synchronously enter the original inviteVoiceCall or inviteScreenShare handler",
+        "the media store requests getUserMedia or getDisplayMedia before the corresponding network invite"
+      ]
+    },
+    "authTypeContract": {
+      "result": "PASS",
+      "checks": [
+        "HTTP restore records restoredAccessToken only for a non-empty string access token",
+        "embedded-cookie restore remains outside the bearer-token branch",
+        "the refresh contract asserts and narrows the optional refresh token before calling refresh"
+      ]
+    },
+    "withdrawnSignalRChange": {
+      "result": "CONFIRMED_WITHDRAWN",
+      "checks": [
+        "no connectionReadyTimeoutMs remains",
+        "no invokeWhenConnected wrapper remains",
+        "no initial-retry media invocation test remains",
+        "media signal, end, keep-alive, and other hub calls retain their prior direct invocation semantics"
+      ]
+    }
+  },
+  "developerVerificationAcceptedWithoutRerun": {
+    "mobileLayoutRegression": "2 files, 34 tests passed before the SignalR-only rollback; rollback did not touch layout logic",
+    "hubAndAuthContractRegression": "2 files, 18 tests passed after rollback",
+    "appTypecheck": "exit 0 using isolated tsBuildInfo",
+    "nodeTypecheck": "exit 0 using isolated tsBuildInfo",
+    "eslint": "PASS",
+    "gitDiffCheck": "PASS"
+  },
+  "visualInspection": {
+    "result": "NOT_RUN",
+    "reason": "the existing browser connector returned nodeRepl.fetch request failed; per controller instruction no environment troubleshooting or retry was performed"
+  },
+  "qualityNote": {
+    "prettier": "PENDING_NONFUNCTIONAL",
+    "evidence": "a read-only Prettier check before the scope correction reported CollaborationChat.vue; its SHA256 is unchanged in the stable snapshot",
+    "constraint": "developer reported --write was blocked by the user's active frontend process file lock",
+    "followUp": "format the stable file after the lock is released before requiring the repository formatting gate"
+  },
+  "verdict": {
+    "mobileLayoutAndActions": "PASS_STATIC_AND_REUSED_TEST_EVIDENCE",
+    "authTypeContract": "PASS_STATIC_AND_REUSED_TEST_EVIDENCE",
+    "functionalReworkRequired": false,
+    "formattingGateComplete": false,
+    "huaweiMobileSignalRRootCause": "UNCONFIRMED",
+    "mediaSignalFailedClaimedFixed": false,
+    "overall": "PASS_WITH_NONFUNCTIONAL_FORMATTING_NOTE"
+  },
+  "missingFieldEvidenceForHuaweiDiagnosis": [
+    "exact Origin and HTTP or HTTPS protocol",
+    "Hub negotiate and WebSocket status",
+    "auth session and bootstrap response",
+    "realtime status and lastStartError at failure time"
+  ]
+}

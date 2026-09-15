@@ -3,6 +3,7 @@ using IndustrialPlatform.Infrastructure.Database;
 using IndustrialPlatform.ReferenceData.Infrastructure.Initialization;
 using IndustrialPlatform.ReferenceData.Infrastructure.Persistence;
 using IndustrialPlatform.ReferenceData.Infrastructure.UnitOfMeasure;
+using IndustrialPlatform.SharedKernel.Topology;
 using Microsoft.Extensions.Options;
 using SqlSugar;
 
@@ -85,6 +86,32 @@ public sealed class ReferenceDataServiceInitializerTests : IDisposable
             await _dbContext.SqlSugar.Ado.GetStringAsync(
                 "SELECT migration_id FROM reference_data_schema_migrations "
                 + "ORDER BY applied_on DESC,migration_id DESC LIMIT 1"));
+    }
+
+    [Fact]
+    public async Task Reapplying_a_historical_platform_target_identity_does_not_report_drift()
+    {
+        var context = CreateContext();
+        var inspection = await _initializer.InspectAsync(context, CancellationToken.None);
+        await _initializer.ApplyAsync(
+            context,
+            await _initializer.PlanAsync(context, inspection, CancellationToken.None),
+            CancellationToken.None);
+
+        var historicalTarget = ReferenceDataInitializationLedger.Hash(
+            $"referencedata_db|{DbType.Sqlite}|{Path.GetFullPath(_dbPath).ToUpperInvariant()}");
+        await _dbContext.SqlSugar.Ado.ExecuteCommandAsync(
+            "UPDATE reference_data_schema_migrations SET target_identity=@target",
+            new SugarParameter("@target", historicalTarget));
+
+        var repeatedInspection = await _initializer.InspectAsync(context, CancellationToken.None);
+
+        Assert.True(repeatedInspection.Ready, repeatedInspection.Reason);
+        await _initializer.ApplyAsync(
+            context,
+            await _initializer.PlanAsync(context, repeatedInspection, CancellationToken.None),
+            CancellationToken.None);
+        Assert.True((await _initializer.VerifyAsync(context, CancellationToken.None)).Ready);
     }
 
     [Fact]

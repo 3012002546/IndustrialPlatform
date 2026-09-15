@@ -26,6 +26,8 @@ public static class CollaborationSchemaMigrations
         new("PF05-009", "create collaboration event inbox", CreateEventInboxTableAsync),
         new("PF05-010", "add collaboration event inbox leases", AddEventInboxLeaseColumnsAsync),
         new("PF05-011", "create personal message visibility", CreatePersonalMessageVisibilityTableAsync),
+        new("PF06-001", "create remote assistance screen session", (sugar, cancellationToken) => sugar.Ado.ExecuteCommandAsync(RemoteAssistanceScreenDdl(sugar.CurrentConnectionConfig.DbType), parameters: null, cancellationToken: cancellationToken), ValidateRemoteAssistanceScreenSchemaAsync),
+        new("PF06-002", "create remote assistance voice call and slots", (sugar, cancellationToken) => sugar.Ado.ExecuteCommandAsync(RemoteAssistanceVoiceDdl(sugar.CurrentConnectionConfig.DbType), parameters: null, cancellationToken: cancellationToken), ValidateRemoteAssistanceVoiceSchemaAsync),
     ];
 
     private static async Task AddExportWorkerLeaseColumnsAsync(ISqlSugarClient sugar, CancellationToken cancellationToken)
@@ -137,6 +139,128 @@ public static class CollaborationSchemaMigrations
             CREATE INDEX IF NOT EXISTS ix_collaboration_message_personal_visibility_lookup
                 ON collaboration_message_personal_visibility (tenant_n_id, user_n_id, conversation_n_id, message_n_id)
             """, parameters: null, cancellationToken: cancellationToken);
+    }
+
+    private static Task ValidateRemoteAssistanceScreenSchemaAsync(ISqlSugarClient sugar, CancellationToken _)
+    {
+        SchemaPhysicalDriftGuard.Validate(
+            sugar,
+            "collaboration_remote_assistance_session",
+            ["id", "tenant_n_id", "n_id", "conversation_n_id", "initiator_user_n_id", "invitee_user_n_id", "direction", "sharer_user_n_id", "viewer_user_n_id", "state", "answer", "request_n_id", "request_hash", "deadline_on", "accepted_on", "started_on", "ended_on", "end_reason", "initiator_connection_id", "invitee_connection_id", "initiator_alive_until", "invitee_alive_until", "initiator_stopped_reported_on", "invitee_stopped_reported_on"],
+            ["uq_collaboration_remote_assistance_session_active_conversation", "uq_collaboration_remote_assistance_session_active_sharer", "ix_collaboration_remote_assistance_session_state_deadline", "ix_collaboration_remote_assistance_session_conversation_created"]);
+        return Task.CompletedTask;
+    }
+
+    private static Task ValidateRemoteAssistanceVoiceSchemaAsync(ISqlSugarClient sugar, CancellationToken _)
+    {
+        SchemaPhysicalDriftGuard.Validate(
+            sugar,
+            "collaboration_remote_assistance_voice_call",
+            ["id", "tenant_n_id", "n_id", "conversation_n_id", "caller_user_n_id", "callee_user_n_id", "state", "answer", "request_n_id", "request_hash", "deadline_on", "accepted_on", "started_on", "ended_on", "end_reason", "caller_connection_id", "callee_connection_id", "caller_alive_until", "callee_alive_until", "caller_ready_on", "callee_ready_on", "caller_stopped_reported_on", "callee_stopped_reported_on"],
+            ["uq_collaboration_remote_assistance_voice_call_active_conversation", "ix_collaboration_remote_assistance_voice_call_state_deadline", "ix_collaboration_remote_assistance_voice_call_conversation_created"]);
+        SchemaPhysicalDriftGuard.Validate(sugar, "collaboration_remote_assistance_voice_slot", ["tenant_n_id", "user_n_id", "voice_call_n_id", "created_on", "expires_on"], ["ix_collaboration_remote_assistance_voice_slot_call"]);
+        return Task.CompletedTask;
+    }
+
+    private static string RemoteAssistanceScreenDdl(DbType dbType)
+    {
+        var (g, t, b, big, f) = Types(dbType);
+        return $"""
+        CREATE TABLE IF NOT EXISTS collaboration_remote_assistance_session (
+            {Common(g, t, b, big)},
+            tenant_n_id TEXT NOT NULL,
+            n_id TEXT NOT NULL,
+            conversation_n_id TEXT NOT NULL,
+            initiator_user_n_id TEXT NOT NULL,
+            invitee_user_n_id TEXT NOT NULL,
+            direction TEXT NOT NULL,
+            sharer_user_n_id TEXT NOT NULL,
+            viewer_user_n_id TEXT NOT NULL,
+            state TEXT NOT NULL,
+            answer TEXT NULL,
+            request_n_id TEXT NOT NULL,
+            request_hash TEXT NOT NULL,
+            deadline_on {t} NOT NULL,
+            accepted_on {t} NULL,
+            started_on {t} NULL,
+            ended_on {t} NULL,
+            end_reason TEXT NULL,
+            initiator_connection_id TEXT NOT NULL,
+            invitee_connection_id TEXT NULL,
+            initiator_alive_until {t} NULL,
+            invitee_alive_until {t} NULL,
+            initiator_stopped_reported_on {t} NULL,
+            invitee_stopped_reported_on {t} NULL,
+            CONSTRAINT uq_collaboration_remote_assistance_session_nid UNIQUE (tenant_n_id, n_id),
+            CONSTRAINT uq_collaboration_remote_assistance_session_request UNIQUE (tenant_n_id, initiator_user_n_id, request_n_id),
+            CONSTRAINT ck_collaboration_remote_assistance_session_direction CHECK (direction IN ('ShareMine', 'RequestPeer')),
+            CONSTRAINT ck_collaboration_remote_assistance_session_state CHECK (state IN ('Pending', 'Accepted', 'Connecting', 'Sharing', 'Declined', 'Cancelled', 'Expired', 'Failed', 'Ended')),
+            CONSTRAINT ck_collaboration_remote_assistance_session_answer CHECK (answer IS NULL OR answer IN ('Accept', 'Decline'))
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_collaboration_remote_assistance_session_active_conversation
+            ON collaboration_remote_assistance_session (tenant_n_id, conversation_n_id)
+            WHERE is_deleted = {f} AND state IN ('Pending', 'Accepted', 'Connecting', 'Sharing');
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_collaboration_remote_assistance_session_active_sharer
+            ON collaboration_remote_assistance_session (tenant_n_id, sharer_user_n_id)
+            WHERE is_deleted = {f} AND state IN ('Accepted', 'Connecting', 'Sharing');
+        CREATE INDEX IF NOT EXISTS ix_collaboration_remote_assistance_session_state_deadline
+            ON collaboration_remote_assistance_session (tenant_n_id, state, deadline_on);
+        CREATE INDEX IF NOT EXISTS ix_collaboration_remote_assistance_session_conversation_created
+            ON collaboration_remote_assistance_session (tenant_n_id, conversation_n_id, created_on, n_id);
+        """;
+    }
+
+    private static string RemoteAssistanceVoiceDdl(DbType dbType)
+    {
+        var (g, t, b, big, f) = Types(dbType);
+        return $"""
+        CREATE TABLE IF NOT EXISTS collaboration_remote_assistance_voice_call (
+            {Common(g, t, b, big)},
+            tenant_n_id TEXT NOT NULL,
+            n_id TEXT NOT NULL,
+            conversation_n_id TEXT NOT NULL,
+            caller_user_n_id TEXT NOT NULL,
+            callee_user_n_id TEXT NOT NULL,
+            state TEXT NOT NULL,
+            answer TEXT NULL,
+            request_n_id TEXT NOT NULL,
+            request_hash TEXT NOT NULL,
+            deadline_on {t} NOT NULL,
+            accepted_on {t} NULL,
+            started_on {t} NULL,
+            ended_on {t} NULL,
+            end_reason TEXT NULL,
+            caller_connection_id TEXT NOT NULL,
+            callee_connection_id TEXT NULL,
+            caller_alive_until {t} NULL,
+            callee_alive_until {t} NULL,
+            caller_ready_on {t} NULL,
+            callee_ready_on {t} NULL,
+            caller_stopped_reported_on {t} NULL,
+            callee_stopped_reported_on {t} NULL,
+            CONSTRAINT uq_collaboration_remote_assistance_voice_call_nid UNIQUE (tenant_n_id, n_id),
+            CONSTRAINT uq_collaboration_remote_assistance_voice_call_request UNIQUE (tenant_n_id, caller_user_n_id, request_n_id),
+            CONSTRAINT ck_collaboration_remote_assistance_voice_state CHECK (state IN ('Ringing', 'Accepted', 'Connecting', 'Active', 'Declined', 'Cancelled', 'Missed', 'Failed', 'Ended')),
+            CONSTRAINT ck_collaboration_remote_assistance_voice_answer CHECK (answer IS NULL OR answer IN ('Accept', 'Decline'))
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_collaboration_remote_assistance_voice_call_active_conversation
+            ON collaboration_remote_assistance_voice_call (tenant_n_id, conversation_n_id)
+            WHERE is_deleted = {f} AND state IN ('Ringing', 'Accepted', 'Connecting', 'Active');
+        CREATE INDEX IF NOT EXISTS ix_collaboration_remote_assistance_voice_call_state_deadline
+            ON collaboration_remote_assistance_voice_call (tenant_n_id, state, deadline_on);
+        CREATE INDEX IF NOT EXISTS ix_collaboration_remote_assistance_voice_call_conversation_created
+            ON collaboration_remote_assistance_voice_call (tenant_n_id, conversation_n_id, created_on, n_id);
+        CREATE TABLE IF NOT EXISTS collaboration_remote_assistance_voice_slot (
+            tenant_n_id TEXT NOT NULL,
+            user_n_id TEXT NOT NULL,
+            voice_call_n_id TEXT NOT NULL,
+            created_on {t} NOT NULL,
+            expires_on {t} NOT NULL,
+            CONSTRAINT pk_collaboration_remote_assistance_voice_slot PRIMARY KEY (tenant_n_id, user_n_id)
+        );
+        CREATE INDEX IF NOT EXISTS ix_collaboration_remote_assistance_voice_slot_call
+            ON collaboration_remote_assistance_voice_slot (tenant_n_id, voice_call_n_id);
+        """;
     }
 
     private static async Task AddColumnIfMissingAsync(

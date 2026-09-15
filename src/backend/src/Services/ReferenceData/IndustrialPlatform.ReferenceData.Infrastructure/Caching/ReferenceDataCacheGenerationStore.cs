@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using IndustrialPlatform.Infrastructure.Database;
 using IndustrialPlatform.ReferenceData.Application.Caching;
+using IndustrialPlatform.ReferenceData.Infrastructure.Persistence;
 using SqlSugar;
 
 namespace IndustrialPlatform.ReferenceData.Infrastructure.Caching;
@@ -18,7 +19,7 @@ public static class ReferenceDataCacheGenerationStore
             .ToArray();
         if (generationKeys.Length == 0) return;
         var postgres = database.CurrentConnectionConfig.DbType == DbType.PostgreSQL;
-        var table = postgres ? "reference_data.cache_generation" : "reference_data_cache_generation";
+        var table = ReferenceDataSqlNames.Table(database, "cache_generation");
         var now = postgres ? DateTimeOffset.UtcNow : DateTimeOffset.Now;
         foreach (var generationKey in generationKeys)
         {
@@ -53,9 +54,7 @@ public static class ReferenceDataCacheGenerationStore
         cancellationToken.ThrowIfCancellationRequested();
         generationKey = StorageKey(generationKey);
         var database = context.SqlSugar;
-        var table = database.CurrentConnectionConfig.DbType == DbType.PostgreSQL
-            ? "reference_data.cache_generation"
-            : "reference_data_cache_generation";
+        var table = ReferenceDataSqlNames.Table(database, "cache_generation");
         var rows = await database.Queryable<ReferenceDataCacheGenerationRow>().AS(table)
             .Where(row => row.GenerationKey == generationKey)
             .Select(row => row.GenerationToken)

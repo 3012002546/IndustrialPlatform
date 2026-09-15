@@ -117,6 +117,42 @@ describe('路由守卫 — 会话与公共/受保护', () => {
     expect(router.currentRoute.value.query.redirect).toBe('/pc/home')
   })
 
+  it('embedded 会话缺失时不跳转平台登录页', async () => {
+    vi.stubEnv('VITE_AUTH_MODE', 'embedded')
+    setAuthGateway({
+      ...createMockAuthGateway({ delayMs: 0 }),
+      bootstrapSession: async () => {
+        throw new Error('embedded session missing')
+      },
+    })
+    stubViewport(1280)
+    const router = buildRouter()
+
+    await router.push('/pc/collaboration')
+
+    expect(router.currentRoute.value.name).toBe('embedded-session-required')
+    expect(router.currentRoute.value.name).not.toBe('login')
+  })
+
+  it.each(['/', '/login', '/embedded/session-required'])(
+    '独立演示恢复登录后从 %s 直接进入聊天',
+    async (path) => {
+      vi.stubEnv('MODE', 'lan-https-collaboration')
+      vi.stubEnv('VITE_AUTH_MODE', 'embedded')
+      setAuthGateway({
+        ...createMockAuthGateway({ delayMs: 0 }),
+        bootstrapSession: async () => ({
+          ...makeSession([...ALL_PERMISSIONS, 'collaboration.messaging.read']),
+          transport: 'embedded-cookie',
+        }),
+      })
+      stubViewport(1280)
+      const router = buildRouter()
+      await router.push(path)
+      expect(router.currentRoute.value.path).toBe('/pc/collaboration')
+    },
+  )
+
   it('未登录访问公共路由 /login 与 /403 不被拦截', async () => {
     stubViewport(1280)
     const router = buildRouter()

@@ -3,9 +3,9 @@ namespace IndustrialPlatform.ReferenceData.Infrastructure.DynamicProperty;
 internal static class DynamicConfigurationMigration
 {
     public const string Version = "reference-data-2.7-004";
-    public static string Sql(bool postgres)
+    public static string Sql(bool postgres, string schema = "reference_data")
     {
-        var prefix = postgres ? "reference_data." : "reference_data_";
+        var prefix = postgres ? $"{schema}." : "reference_data_";
         var id = postgres ? "uuid" : "TEXT";
         var time = postgres ? "timestamptz" : "TEXT";
         var boolean = postgres ? "boolean" : "INTEGER";

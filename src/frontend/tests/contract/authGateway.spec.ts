@@ -97,6 +97,8 @@ export function runAuthGatewayContractSuite(
 
     it('refresh 用合法刷新令牌返回新会话', async () => {
       const first = await gateway.login(expectations.validLogin)
+      expect(first.refreshToken).toBeTruthy()
+      if (!first.refreshToken) throw new Error('login contract must return a refresh token')
       const second = await gateway.refresh(first.refreshToken)
       expect(second.accessToken).toBeTruthy()
       expect(second.refreshToken).toBeTruthy()

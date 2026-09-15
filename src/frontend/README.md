@@ -1,5 +1,7 @@
 # Industrial Platform 统一前端
 
+平台集成与独立能力的构建/部署边界见[前端发布说明](DEPLOYMENT.md)：当前已有embedded认证，尚未产出裁剪后的独立协作前端包。
+
 Vue 3 + TypeScript + Vite 单包工程,承载 **PC / PDA / Mobile** 三端统一前端。当前为第一批(统一前端基础壳),业务页面与真实 Identity 登录留待后续阶段。
 
 ## 技术栈
@@ -52,7 +54,7 @@ pnpm install --frozen-lockfile   # 严格按锁文件安装
 | 环境变量                  | 默认值                  | 说明                                                                       |
 | ------------------------- | ----------------------- | -------------------------------------------------------------------------- |
 | `VITE_API_BASE_URL`       | `http://localhost:5041` | 默认 UnifiedHost 入口；独立服务模式显式覆盖为 Gateway `:5080`              |
-| `VITE_AUTH_MODE`          | `http`                  | 认证适配器(http=真实 Identity,默认;mock 仅测试/显式配置;生产构建禁止 mock) |
+| `VITE_AUTH_MODE`          | `http`                  | 认证适配器(http=真实 Identity,默认;mock 仅测试/显式配置;embedded=独立宿主 HttpOnly 会话;生产构建禁止 mock) |
 | `VITE_REQUEST_TIMEOUT_MS` | `10000`                 | HTTP 超时毫秒数                                                            |
 
 安全示例值见 `.env.example`;真实凭据不得提交。

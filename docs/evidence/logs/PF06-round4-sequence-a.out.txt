@@ -1,0 +1,174 @@
+info: Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager[63]
+      User profile is available. Using 'C:\Users\DONG\AppData\Local\ASP.NET\DataProtection-Keys' as key repository and Windows DPAPI to encrypt keys at rest.
+info: IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      身份库迁移已应用 ID-004-01:create identity_user
+info: IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      身份库迁移已应用 ID-004-02:create identity_role
+info: IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      身份库迁移已应用 ID-004-03:create identity_permission
+info: IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      身份库迁移已应用 ID-004-04:create identity_user_role
+info: IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      身份库迁移已应用 ID-004-05:create identity_role_permission
+info: IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      身份库迁移已应用 ID-004-06:create identity_refresh_session
+info: IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      身份库迁移已应用 ID-004-07:create identity_login_audit
+info: IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      身份库迁移已应用 ID-004-08:create identity_operation_audit
+info: IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      身份库迁移已应用 ID-004-09:create identity_outbox
+info: IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      身份库迁移已应用 ID-004-12:create identity_sso_provider
+info: IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      身份库迁移已应用 ID-004-13:create identity_sso_external_account
+info: IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      身份库迁移已应用 ID-004-14:create identity_sso_client
+info: IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      身份库迁移已应用 ID-004-15:create identity_sso_client_endpoint
+info: IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      身份库迁移已应用 ID-004-16:create identity_sso_browser_session
+info: IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      身份库迁移已应用 ID-017-01:create identity_user_group
+info: IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      身份库迁移已应用 ID-017-02:create identity_user_group_membership
+info: IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      身份库迁移已应用 ID-017-03:create identity_user_group_role
+info: IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      身份库迁移已应用 ID-019-01:create identity_seed_ledger
+info: IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      身份库迁移已应用 ID-019-02:create identity_bootstrap_credential
+info: IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      身份库迁移已应用 ID-019-03:add identity_user.must_change_password column
+info: IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      身份库迁移已应用 ID-020-01:create identity_write_idempotency
+info: IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      身份库迁移已应用 ID-021-01:create pf05_service_call_nonce
+info: IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      身份库迁移已应用 ID-021-02:create pf05_step_up_grant
+info: IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      身份库迁移已应用 ID-021-03:extend pf05 step-up grant binding and consumer receipt
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 PF04-001-01:system_file_upload_session
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 PF04-001-02:system_file_object
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 PF04-001-03:system_file_scan_attempt
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 PF04-001-04:system_file_reference_grant
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 PF04-001-05:system_notification_announcement
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 PF04-001-06:system_notification_message
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 PF04-001-07:system_notification_inbox_delivery
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 PF04-001-08:system_audit_fact
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 PF04-001-09:system_audit_lifecycle
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 PF04-001-10:system_audit_ingress_failure
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 PF04-001-11:system_audit_outbox
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 PF04-001-12:system_audit_lifecycle legal hold
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 PF05-001:system_trusted_service_call_nonce
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 PF05-002-01:system_collaboration_file_reference
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 PF05-002-02:system_collaboration_file_hold
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 PF05-003:system_file_status_outbox
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-001-01:create system_data_database_environment_policy
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-001-02:create system_data_database_registration
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-002-01:create system_data_database_plan
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-002-02:create system_data_database_plan_step
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-002-03:create system_data_database_approval
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-002-04:create system_data_database_backup_evidence
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-003-01:create system_data_database_operation
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-003-02:create system_data_database_operation_step
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-003-03:create system_data_database_migration_observation
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-004-01:alter registration module scope
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-004-02:create system_data_seed_observation
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-004-03:create system_data_organization
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-004-04:alter migration observation module scope
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-004-05:mark service-owned initialization registrations
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-004-06:persist service initialization plan semantics
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-005-01:create system_data_position
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-006-01:create system_data_user_assignment
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-007-01:create system_data_module_manifest
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-007-02:create system_data_ui_resource
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-007-03:system_data_module_manifest permission declarations
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-007-04:system_data_module_manifest resource declarations
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-007-05:system_data_module_manifest feature declarations
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-008-01:create system_data_navigation_set
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-008-02:create system_data_navigation
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-008-03:create system_data_navigation_snapshot
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-009-01:create system_data_feature
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-009-02:create system_data_feature_override
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-010-01:create system_data_service_catalog
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-010-02:system_data_service_catalog owner snapshots
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-011-01:create system_data_theme_policy
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-012-01:create system_data_projection_revision
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-012-02:create system_data_operation_audit
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-012-03:create system_data_outbox
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-012-04:system_data_outbox retry backoff
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-012-05:system_data_projection_revision tenant area unique index
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-012-06:SystemData PostgreSQL control-plane native types
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-013-01:create system_data_seed_ledger
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-013-02:SystemData permission/resource/navigation baseline seed
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-014-01:SystemData feature baseline seed
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-015-01:SystemData service catalog baseline seed
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-016-01:SystemData theme policy baseline seed
+info: IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationRunner[1]
+      SystemData 库迁移已应用 SDM-017-01:SystemData navigation action resource associations
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://127.0.0.1:57201
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Development
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: C:\Users\DONG\AppData\Local\Temp\pf06-round4-init-sequence-d682e867ac764d6e8f70579afa634916\a

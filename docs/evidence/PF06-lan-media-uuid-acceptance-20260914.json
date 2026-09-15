@@ -1,0 +1,92 @@
+{
+  "evidence": "PF06 LAN HTTP collaboration message/media independent acceptance",
+  "date": "2026-09-14",
+  "result": "partial",
+  "repository": {
+    "head": "0a77597f94e38873b67565e0b477e120e72a57f8",
+    "worktree": "shared dirty WIP; acceptance changed evidence only"
+  },
+  "layers": {
+    "codeRegression": {
+      "result": "PASS",
+      "findings": [
+        "the four scoped collaboration ID sites reuse createCorrelationId and remove UUID dashes at their existing boundaries",
+        "createCorrelationId retains crypto.randomUUID when available and uses crypto.getRandomValues for a UUIDv4 fallback",
+        "the fallback sets version 4 and RFC variant bits and contains no Math.random fallback",
+        "the chat regression now proves both Connected Hub send and Disconnected REST fallback are invoked when randomUUID is absent",
+        "no Hub lifecycle, implicit-start, or five-second retry wrapper was restored"
+      ]
+    },
+    "interfaceAndSignalling": {
+      "result": "NOT_RUN_REAL_TRANSPORT",
+      "findings": [
+        "mock-backed tests reach the existing Hub and REST call boundaries",
+        "media request and negotiation IDs use the same secure UUID helper",
+        "no real LAN HTTP request, Hub negotiate, WebSocket, or WebRTC signalling was observed in this acceptance"
+      ]
+    },
+    "realBusinessEffect": {
+      "result": "NOT_RUN",
+      "findings": [
+        "Huawei or Android device page was not reachable for this acceptance",
+        "trusted HTTPS, device permissions, actual audio playback, and actual screen capture remain field checks",
+        "Android Chrome screen-capture API absence is a browser capability boundary, not proof of an application defect"
+      ]
+    }
+  },
+  "secureContextAndCapabilities": {
+    "result": "PASS_STATIC",
+    "checks": [
+      "isSecureContext === false produces MEDIA_SECURE_CONTEXT_REQUIRED before local screen or microphone capture",
+      "the technical code maps to zh-CN and en-US localized messages",
+      "screen capture checks getDisplayMedia and microphone capture checks getUserMedia independently",
+      "missing getDisplayMedia does not block voice capture",
+      "remote viewing does not call the local startScreenCapture entry and therefore does not require local getDisplayMedia",
+      "screen and microphone capture remain at the beginning of their user-click paths before network invitation"
+    ]
+  },
+  "developerVerificationEvidence": {
+    "originalTargetedSuite": {
+      "command": "vitest run --configLoader runner tests/unit/correlation.spec.ts tests/unit/collaborationMediaError.spec.ts tests/components/CollaborationChat.spec.ts tests/unit/collaborationMediaStore.spec.ts",
+      "result": "4 files, 66 tests passed before the REST fallback evidence-only test was added"
+    },
+    "supplementalRestEvidence": {
+      "command": "vitest run --configLoader runner tests/components/CollaborationChat.spec.ts",
+      "result": "1 file, 31 tests passed after the REST fallback test was added"
+    },
+    "typechecks": "vue-tsc app and tsc node exit 0 using isolated tsBuildInfo files",
+    "productionLint": "exit 0",
+    "supplementalTestLint": "exit 0",
+    "gitDiffCheck": "exit 0",
+    "independentlyRerun": false,
+    "reasonNotRerun": "controller explicitly requested evidence review without repeating the already passed suites"
+  },
+  "knownNonfunctionalItem": {
+    "result": "NOT_BLOCKING",
+    "detail": "four pre-existing unused-parameter lint findings remain in fake WebRTC test doubles; production lint is clean"
+  },
+  "artifactHashes": {
+    "docs/evidence/PF06-lan-media-uuid-20260914.md": "721E7115D070FF3B3CD0007003C362967992B2C6D9BA88D0989C70C9B3AEF9AF",
+    "src/frontend/src/api/correlation.ts": "70D79EF8658E8406F05D6DF0E666ED14F7029CB6DC4259A616FCF4B68C0DAF5D",
+    "src/frontend/src/api/collaboration.ts": "D15B8BCB84827FB22A6784E05FEE0FA773348DF672A7EB4A22AAFDC801825905",
+    "src/frontend/src/components/collaboration/CollaborationChat.vue": "3757C8779E44957899DADE688EEC629E0C29D95CE721332B5591D1CAB0E9E6B1",
+    "src/frontend/src/stores/collaborationMediaStore.ts": "F48ACD53AD2240038641CC6879B5D55A6097B878E57C0BF161ABC05C43BD9F9B",
+    "src/frontend/src/components/collaboration/mediaError.ts": "60F83CC91670359F20592402D8414059DD7196055ACBCDD4B09D9AF858F00B29",
+    "src/frontend/src/locales/zh-CN.ts": "512E89B91F212F70C3EBCA6B88974EF15CD861625287328DAA0202565B9AC0B9",
+    "src/frontend/src/locales/en-US.ts": "3AC609AA68F23B553846E798AB4FEE4C5C7D5721D8A629B84D37F5CF12162B2B",
+    "src/frontend/src/localization/types.ts": "5F4D653B0EC600135EB678C97812B38C202713D970153BBCD9726CE796D37937",
+    "src/frontend/tests/unit/correlation.spec.ts": "C6DEDAF9D94704CC0A50C79B533A07B3906B5CD7E66193D942DE11BC90CFF995",
+    "src/frontend/tests/unit/collaborationMediaError.spec.ts": "D90826A944FCE1DB99F444B4D3F1EF97962B477F6E6F6A87CCA2B7FF570ED10F",
+    "src/frontend/tests/components/CollaborationChat.spec.ts": "B3290AA04E53F8BC26037E46D0FC387E1267C90C1D9C70C436C7C45151A144C8",
+    "src/frontend/tests/unit/collaborationMediaStore.spec.ts": "DB6059204137F2DE9FDB593BC54F5BEF5810DF6D3509A1D0D55624F11A89EA4E",
+    "src/frontend/src/api/collaborationHub.ts": "F93E1C05966306EC5E3029DD2BBBEB5C74DBB068D0FED5628117D59F30AE5255",
+    "src/frontend/tests/unit/collaborationHub.spec.ts": "4483B9FCED14876139DC9EE4C034B201731423051B8C7230C4F590867EBCD23A"
+  },
+  "acceptanceBoundary": {
+    "pf06aTouched": false,
+    "productionCodeModifiedByAcceptance": false,
+    "servicesRestarted": false,
+    "commitOrPushPerformed": false,
+    "realDevicePassClaimed": false
+  }
+}

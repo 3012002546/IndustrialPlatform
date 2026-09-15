@@ -21,5 +21,6 @@ export {
   type MockAuthGatewayOptions,
 } from './mockAuthGateway'
 export { createHttpAuthGateway, type HttpAuthGatewayDeps } from './httpAuthGateway'
+export { createEmbeddedAuthGateway, type EmbeddedAuthGatewayDeps } from './embeddedAuthGateway'
 export { getAuthGateway, getCurrentSession, setAuthGateway, setCurrentSession } from './gateway'
-export type { AuthGateway, AuthSession, AuthUser, LoginCommand } from './types'
+export type { AuthGateway, AuthSession, AuthSessionTransport, AuthUser, LoginCommand } from './types'

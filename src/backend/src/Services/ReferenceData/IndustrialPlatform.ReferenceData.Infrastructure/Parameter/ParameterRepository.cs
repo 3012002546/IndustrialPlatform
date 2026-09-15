@@ -3,6 +3,7 @@ using System.Text.Json;
 using IndustrialPlatform.Infrastructure.Database;
 using IndustrialPlatform.ReferenceData.Application.Caching;
 using IndustrialPlatform.ReferenceData.Application.Parameter;
+using IndustrialPlatform.ReferenceData.Infrastructure.Persistence;
 using IndustrialPlatform.ReferenceData.Contracts.Parameter;
 using IndustrialPlatform.ReferenceData.Contracts.Events;
 using IndustrialPlatform.ReferenceData.Domain.Common;
@@ -18,7 +19,7 @@ public sealed class ParameterRepository(SqlSugarDbContext context) : IParameterR
 {
     private ISqlSugarClient Db => context.SqlSugar;
     private bool Postgres => Db.CurrentConnectionConfig.DbType == DbType.PostgreSQL;
-    private string Table(string suffix) => (Postgres ? "reference_data.parameter_" : "reference_data_parameter_") + suffix;
+    private string Table(string suffix) => ReferenceDataSqlNames.Table(Db, "parameter_" + suffix);
     private ISugarQueryable<ParameterDomainRow> Visible(string tenant) => Db.Queryable<ParameterDomainRow>().AS(Table("app_domain"))
         .Where(row => !row.IsDeleted && (row.TenantNId == tenant || row.TenantNId == null));
 
