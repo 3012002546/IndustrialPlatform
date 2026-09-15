@@ -16,6 +16,7 @@ import { useLocalizationStore } from '@/stores/localizationStore'
 import { useAuthStore } from '@/stores/authStore'
 import SystemDataRuntimeStatus from '@/components/systemData/SystemDataRuntimeStatus.vue'
 import { setVxeLocale } from '@/localization/vxeLocale'
+import CollaborationMediaHost from '@/components/collaboration/CollaborationMediaHost.vue'
 
 const authStore = useAuthStore()
 const route = useRoute()
@@ -70,6 +71,7 @@ watch(
 <template>
   <PlatformConfigProvider :locale="elementLocale">
     <SystemDataRuntimeStatus />
+    <CollaborationMediaHost />
     <RouterView />
   </PlatformConfigProvider>
 </template>

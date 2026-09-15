@@ -1,0 +1,123 @@
+INSPECT|database=C:\Users\DONG\AppData\Local\Temp\pf06-round4-init-evidence-6ac2820beed141f081645cb721fe3f96\standalone.db|table-count=109
+TABLE|collaboration_chat_attachment|rows=0
+TABLE|collaboration_compliance_command|rows=0
+TABLE|collaboration_compliance_disposition|rows=0
+TABLE|collaboration_compliance_export|rows=0
+TABLE|collaboration_compliance_preparation|rows=0
+TABLE|collaboration_compliance_view_budget|rows=0
+TABLE|collaboration_conversation|rows=0
+TABLE|collaboration_conversation_member|rows=0
+TABLE|collaboration_event_inbox|rows=0
+TABLE|collaboration_legal_hold_case|rows=0
+TABLE|collaboration_message|rows=0
+TABLE|collaboration_message_personal_visibility|rows=0
+TABLE|collaboration_messaging_deduplication|rows=0
+TABLE|collaboration_outbox_message|rows=0
+TABLE|collaboration_remote_assistance_session|rows=0
+TABLE|collaboration_remote_assistance_voice_call|rows=0
+TABLE|collaboration_remote_assistance_voice_slot|rows=0
+TABLE|collaboration_retention_checkpoint|rows=0
+TABLE|collaboration_retention_policy|rows=0
+TABLE|collaboration_schema_migrations|rows=13
+TABLE|identity_bootstrap_credential|rows=0
+TABLE|identity_login_audit|rows=0
+TABLE|identity_operation_audit|rows=0
+TABLE|identity_outbox|rows=0
+TABLE|identity_permission|rows=149
+TABLE|identity_refresh_session|rows=0
+TABLE|identity_role|rows=1
+TABLE|identity_role_permission|rows=149
+TABLE|identity_schema_migrations|rows=24
+TABLE|identity_seed_ledger|rows=2
+TABLE|identity_sso_browser_session|rows=0
+TABLE|identity_sso_client|rows=0
+TABLE|identity_sso_client_endpoint|rows=0
+TABLE|identity_sso_external_account|rows=0
+TABLE|identity_sso_provider|rows=0
+TABLE|identity_user|rows=0
+TABLE|identity_user_group|rows=0
+TABLE|identity_user_group_membership|rows=0
+TABLE|identity_user_group_role|rows=0
+TABLE|identity_user_role|rows=0
+TABLE|identity_write_idempotency|rows=0
+TABLE|pf05_service_call_nonce|rows=0
+TABLE|pf05_step_up_grant|rows=0
+TABLE|reference_data_cache_generation|rows=0
+TABLE|reference_data_coding_rule_definition|rows=0
+TABLE|reference_data_coding_rule_idempotency_record|rows=0
+TABLE|reference_data_coding_rule_sequence|rows=0
+TABLE|reference_data_dictionary_definition|rows=0
+TABLE|reference_data_dictionary_item|rows=0
+TABLE|reference_data_dynamic_property_definition|rows=0
+TABLE|reference_data_dynamic_property_field|rows=0
+TABLE|reference_data_dynamic_property_record|rows=0
+TABLE|reference_data_dynamic_property_value|rows=0
+TABLE|reference_data_metadata_attribute_definition|rows=0
+TABLE|reference_data_metadata_entity_schema|rows=0
+TABLE|reference_data_outbox_message|rows=0
+TABLE|reference_data_parameter_app_domain|rows=0
+TABLE|reference_data_parameter_history|rows=0
+TABLE|reference_data_parameter_key|rows=0
+TABLE|reference_data_parameter_multi_value|rows=0
+TABLE|reference_data_schema_migrations|rows=11
+TABLE|reference_data_seed_ledger|rows=2
+TABLE|reference_data_state_machine_definition|rows=0
+TABLE|reference_data_state_machine_node|rows=0
+TABLE|reference_data_state_machine_transition|rows=0
+TABLE|reference_data_unit_of_measure_dimension|rows=6
+TABLE|reference_data_unit_of_measure_unit|rows=12
+TABLE|system_audit_fact|rows=0
+TABLE|system_audit_ingress_failure|rows=0
+TABLE|system_audit_lifecycle|rows=0
+TABLE|system_audit_outbox|rows=0
+TABLE|system_collaboration_file_hold|rows=0
+TABLE|system_collaboration_file_reference|rows=0
+TABLE|system_data_database_approval|rows=0
+TABLE|system_data_database_backup_evidence|rows=0
+TABLE|system_data_database_environment_policy|rows=0
+TABLE|system_data_database_migration_observation|rows=0
+TABLE|system_data_database_operation|rows=0
+TABLE|system_data_database_operation_step|rows=0
+TABLE|system_data_database_plan|rows=0
+TABLE|system_data_database_plan_step|rows=0
+TABLE|system_data_database_registration|rows=0
+TABLE|system_data_feature|rows=1
+TABLE|system_data_feature_override|rows=0
+TABLE|system_data_module_manifest|rows=3
+TABLE|system_data_navigation|rows=9
+TABLE|system_data_navigation_set|rows=1
+TABLE|system_data_navigation_snapshot|rows=0
+TABLE|system_data_operation_audit|rows=2
+TABLE|system_data_organization|rows=0
+TABLE|system_data_outbox|rows=2
+TABLE|system_data_position|rows=0
+TABLE|system_data_projection_revision|rows=1
+TABLE|system_data_schema_migrations|rows=58
+TABLE|system_data_seed_ledger|rows=9
+TABLE|system_data_seed_observation|rows=0
+TABLE|system_data_service_catalog|rows=1
+TABLE|system_data_theme_policy|rows=1
+TABLE|system_data_ui_resource|rows=33
+TABLE|system_data_user_assignment|rows=0
+TABLE|system_file_object|rows=0
+TABLE|system_file_reference_grant|rows=0
+TABLE|system_file_scan_attempt|rows=0
+TABLE|system_file_status_outbox|rows=0
+TABLE|system_file_upload_session|rows=0
+TABLE|system_notification_announcement|rows=0
+TABLE|system_notification_inbox_delivery|rows=0
+TABLE|system_notification_message|rows=0
+TABLE|system_trusted_service_call_nonce|rows=0
+COLUMNS|system_data_outbox|event_id,event_type,event_version,tenant_n_id,payload,event_created_time,published_on,retry_count,last_error,dead_on,next_attempt_on
+ROW|system_data_outbox|event_id=9a4974c1-200c-4f74-aae4-099d3405af91;event_type=SystemData.PermissionReconciled.v1;event_version=v1;tenant_n_id=development;payload={"reconciled":true};event_created_time=2026-09-14 15:28:51.3318309;published_on=;retry_count=0;last_error=;dead_on=;next_attempt_on=
+ROW|system_data_outbox|event_id=5ebcf419-01b5-4df9-9c7d-006f31207781;event_type=SystemData.PermissionReconciled.v1;event_version=v1;tenant_n_id=development;payload={"reconciled":true};event_created_time=2026-09-14 15:28:53.5423927;published_on=;retry_count=0;last_error=;dead_on=;next_attempt_on=
+COLUMNS|system_data_seed_ledger|id,is_frozen,is_locked,is_deleted,entity_type,created_on,last_updated_on,optimistic_version,concurrency_version,tenant_n_id,seed_key,seed_version,checksum,applied_on
+ROW|system_data_seed_ledger|id=6aa5bb70-2fb3-4a97-a378-f4a16add0404;is_frozen=1;is_locked=0;is_deleted=0;entity_type=SystemData.SeedLedger;created_on=2026-09-14 15:28:50.3017876;last_updated_on=2026-09-14 15:28:50.3017876;optimistic_version=1;concurrency_version=bdc2f016-ed2f-4997-a07d-69e7ab96f7ae;tenant_n_id=development;seed_key=SDM-013;seed_version=1;checksum=2DE75177FBA2E3CA4175FDD7F7B9DA768775D7896ACF821449EA8CAAD6C9ED24;applied_on=2026-09-14 15:28:50.3017876
+ROW|system_data_seed_ledger|id=f1b19b7f-75cc-41d0-910f-7472aa034811;is_frozen=1;is_locked=0;is_deleted=0;entity_type=SystemData.SeedLedger;created_on=2026-09-14 15:28:50.3984646;last_updated_on=2026-09-14 15:28:50.3984646;optimistic_version=1;concurrency_version=742cbed9-2f72-419f-9ed5-b1b941c38463;tenant_n_id=development;seed_key=SDM-017;seed_version=3;checksum=A3B3D751A73EEBC9541DE0763D9D9ADCC6C19645905C6A7AA31745A986C2B17F;applied_on=2026-09-14 15:28:50.3984646
+ROW|system_data_seed_ledger|id=44646641-d5f0-4663-9bda-4c614dc7dc42;is_frozen=1;is_locked=0;is_deleted=0;entity_type=SystemData.SeedLedger;created_on=2026-09-14 15:28:50.4660422;last_updated_on=2026-09-14 15:28:50.4660422;optimistic_version=1;concurrency_version=bed7538f-1a5f-43de-8a23-1ea013ced889;tenant_n_id=development;seed_key=SDM-019;seed_version=3;checksum=DA54579AA450E5AF3A999256719B764D71F188C1AC713B2B6A795946E8215786;applied_on=2026-09-14 15:28:50.4660422
+ROW|system_data_seed_ledger|id=aeb1da9a-9842-44df-9b73-da108c05db10;is_frozen=1;is_locked=0;is_deleted=0;entity_type=SystemData.SeedLedger;created_on=2026-09-14 15:28:50.5113837;last_updated_on=2026-09-14 15:28:50.5113837;optimistic_version=1;concurrency_version=64ca5fde-0fa7-468a-89b3-699ca771a8e4;tenant_n_id=development;seed_key=collaboration.baseline;seed_version=1.1.0;checksum=AB7F7A71F3BE9A3251870E3987CD4C7259CD145EB359CDA7F04794ADF3753AE9;applied_on=2026-09-14 15:28:50.5113837
+ROW|system_data_seed_ledger|id=d64f7ec3-ce60-4c58-93de-77d7ab787e38;is_frozen=1;is_locked=0;is_deleted=0;entity_type=SystemData.SeedLedger;created_on=2026-09-14 15:28:50.5617942;last_updated_on=2026-09-14 15:28:50.5617942;optimistic_version=1;concurrency_version=3b039e35-18f2-47c4-bfbf-a83d292b3600;tenant_n_id=development;seed_key=collaboration.navigation;seed_version=1.1.0;checksum=4F4F7056603CCA7FD4EF61D99A528C90A6E5FBBA6A001D9EBC7E06453207CF4A;applied_on=2026-09-14 15:28:50.5617942
+ROW|system_data_seed_ledger|id=215179d0-311e-48e3-b45f-8b721d277e17;is_frozen=1;is_locked=0;is_deleted=0;entity_type=SystemData.SeedLedger;created_on=2026-09-14 15:28:50.6234548;last_updated_on=2026-09-14 15:28:50.6234548;optimistic_version=1;concurrency_version=4fdb6d81-8f36-4e88-98fe-279428200146;tenant_n_id=development;seed_key=SDM-018;seed_version=2;checksum=98CD4ADB1106984365F408AE896B89E4C5E42EADF07A182434DC3954E155EDCF;applied_on=2026-09-14 15:28:50.6234548
+ROW|system_data_seed_ledger|id=af4a372c-93f4-42b7-b452-67b82de01c74;is_frozen=1;is_locked=0;is_deleted=0;entity_type=SystemData.SeedLedger;created_on=2026-09-14 15:28:50.6741009;last_updated_on=2026-09-14 15:28:50.6741009;optimistic_version=1;concurrency_version=7189b538-d8b9-4311-a791-8debff4d4b85;tenant_n_id=development;seed_key=SDM-014;seed_version=1;checksum=61DC19E05A669A2D508EAE64EAE3C55E9C6F292D7226CDA79327B09DA7317D8A;applied_on=2026-09-14 15:28:50.6741009
+ROW|system_data_seed_ledger|id=fbdb3acf-817d-41ba-95a7-a7355fb17849;is_frozen=1;is_locked=0;is_deleted=0;entity_type=SystemData.SeedLedger;created_on=2026-09-14 15:28:50.7305526;last_updated_on=2026-09-14 15:28:50.7305526;optimistic_version=1;concurrency_version=c9e5dff0-6f81-4c6a-ae88-83c3c6f6a460;tenant_n_id=development;seed_key=SDM-015;seed_version=1;checksum=F910098D87340C2AE23F39681A3F328F0171AC1CD8888AA1DD51D5F88F2A4F7F;applied_on=2026-09-14 15:28:50.7305526
+ROW|system_data_seed_ledger|id=ff9b3603-07db-40d0-8882-da011d3f8594;is_frozen=1;is_locked=0;is_deleted=0;entity_type=SystemData.SeedLedger;created_on=2026-09-14 15:28:50.7971487;last_updated_on=2026-09-14 15:28:50.7971487;optimistic_version=1;concurrency_version=e439aba8-5a7b-4b67-909f-af3c61c7fdfa;tenant_n_id=development;seed_key=SDM-016;seed_version=1;checksum=641C5DAB60A1FBDCE8102F1E2FB2F935EB5A56DB45091BA77EF2F351C7CF0600;applied_on=2026-09-14 15:28:50.7971487

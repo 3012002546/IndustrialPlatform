@@ -1,5 +1,6 @@
 using System.Text.Json;
 using IndustrialPlatform.ReferenceData.Contracts.Events;
+using IndustrialPlatform.ReferenceData.Infrastructure.Persistence;
 using SqlSugar;
 
 namespace IndustrialPlatform.ReferenceData.Infrastructure.Outbox;
@@ -15,10 +16,11 @@ public static class ReferenceDataOutboxWriter
         ReferenceDataIntegrationEvent @event, CancellationToken cancellationToken)
     {
         var postgres = database.CurrentConnectionConfig.DbType == DbType.PostgreSQL;
+        var table = ReferenceDataSqlNames.Table(database, "outbox_message");
         var payload = JsonSerializer.Serialize(@event, @event.GetType(), JsonOptions);
         if (postgres)
-            return database.Ado.ExecuteCommandAsync("""
-                INSERT INTO reference_data.outbox_message
+            return database.Ado.ExecuteCommandAsync($"""
+                INSERT INTO {table}
                     (event_id,module_key,event_name,aggregate_id,revision,payload,status,attempt_count,created_time)
                 VALUES
                     (@EventId,@ModuleKey,@EventName,@AggregateId,@Revision,CAST(@Payload AS jsonb),'Pending',0,@CreatedTime)
@@ -43,7 +45,7 @@ public static class ReferenceDataOutboxWriter
             AttemptCount = 0,
             CreatedTime = @event.CreatedTime.ToLocalTime(),
         };
-        return database.Insertable(row).AS("reference_data_outbox_message")
+        return database.Insertable(row).AS(table)
             .ExecuteCommandAsync(cancellationToken);
     }
 }

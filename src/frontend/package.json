@@ -11,6 +11,9 @@
   "packageManager": "pnpm@11.16.0",
   "scripts": {
     "dev": "vite",
+    "dev:lan": "vite --mode lan",
+    "dev:lan:https": "vite --mode lan-https",
+    "dev:lan:https:collaboration": "vite --mode lan-https-collaboration",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",

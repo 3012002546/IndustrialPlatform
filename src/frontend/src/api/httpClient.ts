@@ -62,6 +62,8 @@ export interface HttpClientDeps {
   timeoutMs: number
   /** 可选:返回会话令牌用于 Authorization 头(FE-004 接入)。 */
   getToken?: () => string | null
+  /** Embedded 模式页级不透明凭据；不转换为 Bearer。 */
+  getEmbeddedSession?: () => { token: string; binding: string } | null
   /** 可选:跨源请求携带/接受凭据 Cookie(SSO 浏览器会话,§26.4)。默认 false。 */
   withCredentials?: boolean
   /** 可选:自定义 correlationId(测试注入固定值)。 */
@@ -106,6 +108,13 @@ export function createHttpClient(deps: HttpClientDeps): HttpClient {
       const token = deps.getToken?.()
       if (token && headers['Authorization'] === undefined) {
         headers['Authorization'] = `Bearer ${token}`
+      }
+      const embeddedSession = deps.getEmbeddedSession?.()
+      if (embeddedSession !== null && embeddedSession !== undefined) {
+        if (headers['X-Embedded-Session'] === undefined)
+          headers['X-Embedded-Session'] = embeddedSession.token
+        if (headers['X-Embedded-Binding'] === undefined)
+          headers['X-Embedded-Binding'] = embeddedSession.binding
       }
 
       try {
@@ -235,6 +244,7 @@ export function createHttpClient(deps: HttpClientDeps): HttpClient {
       request<T>('GET', path, undefined, options) as Promise<T>,
     getBlob: async (path: string, options: RequestOptions = {}) => {
       const token = deps.getToken?.()
+      const embeddedSession = deps.getEmbeddedSession?.()
       const response = await client.get<Blob>(path, {
         responseType: 'blob',
         headers: {
@@ -242,6 +252,16 @@ export function createHttpClient(deps: HttpClientDeps): HttpClient {
           ...(token && options.headers?.Authorization === undefined
             ? { Authorization: `Bearer ${token}` }
             : {}),
+          ...(embeddedSession === null || embeddedSession === undefined
+            ? {}
+            : {
+                ...(options.headers?.['X-Embedded-Session'] === undefined
+                  ? { 'X-Embedded-Session': embeddedSession.token }
+                  : {}),
+                ...(options.headers?.['X-Embedded-Binding'] === undefined
+                  ? { 'X-Embedded-Binding': embeddedSession.binding }
+                  : {}),
+              }),
           'X-Correlation-Id':
             options.headers?.['X-Correlation-Id'] ??
             deps.getCorrelationId?.() ??

@@ -15,9 +15,9 @@ public static class UnitOfMeasureSystemSeed
     public static readonly string Checksum = Convert.ToHexStringLower(SHA256.HashData(
         Encoding.UTF8.GetBytes($"{SeedKey}|{SeedVersion}|System|reference-data-unit-of-measure")));
 
-    public static string Sql(bool postgres)
+    public static string Sql(bool postgres, string schema = "reference_data")
     {
-        var prefix = postgres ? "reference_data." : "reference_data_";
+        var prefix = postgres ? $"{schema}." : "reference_data_";
         var trueValue = postgres ? "true" : "1";
         var falseValue = postgres ? "false" : "0";
         const string rootType = "IndustrialPlatform.ReferenceData.Domain.UnitOfMeasure.UnitDimension";

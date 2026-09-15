@@ -1,0 +1,35 @@
+{
+  "evidence": "PF06 FixedDemo local SQLite HTTP probe",
+  "date": "2026-09-14",
+  "project": "src/backend/src/Hosts/IndustrialPlatform.Collaboration.EmbeddedHost/IndustrialPlatform.Collaboration.EmbeddedHost.csproj",
+  "build": {
+    "command": "dotnet build src/backend/src/Hosts/IndustrialPlatform.Collaboration.EmbeddedHost/IndustrialPlatform.Collaboration.EmbeddedHost.csproj --configuration Release",
+    "exitCode": 0,
+    "warnings": 0,
+    "errors": 0
+  },
+  "probe": {
+    "command": "pwsh -NoProfile -File tools/verify-fixed-demo.ps1 -ProjectRoot . -Port 56365",
+    "script": "tools/verify-fixed-demo.ps1",
+    "transport": "http://localhost:56365",
+    "database": "isolated temporary SQLite file, removed in finally",
+    "observed": {
+      "demoUser": "A",
+      "directoryUsers": ["系统 B", "系统 C"],
+      "conversationNId": "CV-e19c727f192142fe306569d8",
+      "sentMessageNId": "MSG-a53c2d92a87ad30699c6dddf",
+      "readBackCount": 1
+    },
+    "cleanup": {
+      "port56365ListeningAfterProbe": false,
+      "temporaryDatabaseExistsAfterProbe": false
+    }
+  },
+  "scope": [
+    "FixedDemo entry only",
+    "existing collaboration HTTP API and SQLite persistence",
+    "no real MES endpoint or platform A/B/C user seed",
+    "ordinary platform auth/http/Hub branch unchanged",
+    "no media matrix or legacy embedded handshake suite rerun"
+  ]
+}

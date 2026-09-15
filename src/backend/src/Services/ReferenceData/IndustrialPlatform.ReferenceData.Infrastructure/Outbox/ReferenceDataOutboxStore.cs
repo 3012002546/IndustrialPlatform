@@ -1,4 +1,5 @@
 using IndustrialPlatform.Infrastructure.Database;
+using IndustrialPlatform.ReferenceData.Infrastructure.Persistence;
 using SqlSugar;
 
 namespace IndustrialPlatform.ReferenceData.Infrastructure.Outbox;
@@ -11,9 +12,7 @@ public readonly record struct ReferenceDataOutboxFailureResult(bool Updated, boo
 public sealed class ReferenceDataOutboxStore(SqlSugarDbContext context)
 {
     private ISqlSugarClient Database => context.SqlSugar;
-    private string Table => Database.CurrentConnectionConfig.DbType == DbType.PostgreSQL
-        ? "reference_data.outbox_message"
-        : "reference_data_outbox_message";
+    private string Table => ReferenceDataSqlNames.Table(Database, "outbox_message");
 
     public async Task<IReadOnlyList<ReferenceDataPendingEvent>> GetPendingAsync(
         DateTimeOffset now, int limit, CancellationToken cancellationToken)

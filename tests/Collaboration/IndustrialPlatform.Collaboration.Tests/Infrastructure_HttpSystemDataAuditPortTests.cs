@@ -65,6 +65,25 @@ public sealed class Infrastructure_HttpSystemDataAuditPortTests
         Assert.Equal("COLLAB_SYSTEMDATA_AUDIT_UNAVAILABLE", exception.Code);
     }
 
+    [Fact]
+    public async Task Distributed_system_actor_path_is_explicitly_out_of_scope_for_pf06()
+    {
+        var port = CreatePort(new RecordingHandler("{\"success\":true,\"data\":{\"auditEventNId\":\"AUD-1\"}}"));
+
+        var exception = await Assert.ThrowsAsync<CollaborationException>(() => port.WriteAsync(
+            "T-1",
+            null,
+            null!,
+            "collaboration.media.end",
+            "screen-session",
+            "SCR-1",
+            new { actorKind = "System" },
+            DateTimeOffset.UtcNow,
+            CancellationToken.None));
+
+        Assert.Equal("COLLAB_PF06_AUDIT_HTTP_UNSUPPORTED", exception.Code);
+    }
+
     private static HttpSystemDataAuditPort CreatePort(HttpMessageHandler handler)
     {
         var http = new DefaultHttpContext

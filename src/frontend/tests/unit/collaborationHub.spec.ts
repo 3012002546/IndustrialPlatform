@@ -85,7 +85,7 @@ describe('collaboration realtime', () => {
     const connection = connections[0]!
     expect(withUrl).toHaveBeenCalledWith(
       'http://localhost:5041/collaboration/hubs/collaboration-v1',
-      { accessTokenFactory: expect.any(Function) },
+      { accessTokenFactory: expect.any(Function), withCredentials: true },
     )
 
     await realtime.start()
@@ -192,6 +192,20 @@ describe('collaboration realtime', () => {
     expect(startedTokens).toEqual(['token-u1', 'token-u2'])
     expect(connection.stop).toHaveBeenCalledOnce()
     expect(realtime.status).toBe('Connected')
+    await realtime.stop()
+  })
+
+  it('uses the page-scoped embedded credential for SignalR without a bearer token', async () => {
+    vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:5041')
+    const realtime = createCollaborationRealtime({
+      getEmbeddedSessionCredential: () => ({ token: 'page-token', binding: 'page-binding' }),
+      onMessage: vi.fn(),
+      onPresence: vi.fn(),
+      onReconnected: vi.fn(),
+    })
+    const tokenFactory = (withUrl.mock.calls[0]![1] as { accessTokenFactory: () => string })
+      .accessTokenFactory
+    expect(tokenFactory()).toBe('embedded-session:page-token:page-binding')
     await realtime.stop()
   })
 

@@ -3,6 +3,7 @@ using System.Globalization;
 using IndustrialPlatform.Infrastructure.Database;
 using IndustrialPlatform.ReferenceData.Application.Caching;
 using IndustrialPlatform.ReferenceData.Application.CodingRule;
+using IndustrialPlatform.ReferenceData.Infrastructure.Persistence;
 using IndustrialPlatform.ReferenceData.Contracts.CodingRule;
 using IndustrialPlatform.ReferenceData.Contracts.Events;
 using IndustrialPlatform.ReferenceData.Domain.CodingRule;
@@ -17,11 +18,11 @@ public sealed class CodingRuleRepository(SqlSugarDbContext context) : ICodingRul
 {
     private ISqlSugarClient Db => context.SqlSugar;
     private bool Postgres => Db.CurrentConnectionConfig.DbType == DbType.PostgreSQL;
-    private string Definitions => Postgres ? "reference_data.coding_rule_definition" : "reference_data_coding_rule_definition";
-    private string Sequences => Postgres ? "reference_data.coding_rule_sequence" : "reference_data_coding_rule_sequence";
+    private string Definitions => ReferenceDataSqlNames.Table(Db, "coding_rule_definition");
+    private string Sequences => ReferenceDataSqlNames.Table(Db, "coding_rule_sequence");
     private string IdempotencyRecords => Postgres
-        ? "reference_data.coding_rule_idempotency_record"
-        : "reference_data_coding_rule_idempotency_record";
+        ? ReferenceDataSqlNames.Table(Db, "coding_rule_idempotency_record")
+        : ReferenceDataSqlNames.Table(Db, "coding_rule_idempotency_record");
 
     private ISugarQueryable<CodingRuleDefinitionRow> Visible(string tenantNId) =>
         Db.Queryable<CodingRuleDefinitionRow>().AS(Definitions)

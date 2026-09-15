@@ -1,0 +1,37 @@
+{
+  "date": "2026-09-13",
+  "status": "PARTIAL",
+  "configuration": "Existing cloud Docker debug configuration; no environment changes",
+  "identities": ["test", "e2e.admin"],
+  "codeVerification": {
+    "frontendBuild": "PASS",
+    "targetedTests": {"passed": 38, "failed": 0},
+    "independentIncrementReview": "PASS; read-only; tests not repeated",
+    "storeSha256": "F6B99B2BF90C65F11EF2312B9F65035E780B24EEE509D4B524D8CBDB544A8E1A",
+    "mediaWindowSha256": "BECA58C9673DA348989419A0D8DD7427CB783447D789BE918ABD9D541950AD44"
+  },
+  "initialRuntimeBeforeFinalThreeRepairs": {
+    "chatListRows": [{"top":344,"height":72},{"top":420,"height":72}],
+    "chatListGapPixels": 4,
+    "terminalBars": [],
+    "independentPopupOpened": true,
+    "callerMicrophone": {"kind":"audio","state":"live","enabled":true},
+    "calleeInvitationReceived": true,
+    "remotePlayback": "NOT VERIFIED",
+    "interruption": "Test runner popup wait rejected; this is not evidence of a product failure"
+  },
+  "finalRuntimeAttempt": {
+    "testLogin": "Request timed out; remained on login page",
+    "peerLogin": "Request timed out; remained on login page",
+    "mediaStepsReached": false,
+    "cause": "Unknown; user asked whether VS is paused at a breakpoint/exception",
+    "repeatedLoginAttemptsAfterBothTimeouts": 0
+  },
+  "notVerified": [
+    "Actual two-way voice playback after acceptance",
+    "Native screen source selection and remote moving picture",
+    "Independent media stop with the other capability continuing",
+    "TURN, two physical devices, Screego comparison and long-duration quality"
+  ],
+  "cleanup": "Controller test browsers closed; no new Host started; existing user debugging and cloud Docker preserved"
+}

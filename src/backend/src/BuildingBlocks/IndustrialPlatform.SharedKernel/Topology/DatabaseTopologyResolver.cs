@@ -4,7 +4,8 @@ namespace IndustrialPlatform.SharedKernel.Topology;
 
 /// <summary>
 /// 将受信任的数据库拓扑与稳定逻辑身份解析为具体物理目标。
-/// 规则(见 05 方案 §2.3/§7.1):Shared 仅允许 Development;Shared 必须提供目标名;
+/// 规则(见 05 方案 §2.3/§7.1):平台 Shared 仅允许 Development；显式 IsStandalone
+/// 才可在独立宿主中使用其他环境名；Shared 必须提供目标名;
 /// PerService 只接受显式物理映射,缺失时 fail-closed,禁止回退到逻辑库名。
 /// 解析规则唯一,服务启动(DevelopmentInfrastructureConfiguration)与
 /// SystemData 编排共用本解析器,不重复实现。
@@ -47,7 +48,7 @@ public static class DatabaseTopologyResolver
         DatabaseProvider provider,
         string logicalDatabaseName)
     {
-        if (!string.Equals(topology.EnvironmentName, SharedAllowedEnvironment, StringComparison.Ordinal))
+        if (!topology.IsStandalone && !string.Equals(topology.EnvironmentName, SharedAllowedEnvironment, StringComparison.Ordinal))
         {
             throw new BusinessException($"Shared 拓扑仅允许 {SharedAllowedEnvironment} 环境,当前为 {topology.EnvironmentName}。");
         }
@@ -64,6 +65,11 @@ public static class DatabaseTopologyResolver
             throw new ValidationException($"Shared 拓扑缺少 {provider} 目标库名。");
         }
 
+        // StandaloneConfiguration projects the one trusted PostgreSQL schema
+        // into SharedDatabaseSchema. Every in-process module must observe that
+        // same value; a service-specific fallback silently split the database.
+        var schema = topology.SharedDatabaseSchema;
+
         return new ResolvedDatabaseTarget(
             topology.EnvironmentName,
             DatabaseTopologyMode.Shared,
@@ -71,7 +77,9 @@ public static class DatabaseTopologyResolver
             provider,
             logicalDatabaseName,
             physicalName,
-            IsSharedPhysicalDatabase: true);
+            IsSharedPhysicalDatabase: true,
+            Schema: schema,
+            IsStandalone: topology.IsStandalone);
     }
 
     private static ResolvedDatabaseTarget ResolvePerService(
@@ -96,6 +104,8 @@ public static class DatabaseTopologyResolver
             provider,
             logicalDatabaseName,
             physicalName,
-            IsSharedPhysicalDatabase: false);
+            IsSharedPhysicalDatabase: false,
+            Schema: null,
+            IsStandalone: topology.IsStandalone);
     }
 }

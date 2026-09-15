@@ -14,18 +14,26 @@ public sealed class SystemDataAuditPort : ICollaborationAuditPort
 
     public SystemDataAuditPort(IAuditService audit) => _audit = audit;
 
-    public async Task WriteAsync(string tenantNId, TrustedCollaborationCall? serviceCall, string actorUserNId, string action, string objectType, string objectNId, object payload, CancellationToken cancellationToken)
+    public Task WriteAsync(string tenantNId, TrustedCollaborationCall? serviceCall, string actorUserNId, string action, string objectType, string objectNId, object payload, CancellationToken cancellationToken)
+        => WriteAsync(tenantNId, serviceCall, actorUserNId, action, objectType, objectNId, payload, DateTimeOffset.UtcNow, cancellationToken);
+
+    public Task WriteAsync(string tenantNId, TrustedCollaborationCall? serviceCall, string actorUserNId, string action, string objectType, string objectNId, object payload, DateTimeOffset occurredOn, CancellationToken cancellationToken)
+        => WriteAsync(tenantNId, serviceCall, actorUserNId, action, objectType, objectNId, payload, occurredOn, null, cancellationToken);
+
+    public async Task WriteAsync(string tenantNId, TrustedCollaborationCall? serviceCall, string actorUserNId, string action, string objectType, string objectNId, object payload, DateTimeOffset occurredOn, string? auditEventNId, CancellationToken cancellationToken)
     {
         var json = JsonSerializer.Serialize(payload);
         if (json.Length > 8192)
             throw new CollaborationException(400, "COLLAB_AUDIT_PAYLOAD_TOO_LARGE", "审计载荷超过允许大小。");
         var eventSeed = $"{tenantNId}\n{actorUserNId}\n{action}\n{objectType}\n{objectNId}\n{json}";
-        var eventNId = "AUD-" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(eventSeed))).ToLowerInvariant();
+        var eventNId = string.IsNullOrWhiteSpace(auditEventNId)
+            ? "AUD-" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(eventSeed))).ToLowerInvariant()
+            : auditEventNId;
         await _audit.IngestAsync(tenantNId, new AuditFactIngestRequest
         {
             ProducerServiceKey = "collaboration",
             AuditEventNId = eventNId,
-            OccurredOn = DateTimeOffset.UtcNow,
+            OccurredOn = occurredOn,
             ActorUserNId = actorUserNId,
             Action = action,
             ObjectType = objectType,

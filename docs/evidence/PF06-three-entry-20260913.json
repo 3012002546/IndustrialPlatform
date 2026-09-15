@@ -1,0 +1,59 @@
+{
+  "scope": "Existing cloud Docker configuration; test account; existing E2E Admin test peer",
+  "verification": "Invitation and withdrawal only; no media capture or playback acceptance",
+  "final": {
+    "at": "2026-09-13T09:04:38.562Z",
+    "step": "final-three-entry-hub-verified",
+    "value": [
+      {
+        "name": "voice",
+        "invited": {
+          "target": "InviteVoiceCall",
+          "ok": true,
+          "error": false
+        },
+        "ended": {
+          "target": "EndVoiceCall",
+          "ok": true,
+          "error": false
+        },
+        "alerts": []
+      },
+      {
+        "name": "share-mine",
+        "invited": {
+          "target": "InviteScreenShare",
+          "ok": true,
+          "error": false
+        },
+        "ended": {
+          "target": "EndScreenShare",
+          "ok": true,
+          "error": false
+        },
+        "alerts": []
+      },
+      {
+        "name": "request-peer",
+        "invited": {
+          "target": "InviteScreenShare",
+          "ok": true,
+          "error": false
+        },
+        "ended": {
+          "target": "EndScreenShare",
+          "ok": true,
+          "error": false
+        },
+        "alerts": []
+      }
+    ]
+  },
+  "notVerified": [
+    "remote acceptance",
+    "microphone audio",
+    "screen video",
+    "media stop proof",
+    "TURN and quality"
+  ]
+}

@@ -1,4 +1,5 @@
 import type { HttpClient, RequestOptions } from '@/api/httpClient'
+import { createCorrelationId } from '@/api/correlation'
 
 export interface CollaborationDirectoryUser {
   userNId: string
@@ -472,7 +473,7 @@ function query(params: Record<string, unknown>): string {
 }
 
 function requestId(): string {
-  return crypto.randomUUID().replaceAll('-', '')
+  return createCorrelationId().replaceAll('-', '')
 }
 
 function requestHeaders(requestNId: string): RequestOptions {

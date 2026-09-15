@@ -24,7 +24,13 @@ public sealed class DatabaseTopologyOptions
     /// <summary>PerService 模式下服务到物理库名的映射。</summary>
     public Dictionary<string, string> ServiceDatabases { get; set; } = [];
 
+    /// <summary>Shared PostgreSQL schema/search path identity, when explicitly configured.</summary>
+    public string? SharedDatabaseSchema { get; set; }
+
+    /// <summary>Explicit standalone topology semantic; platform hosts keep this false.</summary>
+    public bool IsStandalone { get; set; }
+
     /// <summary>转换为领域拓扑描述。</summary>
     public DatabaseTopology ToTopology() =>
-        new(EnvironmentName, Mode, SharedDatabaseName, SharedSqliteFile, ServiceDatabases);
+        new(EnvironmentName, Mode, SharedDatabaseName, SharedSqliteFile, ServiceDatabases, SharedDatabaseSchema, IsStandalone);
 }

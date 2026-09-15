@@ -1,0 +1,31 @@
+{
+  "date": "2026-09-13",
+  "status": "PARTIAL",
+  "scope": "仅观看使用页内可拖动/缩放/全屏浮窗；语音留在聊天；共享点击即选源",
+  "runtime": {
+    "primaryLogin": "PASS",
+    "peerLogin": "请求超时，请稍后重试",
+    "firstPeerRender": "HMR期间空白/输入重置，重载恢复；不作为账号/环境故障",
+    "actualMediaInvocations": 0,
+    "senderReceiverFrames": "NOT_REACHED",
+    "nativeScreenPicker": "NOT_TESTED",
+    "syntheticSources": "仅准备，未调用；不算媒体证据",
+    "browserCleanup": "本轮自有Edge上下文已关闭",
+    "environmentChanges": "无Host/IDE/云Docker重启，无账号/角色/密码变更"
+  },
+  "development": {
+    "reportedRelatedTests": "39/39",
+    "reportedFrontendBuild": "PASS",
+    "independentReview": "PASS（稳定增量只读）：Voice/Screen播放失败提示已隔离，最终hash与开发交接一致；未重复浏览器或门禁，不证明真实声音/画面"
+  },
+  "remaining": [
+    "用户反馈接收黑屏0:00根因未证实/未关闭",
+    "真实双向音频/屏幕及分项停止",
+    "TURN、双机与质量对照"
+  ],
+  "finalHashes": {
+    "host": "FE21D890B917DCC22000C2612C72FBFF9F40FE3C7D9BC4306552B6C96D84ABF4",
+    "viewer": "0D72CBEB4731342A6E82AA63E9E5F5D8A23BF5974FB7B43844FFEA344198BC0B",
+    "store": "A314C4D0E8513F1276E393B1F85248C3FB2597A381DE6882DDB32A0294F4D42D"
+  }
+}

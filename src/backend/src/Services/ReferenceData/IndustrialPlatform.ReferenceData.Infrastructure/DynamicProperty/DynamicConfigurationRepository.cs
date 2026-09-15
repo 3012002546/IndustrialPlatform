@@ -4,6 +4,7 @@ using System.Text.Json;
 using IndustrialPlatform.Infrastructure.Database;
 using IndustrialPlatform.ReferenceData.Application.Caching;
 using IndustrialPlatform.ReferenceData.Application.DynamicProperty;
+using IndustrialPlatform.ReferenceData.Infrastructure.Persistence;
 using IndustrialPlatform.ReferenceData.Contracts.DynamicProperty;
 using IndustrialPlatform.ReferenceData.Contracts.Events;
 using IndustrialPlatform.ReferenceData.Domain.Common;
@@ -19,7 +20,7 @@ public sealed class DynamicConfigurationRepository(SqlSugarDbContext context) : 
 {
     private ISqlSugarClient Db => context.SqlSugar;
     private bool Postgres => Db.CurrentConnectionConfig.DbType == DbType.PostgreSQL;
-    private string Table(string suffix) => (Postgres ? "reference_data." : "reference_data_") + "dynamic_property_" + suffix;
+    private string Table(string suffix) => ReferenceDataSqlNames.Table(Db, "dynamic_property_" + suffix);
     private ISugarQueryable<DynamicDefinitionRow> Visible(string tenantNId) => Db.Queryable<DynamicDefinitionRow>().AS(Table("definition"))
         .Where(row => !row.IsDeleted && (row.TenantNId == null || row.TenantNId == tenantNId));
 

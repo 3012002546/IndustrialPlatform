@@ -1,0 +1,70 @@
+{
+  "date": "2026-09-13",
+  "status": "PARTIAL",
+  "userEnvironment": "用户Edge与Chrome分别登录不同账号进行真实调试；不以历史自动化登录超时解释当前媒体故障",
+  "reported": [
+    "标签页来源列表为空",
+    "接收端实时画面0:00转圈，原生播放器控件不合适",
+    "语音显示进行中但实际生效不确定"
+  ],
+  "screenPicker": {
+    "observedCode": "未显式设置selfBrowserSurface",
+    "officialSource": "https://developer.chrome.com/docs/web-platform/screen-sharing-controls#the_selfbrowsersurface_option",
+    "plannedFix": "显式include当前标签页，保留用户原生选择及audio:false",
+    "limit": "浏览器控制实际来源列表，不能保证枚举跨浏览器标签页"
+  },
+  "codeReproduction": {
+    "type": "离线协议时序回归，沿用已有FakePC/Realtime，非真实媒体验收",
+    "sequence": [
+      "本地ensureBinding进行中",
+      "收到peer contextRevision=2",
+      "本地Bind返回contextRevision=1",
+      "发送Offer contextRevision=1"
+    ],
+    "observed": "Error: MEDIA_CONTEXT_STALE",
+    "expected": "保留当前context的新revision，绑定完成后发有效Offer",
+    "resultBeforeFix": "FAIL 1/1，已交原开发修复",
+    "secondCase": "首Offer早于本地Bind结果；主控追加缺换行导致测试解析错误，不计产品失败，原开发接管修正后执行"
+  },
+  "runtimeMedia": "尚无本轮真实收发帧/音频播放证据，用户黑屏根因不宣称完全关闭",
+  "environmentChanges": "无浏览器重登、Host/IDE/云Docker重启、账号变更",
+  "developmentHandoff": {
+    "reportedTests": "4个文件41/41，通过，退出码0",
+    "reportedFrontendBuild": "最终返修后生产构建退出码0；从本地开发交付记录确认",
+    "raceRegression": "revision通知先于Bind、首Offer先于Bind，两项修复后通过",
+    "temporaryTest": "tests/unit/pf06-context-race-probe.spec.ts仍保留，尚未并入既有测试",
+    "verification": "原独立验收最终增量PASS；未重复前轮41项，最终定向4项PASS，实际媒体MISSING",
+    "source": "主控从本地开发任务交付记录读取；协作工具敏感信息保护拦截开发直接转发"
+  },
+  "independentVerification": {
+    "status": "PASS（代码/模拟时序）；真实媒体仍MISSING，整包PARTIAL",
+    "targetedRaceTests": "最终1文件4/4，退出码0：提前revision、提前Offer、能力变化补Bind、旧生命周期未决Bind不阻挡新会话",
+    "findings": [
+      "全局errorMessage/任一operation Error污染另一能力状态；浮窗未同步screenOperation错误",
+      "bindingPromise未按生命周期/能力组合区分：旧挂起Bind阻挡新会话，绑定中加入第二能力可能不补Bind"
+    ],
+    "runtime": "浏览器会话接口nodeRepl.fetch失败，未启动/重登；真实标签页/双方音画/停止MISSING",
+    "next": "两组代码返修关闭；不重复已通过用例。只补实际当前标签页选择、双方动态画面、双向声音及真实分项停止/另一项连续证据",
+    "staticReview": "14/14：来源选项、无播放器controls、分能力错误状态、唯一音频Host、真实playing才ready、分轨停止、绑定key与清理",
+    "repaired": [
+      "Voice/Screen自身operation判错；Host优先实际Active；浮窗同步screen Error",
+      "Bind按生命周期/会话/两能力组合分键；旧结果隔离；能力改变补Bind"
+    ]
+  },
+  "finalHashes": {
+    "store": "F4ABB587A1EAF3CC58FB3E912B651550F499829D8889A9238867C3467EDA5C26",
+    "floating": "1B766FBE039F4B8FC94BD832AB360D49D2C8B8776A92E9BC1711FB3136F676DF",
+    "host": "038A2342F677D6F69CDD8F9F1FF9A5E915172C6CABB2243ED5CB31567D76EC3A",
+    "probe": "1C6CC6A41259BF5C7BB2A365C3C8AF4CDE974D078CAABEADE6A9BDA8FB88F62B"
+  },
+  "icePolicyFinding": {
+    "observed": "发送端捕获已开启；发送端连接中，接收端等待远端画面",
+    "specification": "PF06数据接口与页面规格§1.3：默认All，显式RelayOnly不可回退",
+    "before": "Options和Binding DTO默认RelayOnly；唯一私有配置无策略覆盖、无ICE URL、无TURN secret",
+    "change": "唯一私有配置明确All；开发对齐默认值、媒体级配置错误、All+TURN短期凭据，以及DTO策略大小写规范化；不改云Docker",
+    "developmentValidation": "最终策略规范化后fresh Release 0 warnings/0 errors；provider+Bind 7/7；此前typecheck及错误码3/3 PASS；主控未重复运行",
+    "independentValidation": "PASS_AFTER_TARGETED_REPAIR：默认All、配置失败闭合、All+TURN凭据、Bind前校验、DTO大小写规范化、错误映射只读核对通过；未重复开发测试；完整记录PF06-ice-policy-20260913.json；真实媒体未验",
+    "isolatedProbe": "Edge→Chrome合成画布，直接SDP交换而非应用Hub：relay+空ICE为0候选；all+空ICE有候选但未建连/收帧，非媒体PASS",
+    "runtime": "已有IOptions进程尚未确认加载；真实屏幕、双向声音、分项停止仍未通过"
+  }
+}

@@ -57,6 +57,7 @@
   </Folder>
   <Folder Name="/src/Hosts/">
     <Project Path="src\Hosts\IndustrialPlatform.UnifiedHost\IndustrialPlatform.UnifiedHost.csproj" />
+    <Project Path="src\Hosts\IndustrialPlatform.Collaboration.EmbeddedHost\IndustrialPlatform.Collaboration.EmbeddedHost.csproj" />
   </Folder>
   <Folder Name="/tests/Gateway/">
     <Project Path="..\..\tests\Gateway\IndustrialPlatform.Gateway.Tests\IndustrialPlatform.Gateway.Tests.csproj" />

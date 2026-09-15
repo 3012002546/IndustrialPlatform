@@ -419,9 +419,25 @@ public sealed class CollaborationService
             historyPage,
             conversation.RetentionFloorSequence,
             cancellationToken);
+        var senderDisplayNames = await _directory.GetDisplayNamesAsync(
+            tenantNId,
+            messages.Select(message => message.SenderUserNId).Distinct(StringComparer.Ordinal).ToArray(),
+            cancellationToken);
+        var disposedMessageNIds = (await _repository.ListDispositionsAsync(tenantNId, cancellationToken))
+            .Where(IsActiveDisposition)
+            .Where(item => string.Equals(item.SubjectType, "message", StringComparison.OrdinalIgnoreCase))
+            .Select(item => item.SubjectNId)
+            .ToHashSet(StringComparer.Ordinal);
         var items = new List<MessageDto>(messages.Count);
         foreach (var message in messages)
-            items.Add(await ToMessageDtoAsync(message, tenantNId, conversationNId, actorUserNId, cancellationToken));
+            items.Add(await ToMessageDtoAsync(
+                message,
+                tenantNId,
+                conversationNId,
+                actorUserNId,
+                senderDisplayNames,
+                disposedMessageNIds,
+                cancellationToken));
 
         var nextAfter = mode switch
         {
@@ -1384,14 +1400,35 @@ public sealed class CollaborationService
 
     private async Task<MessageDto> ToMessageDtoAsync(MessageRecord message, string tenantNId, string conversationNId, string actorUserNId, CancellationToken cancellationToken)
     {
-        var sender = await _directory.GetAsync(tenantNId, message.SenderUserNId, cancellationToken);
-        var isDisposed = (await _repository.ListDispositionsAsync(tenantNId, cancellationToken))
-            .Any(item => item.SubjectType.Equals("message", StringComparison.OrdinalIgnoreCase)
-                && item.SubjectNId == message.MessageNId
-                && IsActiveDisposition(item));
+        var senderDisplayNames = await _directory.GetDisplayNamesAsync(tenantNId, [message.SenderUserNId], cancellationToken);
+        var disposedMessageNIds = (await _repository.ListDispositionsAsync(tenantNId, cancellationToken))
+            .Where(IsActiveDisposition)
+            .Where(item => string.Equals(item.SubjectType, "message", StringComparison.OrdinalIgnoreCase))
+            .Select(item => item.SubjectNId)
+            .ToHashSet(StringComparer.Ordinal);
+        return await ToMessageDtoAsync(
+            message,
+            tenantNId,
+            conversationNId,
+            actorUserNId,
+            senderDisplayNames,
+            disposedMessageNIds,
+            cancellationToken);
+    }
+
+    private async Task<MessageDto> ToMessageDtoAsync(
+        MessageRecord message,
+        string tenantNId,
+        string conversationNId,
+        string actorUserNId,
+        IReadOnlyDictionary<string, string> senderDisplayNames,
+        HashSet<string> disposedMessageNIds,
+        CancellationToken cancellationToken)
+    {
+        var isDisposed = disposedMessageNIds.Contains(message.MessageNId);
         var attachment = !isDisposed && message.RetractedOn is null && message.AttachmentNId is not null ? await _repository.GetAttachmentAsync(tenantNId, conversationNId, message.AttachmentNId, cancellationToken) : null;
         var state = message.RetractedOn is not null ? "Retracted" : isDisposed ? "Disposed" : "Accepted";
-        return new MessageDto { MessageNId = message.MessageNId, ConversationNId = message.ConversationNId, Sequence = message.Sequence, SenderUserNId = message.SenderUserNId, SenderDisplayName = sender?.DisplayName ?? message.SenderUserNId, ClientMessageNId = string.Equals(message.SenderUserNId, actorUserNId, StringComparison.Ordinal) ? message.ClientMessageNId : string.Empty, MessageType = message.MessageType, TextContent = state == "Accepted" ? message.TextContent : null, ReplyToMessageNId = message.ReplyToMessageNId, Attachment = attachment is null ? null : new MessageAttachmentDto { AttachmentNId = attachment.AttachmentNId, FileNId = attachment.FileNId, FileName = attachment.FileNameSnapshot, ContentType = attachment.ContentTypeSnapshot, MediaType = attachment.ContentTypeSnapshot, Size = attachment.SizeSnapshot, FileState = attachment.FileStateProjection, ReferenceState = attachment.ReferenceState }, AcceptedOn = message.AcceptedOn, RetractedOn = message.RetractedOn, RetractionReason = message.RetractedOn is null ? null : message.RetractionReason, State = state, MessageStateVersion = message.MessageStateVersion, OptimisticVersion = message.MessageStateVersion, ConcurrencyVersion = message.ConcurrencyVersion };
+        return new MessageDto { MessageNId = message.MessageNId, ConversationNId = message.ConversationNId, Sequence = message.Sequence, SenderUserNId = message.SenderUserNId, SenderDisplayName = senderDisplayNames.GetValueOrDefault(message.SenderUserNId, message.SenderUserNId), ClientMessageNId = string.Equals(message.SenderUserNId, actorUserNId, StringComparison.Ordinal) ? message.ClientMessageNId : string.Empty, MessageType = message.MessageType, TextContent = state == "Accepted" ? message.TextContent : null, ReplyToMessageNId = message.ReplyToMessageNId, Attachment = attachment is null ? null : new MessageAttachmentDto { AttachmentNId = attachment.AttachmentNId, FileNId = attachment.FileNId, FileName = attachment.FileNameSnapshot, ContentType = attachment.ContentTypeSnapshot, MediaType = attachment.ContentTypeSnapshot, Size = attachment.SizeSnapshot, FileState = attachment.FileStateProjection, ReferenceState = attachment.ReferenceState }, AcceptedOn = message.AcceptedOn, RetractedOn = message.RetractedOn, RetractionReason = message.RetractedOn is null ? null : message.RetractionReason, State = state, MessageStateVersion = message.MessageStateVersion, OptimisticVersion = message.MessageStateVersion, ConcurrencyVersion = message.ConcurrencyVersion };
     }
 
     private static ConversationMemberDto ToMemberDto(ConversationMemberRecord member) => new() { UserNId = member.UserNId, DisplayName = member.DisplayNameSnapshot, VisibilityState = member.VisibilityState, JoinedOn = member.JoinedOn, LastReadSequence = member.LastReadSequence, UnreadCount = member.UnreadCount, OptimisticVersion = member.ProjectionVersion, ConcurrencyVersion = member.ConcurrencyVersion, ProjectionVersion = member.ProjectionVersion };

@@ -410,6 +410,58 @@ export interface CollaborationLocaleMessages {
   stepUpServiceUnavailable: string
   stepUpContextInvalid: string
   stepUpCredentialFailed: string
+  voiceCall: string
+  shareMyScreen: string
+  requestPeerScreen: string
+  media: {
+    screen: string
+    voice: string
+    screenInProgress: string
+    voiceInProgress: string
+    authorizing: string
+    connecting: string
+    voiceActive: string
+    screenActive: string
+    failed: string
+    screenConnecting: string
+    screenFailed: string
+    openViewer: string
+    minimize: string
+    fullscreen: string
+    restore: string
+    returnToChat: string
+    endVoice: string
+    stopSharing: string
+    endAll: string
+    remoteVoice: string
+    waitingForResponse: string
+    accept: string
+    decline: string
+    selectContent: string
+    leaveViewing: string
+    startMicrophone: string
+    unmute: string
+    mute: string
+    remoteScreen: string
+    resumePlayback: string
+    errors: {
+      disabled: string
+      busy: string
+      forbidden: string
+      notFound: string
+      notAccepted: string
+      unsupported: string
+      unavailable: string
+      signalFailed: string
+      microphonePermissionDenied: string
+      microphoneUnavailable: string
+      screenCaptureCancelled: string
+      secureContextRequired: string
+      iceConfiguration: string
+      captureFailed: string
+      unknown: string
+    }
+  }
 }
 
 export interface PlatformLocaleMessages {

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using IndustrialPlatform.EventBus.Abstractions;
 using IndustrialPlatform.Collaboration.Application;
+using IndustrialPlatform.Collaboration.Application.RemoteAssistance;
 using IndustrialPlatform.Collaboration.Contracts;
 using Microsoft.AspNetCore.SignalR;
 
@@ -49,6 +50,57 @@ public sealed class CollaborationRealtimePublisher : ICollaborationRealtimePubli
                 ?? throw new InvalidOperationException("Collaboration personal visibility payload has no user id.");
             await _hub.Clients.Group($"collaboration-user:{message.TenantNId}:{userNId}")
                 .SendAsync("message.personal-hidden", JsonSerializer.Deserialize<JsonElement>(message.Payload), cancellationToken);
+            return;
+        }
+        if (string.Equals(message.EventType, "collaboration.media.changed.v1", StringComparison.Ordinal))
+        {
+            using var mediaPayload = JsonDocument.Parse(message.Payload);
+            var mediaRoot = mediaPayload.RootElement;
+            var mediaConversationNId = GetString(mediaRoot, "conversationNId", "ConversationNId")
+                ?? throw new InvalidOperationException("Collaboration media payload has no conversation id.");
+            var capability = GetString(mediaRoot, "capability", "Capability") ?? string.Empty;
+            using var mediaScope = _scopeFactory.CreateScope();
+            var mediaCollaboration = mediaScope.ServiceProvider.GetRequiredService<CollaborationService>();
+            var mediaService = mediaScope.ServiceProvider.GetRequiredService<RemoteAssistanceService>();
+            object? mediaProjection;
+            string mediaEventName;
+            if (string.Equals(capability, "Screen", StringComparison.OrdinalIgnoreCase))
+            {
+                var sessionNId = GetString(mediaRoot, "sessionNId", "SessionNId");
+                mediaProjection = sessionNId is null ? null : await mediaService.GetScreenForRealtimeAsync(message.TenantNId, sessionNId, cancellationToken);
+                mediaEventName = "screen-share.changed";
+            }
+            else
+            {
+                var callNId = GetString(mediaRoot, "callNId", "CallNId");
+                mediaProjection = callNId is null ? null : await mediaService.GetVoiceForRealtimeAsync(message.TenantNId, callNId, cancellationToken);
+                mediaEventName = "voice-call.changed";
+            }
+            if (mediaProjection is null) return;
+            var envelope = new
+            {
+                contractVersion = 1,
+                eventNId = message.EventId.ToString("N"),
+                occurredOn = GetDateTime(mediaRoot, "occurredOn", "OccurredOn") ?? message.CreatedOn,
+                payload = mediaProjection,
+            };
+            await SendToConversationUsersAsync(mediaCollaboration, message.TenantNId, mediaConversationNId, mediaEventName, envelope, cancellationToken);
+            return;
+        }
+        if (string.Equals(message.EventType, "collaboration.audit.requested.v1", StringComparison.Ordinal))
+        {
+            using var auditPayload = JsonDocument.Parse(message.Payload);
+            var auditRoot = auditPayload.RootElement;
+            var actor = GetString(auditRoot, "actorUserNId", "ActorUserNId") ?? null!;
+            var action = GetString(auditRoot, "action", "Action") ?? "collaboration.media.changed";
+            var objectType = GetString(auditRoot, "objectType", "ObjectType") ?? "media";
+            var objectNId = GetString(auditRoot, "objectNId", "ObjectNId") ?? message.EventId.ToString("N");
+            var occurredOn = GetDateTime(auditRoot, "occurredOn", "OccurredOn") ?? message.CreatedOn;
+            var auditEventNId = GetString(auditRoot, "eventNId", "EventNId") ?? message.EventId.ToString("N");
+            object auditValue = auditRoot.TryGetProperty("payload", out var payloadElement) ? payloadElement.Clone() : new { schemaVersion = 1 };
+            using var auditScope = _scopeFactory.CreateScope();
+            var audit = auditScope.ServiceProvider.GetRequiredService<ICollaborationAuditPort>();
+            await audit.WriteAsync(message.TenantNId, null, actor, action, objectType, objectNId, auditValue, occurredOn, auditEventNId, cancellationToken);
             return;
         }
         if (!string.Equals(message.EventType, "collaboration.message.accepted.v1", StringComparison.Ordinal)
@@ -109,6 +161,14 @@ public sealed class CollaborationRealtimePublisher : ICollaborationRealtimePubli
         foreach (var name in names)
             if (root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String)
                 return value.GetString();
+        return null;
+    }
+
+    private static DateTimeOffset? GetDateTime(JsonElement root, params string[] names)
+    {
+        foreach (var name in names)
+            if (root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String && value.TryGetDateTimeOffset(out var parsed))
+                return parsed;
         return null;
     }
 }

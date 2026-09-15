@@ -32,7 +32,7 @@ public sealed class HttpSystemDataAuditPort : ICollaborationAuditPort
         _httpContextAccessor = httpContextAccessor;
     }
 
-    public async Task WriteAsync(
+    public Task WriteAsync(
         string tenantNId,
         TrustedCollaborationCall? serviceCall,
         string actorUserNId,
@@ -41,7 +41,22 @@ public sealed class HttpSystemDataAuditPort : ICollaborationAuditPort
         string objectNId,
         object payload,
         CancellationToken cancellationToken)
+        => WriteAsync(tenantNId, serviceCall, actorUserNId, action, objectType, objectNId, payload, DateTimeOffset.UtcNow, cancellationToken);
+
+    public async Task WriteAsync(
+        string tenantNId,
+        TrustedCollaborationCall? serviceCall,
+        string actorUserNId,
+        string action,
+        string objectType,
+        string objectNId,
+        object payload,
+        DateTimeOffset occurredOn,
+        CancellationToken cancellationToken)
     {
+        if (actorUserNId is null)
+            throw new CollaborationException(503, "COLLAB_PF06_AUDIT_HTTP_UNSUPPORTED", "PF06 系统事件的分布式审计投影未启用。");
+
         var auditAction = action.StartsWith("collaboration.", StringComparison.Ordinal)
             ? action
             : $"collaboration.{action}";
@@ -55,7 +70,7 @@ public sealed class HttpSystemDataAuditPort : ICollaborationAuditPort
         {
             ProducerServiceKey = "collaboration",
             AuditEventNId = eventNId,
-            OccurredOn = DateTimeOffset.UtcNow,
+            OccurredOn = occurredOn,
             ActorUserNId = actorUserNId,
             Action = auditAction,
             ObjectType = objectType,

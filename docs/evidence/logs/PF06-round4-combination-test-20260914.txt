@@ -1,0 +1,13 @@
+PF06 Round 4 combination behavior test
+Date: 2026-09-14 Asia/Taipei
+Worktree: D:\Code\Industrial Platform\IndustrialPlatform
+
+Command: dotnet build tests/Collaboration/IndustrialPlatform.Collaboration.Tests/IndustrialPlatform.Collaboration.Tests.csproj --configuration Release --no-restore
+Exit code: 0
+Result: Build succeeded; 0 warnings; 0 errors.
+
+Command: dotnet test tests/Collaboration/IndustrialPlatform.Collaboration.Tests/IndustrialPlatform.Collaboration.Tests.csproj --configuration Release --no-build --filter "FullyQualifiedName~Hub_validation_uses_heartbeat_expiry_refreshes_bound_media_and_rejects_revoke"
+Exit code: 0
+Result: 1 test file matched; 1 passed; 0 failed; 0 skipped.
+
+Coverage: short embedded session lifetime; heartbeat before the original expiry; invocation after the original expiry and before the refreshed expiry; real Hub BindMedia, SignalMedia, MediaReady, and KeepAliveMedia calls; revoke followed by a real Hub invocation rejected by the session filter; current connection lease unchanged after revoke.

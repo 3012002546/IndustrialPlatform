@@ -1,0 +1,16 @@
+info: Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager[63]
+      User profile is available. Using 'C:\Users\DONG\AppData\Local\ASP.NET\DataProtection-Keys' as key repository and Windows DPAPI to encrypt keys at rest.
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://127.0.0.1:57182
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Development
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: C:\Users\DONG\AppData\Local\Temp\pf06-round4-init-cbcdcff5e2fc48b88456537d55ca1149\b
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/1.1 GET http://127.0.0.1:57182/health/ready - - -
+warn: IndustrialPlatform.Identity.Infrastructure.Security.RsaSigningKeyProvider[1]
+      Identity:Jwt:SigningKey 未配置,已生成临时 RSA 密钥用于签名;重启后既有令牌将失效,仅限开发环境。
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/1.1 GET http://127.0.0.1:57182/health/ready - - -

@@ -22,9 +22,26 @@ public static class SchemaPhysicalDriftGuard
         if (columns.Count == 0)
             throw new InvalidOperationException($"physical schema drift: table '{tableName}' is missing.");
         var missingColumns = requiredColumns.Where(column => !columns.Contains(column)).ToArray();
-        var missingIndexes = requiredIndexes.Where(index => !indexes.Contains(index)).ToArray();
+        var missingIndexes = requiredIndexes
+            .Where(index =>
+            {
+                var physicalName = dbType == DbType.PostgreSQL
+                    ? PostgreSqlName(sugar, index)
+                    : index;
+                return physicalName is null || !indexes.Contains(physicalName);
+            })
+            .ToArray();
         if (missingColumns.Length > 0 || missingIndexes.Length > 0)
             throw new InvalidOperationException($"physical schema drift: table '{tableName}' missing columns [{string.Join(',', missingColumns)}] or indexes [{string.Join(',', missingIndexes)}].");
+    }
+
+    private static string? PostgreSqlName(ISqlSugarClient sugar, string expectedName)
+    {
+        var result = sugar.Ado.GetDataTable(
+            "SELECT CAST(@indexName AS pg_catalog.name)::text AS name",
+            new SugarParameter("@indexName", expectedName));
+
+        return Names(result, "name").FirstOrDefault();
     }
 
     private static HashSet<string> Names(System.Data.DataTable table, string columnName) =>

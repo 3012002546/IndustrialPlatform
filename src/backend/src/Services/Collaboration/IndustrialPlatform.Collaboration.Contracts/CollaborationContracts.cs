@@ -2,7 +2,7 @@ namespace IndustrialPlatform.Collaboration.Contracts;
 
 using System.Text.Json.Serialization;
 
-public static class CollaborationPermissions
+public static partial class CollaborationPermissions
 {
     public const string MessagingRead = "collaboration.messaging.read";
     public const string MessagingConversationStart = "collaboration.messaging.conversation.start";

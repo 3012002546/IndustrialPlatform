@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text.Json;
 using IndustrialPlatform.Collaboration.Application;
+using IndustrialPlatform.Collaboration.Application.RemoteAssistance;
 using IndustrialPlatform.Collaboration.Contracts;
 using IndustrialPlatform.Infrastructure.Database;
 using SqlSugar;
@@ -13,7 +14,7 @@ namespace IndustrialPlatform.Collaboration.Infrastructure.Persistence;
 /// message append are serialized per tenant/pair in-process and protected by database
 /// unique constraints across instances.
 /// </summary>
-public sealed class SqlCollaborationRepository : ICollaborationRepository
+public sealed partial class SqlCollaborationRepository : ICollaborationRepository, IRemoteAssistanceRepository
 {
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> Locks = new(StringComparer.Ordinal);
     private readonly SqlSugarDbContext _dbContext;

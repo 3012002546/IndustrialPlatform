@@ -129,6 +129,9 @@ public static class PermissionCatalog
     public const string CollaborationPresenceConnect = "collaboration.presence.connect";
     public const string CollaborationPresenceRead = "collaboration.presence.read";
     public const string CollaborationPresenceWrite = "collaboration.presence.write";
+    public const string RemoteAssistanceSessionShare = "remote-assistance.session.share";
+    public const string RemoteAssistanceSessionJoin = "remote-assistance.session.join";
+    public const string RemoteAssistanceVoiceCall = "remote-assistance.voice.call";
 
     public const string SystemDataOrganizationView = "systemdata.organization.view";
     public const string SystemDataOrganizationCreate = "systemdata.organization.create";
@@ -281,6 +284,9 @@ public static class PermissionCatalog
         CollaborationPresenceConnect,
         CollaborationPresenceRead,
         CollaborationPresenceWrite,
+        RemoteAssistanceSessionShare,
+        RemoteAssistanceSessionJoin,
+        RemoteAssistanceVoiceCall,
         SystemDataOrganizationView,
         SystemDataOrganizationCreate,
         SystemDataOrganizationUpdate,

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PF06 shared media PoC</title>
+    <style>
+      :root { color-scheme: light dark; font: 15px system-ui, sans-serif; }
+      body { max-width: 980px; margin: 0 auto; padding: 24px; }
+      button { margin: 4px; padding: 7px 11px; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+      section { border: 1px solid #8886; border-radius: 8px; padding: 12px; }
+      video { width: 100%; max-height: 320px; background: #111; object-fit: contain; }
+      pre { max-height: 260px; overflow: auto; white-space: pre-wrap; background: #0008; padding: 10px; }
+      .muted { opacity: .7; }
+    </style>
+  </head>
+  <body>
+    <h1>PF06 shared media PoC</h1>
+    <p id="identity" class="muted"></p>
+    <p>This is an isolated two-tab sample. It is not the CollaborationHub implementation.</p>
+
+    <section>
+      <button id="connect">Connect / negotiate</button>
+      <button id="voice">Start microphone</button>
+      <button id="mute">Mute / unmute</button>
+      <button id="stopVoice">Stop voice</button>
+      <button id="screen">Start screen</button>
+      <button id="stopScreen">Stop screen</button>
+      <button id="reset">Dispose all</button>
+      <button id="export">Export stats</button>
+    </section>
+
+    <div class="grid">
+      <section><h2>Remote audio</h2><audio id="remoteAudio" autoplay controls></audio></section>
+      <section><h2>Remote screen</h2><video id="remoteVideo" autoplay playsinline controls></video></section>
+      <section><h2>Stats</h2><pre id="stats">Waiting…</pre></section>
+      <section><h2>Trace</h2><pre id="log"></pre></section>
+    </div>
+
+    <script type="module" src="./poc.js"></script>
+  </body>
+</html>

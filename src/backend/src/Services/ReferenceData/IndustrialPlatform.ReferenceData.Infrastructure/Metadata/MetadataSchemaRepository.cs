@@ -2,6 +2,7 @@ using System.Data.Common;
 using IndustrialPlatform.Infrastructure.Database;
 using IndustrialPlatform.ReferenceData.Application.Caching;
 using IndustrialPlatform.ReferenceData.Application.Metadata;
+using IndustrialPlatform.ReferenceData.Infrastructure.Persistence;
 using IndustrialPlatform.ReferenceData.Contracts.Metadata;
 using IndustrialPlatform.ReferenceData.Contracts.Events;
 using IndustrialPlatform.ReferenceData.Domain.Common;
@@ -16,8 +17,8 @@ public sealed class MetadataSchemaRepository(SqlSugarDbContext context) : IMetad
 {
     private ISqlSugarClient Db => context.SqlSugar;
     private bool Postgres => Db.CurrentConnectionConfig.DbType == DbType.PostgreSQL;
-    private string Schemas => Postgres ? "reference_data.metadata_entity_schema" : "reference_data_metadata_entity_schema";
-    private string Attributes => Postgres ? "reference_data.metadata_attribute_definition" : "reference_data_metadata_attribute_definition";
+    private string Schemas => ReferenceDataSqlNames.Table(Db, "metadata_entity_schema");
+    private string Attributes => ReferenceDataSqlNames.Table(Db, "metadata_attribute_definition");
 
     private ISugarQueryable<MetadataSchemaRow> Visible(string tenantNId) =>
         Db.Queryable<MetadataSchemaRow>().AS(Schemas)

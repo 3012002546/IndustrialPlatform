@@ -1,0 +1,138 @@
+{
+  "evidenceId": "PF06-embedded-mes-gap-20260914",
+  "capturedOn": "2026-09-14",
+  "timezone": "Asia/Taipei",
+  "task": "PF-06 Embedded MES gap assessment independent static acceptance",
+  "handoff": {
+    "path": "D:\\Code\\Industrial Platform\\pf06-embedded-gap-handoff.md",
+    "sha256": "6AC115E3DE4FF81C4C0D59B9DE022B0205A5A237783F757DA808D240B8EEB4F0"
+  },
+  "delivery": {
+    "repository": "D:\\Code\\Industrial Platform\\IndustrialPlatform",
+    "branch": "develop",
+    "head": "0a77597f94e38873b67565e0b477e120e72a57f8",
+    "worktree": "dirty shared WIP; acceptance made no production source change",
+    "snapshotSha256": {
+      "src/samples/Collaboration.EmbeddedHost/Program.cs": "39B85E127A99EEDEEAA0766EC8EF70060939330C35A5BED507C238569E43B8BB",
+      "src/samples/Collaboration.EmbeddedHost/EmbeddedHandshake.cs": "55B95E752C7A6A328256321D9A7C7AF675EFBA2EC9FAC182C13BAFD359B81AB8",
+      "src/samples/Collaboration.EmbeddedHost/EmbeddedHandshakeController.cs": "FA6ADB56A73BDA463B8FC7ECF7BD3CB071C45AA2BDF8A857D56BCF6B926B468C",
+      "src/samples/Collaboration.EmbeddedHost/wwwroot/embedded-handshake.js": "FD5BB7F4AAE127EC77B3CF5F2FC309351585CA9560DD91F5B9ADC90075D53BA9",
+      "src/samples/Collaboration.EmbeddedHost/appsettings.example.json": "AD5E936AA42470B0102FDBF7E37BB6B0F31D992D88671493BC4814AF7158519D",
+      "src/backend/src/Services/Collaboration/IndustrialPlatform.Collaboration.Api/Program.cs": "CC01ECC7A6D20B03775D6D5EC2AF2EDAE7E0E40D44A8859D85A09A0C6FFDE51E",
+      "src/backend/src/Services/Collaboration/IndustrialPlatform.Collaboration.Infrastructure/DependencyInjection.cs": "77C821188921500FCF502475D8267EB36E8A2FB32EA079AC694DA8A8042212E4",
+      "src/frontend/src/config/runtimeConfig.ts": "8D735E282043876B604C1D574762677E0F4FCC4B4D60E16DB9345F5AE398F232",
+      "src/frontend/src/stores/authStore.ts": "56471D409EC915395FCE52D9F81F00FD157BEEFD52E1DA4A11EA16C7D1245335",
+      "src/frontend/src/router/guards.ts": "3004C861FA1FA4C19737FA201792D0AFA64CC8D098C346294B08B04CA485B416",
+      "src/frontend/src/auth/types.ts": "3495DC8555BD93ACB932DB965E96C7F007C88CCDDAC2FE7A54EFA905322804EF",
+      "src/frontend/src/api/collaborationHub.ts": "C74F6A096D16F8CF458F2D17B234BCFE79919944C45705BD7ADF6BD3194D5C18",
+      "Directory.Build.props": "CE0366DA56257449E3C02A594CCEB7316CFB7B750A35155051F61A9376EB321E",
+      "docs/tasks/active/PF-06.md": "D335185F361395C87FEC13856BB0084D7E846EC199A38FDE8F0F8EED54084D97"
+    }
+  },
+  "independentStaticVerification": {
+    "method": "Read-only source inspection plus deterministic text assertions; no build, test, service startup, browser, network, database, or media execution",
+    "checksPassed": 17,
+    "checksTotal": 17,
+    "exitCode": 0,
+    "confirmed": [
+      "The reference handshake restricts exact parent origins, creates a browser binding, validates signed assertions, consumes challenges once, rejects replay, hashes stored session tokens, and emits Secure HttpOnly SameSite=None cookies.",
+      "The reference endpoints cover challenge, assertion, exchange, session read, renew, and revoke under the api/v1 route prefix.",
+      "ConfigurationEmbeddedSourcePrincipalResolver reads configured SourceSessions or a specially pre-authenticated claims principal; it contains no real MES HTTP current-user call.",
+      "The deterministic ext_ mapping produces an identifier but does not create an Identity user or permission assignment.",
+      "The shared frontend supports only mock/http auth modes; AuthSession requires access token, refresh token, user, and permissions; the guard redirects protected routes when that session is absent.",
+      "The SignalR client is currently wired to an accessTokenFactory, with no explicit embedded-cookie bootstrap mode.",
+      "Collaboration.EmbeddedHost composes Identity, SystemData, ReferenceData, and Collaboration modules but does not explicitly set Collaboration Identity/SystemData modes.",
+      "The normal Collaboration API host explicitly sets both modes to Embedded.",
+      "The repository sample inherits net10.0; no net452 or net6.0 adapter project was found. The Framework 4.5.2/.NET 6 statement is an integration boundary and recommendation, not implemented adapter evidence."
+    ]
+  },
+  "materialCorrection": {
+    "severity": "REWORK_REQUIRED",
+    "handoffClaim": "The handoff says omitted Embedded modes default all directory, step-up, file, and audit ports to HTTP.",
+    "repositoryEvidence": "DependencyInjection selects HTTP for Identity directory and step-up unless Identity:Mode is Embedded, but selects in-process SystemDataFilePort and SystemDataAuditPort unless SystemData:Mode is exactly Http.",
+    "correctedConclusion": "With both settings omitted, Identity directory and step-up use HTTP; SystemData file and audit use in-process implementations. Explicitly setting both modes remains desirable for an unambiguous reference host, but the stated default behavior is not uniform."
+  },
+  "acceptance": {
+    "referenceHostHandshakeAndSecurityBoundary": {
+      "status": "PASS",
+      "evidence": [
+        "src/samples/Collaboration.EmbeddedHost/EmbeddedHandshake.cs:139",
+        "src/samples/Collaboration.EmbeddedHost/EmbeddedHandshake.cs:154",
+        "src/samples/Collaboration.EmbeddedHost/EmbeddedHandshake.cs:164",
+        "src/samples/Collaboration.EmbeddedHost/EmbeddedHandshake.cs:193",
+        "src/samples/Collaboration.EmbeddedHost/EmbeddedHandshake.cs:287",
+        "src/samples/Collaboration.EmbeddedHost/EmbeddedHandshake.cs:813",
+        "src/samples/Collaboration.EmbeddedHost/wwwroot/embedded-handshake.js:4"
+      ]
+    },
+    "realMesCurrentUserAndSso": {
+      "status": "BLOCKED",
+      "reason": "No real MES current-user/session API contract or adapter is present. Static SourceSessions are test fixtures and cannot prove production SSO.",
+      "evidence": [
+        "src/samples/Collaboration.EmbeddedHost/EmbeddedHandshake.cs:302",
+        "src/samples/Collaboration.EmbeddedHost/appsettings.example.json:33",
+        "docs/tasks/active/PF-06.md:9"
+      ]
+    },
+    "frontendEmbeddedAuthBootstrapAndGuard": {
+      "status": "BLOCKED",
+      "reason": "There is no embedded auth mode or cookie-session adoption contract. The existing protected-route guard requires an access/refresh AuthSession with permissions.",
+      "evidence": [
+        "src/frontend/src/config/runtimeConfig.ts:18",
+        "src/frontend/src/auth/types.ts:11",
+        "src/frontend/src/auth/types.ts:22",
+        "src/frontend/src/stores/authStore.ts:36",
+        "src/frontend/src/router/guards.ts:35",
+        "src/frontend/src/api/collaborationHub.ts:103"
+      ]
+    },
+    "embeddedHostModesAndInProcessDependencies": {
+      "status": "PARTIAL",
+      "reason": "Program omits explicit modes. Identity directory and step-up therefore select HTTP, while SystemData file and audit remain in-process by default. The handoff must correct this distinction.",
+      "evidence": [
+        "src/samples/Collaboration.EmbeddedHost/Program.cs:13",
+        "src/backend/src/Services/Collaboration/IndustrialPlatform.Collaboration.Api/Program.cs:11",
+        "src/backend/src/Services/Collaboration/IndustrialPlatform.Collaboration.Infrastructure/DependencyInjection.cs:26"
+      ]
+    },
+    "mediaCoreReuseWithAdapters": {
+      "status": "PARTIAL",
+      "reason": "WebRTC/SignalR media APIs and the in-process permission/directory seams exist and are reusable, but the ext_ user must resolve in Identity with current permissions; frontend routing, cookie authentication, directory, permission, SystemData, and step-up topology still require explicit integration.",
+      "evidence": [
+        "src/backend/src/Services/Collaboration/IndustrialPlatform.Collaboration.Infrastructure/InProcessIdentityDirectory.cs:22",
+        "src/backend/src/Services/Collaboration/IndustrialPlatform.Collaboration.Infrastructure/RemoteAssistancePermissionEvaluator.cs:19",
+        "src/backend/src/Services/Collaboration/IndustrialPlatform.Collaboration.Infrastructure/JwtStepUpProofVerifier.cs:14",
+        "src/frontend/src/api/collaborationHub.ts:75"
+      ]
+    },
+    "framework452AndNet6HttpBoundary": {
+      "status": "PARTIAL",
+      "reason": "Independent-process HTTPS integration is the correct decoupling boundary for Framework 4.5.2 and .NET 6 MES hosts, but no concrete adapter project or real MES contract is present. The current sample targets inherited net10.0.",
+      "evidence": [
+        "Directory.Build.props:3",
+        "src/samples/Collaboration.EmbeddedHost/Collaboration.EmbeddedHost.csproj:1",
+        "docs/tasks/active/PF-06.md:9"
+      ]
+    }
+  },
+  "notVerified": [
+    "Real MES login session and current-user API request/response contract",
+    "Tenant, subject, source-session, security-version, display-name, directory, permission, and step-up field mappings",
+    "Whether the MES session cookie may be forwarded or must be exchanged server-side",
+    "Actual parent/frame origins, HTTPS certificate trust, reverse-proxy paths, CORS, CSP frame-ancestors, Permissions Policy, and third-party cookie behavior",
+    "Built frontend deployment entry and embedded session bootstrap/renew/revoke behavior",
+    "Runtime directory and permission evaluation for mapped ext_ users",
+    "Cross-tenant rejection, subject switch, revocation propagation, multi-instance persistence, and real MES media BindMedia/KeepAlive",
+    "Framework 4.5.2 or .NET 6 adapter compilation and interoperability"
+  ],
+  "verdict": {
+    "handoffAssessment": "PARTIAL",
+    "referenceHandshake": "PASS",
+    "realMesProductionIntegration": "BLOCKED",
+    "pf06EmbeddedOverall": "PARTIAL",
+    "requiresRework": true,
+    "reworkScope": "Correct the Identity versus SystemData default-mode statement. Production completion additionally requires implementation and independent validation after real MES contracts and deployment topology are supplied."
+  },
+  "scopeBoundary": "No production code edit, new implementation, build, test, environment probe, media matrix rerun, service lifecycle action, stage, commit, push, deployment, VS interference, or cloud Docker action was performed.",
+  "privacy": "Contains no credentials, private configuration values, MES session values, user identifiers, SDP, ICE candidates, IP addresses, or media payloads."
+}

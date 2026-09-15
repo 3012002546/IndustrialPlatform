@@ -13,6 +13,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useDeviceStore } from '@/stores/deviceStore'
 import { useThemeStore } from '@/stores/themeStore'
 import { useWorkspaceTabsStore } from '@/stores/workspaceTabsStore'
+import { loadRuntimeConfig } from '@/config/runtimeConfig'
 import { resolveLocaleMessage } from '@/localization/i18n'
 import { buildTabId, toPersistedRoute } from '@/workspace'
 import type { WorkspaceRouteCandidate } from '@/workspace'
@@ -22,14 +23,18 @@ import { ROUTE_NAMES } from './routes'
 export const TITLE_SUFFIX = 'Industrial Platform'
 
 /** 设置页面标题;无标题时仅保留平台名。 */
-export function setDocumentTitle(title: string | undefined, titleKey?: string, fallbackTitle?: string): void {
+export function setDocumentTitle(
+  title: string | undefined,
+  titleKey?: string,
+  fallbackTitle?: string,
+): void {
   if (typeof document === 'undefined') return
   const displayTitle = fallbackTitle ?? title
   const locale = document.documentElement.lang === 'en-US' ? 'en-US' : 'zh-CN'
-  const localizedTitle = displayTitle === undefined
-    ? undefined
-    : resolveLocaleMessage(locale, titleKey, displayTitle)
-  document.title = localizedTitle === undefined ? TITLE_SUFFIX : `${localizedTitle} · ${TITLE_SUFFIX}`
+  const localizedTitle =
+    displayTitle === undefined ? undefined : resolveLocaleMessage(locale, titleKey, displayTitle)
+  document.title =
+    localizedTitle === undefined ? TITLE_SUFFIX : `${localizedTitle} · ${TITLE_SUFFIX}`
 }
 
 export function installRouterGuards(router: Router): void {
@@ -37,6 +42,8 @@ export function installRouterGuards(router: Router): void {
     // 1. 恢复会话(幂等:Store 内单飞,重复导航不重复读存储)
     const authStore = useAuthStore()
     await authStore.restore()
+    const runtimeConfig = loadRuntimeConfig()
+    const embeddedMode = runtimeConfig.authMode === 'embedded'
 
     // 1.5 主题(PF-01 §7.4):恢复后初始化设备级外观;有用户则绑定用户偏好。
     // 进入受保护布局前完成绑定,避免切换用户后主题串用或受保护壳闪烁。
@@ -49,7 +56,9 @@ export function installRouterGuards(router: Router): void {
 
     // 2. 公共或受保护路由;无会话访问受保护路由 → 登录,携带站内相对 redirect
     if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-      return { name: ROUTE_NAMES.login, query: { redirect: to.fullPath } }
+      return embeddedMode
+        ? { name: ROUTE_NAMES.embeddedSessionRequired }
+        : { name: ROUTE_NAMES.login, query: { redirect: to.fullPath } }
     }
 
     // 2.5 §29A.4 首次登录改密门禁:用户必须改密时,除改密页外一律跳转改密页
@@ -69,9 +78,29 @@ export function installRouterGuards(router: Router): void {
       deviceStore.init()
     }
 
+    // 独立演示登录成功后，从初始入口或旧的会话失效页直接进入聊天。
+    // 正式 MES 和普通平台的路由规则保持不变。
+    if (
+      runtimeConfig.embeddedDemoAutoLogin &&
+      authStore.isAuthenticated &&
+      (to.name === ROUTE_NAMES.root ||
+        to.name === ROUTE_NAMES.login ||
+        to.name === ROUTE_NAMES.embeddedSessionRequired)
+    ) {
+      return { path: `/${deviceStore.terminal}/collaboration` }
+    }
+
     // 已登录访问登录页 → 回到生效终端首页
     if (to.name === ROUTE_NAMES.login && authStore.isAuthenticated) {
       return { name: `${deviceStore.terminal}-home` }
+    }
+
+    if (to.name === ROUTE_NAMES.login && embeddedMode && !authStore.isAuthenticated) {
+      return { name: ROUTE_NAMES.embeddedSessionRequired }
+    }
+
+    if (to.name === ROUTE_NAMES.root && embeddedMode && !authStore.isAuthenticated) {
+      return { name: ROUTE_NAMES.embeddedSessionRequired }
     }
 
     // 3. 权限:无权限跳转 403

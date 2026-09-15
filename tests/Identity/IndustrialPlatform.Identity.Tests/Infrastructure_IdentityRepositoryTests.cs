@@ -309,7 +309,7 @@ public sealed class IdentityRepositoryTests : IDisposable
         var all = await _permissions.GetAllAsync();
 
         // Identity/SystemData/ReferenceData 第一批目录加 PF05 Collaboration 权限。
-        Assert.Equal(146, all.Count);
+        Assert.Equal(149, all.Count);
         Assert.Contains(all, p => p.NId == PermissionCatalog.UserView);
         Assert.Contains(all, p => p.NId == PermissionCatalog.UserDelete);
         Assert.Contains(all, p => p.NId == PermissionCatalog.UserGroupRestore);

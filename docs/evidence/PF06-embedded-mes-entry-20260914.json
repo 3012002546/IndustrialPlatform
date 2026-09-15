@@ -1,0 +1,106 @@
+{
+  "evidenceId": "PF06-embedded-mes-entry-20260914",
+  "capturedOn": "2026-09-14",
+  "timezone": "Asia/Taipei",
+  "task": "PF-06 EmbeddedHost MES adapter and cookie-session frontend entry independent acceptance",
+  "delivery": {
+    "repository": "D:\\Code\\Industrial Platform\\IndustrialPlatform",
+    "branch": "develop",
+    "head": "0a77597f94e38873b67565e0b477e120e72a57f8",
+    "worktree": "dirty shared WIP; no production source was modified by acceptance",
+    "finalFixEvidence": {
+      "path": "docs/evidence/PF06-embedded-session-final-20260914.md",
+      "sha256": "B116E53EC5692704AA44CE0140C4D776472C299C417AE79F33A14E045E8CF527"
+    },
+    "snapshotSha256": {
+      "src/samples/Collaboration.EmbeddedHost/Program.cs": "6CF5BFFDF754D6D6F201BBA7511748D3DF84B32ABF0B341982F513A6EA50356C",
+      "src/samples/Collaboration.EmbeddedHost/EmbeddedAdapters.cs": "116BB299668A383725B6CA77567DD160717045E23EA4B4C6B0F2C2D9A4380570",
+      "src/samples/Collaboration.EmbeddedHost/EmbeddedHandshake.cs": "818BA73D0530A44F55ED8D96869BFAE7A66DEB90E59A205EBFCF42D606E2C90C",
+      "src/samples/Collaboration.EmbeddedHost/EmbeddedHandshakeController.cs": "69EC4DCBE54CFACECE79DE66A8D2DF1EE718B113F763C66EB29516C14C2D19A5",
+      "src/samples/Collaboration.EmbeddedHost/appsettings.example.json": "B24994431F361D9A73DA7B4F90CCAF9CFEA1E1D8787E1FD2D8147BCF3A0F3C77",
+      "src/samples/Collaboration.EmbeddedHost/README.md": "0E7684100D121C22719055065096C1055DA8405DB940D488F382A94A1C0FF55C",
+      "src/frontend/src/config/runtimeConfig.ts": "CFC2DE71906ADC52F58A46437EF2ABDD9DCBB9B3BEA0122EFC79DE0682CB6D4C",
+      "src/frontend/src/auth/types.ts": "5D9A2F958CCEF1F2BC6631E2060B63822C40D4789105D84943363624AA868D6A",
+      "src/frontend/src/auth/embeddedAuthGateway.ts": "0B673EED2FDAA9F26BA63D7C59ED4C0CD9C6EE3A4E189A1992D6B30A6776ED0C",
+      "src/frontend/src/auth/sessionStore.ts": "D92B7C0B4A5D41509B785771D8FC49496C9B683DCA99B4D2E940F8B5920F41EC",
+      "src/frontend/src/stores/authStore.ts": "DEFF594F5B380E707C4648F3BC90B709641450CE9C3D6F8CBA4E1B924CE4F3E3",
+      "src/frontend/src/router/guards.ts": "EF385C5AD41D7B5C82A418E55E2D50A1BCD1D5090E5BA519962F91453E210079",
+      "src/frontend/src/api/collaborationHub.ts": "2F76C747E5908CAD54829F886BA252BC121F5ABCAE9C28BC91D7B03AAFF0C5FF",
+      "src/frontend/src/app/createIndustrialApp.ts": "03D1A4738DF31795F42A6065BB22649BF49595EB2B4CB29ACABCACEE5DA91748",
+      "tests/Collaboration/IndustrialPlatform.Collaboration.Tests/Security_EmbeddedHostHandshakeTests.cs": "66DB0EBA496082ECD94B25B4F515BB46A3F07C18C3FBB86A114D49AA48493158",
+      "tests/Collaboration/IndustrialPlatform.Collaboration.Tests/Security_EmbeddedHostAdaptersTests.cs": "40FD7D50A29A509254A0DFA9CD6E9FAB436D86F91603255002937CBCDB95A6C0"
+    }
+  },
+  "acceptance": {
+    "explicitEmbeddedComposition": {
+      "status": "PASS",
+      "evidence": "Program explicitly selects same-process Identity/SystemData modes and overrides directory plus IPermissionEvaluator after module registration."
+    },
+    "replaceableMesAdapters": {
+      "status": "PASS",
+      "evidence": "Current-user, subject/tenant identity mapping, directory, permission, and session projection seams are present; default implementations fail closed."
+    },
+    "referenceFixtureBoundary": {
+      "status": "PASS_AFTER_REPAIR",
+      "evidence": "ReferenceFixture must be explicitly selected; SourceSessions remains a documented fixture. Runtime session validation uses explicit SessionNId plus Active/Enabled, source, tenant, subject, and security-version predicates, with no configuration-key fallback."
+    },
+    "permissionDirectoryHubAndMediaBoundary": {
+      "status": "PASS",
+      "evidence": "The embedded IPermissionEvaluator delegates exact tenant/user/session/security-version permission checks to the access adapter; Collaboration controllers, Hub policies, and RemoteAssistance use that evaluator, while directory search/get uses the same adapter boundary."
+    },
+    "cookieOnlyFrontendSession": {
+      "status": "PASS",
+      "evidence": "embedded auth mode bootstraps and rechecks /api/v1/embedded/session with credentials, creates no access or refresh token, does not persist a fake token session, routes missing/expired sessions to embedded-session-required instead of platform login, and enables credentialed REST/SignalR."
+    },
+    "chineseIntegrationGuidance": {
+      "status": "PASS",
+      "evidence": "The adapter interfaces and final SessionNId rule include clear Chinese comments; README documents the three replacement seams, field sources, failure behavior, paths, PostgreSQL/SQLite scope, HTTPS, cookie, CORS, CSP, and iframe policy boundaries."
+    },
+    "existingHandshakeSecurity": {
+      "status": "PASS",
+      "evidence": "Origin allow-list, signed assertion validation, one-time challenge consumption, replay rejection, browser binding, hashed stored token, expiry/revoke handling, and Secure HttpOnly SameSite=None cookies remain present."
+    }
+  },
+  "verification": {
+    "independentBeforeFinalSessionFix": [
+      "dotnet build src/backend/IndustrialPlatform.slnx --configuration Release: exit 0, 0 warnings, 0 errors",
+      "embedded backend security tests: 18/18, then 20/20 after the first repair",
+      "frontend handoff suite: 4 files, 52/52",
+      "additional affected frontend suite: 5 files, 64/64",
+      "vue-tsc --noEmit --pretty false: exit 0"
+    ],
+    "finalStableBackendEvidence": {
+      "performedBy": "controller on the stable final snapshot; acceptance was explicitly instructed not to rerun",
+      "build": "dotnet build src/backend/IndustrialPlatform.slnx --configuration Release --no-restore --verbosity quiet: exit 0, 0 warnings, 0 errors",
+      "tests": "dotnet test tests/Collaboration/IndustrialPlatform.Collaboration.Tests/IndustrialPlatform.Collaboration.Tests.csproj --configuration Release --no-build --no-restore --filter FullyQualifiedName~Security_EmbeddedHost: exit 0, 20/20",
+      "hashesVerifiedByAcceptance": true
+    },
+    "finalStaticReview": {
+      "status": "PASS",
+      "confirmed": [
+        "Configuration key is only the upstream cookie index; explicit SessionNId is authoritative.",
+        "A key collision cannot bypass a rotated SessionNId.",
+        "The source-session lookup contains all activity and identity predicates, so an unrelated duplicate SessionNId cannot hide a later valid record.",
+        "Tests use direct mapper checks without middleware revocation side effects.",
+        "Tests cover valid key/value divergence, rotation, missing field, inactive/deleted/disabled records, source/tenant/subject/security-version mismatch, and unrelated duplicate records before a valid record."
+      ]
+    }
+  },
+  "remainingBoundary": [
+    "The real MES current-user, directory, permission, session, tenant, and security-version APIs are intentionally left for the user to connect through the documented adapters.",
+    "Actual iframe deployment, HTTPS certificate trust, reverse proxy, CORS, CSP frame-ancestors, Permissions Policy, and browser third-party-cookie behavior were not exercised.",
+    "PostgreSQL/SQLite are the current database scope; SQL Server is deferred.",
+    "Real MES browser/SignalR/WebRTC integration, cloud networking, and PC/PDA/Mobile terminal validation remain deferred by user direction.",
+    "No claim is made that a real MES is currently connected or deployed."
+  ],
+  "verdict": {
+    "repositoryAdapterEntry": "PASS_AFTER_REPAIR",
+    "frontendEmbeddedEntry": "PASS",
+    "referenceSecurityBoundary": "PASS_AFTER_REPAIR",
+    "realMesWiring": "USER_FOLLOW_UP_NOT_A_CURRENT_BLOCKER",
+    "pf06EmbeddedCurrentScope": "PASS",
+    "requiresFurtherCurrentScopeRework": false
+  },
+  "scopeBoundary": "No production source edit, commit, stage, push, deployment, service lifecycle action, cloud probe, browser environment probe, or media matrix rerun was performed by acceptance.",
+  "privacy": "Contains no credentials, private MES configuration, session values, user identifiers, SDP, ICE candidates, IP addresses, or media payloads."
+}

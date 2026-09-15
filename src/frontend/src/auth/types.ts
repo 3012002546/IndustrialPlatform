@@ -19,12 +19,20 @@ export interface AuthUser {
   mustChangePassword: boolean
 }
 
+export type AuthSessionTransport = 'bearer' | 'embedded-cookie'
+
 export interface AuthSession {
-  accessToken: string
-  refreshToken: string
+  /** Bearer mode only; embedded-cookie deliberately leaves both token fields absent. */
+  accessToken?: string
+  refreshToken?: string
   /** ISO 8601(带 Z 或明确偏移);解析失败视为无效会话。 */
   expiresAt: string
   user: AuthUser
+  /** Omitted legacy sessions are bearer sessions; embedded mode must be explicit. */
+  transport?: AuthSessionTransport
+  /** Embedded demo only: page-scoped opaque credentials held in memory, never persisted. */
+  embeddedSessionToken?: string
+  embeddedSessionBinding?: string
 }
 
 /** bootstrap 状态(§29A.5,仅非敏感状态):Pending=初始化未完成;RecoveryRequired=admin 异常需紧急恢复。 */
@@ -43,4 +51,10 @@ export interface AuthGateway {
   changePassword(currentPassword: string, newPassword: string): Promise<void>
   /** §29A.5:读取 bootstrap 状态(登录页 HTTP 模式诊断;失败时按 Ready 降级,不阻塞登录)。 */
   getBootstrapStatus(): Promise<BootstrapStatus>
+  /** Embedded mode bootstraps from the HttpOnly host session instead of storage. */
+  bootstrapSession?: () => Promise<AuthSession>
+  /** Re-checks an embedded cookie session; it never manufactures a bearer token. */
+  refreshEmbeddedSession?: () => Promise<AuthSession>
+  /** Embedded page heartbeat; revalidates the upstream identity before extending the lease. */
+  keepAliveEmbeddedSession?: () => Promise<AuthSession>
 }
