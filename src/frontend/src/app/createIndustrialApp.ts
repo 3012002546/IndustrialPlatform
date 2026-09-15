@@ -73,6 +73,13 @@ export interface IndustrialAppOptions {
 function installAuthGateway(pinia: Pinia, router: Router): void {
   const config = loadRuntimeConfig()
   if (config.authMode === 'embedded') {
+    // 每次请求均读取当前页级凭据，HTTP 与 SignalR 保持一致。
+    const getEmbeddedSession = () => {
+      const session = getCurrentSession()
+      return session?.embeddedSessionToken !== undefined && session.embeddedSessionBinding !== undefined
+        ? { token: session.embeddedSessionToken, binding: session.embeddedSessionBinding }
+        : null
+    }
     const authRefresh: HttpAuthRefresh = {
       isAuthPath: (path) => AUTH_ENDPOINT_MARKERS.some((marker) => path.includes(marker)),
       refreshSession: () => useAuthStore(pinia).refresh(),
@@ -85,12 +92,7 @@ function installAuthGateway(pinia: Pinia, router: Router): void {
       baseUrl: config.apiBaseUrl,
       timeoutMs: config.requestTimeoutMs,
       getToken: () => null,
-      getEmbeddedSession: () => {
-        const session = getCurrentSession()
-        return session?.embeddedSessionToken !== undefined && session.embeddedSessionBinding !== undefined
-          ? { token: session.embeddedSessionToken, binding: session.embeddedSessionBinding }
-          : null
-      },
+      getEmbeddedSession,
       authRefresh,
       withCredentials: true,
     })
@@ -109,12 +111,7 @@ function installAuthGateway(pinia: Pinia, router: Router): void {
     registerCollaborationRealtime(
       new CollaborationRealtimeManager(
         () => null,
-        () => {
-          const session = getCurrentSession()
-          return session?.embeddedSessionToken !== undefined && session.embeddedSessionBinding !== undefined
-            ? { token: session.embeddedSessionToken, binding: session.embeddedSessionBinding }
-            : null
-        },
+        getEmbeddedSession,
       ),
     )
     return

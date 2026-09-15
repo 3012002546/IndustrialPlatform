@@ -63,69 +63,42 @@ public sealed class Security_EmbeddedHostAdaptersTests
     }
 
     [Fact]
-    public async Task Reference_access_adapter_requires_explicit_permissions()
+    public async Task Reference_directory_keeps_tenant_filter_and_excludes_current_user()
     {
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["EmbeddedCollaboration:Sources:mes:ExternalTenantMappings:mes-tenant"] = "platform-tenant",
             ["EmbeddedCollaboration:Sources:mes:SubjectMappings:mes-user:ExternalTenantNId"] = "mes-tenant",
             ["EmbeddedCollaboration:Sources:mes:SubjectMappings:mes-user:SecurityVersion"] = "7",
-            ["EmbeddedCollaboration:Sources:mes:SubjectMappings:mes-user:Permissions:0"] = "collaboration.messaging.read",
-            ["EmbeddedCollaboration:SourceSessions:cookie-key:SourceNId"] = "mes",
-            ["EmbeddedCollaboration:SourceSessions:cookie-key:ExternalTenantNId"] = "mes-tenant",
-            ["EmbeddedCollaboration:SourceSessions:cookie-key:ExternalSubject"] = "mes-user",
-            ["EmbeddedCollaboration:SourceSessions:cookie-key:SessionNId"] = "upstream-session",
-            ["EmbeddedCollaboration:SourceSessions:cookie-key:SecurityVersion"] = "7",
-            ["EmbeddedCollaboration:SourceSessions:cookie-key:Status"] = "Active",
-        }).Build();
-        var adapter = new ConfigurationEmbeddedCollaborationAccessAdapter(configuration);
-        var identity = new EmbeddedIdentity("platform-tenant", ConfigurationEmbeddedSubjectIdentityMapper.UserNId("mes", "mes-tenant", "mes-user"), "upstream-session", "7")
-        {
-            SourceNId = "mes",
-            ExternalTenantNId = "mes-tenant",
-            ExternalSubject = "mes-user",
-            DisplayName = "MES user",
-        };
-
-        var allowed = await adapter.HasPermissionAsync("collaboration.messaging.read", identity.TenantNId, identity.UserNId, identity.SessionNId, identity.SecurityVersion, CancellationToken.None);
-        var denied = await adapter.HasPermissionAsync("remote-assistance.voice.call", identity.TenantNId, identity.UserNId, identity.SessionNId, identity.SecurityVersion, CancellationToken.None);
-
-        Assert.True(allowed);
-        Assert.False(denied);
-    }
-
-    [Fact]
-    public async Task Embedded_permission_evaluator_rejects_invalid_security_version()
-    {
-        var adapter = new NotConfiguredEmbeddedCollaborationAccessAdapter();
-        var evaluator = new EmbeddedPermissionEvaluator(adapter);
-
-        var result = await evaluator.EvaluateAsync("T-1", "U-1", "S-1", 0, "collaboration.messaging.read", CancellationToken.None);
-
-        Assert.False(result.Allowed);
-        Assert.Equal(AuthorizationDenialReason.MissingPermission, result.Reason);
-    }
-
-    [Fact]
-    public async Task Reference_access_adapter_requires_the_configured_source_session_to_match()
-    {
-        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
-        {
-            ["EmbeddedCollaboration:Sources:mes:ExternalTenantMappings:mes-tenant"] = "platform-tenant",
-            ["EmbeddedCollaboration:Sources:mes:SubjectMappings:mes-user:ExternalTenantNId"] = "mes-tenant",
-            ["EmbeddedCollaboration:Sources:mes:SubjectMappings:mes-user:SecurityVersion"] = "7",
-            ["EmbeddedCollaboration:Sources:mes:SubjectMappings:mes-user:Permissions:0"] = "collaboration.messaging.read",
-            ["EmbeddedCollaboration:SourceSessions:cookie-key:SourceNId"] = "mes",
-            ["EmbeddedCollaboration:SourceSessions:cookie-key:ExternalTenantNId"] = "mes-tenant",
-            ["EmbeddedCollaboration:SourceSessions:cookie-key:ExternalSubject"] = "mes-user",
-            ["EmbeddedCollaboration:SourceSessions:cookie-key:SessionNId"] = "upstream-session",
-            ["EmbeddedCollaboration:SourceSessions:cookie-key:SecurityVersion"] = "7",
-            ["EmbeddedCollaboration:SourceSessions:cookie-key:Status"] = "Active",
+            ["EmbeddedCollaboration:Sources:mes:SubjectMappings:mes-user:DisplayName"] = "MES user",
         }).Build();
         var adapter = new ConfigurationEmbeddedCollaborationAccessAdapter(configuration);
         var userNId = ConfigurationEmbeddedSubjectIdentityMapper.UserNId("mes", "mes-tenant", "mes-user");
 
-        Assert.True(await adapter.HasPermissionAsync("collaboration.messaging.read", "platform-tenant", userNId, "upstream-session", "7", CancellationToken.None));
-        Assert.False(await adapter.HasPermissionAsync("collaboration.messaging.read", "platform-tenant", userNId, "different-session", "7", CancellationToken.None));
+        Assert.NotNull(await adapter.GetDirectoryUserAsync("platform-tenant", userNId, CancellationToken.None));
+        Assert.Null(await adapter.GetDirectoryUserAsync("other-tenant", userNId, CancellationToken.None));
+        var found = await adapter.SearchDirectoryAsync("platform-tenant", "other-user", "MES", null, 10, CancellationToken.None);
+        var own = await adapter.SearchDirectoryAsync("platform-tenant", userNId, "MES", null, 10, CancellationToken.None);
+        var otherTenant = await adapter.SearchDirectoryAsync("other-tenant", "other-user", "MES", null, 10, CancellationToken.None);
+        Assert.Single(found.Items);
+        Assert.Empty(own.Items);
+        Assert.Empty(otherTenant.Items);
+    }
+
+    [Theory]
+    [InlineData("collaboration.messaging.read", "S-1", 1, true)]
+    [InlineData("remote-assistance.voice.call", "S-1", 1, true)]
+    [InlineData("identity.users.write", "S-1", 1, false)]
+    [InlineData("collaboration.messaging.read", "S-1", 0, false)]
+    [InlineData("collaboration.messaging.read", null, 1, false)]
+    public async Task Embedded_permission_evaluator_preserves_host_permission_boundary(
+        string permission, string? sessionNId, int authVersion, bool expected)
+    {
+        var evaluator = new EmbeddedPermissionEvaluator();
+
+        var result = await evaluator.EvaluateAsync("T-1", "U-1", sessionNId, authVersion, permission, CancellationToken.None);
+
+        Assert.Equal(expected, result.Allowed);
+        Assert.Equal(expected ? AuthorizationDenialReason.None : AuthorizationDenialReason.MissingPermission, result.Reason);
     }
 }

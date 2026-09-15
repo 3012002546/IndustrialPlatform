@@ -89,6 +89,26 @@ describe('parseRuntimeConfig', () => {
     )).toThrow(RuntimeConfigError)
   })
 
+  it.each(['', 'account=', 'account=xxA&account=xxB', 'account=%20xxA', 'account=xxD'])(
+    'keeps demo and formal account rules separate for query "%s"',
+    (query) => {
+      const pageUrl = `https://localhost:5173/pc/collaboration?${query}`
+      const raw = { VITE_AUTH_MODE: 'embedded', MODE: 'lan-https-collaboration' }
+      if (query === '') {
+        const config = parse(raw, false, pageUrl)
+        expect(config.embeddedAccount).toBeUndefined()
+        expect(config.embeddedDemoAccount).toBe('xxA')
+      } else {
+        expect(() => parse(raw, false, pageUrl)).toThrow(RuntimeConfigError)
+      }
+      if (query === 'account=xxD') {
+        expect(parse({ ...raw, MODE: 'production', VITE_DEPLOYMENT_ENVIRONMENT: 'PROD' }, true, pageUrl).embeddedAccount).toBe('xxD')
+      }
+      // 平台模式不消费嵌入账户，不能因其格式或演示白名单影响原有入口。
+      expect(parse({ VITE_AUTH_MODE: 'http' }, false, pageUrl).embeddedAccount).toBeUndefined()
+    },
+  )
+
   it('parses custom valid values', () => {
     const cfg = parse({
       VITE_API_BASE_URL: 'https://api.example.com',

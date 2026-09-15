@@ -17,9 +17,6 @@ export default defineConfig(({ mode }) => {
       'HTTPS证书未配置。先运行 tools/setup-lan-https.ps1，参见 docs/agents/局域网调试入口.md。',
     )
   }
-  if (httpsRequired && Boolean(certPath) !== Boolean(keyPath)) {
-    throw new Error('LAN HTTPS requires both DEV_HTTPS_CERT and DEV_HTTPS_KEY')
-  }
   return {
     // loadEnv只读取配置，不会更改Vite按mode注入的import.meta.env。
     // lan-https也必须把同一LAN API入口注入页面，避免落回.env.local的localhost。

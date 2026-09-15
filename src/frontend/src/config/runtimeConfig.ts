@@ -101,19 +101,11 @@ function parseDeploymentEnvironment(
 
 const EMBEDDED_DEMO_ACCOUNTS = new Set(['xxA', 'xxB', 'xxC'])
 
-function parseEmbeddedDemoAccount(pageUrl?: string): string {
-  if (pageUrl === undefined) return 'xxA'
-  let url: URL
-  try {
-    url = new URL(pageUrl)
-  } catch {
-    throw new RuntimeConfigError('独立协作页面地址无效，无法解析 account 参数。')
-  }
-  const values = url.searchParams.getAll('account')
-  if (values.length > 1 || (values.length === 1 && !EMBEDDED_DEMO_ACCOUNTS.has(values[0]!))) {
+function parseEmbeddedDemoAccount(account?: string): string {
+  if (account !== undefined && !EMBEDDED_DEMO_ACCOUNTS.has(account)) {
     throw new RuntimeConfigError('独立协作演示 account 仅支持 xxA、xxB、xxC，且只能出现一次。')
   }
-  return values[0] ?? 'xxA'
+  return account ?? 'xxA'
 }
 
 function parseEmbeddedAccount(pageUrl?: string): string | undefined {
@@ -165,7 +157,7 @@ export function parseRuntimeConfig(source: RuntimeConfigSource): RuntimeConfig {
     requestTimeoutMs,
     deploymentEnvironment,
     ...(embeddedDemoAutoLogin
-      ? { embeddedDemoAutoLogin: true, embeddedDemoAccount: parseEmbeddedDemoAccount(source.pageUrl) }
+      ? { embeddedDemoAutoLogin: true, embeddedDemoAccount: parseEmbeddedDemoAccount(embeddedAccount) }
       : {}),
     ...(embeddedAccount === undefined ? {} : { embeddedAccount }),
   }

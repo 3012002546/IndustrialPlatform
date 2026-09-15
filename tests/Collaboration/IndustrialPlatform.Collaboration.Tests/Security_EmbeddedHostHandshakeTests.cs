@@ -666,7 +666,7 @@ public sealed class Security_EmbeddedHostHandshakeTests
     private static EmbeddedHostHandshakeService CreateService(Fixture fixture, IEmbeddedHandshakeStore store) =>
         new(fixture.Options, new ConfigurationEmbeddedSubjectIdentityMapper(fixture.Configuration), store, new ConfigurationEmbeddedSourcePrincipalResolver(fixture.Configuration, fixture.Options), new ConfigurationEmbeddedIdentityAssertionIssuer(fixture.Configuration));
 
-    private static EmbeddedHandshakeController Controller(EmbeddedHostHandshakeService service, EmbeddedHostHandshakeOptions options, HttpContext context) => new(service, options, new NotConfiguredEmbeddedCollaborationAccessAdapter())
+    private static EmbeddedHandshakeController Controller(EmbeddedHostHandshakeService service, EmbeddedHostHandshakeOptions options, HttpContext context) => new(service, options)
     {
         ControllerContext = new ControllerContext { HttpContext = context },
     };

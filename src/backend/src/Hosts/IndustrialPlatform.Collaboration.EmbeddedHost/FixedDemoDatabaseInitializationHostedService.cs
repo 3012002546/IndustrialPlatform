@@ -91,20 +91,3 @@ public class StandaloneDatabaseInitializationHostedService : IHostedService
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }
-
-/// <summary>Compatibility name for older local launch profiles; new hosts use the standalone name.</summary>
-[Obsolete("Use StandaloneDatabaseInitializationHostedService.")]
-public sealed class FixedDemoDatabaseInitializationHostedService : StandaloneDatabaseInitializationHostedService
-{
-    public FixedDemoDatabaseInitializationHostedService(
-        IEnumerable<IServiceInitializer> initializers,
-        IServiceInitializationInvoker invoker,
-        IOptions<DatabaseTopologyOptions> topologyOptions,
-        IOptions<SqlSugarOptions> sqlSugarOptions,
-        IOptions<BootstrapOptions> bootstrapOptions,
-        IHostEnvironment environment,
-        IStandaloneInitializationLock initializationLock)
-        : base(initializers, invoker, topologyOptions, sqlSugarOptions, bootstrapOptions, environment, initializationLock)
-    {
-    }
-}

@@ -49,16 +49,6 @@ public sealed class NotConfiguredEmbeddedCurrentUserAdapter : IEmbeddedCurrentUs
             "MES 当前登录适配器尚未配置。"));
 }
 
-/// <summary>真实外部身份映射未接线时的安全默认值。</summary>
-public sealed class NotConfiguredEmbeddedSubjectIdentityMapper : IEmbeddedSubjectIdentityMapper
-{
-    public Task<EmbeddedIdentity?> MapAsync(EmbeddedIdentityAssertion assertion, CancellationToken cancellationToken) =>
-        Task.FromResult<EmbeddedIdentity?>(null);
-
-    public Task<bool> IsCurrentAsync(EmbeddedStoredSession session, CancellationToken cancellationToken) =>
-        Task.FromResult(false);
-}
-
 /// <summary>
 /// Production-safe default identity projection. The MES adapter supplies the
 /// verified external subject; the host derives a stable platform user key from
@@ -97,8 +87,8 @@ public sealed class ServerDerivedEmbeddedSubjectIdentityMapper(IConfiguration co
 }
 
 /// <summary>
-/// Collaboration 需要的最小外部能力契约。实现者可调用 MES 用户/权限接口，
-/// 也可调用独立的受信任后端适配服务；不能把全部放行、浏览器权限或静态 SourceSessions 当成生产实现。
+/// Collaboration 需要的外部用户目录契约。实现者可调用 MES 用户接口，
+/// 也可调用独立的受信任后端适配服务；当前登录身份由单独的登录适配器核验。
 /// </summary>
 public interface IEmbeddedCollaborationAccessAdapter
 {
@@ -116,41 +106,24 @@ public interface IEmbeddedCollaborationAccessAdapter
         CancellationToken cancellationToken);
 }
 
-public sealed record EmbeddedPermissionSnapshot(
-    IReadOnlyCollection<string> Roles,
-    IReadOnlyCollection<string> Permissions);
-
-/// <summary>未接线时目录为空、权限全部拒绝，避免误把参考宿主当成生产授权。</summary>
+/// <summary>用户目录未接线时返回空结果，不推断 MES 中的用户。</summary>
 public sealed class NotConfiguredEmbeddedCollaborationAccessAdapter : IEmbeddedCollaborationAccessAdapter
 {
-    public Task<EmbeddedPermissionSnapshot> GetPermissionsAsync(EmbeddedIdentity identity, CancellationToken cancellationToken) =>
-        Task.FromResult(new EmbeddedPermissionSnapshot([], []));
-
     public Task<DirectoryUser?> GetDirectoryUserAsync(string tenantNId, string userNId, CancellationToken cancellationToken) =>
         Task.FromResult<DirectoryUser?>(null);
 
     public Task<DirectorySearchPage> SearchDirectoryAsync(string tenantNId, string actorUserNId, string keyword, string? cursor, int pageSize, CancellationToken cancellationToken) =>
         Task.FromResult(new DirectorySearchPage([], null));
 
-    public Task<bool> HasPermissionAsync(string permission, string tenantNId, string userNId, string sessionNId, string securityVersion, CancellationToken cancellationToken) =>
-        Task.FromResult(false);
 }
 
 /// <summary>
-/// 仅供参考宿主使用的配置夹具：权限必须逐项列出，缺少配置即拒绝。
-/// 真实 MES 应替换整个适配器，不应把此类配置复制成生产授权源。
+/// 仅供参考宿主使用的用户目录配置夹具。
+/// 真实 MES 应替换此适配器，通过用户查询接口提供目录。
 /// </summary>
 public sealed class ConfigurationEmbeddedCollaborationAccessAdapter(IConfiguration configuration)
     : IEmbeddedCollaborationAccessAdapter
 {
-    public Task<EmbeddedPermissionSnapshot> GetPermissionsAsync(EmbeddedIdentity identity, CancellationToken cancellationToken)
-    {
-        var section = FindSubject(identity);
-        return Task.FromResult(section is null
-            ? new EmbeddedPermissionSnapshot([], [])
-            : new EmbeddedPermissionSnapshot(ReadValues(section, "Roles"), ReadValues(section, "Permissions")));
-    }
-
     public Task<DirectoryUser?> GetDirectoryUserAsync(string tenantNId, string userNId, CancellationToken cancellationToken)
     {
         foreach (var candidate in SubjectMappings())
@@ -173,41 +146,6 @@ public sealed class ConfigurationEmbeddedCollaborationAccessAdapter(IConfigurati
             .Take(Math.Clamp(pageSize, 1, 50))
             .ToArray();
         return Task.FromResult(new DirectorySearchPage(users, null));
-    }
-
-    public async Task<bool> HasPermissionAsync(string permission, string tenantNId, string userNId, string sessionNId, string securityVersion, CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(permission) || string.IsNullOrWhiteSpace(sessionNId) || string.IsNullOrWhiteSpace(securityVersion))
-            return false;
-        var user = await GetDirectoryUserAsync(tenantNId, userNId, cancellationToken);
-        if (user is null || !string.Equals(user.SecurityVersion, securityVersion, StringComparison.Ordinal))
-            return false;
-        foreach (var candidate in SubjectMappings())
-        {
-            var identity = TryReadIdentity(candidate.SourceNId, candidate.ExternalTenantNId, candidate.Subject, candidate.Section);
-            if (identity is null || !string.Equals(identity.TenantNId, tenantNId, StringComparison.Ordinal) || !string.Equals(identity.UserNId, userNId, StringComparison.Ordinal) || !string.Equals(identity.SecurityVersion, securityVersion, StringComparison.Ordinal))
-                continue;
-            if (!HasConfiguredSourceSession(candidate.SourceNId, candidate.ExternalTenantNId, candidate.Subject, securityVersion, sessionNId))
-                return false;
-            return (await GetPermissionsAsync(identity, cancellationToken)).Permissions.Contains(permission, StringComparer.Ordinal);
-        }
-        return false;
-    }
-
-    private bool HasConfiguredSourceSession(string sourceNId, string externalTenantNId, string subject, string securityVersion, string sessionNId) =>
-        configuration.GetSection("EmbeddedCollaboration:SourceSessions").GetChildren().Any(section =>
-            IsActive(section)
-            && string.Equals(section["SourceNId"], sourceNId, StringComparison.Ordinal)
-            && string.Equals(section["ExternalTenantNId"], externalTenantNId, StringComparison.Ordinal)
-            && string.Equals(section["ExternalSubject"], subject, StringComparison.Ordinal)
-            && string.Equals(section["SecurityVersion"], securityVersion, StringComparison.Ordinal)
-            && string.Equals(section["SessionNId"], sessionNId, StringComparison.Ordinal));
-
-    private IConfigurationSection? FindSubject(EmbeddedIdentity identity)
-    {
-        var source = configuration.GetSection($"EmbeddedCollaboration:Sources:{identity.SourceNId}");
-        var subject = source.GetSection($"SubjectMappings:{identity.ExternalSubject}");
-        return subject.Exists() ? subject : null;
     }
 
     private IEnumerable<(string SourceNId, string ExternalTenantNId, string Subject, IConfigurationSection Section)> SubjectMappings()
@@ -240,9 +178,6 @@ public sealed class ConfigurationEmbeddedCollaborationAccessAdapter(IConfigurati
         };
     }
 
-    private static string[] ReadValues(IConfigurationSection section, string key) =>
-        section.GetSection(key).GetChildren().Select(item => item.Value).Where(value => !string.IsNullOrWhiteSpace(value)).Cast<string>().ToArray();
-
     private static bool IsActive(IConfigurationSection section)
     {
         var status = section["Status"];
@@ -253,12 +188,11 @@ public sealed class ConfigurationEmbeddedCollaborationAccessAdapter(IConfigurati
     }
 }
 
-/// <summary>把外部能力适配器接入标准 Identity 权限策略；这里的注册会覆盖平台默认权限判断器。</summary>
-public sealed class EmbeddedPermissionEvaluator(IEmbeddedCollaborationAccessAdapter adapter) : IPermissionEvaluator
+/// <summary>独立宿主使用固定协作权限目录；由独立宿主注册，不改变平台默认权限判断器。</summary>
+public sealed class EmbeddedPermissionEvaluator : IPermissionEvaluator
 {
     public Task<PermissionEvaluation> EvaluateAsync(string tenantNId, string userNId, string? sessionNId, int authVersion, string requiredPermissionNId, CancellationToken cancellationToken)
     {
-        _ = adapter;
         _ = tenantNId;
         _ = userNId;
         _ = cancellationToken;

@@ -12,8 +12,7 @@ namespace IndustrialPlatform.Collaboration.EmbeddedHost;
 [Route("embedded")]
 public sealed class EmbeddedHandshakeController(
     EmbeddedHostHandshakeService service,
-    EmbeddedHostHandshakeOptions options,
-    IEmbeddedCollaborationAccessAdapter accessAdapter) : ControllerBase
+    EmbeddedHostHandshakeOptions options) : ControllerBase
 {
     [HttpPost("challenges")]
     public async Task<ActionResult<EmbeddedHandshakeChallenge>> CreateChallenge(CancellationToken cancellationToken)
@@ -56,7 +55,7 @@ public sealed class EmbeddedHandshakeController(
         try
         {
             var session = await service.CompleteAsync(request.Assertion, HttpContext, cancellationToken);
-            return Ok(new { session.ExpiresOn, session.Epoch, identity = await ProjectionAsync(session.Identity, cancellationToken) });
+            return Ok(new { session.ExpiresOn, session.Epoch, identity = Projection(session.Identity) });
         }
         catch (EmbeddedHandshakeException exception)
         {
@@ -74,7 +73,7 @@ public sealed class EmbeddedHandshakeController(
         try
         {
             var session = await service.RenewAsync(request.Assertion, HttpContext, cancellationToken);
-            return Ok(new { session.ExpiresOn, session.Epoch, identity = await ProjectionAsync(session.Identity, cancellationToken) });
+            return Ok(new { session.ExpiresOn, session.Epoch, identity = Projection(session.Identity) });
         }
         catch (EmbeddedHandshakeException exception)
         {
@@ -110,7 +109,7 @@ public sealed class EmbeddedHandshakeController(
         try
         {
             var session = await service.KeepAliveAsync(HttpContext, cancellationToken);
-            return Ok(new { session.ExpiresOn, session.Epoch, identity = await ProjectionAsync(session.Identity, cancellationToken) });
+            return Ok(new { session.ExpiresOn, session.Epoch, identity = Projection(session.Identity) });
         }
         catch (EmbeddedHandshakeException exception)
         {
@@ -134,7 +133,7 @@ public sealed class EmbeddedHandshakeController(
                 EmbeddedAccountQuery.EnsureMatches(session.Identity, EmbeddedAccountQuery.Read(HttpContext));
             return session is null
                 ? Unauthorized(new { code = "EMBEDDED_SESSION_INVALID" })
-                : Ok(new { session.ExpiresOn, session.Epoch, identity = await ProjectionAsync(session.Identity, cancellationToken) });
+                : Ok(new { session.ExpiresOn, session.Epoch, identity = Projection(session.Identity) });
         }
         catch (EmbeddedHandshakeException exception)
         {
@@ -146,10 +145,8 @@ public sealed class EmbeddedHandshakeController(
         }
     }
 
-    private async Task<object> ProjectionAsync(EmbeddedIdentity identity, CancellationToken cancellationToken)
+    private static object Projection(EmbeddedIdentity identity)
     {
-        _ = accessAdapter;
-        _ = cancellationToken;
         return new
         {
             identity.TenantNId,
