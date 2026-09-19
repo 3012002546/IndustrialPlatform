@@ -19,7 +19,7 @@ export interface AuthUser {
   mustChangePassword: boolean
 }
 
-export type AuthSessionTransport = 'bearer' | 'embedded-cookie'
+export type AuthSessionTransport = 'bearer' | 'embedded-cookie' | 'single-access'
 
 export interface AuthSession {
   /** Bearer mode only; embedded-cookie deliberately leaves both token fields absent. */

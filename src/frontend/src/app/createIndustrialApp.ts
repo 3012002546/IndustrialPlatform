@@ -10,6 +10,7 @@ import '@/styles/tokens.css'
 import '@/styles/base.css'
 
 import App from '@/App.vue'
+import SingleUsersApp from '@/pages/pc/identity/SingleUsersApp.vue'
 import { createHttpClient, type HttpAuthRefresh } from '@/api/httpClient'
 import { createIdentityAuthApi } from '@/api/identity/identityApi'
 import { createCollaborationApi } from '@/api/collaboration'
@@ -32,7 +33,7 @@ import {
 } from '@/auth'
 import { loadRuntimeConfig } from '@/config/runtimeConfig'
 import { platformI18n } from '@/localization/i18n'
-import { createAppRouter } from '@/router'
+import { createAppRouter, createSingleUsersRouter } from '@/router'
 import { ROUTE_NAMES } from '@/router/routes'
 import { useAuthStore } from '@/stores/authStore'
 import { useLocalizationStore } from '@/stores/localizationStore'
@@ -76,7 +77,8 @@ function installAuthGateway(pinia: Pinia, router: Router): void {
     // 每次请求均读取当前页级凭据，HTTP 与 SignalR 保持一致。
     const getEmbeddedSession = () => {
       const session = getCurrentSession()
-      return session?.embeddedSessionToken !== undefined && session.embeddedSessionBinding !== undefined
+      return session?.embeddedSessionToken !== undefined &&
+        session.embeddedSessionBinding !== undefined
         ? { token: session.embeddedSessionToken, binding: session.embeddedSessionBinding }
         : null
     }
@@ -108,12 +110,7 @@ function installAuthGateway(pinia: Pinia, router: Router): void {
       }),
     )
     registerCollaborationApi(createCollaborationApi(client))
-    registerCollaborationRealtime(
-      new CollaborationRealtimeManager(
-        () => null,
-        getEmbeddedSession,
-      ),
-    )
+    registerCollaborationRealtime(new CollaborationRealtimeManager(() => null, getEmbeddedSession))
     return
   }
   if (config.authMode === 'http') {
@@ -121,9 +118,13 @@ function installAuthGateway(pinia: Pinia, router: Router): void {
       isAuthPath: (path) => AUTH_ENDPOINT_MARKERS.some((marker) => path.includes(marker)),
       refreshSession: () => useAuthStore(pinia).refresh(),
       onSessionExpired: () => {
-        // 刷新失败:清理本地会话并回到登录页(尽力而为)。
-        void useAuthStore(pinia).logout()
-        void router.push({ name: ROUTE_NAMES.login })
+        if (new URLSearchParams(window.location.search).get('mode') === 'single') {
+          useAuthStore(pinia).clearLocalSession()
+          window.location.replace('/pc/identity/users?mode=single')
+        } else {
+          void useAuthStore(pinia).logout()
+          void router.push({ name: ROUTE_NAMES.login })
+        }
       },
     }
     const client = createHttpClient({
@@ -170,7 +171,8 @@ function installAuthGateway(pinia: Pinia, router: Router): void {
  * 装配顺序:Pinia + Element Plus → Router → 认证网关(拦截器闭包依赖 Pinia 与 Router)。
  */
 export function createIndustrialApp(options: IndustrialAppOptions = {}): VueApp {
-  const app = createApp(options.rootComponent ?? App)
+  const singleUsers = new URLSearchParams(window.location.search).getAll('mode').includes('single')
+  const app = createApp(options.rootComponent ?? (singleUsers ? SingleUsersApp : App))
 
   const pinia = createPinia()
   app.use(pinia)
@@ -179,14 +181,14 @@ export function createIndustrialApp(options: IndustrialAppOptions = {}): VueApp 
   app.use(platformI18n)
   useLocalizationStore(pinia).initialize()
 
-  const router = createAppRouter()
+  const router = singleUsers ? createSingleUsersRouter() : createAppRouter()
   app.use(router)
 
   installAuthGateway(pinia, router)
-  if (loadRuntimeConfig().authMode === 'http') {
+  if (loadRuntimeConfig().authMode === 'http' && !singleUsers) {
     app.use(createSystemDataRuntimePlugin(pinia))
     app.use(createCollaborationRuntimePlugin(pinia, { router }))
-  } else if (loadRuntimeConfig().authMode === 'embedded') {
+  } else if (loadRuntimeConfig().authMode === 'embedded' && !singleUsers) {
     app.use(createCollaborationRuntimePlugin(pinia, { router }))
   }
 

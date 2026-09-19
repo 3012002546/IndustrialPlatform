@@ -28,10 +28,19 @@ export function isValidAuthSession(value: unknown): value is AuthSession {
   if (typeof user !== 'object' || user === null) return false
   const userRecord = user as Record<string, unknown>
   const transport = record['transport']
-  if (transport !== undefined && transport !== 'bearer' && transport !== 'embedded-cookie') return false
-  const hasTokens = transport === 'embedded-cookie'
-    ? (record['accessToken'] === undefined && record['refreshToken'] === undefined)
-    : (typeof record['accessToken'] === 'string' && typeof record['refreshToken'] === 'string')
+  if (
+    transport !== undefined &&
+    transport !== 'bearer' &&
+    transport !== 'embedded-cookie' &&
+    transport !== 'single-access'
+  )
+    return false
+  const hasTokens =
+    transport === 'embedded-cookie'
+      ? record['accessToken'] === undefined && record['refreshToken'] === undefined
+      : transport === 'single-access'
+        ? typeof record['accessToken'] === 'string' && record['refreshToken'] === undefined
+        : typeof record['accessToken'] === 'string' && typeof record['refreshToken'] === 'string'
   return (
     hasTokens &&
     typeof record['expiresAt'] === 'string' &&
