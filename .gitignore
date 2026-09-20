@@ -17,6 +17,8 @@ TestResults/
 .codex/
 *.user
 *.suo
+**/Properties/PublishProfiles/*.pubxml
+**/Properties/PublishProfiles/*.pubxml.user
 
 # Local configuration
 .env
