@@ -138,12 +138,12 @@
 | [Tinode](https://github.com/tinode/chat) | 协议设计参考 | 消息序号/已读游标与旧消息状态恢复分别处理 |
 | [Zulip](https://github.com/zulip/zulip) | 同步设计参考 | 初始快照与订阅竞态、重连与一致性验证 |
 | [vue-advanced-chat](https://github.com/advanced-chat/vue-advanced-chat) | 窗口交互参考 | 消息列表、输入、历史和状态交互；不作为整体替换窗口的前置 |
-| [Screego](https://github.com/screego/server) | 未修改基准 PoC，尚未执行本轮验证 | 屏幕共享/文字可读性/多人观看与网络路径；生产仍需会话授权和媒体撤权证据 |
-| [WebRTC](https://www.w3.org/TR/webrtc/)、[Screen Capture](https://www.w3.org/TR/screen-capture/) | PF-06 标准/候选路线依据 | 浏览器显式捕获、受权信令、direct/relay、真实断流；TURN 可中继，业务后端不录制媒体 |
+| [Screego](https://github.com/screego/server) | 画质与网络路径对照参考，未集成 | 同条件画质、文字可读性与弱网对照留待云部署专项；不作为当前媒体功能的实现前置 |
+| [WebRTC](https://www.w3.org/TR/webrtc/)、[Screen Capture](https://www.w3.org/TR/screen-capture/) | 已用于语音与屏幕共享 | 浏览器显式选源、授权后信令和实时播放；屏幕不采集系统声音，语音只用麦克风；TURN/弱网与长时质量仍待专项验证 |
 
-聊天保持 .NET/SignalR/Vue 路线：平台顶栏未读、快捷抽屉、完整页与工作区共享状态，登录即连接；PDA/Mobile 提供完整 Web 聊天。服务端可靠保存、客户端响应丢失重试、旧窗口状态校正与 MessageStateVersion 合并必须闭环。外部 MES 复用可信身份/目录，可裁剪增强 UI，安全和可靠性不裁剪。
+聊天已按 .NET/SignalR/Vue 路线实现一对一消息、在线状态、附件及顶栏未读、快捷抽屉、完整页的共享状态；PC、PDA、Mobile 使用 Web 聊天。消息持久化、重试、已读同步和旧窗口状态校正已有实现，真实外部依赖、双实例恢复及部分设备矩阵仍需补验。独立协作宿主另有 Standalone 入口；目前用 MES 用户列表匹配 `account`，这只证明账号存在，**不证明 MES 当前登录身份**，详见[独立部署说明](src/backend/src/Hosts/IndustrialPlatform.Collaboration.EmbeddedHost/README.md)。
 
-远程协助继续“一名共享者、1～3 名授权观看者”，逐人邀请不泄露原一对一聊天；观看者离开与共享者停止分权。不做远控、录屏或无人值守。保留 Screego/最小信令双 PoC 决策，不能把开源演示可见画面写成生产已完成。见[实施 08](docs/implementation/08-Industrial%20Platform%20Collaboration开发实施方案.md)、[实施 09](docs/implementation/09-Industrial%20Platform%20RemoteAssistance开发实施方案.md)。
+当前远程协助在已有**一对一聊天**中提供“共享我的屏幕”“请求对方共享”和独立语音：共享方在浏览器原生选择器中选屏幕、窗口或标签页，对方接受后观看；观看画面使用可拖动、缩放、全屏的页内浮窗，聊天仍可操作。语音与屏幕可同时运行，也可分别停止；不提供远控、录屏或无人值守。用户已复测真实屏幕、语音、共存及一端结束后另一端断开；Screego 同条件对照、TURN/弱网、30 分钟稳定性和终端异常场景仍待后续专项，不据本地功能通过宣称所有部署环境已验收。见[PF-06 阶段证据](docs/evidence/PF-06.md)及[当前工作包](docs/tasks/active/PF-06.md)。
 
 ### 终端运行时与客户端
 
