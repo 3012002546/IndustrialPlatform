@@ -32,11 +32,42 @@ if (-not (Test-Path -LiteralPath 'appsettings.Standalone.Development.local.json'
 dotnet run --project 'src/Hosts/IndustrialPlatform.Collaboration.EmbeddedHost/IndustrialPlatform.Collaboration.EmbeddedHost.csproj' --launch-profile Collaboration.EmbeddedHost
 ```
 
-本地宿主默认监听 `https://localhost:56364`、`http://localhost:56365`。开发前端运行 `pnpm dev:lan:https:collaboration`，例如打开 `https://localhost:5173/pc/collaboration?mode=standalone&account=operator-1`。临时用户可在 `LoadMesUsersAsync` 中增删，前端无需跟着改。发布独立前端使用 `pnpm build:collaboration`，产物位于 `src/frontend/dist-collaboration`。
+本地宿主默认监听 `https://localhost:56364`、`http://localhost:56365`。开发前端运行 `pnpm dev:lan:https:collaboration`，例如打开 `https://localhost:5173/pc/collaboration?mode=standalone&account=operator-1`。临时用户可在 `LoadMesUsersAsync` 中增删，前端无需跟着改。
 
 独立数据库支持 SQLite 与 PostgreSQL；初始化按 Identity → SystemData → ReferenceData → Collaboration 顺序复用既有迁移。Standalone 的在线租约和协作实时投递在宿主进程内完成，不要求 Redis 或 RabbitMQ；`/health/ready` 检查协作数据库与出站队列。当前只支持**单实例**部署，进程重启后在线状态由客户端重连恢复。Standalone 开发环境会自动允许本机当前网卡 IP 的 `https://IP:5173` 来源，切换网络不用改本地配置；正式部署仍须把准确的前端 Origin 写入 `AllowedParentOrigins`，并配置 HTTPS、反向代理、SignalR WebSocket 与 iframe 所需的媒体权限。不要提交本地连接串或密钥。
 
 独立后端的 `dotnet publish` 只输出程序，不携带本宿主或所引用服务的 `appsettings*.json`。部署时在发布目录单独放置宿主 `appsettings.json`（以本目录 `appsettings.example.json` 为模板），并设置环境变量 `INDUSTRIAL_PLATFORM_STANDALONE_CONFIG` 指向独立数据库配置文件的绝对路径。该文件可参考 `src/backend/appsettings.Standalone.Development.local.example.json`，SQLite 相对文件路径以这份配置文件所在目录为基准。发布目录与数据库目录应分开保存。
+
+## 独立打包与发布
+
+以下命令在 Windows PowerShell 中执行。`$packageRoot` 是本机打包输出目录，可按实际环境更换；前后端是两个独立产物，不要把完整平台前端 `dist/` 当作协作前端发布。
+
+```powershell
+Set-Location -LiteralPath 'D:\Code\Industrial Platform\IndustrialPlatform'
+$packageRoot = 'D:\Code\Industrial Platform\开发辅助文件\发布包\Collaboration'
+$backendOut = Join-Path $packageRoot 'backend'
+dotnet publish 'src/backend/src/Hosts/IndustrialPlatform.Collaboration.EmbeddedHost/IndustrialPlatform.Collaboration.EmbeddedHost.csproj' --configuration Release --output $backendOut
+
+Set-Location -LiteralPath 'D:\Code\Industrial Platform\IndustrialPlatform\src\frontend'
+$env:VITE_DEPLOYMENT_ENVIRONMENT = 'PROD'
+pnpm install --frozen-lockfile
+pnpm build:collaboration
+$frontendOut = Join-Path $packageRoot 'frontend'
+New-Item -ItemType Directory -Path $frontendOut -Force | Out-Null
+Copy-Item -Path '.\dist-collaboration\*' -Destination $frontendOut -Recurse -Force
+```
+
+后端发布目录包含 `IndustrialPlatform.Collaboration.EmbeddedHost.dll` 及依赖文件；前端发布目录包含 `index.html` 和 `assets/`。部署时将两个目录分别交给后端进程和静态站点。后端发布包刻意不带配置文件：在服务器的后端目录放置按 `appsettings.example.json` 填写的 `appsettings.json`，将 `EmbeddedCollaboration:AllowedParentOrigins` 改为前端实际 HTTPS Origin；另在持久化位置放置独立数据库配置，并把 `INDUSTRIAL_PLATFORM_STANDALONE_CONFIG` 设为它的绝对路径。例如：
+
+```powershell
+$env:ASPNETCORE_ENVIRONMENT = 'Production'
+$env:ASPNETCORE_URLS = 'http://127.0.0.1:56365'
+$env:INDUSTRIAL_PLATFORM_STANDALONE_CONFIG = 'D:\CollaborationData\standalone.json'
+Set-Location -LiteralPath 'D:\Collaboration\backend'
+dotnet .\IndustrialPlatform.Collaboration.EmbeddedHost.dll
+```
+
+上例的服务器路径仅示意，`standalone.json` 可从 `src/backend/appsettings.Standalone.Development.local.example.json` 建立并填写实际 SQLite/PostgreSQL 连接。不要将真实连接串或数据库文件放入静态站点。反向代理需对前端地址提供 HTTPS 和 `/pc/collaboration` 的 SPA 回退，将同源 `/_backend/*` 去掉 `/_backend` 前缀后转发到后端，并转发 SignalR WebSocket。发布后先检查后端 `/health/ready`，再用前端地址 `/pc/collaboration?mode=standalone&account=<MES用户ID>` 验证。当前部署仅支持单个后端实例。
 
 ## 代码位置
 
