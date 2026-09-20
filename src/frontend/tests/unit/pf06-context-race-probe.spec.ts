@@ -10,7 +10,10 @@ class FakeTrack {
 
   constructor(readonly kind: 'audio' | 'video') {}
 
-  addEventListener(_type: string, _listener: EventListenerOrEventListenerObject): void {}
+  addEventListener(_type: string, _listener: EventListenerOrEventListenerObject): void {
+    void _type
+    void _listener
+  }
 
   stop(): void {
     this.readyState = 'ended'
@@ -66,6 +69,7 @@ class FakePeerConnection {
   onconnectionstatechange: (() => void) | null = null
 
   constructor(_configuration?: RTCConfiguration) {
+    void _configuration
     FakePeerConnection.instances.push(this)
   }
 
@@ -108,7 +112,9 @@ class FakePeerConnection {
     }
   }
 
-  async addIceCandidate(_candidate: RTCIceCandidateInit): Promise<void> {}
+  async addIceCandidate(_candidate: RTCIceCandidateInit): Promise<void> {
+    void _candidate
+  }
 
   close(): void {
     this.connectionState = 'closed'

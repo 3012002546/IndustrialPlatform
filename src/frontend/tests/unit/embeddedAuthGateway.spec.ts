@@ -11,14 +11,39 @@ function response(status: number, body: unknown): Response {
 }
 
 describe('createEmbeddedAuthGateway', () => {
-  it('按真实宿主的信封恢复 xxA 登录并续期，保留本页凭据', async () => {
+  it('独立入口按 URL account 创建页级会话，平台嵌入入口不受影响', async () => {
+    const identity = { tenantNId: 'standalone', userNId: 'user-1', displayName: '用户 1', securityVersion: '1' }
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce(response(401, { code: 'EMBEDDED_SESSION_INVALID' }))
+      .mockResolvedValueOnce(response(200, { pageSession: { token: 'page-1', binding: 'binding-1' } }))
+      .mockResolvedValueOnce(response(200, { expiresOn: '2030-01-01T00:01:00Z', identity }))
+    const gateway = createEmbeddedAuthGateway({
+      baseUrl: '/_backend',
+      requestTimeoutMs: 1000,
+      standaloneAutoLogin: true,
+      account: 'user-1',
+      fetchImpl,
+    })
+
+    const session = await gateway.bootstrapSession?.()
+
+    expect(session?.user.userId).toBe('user-1')
+    expect(session?.embeddedSessionToken).toBe('page-1')
+    expect(fetchImpl.mock.calls.map(([url]) => url)).toEqual([
+      '/_backend/api/v1/embedded/session?account=user-1',
+      '/_backend/embedded/standalone/session?account=user-1',
+      '/_backend/api/v1/embedded/session?account=user-1',
+    ])
+  })
+
+  it('按真实宿主的信封恢复 operator-1 登录并续期，保留本页凭据', async () => {
     const identity = { tenantNId: 'T-1', userNId: 'A', displayName: '系统 A', securityVersion: '1' }
     const fetchImpl = vi.fn()
       .mockResolvedValueOnce(response(401, { success: false, code: '401', message: 'Request failed', data: null }))
       .mockResolvedValueOnce(response(200, { pageSession: { token: 'page-a', binding: 'binding-a' } }))
       .mockResolvedValueOnce(response(200, { success: true, code: '200', message: 'success', data: { expiresOn: '2030-01-01T00:01:00Z', identity } }))
       .mockResolvedValueOnce(response(200, { success: true, code: '200', message: 'success', data: { expiresOn: '2030-01-01T00:02:00Z', identity } }))
-    const gateway = createEmbeddedAuthGateway({ baseUrl: '/_backend', requestTimeoutMs: 1000, demoAutoLogin: true, account: 'xxA', fetchImpl })
+    const gateway = createEmbeddedAuthGateway({ baseUrl: '/_backend', requestTimeoutMs: 1000, demoAutoLogin: true, account: 'operator-1', fetchImpl })
 
     const session = await gateway.bootstrapSession?.()
     expect(session?.user.userId).toBe('A')
@@ -144,7 +169,7 @@ describe('createEmbeddedAuthGateway', () => {
       baseUrl: '/_backend',
       requestTimeoutMs: 1000,
       demoAutoLogin: true,
-      demoAccount: 'xxB',
+      demoAccount: 'operator-2',
       fetchImpl,
     })
 
@@ -153,7 +178,7 @@ describe('createEmbeddedAuthGateway', () => {
     expect(session?.user.displayName).toBe('系统 B')
     expect(fetchImpl.mock.calls.map(([url]) => url)).toEqual([
       '/_backend/api/v1/embedded/session',
-      '/_backend/embedded/demo/session?account=xxB',
+      '/_backend/embedded/demo/session?account=operator-2',
       '/_backend/api/v1/embedded/session',
     ])
     expect(fetchImpl.mock.calls[2]?.[1]).toEqual(
@@ -243,12 +268,12 @@ describe('createEmbeddedAuthGateway', () => {
       baseUrl: '/_backend',
       requestTimeoutMs: 1000,
       demoAutoLogin: true,
-      account: 'xxA',
+      account: 'operator-1',
       fetchImpl,
     }
     const gateway = createEmbeddedAuthGateway(deps)
     await gateway.bootstrapSession?.()
-    deps.account = 'xxB'
+    deps.account = 'operator-2'
 
     const session = await gateway.bootstrapSession?.()
 
@@ -259,7 +284,7 @@ describe('createEmbeddedAuthGateway', () => {
         'X-Embedded-Binding': 'page-binding-a',
       }),
     }))
-    expect(fetchImpl.mock.calls[2]?.[0]).toBe('/_backend/embedded/demo/session?account=xxB')
+    expect(fetchImpl.mock.calls[2]?.[0]).toBe('/_backend/embedded/demo/session?account=operator-2')
     expect(fetchImpl.mock.calls[3]?.[1]).toEqual(expect.objectContaining({
       headers: expect.objectContaining({
         'X-Embedded-Session': 'page-token-b',

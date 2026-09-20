@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
-namespace IndustrialPlatform.Collaboration.EmbeddedHost;
+namespace IndustrialPlatform.Collaboration.EmbeddedHost.Demo;
 
 /// <summary>
 /// 独立演示账户的本地入口。它只在 Program.cs 明确启用 FixedDemo 时映射，
@@ -41,7 +41,7 @@ public static class FixedDemoSessionEndpoint
         // 后续请求只使用握手生成的 HttpOnly industrial_embedded_session。
         var binding = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
         context.Request.Headers.Origin = origin;
-        context.Request.Headers.Cookie = $"{options.SourceSessionCookieName}={account.SourceSessionValue}; {options.BrowserBindingCookieName}={binding}";
+        context.Request.Headers.Cookie = $"{options.SourceSessionCookieName}={account.AccountNId}; {options.BrowserBindingCookieName}={binding}";
 
         try
         {

@@ -111,4 +111,31 @@ describe('Collaboration HTTP contract', () => {
       ],
     })
   })
+
+  it('normalizes member read state from the conversation detail', async () => {
+    server.use(
+      http.get(`${BASE}/collaboration/api/v1/conversations/CV-1`, () =>
+        HttpResponse.json({
+          success: true,
+          code: '200',
+          message: 'success',
+          data: {
+            conversationNId: 'CV-1',
+            currentMember: { userNId: 'U-1', lastReadSequence: '17', unreadCount: '0', projectionVersion: '4' },
+            peerMember: { userNId: 'U-2', lastReadSequence: '16', unreadCount: '1', projectionVersion: '3' },
+            lastMessageSequence: '17',
+            retentionFloorSequence: '0',
+            optimisticVersion: '5',
+          },
+        }),
+      ),
+    )
+
+    const api = createCollaborationApi(createHttpClient({ baseUrl: BASE, timeoutMs: 1000 }))
+    await expect(api.getConversation('CV-1')).resolves.toMatchObject({
+      currentMember: { lastReadSequence: 17, unreadCount: 0, projectionVersion: 4 },
+      peerMember: { lastReadSequence: 16, unreadCount: 1, projectionVersion: 3 },
+      lastMessageSequence: 17,
+    })
+  })
 })

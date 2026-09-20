@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Npgsql;
 
-namespace IndustrialPlatform.Collaboration.EmbeddedHost;
+namespace IndustrialPlatform.Collaboration.EmbeddedHost.Configuration;
 
 /// <summary>
 /// 独立协作宿主的唯一私有配置入口：宿主默认配置 → 显式独立配置 → 环境变量/命令行。

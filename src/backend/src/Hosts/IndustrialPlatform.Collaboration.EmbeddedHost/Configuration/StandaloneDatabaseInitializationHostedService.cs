@@ -7,7 +7,7 @@ using IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Initializa
 using Microsoft.Extensions.Options;
 using SqlSugar;
 
-namespace IndustrialPlatform.Collaboration.EmbeddedHost;
+namespace IndustrialPlatform.Collaboration.EmbeddedHost.Configuration;
 
 /// <summary>
 /// 独立协作宿主的启动编排，复用各模块已有初始化器，

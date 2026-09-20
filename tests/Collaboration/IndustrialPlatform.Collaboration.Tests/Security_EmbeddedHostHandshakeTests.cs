@@ -8,6 +8,15 @@ using IndustrialPlatform.Collaboration.Contracts;
 using IndustrialPlatform.Collaboration.Application.RemoteAssistance;
 using IndustrialPlatform.Collaboration.Domain.RemoteAssistance;
 using IndustrialPlatform.Collaboration.EmbeddedHost;
+using IndustrialPlatform.Collaboration.EmbeddedHost.Abstractions;
+using IndustrialPlatform.Collaboration.EmbeddedHost.Adapters;
+using IndustrialPlatform.Collaboration.EmbeddedHost.Authorization;
+using IndustrialPlatform.Collaboration.EmbeddedHost.Configuration;
+using IndustrialPlatform.Collaboration.EmbeddedHost.Demo;
+using IndustrialPlatform.Collaboration.EmbeddedHost.Models;
+using IndustrialPlatform.Collaboration.EmbeddedHost.Persistence;
+using IndustrialPlatform.Collaboration.EmbeddedHost.Services;
+using IndustrialPlatform.Collaboration.EmbeddedHost.Web;
 using IndustrialPlatform.Infrastructure.Database;
 using IndustrialPlatform.Security;
 using Microsoft.AspNetCore.Http;
@@ -24,8 +33,22 @@ namespace IndustrialPlatform.Collaboration.Tests;
 
 public sealed class Security_EmbeddedHostHandshakeTests
 {
+    [Fact]
+    public async Task Cancelled_session_read_is_not_reported_as_persistence_failure()
+    {
+        using var fixture = CreateFixture();
+        using var db = CreateDb(fixture.DatabasePath);
+        using var store = new SqlEmbeddedHandshakeStore(db);
+        await store.GetSessionAsync("missing-token", "missing-binding", CancellationToken.None);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            store.GetSessionAsync("missing-token", "missing-binding", cancellation.Token));
+    }
+
     [Theory]
-    [InlineData("?account=xxA&account=xxB", "EMBEDDED_ACCOUNT_AMBIGUOUS")]
+    [InlineData("?account=operator-1&account=operator-2", "EMBEDDED_ACCOUNT_AMBIGUOUS")]
     [InlineData("?account=", "EMBEDDED_ACCOUNT_INVALID")]
     public void Account_selector_rejects_ambiguous_or_empty_values(string query, string code)
     {

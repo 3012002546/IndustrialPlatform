@@ -1,4 +1,13 @@
 using IndustrialPlatform.Collaboration.EmbeddedHost;
+using IndustrialPlatform.Collaboration.EmbeddedHost.Abstractions;
+using IndustrialPlatform.Collaboration.EmbeddedHost.Adapters;
+using IndustrialPlatform.Collaboration.EmbeddedHost.Authorization;
+using IndustrialPlatform.Collaboration.EmbeddedHost.Configuration;
+using IndustrialPlatform.Collaboration.EmbeddedHost.Demo;
+using IndustrialPlatform.Collaboration.EmbeddedHost.Models;
+using IndustrialPlatform.Collaboration.EmbeddedHost.Persistence;
+using IndustrialPlatform.Collaboration.EmbeddedHost.Services;
+using IndustrialPlatform.Collaboration.EmbeddedHost.Web;
 using IndustrialPlatform.Infrastructure.Database;
 using IndustrialPlatform.SharedKernel.Topology;
 using IndustrialPlatform.SharedKernel.Exceptions;

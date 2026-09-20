@@ -1,10 +1,24 @@
 # IndustrialPlatform.Collaboration.EmbeddedHost
 
-这是 Collaboration 的独立进程宿主。MES 不引用本仓库程序集，只通过 HTTP/SignalR 使用聊天、语音和屏幕共享能力；MES 自己保留登录和当前用户会话。`.NET Framework 4.5.2` 与 `.NET 6` 均走相同的 HTTP 边界。
+这是独立部署的协作宿主。MES 不引用平台程序集，只在当前登录用户打开聊天窗时拼接 `mode=standalone&account=<当前账户>`，并提供返回 `userId`、`userName` 的用户列表接口。独立服务用 `account` 精确匹配列表中的 `userId`；身份投影、页面会话、续期、存储与协作功能能力均由独立服务负责。该边界只校验账号在结果集中存在，不读取 MES 会话、租户、安全版本或权限。
 
-## 本地启动
+## 唯一需要替换的 MES 方法
 
-源码宿主位于本目录，前端仍复用 `src/frontend` 的 Collaboration 页面。
+[Adapters/MesUserDirectoryAdapter.cs](Adapters/MesUserDirectoryAdapter.cs) 的 `LoadMesUsersAsync` 当前临时 `new` 三个 `MesUser(userId, userName)` 对象。接入时把这个方法体替换为 MES 用户列表接口调用；`GetDirectoryUserAsync`、`SearchDirectoryAsync` 和独立入口共用返回结果，不需要在页面或业务代码中写账号白名单。请保证 `userId` 稳定且唯一，`account` 与它精确一致；`userName` 只用于显示。
+
+独立入口是 `POST /embedded/standalone/session?account=...`。未传账号、账号格式错误、账号不在用户列表、页面 Origin 不在允许列表时拒绝；匹配成功后独立服务签发只属于该页的短期凭据。后续 HTTP 与 SignalR 使用该凭据，服务端续期时重新查用户列表；用户从列表移除后不再续期。URL `account` 是本轮约定的账号选择与列表存在性校验，不额外声称它证明 MES 当前登录身份。
+
+协作模块仍需要内部权限判断，但独立宿主只授予聊天、在线状态、语音与屏幕共享所需的固定能力；没有独立的权限分配页面，也不读取 MES 权限。平台原有权限管理和用户管理不走此宿主。
+
+## 本地配置与启动
+
+| 文件 | 用途 |
+| --- | --- |
+| 本目录 `appsettings.json` | 独立宿主入口配置：`EmbeddedCollaboration:Mode=Standalone`、`PlatformTenantNId`（独立库内部租户）、`AllowedParentOrigins`、`Initialization:Enabled`，以及 `Collaboration:Media` 的语音和屏幕共享开关。可从同目录 `appsettings.example.json` 复制。 |
+| `src/backend/appsettings.Standalone.Development.local.json` | 独立数据库连接。可从同名 `.example.json` 复制；数据库只从这里读取，不回退平台配置。 |
+| 平台 UnifiedHost、Gateway 及其他服务的 `appsettings*.json` | 仅各自服务读取，不是独立协作的配置入口。 |
+
+`Sources`、`SourceSessions`、`Demo:Accounts` 均不是 Standalone 模式的配置。旧握手代码与演示参考夹具为既有兼容测试保留；`FixedDemo` 需要显式配置，Standalone 的页面入口不使用这些配置或断言流程。`PlatformTenantNId`、内部会话标识和固定功能能力由本服务管理，不要求 MES 接口返回。
 
 ```powershell
 Set-Location -LiteralPath 'D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\Hosts\IndustrialPlatform.Collaboration.EmbeddedHost'
@@ -15,97 +29,69 @@ Set-Location -LiteralPath 'D:\Code\Industrial Platform\IndustrialPlatform\src\ba
 if (-not (Test-Path -LiteralPath 'appsettings.Standalone.Development.local.json')) {
     Copy-Item -LiteralPath 'appsettings.Standalone.Development.local.example.json' -Destination 'appsettings.Standalone.Development.local.json'
 }
-Set-Location -LiteralPath 'D:\Code\Industrial Platform\IndustrialPlatform\src\backend\src\Hosts\IndustrialPlatform.Collaboration.EmbeddedHost'
-dotnet run --project 'IndustrialPlatform.Collaboration.EmbeddedHost.csproj' --launch-profile Collaboration.EmbeddedHost
+dotnet run --project 'src/Hosts/IndustrialPlatform.Collaboration.EmbeddedHost/IndustrialPlatform.Collaboration.EmbeddedHost.csproj' --launch-profile Collaboration.EmbeddedHost
 ```
 
-默认监听 `https://localhost:56364` 和 `http://localhost:56365`。前端开发代理使用 HTTP 56365；浏览器直接访问宿主或生产反向代理时使用 HTTPS。独立宿主不连接平台默认云数据库。
+本地宿主默认监听 `https://localhost:56364`、`http://localhost:56365`。开发前端运行 `pnpm dev:lan:https:collaboration`，例如打开 `https://localhost:5173/pc/collaboration?mode=standalone&account=operator-1`。临时用户可在 `LoadMesUsersAsync` 中增删，前端无需跟着改。
 
-数据库只有一个输入：`src/backend/appsettings.Standalone.Development.local.json` 的 `Standalone:Database`。示例默认 SQLite，文件相对该配置文件目录解析；也可将 `Provider` 改为 `PostgreSQL` 并提供 `ConnectionString`。`StandaloneConfiguration.Apply` 将这一个输入投影到 SqlSugar 和 DatabaseTopology；不支持 SQL Server，也不会回退读取平台 `appsettings.Development.local.json`。该 `.local.json` 已被忽略，不能提交真实连接串、密钥或 MES 凭据。
+独立数据库支持 SQLite 与 PostgreSQL；初始化按 Identity → SystemData → ReferenceData → Collaboration 顺序复用既有迁移。Standalone 的在线租约和协作实时投递在宿主进程内完成，不要求 Redis 或 RabbitMQ；`/health/ready` 检查协作数据库与出站队列。当前只支持**单实例**部署，进程重启后在线状态由客户端重连恢复。Standalone 开发环境会自动允许本机当前网卡 IP 的 `https://IP:5173` 来源，切换网络不用改本地配置；正式部署仍须把准确的前端 Origin 写入 `AllowedParentOrigins`，并配置 HTTPS、IIS 子应用、SignalR WebSocket 与 iframe 所需的媒体权限。不要提交本地连接串或密钥。
 
-宿主自己的 `appsettings.json` 只保存监听相关的 Embedded/MES 接入、页面来源和功能模式配置。`appsettings.example.json` 是 FixedDemo 参考夹具模板，不是生产配置；示例不包含私钥，复制后必须把密钥路径替换为仓库外的本机开发文件，演示人员也只能用于本机开发。
+独立后端的 `dotnet publish` 只输出程序，不携带本宿主或所引用服务的 `appsettings*.json`。部署时在发布目录单独放置宿主 `appsettings.json`（以本目录 `appsettings.example.json` 为模板），并用其中的 `Standalone:ConfigurationPath` 或环境变量 `INDUSTRIAL_PLATFORM_STANDALONE_CONFIG` 指向独立数据库配置文件的绝对路径。该文件可参考 `src/backend/appsettings.Standalone.Development.local.example.json`，SQLite 相对文件路径以这份配置文件所在目录为基准。发布目录与数据库目录应分开保存。
 
-## 账号参数和页面级会话
+## 独立打包与发布
 
-开发前端命令：
+在仓库根目录运行一次脚本，会构建并更新下面两个固定发布目录；脚本先在临时目录检查产物，再复制到目标目录，不清空服务器上的配置或数据库文件。`-BuildOnly` 仅构建检查，不更新发布目录。
 
 ```powershell
-Set-Location -LiteralPath 'D:\Code\Industrial Platform\IndustrialPlatform\src\frontend'
-pnpm dev:lan:https:collaboration
+Set-Location -LiteralPath 'D:\Code\Industrial Platform\IndustrialPlatform'
+.\deploy\scripts\publish-collaboration.ps1 -BuildOnly
+.\deploy\scripts\publish-collaboration.ps1
 ```
 
-打开以下地址即可选择参考账号：
+| 目录 | 内容 | IIS 用途 |
+| --- | --- | --- |
+| `D:\Code\Deploy\Collaboration.EmbeddedHost\frontend` | 独立协作 `index.html`、`assets/` 和静态站点 `web.config` | 独立 HTTPS 网站的根目录，不使用完整平台前端 `dist/` |
+| `D:\Code\Deploy\Collaboration.EmbeddedHost\backend` | `dotnet publish` 的程序集、依赖和自动生成的 IIS `web.config` | 同一网站下路径为 `/_backend` 的 IIS **应用程序**物理目录 |
 
-```text
-https://localhost:5173/pc/collaboration?account=xxA   # 默认账号，也可省略 account
-https://localhost:5173/pc/collaboration?account=xxB
-https://localhost:5173/pc/collaboration?account=xxC
-```
+### 首次在 IIS 配置网站
 
-`xxA`、`xxB`、`xxC` 必须是单个、精确匹配的值；未知值或重复参数会被拒绝，不会静默回退到 A。前端 `src/frontend/src/config/runtimeConfig.ts` 的 `parseEmbeddedDemoAccount` 负责页面 URL 校验；后端 `FixedDemoAccountCatalog.Resolve` 再按服务端白名单校验。`FixedDemoSessionEndpoint.StartAsync` 按账号选择 source session，返回 `account`、`currentUser`、身份投影及短期 `pageSession`。
+推荐给协作窗口一个独立站点和稳定主机名。以下以 `collab.mes.local` 为**示例**；部署时替换成实际 DNS 名称，在访问端将该名称解析到 IIS 服务器 IP，并准备名称匹配、客户端信任的证书。IIS 管理器中的设置如下：
 
-`pageSession` 仅保存在当前页面内存中，后续 HTTP 请求由 `createHttpClient` 注入 `X-Embedded-Session` 和 `X-Embedded-Binding`；SignalR 由 `CollaborationRealtimeManager` 使用同一页凭据。服务端 `EmbeddedSessionAuthenticationMiddleware` 和 `EmbeddedHostHandshakeService.TryReadSessionCredential` 优先读取这两个成对的请求头，再处理 SignalR 查询参数和 HttpOnly cookie。因此同源页面 A/B/C 不依赖共享 Cookie 来区分身份，关闭一个页面不会主动注销其他页面。
+| 步骤 | IIS 设置 | 示例值 |
+| --- | --- | --- |
+| 1. 添加网站 | 网站名称、物理路径 | `Collaboration.EmbeddedHost`、`D:\Code\Deploy\Collaboration.EmbeddedHost\frontend` |
+| 2. 网站绑定 | 类型、端口、主机名、证书 | `https`、`443`、`collab.mes.local`、名称匹配且客户端信任的证书 |
+| 3. 新建后端应用程序池 | 名称、`.NET CLR Version`、工作进程数 | `Collaboration.EmbeddedHost.Backend`、`No Managed Code`、`1` |
+| 4. 在该网站下“添加应用程序” | 别名、物理路径、应用程序池 | `_backend`、`D:\Code\Deploy\Collaboration.EmbeddedHost\backend`、上一步的后端池 |
 
-页面生命周期与应用实时连接、Presence 心跳、媒体邀请分别管理。默认会话租约为 60 秒；已有的 Presence 周期同时调用 `/api/v1/embedded/session/heartbeat` 续租，页面停止后不再续租并在租约内失效。媒体邀请仍由服务端权限判断，离线目标不会被客户端伪造为可接受；同一邀请由首个有效接受者获胜。
+`_backend` 是 IIS **应用程序**，不是虚拟目录或另一网站。它没有单独的网站绑定和对外端口；浏览器只访问 `https://collab.mes.local:443`，后端路径是同源的 `https://collab.mes.local/_backend/...`。因此不需要 ARR 反向代理。前端 `web.config` 已提供 `/pc/collaboration` 刷新时的 SPA 回退，并排除 `/_backend`。IIS 子应用及独立应用程序池的做法见 [Microsoft 文档](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/iis/advanced?view=aspnetcore-10.0)。
 
-演示入口只在 `EmbeddedCollaboration:Mode=FixedDemo` 时映射：
+若 MES 已占用同一 IP 的 443，给协作站点配置**不同主机名和对应证书**，在绑定对话框勾选“需要服务器名称指示”（SNI）；也可选择一个未占用的 HTTPS 端口，例如 **8443**，此时所有地址和下方 `AllowedParentOrigins` 都必须带 `:8443`，防火墙也要放行该端口。若直接用 IP 打开，证书必须匹配该 IP 且被客户端信任。不要用 `http://服务器IP:端口` 作为正式入口：麦克风和屏幕共享等浏览器 API 要求安全上下文。IIS HTTPS 绑定参见 [Microsoft 说明](https://learn.microsoft.com/en-us/iis/manage/configuring-security/how-to-set-up-ssl-on-iis)，媒体要求参见 [麦克风](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia)、[屏幕共享](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getDisplayMedia)文档。
 
-```text
-POST /embedded/demo/session?account=xxB
-```
+`5173` 是 Vite 本地调试端口，`56364/56365` 是后端本地 `launchSettings.json` 的调试端口；**IIS 发布时都不填写这些端口**。IIS 站点绑定的 443（或所选 8443）同时服务前端、`/_backend` API 和 SignalR WebSocket。后端发布包自动生成的 `web.config` 交给 IIS 的 ASP.NET Core Module 启动应用，不必另开 `dotnet ...dll` 进程。
 
-返回 400 表示账号参数不合法；返回的 `pageSession.token` 和 `pageSession.binding` 不应写入 localStorage、URL 或正式日志。该入口只用于 `lan-https-collaboration` 开发模式，生产构建和普通 Embedded 模式不会自动调用它。
+**构建机**需要 .NET 10 SDK、Node.js 24（至少 24.18.0）和 pnpm 11.16.0。**IIS 服务器**采用当前脚本的框架依赖发布方式，需要先安装 IIS 和 [.NET 10 Hosting Bundle](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/iis/hosting-bundle?view=aspnetcore-10.0)；它提供运行时及 ASP.NET Core Module，服务器无需安装 SDK、Node.js 或 pnpm。前端 `web.config` 依赖 [IIS URL Rewrite 模块](https://learn.microsoft.com/en-us/iis/extensions/url-rewrite-module/using-the-url-rewrite-module)；还需启用静态内容、默认文档和 WebSocket Protocol（聊天实时连接与媒体信令使用）。若先装 Hosting Bundle 后装 IIS，应修复安装 Hosting Bundle；安装后按微软文档重启 IIS。IIS 功能说明见 [Microsoft IIS 托管文档](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/iis/?view=aspnetcore-10.0)。
 
-## FixedDemo 参考链路
+后端发布包刻意不带 `appsettings*.json`。首次部署时确认 `backend` 目录有按本目录 `appsettings.example.json` 填写的 `appsettings.json`；已有文件时核对内容，不要直接覆盖。关键配置示例（省略的 `Collaboration:Media` 等字段沿用示例文件）：
 
-复制宿主示例配置并设置 `EmbeddedCollaboration:AllowedParentOrigins`，至少包含实际前端 Origin，例如 `https://localhost:5173` 或 `https://10.13.49.141:5173`。保留 `SourceResolver.Mode=ReferenceFixture`、`AccessAdapter.Mode=ReferenceFixture`，它们只读取示例中的 `SourceSessions`、身份映射和逐项权限。
-
-启动后，可通过既有接口验证最小链路：
-
-1. `GET /collaboration/api/v1/users?keyword=系统` 搜索 B/C。
-2. `POST /collaboration/api/v1/conversations`，body `{ "peerUserNId": "<B 或 C 的 userNId>" }`。
-3. `POST /collaboration/api/v1/conversations/<conversationNId>/messages`，body `{ "clientMessageNId": "demo-1", "messageType": "Text", "textContent": "来自系统 A 的演示消息" }`。
-4. `GET /collaboration/api/v1/conversations/<conversationNId>/messages` 读回消息。
-
-参考夹具的 `SourceSessions` 配置键只是上游 cookie 索引；真正绑定依赖条目内显式的 `SessionNId`、主体、租户和安全版本。账号 A/B/C 都有独立 source session 和相同的最小协作权限投影。
-
-独立启动初始化由 `StandaloneDatabaseInitializationHostedService.StartAsync` 编排，顺序固定为 Identity → SystemData → ReferenceData → Collaboration。它复用已有 `IServiceInitializer` 的 inspect/plan/apply/verify，并在实际物理数据库目标上持有 SQLite 文件锁或 PostgreSQL advisory lock；`EmbeddedCollaboration:Initialization:Enabled=true` 时 FixedDemo 和正式 MES 模式都可使用，普通平台宿主不注册此服务。
-
-## 正式 MES 接入
-
-正式模式关闭 FixedDemo，并在 `Program.cs` 替换以下两个 DI seam；默认实现全部失败关闭，不允许 allow-all 或客户端自报身份。稳定的平台租户和外部主体映射由宿主内置的 `ServerDerivedEmbeddedSubjectIdentityMapper` 完成；它不要求 MES 再实现第二套身份映射接口：
-
-- `IEmbeddedCurrentUserAdapter.ResolveAsync(HttpContext, string? requestedAccountNId, CancellationToken)`：服务端调用现有 MES 当前用户接口，返回 `EmbeddedSourcePrincipal` 的 `SourceNId`、`ExternalTenantNId`、稳定 `ExternalSubject`、`SessionNId`、`SecurityVersion`、`DisplayName` 和已核对的 `AccountNId`。`requestedAccountNId` 只能与 MES 当前登录用户比较，不能直接回填。
-- `IEmbeddedCollaborationAccessAdapter.GetDirectoryUserAsync` / `SearchDirectoryAsync`：只提供人员目录 Search/Get。身份和会话验证成功后，宿主通过 `EmbeddedCollaborationPermissionCatalog` 授予消息、Presence 和媒体所需的显式最小权限，不要求 MES 实现整套平台权限目录，也不会放行管理员或合规权限。
-
-推荐单独部署一个服务端 HTTP adapter/BFF，EmbeddedHost 只调用它。浏览器仍只发送宿主会话，不能传递 MES 密码、subject、tenant 或权限。旧 MES 不需要引用新程序集；adapter 应读取服务端 `HttpContext` 中的 MES Cookie/服务器会话并核对当前用户，伪代码如下（`IMesCurrentUserClient` 是部署方现有 MES client，不是浏览器 header）：
-
-```csharp
-public async Task<EmbeddedSourcePrincipal?> ResolveAsync(
-    HttpContext context,
-    string? requestedAccountNId,
-    CancellationToken cancellationToken)
+```json
 {
-    var current = await mesCurrentUserClient.GetCurrentAsync(context, cancellationToken);
-    if (current is null || (requestedAccountNId is not null
-        && !String.Equals(current.AccountNId, requestedAccountNId, StringComparison.Ordinal)))
-        return null;
-    return new EmbeddedSourcePrincipal(
-        "mes", current.TenantNId, current.Subject, current.DisplayName,
-        current.SecurityVersion, current.SessionNId, current.AccountNId);
+  "EmbeddedCollaboration": {
+    "Mode": "Standalone",
+    "Initialization": { "Enabled": true },
+    "PlatformTenantNId": "standalone",
+    "AllowedParentOrigins": ["https://collab.mes.local"]
+  },
+  "Standalone": {
+    "ConfigurationPath": "D:\\Code\\Deploy\\Collaboration.EmbeddedHost\\data\\standalone.json"
+  }
 }
 ```
 
-宿主实际握手路由为 `POST /api/v1/embedded/challenges` → `GET /api/v1/embedded/assertions?nonce=...` → `POST /api/v1/embedded/exchanges`；已有会话使用 `GET /api/v1/embedded/session?account=...` 和 `POST /api/v1/embedded/session/heartbeat?account=...`。浏览器示例 `wwwroot/embedded-handshake.js` 的 `establishEmbeddedSession({ ..., account })` 与 `renewEmbeddedSession({ ..., account })` 会把 account 同时附加到 challenge、assertion、exchange/renew，服务端再次用 MES 当前用户核对；缺少、重复或不匹配时拒绝。正式部署应设置 `EmbeddedCollaboration:PlatformTenantNId`，并替换当前用户和目录适配器。
+`AllowedParentOrigins` 是前端网站的**精确 Origin**：443 默认端口不写 `:443`，若绑定 8443 则写 `https://collab.mes.local:8443`。`data` 目录位于前后端网站根目录之外；`standalone.json` 可参考 `src/backend/appsettings.Standalone.Development.local.example.json`，填写真实 SQLite/PostgreSQL 连接。也可用进程环境变量 `INDUSTRIAL_PLATFORM_STANDALONE_CONFIG` 指定配置路径。后端应用程序池身份 `IIS AppPool\Collaboration.EmbeddedHost.Backend` 需能读取 `backend` 和 `data` 配置、读写 SQLite 数据目录（若使用 SQLite）。真实连接串和数据库文件不要放进 `frontend`。脚本会覆盖程序文件及前端 `web.config`，保留现有配置和数据库，不删除旧版本遗留文件；如需清理旧文件，先备份并人工确认。脚本更新后端期间会短暂写入 `app_offline.htm`，结束后移除；若目录已有该文件，脚本会停止，避免覆盖人工维护状态。
 
-可执行的 HTTP 调用示例见 [`docs/examples/EmbeddedMesHandshakeExample.cs`](../../../../../docs/examples/EmbeddedMesHandshakeExample.cs)。示例只依赖 `HttpClient`、Cookie 和 JSON 文本解析，使用的请求顺序同时适用于 .NET Framework 4.5.2 与 .NET 6；前端 iframe 侧直接复用 [`wwwroot/embedded-handshake.js`](wwwroot/embedded-handshake.js)。
+发布后依次访问 `https://collab.mes.local/_backend/health/ready`（后端应返回健康结果）、`https://collab.mes.local/pc/collaboration?mode=standalone&account=<MES用户ID>`（前端页面）。如果选 8443，两个地址都加 `:8443`。若 IIS 返回 500.19，先检查 URL Rewrite 和 `web.config`；若后端启动失败，检查 Hosting Bundle、配置和应用程序池目录权限。若页面能开但实时消息不可达，检查 WebSocket Protocol 和 `/_backend` 应用程序映射。当前仅支持单实例，应用程序池回收会使在线状态暂时中断，客户端重连后恢复。
 
-实际的 MES 地址、服务端票据转发、租户字段、CSP `frame-ancestors`、CORS、HTTPS 和 iframe `allow` 属性由部署方确定；本宿主不从浏览器猜测这些信息。
+## 代码位置
 
-## HTTP/SignalR 部署契约
-
-- API：`/collaboration/api/v1`；Hub：`/collaboration/hubs/collaboration-v1`；嵌入会话：`/api/v1/embedded/*`。
-- `AllowedParentOrigins` 必须是精确 Origin；启用 credentials 时不能使用 `*`。
-- 嵌入 cookie 为 `HttpOnly; Secure; SameSite=None`，生产环境必须 HTTPS；页面凭据只在当前页内存中使用。
-- 反向代理需转发 API、SignalR WebSocket、嵌入会话和握手路径，并配置 SPA 回退及实际需要的 `microphone`、`display-capture` 权限。
-- 会话过期或撤销后，前端清理本地状态并提示从 MES 重新打开，不跳转平台用户名密码登录页。
+宿主源码按 `Models`、`Abstractions`、`Adapters`、`Services`、`Persistence`、`Authorization`、`Web`、`Demo`、`Configuration` 分类，命名空间与目录一致。独立入口在 [Web/StandaloneSessionEndpoint.cs](Web/StandaloneSessionEndpoint.cs)，人员列表替换点在 [Adapters/MesUserDirectoryAdapter.cs](Adapters/MesUserDirectoryAdapter.cs)；平台通用单页入口与 UnifiedHost 不因此改变。

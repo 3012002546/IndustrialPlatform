@@ -2,7 +2,7 @@ using System.Security.Claims;
 using IndustrialPlatform.Collaboration.Api.Hubs;
 using Microsoft.AspNetCore.SignalR;
 
-namespace IndustrialPlatform.Collaboration.EmbeddedHost;
+namespace IndustrialPlatform.Collaboration.EmbeddedHost.Services;
 
 /// <summary>
 /// Revalidates an embedded page session for every SignalR connection and hub

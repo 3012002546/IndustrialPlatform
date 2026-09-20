@@ -1,0 +1,9 @@
+global using IndustrialPlatform.Collaboration.EmbeddedHost.Abstractions;
+global using IndustrialPlatform.Collaboration.EmbeddedHost.Adapters;
+global using IndustrialPlatform.Collaboration.EmbeddedHost.Authorization;
+global using IndustrialPlatform.Collaboration.EmbeddedHost.Configuration;
+global using IndustrialPlatform.Collaboration.EmbeddedHost.Demo;
+global using IndustrialPlatform.Collaboration.EmbeddedHost.Models;
+global using IndustrialPlatform.Collaboration.EmbeddedHost.Persistence;
+global using IndustrialPlatform.Collaboration.EmbeddedHost.Services;
+global using IndustrialPlatform.Collaboration.EmbeddedHost.Web;

@@ -3,12 +3,7 @@ using IndustrialPlatform.SharedKernel.Topology;
 using Microsoft.Extensions.Options;
 using Npgsql;
 
-namespace IndustrialPlatform.Collaboration.EmbeddedHost;
-
-public interface IStandaloneInitializationLock
-{
-    Task<IAsyncDisposable> AcquireAsync(ResolvedDatabaseTarget target, CancellationToken cancellationToken);
-}
+namespace IndustrialPlatform.Collaboration.EmbeddedHost.Configuration;
 
 /// <summary>
 /// Coordinates the complete standalone initialization sequence across processes.

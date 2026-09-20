@@ -23,6 +23,7 @@
     "test:unit:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "build": "vue-tsc --build && vite build",
+    "build:collaboration": "vue-tsc --build && vite build --mode collaboration",
     "build:app": "vite build",
     "preview": "vite preview"
   },

@@ -17,6 +17,8 @@ TestResults/
 .codex/
 *.user
 *.suo
+**/Properties/PublishProfiles/*.pubxml
+**/Properties/PublishProfiles/*.pubxml.user
 
 # Local configuration
 .env
@@ -25,6 +27,7 @@ appsettings.*.local.json
 *.db
 *.db-shm
 *.db-wal
+*.db-journal
 
 # Local dev-run artifacts (PID files, service logs) created by deploy/scripts/dev.ps1
 .run/

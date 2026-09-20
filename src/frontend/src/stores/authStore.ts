@@ -28,6 +28,11 @@ function defaultStorage(): Storage {
 
 /** 会话键随认证模式:真实 Identity 与 Mock 会话互不串用(README「真实令牌策略」)。 */
 function sessionStorageKey(): string {
+  if (
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('mode') === 'single'
+  )
+    return 'industrial-platform.auth.single.v1'
   return loadRuntimeConfig().authMode === 'http'
     ? AUTH_SESSION_HTTP_STORAGE_KEY
     : AUTH_SESSION_STORAGE_KEY
@@ -62,6 +67,7 @@ export const useAuthStore = defineStore('auth', () => {
       clearAuthSession(defaultStorage(), AUTH_SESSION_HTTP_STORAGE_KEY)
       return
     }
+    if (value.refreshToken === undefined && value.transport !== 'single-access') return
     writeAuthSession(defaultStorage(), value, sessionStorageKey())
   }
 
@@ -149,10 +155,18 @@ export const useAuthStore = defineStore('auth', () => {
       let refreshed: AuthSession
       if (current.transport === 'embedded-cookie') {
         if (gateway.refreshEmbeddedSession === undefined)
-          throw createApiError('unauthorized', DEFAULT_ERROR_MESSAGES.unauthorized, createCorrelationId())
+          throw createApiError(
+            'unauthorized',
+            DEFAULT_ERROR_MESSAGES.unauthorized,
+            createCorrelationId(),
+          )
         refreshed = await gateway.refreshEmbeddedSession()
       } else if (current.refreshToken === undefined) {
-        throw createApiError('unauthorized', DEFAULT_ERROR_MESSAGES.unauthorized, createCorrelationId())
+        throw createApiError(
+          'unauthorized',
+          DEFAULT_ERROR_MESSAGES.unauthorized,
+          createCorrelationId(),
+        )
       } else {
         refreshed = await gateway.refresh(current.refreshToken)
       }

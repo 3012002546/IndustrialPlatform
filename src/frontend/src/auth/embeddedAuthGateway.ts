@@ -8,6 +8,8 @@ export interface EmbeddedAuthGatewayDeps {
   fetchImpl?: typeof fetch
   /** 仅用于独立宿主 FixedDemo 调试；正式 MES 不启用。 */
   demoAutoLogin?: boolean
+  /** 独立协作入口通过 account 校验用户列表后建立页级会话。 */
+  standaloneAutoLogin?: boolean
   /** 独立演示页级账户；不是生产认证凭据。 */
   demoAccount?: string
   /** Optional account selector, verified by the server-side MES adapter. */
@@ -87,8 +89,8 @@ export function createEmbeddedAuthGateway(deps: EmbeddedAuthGatewayDeps): AuthGa
   const fetcher = deps.fetchImpl ?? globalThis.fetch.bind(globalThis)
   const endpoint = (path: string): string => `${deps.baseUrl.replace(/\/$/, '')}${path}`
   let pageCredential: PageSessionCredential | undefined
-  // 同一页面最多创建一次演示会话，并发恢复共享请求；失败不会不断重试。
-  let demoSessionPromise: Promise<unknown> | undefined
+  // 同一页面最多创建一次入口会话，并发恢复共享请求；失败不会不断重试。
+  let entrySessionPromise: Promise<unknown> | undefined
 
   async function request(path: string, method: 'GET' | 'POST', accountOverride = deps.account): Promise<EmbeddedSessionDto> {
     const controller = new AbortController()
@@ -171,18 +173,17 @@ export function createEmbeddedAuthGateway(deps: EmbeddedAuthGatewayDeps): AuthGa
       return mapSession(await request('/api/v1/embedded/session', 'GET'), pageCredential)
     } catch (error) {
       if (
-        !deps.demoAutoLogin ||
+        !(deps.standaloneAutoLogin || deps.demoAutoLogin) ||
         !(error instanceof Error && 'kind' in error && error.kind === 'unauthorized'
           && ((error as { details?: { status?: number; code?: string } }).details?.status === 401
             || ((error as { details?: { status?: number; code?: string } }).details?.status === 403
               && (error as { details?: { status?: number; code?: string } }).details?.code === 'EMBEDDED_ACCOUNT_MISMATCH')))
       )
         throw error
-      // 身份和 Cookie 均由后端现有握手签发，前端不伪造用户或访问令牌。
-      // 后端未启用 FixedDemo 时端点不可用，继续按真实登录失败处理。
-      const demoAccount = deps.demoAccount ?? deps.account
-      demoSessionPromise ??= request('/embedded/demo/session', 'POST', demoAccount)
-      await demoSessionPromise
+      const entryPath = deps.standaloneAutoLogin ? '/embedded/standalone/session' : '/embedded/demo/session'
+      const account = deps.standaloneAutoLogin ? deps.account : deps.demoAccount ?? deps.account
+      entrySessionPromise ??= request(entryPath, 'POST', account)
+      await entrySessionPromise
       return mapSession(await request('/api/v1/embedded/session', 'GET'), pageCredential)
     }
   }

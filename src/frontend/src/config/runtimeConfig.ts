@@ -23,11 +23,9 @@ export interface RuntimeConfig {
   authMode: AuthMode
   requestTimeoutMs: number
   deploymentEnvironment: DeploymentEnvironment
-  /** 仅独立协作开发命令启用：无会话时请求固定 A 演示登录。 */
-  embeddedDemoAutoLogin?: boolean
-  /** 独立协作演示页级账户；不作为正式认证凭据。 */
-  embeddedDemoAccount?: string
-  /** Optional MES account selector, forwarded to the server-side current-user adapter. */
+  /** 独立协作构建目标；与 URL 中的展示 mode 分开。 */
+  standaloneCollaboration?: boolean
+  /** MES account selector, validated against the server-side user list. */
   embeddedAccount?: string
 }
 
@@ -99,15 +97,6 @@ function parseDeploymentEnvironment(
   )
 }
 
-const EMBEDDED_DEMO_ACCOUNTS = new Set(['xxA', 'xxB', 'xxC'])
-
-function parseEmbeddedDemoAccount(account?: string): string {
-  if (account !== undefined && !EMBEDDED_DEMO_ACCOUNTS.has(account)) {
-    throw new RuntimeConfigError('独立协作演示 account 仅支持 xxA、xxB、xxC，且只能出现一次。')
-  }
-  return account ?? 'xxA'
-}
-
 function parseEmbeddedAccount(pageUrl?: string): string | undefined {
   if (pageUrl === undefined) return undefined
   let url: URL
@@ -144,11 +133,11 @@ export function parseRuntimeConfig(source: RuntimeConfigSource): RuntimeConfig {
   if (source.isProduction && authMode === 'mock') {
     throw new RuntimeConfigError('生产构建禁止启用 mock 认证(VITE_AUTH_MODE=mock)')
   }
+  const standaloneCollaboration = source.raw.MODE === 'collaboration'
+    || source.raw.MODE === 'lan-https-collaboration'
+  if (standaloneCollaboration && authMode !== 'embedded')
+    throw new RuntimeConfigError('独立协作构建必须使用 embedded 认证。')
 
-  const embeddedDemoAutoLogin =
-    !source.isProduction &&
-    authMode === 'embedded' &&
-    source.raw.MODE === 'lan-https-collaboration'
   const embeddedAccount = authMode === 'embedded' ? parseEmbeddedAccount(source.pageUrl) : undefined
 
   return {
@@ -156,9 +145,7 @@ export function parseRuntimeConfig(source: RuntimeConfigSource): RuntimeConfig {
     authMode,
     requestTimeoutMs,
     deploymentEnvironment,
-    ...(embeddedDemoAutoLogin
-      ? { embeddedDemoAutoLogin: true, embeddedDemoAccount: parseEmbeddedDemoAccount(embeddedAccount) }
-      : {}),
+    ...(standaloneCollaboration ? { standaloneCollaboration: true } : {}),
     ...(embeddedAccount === undefined ? {} : { embeddedAccount }),
   }
 }
