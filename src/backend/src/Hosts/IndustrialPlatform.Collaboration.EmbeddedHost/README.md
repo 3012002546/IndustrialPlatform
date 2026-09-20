@@ -53,21 +53,44 @@ Set-Location -LiteralPath 'D:\Code\Industrial Platform\IndustrialPlatform'
 | `D:\Code\Deploy\Collaboration.EmbeddedHost\frontend` | 独立协作 `index.html`、`assets/` 和静态站点 `web.config` | 独立 HTTPS 网站的根目录，不使用完整平台前端 `dist/` |
 | `D:\Code\Deploy\Collaboration.EmbeddedHost\backend` | `dotnet publish` 的程序集、依赖和自动生成的 IIS `web.config` | 同一网站下路径为 `/_backend` 的 IIS **应用程序**物理目录 |
 
-首次在 IIS 建站：将 `frontend` 设为独立网站根目录，在该站添加 `/_backend` 应用程序并指向 `backend`，为后端应用分配独立应用程序池，`.NET CLR Version` 设为 `No Managed Code`，工作进程数保持 1。`/_backend` 是应用程序，不是虚拟目录；这样前端内置的同源 `/_backend/...` 请求和 SignalR WebSocket 会直接进入后端，不需要 ARR 反向代理。前端 `web.config` 提供 `/pc/collaboration` 刷新时的 SPA 回退，并排除 `/_backend`。网站根目录需要独立的 HTTPS 域名或绑定；MES 只需打开该站的聊天窗 URL。IIS 子应用的做法见 [Microsoft IIS sub-app 文档](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/iis/advanced?view=aspnetcore-10.0)。
+### 首次在 IIS 配置网站
+
+推荐给协作窗口一个独立站点和稳定主机名。以下以 `collab.mes.local` 为**示例**；部署时替换成实际 DNS 名称，在访问端将该名称解析到 IIS 服务器 IP，并准备名称匹配、客户端信任的证书。IIS 管理器中的设置如下：
+
+| 步骤 | IIS 设置 | 示例值 |
+| --- | --- | --- |
+| 1. 添加网站 | 网站名称、物理路径 | `Collaboration.EmbeddedHost`、`D:\Code\Deploy\Collaboration.EmbeddedHost\frontend` |
+| 2. 网站绑定 | 类型、端口、主机名、证书 | `https`、`443`、`collab.mes.local`、名称匹配且客户端信任的证书 |
+| 3. 新建后端应用程序池 | 名称、`.NET CLR Version`、工作进程数 | `Collaboration.EmbeddedHost.Backend`、`No Managed Code`、`1` |
+| 4. 在该网站下“添加应用程序” | 别名、物理路径、应用程序池 | `_backend`、`D:\Code\Deploy\Collaboration.EmbeddedHost\backend`、上一步的后端池 |
+
+`_backend` 是 IIS **应用程序**，不是虚拟目录或另一网站。它没有单独的网站绑定和对外端口；浏览器只访问 `https://collab.mes.local:443`，后端路径是同源的 `https://collab.mes.local/_backend/...`。因此不需要 ARR 反向代理。前端 `web.config` 已提供 `/pc/collaboration` 刷新时的 SPA 回退，并排除 `/_backend`。IIS 子应用及独立应用程序池的做法见 [Microsoft 文档](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/iis/advanced?view=aspnetcore-10.0)。
+
+若 MES 已占用同一 IP 的 443，给协作站点配置**不同主机名和对应证书**，在绑定对话框勾选“需要服务器名称指示”（SNI）；也可选择一个未占用的 HTTPS 端口，例如 **8443**，此时所有地址和下方 `AllowedParentOrigins` 都必须带 `:8443`，防火墙也要放行该端口。若直接用 IP 打开，证书必须匹配该 IP 且被客户端信任。不要用 `http://服务器IP:端口` 作为正式入口：麦克风和屏幕共享等浏览器 API 要求安全上下文。IIS HTTPS 绑定参见 [Microsoft 说明](https://learn.microsoft.com/en-us/iis/manage/configuring-security/how-to-set-up-ssl-on-iis)，媒体要求参见 [麦克风](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia)、[屏幕共享](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getDisplayMedia)文档。
+
+`5173` 是 Vite 本地调试端口，`56364/56365` 是后端本地 `launchSettings.json` 的调试端口；**IIS 发布时都不填写这些端口**。IIS 站点绑定的 443（或所选 8443）同时服务前端、`/_backend` API 和 SignalR WebSocket。后端发布包自动生成的 `web.config` 交给 IIS 的 ASP.NET Core Module 启动应用，不必另开 `dotnet ...dll` 进程。
 
 **构建机**需要 .NET 10 SDK、Node.js 24（至少 24.18.0）和 pnpm 11.16.0。**IIS 服务器**采用当前脚本的框架依赖发布方式，需要先安装 IIS 和 [.NET 10 Hosting Bundle](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/iis/hosting-bundle?view=aspnetcore-10.0)；它提供运行时及 ASP.NET Core Module，服务器无需安装 SDK、Node.js 或 pnpm。前端 `web.config` 依赖 [IIS URL Rewrite 模块](https://learn.microsoft.com/en-us/iis/extensions/url-rewrite-module/using-the-url-rewrite-module)；还需启用静态内容、默认文档和 WebSocket Protocol（聊天实时连接与媒体信令使用）。若先装 Hosting Bundle 后装 IIS，应修复安装 Hosting Bundle；安装后按微软文档重启 IIS。IIS 功能说明见 [Microsoft IIS 托管文档](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/iis/?view=aspnetcore-10.0)。
 
-后端发布包刻意不带 `appsettings*.json`。首次部署时在 `backend` 目录单独放置按本目录 `appsettings.example.json` 填写的 `appsettings.json`，其中 `EmbeddedCollaboration:Mode` 保持 `Standalone`，`AllowedParentOrigins` 写前端网站**准确的 HTTPS Origin**。将独立数据库配置放在网站目录外的持久化位置，在宿主配置中加入路径，例如：
+后端发布包刻意不带 `appsettings*.json`。首次部署时确认 `backend` 目录有按本目录 `appsettings.example.json` 填写的 `appsettings.json`；已有文件时核对内容，不要直接覆盖。关键配置示例（省略的 `Collaboration:Media` 等字段沿用示例文件）：
 
 ```json
-"Standalone": {
-  "ConfigurationPath": "D:\\CollaborationData\\standalone.json"
+{
+  "EmbeddedCollaboration": {
+    "Mode": "Standalone",
+    "Initialization": { "Enabled": true },
+    "PlatformTenantNId": "standalone",
+    "AllowedParentOrigins": ["https://collab.mes.local"]
+  },
+  "Standalone": {
+    "ConfigurationPath": "D:\\Code\\Deploy\\Collaboration.EmbeddedHost\\data\\standalone.json"
+  }
 }
 ```
 
-`standalone.json` 可参考 `src/backend/appsettings.Standalone.Development.local.example.json`，填写真实 SQLite/PostgreSQL 连接；也可用进程环境变量 `INDUSTRIAL_PLATFORM_STANDALONE_CONFIG` 指定路径。IIS 应用程序池身份需能读取配置、读写 SQLite 数据目录（若使用 SQLite），数据库与真实连接串不得放进 `frontend`。脚本会覆盖程序文件及前端 `web.config`，保留现有配置和数据库，不删除旧版本遗留文件；如需清理旧文件，先备份并人工确认。脚本更新后端期间会短暂写入 `app_offline.htm`，结束后移除；若目录已有该文件，脚本会停止，避免覆盖人工维护状态。
+`AllowedParentOrigins` 是前端网站的**精确 Origin**：443 默认端口不写 `:443`，若绑定 8443 则写 `https://collab.mes.local:8443`。`data` 目录位于前后端网站根目录之外；`standalone.json` 可参考 `src/backend/appsettings.Standalone.Development.local.example.json`，填写真实 SQLite/PostgreSQL 连接。也可用进程环境变量 `INDUSTRIAL_PLATFORM_STANDALONE_CONFIG` 指定配置路径。后端应用程序池身份 `IIS AppPool\Collaboration.EmbeddedHost.Backend` 需能读取 `backend` 和 `data` 配置、读写 SQLite 数据目录（若使用 SQLite）。真实连接串和数据库文件不要放进 `frontend`。脚本会覆盖程序文件及前端 `web.config`，保留现有配置和数据库，不删除旧版本遗留文件；如需清理旧文件，先备份并人工确认。脚本更新后端期间会短暂写入 `app_offline.htm`，结束后移除；若目录已有该文件，脚本会停止，避免覆盖人工维护状态。
 
-发布后访问 `https://<协作站点域名>/_backend/health/ready` 检查后端，再用 `https://<协作站点域名>/pc/collaboration?mode=standalone&account=<MES用户ID>` 验证页面、消息、状态和媒体信令。若 IIS 返回 500.19，先检查 URL Rewrite 和 `web.config`；若后端启动失败，检查 Hosting Bundle、配置和应用程序池目录权限。若页面能开但实时消息不可达，检查 WebSocket Protocol 和 `/_backend` 应用程序映射。当前仅支持单实例，应用程序池回收会使在线状态暂时中断，客户端重连后恢复。
+发布后依次访问 `https://collab.mes.local/_backend/health/ready`（后端应返回健康结果）、`https://collab.mes.local/pc/collaboration?mode=standalone&account=<MES用户ID>`（前端页面）。如果选 8443，两个地址都加 `:8443`。若 IIS 返回 500.19，先检查 URL Rewrite 和 `web.config`；若后端启动失败，检查 Hosting Bundle、配置和应用程序池目录权限。若页面能开但实时消息不可达，检查 WebSocket Protocol 和 `/_backend` 应用程序映射。当前仅支持单实例，应用程序池回收会使在线状态暂时中断，客户端重连后恢复。
 
 ## 代码位置
 
