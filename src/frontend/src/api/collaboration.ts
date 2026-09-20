@@ -50,6 +50,7 @@ export interface ConversationMember {
   joinedOn: string
   lastReadSequence: number
   unreadCount: number
+  projectionVersion?: number
 }
 
 export interface ReadCursor {
@@ -520,6 +521,25 @@ function normalizeConversationPage(value: ConversationPage): ConversationPage {
   }
 }
 
+function normalizeConversationDetail(value: ConversationDetail): ConversationDetail {
+  const member = (item: ConversationMember): ConversationMember => ({
+    ...item,
+    lastReadSequence: numberValue(item.lastReadSequence),
+    unreadCount: numberValue(item.unreadCount),
+    ...(item.projectionVersion === undefined
+      ? {}
+      : { projectionVersion: numberValue(item.projectionVersion) }),
+  })
+  return {
+    ...value,
+    currentMember: member(value.currentMember),
+    peerMember: member(value.peerMember),
+    lastMessageSequence: numberValue(value.lastMessageSequence),
+    retentionFloorSequence: numberValue(value.retentionFloorSequence),
+    optimisticVersion: numberValue(value.optimisticVersion),
+  }
+}
+
 function normalizeMessagePage(value: MessagePage): MessagePage {
   return {
     ...value,
@@ -608,7 +628,8 @@ export function createCollaborationApi(client: HttpClient): CollaborationApi {
         .get<ConversationPage>(`${COLLABORATION_BASE}/conversations${query(params)}`)
         .then(normalizeConversationPage),
     getConversation: (conversationNId) =>
-      client.get<ConversationDetail>(`${COLLABORATION_BASE}/conversations/${id(conversationNId)}`),
+      client.get<ConversationDetail>(`${COLLABORATION_BASE}/conversations/${id(conversationNId)}`)
+        .then(normalizeConversationDetail),
     sendMessage: (conversationNId, body) =>
       client
         .post<Message>(

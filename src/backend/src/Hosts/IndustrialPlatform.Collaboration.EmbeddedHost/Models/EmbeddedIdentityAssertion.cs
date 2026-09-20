@@ -1,0 +1,26 @@
+using System.Collections.Concurrent;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json.Serialization;
+using IndustrialPlatform.Infrastructure.Database;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
+using Microsoft.IdentityModel.Tokens;
+using SqlSugar;
+
+namespace IndustrialPlatform.Collaboration.EmbeddedHost.Models;
+
+public sealed record EmbeddedIdentityAssertion(
+    string SourceNId,
+    string Issuer,
+    string ExternalSubject,
+    string ExternalTenantNId,
+    string DisplayName,
+    string SecurityVersion,
+    string SourceSessionNId,
+    string Nonce,
+    string Jti,
+    DateTimeOffset ExpiresOn,
+    string? AccountNId = null);

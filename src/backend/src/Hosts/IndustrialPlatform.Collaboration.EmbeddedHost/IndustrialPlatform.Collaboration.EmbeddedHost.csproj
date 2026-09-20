@@ -14,4 +14,11 @@
     <ProjectReference Include="..\..\Services\ReferenceData\IndustrialPlatform.ReferenceData.Api\IndustrialPlatform.ReferenceData.Api.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\IndustrialPlatform.Web\IndustrialPlatform.Web.csproj" />
   </ItemGroup>
+  <!-- 配置由部署方单独提供；引用的 API 项目同名配置不能进入独立发布包。 -->
+  <Target Name="ExcludeServiceSettingsFromStandalonePublish" BeforeTargets="_HandleFileConflictsForPublish">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)"
+        Condition="'%(ResolvedFileToPublish.Extension)' == '.json' and $([System.String]::Copy('%(ResolvedFileToPublish.Filename)').StartsWith('appsettings'))" />
+    </ItemGroup>
+  </Target>
 </Project>

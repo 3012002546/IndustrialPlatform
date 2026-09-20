@@ -183,7 +183,11 @@ public sealed class CollaborationHub : Hub
             }
         }
         if (!string.IsNullOrWhiteSpace(tenant) && !string.IsNullOrWhiteSpace(actor))
+        {
             _service.RemovePresence(tenant, actor, Context.ConnectionId);
+            var presence = _service.GetPresence(tenant, actor);
+            await Clients.Group(PresenceGroup(tenant, actor)).SendAsync("presence.changed", presence, CancellationToken.None);
+        }
         _mediaContexts.RemoveConnection(Context.ConnectionId);
         await base.OnDisconnectedAsync(exception);
     }

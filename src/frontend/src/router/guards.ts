@@ -78,18 +78,6 @@ export function installRouterGuards(router: Router): void {
       deviceStore.init()
     }
 
-    // 独立演示登录成功后，从初始入口或旧的会话失效页直接进入聊天。
-    // 正式 MES 和普通平台的路由规则保持不变。
-    if (
-      runtimeConfig.embeddedDemoAutoLogin &&
-      authStore.isAuthenticated &&
-      (to.name === ROUTE_NAMES.root ||
-        to.name === ROUTE_NAMES.login ||
-        to.name === ROUTE_NAMES.embeddedSessionRequired)
-    ) {
-      return { path: `/${deviceStore.terminal}/collaboration` }
-    }
-
     // 已登录访问登录页 → 回到生效终端首页
     if (to.name === ROUTE_NAMES.login && authStore.isAuthenticated) {
       return { name: `${deviceStore.terminal}-home` }

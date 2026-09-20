@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace IndustrialPlatform.Collaboration.EmbeddedHost;
+namespace IndustrialPlatform.Collaboration.EmbeddedHost.Web;
 
 /// <summary>
 /// 嵌入登录接口：创建挑战、签发上游身份断言、交换会话，以及查询、续期和撤销会话。

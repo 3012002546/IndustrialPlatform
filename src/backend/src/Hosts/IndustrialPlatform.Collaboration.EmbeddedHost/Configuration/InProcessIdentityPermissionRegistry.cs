@@ -2,13 +2,13 @@ using IndustrialPlatform.Identity.Application.Management;
 using IndustrialPlatform.SystemData.Application.ControlPlane;
 using IndustrialPlatform.SystemData.Application.Reliability;
 
-namespace IndustrialPlatform.Collaboration.EmbeddedHost;
+namespace IndustrialPlatform.Collaboration.EmbeddedHost.Configuration;
 
 /// <summary>
-/// FixedDemo 复用同进程 Identity 权限目录完成 SystemData 基线校验，
-/// 不通过 HTTP 回环，也不伪造缺失权限。真实 MES 接入不使用此演示适配器。
+/// 独立宿主复用同进程 Identity 权限目录完成模块初始化基线校验。
+/// 这只核对模块权限清单，不向 MES 用户分配权限。
 /// </summary>
-public sealed class FixedDemoIdentityPermissionRegistry(IManagementStore managementStore) : IIdentityPermissionRegistry
+public sealed class InProcessIdentityPermissionRegistry(IManagementStore managementStore) : IIdentityPermissionRegistry
 {
     public async Task<PermissionRegistrationReceipt?> VerifyAsync(
         PermissionManifestV1 manifest,

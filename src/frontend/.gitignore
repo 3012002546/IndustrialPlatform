@@ -3,6 +3,7 @@ node_modules/
 
 # Build output
 dist/
+dist-collaboration/
 *.tsbuildinfo
 node_modules/.tmp/
 

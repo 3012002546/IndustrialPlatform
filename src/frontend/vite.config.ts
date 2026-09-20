@@ -5,9 +5,9 @@ import vue from '@vitejs/plugin-vue'
 import { defineConfig, loadEnv } from 'vite'
 
 export default defineConfig(({ mode }) => {
-  const collaboration = mode === 'lan-https-collaboration'
+  const collaboration = mode === 'lan-https-collaboration' || mode === 'collaboration'
   // 两个 HTTPS 入口复用 LAN 证书，普通 LAN HTTP 调试不加载证书。
-  const httpsRequired = mode === 'lan-https' || collaboration
+  const httpsRequired = mode === 'lan-https' || mode === 'lan-https-collaboration'
   const env = loadEnv(httpsRequired ? 'lan' : mode, process.cwd(), '')
   const lan = mode === 'lan' || httpsRequired
   const certPath = env.DEV_HTTPS_CERT
@@ -20,7 +20,7 @@ export default defineConfig(({ mode }) => {
   return {
     // loadEnv只读取配置，不会更改Vite按mode注入的import.meta.env。
     // lan-https也必须把同一LAN API入口注入页面，避免落回.env.local的localhost。
-    ...(lan
+    ...(lan || collaboration
       ? {
           define: {
             'import.meta.env.VITE_API_BASE_URL': JSON.stringify(
@@ -28,7 +28,12 @@ export default defineConfig(({ mode }) => {
             ),
             // 独立宿主使用自己的会话，不能继承平台 .env.local 的 http 登录方式。
             ...(collaboration
-              ? { 'import.meta.env.VITE_AUTH_MODE': JSON.stringify('embedded') }
+              ? {
+                  'import.meta.env.VITE_AUTH_MODE': JSON.stringify('embedded'),
+                  'import.meta.env.VITE_DEPLOYMENT_ENVIRONMENT': JSON.stringify(
+                    env.VITE_DEPLOYMENT_ENVIRONMENT || 'PROD',
+                  ),
+                }
               : {}),
           },
         }
@@ -69,7 +74,7 @@ export default defineConfig(({ mode }) => {
       port: 4173,
     },
     build: {
-      outDir: 'dist',
+      outDir: mode === 'collaboration' ? 'dist-collaboration' : 'dist',
     },
   }
 })

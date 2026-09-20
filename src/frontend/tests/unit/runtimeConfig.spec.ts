@@ -39,38 +39,43 @@ describe('parseRuntimeConfig', () => {
     expect(cfg.authMode).toBe('embedded')
   })
 
-  it('仅独立开发命令允许自动演示登录，正式构建和普通 MES 不启用', () => {
+  it('keeps the independent build target separate from display mode and platform authentication', () => {
+    const standalone = parse({ VITE_AUTH_MODE: 'embedded', MODE: 'collaboration' })
+    expect(standalone.standaloneCollaboration).toBe(true)
+    expect(parse({ VITE_AUTH_MODE: 'http' }).standaloneCollaboration).toBeUndefined()
+    expect(() => parse({ VITE_AUTH_MODE: 'http', MODE: 'collaboration' })).toThrow(RuntimeConfigError)
+  })
+
+  it('独立调试和正式构建使用相同的 Standalone 入口', () => {
     const raw = {
       MODE: 'lan-https-collaboration',
       VITE_AUTH_MODE: 'embedded',
       VITE_DEPLOYMENT_ENVIRONMENT: 'PROD',
     }
-    expect(parse(raw).embeddedDemoAutoLogin).toBe(true)
-    expect(parse(raw, true).embeddedDemoAutoLogin).toBeUndefined()
-    expect(parse({ ...raw, MODE: 'lan-https' }).embeddedDemoAutoLogin).toBeUndefined()
-    expect(parse({ ...raw, VITE_AUTH_MODE: 'http' }).embeddedDemoAutoLogin).toBeUndefined()
+    expect(parse(raw).standaloneCollaboration).toBe(true)
+    expect(parse(raw, true).standaloneCollaboration).toBe(true)
+    expect(parse({ ...raw, MODE: 'lan-https' }).standaloneCollaboration).toBeUndefined()
+    expect(() => parse({ ...raw, VITE_AUTH_MODE: 'http' })).toThrow(RuntimeConfigError)
   })
 
-  it('从页面 account 参数解析独立演示账户，缺省为 xxA', () => {
+  it('从页面 account 参数解析独立演示账户，未提供时不指定用户', () => {
     const raw = {
       MODE: 'lan-https-collaboration',
       VITE_AUTH_MODE: 'embedded',
       VITE_DEPLOYMENT_ENVIRONMENT: 'DEV',
     }
-    expect(parse(raw, false, 'https://localhost:5173/pc/collaboration?account=xxB').embeddedDemoAccount).toBe('xxB')
-    expect(parse(raw, false, 'https://localhost:5173/pc/collaboration').embeddedDemoAccount).toBe('xxA')
+    expect(parse(raw, false, 'https://localhost:5173/pc/collaboration?account=operator-2').embeddedAccount).toBe('operator-2')
+    expect(parse(raw, false, 'https://localhost:5173/pc/collaboration').embeddedAccount).toBeUndefined()
   })
 
-  it('拒绝未知或重复的独立演示账户参数', () => {
+  it('只拒绝格式无效或重复的独立演示账户参数', () => {
     const raw = {
       MODE: 'lan-https-collaboration',
       VITE_AUTH_MODE: 'embedded',
       VITE_DEPLOYMENT_ENVIRONMENT: 'DEV',
     }
-    expect(() => parse(raw, false, 'https://localhost:5173/pc/collaboration?account=xxD')).toThrow(
-      RuntimeConfigError,
-    )
-    expect(() => parse(raw, false, 'https://localhost:5173/pc/collaboration?account=xxA&account=xxB')).toThrow(
+    expect(parse(raw, false, 'https://localhost:5173/pc/collaboration?account=operator-42').embeddedAccount).toBe('operator-42')
+    expect(() => parse(raw, false, 'https://localhost:5173/pc/collaboration?account=operator-1&account=operator-2')).toThrow(
       RuntimeConfigError,
     )
   })
@@ -89,7 +94,7 @@ describe('parseRuntimeConfig', () => {
     )).toThrow(RuntimeConfigError)
   })
 
-  it.each(['', 'account=', 'account=xxA&account=xxB', 'account=%20xxA', 'account=xxD'])(
+  it.each(['', 'account=', 'account=operator-1&account=operator-2', 'account=%20operator-1', 'account=operator-42'])(
     'keeps demo and formal account rules separate for query "%s"',
     (query) => {
       const pageUrl = `https://localhost:5173/pc/collaboration?${query}`
@@ -97,12 +102,14 @@ describe('parseRuntimeConfig', () => {
       if (query === '') {
         const config = parse(raw, false, pageUrl)
         expect(config.embeddedAccount).toBeUndefined()
-        expect(config.embeddedDemoAccount).toBe('xxA')
+        expect(config.embeddedAccount).toBeUndefined()
+      } else if (query === 'account=operator-42') {
+        expect(parse(raw, false, pageUrl).embeddedAccount).toBe('operator-42')
       } else {
         expect(() => parse(raw, false, pageUrl)).toThrow(RuntimeConfigError)
       }
-      if (query === 'account=xxD') {
-        expect(parse({ ...raw, MODE: 'production', VITE_DEPLOYMENT_ENVIRONMENT: 'PROD' }, true, pageUrl).embeddedAccount).toBe('xxD')
+      if (query === 'account=operator-42') {
+        expect(parse({ ...raw, MODE: 'production', VITE_DEPLOYMENT_ENVIRONMENT: 'PROD' }, true, pageUrl).embeddedAccount).toBe('operator-42')
       }
       // 平台模式不消费嵌入账户，不能因其格式或演示白名单影响原有入口。
       expect(parse({ VITE_AUTH_MODE: 'http' }, false, pageUrl).embeddedAccount).toBeUndefined()

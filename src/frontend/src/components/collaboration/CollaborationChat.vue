@@ -15,6 +15,7 @@ import type {
 import { createCorrelationId } from '@/api/correlation'
 import { getCollaborationRealtime, type CollaborationRealtime } from '@/api/collaborationHub'
 import { getCollaborationApi } from '@/api/collaborationRegistry'
+import { loadRuntimeConfig } from '@/config/runtimeConfig'
 import AppPage from '@/components/base/AppPage.vue'
 import AppQueryPanel from '@/components/management/AppQueryPanel.vue'
 import PermissionGate from '@/permissions/PermissionGate.vue'
@@ -95,6 +96,7 @@ const actionMenuStyle = ref<Record<string, string>>({})
 const terminalActionArea = ref<HTMLElement | null>(null)
 const terminalActionsOpen = ref(false)
 let directoryTimer: ReturnType<typeof setTimeout> | undefined
+let standaloneRefreshTimer: ReturnType<typeof setInterval> | undefined
 let realtime: CollaborationRealtime | null = null
 let loadVersion = 0
 let conversationLoadVersion = 0
@@ -348,6 +350,13 @@ async function loadConversationDetail(conversation: ConversationSummary): Promis
     )
       return
     conversationDetail.value = detail
+    applyReadCursor(conversation.conversationNId, {
+      sequence: detail.currentMember.lastReadSequence,
+      unreadCount: detail.currentMember.unreadCount,
+      ...(detail.currentMember.projectionVersion === undefined
+        ? {}
+        : { projectionVersion: detail.currentMember.projectionVersion }),
+    })
     peerReadCursors[conversation.conversationNId] = Math.max(
       peerReadCursors[conversation.conversationNId] ?? 0,
       detail.peerMember.lastReadSequence,
@@ -530,6 +539,8 @@ async function markDisplayedRead(): Promise<void> {
 
 function onDocumentFocus(): void {
   void markDisplayedRead()
+  if (loadRuntimeConfig().standaloneCollaboration)
+    void loadConversations({ background: true })
 }
 
 function onRealtimeReadCursor(event: {
@@ -1020,11 +1031,20 @@ onMounted(() => {
   document.addEventListener('scroll', repositionActionMenu, true)
   window.addEventListener('resize', repositionActionMenu)
   window.addEventListener('focus', onDocumentFocus)
+  if (loadRuntimeConfig().standaloneCollaboration)
+    standaloneRefreshTimer = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        void markDisplayedRead()
+        void loadConversations({ background: true })
+      }
+    }, 30_000)
   void nextTick(beginObservingMessageContent)
   void (async () => {
     const sessionVersion = chatSession.sessionVersion
     realtime = getCollaborationRealtime()
     if (chatSession.sessionStarted) {
+      if (loadRuntimeConfig().standaloneCollaboration)
+        await loadConversations({ background: true })
       await selectRouteConversation()
       if (!isCurrentSession(sessionVersion)) return
       if (typeof requestAnimationFrame === 'function')
@@ -1092,6 +1112,7 @@ onBeforeUnmount(() => {
   document.removeEventListener('scroll', repositionActionMenu, true)
   window.removeEventListener('resize', repositionActionMenu)
   window.removeEventListener('focus', onDocumentFocus)
+  if (standaloneRefreshTimer !== undefined) clearInterval(standaloneRefreshTimer)
   conversationScroll.value?.removeEventListener('load', onMessageMediaLoad, true)
   messageMutationObserver?.disconnect()
   messageMutationObserver = undefined

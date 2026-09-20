@@ -165,8 +165,8 @@ describe('CollaborationChat read cursor convergence', () => {
         displayName: 'Sender',
         visibilityState: 'Visible',
         joinedOn: '2026-09-10T00:00:00.000Z',
-        lastReadSequence: 1,
-        unreadCount: 0,
+        lastReadSequence: 0,
+        unreadCount: 1,
       },
       peerMember: {
         userNId: 'U-2',
@@ -342,6 +342,21 @@ describe('CollaborationChat read cursor convergence', () => {
     expect(mounted.get('.collaboration-chat__unread').text()).toContain('0')
     expect(mounted.find('.collaboration-chat__badge').exists()).toBe(false)
     expect(mocks.api.markRead).toHaveBeenCalledWith('C-1', 1)
+  })
+
+  it('reconciles a stale unread badge from the authoritative conversation detail', async () => {
+    const detail = await mocks.api.getConversation()
+    mocks.api.getConversation.mockResolvedValueOnce({
+      ...detail,
+      currentMember: { ...detail.currentMember, lastReadSequence: 1, unreadCount: 0, projectionVersion: 2 },
+    })
+    mocks.api.getMessages.mockResolvedValueOnce({ ...messagesPage(), items: [] })
+
+    const mounted = mountChat()
+    await flushPromises()
+
+    expect(mounted.find('.collaboration-chat__badge').exists()).toBe(false)
+    expect(mounted.get('.collaboration-chat__unread').text()).toContain('0')
   })
 
   it('does not send or consume scanner Enter on PDA and still sends through the explicit button', async () => {

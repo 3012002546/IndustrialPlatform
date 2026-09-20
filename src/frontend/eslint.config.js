@@ -11,6 +11,7 @@ export default withVueTs(
     name: 'app/files-to-ignore',
     ignores: [
       '**/dist/**',
+      '**/dist-collaboration/**',
       '**/coverage/**',
       '**/playwright-report/**',
       '**/playwright-report-real/**',

@@ -25,6 +25,7 @@ appsettings.*.local.json
 *.db
 *.db-shm
 *.db-wal
+*.db-journal
 
 # Local dev-run artifacts (PID files, service logs) created by deploy/scripts/dev.ps1
 .run/

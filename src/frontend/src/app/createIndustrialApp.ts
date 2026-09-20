@@ -26,7 +26,6 @@ import {
 } from '@/api/identity/ssoManagement'
 import {
   createHttpAuthGateway,
-  createEmbeddedAuthGateway,
   createMockAuthGateway,
   getCurrentSession,
   setAuthGateway,
@@ -50,6 +49,7 @@ import { createSystemDataRuntimePlugin } from '@/systemData/runtime/coordinator'
 import { createSystemDataTenantUiDefaultsSource } from '@/systemData/runtime/themeSource'
 import { setTenantUiDefaultsSource } from '@/stores/themeStore'
 import { createCollaborationRuntimePlugin } from '@/systemData/runtime/collaborationRuntime'
+import { installEmbeddedCollaboration } from './installEmbeddedCollaboration'
 
 /** 认证专用路径片段:401 不触发刷新重试(登录/刷新/登出),避免无谓循环。 */
 const AUTH_ENDPOINT_MARKERS = [
@@ -74,43 +74,7 @@ export interface IndustrialAppOptions {
 function installAuthGateway(pinia: Pinia, router: Router): void {
   const config = loadRuntimeConfig()
   if (config.authMode === 'embedded') {
-    // 每次请求均读取当前页级凭据，HTTP 与 SignalR 保持一致。
-    const getEmbeddedSession = () => {
-      const session = getCurrentSession()
-      return session?.embeddedSessionToken !== undefined &&
-        session.embeddedSessionBinding !== undefined
-        ? { token: session.embeddedSessionToken, binding: session.embeddedSessionBinding }
-        : null
-    }
-    const authRefresh: HttpAuthRefresh = {
-      isAuthPath: (path) => AUTH_ENDPOINT_MARKERS.some((marker) => path.includes(marker)),
-      refreshSession: () => useAuthStore(pinia).refresh(),
-      onSessionExpired: () => {
-        useAuthStore(pinia).clearLocalSession()
-        void router.replace({ name: ROUTE_NAMES.embeddedSessionRequired })
-      },
-    }
-    const client = createHttpClient({
-      baseUrl: config.apiBaseUrl,
-      timeoutMs: config.requestTimeoutMs,
-      getToken: () => null,
-      getEmbeddedSession,
-      authRefresh,
-      withCredentials: true,
-    })
-    setAuthGateway(
-      createEmbeddedAuthGateway({
-        baseUrl: config.apiBaseUrl,
-        requestTimeoutMs: config.requestTimeoutMs,
-        demoAutoLogin: config.embeddedDemoAutoLogin === true,
-        ...(config.embeddedDemoAccount === undefined
-          ? {}
-          : { demoAccount: config.embeddedDemoAccount }),
-        ...(config.embeddedAccount === undefined ? {} : { account: config.embeddedAccount }),
-      }),
-    )
-    registerCollaborationApi(createCollaborationApi(client))
-    registerCollaborationRealtime(new CollaborationRealtimeManager(() => null, getEmbeddedSession))
+    installEmbeddedCollaboration(pinia, router)
     return
   }
   if (config.authMode === 'http') {
