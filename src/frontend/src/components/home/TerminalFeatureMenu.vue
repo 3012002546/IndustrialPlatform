@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Bell, ChatDotRound, Document } from '@element-plus/icons-vue'
+import { Bell, Camera, ChatDotRound, Document } from '@element-plus/icons-vue'
 import { RouterLink } from 'vue-router'
 
 import { systemDataPageCopy } from '@/localization/systemData'
@@ -21,8 +21,13 @@ const canUpload = computed(() => authStore.hasPermission(PERMISSIONS.systemDataF
 const canReadNotifications = computed(() =>
   authStore.hasPermission(PERMISSIONS.systemDataNotificationInboxRead),
 )
+const canScan = computed(
+  () => props.terminal === 'pda' && authStore.hasPermission(PERMISSIONS.runtimeRead),
+)
 const showNotification = computed(() => props.terminal === 'pda' && canReadNotifications.value)
-const hasFeature = computed(() => canUpload.value || showNotification.value || canChat.value)
+const hasFeature = computed(
+  () => canUpload.value || showNotification.value || canChat.value || canScan.value,
+)
 const chatRouteName = computed(() =>
   props.terminal === 'pda' ? ROUTE_NAMES.pdaCollaborationChat : ROUTE_NAMES.mobileCollaborationChat,
 )
@@ -61,6 +66,20 @@ const fileRouteName = computed(() =>
       <span class="terminal-feature-menu__item-copy">
         <strong>{{ copy.fileUpload }}</strong>
         <span>{{ copy.fileUploadDescription }}</span>
+      </span>
+      <span class="terminal-feature-menu__arrow" aria-hidden="true">→</span>
+    </RouterLink>
+
+    <RouterLink
+      v-if="canScan"
+      class="terminal-feature-menu__item"
+      data-testid="terminal-feature-menu-scanner"
+      :to="{ name: ROUTE_NAMES.pdaRuntimeScannerTest }"
+    >
+      <span class="terminal-feature-menu__icon" aria-hidden="true"><Camera :size="24" /></span>
+      <span class="terminal-feature-menu__item-copy">
+        <strong>{{ copy.scannerTest }}</strong>
+        <span>{{ copy.scannerTestDescription }}</span>
       </span>
       <span class="terminal-feature-menu__arrow" aria-hidden="true">→</span>
     </RouterLink>

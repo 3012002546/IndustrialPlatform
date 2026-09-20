@@ -27,7 +27,7 @@ public sealed partial class SystemDataBaselineSeedRunner : BackgroundService
         "systemdata.file.upload", "systemdata.file.read", "systemdata.file.download", "systemdata.file.manage", "systemdata.file.delete",
         "systemdata.notification.inbox.read", "systemdata.notification.announcement.read", "systemdata.notification.announcement.manage", "systemdata.notification.announcement.publish", "systemdata.notification.system.send",
         "systemdata.audit.write", "systemdata.audit.read", "systemdata.audit.export", "systemdata.audit.retention.manage",
-        "platform.home.view", "platform.pda.view", "platform.mobile.view",
+        "platform.home.view", "platform.pda.view", "platform.mobile.view", "runtime.read", "runtime.configure", "runtime.update",
         "identity.user.view", "identity.user-group.view", "identity.role.view", "identity.permission.view", "identity.audit.login.view", "identity.sso.view",
     ];
     private static readonly string[] ReferenceDataPermissions = [
@@ -55,6 +55,7 @@ public sealed partial class SystemDataBaselineSeedRunner : BackgroundService
         // platform-owned NId so old tenants can upgrade without overwriting a custom entry.
         ("systemdata.navigation.pc-home", "首页", "pc-home", "platform.home.view"),
         ("systemdata.navigation.terminal-preview", "终端预览", "terminal-preview", "platform.pda.view"),
+        ("systemdata.navigation.runtime-scanner-test", "测试扫码", "pc-runtime-scanner-test", "runtime.read"),
         ("systemdata.navigation.identity-users", "用户管理", "identity-users", "identity.user.view"),
         ("systemdata.navigation.identity-user-groups", "用户组管理", "identity-user-groups", "identity.user-group.view"),
         ("systemdata.navigation.identity-roles", "角色权限", "identity-roles", "identity.role.view"),
@@ -101,7 +102,7 @@ public sealed partial class SystemDataBaselineSeedRunner : BackgroundService
         ("collaboration.nav.pc-retention", "navigation.group.collaboration", "collaboration-retention", "collaboration.page.pc-retention", "collaboration.compliance.retention.manage", UiTerminal.Pc, 3),
     ];
     internal const string CurrentManifestSeedKey = "SDM-017";
-    internal const string CurrentManifestVersion = "3";
+    internal const string CurrentManifestVersion = "4";
     internal const string ResourceConsistencySeedKey = "SDM-018";
     internal const string ResourceConsistencySeedVersion = "2";
     internal const string ReferenceDataManifestSeedKey = "SDM-019";

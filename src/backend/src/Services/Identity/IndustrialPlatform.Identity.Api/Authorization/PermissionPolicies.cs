@@ -106,6 +106,15 @@ public static class PermissionPolicies
     /// <summary>平台移动端查看。</summary>
     public const string PlatformMobileView = Prefix + PermissionCatalog.PlatformMobileView;
 
+    /// <summary>读取终端运行时能力。</summary>
+    public const string RuntimeRead = Prefix + PermissionCatalog.RuntimeRead;
+
+    /// <summary>配置终端运行时能力。</summary>
+    public const string RuntimeConfigure = Prefix + PermissionCatalog.RuntimeConfigure;
+
+    /// <summary>更新终端页面或客户端。</summary>
+    public const string RuntimeUpdate = Prefix + PermissionCatalog.RuntimeUpdate;
+
     /// <summary>查看 bootstrap 状态(§29A.5)。</summary>
     public const string BootstrapView = Prefix + PermissionCatalog.BootstrapView;
 

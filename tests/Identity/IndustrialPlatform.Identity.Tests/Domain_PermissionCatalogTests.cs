@@ -41,6 +41,9 @@ public sealed class PermissionCatalogTests
         "platform.operation.view",
         "platform.pda.view",
         "platform.mobile.view",
+        "runtime.read",
+        "runtime.configure",
+        "runtime.update",
         "identity.bootstrap.view",
         "identity.bootstrap.recover",
         "collaboration.messaging.read",
@@ -164,7 +167,7 @@ public sealed class PermissionCatalogTests
     [Fact]
     public void FirstBatch_HasIdentityAndSystemDataPermissions()
     {
-        Assert.Equal(149, PermissionCatalog.FirstBatchNIds.Count);
+        Assert.Equal(152, PermissionCatalog.FirstBatchNIds.Count);
     }
 
     [Fact]

@@ -46,6 +46,13 @@ const DEFAULT_PC_NAVIGATION_GROUPS: readonly NavigationGroup[] = [
         anyPermissions: [PERMISSIONS.platformPdaView, PERMISSIONS.platformMobileView],
       },
       {
+        id: 'runtime-scanner-test',
+        label: '测试扫码',
+        routeName: 'pc-runtime-scanner-test',
+        icon: Monitor,
+        permission: PERMISSIONS.runtimeRead,
+      },
+      {
         id: 'collaboration-chat',
         label: '聊天',
         routeName: 'collaboration-chat',

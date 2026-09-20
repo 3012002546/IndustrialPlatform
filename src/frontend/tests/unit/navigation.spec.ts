@@ -153,7 +153,7 @@ describe('pcNavigationGroups', () => {
     }
   })
 
-  it('聊天仅位于工作台且紧随终端预览之后', () => {
+  it('扫码测试与聊天仅位于工作台且顺序稳定', () => {
     const workspace = pcNavigationGroups.find((group) => group.id === 'workspace')
     const chatMatches = pcNavigationGroups
       .flatMap((group) => group.items)
@@ -161,8 +161,11 @@ describe('pcNavigationGroups', () => {
     const workspaceItemIds = workspace?.items.map((item) => item.id) ?? []
 
     expect(chatMatches).toHaveLength(1)
-    expect(workspaceItemIds.indexOf('collaboration-chat')).toBe(
+    expect(workspaceItemIds.indexOf('runtime-scanner-test')).toBe(
       workspaceItemIds.indexOf('terminal-preview') + 1,
+    )
+    expect(workspaceItemIds.indexOf('collaboration-chat')).toBe(
+      workspaceItemIds.indexOf('runtime-scanner-test') + 1,
     )
     expect(pcNavigationGroups.find((group) => group.id === 'collaboration')?.items).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ id: 'collaboration-chat' })]),
