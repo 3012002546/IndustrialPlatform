@@ -369,9 +369,9 @@ Audit Advanced（010）包含哈希链、签名 checkpoint、外部锚点、完�
 **状态：** 核心字段/接口/页面线框图已细化；待派遣、待实际目标核验，未实施。
 **设计/实施：** [蓝图 34](34-Industrial%20Platform终端运行时与客户端架构.md)、[实施 09A](../implementation/09A-Industrial%20Platform终端运行时与客户端打包开发实施方案.md)。
 **前置/顺序：** PF-05/PF-06 Web 完成后、PF-07 前；不占用已有 PF-07 编号。
-**目标：** 同一 Vue3 业务层 → Web/Electron Windows/Capacitor Android PDA；扫码/相机/BLE、受限桥接、协作生命周期、完整升级与 PDA Bundle 热更新。
-**任务：** TASK-PF06A-001～008：能力矩阵→Runtime→PC/PDA容器→更新→协作→设备交接→真机验收。2026-09-14用户追加TASK-PF06A-009：平台接入SQL Server 2019/2022，覆盖当前服务Provider/配置/迁移/仓储/初始化与运维，保留PostgreSQL/SQLite；详见[SQL Server补充规格](../implementation/details/PF06A-SQLServer2019-2022接入补充规格.md)。009待接入细化及G06A-SQL核验，尚未派遣，不自动切换现用数据库。
-**完成门禁：** 一台真实 PDA、一种广播、相机扫码、一种 BLE；PC/Bundle/APK 各一次升级、兼容/签名/回退与业务保护；原生聊天/共享/换人恢复。Mobile 原生平台范围在 001 明确，未知不当完成。009另验真实SQL Server 2019/150、2022/160及SQL-A01～10，终端008通过不代替平台数据库支持。
+**目标：** 同一 Vue3 业务层 → Web/Electron Windows/Capacitor Android PDA；扫码/相机/BLE、受限桥接、协作生命周期、Windows/Android页面热更新与完整安装包升级；使用中不切换，重新启动/重新登录必更。
+**任务：** 简化为TASK-PF06A-001客户端与扫码页面、005更新与终端整体交付、009 SQL Server兼容接入。全部详细规格合入[实施09A](../implementation/09A-Industrial%20Platform终端运行时与客户端打包开发实施方案.md)：§3控件/页面/S01～S12，§4页面与外壳更新/U01～U12，§9数据库。旧编号只用于追溯，不再分别派遣；当前均未开发，不切现用数据库。
+**完成门禁：** 首轮真实Windows与Android手机输入/相机，既定BLE另验目标设备；PDA广播实现/验收用户后置，不阻挡手机首轮。两端页面热更新与Windows安装包/APK升级、启动必更提示、失败重试/退出、使用中不切换均有证据；原生聊天/共享/换人恢复按支持矩阵验收，不新增iOS包。009另验真实SQL Server 2019/150、2022/160及SQL-A01～10，终端008通过不代替平台数据库支持。
 **边界：** 不重写消息核心、不创建标签队列、不做全品牌/MDM/永久后台；具体版本/许可/硬件与发布环境必须核验。
 
 # 14. PF-07 Scheduler / Platform Health
@@ -516,7 +516,7 @@ WorkOrder、Weighting、Trace、BatchRecord 和生产闭环分别开会话设计
 | PF-04 File / Notification / Audit | Core 已提交，真实验收待补 | 原开发/验收任务保留 | 蓝图 05/26/30/32/33 | 实施 07 | 001～009已有实现；010 后续待细化 | `docs/evidence/PF-04.md` 历史自测；真实浏览器/ClamAV/中间件/多实例仍待验收 |
 | PF-05 Collaboration | 已派遣，最小依赖先实现并做合同测试 | 原开发与独立验收任务继续协作 | 蓝图 04/05/32/33 | [实施 08](../implementation/08-Industrial%20Platform%20Collaboration开发实施方案.md)及[执行补充](../implementation/details/PF05-前置契约与合规执行补充.md) | 001～008整体执行，见[active工作包](../tasks/active/PF-05.md) | 基线已通过；PF05功能、真实环境与2C4G仍待验收 |
 | PF-06 RemoteAssistance | V3.0设计与详细任务已收敛，实测待核验 | 当前PF06主控会话 | 用户需求、当前公开代码契约与官方资料 | `docs/implementation/09-Industrial Platform RemoteAssistance开发实施方案.md` | 两独立业务状态、共用媒体连接、分项授权与结束 | 已纠偏续行正式业务实现；真实媒体/质量最终验收待完成 |
-| PF-06A 终端运行时与客户端打包（含SQL Server补充） | 待派遣/待前置核验 | 未创建执行任务 | 蓝图 34及用户SQL Server追加要求 | [实施 09A](../implementation/09A-Industrial%20Platform终端运行时与客户端打包开发实施方案.md) | 001～008终端、009数据库兼容，均未派遣 | 无原生/真机或SQL Server验收 |
+| PF-06A 终端运行时与客户端打包（含SQL Server补充） | 待派遣/待前置核验 | 未创建执行任务 | 蓝图 34及用户SQL Server追加要求 | [实施 09A](../implementation/09A-Industrial%20Platform终端运行时与客户端打包开发实施方案.md) | 001客户端/扫码、005更新交付、009数据库，均未派遣 | 无原生/真机或SQL Server验收 |
 | PF-07 Scheduler / Platform Health | 待启动 | 待创建 | 蓝图 05、30 | 实施 10 待创建 | - | - |
 | PF-08 Low Code | 待启动 | 待创建 | 蓝图 21 待复核 | 实施 11 待创建 | - | - |
 | PF-09 Dashboard & Report | 待启动 | 待创建 | 蓝图 22 待复核 | 实施 12 待创建 | - | - |
@@ -561,6 +561,6 @@ PF-05/06 本次只改设计和九字段任务；新增 PF-06A/09A 与 PF-10B/13B
 
 ## PF05起任务细化与派遣输入（2026-09-07增量）
 
-统一遵守[派遣前详细设计与页面验收](../implementation/STANDARD-派遣前详细设计与页面验收.md)。PF05/PF06/PF06A/PF10B的完整字段字典、接口样例、页面线框与任务断言已经写入各实施方案链接的details文件；[待派遣索引](../tasks/pending/README.md)记录待派遣包与前置缺口。生产范围全部D01～D08已就绪后才能派遣，不能在开发任务中临时设计字段或布局。原34张内部卡保持，按已定规格纵向连续实现，不逐卡新增会话或提交。
+统一遵守[派遣前详细设计与页面验收](../implementation/STANDARD-派遣前详细设计与页面验收.md)。PF05/PF06/PF10B的字段、接口、线框与任务断言读取各自details；PF06A统一读实施09A（已合并明细且简化为三个任务）；[待派遣索引](../tasks/pending/README.md)记录待派遣包与前置缺口。生产范围全部D01～D08已就绪后才能派遣，不能在开发任务中临时设计字段或布局。历史卡数量不作当前阶段数依据；按各现行任务清单纵向连续实现，不逐卡新增会话或提交。
 
 尚无实施方案的PF07/08/09/10/10A/11按共同规则§7逐阶段补齐全部设计后才进入待派遣；MES原暂缓不变。本轮未创建或发送外部任务，PF02/04现有工作线不受此文档更新影响。

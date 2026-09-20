@@ -19,7 +19,7 @@ PF05起分开维护设计就绪度（待细化/待前置核验/已就绪）与�
 ## PF05起派遣前必读
 
 - [详细设计、线框图与验收规则](STANDARD-派遣前详细设计与页面验收.md)：字段/状态/契约/样例/页面/协作，含所有后续PF/MES的细化门禁。
-- [PF05细化规格](details/PF05-数据接口与页面规格.md)、[PF06细化规格](details/PF06-数据接口与页面规格.md)、[PF06A细化规格](details/PF06A-运行时字段与页面规格.md)、[PF10B细化规格](details/PF10B-数据接口与页面规格.md)：具体数据字典、接口和已绘线框图。
+- [PF05细化规格](details/PF05-数据接口与页面规格.md)、[PF06细化规格](details/PF06-数据接口与页面规格.md)、[PF06A统一文档](09A-Industrial%20Platform终端运行时与客户端打包开发实施方案.md)、[PF10B细化规格](details/PF10B-数据接口与页面规格.md)：具体数据字典、接口和已绘线框图。
 - [待派遣工作包索引](../tasks/pending/README.md)：只记录待派遣范围和就绪缺口，不是已发出的任务。后续实施10/11/12/13/13A/14未创建，必须先按共同规则完成阶段详细设计，不直接派编码。
 
 ## 时间类型约束
@@ -43,7 +43,7 @@ PF05起分开维护设计就绪度（待细化/待前置核验/已就绪）与�
 | 07 | [PF-04 File / Notification / Audit实施方案](07-Industrial%20Platform%20File%20Notification%20Audit开发实施方案.md) | Core已交付；历史自测及真实环境缺口见 PF-04 evidence，不能仅凭提交标记整阶段验收通过 |
 | 08 | [PF-05 Collaboration实施方案](08-Industrial%20Platform%20Collaboration开发实施方案.md) | 字段/接口/线框图已细化；001～008 待派遣、待前置核验 |
 | 09 | [PF-06 RemoteAssistance实施方案](09-Industrial%20Platform%20RemoteAssistance开发实施方案.md) | 2026-09-12已派遣当前工作树执行；已纠偏从002继续正式业务实现，G06-1/3真实媒体待最终验收；负责人见active/PF-06 |
-| 09A | [PF-06A 终端运行时与客户端打包](09A-Industrial%20Platform终端运行时与客户端打包开发实施方案.md) | 001～008终端范围待目标核验；用户追加009 SQL Server 2019/2022平台兼容，见[补充规格](details/PF06A-SQLServer2019-2022接入补充规格.md)，待接入细化/核验；均未派遣 |
+| 09A | [PF-06A统一开发文档](09A-Industrial%20Platform终端运行时与客户端打包开发实施方案.md) | 三任务：001客户端/扫码控件与页面、005更新与终端交付、009 SQL Server；全部字段/测试合并在本文；Android手机首验，PDA广播后置；均未派遣 |
 | 10 | PF-07 Scheduler / Platform Health实施方案（待 PF-07 会话创建） | 两个模块分开建模，在同一阶段管理会话协调和派遣 |
 | 11 | PF-08 Low Code实施方案（待 PF-08 会话创建） | 待阶段管理会话设计和派遣 |
 | 12 | PF-09 Dashboard & Report实施方案（待 PF-09 会话创建） | 两个产品边界分开建模，在同一阶段管理会话协调和派遣 |

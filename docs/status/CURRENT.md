@@ -17,7 +17,9 @@
 
 ## 服务状态
 
-- 2026-09-14 / PF-06A新增要求：用户要求当前项目接入SQL Server 2019/2022，已录入TASK-PF06A-009及[SQL Server补充规格](../implementation/details/PF06A-SQLServer2019-2022接入补充规格.md)。覆盖当前平台Provider、配置/拓扑、各服务迁移/仓储、初始化/运维与真实业务回归；保留PostgreSQL/SQLite。当前待接入细化和G06A-SQL核验，未派遣/未实现/未连接SQL Server；不切现用云库，终端只经API访问，001～008编号与原延期安排保持。
+- 2026-09-20 / PF-06A 开发交接：独立开发任务 `01a0beba-ac84-7af3-bdf1-6457127cfd8f`（gpt-5.6-luna max）在 `pf-06a` 工作树完成 Web 扫码控件/测试页、路由菜单、权限种子和 Web 更新协调器并停止写入；开发自测报告前端 1074、Identity 621、SystemData 633 通过，证据在分支的 `docs/evidence/PF-06A.md`。主控按双角色模式接手后续调整、测试和验收；[当前工作包](../tasks/active/PF-06A.md)。Windows Electron/Android Capacitor 外壳尚未实现，安装、手机相机及原生更新没有 PASS 证据，001/005 整包未完成。009 SQL Server 2019/2022 仍在范围内，§9.6 设计门禁未闭合、尚未编码；PDA 广播真机按用户要求后置。
+- 2026-09-20 / PF-06A文档合并：实施09A成为唯一详细文档，原明细/字段/SQL文件只保留跳转。任务简化为001客户端与扫码、005更新与终端交付、009 SQL Server。§3新增共享扫码控件及结果Label/清空页面线框、属性和S01～S12；§4补N1/W1→W2→N2及U01～U12真实更新测试。使用中不切换、重开/重新登录必更，Android手机首验/PDA广播后置不变；仍未开发或实测。
+- 2026-09-14 / PF-06A新增要求：用户要求当前项目接入SQL Server 2019/2022，已录入TASK-PF06A-009及[统一规格§9](../implementation/09A-Industrial%20Platform终端运行时与客户端打包开发实施方案.md)。覆盖当前平台Provider、配置/拓扑、各服务迁移/仓储、初始化/运维与真实业务回归；保留PostgreSQL/SQLite。当前待接入细化和G06A-SQL核验，未派遣/未实现/未连接SQL Server；不切现用云库，终端只经API访问，旧终端任务已合并为001/005，原延期安排保持。
 
 - BuildingBlocks：基线与公共组件已完成。
 - 统一前端与 PF-01：已完成；外部真机 safe-area 项仍待验收。
