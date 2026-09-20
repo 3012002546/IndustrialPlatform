@@ -12,13 +12,13 @@ $backendOutputPath = [IO.Path]::GetFullPath($BackendOutput).TrimEnd('\', '/')
 $frontendOutputPath = [IO.Path]::GetFullPath($FrontendOutput).TrimEnd('\', '/')
 foreach ($outputPath in @($backendOutputPath, $frontendOutputPath)) {
     if ($outputPath -eq [IO.Path]::GetPathRoot($outputPath).TrimEnd('\', '/')) {
-        throw "不能将磁盘根目录作为发布目录: $outputPath"
+        throw "A drive root cannot be a publish directory: $outputPath"
     }
 }
 if ($backendOutputPath -eq $frontendOutputPath -or
     $backendOutputPath.StartsWith($frontendOutputPath + '\', [StringComparison]::OrdinalIgnoreCase) -or
     $frontendOutputPath.StartsWith($backendOutputPath + '\', [StringComparison]::OrdinalIgnoreCase)) {
-    throw '前后端发布目录不能相同或互相包含。'
+    throw 'Backend and frontend publish directories must be distinct and non-nested.'
 }
 
 $stagingRoot = Join-Path ([IO.Path]::GetTempPath()) ('pf06-publish-' + [guid]::NewGuid().ToString('N'))
@@ -30,7 +30,7 @@ $frontendWebConfig = Join-Path $repoRoot 'deploy\iis\collaboration-frontend.web.
 $backendProject = Join-Path $repoRoot 'src\backend\src\Hosts\IndustrialPlatform.Collaboration.EmbeddedHost\IndustrialPlatform.Collaboration.EmbeddedHost.csproj'
 
 function Assert-CommandSucceeded([string]$name) {
-    if ($LASTEXITCODE -ne 0) { throw "$name 失败，退出码 $LASTEXITCODE。发布目录未更新。" }
+    if ($LASTEXITCODE -ne 0) { throw "$name failed with exit code $LASTEXITCODE. Publish directories were not updated." }
 }
 
 function Copy-PublishItems([string]$source, [string]$destination) {
@@ -73,27 +73,27 @@ try {
         (Join-Path $frontendStage 'assets'),
         (Join-Path $frontendStage 'web.config')
     )) {
-        if (-not (Test-Path -LiteralPath $required)) { throw "发布产物缺失: $required" }
+        if (-not (Test-Path -LiteralPath $required)) { throw "Missing publish artifact: $required" }
     }
     if (Get-ChildItem -LiteralPath $backendStage -Recurse -File -Filter 'appsettings*.json' | Select-Object -First 1) {
-        throw '后端产物包含 appsettings 配置，已停止发布。'
+        throw 'Backend output contains appsettings files; deployment stopped.'
     }
 
     if ($BuildOnly) {
-        Write-Host 'BuildOnly: 前后端构建及产物检查通过，未更新发布目录。'
+        Write-Host 'BuildOnly: backend and frontend artifacts verified; publish directories were not updated.'
         return
     }
 
     New-Item -ItemType Directory -Path $backendOutputPath, $frontendOutputPath -Force | Out-Null
     $offlineFile = Join-Path $backendOutputPath 'app_offline.htm'
     if (Test-Path -LiteralPath $offlineFile) {
-        throw "后端已有 app_offline.htm，未覆盖现有维护状态: $offlineFile"
+        throw "Existing app_offline.htm was not overwritten: $offlineFile"
     }
     try {
         Set-Content -LiteralPath $offlineFile -Value 'Updating standalone collaboration host.' -Encoding Ascii
         Start-Sleep -Seconds 2
         Copy-PublishItems $backendStage $backendOutputPath
-        # 先更新静态资源，最后替换入口 HTML，避免入口引用尚未复制的资源。
+        # Copy assets before index.html so the new entry never points to missing assets.
         Get-ChildItem -LiteralPath $frontendStage -Force |
             Where-Object { $_.Name -ne 'index.html' } |
             ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $frontendOutputPath -Recurse -Force }
@@ -103,7 +103,10 @@ try {
 
     Write-Host "Backend:  $backendOutputPath"
     Write-Host "Frontend: $frontendOutputPath"
-    Write-Host '发布完成。现有 appsettings 配置和数据库未修改；请按 README 检查 IIS 与 /_backend/health/ready。'
+    Write-Host 'Publish complete. Existing appsettings and database files were preserved. Check IIS and /_backend/health/ready as described in README.'
+    if (-not (Test-Path -LiteralPath (Join-Path $backendOutputPath 'appsettings.json'))) {
+        Write-Warning 'backend/appsettings.json is missing. Create the production host configuration before starting the IIS application.'
+    }
 }
 finally {
     $tempRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\', '/')
