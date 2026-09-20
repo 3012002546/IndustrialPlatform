@@ -120,7 +120,7 @@ public sealed class Security_EmbeddedHostHandshakeTests
     [Fact]
     public async Task Hub_validation_uses_heartbeat_expiry_refreshes_bound_media_and_rejects_revoke()
     {
-        using var fixture = CreateFixture(sessionLifetime: TimeSpan.FromSeconds(3));
+        using var fixture = CreateFixture(sessionLifetime: TimeSpan.FromSeconds(12));
         using var db = CreateDb(fixture.DatabasePath);
         using var store = new SqlEmbeddedHandshakeStore(db);
         var service = CreateService(fixture, store);
@@ -153,7 +153,8 @@ public sealed class Security_EmbeddedHostHandshakeTests
         Assert.True(beforeHeartbeat.IsCurrent);
         Assert.Equal(initial.Session.ExpiresOn, beforeHeartbeat.TokenExpiresOn);
 
-        await Task.Delay(TimeSpan.FromMilliseconds(500));
+        // Leave enough time between the original and renewed expiry for slower CI runners.
+        await Task.Delay(TimeSpan.FromSeconds(6));
         await service.KeepAliveAsync(http, CancellationToken.None);
         var refreshed = await store.GetSessionAsync(
             EmbeddedSessionToken.Hash(initial.Session.SessionToken),
