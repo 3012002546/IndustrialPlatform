@@ -98,6 +98,15 @@ public static class PermissionCatalog
     /// <summary>平台移动端查看。</summary>
     public const string PlatformMobileView = "platform.mobile.view";
 
+    /// <summary>读取终端运行时能力。</summary>
+    public const string RuntimeRead = "runtime.read";
+
+    /// <summary>配置终端运行时能力。</summary>
+    public const string RuntimeConfigure = "runtime.configure";
+
+    /// <summary>更新终端页面或客户端。</summary>
+    public const string RuntimeUpdate = "runtime.update";
+
     /// <summary>查看 bootstrap 状态(§29A.5):仅状态/版本,不含 Secret。</summary>
     public const string BootstrapView = "identity.bootstrap.view";
 
@@ -257,6 +266,9 @@ public static class PermissionCatalog
         PlatformOperationView,
         PlatformPdaView,
         PlatformMobileView,
+        RuntimeRead,
+        RuntimeConfigure,
+        RuntimeUpdate,
         BootstrapView,
         BootstrapRecover,
         CollaborationMessagingRead,

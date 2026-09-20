@@ -37,6 +37,8 @@ public sealed class ControlPlaneServiceTests
 
         var preview = await service.PreviewDefaultImportAsync("tenant-a", CancellationToken.None);
 
+        Assert.Contains(preview.Items, item => item.NodeNId == "navigation.link.runtime-scanner-test");
+
         var referenceDataItems = preview.Items
             .Where(item => item.NodeNId == "navigation.group.reference-data"
                 || item.NodeNId.StartsWith("navigation.link.reference-data-", StringComparison.Ordinal))
