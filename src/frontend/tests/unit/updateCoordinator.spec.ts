@@ -61,6 +61,21 @@ describe('update coordinator', () => {
     await coordinator.activate()
     expect(coordinator.status.state).toBe('Activating')
 
+    expect(
+      coordinator.confirmHealthy({
+        activationNId: coordinator.status.activationNId ?? '',
+        releaseNId: manifest.releaseNId,
+        webVersion: '1.0.0',
+      }),
+    ).toBe(false)
+    expect(
+      coordinator.confirmHealthy({
+        activationNId: coordinator.status.activationNId ?? '',
+        releaseNId: manifest.releaseNId,
+      }),
+    ).toBe(false)
+    expect(coordinator.canEnterBusiness()).toBe(false)
+
     const healthy = coordinator.confirmHealthy({
       activationNId: coordinator.status.activationNId ?? '',
       releaseNId: manifest.releaseNId,

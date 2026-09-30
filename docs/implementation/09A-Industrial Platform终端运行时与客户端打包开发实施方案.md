@@ -1,6 +1,6 @@
 # Industrial Platform 终端运行时与客户端打包开发实施方案
 
-版本：V2.0；日期：2026-09-20；阶段：PF-06A；状态：文档已整理，待开发、待实际工具链与设备核验。
+版本：V2.0；日期：2026-09-20；阶段：PF-06A；状态：Web 扫码和更新协调器基础已合入，客户端原生与 SQL Server 范围继续开发，真实工具链/设备/数据库待核验；当前指派见 `docs/tasks/active/PF-06A.md`。
 
 ## 1. 本次做什么，怎样阅读
 
@@ -10,7 +10,7 @@
 | --- | --- |
 | 了解范围和开发顺序 | [§2 三个任务](#2-只保留三个开发任务) |
 | 实现扫码控件、页面并人工测试 | [§3 线框、属性和操作步骤](#3-共享扫码控件与测试页面) |
-| 实现热更新并验证实际效果 | [§4 更新规则](#4-更新规则状态机与恢复)，重点看[§4.5测试准备](#45-task-pf06a-005的测试准备) |
+| 实现热更新并验证实际效果 | [§4 简化更新规则](#4-简化更新流程与恢复)，重点看[§4.5测试准备](#45-task-pf06a-005的测试准备) |
 | 接页面与原生能力 | [§5 方法、身份及设备规则](#5-方法签名与业务边界) |
 | 查每个字段的含义与维护方式 | [§6 逐对象字典](#6-运行时数据与逐字段说明) |
 | 接现有工程、打包和发布 | [§7 工程接入](#7-工程接入原生生命周期和发布) |
@@ -18,7 +18,7 @@
 | 接入SQL Server 2019/2022 | [§9 数据库接入](#9-sql-server-20192022接入) |
 | 核对交付和技术参考 | [§10 交付说明](#10-交付说明与技术参考) |
 
-**交付范围：** 同一Vue业务层运行于Web、Windows Electron和Capacitor Android。新增一个共享扫码输入控件和一个共享扫码测试页面；Android首轮用真实手机，PDA广播的原生接入及真机验收后置。已有BLE、基础打印、协作生命周期和SQL Server接入范围保留，不新增其他业务。
+**交付范围：** 同一Vue业务层运行于Web、Windows Electron和Capacitor Android。新增一个共享扫码输入控件和一个共享扫码测试页面；本次Android只用真实手机验证输入与拍照扫码。PDA厂商广播、专用SDK/Intent协议、接收器及PDA真机验收不属于本次交付，后续如有真实设备再单独立项。控件可保留`broadcast`模式属性作为页面接口，但只做组件行为测试，不能形成PDA支持声明。已有BLE、基础打印、协作生命周期和SQL Server接入范围保留，不新增其他业务。
 
 **更新规则：** 使用中保持当前页面版本；重新启动App或退出登录后重新登录时，必须完成检查和必要更新，无“稍后/跳过”。普通后台切回、托盘恢复、有效Token刷新不触发更新。Vue/HTML/CSS/JS页面变化走Web资源更新；JAR/AAR、SDK、原生插件、权限或外壳变化走完整安装包。
 
@@ -32,7 +32,7 @@
 | --- | --- | --- |
 | TASK-PF06A-001 客户端与扫码页面 | 共享Runtime、Windows/Android外壳、扫码控件/测试页、既定设备和协作适配、终端诊断 | 先完成最小安装→登录→扫码显示链，再补既有能力 |
 | TASK-PF06A-005 更新与终端整体交付 | 两端页面热更新、安装包升级，以及用实际扫码页完成更新和终端回归 | 接001的可安装客户端；测试方法直接见§4.5～4.7 |
-| TASK-PF06A-009 SQL Server兼容接入 | 当前平台服务支持SQL Server 2019/2022，保留PostgreSQL/SQLite | 可独立推进，共享文件按顺序交接，不等PDA广播 |
+| TASK-PF06A-009 SQL Server兼容接入 | 当前平台服务支持SQL Server 2019/2022，保留PostgreSQL/SQLite | 可独立推进，共享文件按顺序交接；与范围外的PDA广播无关 |
 
 旧编号只用于追溯：原001/002/003/004/006/007合入现001；原005/008合入现005；009保留。后续不再派遣旧002/003/004/006/007/008。
 
@@ -41,10 +41,10 @@
 - **状态：** 待开发；实际工具链、设备及认证输入按§8.1核对。
 - **目标：** 用户可安装客户端、登录、打开扫码测试页，输入或拍照扫码后立即在下方看到结果并清空。
 - **输入文档：** 本文§3、§5～8，复用现有Web公开契约。
-- **依赖：** 实际Windows/Android手机及可用测试服务；PDA广播后置不阻挡手机链路。
+- **依赖：** 实际Windows/Android手机及可用测试服务；不需要PDA设备或厂商广播资料。
 - **允许修改范围：** §7.1原生目录、Runtime、共享控件/页面及必要路由、权限和增量导航；不改其他业务边界。
 - **预期输出：** 可安装Windows/APK、AppScanInput控件、ScannerTestPage页面、可发现入口、既定设备/媒体适配和诊断说明。
-- **实施与验证：** 核验并固定工具链/安装身份 → 安装与真实登录 → §3控件/页面 → 既有能力接入；逐项执行S01～S12及§8相关案例。广播替身只验证组件处理，不算PDA支持。
+- **实施与验证：** 核验并固定工具链/安装身份 → 安装与真实登录 → §3控件/页面 → 既有能力接入；执行S01～S05、S07～S12及§8相关案例。S06为范围外说明，不纳入完成条件；广播替身只验证控件属性处理。
 - **结果回写：** 本文实际版本/支持矩阵、字段注释和evidence；缺设备、未支持及失败分开记录。
 - **提交策略：** 任务内连续开发/自测，稳定交接后按仓库流程集成，不逐内部步骤提交。
 
@@ -204,8 +204,8 @@ mode由当前调用页面的属性决定，不自动覆盖终端全局scannerMod
 | S02 手机拍照扫码 | 用真实Android手机点图标，授权并扫实际条码 | 文本框与Label一致；相机关闭；再次点击可以继续扫描，记录实机结果 |
 | S03 禁用输入仍可拍照 | input / inputDisabled=true / showCamera=true | 键盘无法编辑，拍照仍可成功并更新两处 |
 | S04 隐藏拍照 | input模式，showCamera=false，分别启用/禁用文本框 | 无图标且无占位空白；启用时可输入，禁用时不能新增输入 |
-| S05 广播模式属性 | broadcast模式，遍历inputDisabled和showCamera两种布尔值 | 共4组合均不显示相机；文本框可编辑性只看inputDisabled；首轮组件注入验证，不算PDA通过 |
-| S06 广播真实接收（后置） | 指定PDA取得广播会话，输入框启用/禁用、失去输入焦点后分别扫描 | 当前测试页均能收到真实广播；离页/锁屏后停止；需设备协议证据 |
+| S05 广播模式属性 | broadcast模式，遍历inputDisabled和showCamera两种布尔值 | 共4组合均不显示相机；文本框可编辑性只看inputDisabled；只验证控件属性，不连接PDA广播 |
+| S06 PDA广播真实接收（范围外） | 本次不执行、不计入001/005完成条件 | 不开发厂商SDK/Intent接收器，不准备替身冒充真机；以后有PDA时另立任务 |
 | S07 清空及迟到结果 | 成功后清空；另在相机等待时清空，再使旧回调到达 | 草稿/Label都清空，旧结果不复活；新的扫码可再次显示 |
 | S08 取消和拒绝 | 保留已有结果，取消相机、拒绝权限、撤销权限再返回 | 保留旧Label，提示当前原因；不循环弹授权、不伪造成功 |
 | S09 重复与长内容 | 连扫相同码两次、重放同event一次；测4096/4097字符及HTML样式文本 | 两次真实扫描发两次result，重放不重复；超限明确拒绝；内容按纯文本显示 |
@@ -213,7 +213,7 @@ mode由当前调用页面的属性决定，不自动覆盖终端全局scannerMod
 | S11 相机不可用/重复点击 | 在不支持容器显示图标，或手机快速双击图标 | 不支持有原因；支持时只一个相机请求，不启动两次 |
 | S12 真实入口与布局 | 最低权限账号、直接访问路由、两语言/两主题、窄屏/软键盘 | 权限接收端有效；标题/输入/图标不挤压，Label换行，清空可点，旧聊天Enter行为保持 |
 
-组件级用例覆盖全部8个属性组合（broadcast 4个、input 4个）；真实手机覆盖S01～04、S07～12。广播原生实现/实机S06明确后置；模拟注入只能证明当前控件接收规则，不能记为PDA扫码支持。S09同码事件次数由组件事件断言验证，不为测试在产品页增加计数器或历史列表。
+组件级用例覆盖全部8个属性组合（broadcast 4个、input 4个）；真实手机覆盖S01～04、S07～12。S06明确排除在本次交付之外；模拟注入只能证明控件属性规则，不能记为PDA扫码支持。S09同码事件次数由组件事件断言验证，不为测试在产品页增加计数器或历史列表。
 
 ### 3.6 终端与版本（既有设计）
 
@@ -278,13 +278,15 @@ W06A-04：客户端需要恢复（内置资源，不依赖故障Bundle）
 └ 不要求先加载坏页面；不开放任意链接和命令      ┘
 ```
 
-选源只有用户确认才返回当前请求有效source句柄；关闭弹层/源窗口消失/超时/邀请结束即取消并清缩略图。来源列表不写日志，不能默认选第一屏。远端观看继续PF06页内浮窗：缩放后拖动保持DOM实际尺寸，最小化有重新展开入口；多显示器/DPI变化后窗口边界可达。恢复页是宿主安全操作入口，离线也可看版本和说明；不因此绕过签名/安全下限或启动必更，恢复旧文件不等于允许旧版业务。普通业务诊断要求权限；无法登录的恢复界面仅允许本机显式同意导出宿主启动/更新脱敏记录，不读取旧用户聊天、Token或业务文件。
+选源只有用户确认才返回当前请求有效source句柄；关闭弹层/源窗口消失/超时/邀请结束即取消并清缩略图。来源列表不写日志，不能默认选第一屏。远端观看继续PF06页内浮窗：缩放后拖动保持DOM实际尺寸，最小化有重新展开入口；多显示器/DPI变化后窗口边界可达。恢复页是宿主安全操作入口，离线也可看版本和说明；不因此绕过清单验签或启动必更，恢复旧文件不等于允许旧版业务。普通业务诊断要求权限；无法登录的恢复界面仅允许本机显式同意导出宿主启动/更新脱敏记录，不读取旧用户聊天、Token或业务文件。
 
-## 4. 更新规则、状态机与恢复
+## 4. 简化更新流程与恢复
 
 ### 4.1 用户能看到的流程
 
 首版统一采用“使用中保持当前版本，重新启动必须更新”的方式。Windows与Android共用下表，不保留使用中激活或稍后升级的分支。
+
+**首期实现上限：** 更新器只维护“当前Web包、上一个已健康Web包、一个下载暂存包”三个资源位置，加一个固定60秒健康确认。只保存完成中断恢复所需的当前目标、hash、一次激活标识、截止时间和错误码；不建设更新策略中心、版本历史库、审计平台、多级回滚、灰度/班次编排、后台预下载或断点续传。`lastGood`只用于打开修复界面，不能绕过本次必更进入旧业务。清单验签、文件hash和外壳兼容校验属于必要安全检查，不扩展成独立安全版本治理系统。
 
 | 场景 | 应执行的行为 |
 | --- | --- |
@@ -299,7 +301,7 @@ W06A-04：客户端需要恢复（内置资源，不依赖故障Bundle）
 
 重新登录和重启共用一个检查入口；不建设服务端业务版本准入系统。版本检查失败不能当“没有更新”。无网络时可以看本地版本、失败原因和修复说明，首版不提供离线业务放行。
 
-`Idle → Checking → Available → Downloading → Verifying → Staged → Activating → Healthy`。无更新由Checking回Idle并放行；失败到Failed；Web资源启动失败到`RollingBack → RecoveryRequired`。Idle只表示更新器空闲，是否允许进入业务由本次检查结果决定，不能仅根据旧状态文件的Healthy放行。
+`Idle → Checking → Available → Downloading → Verifying → Staged → Activating → Healthy`只是一次启动更新的内部界面状态，不形成业务工作流或历史记录。无更新由Checking回Idle并放行；失败到Failed；Web资源启动失败到`RollingBack → RecoveryRequired`。Idle只表示更新器空闲，是否允许进入业务由本次检查结果决定，不能仅根据旧状态文件的Healthy放行。
 
 ### 4.2 启动检查与业务之间的边界
 
@@ -314,16 +316,16 @@ W06A-04：客户端需要恢复（内置资源，不依赖故障Bundle）
 | 步骤 | 必须保证的结果 | 失败后 |
 | --- | --- | --- |
 | 检查清单 | HTTPS及重定向白名单、签名/有效期、appId/环境/通道/架构/版本范围正确；单实例只一个更新所有者 | 保留原文件，显示检查失败；不进入业务 |
-| 下载 | releaseNId与清单hash绑定，只写本次暂存目录；先检查空间 | 允许重试；断点续传校验Range/ETag，响应变200或ETag变化则重新下载，不拼坏包 |
+| 下载 | releaseNId与清单hash绑定，只写一个暂存目录；先检查空间 | 失败后删除本次临时文件并从头重试，不做断点续传、不拼坏包 |
 | 校验并暂存 | 长度、SHA256、签名绑定及Native/bridge/API兼容通过；解压拒绝绝对路径、穿越、链接及异常大小 | 清理本次无效暂存，保留当前和最后良好资源 |
-| 原子切换 | 仅启动检查阶段；再次校验目标及兼容；先持久化activationNId/尝试次数，再切活动slot | 中断后根据持久状态及实际slot恢复，不启动半包 |
-| 健康确认 | 两端Web资源统一60秒；Vue入口、必要资源与bridge可用，由当前activation回报；不等用户登录 | 同包最多自动激活一次；失败切回合法lastGood以打开恢复界面，不能进入旧版业务 |
+| 原子切换 | 仅启动检查阶段；再次校验目标及兼容；记录一次activationNId后切换当前slot | 中断后根据当前、lastGood、暂存三处事实进入恢复，不启动半包 |
+| 健康确认 | 两端固定60秒；只检查Vue入口、必要资源与bridge，由当前activation回报；不等用户登录 | 失败切回lastGood只打开修复界面，不能进入旧版业务；不做多级回滚 |
 | 安装包升级 | 实际安装身份/签名、Android versionCode、Native版本与清单一致；OS“已受理”不算完成 | 取消/安装失败仍阻止业务；只给重试/退出/受控设置，不承诺静默降级 |
-| 崩溃后重启 | 核对实际Native/slot与update-state，生成新updateEpoch；拒绝旧健康回报 | 重新验未完成包；不清attempt后循环激活同一坏包；无合法恢复资源进入内置修复页 |
+| 崩溃后重启 | 核对当前、lastGood、暂存及待确认activation；拒绝旧健康回报 | 未完成激活直接进入修复；同一坏包不自动循环激活；无lastGood时使用内置修复页 |
 
 发布版本与资源文件不可变，保留正在使用的旧资源及其动态chunk；不得用覆盖目录或自动更新的Service Worker让旧页面混入新资源。前后端沿既有兼容接口发布，不通过本任务重建API版本管理。
 
-继续保留既有签名、防回放和恢复约束：同app/环境/通道/包种类的releaseSequence递增，同序号只能对应同产物；安全下限不能由普通配置降低。lastGood恢复只保证修复入口，不绕过当前发布要求。仅保留内置恢复资源、当前slot、lastGood和一个暂存slot；不删除业务文件腾空间。
+保留清单签名、releaseSequence防旧清单回放和文件hash校验。同序号只能对应同一产物；首期不建设独立安全下限策略或版本治理中心。lastGood只保证修复入口，不绕过当前发布要求。仅保留内置修复页、当前slot、lastGood和一个暂存slot；不删除业务文件腾空间。
 
 Web包不能改变信任根、API白名单、安装身份、安全存储格式、原生权限/插件或SDK；这些变化走完整安装包。普通本地配置在前后支持版本间保持可读。包大小/解压大小/文件数和空间余量由001按实际工具链冻结。
 
@@ -385,7 +387,7 @@ U07的网络故障与包故障分开：本地资源完整但API不通，不应�
 
 每个U案例记录：平台、起始Native/Web、目标releaseNId/hash、实际操作、更新界面截图、完成后的真实Native/Web、扫码Label/清空结果、PASS/FAIL/未测原因。U01必须有“新版已发布而当前页仍W1”的证据；U03必须有“同一N1外壳显示W2”的证据；U10必须有系统安装后读取到N2的证据。
 
-若以后真实变更JAR/AAR/SDK/原生权限/bridge，用同一安装包流程验新增能力。首轮不为验证更新机制制造额外硬件依赖。005完成条件是U01～U12对应支持平台通过且§8终端回归完成；PDA广播真机后置单列，SQL支持另由009交付。
+若以后真实变更JAR/AAR/SDK/原生权限/bridge，用同一安装包流程验新增能力。首轮不为验证更新机制制造额外硬件依赖。005完成条件是U01～U12对应支持平台通过且§8终端回归完成；PDA广播不属于本次完成条件，SQL支持另由009交付。
 
 ## 5. 方法签名与业务边界
 
@@ -424,7 +426,7 @@ TypeScript命令返回Promise；订阅返回unsubscribe。以下是公共运行�
 {"contractVersion":1,"requestNId":"3771e632cc794c1dacd315e2f50dc3aa","ok":false,"subjectEpoch":"1803c808b1ae482490905c923e0e9192","error":{"code":"DEVICE_BUSY","retryable":true,"outcome":"NotExecuted"}}
 ```
 
-本例首轮用手机相机。后续广播adapter必须在真实型号上固定action/category/extras/编码/来源验证规则，不把上例当通用厂商广播协议。IMEs、键盘楔入与业务回车冲突通过scan-session归属解决，不全局拦截所有Enter。
+本例只用手机相机。PDA广播adapter不在本次实现；未来另立任务时必须在真实型号上固定action/category/extras/编码/来源验证规则，不能把本例当通用厂商广播协议。IMEs、键盘楔入与业务回车冲突通过scan-session归属解决，不全局拦截所有Enter。
 
 ### 5.1 请求校验、取消、事件与迟到结果
 
@@ -471,7 +473,7 @@ TypeScript命令返回Promise；订阅返回unsubscribe。以下是公共运行�
 | 键盘文本框 | 仅标记的当前扫描输入控件接收keyboard结果；普通文本录入仍走原逻辑。IME composing和普通聊天Enter沿PF05规则，不能靠全局按键速度猜扫描并拦截发送 |
 | 结束符 | Enter提交当前扫描缓冲且阻止这一次默认提交；Tab提交后依页面焦点规则移动一次；None必须显式“确认输入”提交，不能等待一个不存在的结束字符。浏览器普通聊天无扫描会话时行为不变 |
 | 内容与重复 | 保留前导零、大小写、合法GS1分隔符，不任意trim/数字转换；按已冻结adapter去除约定终止符。空结果拒绝，最多4096字符且受64KiB信封上限；相同业务码两次真实扫描生成不同eventNId、都交业务处理 |
-| 广播字段（用户后置） | 拿到真实PDA后由001补充核验，填action/category、extras键及类型、symbology映射、字符编码、结束符、target package/component、所需permission、SDK/固件版本、是否厂家稳定事件ID。不允许把任意Intent extras透传页面 |
+| 广播字段（范围外） | 本次不定义、不实现。未来PDA独立任务须基于真实设备填写action/category、extras、编码、来源验证、permission及SDK/固件版本；不能从本次手机实现推断 |
 | 无厂商事件ID | 每次有效设备回调生成新eventNId，桥接重发沿用此ID；只注册一个receiver和一个输出通道。不用“同码100ms内只算一次”掩盖重复注册；厂商会重复发且无法区分时登记该型号限制并核验配置 |
 | 来源保护 | action/category不证明发送者身份。按厂商能力验证显式目标、签名级permission/受控SDK等实际保护；需接收其他App广播时不能盲用NOT_EXPORTED造成收不到。不能验证来源的型号保留风险门禁，不称“已防伪造”；条码永远是待校验业务输入，不是执行命令 |
 | 系统弹层/相机 | 临时后台（OS授权/扫描Activity）按关联request保留取消上下文，暂停键盘/广播；非本次外部流程或锁屏立即取消。结果返回先比对epoch/session再交付，取消后回调立即释放相机，不写日志或自动发送消息 |
@@ -504,9 +506,9 @@ device-profile首版由001冻结的受控部署配置提供；页面只测试/�
 
 ### 5.7 媒体端口与JSON桥接分开
 
-共享Runtime在renderer内提供`media.captureMicrophone({operationNId:nid,subjectEpoch:nid}):Promise<MediaStream>`和`media.captureScreen({operationNId:nid,subjectEpoch:nid}):Promise<MediaStream>`，仅由PF06媒体所有者在既有用户手势内调用。取消沿operationNId撤销；返回轨道由PF06接管，迟到轨道由adapter立即停止。麦克风返回音频轨道，首版屏幕返回视频轨道且不自动附带系统音频；PF06继续拥有邀请、绑定、sender/receiver、协商、播放和停止。
+共享Runtime在renderer内提供`media.captureMicrophone({operationNId:nid,subjectEpoch:nid}):Promise<MediaStream>`和`media.captureScreen({operationNId:nid,subjectEpoch:nid}):Promise<MediaStream>`，仅由PF06媒体所有者在既有用户手势内调用。会话取消、离页或停止时须显式释放轨道与Android原生采屏服务；迟到轨道由adapter立即停止，不依赖调用`track.stop()`后再等待`ended`事件。麦克风返回音频轨道，首版屏幕返回视频轨道且不自动附带系统音频；PF06继续拥有邀请、绑定、sender/receiver、协商、播放和停止。
 
-MediaStream/MediaStreamTrack是同renderer内对象，不进入BridgeRequest/Response的JSON，不把视频帧/PCM/base64塞进普通IPC。Web adapter调用已有浏览器采集；Electron由受限选源处理器配合renderer媒体API取得轨道；Android adapter只有在001验证可交付现有传输使用的真实轨道后才实现发屏，否则按明确支持矩阵处理并先回写范围。Native不能另开第二个媒体Hub或用一张截屏冒充实时视频。端口错误映射保留取消/拒绝/不支持与operation来源，交PF06既有局部错误呈现。
+MediaStream/MediaStreamTrack是同renderer内对象，不进入BridgeRequest/Response的JSON；普通业务IPC不承载媒体数据。Web adapter调用已有浏览器采集；Electron由受限选源处理器配合renderer媒体API取得轨道。Android手机发屏使用系统MediaProjection、前台服务和专用`screenFrame`事件，将压缩帧送入WebView Canvas并生成真实`MediaStreamTrack`，再交给PF06现有单PeerConnection；事件仅在用户授权的共享会话中流转，不记录帧、不另开媒体Hub。此路线已在Android 10真机验证，其他系统版本及高负载性能仍需单独验收；不能用一张静态截屏冒充实时视频。端口错误映射保留取消/拒绝/不支持与operation来源，交PF06既有局部错误呈现。
 
 ## 6. 运行时数据与逐字段说明
 
@@ -516,7 +518,7 @@ MediaStream/MediaStreamTrack是同renderer内对象，不进入BridgeRequest/Res
 
 - 本文`nid`/`string32`为随机UUID的32位小写hex；`key`为外部原始业务标识，长度沿现有领域DTO，不强改成32位。`subjectEpoch`为容器身份协调器生成的不透明随机nid，不使用用户名或自增业务版本代替。`configRevision`及递增技术序号使用非负十进制Int64字符串，JS以BigInt比较；桥接版本为正的安全整数。
 - 时间序列化必须带`Z`，例如`2026-09-14T01:00:00.000Z`；非法/无时区输入拒绝。单调时间只用于当前进程超时，不跨重启持久化复用。签名有效期依可信UTC；时钟明显异常阻止激活并提示校时，不能反复重试或增加过期宽限。
-- `NativeVersion`/`WebVersion`/安全下限/兼容范围均使用SemVer，不含`v`前缀；stable拒绝预发布版本。Android的`versionCode`为正整数，独立于显示`versionName`/SemVer，不能按名字推算可升级性。生产001需登记appId/packageName、Windows安装身份、架构和版本映射。
+- `NativeVersion`/`WebVersion`及兼容范围均使用SemVer，不含`v`前缀；stable拒绝预发布版本。Android的`versionCode`为正整数，独立于显示`versionName`/SemVer，不能按名字推算可升级性。生产001需登记appId/packageName、Windows安装身份、架构和版本映射。
 - 能力名固定：`scanner.keyboard`、`scanner.broadcast`、`scanner.camera`、`bluetooth.ble`、`files.pick`、`files.save`、`printer.systemTest`、`notifications.local`、`media.microphone`、`media.screenCapture`、`media.screenReceive`、`updates.installer`、`updates.apk`、`updates.webBundle`、`diagnostics.export`。SPP、远程推送、后台持续音视频不是以上能力的隐含子项。未核验实现对外返回Unsupported并附`CAPABILITY_NOT_VERIFIED`，支持矩阵仍登记Unknown，以区别硬件确认不支持。
 - 能力快照只表达容器/设备/OS状态，不授予业务权限。`Supported`不表示已连设备、对方已同意、声音已播放或版本可立即安装。权限被拒/永久拒绝使用PermissionRequired及不同reasonCode，禁止每次刷新重新申请系统授权。
 
@@ -562,7 +564,6 @@ MediaStream/MediaStreamTrack是同renderer内对象，不进入BridgeRequest/Res
 | bridgeMinVersion | 正安全整数 | 页面依赖的最低桥接契约版本；构建发布时填写 |
 | bridgeMaxVersion | 正安全整数 | 页面已支持的最高桥接契约版本；与min共同校验 |
 | apiContractId | string≤64 | 经核验的前后端接口兼容组合标识；不是Git提交号，不新增版本服务 |
-| securityFloorVersion | SemVer | 同app/环境/通道/包种类的安全版本下限；不能跨APK和Web版本比较 |
 | androidVersionCode | 正整数?；apk必填 | Android安装递增号；由APK构建确定，独立于versionName |
 | artifactUrl | string | 受信HTTPS下载位置；每次重定向也检查白名单，不接受页面任意输入 |
 | artifactSha256 | 64位小写hex | 最终完整文件的SHA256；发布时计算，绑定到签名清单 |
@@ -575,7 +576,7 @@ MediaStream/MediaStreamTrack是同renderer内对象，不进入BridgeRequest/Res
 
 ### 6.4 update-state.json：本地更新恢复记录
 
-一条记录代表本安装实例某app/环境/通道/包种类的更新状态。由更新器原子写入，用于中断恢复；不是业务审计，也不能凭旧Healthy状态跳过本次启动检查。slot及已验hash由更新器私有存储关联，不对网页暴露路径。
+一条记录只保存本安装实例恢复一次更新所需的最小事实。由更新器原子写入；不是业务审计或历史库，也不能凭旧Healthy状态跳过本次启动检查。当前、lastGood与暂存slot由更新器私有存储关联，不对网页暴露路径。
 
 | 字段 | 类型 / 默认或空值 | 中文含义、来源与维护时机 |
 | --- | --- | --- |
@@ -586,22 +587,15 @@ MediaStream/MediaStreamTrack是同renderer内对象，不进入BridgeRequest/Res
 | lastGoodWebVersion | SemVer | 最后完成本地健康确认的资源版本；用于恢复修复入口，不授予旧版业务通行 |
 | pendingReleaseNId | nid? | 当前待下载/切换的发布标识；目标确定时写入 |
 | pendingArtifactHash | 64位小写hex? | 待处理产物的预期hash；来自受信清单，不能随下载响应更换 |
-| downloadedBytes | sequence；默认'0' | 已下载字节数；只用于恢复/进度，不证明完整 |
-| activationAttempt | number；初始0 | 当前发布的激活尝试次数；自动尝试最多1次，崩溃不能清零循环重试 |
 | lastErrorCode | string? | 最近更新错误分类；无错误省略，不能保存原始异常/秘密 |
-| updatedOn | UTC | 最近状态写入时间；用于诊断，不替代进程内单调超时 |
-| updateEpoch | nid | 更新器实例代次；重启重新生成，用于拒绝旧事件/回报 |
-| stateRevision | sequence | 本代次状态修订；每次发布新快照递增，页面据此拒绝乱序 |
 | currentReleaseNId | nid? | 当前资源关联发布标识；初装尚无发布关联时可省略 |
 | lastGoodReleaseNId | nid? | 最后健康资源的发布标识；与版本/hash/私有slot共同恢复 |
 | targetPackageKind | PackageKind? | 当前目标类别；决定Web切换或OS安装流程 |
-| previousWebVersion | SemVer? | 切换前页面版本；激活记录保留，用于解释恢复结果 |
 | activationNId | nid? | 本次切换的一次性标识；激活前生成，旧页面不能确认新激活 |
 | healthDeadlineOn | UTC? | 本次健康窗口截止时间；供重启恢复判断，进程内超时仍用单调时钟 |
-| resumeETag | string≤512? | 续传资源标识；服务器变化则丢弃旧分片重新下载 |
-| verifiedManifestHash | 64位小写hex? | 已验清单摘要；将下载与激活锁定到同一清单 |
 | highestAcceptedReleaseSequence | sequence；默认'0' | 该发布空间最高已接受序号；防旧签名清单回放，不因换用户清空 |
-| effectiveSecurityFloorVersion | SemVer | 当前有效安全下限；从内置信任配置/有效清单得出，不允许普通配置降低 |
+
+下载进度、`updateEpoch`和`stateRevision`只存在当前进程的界面快照中，不写持久状态；失败重试从头下载。状态文件不保存版本历史、审计事件、多级回滚链或断点续传元数据。
 
 ### 6.5 UpdateStatusV1：界面更新快照
 
@@ -757,7 +751,7 @@ CapabilitySnapshotV1表示当前容器能力，不授予业务权限；DeviceSta
 清单/状态/快照字段见本章§6.3～6.5。清单允许win-x64/installer、win-x64/web-bundle、android/apk、android/web-bundle；按appId/环境/通道/包种类隔离版本空间。
 
 - `version`表示本产物版本：完整包为NativeVersion，Web包为webVersion；`webVersion`始终表示产物携带的页面版本。
-- `nativeMinVersion/nativeMaxVersion`与bridge范围约束页面能否使用当前外壳；`securityFloorVersion`是同发布空间的安全下限，不能把APK与Web版本比较。
+- `nativeMinVersion/nativeMaxVersion`与bridge范围只用于判断页面能否使用当前外壳；首期不增加独立安全下限版本字段。
 - `releaseNId`识别不可变产物，`releaseSequence`防清单回放，`activationNId`绑定一次切换及健康回报；它们不能互相替代。
 - 签名覆盖除signature以外全部字段；拒绝重复JSON键、非规范数字及额外未定义字段。001固定算法、规范化、签名编码、公钥格式及跨语言正反测试向量。产物SHA256被清单签名绑定，平台安装签名另验。
 - 最后良好版本须关联已验hash及私有slot；显示版本号不足以恢复。恢复旧文件不能绕过本次启动必更。
@@ -824,13 +818,13 @@ Web bearer/mock保留现有sessionStorage策略；embedded-cookie继续以服务
 
 屏幕采集复用PF06“用户选源→邀请/接受→绑定→传输”顺序。在已核验OS/Electron版本支持时使用系统选择器，否则使用§3.8受控来源选择界面；不复制官方示例的“取sources[0]直接授权”。源句柄只绑定当前request/epoch，源窗口关闭触发该屏幕能力停止。麦克风为独立语音能力，首版不将系统音频loopback默认并入屏幕共享，不改变PF06三槽/单PeerConnection协议。
 
-### 7.5 Capacitor Android（手机首验，PDA广播后置）
+### 7.5 Capacitor Android（本次仅手机）
 
 - 生命周期同时处理Activity变化、appStateChange、resume、锁屏、配置变化和进程重建；在resume重新检测权限、网络和身份；同一存活实例不切换Web版本，进程/renderer重建按冷启动检查更新，而不是只调用一次Hub.start。重复监听/重复receiver注册可观察且须消除。
-- 前台聊天/观看/语音按§8.1媒体输入实际能力验证；进入普通后台或锁屏时首版不承诺继续音视频/BLE，主动停止媒体与设备会话，返回前台恢复权威业务列表。用户正在确认OS权限/文件选择的受控临时Activity按§5.4保留原request上下文；不能把这种短暂离开当退出登录，也不能用于绕过锁屏停止。
+- 前台聊天/观看/语音按§8.1媒体输入实际能力验证。Android手机主动共享屏幕时，系统授权后的MediaProjection前台服务允许切到桌面或其他App，画面仍经既有PF06通道发送；用户停止、系统撤销投屏或会话结束时须释放原生服务和视频轨。普通后台语音/BLE及锁屏持续媒体仍需分别验证，不能由屏幕共享通过推定。返回前台恢复权威业务列表。用户正在确认OS权限/文件选择的受控临时Activity按§5.4保留原request上下文。
 - 返回键先关闭最上层受控弹窗/扫码会话，再按既有PDA路由返回；未保存表单按原离页规则。根页返回进入后台按上述清理，不直接强制退出覆盖在途物理操作结果。软键盘、安全区、横竖屏及滚动保持真实设备验收；旋转不得重建第二媒体Host或receiver。
-- 权限清单按目标OS/targetSdk区分：相机、麦克风、蓝牙扫描/连接、通知及厂商广播权限只按使用请求。Android 12+蓝牙权限与旧系统定位要求、Android 13+通知授权按官方规则及目标设备核验；拒绝/永久拒绝/设置撤销分别处理，不为连接一个设备申请无用权限。
-- **屏幕接收≠本机屏幕采集**：WebView中可以播放远端画面，不能据此声称getDisplayMedia可用。若Android本机发屏需要MediaProjection，还须证明捕获如何作为轨道接入PF06现有传输、OS授权/前台服务/系统停止如何映射、是否引入原生WebRTC栈；仅拿到授权Intent/Bitmap不算完成。该路线由001先核验并回写，不能在001中临场重写媒体平台或以Unsupported静默缩减已经批准的首版范围。
+- 权限清单按目标OS/targetSdk区分：相机、麦克风、蓝牙扫描/连接和通知只按使用请求；本次不加入厂商广播权限或接收器。Android 12+蓝牙权限与旧系统定位要求、Android 13+通知授权按官方规则及目标手机核验；拒绝/永久拒绝/设置撤销分别处理，不为连接一个设备申请无用权限。
+- **屏幕接收≠本机屏幕采集**：Android WebView的`getDisplayMedia`在当前真机不可用；手机发屏须由MediaProjection逐次取得系统同意，前台服务采集帧，WebView `canvas.captureStream()`生成视频轨，并接入PF06既有传输。Android 10真机已验证手机→Windows画面、切后台持续更新、停止后释放；这一结果不等于Android 14+或iOS支持声明。原生能力改变需重打APK，Web页面逻辑改变仍按现有Web更新流程生效。
 - 原生插件权限、SDK/ABI变化走APK升级；设备WebView不能更新或版本低于支持下限时显示明确升级/不支持信息，不通过降低安全配置让坏页面勉强运行。
 
 ### 7.6 协作恢复、迟到操作与权限异常
@@ -855,7 +849,7 @@ App被杀、系统省电限制或网络断开时，没有已确认push渠道就�
 | 产物 | 001必须登记的构建输入 | 005真实交付证据 |
 | --- | --- | --- |
 | Windows完整包 | Electron/electron-vite/builder/updater精确版本、Electron内置Chromium/Node版本、Windows/CPU、安装器格式/安装范围、appId/产品名、签名证书责任与时间戳策略 | 无开发服务器机器安装→启动登录→退出/再开→升级→卸载；旧版配置/设备档案保留策略和清理说明；安装后的实际版本与包hash |
-| Android APK | Capacitor core/cli/android/plugin版本组合、JDK/Gradle wrapper/AGP、compile/min/target SDK、ABI、applicationId、versionCode/versionName、WebView最低版本、签名alias引用 | 真实Android手机安装（PDA广播后置）、所需权限、冷启动、旧APK覆盖升级、数据保留、错误签名/低versionCode拒绝、人工重新安装路径 |
+| Android APK | Capacitor core/cli/android/plugin版本组合、JDK/Gradle wrapper/AGP、compile/min/target SDK、ABI、applicationId、versionCode/versionName、WebView最低版本、签名alias引用 | 真实Android手机安装和拍照扫码、所需权限、冷启动、旧APK覆盖升级、数据保留、错误签名/低versionCode拒绝、人工重新安装路径；不含PDA广播 |
 | Windows / Android Web Bundle | 同一frontend构建产物、webVersion、资源入口/manifest、依赖Native/bridge/API契约范围、更新器插件配置、包限额 | Windows不改安装包、Android不改APK，各完成一次页面资源升级；健康确认、损坏/中断回退、旧页回报无效、内置恢复页可用 |
 
 开发Node与Electron内置Node是两套版本，不因为现有Node24就认为Electron运行兼容。不得使用浮动latest依赖或把插件demo依赖照搬进主工程；冻结锁文件/Gradle wrapper/插件版本、许可和来源，记录实际构建命令与干净构建验证。001未完成前不杜撰`pnpm package:*`等仓库不存在的命令。
@@ -870,7 +864,7 @@ APK安装经系统受控流程，未知来源安装权限和文件授予只在�
 
 发布权限与平台runtime.update不同：前者控制产物和签名，后者仅允许业务内手动检查；启动更新由受信bootstrap自动执行，OS安装确认仍由操作者完成。签名私钥留受控发布环境，客户端仅内置信任公钥和keyId；普通runtime-config不含可编辑公钥。TLS证书、清单签名、Windows签名、APK签名分别登记责任/到期/恢复，不互相代替。
 
-公钥轮换须先通过仍受信的完整包/签名策略部署新公钥，再发布新keyId清单；未知keyId拒绝。密钥泄露/吊销和长时间离线设备如何取得新信任根由001列出具体步骤，不能从当前未受信清单下载一个公钥后自行信任。内部网络不可达时保留最后合法资源供恢复界面使用，启动检查失败不放行旧版业务；有效期异常时禁止激活，不能关闭校验“临时救急”。渠道切换不能降低安全下限或把pilot预发布伪装stable，跨渠道版本策略必须在§8.1发布输入冻结。
+首期只内置一个受信公钥集合；未知keyId拒绝，不能从未受信清单下载新公钥后自行信任。密钥轮换或吊销需要通过完整安装包更新信任配置，不在本次建设在线密钥治理。内部网络不可达时保留lastGood供修复界面使用，启动检查失败不放行旧版业务；有效期异常时禁止激活，不能关闭校验“临时救急”。
 
 ### 7.10 诊断、安全保存与维护
 
@@ -884,7 +878,7 @@ APK安装经系统受控流程，未知来源安装权限和文件授予只在�
 
 ### 8.1 开工时一次核对必要输入
 
-下表属于三个任务内的准备工作，不另设八道审批或七个派遣阶段。输入缺失只影响对应能力；PDA广播明确后置，不作为Android手机开工前置。设备/依赖版本须实际核验，不填latest或虚构PASS。
+下表属于三个任务内的准备工作，不另设八道审批或七个派遣阶段。输入缺失只影响对应能力；PDA广播不在本次范围，也不收集其设备或协议输入。设备/依赖版本须实际核验，不填latest或虚构PASS。
 
 | 范围 | 必须记录的具体输入 | 对应结果 |
 | --- | --- | --- |
@@ -895,7 +889,6 @@ APK安装经系统受控流程，未知来源安装权限和文件授予只在�
 | 更新与签名 | 两端Web资源加载、清单/工具元数据映射、签名规范化/公钥、安装签名、实际渠道和包大小/空间阈值 | §4正反场景可执行，启动更新不依赖业务登录 |
 | BLE/基础打印 | 实际设备/协议、adapter DTO、超时与结果未知处理；Windows打印测试目标 | 沿§5已定能力接入，不能以BLE demo冒充SPP打印 |
 | 原生媒体/通知 | 目标WebView/系统实际采集、接收、播放、本地通知与生命周期 | 沿原媒体Host接入，不建设第二套媒体平台或推送服务 |
-| PDA广播（后置） | 有设备后补厂家/固件/SDK、广播字段与来源保护 | 只届时实现并验证广播适配，当前记录用户后置 |
 | SQL Server | 见§9.6，独立于终端设备核对 | 009真实引擎及逐对象接入输入 |
 
 记录格式：目标/实际版本、确定的契约或配置、实际操作与结果、未验原因及受影响范围。真机未测不等于代码失败，也不以编译或组件模拟代替真实支持。
@@ -908,7 +901,7 @@ APK安装经系统受控流程，未知来源安装权限和文件授予只在�
 
 ### 8.3 终端回归矩阵
 
-R1=共享Web行为，R2=Windows外壳，R3=Android/设备，R4=更新，R5=协作生命周期，R6=部署诊断。扫码详测用S01～S12，更新详测用U01～U12；下表只保留跨能力回归要求，不另外新增任务阶段。
+R1=共享Web行为，R2=Windows外壳，R3=Android/设备，R4=更新，R5=协作生命周期，R6=部署诊断。扫码详测用S01～S05、S07～S12，S06范围外；更新详测用U01～U12。下表只保留跨能力回归要求，不另外新增任务阶段。
 
 | ID / R映射 | Given / When | 必须观察的Then及负例 | 主TASK |
 | --- | --- | --- | --- |
@@ -916,16 +909,16 @@ R1=共享Web行为，R2=Windows外壳，R3=Android/设备，R4=更新，R5=协�
 | A06A-02 / R1/R6 | 已有种子库和最低权限账号；从PC/PDA实际菜单进入，读/配置/手动检查权限各自撤销，再启动必更 | 新旧库入口一致且不覆盖自定义；无权业务按钮/直接调用均拒绝，登录前受信启动更新不依赖这些业务权限；中英/明暗/窄屏/200%/键盘/软键盘通过；用户管理查询、原聊天菜单和PDAEnter不回归 | 001 |
 | A06A-03 / R1/R5 | A登录并留草稿、通知、设备会话；刷新并发换B/过期/撤权，重新启动；分别覆盖bearer与现有Web embedded，原生embedded按已冻结支持矩阵 | 旧Token/草稿/句柄/事件不落入B；HTTP与宿主epoch一致；原生无sessionStorage明文Token；embedded不镜像Cookie或恢复缓存身份；旧刷新/通知点击不能复活A；存储不可用无静默降级 | 001 |
 | A06A-04 / R2/R3 | 一个bridge命令处理中；同ID同payload、同ID异payload、超限/未知版本/子frame/伪Origin、取消后迟到成功/失败 | 仅一次设备调用；非法输入被真正接收端拒绝；旧回包不影响新状态且已取得资源释放；当前错误保留，物理结果不明标Unknown | 001 |
-| A06A-05 / R3 | 首轮Android手机有当前输入/相机会话；同码两次、重放同event、Enter/Tab/None/IME、切页/切人后的迟到结果 | 两次真实码均接收、重放一次；不误发聊天/表单、不丢前导零/GS1；失去所有权不投递。PDA广播伪造/双通道/receiver明确用户后置 | 001 |
+| A06A-05 / R3 | Android手机有当前输入/相机会话；同码两次、重放同event、Enter/Tab/None/IME、切页/切人后的迟到结果 | 两次真实码均接收、重放一次；不误发聊天/表单、不丢前导零/GS1；失去所有权不投递；不加载PDA广播receiver | 001 |
 | A06A-06 / R3 | 真实Android手机相机/实际目标BLE被拒/永久拒绝/设置撤权/断连；write发出后丢响应，后台后返回 | 不循环授权；相机/连接释放；写结果未知不自动重发；重连生成新ID、旧notify无效；实际设备值/回应被核对，demo不冒充SPP | 001 |
 | A06A-07 / R2/R6 | 受控测试文件/固定打印测试页；取消选择/保存/打印、非法路径和任意HTML、设备忙 | 不越出句柄/目录/模板边界；实际系统对话框且人工出纸与SystemOnly分开；无标签队列；同机Agent已拥有设备时不抢占 | 001 |
 | A06A-08 / R2/R5 | Windows与第二真实端已通话/共享；最小化、X关闭到托盘、恢复、页内浮窗缩放再拖动、退出/锁屏 | 视图操作保持媒体且音频只播一次；退出/锁屏按§7.4结束资源及对端；选源取消/源窗口销毁清对应轨道，不默认共享第一屏 | 001 |
 | A06A-09 / R5 | 两种能力已建立；停止一项、同时新增另一项、迟到Ready/Answer/错误；多设备抢接/权限撤销 | 按PF06上下文/协商规则，单项失败不误停另项；观察实际音频/视频及本地轨道；协议PASS不能扩大成真实媒体PASS | 001 |
 | A06A-10 / R4 | 发布新页面及外壳；Windows/Android分别冷启动、恢复登录、退出再登录、取消OS安装 | 两端页面热更新均不重打外壳；Windows安装包/APK各一次升级；有明确提示/进度，无稍后/跳过；实际版本/hash匹配，取消安装仍不进业务 | 005 |
 | A06A-11 / R4 | 错appId/环境/通道/架构、过期清单/旧sequence/未知keyId/签名hash篡改、bridge/API不兼容 | 在执行前拒绝对应包，旧文件保留供修复，启动失败不进业务；不以签名有效跳过版本/身份，不以HTTPS代替签名 | 005 |
-| A06A-12 / R4 | 下载断网、ETag变/Range回200、磁盘满；解压穿越/异常大小；在暂存写盘/slot切换/health前分别中止进程再启 | 不拼坏包、不写越界、不丢lastGood；状态文件重新读回及UTC一致；同包最多自动激活一次，旧activation健康回包拒绝 | 005 |
+| A06A-12 / R4 | 下载断网、磁盘满、解压穿越/异常大小；在暂存写盘、slot切换、health前分别中止进程再启 | 失败临时文件删除后从头重试，不拼坏包、不写越界、不丢lastGood；同包不循环激活，旧activation健康回包拒绝 | 005 |
 | A06A-13 / R4/R5 | 使用中发布新版，保留表单/扫码/文件/媒体；切后台/托盘再恢复；随后终止隔离实例再开；下载时再发布一版 | 使用中及普通恢复不切版本、不触发自动安装；重新启动必须完成当前发布目标更新；旧资源/动态chunk可用；下载不混包，更新失败/断网只可重试或退出 | 001/005 |
-| A06A-14 / R4/R6 | Bundle入口/动态chunk坏、bridge错误；断网但本地包正常；安全floor高于lastGood；诊断注入秘密样本 | 坏包60秒内触发既定恢复，离线不误判本地包损坏，但启动检查失败不放行业务；恢复旧文件也不能绕过必更；禁止回到不安全包，内置维修页可用；诊断脱敏断言、容量/保留/取消保存均通过 | 005/001 |
+| A06A-14 / R4/R6 | Bundle入口/动态chunk坏、bridge错误；断网但本地包正常；诊断注入秘密样本 | 坏包60秒内进入修复界面，离线不误判本地包损坏，但启动检查失败不放行业务；lastGood不能绕过必更；诊断脱敏断言、容量/保留/取消保存均通过 | 005/001 |
 | A06A-15 / R2/R3/R6 | 真实分发环境安装、覆盖升级、卸载/重装；Windows受限权限、APK签名不符/安装权限拒绝 | 支持的安装路径真实完成，失败有恢复说明；配置/凭据按边界处理，未安装机器/模拟器不计真机 | 001/005 |
 | A06A-16 / R5 | Android手机前后台/锁屏/强杀/旋转/OS授权弹层；有新消息/旧通知，再冷启动 | 清理与受控外部流程区分；无重复receiver/媒体Host；恢复先身份后权威消息，点击重新鉴权；未启用push时杀进程后通知不记送达PASS | 001 |
 
@@ -1171,6 +1164,6 @@ PF-10B继续拥有Label Job、Device Agent队列、打印确认与重打；本�
 - [Electron safeStorage](https://www.electronjs.org/docs/latest/api/safe-storage)：OS安全存储能力及平台限制；业务主体隔离与会话清除仍由应用实现。
 - [Capacitor配置](https://capacitorjs.com/docs/config)、[App生命周期](https://capacitorjs.com/docs/apis/app)：本地Web资源/Origin及App事件；生产配置和目标WebView需实际核验。
 - [Android蓝牙权限](https://developer.android.com/develop/connectivity/bluetooth/bt-permissions)、[广播规则](https://developer.android.com/develop/background-work/background-tasks/broadcasts)、[通知权限](https://developer.android.com/develop/ui/compose/notifications/notification-permission)：权限/来源/注册不能按浏览器经验推断。
-- [Android MediaProjection](https://developer.android.com/media/grow/media-projection)：每次捕获同意、目标版本前台服务及token使用限制；本项目仍须验证接入现有WebRTC传输，不因API存在承诺已支持。
-- [Capgo Updater API](https://capgo.app/docs/plugins/updater/api/)：notifyAppReady默认10秒及appReadyTimeout；本项目60秒与安全floor需单独映射验证。候选插件仍未选定。
+- [Android MediaProjection](https://developer.android.com/media/grow/media-projection)：每次捕获同意、目标版本前台服务及token使用限制；本项目已在Android 10手机验证接入现有WebRTC传输，其他目标版本仍按本节要求实测。
+- [Capgo Updater API](https://capgo.app/docs/plugins/updater/api/)：notifyAppReady默认10秒及appReadyTimeout；若采用该插件，只核对本项目固定60秒健康窗口。候选插件仍未选定。
 - [electron-builder更新文档](https://www.electron.build/docs/features/auto-update/)、[NSIS updater API](https://www.electron.build/docs/api/electron-updater.class.nsisupdater/)：独立发布元数据、自动安装时机和quitAndInstall窗口关闭顺序；具体配置以001锁定版本的文档/API为准，不混用旧版与当前属性。

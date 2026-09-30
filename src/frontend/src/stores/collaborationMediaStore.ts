@@ -17,6 +17,7 @@ import type {
 import { mediaLong } from '@/api/collaborationMedia'
 import { useAuthStore } from '@/stores/authStore'
 import { MediaIceQueue } from '@/stores/mediaIceQueue'
+import { getRuntimeBridge } from '@/platform/runtime/runtimeBridge'
 
 type MediaOperation = 'Idle' | 'Ringing' | 'Connecting' | 'Active' | 'Stopping' | 'Error'
 type MediaSignalCapability = 'Screen' | 'Voice' | null
@@ -545,7 +546,7 @@ export const useCollaborationMediaStore = defineStore('collaboration-media', () 
       screenOperation.value = 'Error'
       return
     }
-    if (!captureWindow.navigator.mediaDevices?.getDisplayMedia) {
+    if (!getRuntimeBridge()?.media?.captureScreen && !captureWindow.navigator.mediaDevices?.getDisplayMedia) {
       errorMessage.value = 'MEDIA_UNSUPPORTED'
       screenOperation.value = 'Error'
       return
@@ -569,14 +570,16 @@ export const useCollaborationMediaStore = defineStore('collaboration-media', () 
     if (hasLiveScreenCapture()) return existing as MediaStream
     if (captureWindow.isSecureContext === false) throw new Error('MEDIA_SECURE_CONTEXT_REQUIRED')
     const generation = ++screenGeneration
-    if (!captureWindow.navigator.mediaDevices?.getDisplayMedia) throw new Error('MEDIA_UNSUPPORTED')
-    // Keep getDisplayMedia at the beginning of the click path so browser activation is retained.
-    const constraints = {
-      video: { frameRate: { ideal: 30 } },
-      audio: false,
-      selfBrowserSurface: 'include',
-    } as DisplayMediaStreamOptions & { selfBrowserSurface: 'include' }
-    const stream = await captureWindow.navigator.mediaDevices.getDisplayMedia(constraints)
+    const nativeCapture = getRuntimeBridge()?.media?.captureScreen
+    if (!nativeCapture && !captureWindow.navigator.mediaDevices?.getDisplayMedia) throw new Error('MEDIA_UNSUPPORTED')
+    // Keep browser capture at the beginning of the click path so user activation is retained.
+    const stream = nativeCapture
+      ? await nativeCapture({ operationNId: createCorrelationId(), subjectEpoch: 'android-runtime' })
+      : await captureWindow.navigator.mediaDevices.getDisplayMedia({
+          video: { frameRate: { ideal: 30 } },
+          audio: false,
+          selfBrowserSurface: 'include',
+        } as DisplayMediaStreamOptions & { selfBrowserSurface: 'include' })
     if (generation !== screenGeneration) {
       stopTracks(stream)
       throw new Error('MEDIA_CAPTURE_FAILED')
@@ -711,6 +714,7 @@ export const useCollaborationMediaStore = defineStore('collaboration-media', () 
     ++screenGeneration
     ++voiceGeneration
     stopTracks(localScreenStream.value)
+    await getRuntimeBridge()?.media?.releaseScreenCapture?.()
     stopTracks(localVoiceStream.value)
     localScreenStream.value = null
     localVoiceStream.value = null
@@ -1177,6 +1181,7 @@ export const useCollaborationMediaStore = defineStore('collaboration-media', () 
     let captureTracksEnded = !stream || stream.getTracks().every((track) => track.readyState === 'ended')
     try {
       stopTracks(localScreenStream.value)
+      await getRuntimeBridge()?.media?.releaseScreenCapture?.()
       captureTracksEnded = !stream || stream.getTracks().every((track) => track.readyState === 'ended')
     } finally {
       localScreenStream.value = null

@@ -1,3 +1,5 @@
+import { getRuntimeBridge } from './runtimeBridge'
+
 export type ScannerSource = 'keyboard' | 'broadcast' | 'camera'
 
 export interface ScanResultV1 {
@@ -67,12 +69,6 @@ export interface ScannerRuntime {
   scanImage(session: ScannerSession, file: File): Promise<boolean>
 }
 
-declare global {
-  interface Window {
-    industrialPlatformRuntime?: ScannerBridge
-  }
-}
-
 interface BarcodeDetectorLike {
   detect(source: ImageBitmap): Promise<readonly { rawValue?: string }[]>
 }
@@ -121,7 +117,7 @@ export function createScannerRuntime(options: ScannerRuntimeOptions = {}): Scann
   const idFactory = options.idFactory ?? randomId
   const now = options.now ?? (() => new Date())
   const subjectEpoch = options.subjectEpoch ?? idFactory()
-  const bridge = options.bridge ?? globalThis.window?.industrialPlatformRuntime ?? null
+  const bridge = options.bridge ?? getRuntimeBridge()
   const listeners = new Map<string, Set<(result: ScanResultV1) => void>>()
   const seenEventNIds = new Set<string>()
   let activeSession: ScannerSession | null = null

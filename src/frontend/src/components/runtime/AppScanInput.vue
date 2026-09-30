@@ -56,6 +56,7 @@ const cameraDisabled = computed(() => !runtime.cameraAvailable)
 const errorMessage = computed(() => {
   if (errorCode.value === null) return ''
   if (errorCode.value === 'RUNTIME_UNSUPPORTED') return copy.value.cameraUnsupported
+  if (errorCode.value === 'SCANNER_MODULE_UNAVAILABLE') return copy.value.cameraSetupFailed
   if (errorCode.value === 'RUNTIME_INVALID_ARGUMENT') return copy.value.invalidValue
   return copy.value.cameraFailed
 })
@@ -129,6 +130,13 @@ async function openCamera(): Promise<void> {
   if (runtime.nativeCameraAvailable) {
     try {
       await runtime.scanNativeOnce(session)
+    } catch (error: unknown) {
+      emitError(
+        error instanceof Error && error.message === 'SCANNER_MODULE_UNAVAILABLE'
+          ? 'SCANNER_MODULE_UNAVAILABLE'
+          : 'CAMERA_SCAN_FAILED',
+        true,
+      )
     } finally {
       await restoreInputSession()
     }
@@ -276,6 +284,7 @@ defineExpose({ clear })
       />
     </div>
     <p v-if="errorCode !== null" class="app-scan-input__error" role="alert">{{ errorMessage }}</p>
+    <p v-if="cameraInFlight" class="app-scan-input__status" role="status">{{ copy.cameraPreparing }}</p>
   </div>
 </template>
 
@@ -349,12 +358,15 @@ defineExpose({ clear })
   pointer-events: none;
 }
 
-.app-scan-input__error {
+.app-scan-input__error,
+.app-scan-input__status {
   grid-column: 2;
   margin: calc(var(--ip-space-2) * -1) 0 0;
-  color: var(--ip-color-danger);
   font-size: var(--ip-font-size-sm);
 }
+
+.app-scan-input__error { color: var(--ip-color-danger); }
+.app-scan-input__status { color: var(--ip-color-text-secondary); }
 
 @media (max-width: 600px) {
   .app-scan-input {
@@ -367,7 +379,8 @@ defineExpose({ clear })
     padding-top: 0;
   }
 
-  .app-scan-input__error {
+  .app-scan-input__error,
+  .app-scan-input__status {
     grid-column: 1;
   }
 }

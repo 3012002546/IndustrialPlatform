@@ -45,3 +45,10 @@ coverage*/
 coverage*.xml
 *.coverage
 *.coveragexml
+
+# Client package dependencies and generated bundles
+/src/clients/**/node_modules/
+/src/clients/**/dist/
+/src/clients/**/.gradle/
+/src/clients/**/android/**/build/
+/src/clients/**/release/

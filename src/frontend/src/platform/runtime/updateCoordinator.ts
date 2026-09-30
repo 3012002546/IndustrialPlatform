@@ -18,6 +18,19 @@ export interface UpdateManifest {
   version: string
   packageKind: UpdatePackageKind
   artifactHash: string
+  artifactUrl?: string
+  artifactSizeBytes?: string
+  appId?: string
+  environmentNId?: string
+  channel?: string
+  platform?: string
+  releaseSequence?: string
+  keyId?: string
+  signatureAlgorithm?: 'ed25519'
+  signature?: string
+  nativeMinVersion?: string
+  nativeMaxVersion?: string
+  bridgeContractVersion?: number
 }
 
 export interface UpdateStatusV1 {
@@ -272,7 +285,8 @@ export function createUpdateCoordinator(options: UpdateCoordinatorOptions): Upda
       currentStatus.state !== 'Activating' ||
       target === null ||
       input.activationNId !== currentStatus.activationNId ||
-      input.releaseNId !== target.releaseNId
+      input.releaseNId !== target.releaseNId ||
+      (target.packageKind === 'web' ? input.webVersion !== target.version : input.nativeVersion !== target.version)
     )
       return false
 

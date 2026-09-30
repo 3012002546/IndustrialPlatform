@@ -1,0 +1,22 @@
+{
+  "name": "@industrial-platform/electron-client",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Industrial Platform Windows Electron shell",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "pnpm build && electron .",
+    "test": "pnpm build && node --test tests/*.test.mjs",
+    "package": "pnpm build && electron-builder --config electron-builder.yml"
+  },
+  "dependencies": {
+    "extract-zip": "2.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.3",
+    "electron": "44.4.3",
+    "electron-builder": "26.15.3",
+    "typescript": "5.9.3"
+  }
+}

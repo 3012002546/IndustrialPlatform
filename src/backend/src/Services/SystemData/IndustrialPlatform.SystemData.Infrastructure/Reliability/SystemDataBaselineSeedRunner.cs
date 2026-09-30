@@ -104,7 +104,7 @@ public sealed partial class SystemDataBaselineSeedRunner : BackgroundService
     internal const string CurrentManifestSeedKey = "SDM-017";
     internal const string CurrentManifestVersion = "4";
     internal const string ResourceConsistencySeedKey = "SDM-018";
-    internal const string ResourceConsistencySeedVersion = "2";
+    internal const string ResourceConsistencySeedVersion = "3";
     internal const string ReferenceDataManifestSeedKey = "SDM-019";
     internal const string ReferenceDataManifestVersion = "3";
     internal const string CollaborationManifestSeedKey = "collaboration.baseline";

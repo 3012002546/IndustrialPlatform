@@ -332,7 +332,7 @@ public sealed class SystemDataBaselineSeedRunnerTests
     }
 
     [Fact]
-    public async Task Real_sql_store_persists_resource_rebind_and_publish_after_a_legacy_upgrade()
+    public async Task Real_sql_store_rebinds_v3_resources_when_v2_consistency_seed_was_already_applied()
     {
         var dbPath = Path.Combine(Path.GetTempPath(), $"industrial-platform-systemdata-real-{Guid.NewGuid():N}.db");
         try
@@ -343,7 +343,7 @@ public sealed class SystemDataBaselineSeedRunnerTests
                 await migrations.ApplyPendingAsync();
                 var store = new SqlControlPlaneStore(db);
                 var legacyChecksum = Checksum(SystemDataBaselineSeedRunner.CurrentManifestSeedKey);
-                var manifest = new ModuleManifestState(Tenant, "systemdata", "2", legacyChecksum, SystemDataBaselineSeedRunner.RequiredPermissionNIds, "2", legacyChecksum, DateTimeOffset.UtcNow)
+                var manifest = new ModuleManifestState(Tenant, "systemdata", "3", legacyChecksum, SystemDataBaselineSeedRunner.RequiredPermissionNIds, "3", legacyChecksum, DateTimeOffset.UtcNow)
                 {
                     PermissionDeclarationItems = SystemDataBaselineSeedRunner.RequiredPermissionNIds
                         .Select(permission => new PermissionManifestEntry(permission, permission, "permission", null))
@@ -351,12 +351,12 @@ public sealed class SystemDataBaselineSeedRunnerTests
                 };
                 var legacyResource = UiResource.Create(Tenant, "systemdata.navigation", "systemdata", "1", UiResourceType.Page, "旧导航入口", "/systemdata/navigation", "systemdata.navigation.view", [UiTerminal.Pc]);
                 var customResource = UiResource.Create(Tenant, "tenant.navigation.custom", "tenant-custom", "1", UiResourceType.Page, "租户自定义入口", "tenant-custom", "tenant.custom.view", [UiTerminal.Pc]);
-                var versionTwoResources = SystemDataBaselineSeedRunner.RequiredResourceFacts
+                var versionThreeResources = SystemDataBaselineSeedRunner.RequiredResourceFacts
                     .Select(resource => UiResource.Create(
                         Tenant,
                         resource.NId,
                         "systemdata",
-                        "2",
+                        "3",
                         UiResourceType.Page,
                         resource.Name,
                         resource.RouteName,
@@ -364,12 +364,12 @@ public sealed class SystemDataBaselineSeedRunnerTests
                         [UiTerminal.Pc, UiTerminal.Pda, UiTerminal.Mobile]));
                 var node = NavigationNode.CreateLink(Tenant, "legacy.navigation.node", "旧导航", null, "PLATFORM_NAVIGATION", "systemdata.navigation", null, [UiTerminal.Pc]);
                 await store.CommitAsync(
-                    new ControlPlaneSnapshot(Tenant, 0, [manifest], versionTwoResources.Append(legacyResource).Append(customResource).ToArray(), [node], [], null, null, [], [], [], null, [new PermissionReceipt("systemdata", "2", legacyChecksum, true)]),
+                    new ControlPlaneSnapshot(Tenant, 0, [manifest], versionThreeResources.Append(legacyResource).Append(customResource).ToArray(), [node], [], null, null, [], [], [], null, [new PermissionReceipt("systemdata", "3", legacyChecksum, true)]),
                     0,
                     new ControlPlaneCommit([], [],
                     [
-                        new SeedLedgerEntry(Tenant, SystemDataBaselineSeedRunner.CurrentManifestSeedKey, "2", legacyChecksum),
-                        new SeedLedgerEntry(Tenant, SystemDataBaselineSeedRunner.ResourceConsistencySeedKey, "1", Checksum(SystemDataBaselineSeedRunner.ResourceConsistencySeedKey)),
+                        new SeedLedgerEntry(Tenant, SystemDataBaselineSeedRunner.CurrentManifestSeedKey, "3", legacyChecksum),
+                        new SeedLedgerEntry(Tenant, SystemDataBaselineSeedRunner.ResourceConsistencySeedKey, "2", Checksum(SystemDataBaselineSeedRunner.ResourceConsistencySeedKey)),
                     ]),
                     CancellationToken.None);
             }
@@ -396,7 +396,11 @@ public sealed class SystemDataBaselineSeedRunnerTests
                 var state = await store.LoadAsync(Tenant, CancellationToken.None);
                 Assert.Equal(SystemDataBaselineSeedRunner.CurrentManifestVersion, state.Resources.Single(resource => resource.NId == "systemdata.navigation").ManifestVersion);
                 Assert.Equal("1", state.Resources.Single(resource => resource.NId == "tenant.navigation.custom").ManifestVersion);
-                Assert.Contains(await db.SqlSugar.Queryable<SystemDataSeedLedgerTable>().Where(row => row.TenantNId == Tenant).Select(row => row.SeedKey).ToListAsync(), key => key == SystemDataBaselineSeedRunner.ResourceConsistencySeedKey);
+                var consistencyVersions = await db.SqlSugar.Queryable<SystemDataSeedLedgerTable>()
+                    .Where(row => row.TenantNId == Tenant && row.SeedKey == SystemDataBaselineSeedRunner.ResourceConsistencySeedKey)
+                    .Select(row => row.SeedVersion).ToListAsync();
+                Assert.Contains("2", consistencyVersions);
+                Assert.Contains(SystemDataBaselineSeedRunner.ResourceConsistencySeedVersion, consistencyVersions);
 
                 var service = new ResourceNavigationService(store, new VerifiedPermissionRegistry());
                 var validation = await service.ValidateAsync(Tenant, CancellationToken.None);

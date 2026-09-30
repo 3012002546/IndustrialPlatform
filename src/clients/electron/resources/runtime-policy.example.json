@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "appId": "com.industrialplatform.desktop",
+  "environmentNId": "dev",
+  "channel": "stable",
+  "updateManifestUrl": "https://updates.example.invalid/industrial-platform/dev/stable/windows/manifest.json",
+  "updateOrigins": [
+    "https://updates.example.invalid"
+  ],
+  "maxArtifactBytes": "536870912",
+  "trustKeys": [
+    {
+      "keyId": "replace-before-release",
+      "algorithm": "ed25519",
+      "publicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA/7Axl0/KGIMqYKmsV3ssPIf0sMJq/GMvVFnwJ7+7JQw=\n-----END PUBLIC KEY-----"
+    }
+  ],
+  "notes": "Copy to runtime/runtime-policy.json in a controlled build. Replace the example origin, channel, environment and public key; never put credentials or private keys here."
+}

@@ -218,20 +218,22 @@ public sealed class UnifiedHostTests : IDisposable
         }
     }
 
-    [Fact]
-    public async Task DevelopmentCors_AllowsVitePreflight()
+    [Theory]
+    [InlineData("http://localhost:5173")]
+    [InlineData("app://app")]
+    public async Task DevelopmentCors_AllowsClientPreflight(string origin)
     {
         using var factory = CreateFactory();
         using var client = factory.CreateClient();
         using var request = new HttpRequestMessage(HttpMethod.Options, "/identity/api/v1/auth/login");
-        request.Headers.Add("Origin", "http://localhost:5173");
+        request.Headers.Add("Origin", origin);
         request.Headers.Add("Access-Control-Request-Method", "POST");
         request.Headers.Add("Access-Control-Request-Headers", "content-type");
 
         using var response = await client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-        Assert.Equal("http://localhost:5173", response.Headers.GetValues("Access-Control-Allow-Origin").Single());
+        Assert.Equal(origin, response.Headers.GetValues("Access-Control-Allow-Origin").Single());
         Assert.Contains("POST", response.Headers.GetValues("Access-Control-Allow-Methods"));
     }
 

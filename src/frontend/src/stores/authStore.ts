@@ -14,17 +14,12 @@ import { getAuthGateway, setCurrentSession } from '@/auth/gateway'
 import {
   AUTH_SESSION_HTTP_STORAGE_KEY,
   AUTH_SESSION_STORAGE_KEY,
-  clearAuthSession,
   readAuthSession,
-  writeAuthSession,
+  serializeAuthSession,
 } from '@/auth/sessionStore'
 import type { AuthSession, AuthUser, LoginCommand } from '@/auth/types'
 import { loadRuntimeConfig } from '@/config/runtimeConfig'
-
-/** 会话存储(sessionStorage);按运行模式选键:http 用真实会话键,其余用 Mock 键。 */
-function defaultStorage(): Storage {
-  return globalThis.sessionStorage
-}
+import { createRuntimeAuthStorage, getRuntimeBridge } from '@/platform/runtime/runtimeBridge'
 
 /** 会话键随认证模式:真实 Identity 与 Mock 会话互不串用(README「真实令牌策略」)。 */
 function sessionStorageKey(): string {
@@ -60,15 +55,16 @@ export const useAuthStore = defineStore('auth', () => {
     return session.value?.user.permissions.includes(permission) ?? false
   }
 
-  function persistSession(value: AuthSession): void {
+  async function persistSession(value: AuthSession): Promise<void> {
+    const storage = createRuntimeAuthStorage(getRuntimeBridge())
     // HttpOnly embedded sessions are the source of truth; never mirror them
     // as a fake access/refresh token in browser storage.
     if (value.transport === 'embedded-cookie') {
-      clearAuthSession(defaultStorage(), AUTH_SESSION_HTTP_STORAGE_KEY)
+      await storage.clear(AUTH_SESSION_HTTP_STORAGE_KEY)
       return
     }
     if (value.refreshToken === undefined && value.transport !== 'single-access') return
-    writeAuthSession(defaultStorage(), value, sessionStorageKey())
+    await storage.save(sessionStorageKey(), serializeAuthSession(value))
   }
 
   /** 从 sessionStorage 恢复会话;损坏/过期/未知版本视为无效并清理,单飞执行。 */
@@ -86,11 +82,20 @@ export const useAuthStore = defineStore('auth', () => {
         }
         return
       }
-      const storage = defaultStorage()
+      const storage = createRuntimeAuthStorage(getRuntimeBridge())
       const key = sessionStorageKey()
-      const stored = readAuthSession(storage, Date.now(), key)
+      const raw = await storage.load(key)
+      const stored = readAuthSession(
+        {
+          getItem: () => raw,
+          setItem: () => undefined,
+          removeItem: () => undefined,
+        },
+        Date.now(),
+        key,
+      )
       if (stored === null) {
-        clearAuthSession(storage, key)
+        await storage.clear(key)
       }
       commitSession(stored)
       const restoredToken = stored?.accessToken
@@ -112,7 +117,7 @@ export const useAuthStore = defineStore('auth', () => {
           const currentUser = await getAuthGateway().getCurrentUser()
           const refreshed = { ...stored, user: currentUser }
           commitSession(refreshed)
-          writeAuthSession(storage, refreshed, key)
+          await storage.save(key, serializeAuthSession(refreshed))
         } catch {
           // The HTTP client handles an invalid/expired session. A transient
           // profile failure must not erase a still-valid local session.
@@ -130,13 +135,13 @@ export const useAuthStore = defineStore('auth', () => {
   async function login(command: LoginCommand): Promise<void> {
     const authenticated = await getAuthGateway().login(command)
     commitSession(authenticated)
-    persistSession(authenticated)
+    await persistSession(authenticated)
   }
 
   /** SSO 票据交换成功后采纳线上会话(§26.5):提交并持久化,不经过 Gateway。 */
   function adoptSession(value: AuthSession): void {
     commitSession(value)
-    persistSession(value)
+    void persistSession(value)
   }
 
   /** 刷新:单飞;无会话视为未登录;失败视为会话不可续,清理本地会话后抛出。 */
@@ -171,13 +176,13 @@ export const useAuthStore = defineStore('auth', () => {
         refreshed = await gateway.refresh(current.refreshToken)
       }
       commitSession(refreshed)
-      persistSession(refreshed)
+      await persistSession(refreshed)
     })()
     try {
       await refreshPromise
     } catch (error) {
       commitSession(null)
-      clearAuthSession(defaultStorage(), sessionStorageKey())
+      await createRuntimeAuthStorage(getRuntimeBridge()).clear(sessionStorageKey())
       throw error
     } finally {
       refreshPromise = null
@@ -200,21 +205,21 @@ export const useAuthStore = defineStore('auth', () => {
       // 网关退出失败不阻断本地清理
     } finally {
       commitSession(null)
-      clearAuthSession(defaultStorage(), sessionStorageKey())
+      await createRuntimeAuthStorage(getRuntimeBridge()).clear(sessionStorageKey())
     }
   }
 
   /** 清除本地会话但不调用 Identity logout；供安全锁定保留当前页面/标签。 */
   function clearLocalSession(): void {
     commitSession(null)
-    clearAuthSession(defaultStorage(), sessionStorageKey())
+    void createRuntimeAuthStorage(getRuntimeBridge()).clear(sessionStorageKey())
   }
 
   /** 修改当前用户密码(§29A.4):成功后服务端撤销全部会话,前端清理本地会话并回登录页。 */
   async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
     await getAuthGateway().changePassword(currentPassword, newPassword)
     commitSession(null)
-    clearAuthSession(defaultStorage(), sessionStorageKey())
+    await createRuntimeAuthStorage(getRuntimeBridge()).clear(sessionStorageKey())
   }
 
   return {

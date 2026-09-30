@@ -183,6 +183,6 @@ return 0;
 public partial class Program
 {
     internal static readonly string[] DevelopmentCorsOrigins =
-        ["http://localhost:5173", "http://localhost:4173"];
+        ["http://localhost:5173", "http://localhost:4173", "app://app"];
 
 }
