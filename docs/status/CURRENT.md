@@ -1,5 +1,11 @@
 # Industrial Platform 当前状态
 
+- 2026-10-06 / 提交前整体复核：本轮 SQL Server 适配与领域命名修改未发现新的阻断问题。再次执行新鲜 Release 编译及全量后端测试，0 警告／0 错误，1915 通过／0 失败／7 项外部环境测试跳过；SQL Server 2019 真库测试已启用并通过，前端 DEV 打包通过。私有配置、构建产物和旧规格跳转文档中的本地手动编辑不纳入提交。可转入 PF07 规格与任务细化；实施 10、表字段、API、页面和验收条件尚未补齐，不能直接派遣编码。2022 实机与生产部署门禁仍按 SQL2019 报告列为待验证，不因进入下一阶段而标记完成。
+
+- 2026-10-06 / 领域命名：Identity 两张安全表通过新增迁移改为 identity_service_call_nonce、identity_step_up_grant；SQL Server 2019 真库改名及新映射读写通过，数据、索引和表/列说明保留。SystemData 持久化类、异常类及前端 API 模型同步去除任务前缀；正常 PG 运行库未迁移。最终回归结果见 PF-06A SQL2019 验证记录。
+
+- 2026-09-30 / PF-06A SQL Server 最新：代码接入覆盖 109 表／1777 列，2019 隔离全表初始化、七模块读写及已列并发/回滚验证通过；可进入 IDE 开发联调。2019／2022 共用 Provider，2022 无实例；生产权限/备份恢复及客户端联合验收未实机完成。正常运行仍为 PG，未替用户启动或切库。详见[最新报告](../evidence/PF-06A-SQL2019-compatibility-check.md)、[字段字典](../implementation/details/PF06A-SQLServer全表字段字典.md)及[09A §9](../implementation/09A-Industrial%20Platform终端运行时与客户端打包开发实施方案.md#9-sql-server-20192022接入)。下方 SQL 未接入条目是历史状态。
+
 > 由 Codex 维护。只保留当前有效状态；历史细节进入任务归档、evidence、实施方案或 Git 历史。
 
 ## PF06 收口与后续主控边界（2026-09-15）

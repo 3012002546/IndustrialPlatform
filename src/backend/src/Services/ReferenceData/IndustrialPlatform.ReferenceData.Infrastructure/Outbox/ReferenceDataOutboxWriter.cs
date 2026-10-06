@@ -43,7 +43,8 @@ public static class ReferenceDataOutboxWriter
             Payload = payload,
             Status = "Pending",
             AttemptCount = 0,
-            CreatedTime = @event.CreatedTime.ToLocalTime(),
+            CreatedTime = database.CurrentConnectionConfig.DbType == DbType.Sqlite
+                ? @event.CreatedTime.ToLocalTime() : @event.CreatedTime.ToUniversalTime(),
         };
         return database.Insertable(row).AS(table)
             .ExecuteCommandAsync(cancellationToken);

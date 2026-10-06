@@ -58,7 +58,7 @@ public sealed class InitializationHttpTests
             applied.EnsureSuccessStatusCode();
             Assert.True((await applied.Content.ReadFromJsonAsync<ServiceInitializationState>())!.Ready);
             using var ready = await client.GetAsync("/health/ready");
-            Assert.Equal(HttpStatusCode.OK, ready.StatusCode);
+            Assert.True(ready.StatusCode == HttpStatusCode.OK, await ready.Content.ReadAsStringAsync());
             using var json = JsonDocument.Parse(await ready.Content.ReadAsStringAsync());
             Assert.Equal("Healthy", json.RootElement.GetProperty("status").GetString());
         }

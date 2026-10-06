@@ -39,8 +39,8 @@ import { useLocalizationStore } from '@/stores/localizationStore'
 import { useSystemDataRuntimeStore } from '@/stores/systemData/runtimeStore'
 import {
   createSystemDataManagementApi,
-  createPf04Api,
-  registerPf04Api,
+  createSystemDataOperationsApi,
+  registerSystemDataOperationsApi,
   createSystemDataRuntimeApi,
   registerSystemDataManagementApi,
   registerSystemDataRuntimeApi,
@@ -113,7 +113,7 @@ function installAuthGateway(pinia: Pinia, router: Router): void {
     )
     registerReferenceDataApi(createReferenceDataApi(client))
     registerSystemDataManagementApi(createSystemDataManagementApi(client))
-    registerPf04Api(createPf04Api(client))
+    registerSystemDataOperationsApi(createSystemDataOperationsApi(client))
     const systemDataRuntimeApi = createSystemDataRuntimeApi(client)
     registerSystemDataRuntimeApi(systemDataRuntimeApi)
     setTenantUiDefaultsSource(

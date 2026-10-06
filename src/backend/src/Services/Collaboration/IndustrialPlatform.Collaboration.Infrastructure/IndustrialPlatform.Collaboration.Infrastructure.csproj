@@ -13,4 +13,7 @@
     <ProjectReference Include="..\..\SystemData\IndustrialPlatform.SystemData.Application\IndustrialPlatform.SystemData.Application.csproj" />
     <ProjectReference Include="..\..\SystemData\IndustrialPlatform.SystemData.Contracts\IndustrialPlatform.SystemData.Contracts.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Persistence/SqlServer/*.sql" />
+  </ItemGroup>
 </Project>

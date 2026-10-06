@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import NotificationCenterPage from '@/pages/mobile/NotificationCenterPage.vue'
-import { registerPf04Api } from '@/api/systemData/pf04Registry'
-import type { Pf04Api } from '@/api/systemData/pf04Types'
+import { registerSystemDataOperationsApi } from '@/api/systemData/systemDataOperationsRegistry'
+import type { SystemDataOperationsApi } from '@/api/systemData/systemDataOperationsTypes'
 import { PERMISSIONS } from '@/permissions'
 import { useAuthStore } from '@/stores/authStore'
 import { persistAuthSession } from '../fixtures/session'
@@ -50,7 +50,7 @@ describe('NotificationCenterPage', () => {
     fakeRealtime.start.mockClear()
     fakeRealtime.stop.mockClear()
     api = { getInbox: vi.fn().mockResolvedValue(page), markRead: vi.fn().mockResolvedValue(undefined), batchRead: vi.fn().mockResolvedValue(undefined) }
-    registerPf04Api(api as unknown as Pf04Api)
+    registerSystemDataOperationsApi(api as unknown as SystemDataOperationsApi)
   })
 
   afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs() })

@@ -230,7 +230,7 @@ public sealed class MetadataSchemaRepository(SqlSugarDbContext context) : IMetad
     }
 
     private DateTimeOffset Timestamp(DateTimeOffset value) =>
-        Postgres ? value.ToUniversalTime() : new(value.DateTime, TimeSpan.Zero);
+        Db.CurrentConnectionConfig.DbType == DbType.Sqlite ? new(value.DateTime, TimeSpan.Zero) : value.ToUniversalTime();
 
     private static MetadataSchemaRow RootRow(EntitySchema schema) => new()
     {
@@ -302,6 +302,7 @@ public sealed class MetadataSchemaRepository(SqlSugarDbContext context) : IMetad
         if (exception is ReferenceDataException) return;
         for (var current = exception; current is not null; current = current.InnerException!)
             if (current is Microsoft.Data.Sqlite.SqliteException { SqliteExtendedErrorCode: 2067 or 1555 }
+                || current is Microsoft.Data.SqlClient.SqlException { Number: 2601 or 2627 }
                 || current is Npgsql.PostgresException { SqlState: "23505" })
                 throw new ReferenceDataException("REF-VALIDATION-FAILED", 409, "nId");
         if (exception is DbException or SqlSugarException) throw new ReferenceDataException("503", 503);
@@ -311,6 +312,7 @@ public sealed class MetadataSchemaRepository(SqlSugarDbContext context) : IMetad
     {
         for (var current = exception; current is not null; current = current.InnerException!)
             if (current is Microsoft.Data.Sqlite.SqliteException { SqliteExtendedErrorCode: 2067 or 1555 }
+                || current is Microsoft.Data.SqlClient.SqlException { Number: 2601 or 2627 }
                 || current is Npgsql.PostgresException { SqlState: "23505" }) return true;
         return false;
     }

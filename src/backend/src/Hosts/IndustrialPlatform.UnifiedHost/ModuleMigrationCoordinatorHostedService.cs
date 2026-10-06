@@ -45,10 +45,17 @@ public sealed partial class ModuleMigrationCoordinatorHostedService : IHostedSer
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+        await using var initializationLock = _sqlSugarOptions.Value.DbType == DbType.SqlServer
+            ? await SqlServerMigrationArtifacts.AcquireLockAsync(_sqlSugarOptions.Value.ConnectionString, "industrial-platform:initialization", cancellationToken)
+            : null;
         var topology = _topologyProvider.GetTopology();
-        var provider = _sqlSugarOptions.Value.DbType == DbType.Sqlite
-            ? DatabaseProvider.Sqlite
-            : DatabaseProvider.PostgreSQL;
+        var provider = _sqlSugarOptions.Value.DbType switch
+        {
+            DbType.Sqlite => DatabaseProvider.Sqlite,
+            DbType.PostgreSQL => DatabaseProvider.PostgreSQL,
+            DbType.SqlServer => DatabaseProvider.SqlServer,
+            var value => throw new NotSupportedException($"UnifiedHost 不支持数据库提供程序 {value}。"),
+        };
         var target = DatabaseTopologyResolver.Resolve(topology, "unifiedhost", provider, "unifiedhost_db");
         var context = new ServiceInitializationContext(
             topology.EnvironmentName,

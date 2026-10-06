@@ -7,7 +7,7 @@ namespace IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations;
 /// 框架内部表,不属于业务表清单,不纳入 Entity 生命周期字段定义。
 /// </summary>
 [SugarTable("system_data_schema_migrations")]
-public sealed class SchemaMigrationRecord
+public sealed class SystemDataSchemaMigrationRecord
 {
     /// <summary>
     /// 已应用迁移标识。

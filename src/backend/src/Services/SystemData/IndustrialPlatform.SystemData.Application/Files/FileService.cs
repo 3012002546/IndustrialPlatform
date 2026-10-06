@@ -1,4 +1,4 @@
-using IndustrialPlatform.SystemData.Application.Pf04;
+using IndustrialPlatform.SystemData.Application.Operations;
 using IndustrialPlatform.SystemData.Application.Auditing;
 using IndustrialPlatform.SystemData.Contracts.Files;
 using IndustrialPlatform.SystemData.Domain.Files;
@@ -662,7 +662,7 @@ public sealed class FileService : IFileService
         RetentionUntil = file.RetentionUntil
     };
 
-    private static Pf04ServiceException Error(string code, string message, int status = 400) => new(code, message, status);
+    private static SystemDataOperationException Error(string code, string message, int status = 400) => new(code, message, status);
 
     private static LocalAuditEntry Audit(string tenantNId, string actorUserNId, string action, string objectType, string objectNId, string? before, string? after, string? reason) =>
         new(tenantNId, actorUserNId, action, objectType, objectNId, reason, before, after, Guid.NewGuid().ToString("N"));

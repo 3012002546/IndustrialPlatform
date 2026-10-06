@@ -3,8 +3,8 @@ import { computed, onBeforeUnmount, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { ApiError } from '@/api/errors'
 import AppPage from '@/components/base/AppPage.vue'
-import { getPf04Api } from '@/api/systemData/pf04Registry'
-import type { UploadSessionDto } from '@/api/systemData/pf04Types'
+import { getSystemDataOperationsApi } from '@/api/systemData/systemDataOperationsRegistry'
+import type { UploadSessionDto } from '@/api/systemData/systemDataOperationsTypes'
 import { sampleFingerprint, sha256File } from '@/utils/sha256File'
 import { platformI18n } from '@/localization/i18n'
 
@@ -47,7 +47,7 @@ function selectFile(event: Event): void {
 }
 
 async function upload(): Promise<void> {
-  const api = getPf04Api()
+  const api = getSystemDataOperationsApi()
   if (api === null || selectedFile.value === null || busy.value) return
   busy.value = true
   try {
@@ -77,7 +77,7 @@ async function upload(): Promise<void> {
 }
 
 async function startUpload(candidate: UploadSessionDto | null, takeover = false): Promise<void> {
-  const api = getPf04Api()
+  const api = getSystemDataOperationsApi()
   if (api === null || selectedFile.value === null) return
   const run = ++uploadRun
   const controller = new AbortController()

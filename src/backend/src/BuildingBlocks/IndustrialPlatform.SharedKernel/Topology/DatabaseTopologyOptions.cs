@@ -15,7 +15,7 @@ public sealed class DatabaseTopologyOptions
     /// <summary>物理拓扑模式,默认 Shared(Development 默认)。</summary>
     public DatabaseTopologyMode Mode { get; set; } = DatabaseTopologyMode.Shared;
 
-    /// <summary>Shared 模式下 PostgreSQL 物理库名。</summary>
+    /// <summary>Shared 模式下 PostgreSQL 或 SQL Server 物理库名。</summary>
     public string? SharedDatabaseName { get; set; }
 
     /// <summary>Shared 模式下 SQLite 物理库文件。</summary>

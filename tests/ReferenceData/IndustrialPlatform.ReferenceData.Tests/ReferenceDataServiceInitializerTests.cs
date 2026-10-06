@@ -26,6 +26,31 @@ public sealed class ReferenceDataServiceInitializerTests : IDisposable
     }
 
     [Fact]
+    public void SqlServer_target_identity_uses_server_and_catalog_without_file_path_normalization()
+    {
+        using var firstContext = new SqlSugarDbContext(Options.Create(new SqlSugarOptions
+        {
+            DbType = DbType.SqlServer,
+            ConnectionString = "Data Source=sql-a.example,1433;Initial Catalog=reference_test;User ID=test;Password=placeholder;Encrypt=True;Trust Server Certificate=False",
+        }));
+        using var secondContext = new SqlSugarDbContext(Options.Create(new SqlSugarOptions
+        {
+            DbType = DbType.SqlServer,
+            ConnectionString = "Server=sql-b.example,1433;Database=reference_test;User ID=test;Password=placeholder;Encrypt=True;Trust Server Certificate=False",
+        }));
+        var first = new ReferenceDataInitializationLedger(firstContext);
+        var second = new ReferenceDataInitializationLedger(secondContext);
+        var target = new ResolvedDatabaseTarget("Test", DatabaseTopologyMode.PerService, "referencedata", DatabaseProvider.SqlServer,
+            "referencedata_db", "reference_test", false, "dbo");
+        var context = new ServiceInitializationContext("Test", "", "operation-1", "referencedata", "referencedata",
+            target, ReferenceDataServiceInitializer.CurrentVersion, ServiceInitializationPolicy.Standard, "trace-1");
+
+        Assert.True(first.MatchesTarget(context));
+        Assert.True(second.MatchesTarget(context));
+        Assert.NotEqual(first.LocalTargetIdentity, second.LocalTargetIdentity);
+    }
+
+    [Fact]
     public async Task Wrong_physical_target_is_rejected_without_writing_initialization_tables()
     {
         var context = CreateContext();

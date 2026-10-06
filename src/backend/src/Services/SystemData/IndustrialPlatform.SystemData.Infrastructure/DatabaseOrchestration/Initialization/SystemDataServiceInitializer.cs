@@ -39,7 +39,9 @@ public sealed class SystemDataServiceInitializer : IServiceInitializer
         try
         {
             var dbType = _dbContext.SqlSugar.CurrentConnectionConfig.DbType;
-            var ledgerColumns = dbType == DbType.Sqlite
+            var ledgerColumns = dbType == DbType.SqlServer
+                ? SqlServerMigrationArtifacts.Columns(_dbContext.SqlSugar, "system_data_schema_migrations")
+                : dbType == DbType.Sqlite
                 ? _dbContext.SqlSugar.Ado.GetDataTable("SELECT name FROM pragma_table_info('system_data_schema_migrations')").Rows.Cast<System.Data.DataRow>().Select(row => row["name"]?.ToString()).Where(name => name is not null).Select(name => name!).ToHashSet(StringComparer.OrdinalIgnoreCase)
                 : _dbContext.SqlSugar.Ado.GetDataTable("SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'system_data_schema_migrations'").Rows.Cast<System.Data.DataRow>().Select(row => row["column_name"]?.ToString()).Where(name => name is not null).Select(name => name!).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var requiredLedgerColumns = new[] { "migration_id", "description", "checksum", "applied_on" };
@@ -49,11 +51,11 @@ public sealed class SystemDataServiceInitializer : IServiceInitializer
                     ? "SystemData 本地迁移账本尚未创建。"
                     : $"SystemData 本地迁移账本缺少列:{string.Join(',', missingLedgerColumns)}，需要执行 Apply 升级。", null);
 
-            var appliedRows = await _dbContext.SqlSugar.Queryable<SchemaMigrationRecord>().ToListAsync(cancellationToken);
+            var appliedRows = await _dbContext.SqlSugar.Queryable<SystemDataSchemaMigrationRecord>().AS("system_data_schema_migrations").ToListAsync(cancellationToken);
             var applied = appliedRows.ToDictionary(record => record.MigrationId, StringComparer.Ordinal);
-            var expected = SystemDataSchemaMigrations.All.Select(step => step.Id).ToArray();
+            var expected = SystemDataSchemaMigrations.For(_dbContext.SqlSugar.CurrentConnectionConfig.DbType).Select(step => step.Id).ToArray();
             var missingMigrations = expected.Where(id => !applied.ContainsKey(id)).ToArray();
-            var invalidChecksums = SystemDataSchemaMigrations.All
+            var invalidChecksums = SystemDataSchemaMigrations.For(_dbContext.SqlSugar.CurrentConnectionConfig.DbType)
                 .Where(step => applied.TryGetValue(step.Id, out var row) && !string.Equals(row.Checksum, Checksum(step), StringComparison.OrdinalIgnoreCase))
                 .Select(step => step.Id)
                 .ToArray();
@@ -172,7 +174,7 @@ public sealed class SystemDataServiceInitializer : IServiceInitializer
         ServiceInitializationState inspection)
     {
         var desiredVersion = string.IsNullOrWhiteSpace(context.DesiredVersion)
-            ? SystemDataSchemaMigrations.All[^1].Id
+            ? SystemDataSchemaMigrations.For(_dbContext.SqlSugar.CurrentConnectionConfig.DbType)[^1].Id
             : context.DesiredVersion;
         var steps = new List<string>();
         if (!inspection.MigrationReady || !string.Equals(inspection.ObservedVersion, desiredVersion, StringComparison.Ordinal))
@@ -204,7 +206,9 @@ public sealed class SystemDataServiceInitializer : IServiceInitializer
         foreach (var pair in required)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var columns = _dbContext.SqlSugar.CurrentConnectionConfig.DbType == DbType.Sqlite
+            var columns = _dbContext.SqlSugar.CurrentConnectionConfig.DbType == DbType.SqlServer
+                ? SqlServerMigrationArtifacts.Columns(_dbContext.SqlSugar, pair.Key)
+                : _dbContext.SqlSugar.CurrentConnectionConfig.DbType == DbType.Sqlite
                 ? _dbContext.SqlSugar.Ado.GetDataTable($"SELECT name FROM pragma_table_info('{pair.Key}')")
                     .Rows.Cast<System.Data.DataRow>()
                     .Select(row => row["name"]?.ToString())
@@ -225,7 +229,8 @@ public sealed class SystemDataServiceInitializer : IServiceInitializer
         for (var current = exception; current is not null; current = current.InnerException)
         {
             var message = current.Message;
-            if (message.Contains("no such table", StringComparison.OrdinalIgnoreCase)
+            if (message.Contains("Invalid object name", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("no such table", StringComparison.OrdinalIgnoreCase)
                 || (message.Contains("relation", StringComparison.OrdinalIgnoreCase)
                     && message.Contains("does not exist", StringComparison.OrdinalIgnoreCase)))
             {

@@ -127,7 +127,7 @@ public sealed class SchemaMigrationRunnerTests : IDisposable
         await runner.ApplyPendingAsync();
 
         await AssertTableExistsAsync(_dbContext.SqlSugar, "system_data_schema_migrations");
-        Assert.Equal(0, await _dbContext.SqlSugar.Queryable<SchemaMigrationRecord>().CountAsync());
+        Assert.Equal(0, await _dbContext.SqlSugar.Queryable<SystemDataSchemaMigrationRecord>().CountAsync());
     }
 
     [Fact]
@@ -169,7 +169,7 @@ public sealed class SchemaMigrationRunnerTests : IDisposable
         Assert.Equal(2, appliedCount);
         await AssertTableExistsAsync(_dbContext.SqlSugar, "migration_a");
         await AssertTableExistsAsync(_dbContext.SqlSugar, "migration_b");
-        Assert.Equal(2, await _dbContext.SqlSugar.Queryable<SchemaMigrationRecord>().CountAsync());
+        Assert.Equal(2, await _dbContext.SqlSugar.Queryable<SystemDataSchemaMigrationRecord>().CountAsync());
     }
 
     [Fact]
@@ -180,7 +180,7 @@ public sealed class SchemaMigrationRunnerTests : IDisposable
         await Assert.ThrowsAsync<InvalidOperationException>(() => runner.ApplyPendingAsync());
 
         await AssertTableExistsAsync(_dbContext.SqlSugar, "migration_c");
-        var applied = await _dbContext.SqlSugar.Queryable<SchemaMigrationRecord>()
+        var applied = await _dbContext.SqlSugar.Queryable<SystemDataSchemaMigrationRecord>()
             .Select(record => record.MigrationId).ToListAsync();
         Assert.Equal(["mig-001"], applied);
     }
@@ -202,7 +202,7 @@ public sealed class SchemaMigrationRunnerTests : IDisposable
         await Assert.ThrowsAsync<InvalidOperationException>(() => runner.ApplyPendingAsync());
 
         Assert.Equal(0, await _dbContext.SqlSugar.Ado.GetIntAsync("SELECT COUNT(*) FROM half_done"));
-        Assert.Equal(0, await _dbContext.SqlSugar.Queryable<SchemaMigrationRecord>().CountAsync());
+        Assert.Equal(0, await _dbContext.SqlSugar.Queryable<SystemDataSchemaMigrationRecord>().CountAsync());
     }
 
     [Theory]
@@ -232,7 +232,7 @@ public sealed class SchemaMigrationRunnerTests : IDisposable
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => CreateRunner(step).ApplyPendingAsync());
 
         Assert.Contains("description", exception.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Null((await _dbContext.SqlSugar.Queryable<SchemaMigrationRecord>().SingleAsync()).Checksum);
+        Assert.Null((await _dbContext.SqlSugar.Queryable<SystemDataSchemaMigrationRecord>().SingleAsync()).Checksum);
     }
 
     [Theory]
@@ -246,7 +246,7 @@ public sealed class SchemaMigrationRunnerTests : IDisposable
 
         await runner.ApplyPendingAsync();
         await runner.ApplyPendingAsync();
-        Assert.Equal(SystemDataSchemaMigrations.All.Count, await context.SqlSugar.Queryable<SchemaMigrationRecord>().CountAsync());
+        Assert.Equal(SystemDataSchemaMigrations.All.Count, await context.SqlSugar.Queryable<SystemDataSchemaMigrationRecord>().CountAsync());
 
         await context.SqlSugar.Ado.ExecuteCommandAsync("UPDATE system_data_schema_migrations SET checksum = 'drift' WHERE migration_id = 'PF05-002-02'");
         var checksumDrift = await Assert.ThrowsAsync<InvalidOperationException>(() => runner.ApplyPendingAsync());

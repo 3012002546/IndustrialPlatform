@@ -20,12 +20,29 @@ public static class ReferenceDataCacheGenerationStore
         if (generationKeys.Length == 0) return;
         var postgres = database.CurrentConnectionConfig.DbType == DbType.PostgreSQL;
         var table = ReferenceDataSqlNames.Table(database, "cache_generation");
-        var now = postgres ? DateTimeOffset.UtcNow : DateTimeOffset.Now;
+        var now = database.CurrentConnectionConfig.DbType == DbType.Sqlite ? DateTimeOffset.Now : DateTimeOffset.UtcNow;
         foreach (var generationKey in generationKeys)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var generationToken = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
-            var command = postgres
+            var command = database.CurrentConnectionConfig.DbType == DbType.SqlServer
+                ? $"""
+                    DECLARE @owned bit=CASE WHEN @@TRANCOUNT=0 THEN 1 ELSE 0 END;
+                    IF @owned=1 BEGIN TRANSACTION;
+                    BEGIN TRY
+                    UPDATE {table} WITH (UPDLOCK,HOLDLOCK)
+                    SET generation_token=@generationToken,last_updated_on=@now WHERE generation_key=@generationKey;
+                    IF @@ROWCOUNT=0
+                        INSERT INTO {table} (generation_key,generation_token,last_updated_on)
+                        VALUES (@generationKey,@generationToken,@now);
+                    IF @owned=1 COMMIT TRANSACTION;
+                    END TRY
+                    BEGIN CATCH
+                        IF @owned=1 AND XACT_STATE()<>0 ROLLBACK TRANSACTION;
+                        THROW;
+                    END CATCH;
+                    """
+                : postgres
                 ? $"""
                     INSERT INTO {table} AS current_generation
                         (generation_key,generation_token,last_updated_on)

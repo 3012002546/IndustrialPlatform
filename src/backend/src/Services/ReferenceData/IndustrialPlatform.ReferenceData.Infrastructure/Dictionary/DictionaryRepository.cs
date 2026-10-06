@@ -206,6 +206,7 @@ public sealed class DictionaryRepository(SqlSugarDbContext context) : IDictionar
     {
         for (var current = exception; current is not null; current = current.InnerException!)
             if (current is Microsoft.Data.Sqlite.SqliteException { SqliteExtendedErrorCode: 2067 or 1555 }
+                || current is Microsoft.Data.SqlClient.SqlException { Number: 2601 or 2627 }
                 || current is Npgsql.PostgresException { SqlState: "23505" })
                 throw new ReferenceDataException(
                     concurrencyOnUnique ? "REF-CONCURRENCY-CONFLICT" : "REF-DICT-DUPLICATE-NID", 409);

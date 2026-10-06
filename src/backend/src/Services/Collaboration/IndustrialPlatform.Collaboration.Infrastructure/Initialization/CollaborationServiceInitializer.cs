@@ -23,7 +23,9 @@ public sealed class CollaborationServiceInitializer : IServiceInitializer
         try
         {
             var dbType = _dbContext.SqlSugar.CurrentConnectionConfig.DbType;
-            var ledgerColumns = dbType == SqlSugar.DbType.Sqlite
+            var ledgerColumns = dbType == DbType.SqlServer
+                ? SqlServerMigrationArtifacts.Columns(_dbContext.SqlSugar, "collaboration_schema_migrations")
+                : dbType == DbType.Sqlite
                 ? _dbContext.SqlSugar.Ado.GetDataTable("SELECT name FROM pragma_table_info('collaboration_schema_migrations')").Rows.Cast<System.Data.DataRow>().Select(row => row["name"]?.ToString()).Where(name => name is not null).Select(name => name!).ToHashSet(StringComparer.OrdinalIgnoreCase)
                 : _dbContext.SqlSugar.Ado.GetDataTable("SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'collaboration_schema_migrations'").Rows.Cast<System.Data.DataRow>().Select(row => row["column_name"]?.ToString()).Where(name => name is not null).Select(name => name!).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var requiredLedgerColumns = new[] { "migration_id", "description", "checksum", "applied_on" };
@@ -38,9 +40,9 @@ public sealed class CollaborationServiceInitializer : IServiceInitializer
 
             var appliedRows = await _dbContext.SqlSugar.Queryable<CollaborationSchemaMigrationRecord>().ToListAsync(cancellationToken);
             var applied = appliedRows.ToDictionary(item => item.MigrationId, StringComparer.Ordinal);
-            var expected = CollaborationSchemaMigrations.All.Select(item => item.Id).ToArray();
+            var expected = CollaborationSchemaMigrations.For(_dbContext.SqlSugar.CurrentConnectionConfig.DbType).Select(item => item.Id).ToArray();
             var missing = expected.Where(id => !applied.ContainsKey(id)).ToArray();
-            var invalidChecksums = CollaborationSchemaMigrations.All
+            var invalidChecksums = CollaborationSchemaMigrations.For(_dbContext.SqlSugar.CurrentConnectionConfig.DbType)
                 .Where(step => applied.TryGetValue(step.Id, out var row) && !string.Equals(row.Checksum, Checksum(step), StringComparison.OrdinalIgnoreCase))
                 .Select(step => step.Id)
                 .ToArray();
@@ -71,17 +73,20 @@ public sealed class CollaborationServiceInitializer : IServiceInitializer
 
     public Task<ServiceInitializationPlan> PlanAsync(ServiceInitializationContext context, ServiceInitializationState inspection, CancellationToken cancellationToken)
     {
-        var desired = CollaborationSchemaMigrations.All[^1].Id;
+        var desired = CollaborationSchemaMigrations.For(_dbContext.SqlSugar.CurrentConnectionConfig.DbType)[^1].Id;
         var steps = inspection.Ready ? Array.Empty<string>() : new[] { "collaboration-schema-migration", "collaboration-verify" };
         return Task.FromResult(new ServiceInitializationPlan(ServiceKey, ModuleKey, inspection.ObservedVersion, desired, !inspection.Ready || inspection.ObservedVersion != desired, steps));
     }
 
     public async Task<ServiceInitializationState> ApplyAsync(ServiceInitializationContext context, ServiceInitializationPlan plan, CancellationToken cancellationToken)
     {
-        _dbContext.SqlSugar.CodeFirst.InitTables<CollaborationSchemaMigrationRecord>();
+        await using var initializationLock = await SqlServerMigrationArtifacts.AcquireLockAsync(_dbContext.SqlSugar, "industrial-platform:migration:collaboration", cancellationToken);
+        if (_dbContext.SqlSugar.CurrentConnectionConfig.DbType == DbType.SqlServer)
+            await SqlServerMigrationArtifacts.EnsureLedgerAsync(_dbContext.SqlSugar, "collaboration_schema_migrations", cancellationToken);
+        else _dbContext.SqlSugar.CodeFirst.InitTables<CollaborationSchemaMigrationRecord>();
         await EnsureMigrationChecksumColumnAsync(cancellationToken);
         var applied = (await _dbContext.SqlSugar.Queryable<CollaborationSchemaMigrationRecord>().ToListAsync(cancellationToken)).ToDictionary(item => item.MigrationId, StringComparer.Ordinal);
-        foreach (var step in CollaborationSchemaMigrations.All.OrderBy(item => item.Id, StringComparer.Ordinal))
+        foreach (var step in CollaborationSchemaMigrations.For(_dbContext.SqlSugar.CurrentConnectionConfig.DbType).OrderBy(item => item.Id, StringComparer.Ordinal))
         {
             if (applied.TryGetValue(step.Id, out var existing))
             {
@@ -148,11 +153,13 @@ public sealed class CollaborationServiceInitializer : IServiceInitializer
     private async Task EnsureMigrationChecksumColumnAsync(CancellationToken cancellationToken)
     {
         var dbType = _dbContext.SqlSugar.CurrentConnectionConfig.DbType;
-        var columns = dbType == SqlSugar.DbType.Sqlite
+        var columns = dbType == DbType.SqlServer
+            ? SqlServerMigrationArtifacts.Columns(_dbContext.SqlSugar, "collaboration_schema_migrations")
+            : dbType == DbType.Sqlite
             ? _dbContext.SqlSugar.Ado.GetDataTable("SELECT name FROM pragma_table_info('collaboration_schema_migrations')").Rows.Cast<System.Data.DataRow>().Select(row => row["name"]?.ToString()).Where(name => name is not null).Select(name => name!).ToHashSet(StringComparer.OrdinalIgnoreCase)
             : _dbContext.SqlSugar.Ado.GetDataTable("SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'collaboration_schema_migrations'").Rows.Cast<System.Data.DataRow>().Select(row => row["column_name"]?.ToString()).Where(name => name is not null).Select(name => name!).ToHashSet(StringComparer.OrdinalIgnoreCase);
         if (!columns.Contains("checksum"))
-            await _dbContext.SqlSugar.Ado.ExecuteCommandAsync("ALTER TABLE collaboration_schema_migrations ADD COLUMN checksum TEXT NULL", parameters: null, cancellationToken: cancellationToken);
+            await _dbContext.SqlSugar.Ado.ExecuteCommandAsync(dbType == DbType.SqlServer ? "ALTER TABLE dbo.collaboration_schema_migrations ADD checksum varchar(64) NULL" : "ALTER TABLE collaboration_schema_migrations ADD COLUMN checksum TEXT NULL", parameters: null, cancellationToken: cancellationToken);
     }
 
     private Task<int> BackfillMigrationChecksumAsync(string migrationId, string checksum, CancellationToken cancellationToken) =>
@@ -171,7 +178,8 @@ public sealed class CollaborationServiceInitializer : IServiceInitializer
     {
         for (var current = exception; current is not null; current = current.InnerException)
         {
-            if (current.Message.Contains("no such table", StringComparison.OrdinalIgnoreCase)
+            if (current.Message.Contains("Invalid object name", StringComparison.OrdinalIgnoreCase)
+                || current.Message.Contains("no such table", StringComparison.OrdinalIgnoreCase)
                 || (current.Message.Contains("relation", StringComparison.OrdinalIgnoreCase) && current.Message.Contains("does not exist", StringComparison.OrdinalIgnoreCase)))
                 return true;
         }

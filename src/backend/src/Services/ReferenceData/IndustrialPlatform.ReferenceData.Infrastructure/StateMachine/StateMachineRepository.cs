@@ -290,7 +290,7 @@ public sealed class StateMachineRepository(SqlSugarDbContext context) : IStateMa
     }
 
     private DateTimeOffset Timestamp(DateTimeOffset value) =>
-        Postgres ? value.ToUniversalTime() : new(value.DateTime, TimeSpan.Zero);
+        Db.CurrentConnectionConfig.DbType == DbType.Sqlite ? new(value.DateTime, TimeSpan.Zero) : value.ToUniversalTime();
 
     private static StateMachineDefinitionRow RootRow(StateMachineDefinition definition) => new()
     {
@@ -361,6 +361,7 @@ public sealed class StateMachineRepository(SqlSugarDbContext context) : IStateMa
         for (var current = exception; current is not null; current = current.InnerException!)
         {
             if (current is Microsoft.Data.Sqlite.SqliteException { SqliteExtendedErrorCode: 2067 or 1555 }
+                || current is Microsoft.Data.SqlClient.SqlException { Number: 2601 or 2627 }
                 || current is Npgsql.PostgresException { SqlState: "23505" })
                 throw concurrencyOnUnique
                     ? Conflict()

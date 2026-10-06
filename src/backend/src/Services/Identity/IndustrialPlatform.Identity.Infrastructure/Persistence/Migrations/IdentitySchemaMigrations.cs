@@ -13,6 +13,23 @@ namespace IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations;
 public static class IdentitySchemaMigrations
 {
     /// <summary>全部迁移步骤,运行器按 Id 排序并幂等记账。</summary>
+    /// <summary>SQL Server 独立脚本流；其余数据库保持历史迁移与 checksum。</summary>
+    public static IReadOnlyList<SchemaMigrationStep> For(DbType provider, IEnumerable<SchemaMigrationStep>? steps = null)
+    {
+        var selected = (steps ?? All).ToArray();
+        if (provider != DbType.SqlServer) return selected;
+        var rename = selected.SingleOrDefault(step => step.Id == "ID-022-01");
+        // SQL Server 必须先完成历史说明脚本，再改名；历史脚本和 checksum 不改写。
+        return selected.Where(step => step.Id != "ID-022-01")
+            .Concat([new SchemaMigrationStep("SQLSERVER-999-Descriptions-v2", "表与字段中文说明及服务归属", (_, _) => Task.CompletedTask)])
+            .Concat(rename is null ? [] : new[] { rename with { Id = "SQLSERVER-999-TableNames" } })
+            .Select(step => step with
+            {
+                Description = SqlServerMigrationArtifacts.Description(typeof(IdentitySchemaMigrations).Assembly, step.Id, step.Description),
+                Apply = (database, token) => SqlServerMigrationArtifacts.ApplyAsync(database, typeof(IdentitySchemaMigrations).Assembly, step.Id, token),
+            }).ToArray();
+    }
+
     public static IReadOnlyList<SchemaMigrationStep> All { get; } = BuildSteps();
 
     private static IReadOnlyList<SchemaMigrationStep> BuildSteps()
@@ -46,6 +63,7 @@ public static class IdentitySchemaMigrations
             CreateTableStep("ID-021-01", "pf05_service_call_nonce", TrustedServiceCallNonceDdl),
             CreateTableStep("ID-021-02", "pf05_step_up_grant", StepUpGrantDdl),
             new SchemaMigrationStep("ID-021-03", "extend pf05 step-up grant binding and consumer receipt", ExtendStepUpGrantAsync),
+            new SchemaMigrationStep("ID-022-01", "rename identity security tables to domain names", IdentitySecurityTableNames.ApplyAsync),
         ];
     }
 

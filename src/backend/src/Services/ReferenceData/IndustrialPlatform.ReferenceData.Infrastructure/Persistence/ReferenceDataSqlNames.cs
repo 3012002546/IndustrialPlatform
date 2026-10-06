@@ -3,16 +3,18 @@ using SqlSugar;
 
 namespace IndustrialPlatform.ReferenceData.Infrastructure.Persistence;
 
-/// <summary>Resolves the one PostgreSQL schema projected by the host connection.</summary>
+/// <summary>Resolves the physical table name for the configured provider.</summary>
 public static class ReferenceDataSqlNames
 {
     public static string Table(ISqlSugarClient database, string name)
     {
-        if (database.CurrentConnectionConfig.DbType != DbType.PostgreSQL)
-            return $"reference_data_{name}";
-
-        var schema = Schema(database);
-        return $"{schema}.{name}";
+        return database.CurrentConnectionConfig.DbType switch
+        {
+            DbType.Sqlite => $"reference_data_{name}",
+            DbType.PostgreSQL => $"{Schema(database)}.{name}",
+            DbType.SqlServer => $"dbo.reference_data_{name}",
+            var dbType => throw new NotSupportedException($"ReferenceData 不支持的数据库类型:{dbType}。"),
+        };
     }
 
     public static string Schema(ISqlSugarClient database)

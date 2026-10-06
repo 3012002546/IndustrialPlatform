@@ -1,7 +1,7 @@
 using IndustrialPlatform.Security;
 using IndustrialPlatform.SystemData.Api.Authorization;
 using IndustrialPlatform.SystemData.Application.Notifications;
-using IndustrialPlatform.SystemData.Application.Pf04;
+using IndustrialPlatform.SystemData.Application.Operations;
 using IndustrialPlatform.SystemData.Contracts.Notifications;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -79,7 +79,7 @@ public sealed class NotificationsController : SystemDataControllerBase
     {
         if (!TryGetActorContext(out var tenant, out var user)) return UnauthorizedEnvelope();
         try { return (await _service.GetInboxAsync(tenant, user, 1, 1, cancellationToken)).UnreadCount; }
-        catch (Pf04ServiceException exception) { return StatusCodeEnvelope(exception.StatusCode, exception.Code, exception.Message); }
+        catch (SystemDataOperationException exception) { return StatusCodeEnvelope(exception.StatusCode, exception.Code, exception.Message); }
     }
 
     [HttpPut("inbox/{notificationNId}/read")]
@@ -92,7 +92,7 @@ public sealed class NotificationsController : SystemDataControllerBase
             if (!await _service.MarkReadAsync(tenant, user, notificationNId, request.Read ?? true, cancellationToken)) return NotFound();
             return OkEnvelope();
         }
-        catch (Pf04ServiceException exception) { return StatusCodeEnvelope(exception.StatusCode, exception.Code, exception.Message); }
+        catch (SystemDataOperationException exception) { return StatusCodeEnvelope(exception.StatusCode, exception.Code, exception.Message); }
     }
 
     [HttpPost("inbox/read-batch")]
@@ -101,12 +101,12 @@ public sealed class NotificationsController : SystemDataControllerBase
     {
         if (!TryGetActorContext(out var tenant, out var user)) return UnauthorizedEnvelope();
         try { return await _service.MarkManyReadAsync(tenant, user, request.NotificationNIds ?? [], cancellationToken); }
-        catch (Pf04ServiceException exception) { return StatusCodeEnvelope(exception.StatusCode, exception.Code, exception.Message); }
+        catch (SystemDataOperationException exception) { return StatusCodeEnvelope(exception.StatusCode, exception.Code, exception.Message); }
     }
 
     private static async Task<ActionResult<T>> Execute<T>(Func<Task<T>> operation)
     {
         try { return await operation(); }
-        catch (Pf04ServiceException exception) { return StatusCodeEnvelope(exception.StatusCode, exception.Code, exception.Message); }
+        catch (SystemDataOperationException exception) { return StatusCodeEnvelope(exception.StatusCode, exception.Code, exception.Message); }
     }
 }

@@ -1,5 +1,44 @@
 # PF-06A 自测与交接证据
 
+## 2026-09-30 主控 SQL Server 收尾（最新状态）
+
+SQL Server 适配代码已覆盖全部 109 张服务表、1777 列及迁移/种子/仓储/拓扑/目标适配器。2019 隔离库实测通过；四服务初始化 Ready、重复应用不再迁移、全部外键可信、1886 条表/列 MS_Description 完整。正常运行配置仍为 PostgreSQL；没有替用户启动服务或自动切换运行库。
+
+实测业务包含：用户中文/UTC/并发拒绝/规范登录名去重；ReferenceData 七模块真实创建/发布与参数 JSON、精确 decimal 和 Int64；编码 8 并发分配及 6 次同请求重放；查询预算 10 路竞争不越过 200；消息隐藏幂等；任务只被一个工作器领取；用户分配/独立初始化/目标迁移锁；文件有效引用/保全阻止删除；迁移内容漂移拒绝、失败事务回滚；同版本 SQL 种子三路竞争只执行一次。
+
+表、字段类型、默认、索引、FK/CHECK 及中文含义见[全表字段字典](../implementation/details/PF06A-SQLServer全表字段字典.md)；运行选择见[09A §9.2～9.3](../implementation/09A-Industrial%20Platform终端运行时与客户端打包开发实施方案.md#92-什么时候使用哪种数据库)。
+
+当前结论是 **2019 适配代码与已列自动化实测完成，可进入 IDE 业务联调**。2022 未提供实例，NOT RUN；创建登录/角色权限、备份恢复、独立四物理库和完整客户端联合验收未实机完成。不能据此宣布两引擎生产门禁全部通过。无需另开发一套 2022 Provider。
+
+验证命令/统计（修复后新鲜产物，均 exit code 0）：
+
+```powershell
+dotnet build src/backend/IndustrialPlatform.slnx --configuration Release -p:PF06A_SQLSERVER_ENABLED=1 --verbosity quiet
+$env:PF06A_SQLSERVER_ACCEPTANCE='1'
+dotnet test src/backend/IndustrialPlatform.slnx --configuration Release --no-build -m:1 --verbosity minimal
+```
+
+Release 编译 0 警告、0 错误；全量测试 1913 通过、0 失败、7 跳过。项目通过数：BuildingBlocks 176、Collaboration 168、Gateway 14、Identity 621、Integration 13、ReferenceData 262、SystemData 636、UnifiedHost 23。Integration 的 7 项跳过为未启用的外部 PostgreSQL/Redis/RabbitMQ 验收，不计为通过；本轮 SQL Server 2019 真库测试已启用并通过。
+
+本轮全量回归暴露并修复构造阶段提前访问 SqlSugarScope 的上下文共享：最小八路操作修复前共用 1 个 ContextID，修复后独立，超时保留；与映射集合并发修改、宿主查询 500 的日志一致。最终统计必须取该修复后的新鲜 Release，早期失败不计通过。
+
+历史处理：本轮初始空库测试暴露 SqlSugar 两个同名 SchemaMigrationRecord 串表。现已重命名 SystemData 类型并显式 AS；仅按已确认完整一致条件移除本轮误入 Identity 的 58 条 SystemData 记录，保留正确账本、checksum 和业务数据。ReferenceData 长度 CHECK 错误追加 012 修复，中文说明追加 013；Identity/SystemData 描述 v2 修正安全 nonce 归属，旧已应用描述 ID 保留。历史业务迁移未重写。
+
+以下记录为历史快照，早期“只能连接、尚不能迁移”的判断已由本节覆盖；未测边界仍有效。
+
+
+## SQL Server 全表兼容核查（2026-09-30，当前）
+
+用户要求所有表兼容后再明确数据库使用策略。已核查 109 个服务/表目标（Identity 23、SystemData 42、ReferenceData 24、Collaboration 20），执行 259 次 DDL 方言生成/合同核对；其中 SQL Server 检查 93 个，73 个拒绝、7 个返回明显非 SQL Server 方言、10 个没有 SQL Server 合同、3 个仅生成基线/no-op 字符串，均不能作为建表通过。真实 2019 经项目 SqlClient 和 SqlSugar 上下文只读查询通过，ReferenceData `ApplyAsync` 明确拒绝未适配的 SQL Server 迁移；前后用户表数均为 0。完整表单/入口结果见[全表报告](PF-06A-SQL2019-compatibility-check.md)。新鲜 Release 构建退出 0（0 警告/错误），随后完整后端测试退出 0：1906 通过、7 外部依赖用例跳过、0 失败；不是 SQL Server 全表验收通过。
+
+结论：当前 SQL Server 只能用于隔离兼容开发与只读测试，不能切换平台业务运行库。配置解析确认现有运行 Provider 仍是 PostgreSQL，验收连接串不会自动切库。SQLite 供显式隔离测试，正式环境按部署选择一个通过全表/业务/拓扑验收的关系库引擎，不按页面或某张表选库、不自动迁移数据。配置说明已更新[数据库拓扑与本地配置 §3.4](../../src/开发注意事项-数据库拓扑与本地配置.md#34-什么时候用什么数据库)。
+
+## SQL Server 2019 隔离库连通性核查（2026-09-30）
+
+用户已创建 `industrial_platform_sql2019`，并在 Git 忽略的 `src/backend/appsettings.Development.local.json` 配置 `SqlServerAcceptance:2019:ConnectionString`。连接串有服务器、库名、SQL 用户、密码、加密与证书信任设置，库名准确且没有示例占位值；运行时 `RemoteDevelopment:DatabaseProvider` 仍沿用 PostgreSQL，未切换现有服务。首次检查时目标私网主机可 ping 通但 TCP 1433 不通，SQL Server Browser UDP 1434 未响应；用户调整后 1433 可达。随后 `Microsoft.Data.SqlClient 5.2.2` 按原连接串连接时证书链未受信任（错误 `-2146893019`）；仅在临时只读探针中设 `TrustServerCertificate=true` 后成功。最终把这一设置写入 Git 忽略的 **2019 验收连接串**，保留 `Encrypt=True`，运行时配置不变；不覆盖公开 example 的安全默认值。
+
+使用保存后的连接串、不加临时覆盖，执行只读查询通过：`ProductMajorVersion=15`、`ProductVersion=15.0.2000.5`、库名 `industrial_platform_sql2019`、兼容级别 `150`、排序规则 `SQL_Latin1_General_CP1_CI_AS`、用户表数 `0`、当前账号 `CREATE TABLE` 权限为 `1`。这只覆盖 SQL-A01 的基本连通与实例身份输入；证书未受信任的拒绝路径已观察到，但权限不足场景、迁移、结构、并发和业务真值仍未执行，不能宣布 SQL Server 支持已完成。全程未建表、未迁移、未写入业务数据；2022 环境不存在。
+
 ## 阶段提交前核验（2026-09-30）
 
 本次对既有 PF-06A 工作树做新鲜验证：`dotnet build src/backend/IndustrialPlatform.slnx --configuration Release` 成功（0 警告、0 错误）；其后 `dotnet test src/backend/IndustrialPlatform.slnx --configuration Release --no-build` 退出码 0，8 个测试程序集共 1899 通过、7 跳过、0 失败。前端用临时 TypeScript 缓存分别检查 app/node 配置，通过；Vite 8.2.1 用 `--configLoader runner` 输出到临时目录构建通过；同配置下 Vitest 146 文件／1088 项通过。Electron 从当前源码编译到临时目录，`runtimeUpdater` 3/3 通过。常规前端 `node_modules/.tmp`／`.vite-temp` 和 Electron `dist` 写入遇 EPERM，本次没有清理或结束用户进程。

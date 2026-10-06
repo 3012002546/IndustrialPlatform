@@ -463,7 +463,7 @@ public sealed class DatabaseRegistrationService : IRegistrationService
         if (!string.IsNullOrWhiteSpace(requested))
         {
             var trimmed = requested.Trim();
-            if (trimmed is "Sqlite" or "PostgreSQL")
+            if (trimmed is "Sqlite" or "PostgreSQL" or "SqlServer")
             {
                 return trimmed;
             }
@@ -481,6 +481,7 @@ public sealed class DatabaseRegistrationService : IRegistrationService
     {
         "Sqlite" => DatabaseProvider.Sqlite,
         "PostgreSQL" => DatabaseProvider.PostgreSQL,
+        "SqlServer" => DatabaseProvider.SqlServer,
         _ => throw new ProviderUnsupportedException(provider),
     };
 

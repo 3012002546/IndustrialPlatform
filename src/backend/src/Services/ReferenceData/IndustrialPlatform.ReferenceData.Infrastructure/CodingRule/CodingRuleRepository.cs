@@ -171,7 +171,7 @@ public sealed class CodingRuleRepository(SqlSugarDbContext context) : ICodingRul
         CodingRuleGeneration generation, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (!Postgres) await Db.Ado.ExecuteCommandAsync("PRAGMA busy_timeout=10000");
+        if (Db.CurrentConnectionConfig.DbType == DbType.Sqlite) await Db.Ado.ExecuteCommandAsync("PRAGMA busy_timeout=10000");
         await Db.Ado.BeginTranAsync();
         try
         {
@@ -249,7 +249,20 @@ public sealed class CodingRuleRepository(SqlSugarDbContext context) : ICodingRul
         cancellationToken.ThrowIfCancellationRequested();
         var sequenceTarget = Postgres ? $"{Sequences} AS sequence_state" : Sequences;
         var currentValue = Postgres ? "sequence_state.last_value" : "last_value";
-        var raw = await Db.Ado.GetScalarAsync($"""
+        var sql = Db.CurrentConnectionConfig.DbType == DbType.SqlServer ? $"""
+            DECLARE @next TABLE(value bigint);
+            IF EXISTS (SELECT 1 FROM {Sequences} WITH (UPDLOCK,HOLDLOCK)
+                WHERE coding_rule_id=@RuleId AND rule_revision=@Revision AND period_key=@PeriodKey AND context_hash=@ContextHash)
+                UPDATE {Sequences} SET last_value=last_value+1,last_updated_on=@Now
+                OUTPUT inserted.last_value INTO @next
+                WHERE coding_rule_id=@RuleId AND rule_revision=@Revision AND period_key=@PeriodKey AND context_hash=@ContextHash
+                  AND last_value<9223372036854775807;
+            ELSE
+                INSERT INTO {Sequences} (coding_rule_id,rule_revision,period_key,context_hash,last_value,created_on,last_updated_on)
+                OUTPUT inserted.last_value INTO @next
+                VALUES (@RuleId,@Revision,@PeriodKey,@ContextHash,1,@Now,@Now);
+            SELECT value FROM @next;
+            """ : $"""
             INSERT INTO {sequenceTarget}
                 (coding_rule_id,rule_revision,period_key,context_hash,last_value,created_on,last_updated_on)
             VALUES (@RuleId,@Revision,@PeriodKey,@ContextHash,1,@Now,@Now)
@@ -258,7 +271,8 @@ public sealed class CodingRuleRepository(SqlSugarDbContext context) : ICodingRul
                 last_updated_on=excluded.last_updated_on
             WHERE {currentValue}<9223372036854775807
             RETURNING {currentValue}
-            """,
+            """;
+        var raw = await Db.Ado.GetScalarAsync(sql,
             new SugarParameter("@RuleId", generation.Rule.Id),
             new SugarParameter("@Revision", generation.Rule.Revision),
             new SugarParameter("@PeriodKey", periodKey),
@@ -292,7 +306,7 @@ public sealed class CodingRuleRepository(SqlSugarDbContext context) : ICodingRul
         row.ConcurrencyVersion));
 
     private DateTimeOffset Timestamp(DateTimeOffset value) =>
-        Postgres ? value.ToUniversalTime() : new(value.DateTime, TimeSpan.Zero);
+        Db.CurrentConnectionConfig.DbType == DbType.Sqlite ? new(value.DateTime, TimeSpan.Zero) : value.ToUniversalTime();
 
     private static CodingRuleDefinitionRow Row(CodingRuleDefinition rule) => new()
     {
@@ -351,6 +365,7 @@ public sealed class CodingRuleRepository(SqlSugarDbContext context) : ICodingRul
     {
         for (var current = exception; current is not null; current = current.InnerException!)
             if (current is Microsoft.Data.Sqlite.SqliteException { SqliteExtendedErrorCode: 2067 or 1555 }
+                || current is Microsoft.Data.SqlClient.SqlException { Number: 2601 or 2627 }
                 || current is Npgsql.PostgresException { SqlState: "23505" }) return true;
         return false;
     }

@@ -1,7 +1,7 @@
 using IndustrialPlatform.Security;
 using IndustrialPlatform.SystemData.Api.Authorization;
 using IndustrialPlatform.SystemData.Application.Files;
-using IndustrialPlatform.SystemData.Application.Pf04;
+using IndustrialPlatform.SystemData.Application.Operations;
 using IndustrialPlatform.SystemData.Contracts.Files;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -52,7 +52,7 @@ public sealed class FilesController : SystemDataControllerBase
             Response.Headers["Upload-Length"] = length.ToString(System.Globalization.CultureInfo.InvariantCulture);
             return StatusCode(StatusCodes.Status201Created, session);
         }
-        catch (Pf04ServiceException exception) { return StatusCodeEnvelope(exception.StatusCode, exception.Code, exception.Message); }
+        catch (SystemDataOperationException exception) { return StatusCodeEnvelope(exception.StatusCode, exception.Code, exception.Message); }
     }
 
     [HttpOptions("uploads/{transportId}")]
@@ -152,7 +152,7 @@ public sealed class FilesController : SystemDataControllerBase
             Response.Headers["Upload-Epoch"] = session.WriterEpoch.ToString(System.Globalization.CultureInfo.InvariantCulture);
             return Ok();
         }
-        catch (Pf04ServiceException exception) { return StatusCodeEnvelope(exception.StatusCode, exception.Code, exception.Message); }
+        catch (SystemDataOperationException exception) { return StatusCodeEnvelope(exception.StatusCode, exception.Code, exception.Message); }
     }
 
     [HttpPatch("uploads/{transportId}")]
@@ -171,7 +171,7 @@ public sealed class FilesController : SystemDataControllerBase
             if (session.ResumeTicket is not null) Response.Headers["X-Upload-Resume-Ticket"] = session.ResumeTicket;
             return session;
         }
-        catch (Pf04ServiceException exception) { return StatusCodeEnvelope(exception.StatusCode, exception.Code, exception.Message); }
+        catch (SystemDataOperationException exception) { return StatusCodeEnvelope(exception.StatusCode, exception.Code, exception.Message); }
     }
 
     [HttpGet]
@@ -202,7 +202,7 @@ public sealed class FilesController : SystemDataControllerBase
             if (metadata is null) return NotFound();
             return File(await _service.OpenFileContentAsync(tenant, user, fileNId, Request.Query["referenceNId"].FirstOrDefault(), cancellationToken), metadata.ContentType, metadata.FileName, enableRangeProcessing: true);
         }
-        catch (Pf04ServiceException exception) { return StatusCodeEnvelope(exception.StatusCode, exception.Code, exception.Message); }
+        catch (SystemDataOperationException exception) { return StatusCodeEnvelope(exception.StatusCode, exception.Code, exception.Message); }
     }
 
     [HttpPut("{fileNId}/references/{referenceNId}")]
@@ -219,7 +219,7 @@ public sealed class FilesController : SystemDataControllerBase
     {
         if (!TryGetActorContext(out var tenant, out var user)) return UnauthorizedEnvelope();
         try { await _service.DeleteReferenceAsync(tenant, user, fileNId, referenceNId, cancellationToken); return OkEnvelope(); }
-        catch (Pf04ServiceException exception) { return StatusCodeEnvelope(exception.StatusCode, exception.Code, exception.Message); }
+        catch (SystemDataOperationException exception) { return StatusCodeEnvelope(exception.StatusCode, exception.Code, exception.Message); }
     }
 
     [HttpPost("{fileNId}/deletion-requests")]
@@ -241,7 +241,7 @@ public sealed class FilesController : SystemDataControllerBase
     private static async Task<ActionResult<T>> Execute<T>(Func<Task<T>> operation)
     {
         try { return await operation(); }
-        catch (Pf04ServiceException exception) { return StatusCodeEnvelope(exception.StatusCode, exception.Code, exception.Message); }
+        catch (SystemDataOperationException exception) { return StatusCodeEnvelope(exception.StatusCode, exception.Code, exception.Message); }
     }
 
     private static Dictionary<string, string> ParseTusMetadata(string? value)

@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 using IndustrialPlatform.SystemData.Application.Files;
-using IndustrialPlatform.SystemData.Application.Pf04;
+using IndustrialPlatform.SystemData.Application.Operations;
 using IndustrialPlatform.SystemData.Contracts.Files;
 
 namespace IndustrialPlatform.SystemData.Tests;
@@ -19,11 +19,11 @@ public sealed class FileServiceTests
 
         var afterFirstChunk = await service.AppendAsync("tenant-1", "transport-1", "user-1", 0, 1, new MemoryStream("a"u8.ToArray()), ready.ResumeTicket, CancellationToken.None);
         var staleTicket = ready.ResumeTicket!;
-        var invalid = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.AppendAsync("tenant-1", "transport-1", "user-1", 1, 1, new MemoryStream("b"u8.ToArray()), staleTicket, CancellationToken.None));
+        var invalid = await Assert.ThrowsAsync<SystemDataOperationException>(() => service.AppendAsync("tenant-1", "transport-1", "user-1", 1, 1, new MemoryStream("b"u8.ToArray()), staleTicket, CancellationToken.None));
         Assert.Equal("FILE_UPLOAD_RESUME_TICKET_INVALID", invalid.Code);
 
         await service.PauseAsync("tenant-1", "session-1", "user-1", CancellationToken.None);
-        var paused = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.AppendAsync("tenant-1", "transport-1", "user-1", afterFirstChunk.Offset, 1, new MemoryStream("b"u8.ToArray()), afterFirstChunk.ResumeTicket, CancellationToken.None));
+        var paused = await Assert.ThrowsAsync<SystemDataOperationException>(() => service.AppendAsync("tenant-1", "transport-1", "user-1", afterFirstChunk.Offset, 1, new MemoryStream("b"u8.ToArray()), afterFirstChunk.ResumeTicket, CancellationToken.None));
         Assert.Equal("FILE_UPLOAD_PROOF_REQUIRED", paused.Code);
     }
 
@@ -35,14 +35,14 @@ public sealed class FileServiceTests
         await service.CreateSessionAsync("tenant-1", "user-1", new CreateUploadSessionRequest { SessionNId = "session-2", TransportId = "transport-2", FileName = "a.txt", Length = 0, Sha256 = Sha256(string.Empty) }, CancellationToken.None);
         await service.SetContentHashAsync("tenant-1", "session-2", "user-1", new ContentHashRequest { Sha256 = Sha256(string.Empty) }, CancellationToken.None);
 
-        var missingEpoch = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.TakeoverAsync("tenant-1", "session-2", "user-2", new TakeoverUploadRequest { IdempotencyKey = "takeover-1", Proof = Sha256(string.Empty) }, CancellationToken.None));
+        var missingEpoch = await Assert.ThrowsAsync<SystemDataOperationException>(() => service.TakeoverAsync("tenant-1", "session-2", "user-2", new TakeoverUploadRequest { IdempotencyKey = "takeover-1", Proof = Sha256(string.Empty) }, CancellationToken.None));
         Assert.Equal("FILE_UPLOAD_EPOCH_REQUIRED", missingEpoch.Code);
 
-        var missingKey = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.TakeoverAsync("tenant-1", "session-2", "user-2", new TakeoverUploadRequest { ExpectedWriterEpoch = 1, Proof = Sha256(string.Empty) }, CancellationToken.None));
+        var missingKey = await Assert.ThrowsAsync<SystemDataOperationException>(() => service.TakeoverAsync("tenant-1", "session-2", "user-2", new TakeoverUploadRequest { ExpectedWriterEpoch = 1, Proof = Sha256(string.Empty) }, CancellationToken.None));
         Assert.Equal("FILE_UPLOAD_IDEMPOTENCY_REQUIRED", missingKey.Code);
         var takeover = await service.TakeoverAsync("tenant-1", "session-2", "user-2", new TakeoverUploadRequest { ExpectedWriterEpoch = 1, IdempotencyKey = "takeover-1", Proof = Sha256(string.Empty) }, CancellationToken.None);
         Assert.Equal(2, takeover.WriterEpoch);
-        await Assert.ThrowsAsync<Pf04ServiceException>(() => service.GetSessionAsync("tenant-1", "user-1", "session-2", CancellationToken.None));
+        await Assert.ThrowsAsync<SystemDataOperationException>(() => service.GetSessionAsync("tenant-1", "user-1", "session-2", CancellationToken.None));
         var newOwner = await service.GetSessionAsync("tenant-1", "user-2", "session-2", CancellationToken.None);
         Assert.Equal(2, newOwner.WriterEpoch);
         Assert.NotNull(newOwner.ResumeTicket);
@@ -60,7 +60,7 @@ public sealed class FileServiceTests
         await service.SetContentHashAsync("tenant-1", "session-3", "user-1", new ContentHashRequest { Sha256 = Sha256("ab") }, CancellationToken.None);
         var ready = await service.ResumeProofAsync("tenant-1", "session-3", "user-1", new ResumeProofRequest { WriterEpoch = 1, Proof = Sha256("ab") }, CancellationToken.None);
 
-        var failure = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.AppendAsync("tenant-1", "transport-3", "user-1", 0, 1, new MemoryStream("ab"u8.ToArray()), ready.ResumeTicket, CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<SystemDataOperationException>(() => service.AppendAsync("tenant-1", "transport-3", "user-1", 0, 1, new MemoryStream("ab"u8.ToArray()), ready.ResumeTicket, CancellationToken.None));
 
         Assert.Equal("FILE_UPLOAD_WRITER_REPLACED", failure.Code);
         Assert.Equal(0, content.GetLength("tenant-1/session-3.bin"));
@@ -79,7 +79,7 @@ public sealed class FileServiceTests
         var ready = await service.ResumeProofAsync("tenant-1", "session-hash", "user-1", new ResumeProofRequest { WriterEpoch = 1, Proof = Sha256("ab") }, CancellationToken.None);
         await service.AppendAsync("tenant-1", "transport-hash", "user-1", 0, 1, new MemoryStream("ax"u8.ToArray()), ready.ResumeTicket, CancellationToken.None);
 
-        var exception = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.CompleteAsync("tenant-1", "session-hash", "user-1", CancellationToken.None));
+        var exception = await Assert.ThrowsAsync<SystemDataOperationException>(() => service.CompleteAsync("tenant-1", "session-hash", "user-1", CancellationToken.None));
 
         Assert.Equal("FILE_UPLOAD_CONTENT_MISMATCH", exception.Code);
     }
@@ -111,7 +111,7 @@ public sealed class FileServiceTests
         };
         var service = new FileService(store, new MemoryContentStore(), TimeProvider.System);
 
-        var exception = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.OpenFileContentAsync("tenant-1", "user-1", "file-1", null, CancellationToken.None));
+        var exception = await Assert.ThrowsAsync<SystemDataOperationException>(() => service.OpenFileContentAsync("tenant-1", "user-1", "file-1", null, CancellationToken.None));
 
         Assert.Equal(errorCode, exception.Code);
     }
@@ -127,10 +127,10 @@ public sealed class FileServiceTests
         };
         var service = new FileService(store, new MemoryContentStore(), TimeProvider.System);
 
-        var retained = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.RequestDeletionAsync("tenant-1", "user-1", "file-1", CancellationToken.None));
+        var retained = await Assert.ThrowsAsync<SystemDataOperationException>(() => service.RequestDeletionAsync("tenant-1", "user-1", "file-1", CancellationToken.None));
         Assert.Equal("FILE_RETENTION_ACTIVE", retained.Code);
         store.File = store.File! with { RetentionUntil = null };
-        var referenced = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.RequestDeletionAsync("tenant-1", "user-1", "file-1", CancellationToken.None));
+        var referenced = await Assert.ThrowsAsync<SystemDataOperationException>(() => service.RequestDeletionAsync("tenant-1", "user-1", "file-1", CancellationToken.None));
         Assert.Equal("FILE_REFERENCED", referenced.Code);
     }
 
@@ -146,10 +146,10 @@ public sealed class FileServiceTests
         store.References.Add(new FileReferenceRecord("tenant-1", "HOLD-CASE-B-file-1", "file-1", "user-1", "legal-hold", now, null));
         var service = new FileService(store, new MemoryContentStore(), TimeProvider.System);
 
-        await Assert.ThrowsAsync<Pf04ServiceException>(() => service.RequestDeletionAsync("tenant-1", "user-1", "file-1", CancellationToken.None));
+        await Assert.ThrowsAsync<SystemDataOperationException>(() => service.RequestDeletionAsync("tenant-1", "user-1", "file-1", CancellationToken.None));
 
         await service.DeleteReferenceAsync("tenant-1", "user-1", "file-1", "HOLD-CASE-A-file-1", CancellationToken.None);
-        var stillReferenced = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.RequestDeletionAsync("tenant-1", "user-1", "file-1", CancellationToken.None));
+        var stillReferenced = await Assert.ThrowsAsync<SystemDataOperationException>(() => service.RequestDeletionAsync("tenant-1", "user-1", "file-1", CancellationToken.None));
         Assert.Equal("FILE_REFERENCED", stillReferenced.Code);
 
         await service.DeleteReferenceAsync("tenant-1", "user-1", "file-1", "HOLD-CASE-B-file-1", CancellationToken.None);
@@ -178,13 +178,13 @@ public sealed class FileServiceTests
         var retry = await service.BindReferenceAsync("tenant-1", "user-1", "REF-1", input, CancellationToken.None);
         Assert.Equal(first, retry);
 
-        var conflict = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.BindReferenceAsync("tenant-1", "user-1", "REF-1", input with { MessageNId = "msg-2" }, CancellationToken.None));
+        var conflict = await Assert.ThrowsAsync<SystemDataOperationException>(() => service.BindReferenceAsync("tenant-1", "user-1", "REF-1", input with { MessageNId = "msg-2" }, CancellationToken.None));
         Assert.Equal("FILE_BUSINESS_REFERENCE_CONFLICT", conflict.Code);
 
         var released = await service.ReleaseReferenceAsync("tenant-1", "user-1", string.Empty, "REF-1", new FileBindingReleaseRequest { RequestNId = "REQ-REF-2", ExpectedVersion = 0 }, CancellationToken.None);
         Assert.Equal("Released", released.Status);
         Assert.Equal(1, released.Version);
-        var revive = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.BindReferenceAsync("tenant-1", "user-1", "REF-1", input, CancellationToken.None));
+        var revive = await Assert.ThrowsAsync<SystemDataOperationException>(() => service.BindReferenceAsync("tenant-1", "user-1", "REF-1", input, CancellationToken.None));
         Assert.Equal("FILE_BUSINESS_REFERENCE_CONFLICT", revive.Code);
     }
 
@@ -197,10 +197,10 @@ public sealed class FileServiceTests
         await service.PutLegalHoldAsync("tenant-1", "user-1", "CASE-A", "file-1", new FileHoldRequest { RequestNId = "REQ-A", ScopeChecksum = checksum, CaseRevision = 1 }, CancellationToken.None);
         await service.PutLegalHoldAsync("tenant-1", "user-1", "CASE-B", "file-1", new FileHoldRequest { RequestNId = "REQ-B", ScopeChecksum = checksum, CaseRevision = 1 }, CancellationToken.None);
 
-        var blocked = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.RequestDeletionAsync("tenant-1", "user-1", "file-1", CancellationToken.None));
+        var blocked = await Assert.ThrowsAsync<SystemDataOperationException>(() => service.RequestDeletionAsync("tenant-1", "user-1", "file-1", CancellationToken.None));
         Assert.Equal("FILE_LEGAL_HOLD_ACTIVE", blocked.Code);
         await service.ReleaseLegalHoldAsync("tenant-1", "user-1", "CASE-A", "file-1", new FileHoldRequest { RequestNId = "REQ-RA", ScopeChecksum = checksum, CaseRevision = 1 }, CancellationToken.None);
-        blocked = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.RequestDeletionAsync("tenant-1", "user-1", "file-1", CancellationToken.None));
+        blocked = await Assert.ThrowsAsync<SystemDataOperationException>(() => service.RequestDeletionAsync("tenant-1", "user-1", "file-1", CancellationToken.None));
         Assert.Equal("FILE_LEGAL_HOLD_ACTIVE", blocked.Code);
         await service.ReleaseLegalHoldAsync("tenant-1", "user-1", "CASE-B", "file-1", new FileHoldRequest { RequestNId = "REQ-RB", ScopeChecksum = checksum, CaseRevision = 1 }, CancellationToken.None);
         Assert.Equal("DeletionRequested", (await service.RequestDeletionAsync("tenant-1", "user-1", "file-1", CancellationToken.None)).DeletionStatus);
@@ -214,9 +214,9 @@ public sealed class FileServiceTests
         var checksum = Sha256("scope");
         await service.PutLegalHoldAsync("tenant-1", "user-1", "CASE-A", "file-1", new FileHoldRequest { RequestNId = "REQ-A", ScopeChecksum = checksum, CaseRevision = 1 }, CancellationToken.None);
 
-        var conflict = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.PutLegalHoldAsync("tenant-1", "user-1", "CASE-A", "file-1", new FileHoldRequest { RequestNId = "REQ-A-2", ScopeChecksum = Sha256("changed"), CaseRevision = 1 }, CancellationToken.None));
+        var conflict = await Assert.ThrowsAsync<SystemDataOperationException>(() => service.PutLegalHoldAsync("tenant-1", "user-1", "CASE-A", "file-1", new FileHoldRequest { RequestNId = "REQ-A-2", ScopeChecksum = Sha256("changed"), CaseRevision = 1 }, CancellationToken.None));
         Assert.Equal("FILE_LEGAL_HOLD_CONFLICT", conflict.Code);
-        conflict = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.ReleaseLegalHoldAsync("tenant-1", "user-1", "CASE-A", "file-1", new FileHoldRequest { RequestNId = "REQ-R", ScopeChecksum = checksum, CaseRevision = 2 }, CancellationToken.None));
+        conflict = await Assert.ThrowsAsync<SystemDataOperationException>(() => service.ReleaseLegalHoldAsync("tenant-1", "user-1", "CASE-A", "file-1", new FileHoldRequest { RequestNId = "REQ-R", ScopeChecksum = checksum, CaseRevision = 2 }, CancellationToken.None));
         Assert.Equal("FILE_LEGAL_HOLD_CONFLICT", conflict.Code);
     }
 

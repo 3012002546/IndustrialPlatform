@@ -41,6 +41,42 @@ public sealed class DatabaseTopologyResolverTests
     }
 
     [Fact]
+    public void Resolve_SharedSqlServer_UsesSharedDatabaseName()
+    {
+        var target = DatabaseTopologyResolver.Resolve(
+            SharedPostgres(), "systemdata", DatabaseProvider.SqlServer, "systemdata_db");
+
+        Assert.Equal("industrial_platform_dev", target.PhysicalDatabaseName);
+        Assert.Equal(DatabaseProvider.SqlServer, target.Provider);
+        Assert.Equal("dbo", target.Schema);
+        Assert.True(target.IsSharedPhysicalDatabase);
+    }
+
+    [Fact]
+    public void Resolve_PerServiceSqlServer_RequiresExplicitMapping()
+    {
+        var topology = PerService(new Dictionary<string, string> { ["systemdata"] = "systemdata_sql" });
+        var target = DatabaseTopologyResolver.Resolve(
+            topology, "systemdata", DatabaseProvider.SqlServer, "systemdata_db");
+
+        Assert.Equal("systemdata_sql", target.PhysicalDatabaseName);
+        Assert.Equal("dbo", target.Schema);
+        Assert.False(target.IsSharedPhysicalDatabase);
+        Assert.Throws<ValidationException>(() => DatabaseTopologyResolver.Resolve(
+            PerService(new Dictionary<string, string>()), "systemdata", DatabaseProvider.SqlServer, "systemdata_db"));
+    }
+
+    [Fact]
+    public void Resolve_SharedSqlServer_RejectsSqliteFileAndNonDboSchema()
+    {
+        var mixed = new DatabaseTopology("Development", DatabaseTopologyMode.Shared, "sql_db", "old.db", new Dictionary<string, string>());
+        Assert.Throws<ValidationException>(() => DatabaseTopologyResolver.Resolve(mixed, "systemdata", DatabaseProvider.SqlServer, "systemdata_db"));
+
+        var customSchema = new DatabaseTopology("Development", DatabaseTopologyMode.Shared, "sql_db", null, new Dictionary<string, string>(), "systemdata");
+        Assert.Throws<ValidationException>(() => DatabaseTopologyResolver.Resolve(customSchema, "systemdata", DatabaseProvider.SqlServer, "systemdata_db"));
+    }
+
+    [Fact]
     public void Resolve_SharedInNonDevelopment_ThrowsBusinessException()
     {
         var topology = new DatabaseTopology(

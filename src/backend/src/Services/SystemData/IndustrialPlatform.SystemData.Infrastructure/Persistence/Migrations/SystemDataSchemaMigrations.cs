@@ -1,3 +1,4 @@
+using IndustrialPlatform.Infrastructure.Database;
 using SqlSugar;
 
 namespace IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations;
@@ -12,6 +13,16 @@ namespace IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations;
 public static class SystemDataSchemaMigrations
 {
     /// <summary>全部迁移步骤,运行器按 Id 排序并幂等记账。</summary>
+    /// <summary>SQL Server 独立脚本流；其余数据库保持历史迁移与 checksum。</summary>
+    public static IReadOnlyList<SchemaMigrationStep> For(DbType provider, IEnumerable<SchemaMigrationStep>? steps = null) =>
+        provider == DbType.SqlServer
+            ? (steps ?? All).Concat([new SchemaMigrationStep("SQLSERVER-999-Descriptions-v2", "表与字段中文说明及服务归属", (_, _) => Task.CompletedTask)]).Select(step => step with
+            {
+                Description = SqlServerMigrationArtifacts.Description(typeof(SystemDataSchemaMigrations).Assembly, step.Id, step.Description),
+                Apply = (database, token) => SqlServerMigrationArtifacts.ApplyAsync(database, typeof(SystemDataSchemaMigrations).Assembly, step.Id, token),
+            }).ToArray()
+            : (steps ?? All).ToArray();
+
     public static IReadOnlyList<SchemaMigrationStep> All { get; } = BuildSteps();
 
     private static IReadOnlyList<SchemaMigrationStep> BuildSteps()

@@ -21,6 +21,8 @@ public sealed class StandaloneInitializationLock(IOptions<SqlSugarOptions> sqlSu
         {
             DatabaseProvider.Sqlite => await AcquireSqliteAsync(target.PhysicalDatabaseName, cancellationToken),
             DatabaseProvider.PostgreSQL => await AcquirePostgresAsync(key, cancellationToken),
+            DatabaseProvider.SqlServer => (await SqlServerMigrationArtifacts.AcquireLockAsync(
+                sqlSugarOptions.Value.ConnectionString, "industrial-platform:initialization", cancellationToken))!,
             _ => throw new InvalidOperationException($"不支持独立初始化锁提供程序: {target.Provider}。"),
         };
     }

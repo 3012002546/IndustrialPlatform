@@ -43,3 +43,10 @@ PF06聊天媒体增量开发前，读取 [PF06开发注意事项：减少联调�
 - xUnit `Assert.Throws<T>` 要求精确异常类型。
 - 测试工厂在不需要抽象时返回具体类型，避免 CA1859。
 - 已发生领域变更的内存替身应在变更完成后登记版本，避免伪造乐观并发冲突。
+
+## SqlSugarScope 配置与构造（2026-09-30）
+
+- 不在依赖注入构造期间访问 `SqlSugarScope.Ado` 或 `CurrentConnectionConfig`。这会提前创建底层上下文，并可能让后续异步操作共用映射集合；本轮实证出现 `Collection was modified` 和接口 500。
+- 连接超时等客户端设置放入 `SqlSugarScope` 的客户端创建回调；迁移构造器通过 `SqlSugarDbContext.DbType` 判断 Provider，避免为读取类型而创建底层上下文。
+- 最小回归使用 8 路异步操作，同时验证上下文隔离和命令超时。修复前仅有 1 个上下文，修复后为 8 个；不能仅凭某次接口复测通过就忽略后台集合异常。
+- 实现见 [SqlSugarDbContext.cs](../../src/backend/src/BuildingBlocks/IndustrialPlatform.Infrastructure/Database/SqlSugarDbContext.cs)，回归见 [SqlSugarContextScopeTests.cs](../../tests/BuildingBlocks/IndustrialPlatform.BuildingBlocks.Tests/SqlSugarContextScopeTests.cs)。

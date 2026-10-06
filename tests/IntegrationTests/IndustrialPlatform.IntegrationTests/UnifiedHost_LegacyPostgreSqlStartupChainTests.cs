@@ -692,7 +692,7 @@ public sealed class UnifiedHostLegacyPostgreSqlStartupChainTests
         await command.ExecuteNonQueryAsync();
     }
 
-    private static IReadOnlyList<IServiceInitializer> CreateInitializers(SqlSugarDbContext dbContext)
+    internal static IReadOnlyList<IServiceInitializer> CreateInitializers(SqlSugarDbContext dbContext)
     {
         var identityMigrationRunner = new IndustrialPlatform.Identity.Infrastructure.Persistence.Migrations.SchemaMigrationRunner(
             dbContext,

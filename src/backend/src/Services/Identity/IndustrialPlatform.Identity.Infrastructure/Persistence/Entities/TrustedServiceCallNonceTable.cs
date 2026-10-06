@@ -3,7 +3,7 @@ using SqlSugar;
 namespace IndustrialPlatform.Identity.Infrastructure.Persistence.Entities;
 
 /// <summary>PF05 service assertion replay ledger. The nonce is never a browser-provided idempotency key.</summary>
-[SugarTable("pf05_service_call_nonce")]
+[SugarTable("identity_service_call_nonce")]
 public sealed class TrustedServiceCallNonceTable
 {
     [SugarColumn(ColumnName = "issuer", IsPrimaryKey = true, Length = 256)]

@@ -7,8 +7,8 @@ import { useRouter } from 'vue-router'
 import { getManagementApi } from '@/api/identity/managementRegistry'
 import type { IdentityActiveSessionDto } from '@/api/identity/management/types'
 import { createNotificationRealtime, type NotificationRealtime } from '@/api/systemData/notificationHub'
-import { getPf04Api } from '@/api/systemData/pf04Registry'
-import type { NotificationInboxItemDto } from '@/api/systemData/pf04Types'
+import { getSystemDataOperationsApi } from '@/api/systemData/systemDataOperationsRegistry'
+import type { NotificationInboxItemDto } from '@/api/systemData/systemDataOperationsTypes'
 import AppDataTable from '@/components/management/AppDataTable.vue'
 import type { AppDataTableColumn } from '@/components/management/AppDataTable'
 import { localeMessages } from '@/localization/i18n'
@@ -112,7 +112,7 @@ function safeNotificationRoute(route: string | null | undefined): string | null 
 
 async function loadNotifications(): Promise<void> {
   if (!canViewNotifications.value) return
-  const api = getPf04Api()
+  const api = getSystemDataOperationsApi()
   if (api === null) {
     notificationError.value = true
     return
@@ -137,7 +137,7 @@ function openNotificationTarget(route: string | null | undefined): void {
 
 async function markNotificationRead(item: NotificationInboxItemDto): Promise<void> {
   if (item.isRead) return
-  const api = getPf04Api()
+  const api = getSystemDataOperationsApi()
   if (api === null) return
   try {
     await api.markRead(item.notificationNId)
@@ -148,7 +148,7 @@ async function markNotificationRead(item: NotificationInboxItemDto): Promise<voi
 }
 
 async function markAllNotificationsRead(): Promise<void> {
-  const api = getPf04Api()
+  const api = getSystemDataOperationsApi()
   const ids = notificationItems.value.filter((item) => !item.isRead).map((item) => item.notificationNId)
   if (api === null || ids.length === 0) return
   try {
@@ -190,7 +190,7 @@ function closeSendMessage(): void {
 
 async function submitSendMessage(): Promise<void> {
   const target = sendMessageTarget.value
-  const api = getPf04Api()
+  const api = getSystemDataOperationsApi()
   if (api === null || target === null || sendMessageBusy.value) return
   if (sendMessageTitle.value.trim() === '' || sendMessageBody.value.trim() === '') {
     sendMessageError.value = copy.value.sendMessageRequired

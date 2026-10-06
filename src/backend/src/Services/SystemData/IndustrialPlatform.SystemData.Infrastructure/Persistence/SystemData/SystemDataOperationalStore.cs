@@ -14,11 +14,11 @@ namespace IndustrialPlatform.SystemData.Infrastructure.Persistence.SystemData;
 /// <summary>
 /// PF-04 持久化适配器。文件、通知、审计共享 SystemData 的 SqlSugar 连接与事务边界。
 /// </summary>
-public sealed class Pf04Store : IFileStore, IFileStatusOutbox, INotificationStore, IAuditStore
+public sealed class SystemDataOperationalStore : IFileStore, IFileStatusOutbox, INotificationStore, IAuditStore
 {
     private readonly SqlSugarDbContext _dbContext;
 
-    public Pf04Store(SqlSugarDbContext dbContext) => _dbContext = dbContext;
+    public SystemDataOperationalStore(SqlSugarDbContext dbContext) => _dbContext = dbContext;
 
     public async Task<FileUploadSessionRecord?> GetSessionAsync(string tenantNId, string sessionNId, CancellationToken cancellationToken) =>
         ToRecord(await _dbContext.SqlSugar.Queryable<FileUploadSessionTable>().Where(t => t.TenantNId == tenantNId && t.SessionNId == sessionNId).FirstAsync(cancellationToken));
@@ -294,8 +294,10 @@ public sealed class Pf04Store : IFileStore, IFileStatusOutbox, INotificationStor
             "INSERT INTO system_collaboration_file_reference "
             + "(tenant_n_id, reference_n_id, file_n_id, conversation_n_id, message_n_id, attachment_n_id, uploader_user_n_id, purpose, owner_service, status, version, created_on, released_on) "
             + "SELECT @tenantNId, @referenceNId, @fileNId, @conversationNId, @messageNId, @attachmentNId, @uploaderUserNId, @purpose, @ownerService, @status, @version, @createdOn, @releasedOn "
-            + "WHERE EXISTS (SELECT 1 FROM system_file_object WHERE tenant_n_id = @tenantNId AND file_n_id = @fileNId AND deletion_status = 'Active') "
-            + "ON CONFLICT DO NOTHING",
+            + (_dbContext.SqlSugar.CurrentConnectionConfig.DbType == DbType.SqlServer
+                ? "WHERE EXISTS (SELECT 1 FROM system_file_object WITH (UPDLOCK,HOLDLOCK) WHERE tenant_n_id = @tenantNId AND file_n_id = @fileNId AND deletion_status = 'Active') "
+                    + "AND NOT EXISTS (SELECT 1 FROM system_collaboration_file_reference WITH (UPDLOCK,HOLDLOCK) WHERE tenant_n_id=@tenantNId AND (reference_n_id=@referenceNId OR (attachment_n_id=@attachmentNId AND purpose=@purpose)))"
+                : "WHERE EXISTS (SELECT 1 FROM system_file_object WHERE tenant_n_id = @tenantNId AND file_n_id = @fileNId AND deletion_status = 'Active') ON CONFLICT DO NOTHING"),
             new SugarParameter[]
             {
                 new SugarParameter("@tenantNId", reference.TenantNId), new SugarParameter("@referenceNId", reference.ReferenceNId),
@@ -325,8 +327,10 @@ public sealed class Pf04Store : IFileStore, IFileStatusOutbox, INotificationStor
             "INSERT INTO system_collaboration_file_hold "
             + "(tenant_n_id, case_n_id, file_n_id, scope_checksum, case_revision, owner_service, status, created_on, updated_on, released_on) "
             + "SELECT @tenantNId, @caseNId, @fileNId, @scopeChecksum, @caseRevision, @ownerService, @status, @createdOn, @updatedOn, @releasedOn "
-            + "WHERE EXISTS (SELECT 1 FROM system_file_object WHERE tenant_n_id = @tenantNId AND file_n_id = @fileNId AND deletion_status = 'Active') "
-            + "ON CONFLICT DO NOTHING",
+            + (_dbContext.SqlSugar.CurrentConnectionConfig.DbType == DbType.SqlServer
+                ? "WHERE EXISTS (SELECT 1 FROM system_file_object WITH (UPDLOCK,HOLDLOCK) WHERE tenant_n_id = @tenantNId AND file_n_id = @fileNId AND deletion_status = 'Active') "
+                    + "AND NOT EXISTS (SELECT 1 FROM system_collaboration_file_hold WITH (UPDLOCK,HOLDLOCK) WHERE tenant_n_id=@tenantNId AND case_n_id=@caseNId AND file_n_id=@fileNId)"
+                : "WHERE EXISTS (SELECT 1 FROM system_file_object WHERE tenant_n_id = @tenantNId AND file_n_id = @fileNId AND deletion_status = 'Active') ON CONFLICT DO NOTHING"),
             new SugarParameter[]
             {
                 new SugarParameter("@tenantNId", hold.TenantNId), new SugarParameter("@caseNId", hold.CaseNId), new SugarParameter("@fileNId", hold.FileNId),

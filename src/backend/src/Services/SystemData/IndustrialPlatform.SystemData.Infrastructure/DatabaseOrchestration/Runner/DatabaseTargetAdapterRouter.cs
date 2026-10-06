@@ -12,16 +12,19 @@ public sealed class DatabaseTargetAdapterRouter : ITargetDatabaseInspector, ITar
 {
     private readonly PostgreSqlTargetDatabaseAdapter _postgreSql;
     private readonly SqliteTargetDatabaseAdapter _sqlite;
+    private readonly SqlServerTargetDatabaseAdapter _sqlServer;
 
     /// <summary>初始化适配器路由。</summary>
     public DatabaseTargetAdapterRouter(
         PostgreSqlTargetDatabaseAdapter postgreSql,
-        SqliteTargetDatabaseAdapter sqlite)
+        SqliteTargetDatabaseAdapter sqlite,
+        SqlServerTargetDatabaseAdapter? sqlServer = null)
     {
         ArgumentNullException.ThrowIfNull(postgreSql);
         ArgumentNullException.ThrowIfNull(sqlite);
         _postgreSql = postgreSql;
         _sqlite = sqlite;
+        _sqlServer = sqlServer ?? new SqlServerTargetDatabaseAdapter();
     }
 
     /// <inheritdoc />
@@ -87,6 +90,7 @@ public sealed class DatabaseTargetAdapterRouter : ITargetDatabaseInspector, ITar
     {
         "PostgreSQL" => (T)(object)_postgreSql,
         "Sqlite" => (T)(object)_sqlite,
+        "SqlServer" => (T)(object)_sqlServer,
         _ => throw new ProviderUnsupportedException(provider),
     };
 }

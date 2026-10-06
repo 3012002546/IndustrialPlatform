@@ -44,7 +44,14 @@ public sealed class SqlSugarDbContext : IDisposable
             }
         };
 
-        _sqlSugar = new SqlSugarScope(connectionConfig);
+        DbType = value.DbType;
+        if (value.CommandTimeoutSeconds is { } seconds)
+        {
+            if (seconds <= 0) throw new ArgumentOutOfRangeException(nameof(options), "数据库命令超时必须为正数。");
+            // 在每个作用域创建其客户端时配置，避免构造时生成可被子任务继承的共享上下文。
+            _sqlSugar = new SqlSugarScope(connectionConfig, client => client.Ado.CommandTimeOut = seconds);
+        }
+        else _sqlSugar = new SqlSugarScope(connectionConfig);
     }
 
     private static string EnsureSqliteForeignKeys(SqlSugarOptions options)
@@ -61,6 +68,9 @@ public sealed class SqlSugarDbContext : IDisposable
 
     /// <summary>获取 SqlSugar 客户端。</summary>
     public ISqlSugarClient SqlSugar => _sqlSugar;
+
+    /// <summary>启动时选择的不可变 Provider；读取它不会提前创建 SqlSugar 的执行上下文。</summary>
+    public DbType DbType { get; }
 
     /// <inheritdoc/>
     public void Dispose() => _sqlSugar.Dispose();

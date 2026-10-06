@@ -33,8 +33,8 @@ vi.mock('@/api/identity/managementRegistry', () => ({
   getManagementApi: () => fakeApi,
 }))
 
-vi.mock('@/api/systemData/pf04Registry', () => ({
-  getPf04Api: () => fakeApi,
+vi.mock('@/api/systemData/systemDataOperationsRegistry', () => ({
+  getSystemDataOperationsApi: () => fakeApi,
 }))
 
 vi.mock('@/api/systemData/notificationHub', () => ({

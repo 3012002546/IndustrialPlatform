@@ -89,7 +89,8 @@ public sealed class IdentityServiceInitializer : IServiceInitializer
     {
         var steps = new List<string>();
         var desiredVersion = string.IsNullOrWhiteSpace(context.DesiredVersion)
-            ? IdentitySchemaMigrations.All[^1].Id
+            ? context.DatabaseTarget.Provider == DatabaseProvider.SqlServer
+                ? IdentitySchemaMigrations.For(SqlSugar.DbType.SqlServer)[^1].Id : IdentitySchemaMigrations.All[^1].Id
             : context.DesiredVersion;
         if (!inspection.MigrationReady)
         {
@@ -162,7 +163,8 @@ public sealed class IdentityServiceInitializer : IServiceInitializer
         for (var current = exception; current is not null; current = current.InnerException)
         {
             var message = current.Message;
-            if (message.Contains("no such table", StringComparison.OrdinalIgnoreCase)
+            if (message.Contains("Invalid object name", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("no such table", StringComparison.OrdinalIgnoreCase)
                 || (message.Contains("relation", StringComparison.OrdinalIgnoreCase)
                     && message.Contains("does not exist", StringComparison.OrdinalIgnoreCase)))
             {

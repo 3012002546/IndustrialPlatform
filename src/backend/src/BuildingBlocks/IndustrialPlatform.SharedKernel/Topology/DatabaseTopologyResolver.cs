@@ -48,6 +48,15 @@ public static class DatabaseTopologyResolver
         DatabaseProvider provider,
         string logicalDatabaseName)
     {
+        if (provider == DatabaseProvider.SqlServer)
+        {
+            if (!string.IsNullOrWhiteSpace(topology.SharedSqliteFile))
+                throw new ValidationException("SQL Server Shared 拓扑不能同时配置 SharedSqliteFile。");
+            if (!string.IsNullOrWhiteSpace(topology.SharedDatabaseSchema)
+                && !string.Equals(topology.SharedDatabaseSchema, "dbo", StringComparison.OrdinalIgnoreCase))
+                throw new ValidationException("SQL Server 当前仅支持 dbo schema。");
+        }
+
         if (!topology.IsStandalone && !string.Equals(topology.EnvironmentName, SharedAllowedEnvironment, StringComparison.Ordinal))
         {
             throw new BusinessException($"Shared 拓扑仅允许 {SharedAllowedEnvironment} 环境,当前为 {topology.EnvironmentName}。");
@@ -57,6 +66,7 @@ public static class DatabaseTopologyResolver
         {
             DatabaseProvider.Sqlite => topology.SharedSqliteFile,
             DatabaseProvider.PostgreSQL => topology.SharedDatabaseName,
+            DatabaseProvider.SqlServer => topology.SharedDatabaseName,
             _ => throw new ValidationException($"不支持的数据库提供程序:{provider}。"),
         };
 
@@ -68,7 +78,7 @@ public static class DatabaseTopologyResolver
         // StandaloneConfiguration projects the one trusted PostgreSQL schema
         // into SharedDatabaseSchema. Every in-process module must observe that
         // same value; a service-specific fallback silently split the database.
-        var schema = topology.SharedDatabaseSchema;
+        var schema = provider == DatabaseProvider.SqlServer ? "dbo" : topology.SharedDatabaseSchema;
 
         return new ResolvedDatabaseTarget(
             topology.EnvironmentName,
@@ -88,6 +98,11 @@ public static class DatabaseTopologyResolver
         DatabaseProvider provider,
         string logicalDatabaseName)
     {
+        if (provider == DatabaseProvider.SqlServer
+            && !string.IsNullOrWhiteSpace(topology.SharedDatabaseSchema)
+            && !string.Equals(topology.SharedDatabaseSchema, "dbo", StringComparison.OrdinalIgnoreCase))
+            throw new ValidationException("SQL Server 当前仅支持 dbo schema。");
+
         var physicalName = topology.ServiceDatabases.TryGetValue(serviceKey, out var mapped)
             ? mapped
             : null;
@@ -105,7 +120,7 @@ public static class DatabaseTopologyResolver
             logicalDatabaseName,
             physicalName,
             IsSharedPhysicalDatabase: false,
-            Schema: null,
+            Schema: provider == DatabaseProvider.SqlServer ? "dbo" : null,
             IsStandalone: topology.IsStandalone);
     }
 }

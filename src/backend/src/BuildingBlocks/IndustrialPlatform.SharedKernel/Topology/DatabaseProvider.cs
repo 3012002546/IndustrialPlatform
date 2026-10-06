@@ -8,4 +8,7 @@ public enum DatabaseProvider
 
     /// <summary>PostgreSQL(生产与云端开发目标)。</summary>
     PostgreSQL,
+
+    /// <summary>SQL Server 2019/2022；引擎版本由目标库记录，不拆分业务 Provider。</summary>
+    SqlServer,
 }

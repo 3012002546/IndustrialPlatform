@@ -6,8 +6,8 @@ import AppPage from '@/components/base/AppPage.vue'
 import AppQueryPanel from '@/components/management/AppQueryPanel.vue'
 import PermissionGate from '@/permissions/PermissionGate.vue'
 import { PERMISSIONS } from '@/permissions'
-import { getPf04Api } from '@/api/systemData/pf04Registry'
-import type { AuditFactDto, AuditLifecycleRequest } from '@/api/systemData/pf04Types'
+import { getSystemDataOperationsApi } from '@/api/systemData/systemDataOperationsRegistry'
+import type { AuditFactDto, AuditLifecycleRequest } from '@/api/systemData/systemDataOperationsTypes'
 import { downloadBlob } from '@/components/management/download'
 import { useLocalizationStore } from '@/stores/localizationStore'
 import { useAuthStore } from '@/stores/authStore'
@@ -63,7 +63,7 @@ async function load(): Promise<void> {
 
 async function loadPage(page: number, size: number): Promise<void> {
   if (!canReadAudit.value) { rows.value = []; total.value = 0; return }
-  const api = getPf04Api()
+  const api = getSystemDataOperationsApi()
   if (api === null) return
   loading.value = true
   try {
@@ -85,13 +85,13 @@ async function loadTable(request: AppDataTableRequest): Promise<{ items: AuditRo
 }
 
 async function exportCsv(): Promise<void> {
-  const api = getPf04Api()
+  const api = getSystemDataOperationsApi()
   if (api === null) return
   downloadBlob(await api.exportAudits({ producerServiceKey: producer.value, action: action.value, from: from.value || undefined, until: until.value || undefined }), 'systemdata-audit.csv')
 }
 
 async function openDetail(row: AuditRow): Promise<void> {
-  const api = getPf04Api()
+  const api = getSystemDataOperationsApi()
   if (api === null) return
   detail.value = await api.getAudit(row.producerServiceKey, row.auditEventNId)
   detailOpen.value = true
@@ -113,7 +113,7 @@ function handleRowAction(row: AuditRow, command: string | number | object): void
 defineExpose({ openLifecycle })
 
 async function updateLifecycle(): Promise<void> {
-  const api = getPf04Api()
+  const api = getSystemDataOperationsApi()
   const row = lifecycleRow.value
   if (api === null || row === null || lifecycleBusy.value || !canRetentionManage.value) return
   lifecycleBusy.value = true

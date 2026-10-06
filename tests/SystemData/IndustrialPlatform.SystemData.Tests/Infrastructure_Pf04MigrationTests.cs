@@ -1,7 +1,7 @@
 using IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations;
 using IndustrialPlatform.Infrastructure.Database;
 using IndustrialPlatform.SystemData.Application.Files;
-using IndustrialPlatform.SystemData.Application.Pf04;
+using IndustrialPlatform.SystemData.Application.Operations;
 using IndustrialPlatform.SystemData.Contracts.Files;
 using IndustrialPlatform.SystemData.Infrastructure.Persistence.Entities;
 using IndustrialPlatform.SystemData.Infrastructure.Persistence.SystemData;
@@ -49,7 +49,7 @@ public sealed class Pf04MigrationTests
             ScanStatus = "Clean", DeletionStatus = "Active", CreatedOn = now, LastUpdatedOn = now,
         }).ExecuteCommandAsync();
 
-        var store = new Pf04Store(context);
+        var store = new SystemDataOperationalStore(context);
         var service = new FileService(store, new NoopContentStore(), TimeProvider.System);
         var checksum = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData("scope"u8.ToArray())).ToLowerInvariant();
         var binding = await service.BindReferenceAsync("tenant-1", "user-1", "REF-1", new FileBindingRequest
@@ -62,10 +62,10 @@ public sealed class Pf04MigrationTests
         Assert.Equal("Active", hold.Status);
         Assert.NotNull(await service.GetLegalHoldAsync("tenant-1", "user-1", "CASE-A", "file-1", CancellationToken.None));
 
-        var blocked = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.RequestDeletionAsync("tenant-1", "user-1", "file-1", CancellationToken.None));
+        var blocked = await Assert.ThrowsAsync<SystemDataOperationException>(() => service.RequestDeletionAsync("tenant-1", "user-1", "file-1", CancellationToken.None));
         Assert.Equal("FILE_LEGAL_HOLD_ACTIVE", blocked.Code);
         await service.ReleaseLegalHoldAsync("tenant-1", "user-1", "CASE-A", "file-1", new FileHoldRequest { RequestNId = "REQ-RA", ScopeChecksum = checksum, CaseRevision = 1 }, CancellationToken.None);
-        blocked = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.RequestDeletionAsync("tenant-1", "user-1", "file-1", CancellationToken.None));
+        blocked = await Assert.ThrowsAsync<SystemDataOperationException>(() => service.RequestDeletionAsync("tenant-1", "user-1", "file-1", CancellationToken.None));
         Assert.Equal("FILE_REFERENCED", blocked.Code);
         await service.ReleaseReferenceAsync("tenant-1", "user-1", string.Empty, "REF-1", new FileBindingReleaseRequest { RequestNId = "REQ-REF-RELEASE", ExpectedVersion = 0 }, CancellationToken.None);
         Assert.Equal("DeletionRequested", (await service.RequestDeletionAsync("tenant-1", "user-1", "file-1", CancellationToken.None)).DeletionStatus);

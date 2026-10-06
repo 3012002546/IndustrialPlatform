@@ -153,7 +153,7 @@ public sealed class ParameterRepository(SqlSugarDbContext context) : IParameterR
         return ConfigurationScalar.Parse(Enum.Parse<ReferenceDataType>(type), json.RootElement);
     }
     // SQLite has no offset type. SqlSugar reads our UTC wall-clock values with the process-local offset.
-    private DateTimeOffset Timestamp(DateTimeOffset value) => Postgres ? value.ToUniversalTime() : new(value.DateTime, TimeSpan.Zero);
+    private DateTimeOffset Timestamp(DateTimeOffset value) => Db.CurrentConnectionConfig.DbType == DbType.Sqlite ? new(value.DateTime, TimeSpan.Zero) : value.ToUniversalTime();
     private ConfigurationEntityState Stamp(ParameterEntityRow row) => new(row.Id, row.IsFrozen, row.IsLocked, row.IsDeleted, Timestamp(row.CreatedOn), Timestamp(row.LastUpdatedOn), row.OptimisticVersion, row.ConcurrencyVersion);
     private static void Stamp(ParameterEntityRow row, Entity entity)
     {
@@ -272,6 +272,9 @@ public sealed class ParameterRepository(SqlSugarDbContext context) : IParameterR
     {
         for (var current = error; current is not null; current = current.InnerException!)
         {
+            if (current is Microsoft.Data.SqlClient.SqlException { Number: 2601 or 2627 } sqlServer)
+                throw new ReferenceDataException(sqlServer.Message.Contains("parameter_enabled_value_uq", StringComparison.Ordinal)
+                    ? "REF-CONFIG-DUPLICATE-VALUE" : "REF-CONFIG-DUPLICATE-NID", 409);
             if (current is Npgsql.PostgresException { SqlState: "23505" } postgres)
                 throw new ReferenceDataException(postgres.ConstraintName == "parameter_enabled_value_uq" ? "REF-CONFIG-DUPLICATE-VALUE" : "REF-CONFIG-DUPLICATE-NID", 409);
             if (current is Microsoft.Data.Sqlite.SqliteException { SqliteExtendedErrorCode: 2067 or 1555 } sqlite)

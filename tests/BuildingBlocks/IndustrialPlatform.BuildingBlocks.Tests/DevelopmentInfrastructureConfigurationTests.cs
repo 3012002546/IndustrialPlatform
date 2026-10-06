@@ -9,6 +9,19 @@ public sealed class DevelopmentInfrastructureConfigurationTests
 {
     private const string SharedDatabase = "industrial_platform_dev";
 
+    [Theory]
+    [InlineData("Staging")]
+    [InlineData("Production")]
+    public void Deployment_does_not_load_development_private_configuration(string environment)
+    {
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = environment, ContentRootPath = Path.GetTempPath() });
+        builder.Configuration["IndustrialPlatform:DevelopmentInfrastructureMode"] = "Unified";
+        builder.Configuration["IndustrialPlatform:LocalConfigurationPath"] = "missing-development-private.json";
+        builder.Configuration["SqlSugar:DbType"] = "SqlServer";
+        Assert.False(builder.AddOptionalLocalDevelopmentInfrastructure(DevelopmentService.UnifiedHost));
+        Assert.Equal("SqlServer", builder.Configuration["SqlSugar:DbType"]);
+    }
+
     [Fact]
     public void ResolveLocalConfigurationPath_FindsUnifiedBackendConfigurationFromNestedProject()
     {
@@ -222,6 +235,81 @@ public sealed class DevelopmentInfrastructureConfigurationTests
     }
 
     [Fact]
+    public void SqlServerSelectionBuildsEncryptedConnectionFromTrustedConfiguration()
+    {
+        var configuration = CreateDefaults();
+        configuration["DatabaseTopology:SharedSqliteFile"] = "from-host-default.db";
+        var path = WriteLocalConfiguration(enabled: true, topology: SqlServerSharedTopology(), databaseProvider: "SqlServer", sqlServer: """
+            {
+              "Host": "sql.test.invalid",
+              "Port": 1433,
+              "UserName": "sql-user",
+              "Password": "sql-secret",
+              "Encrypt": true,
+              "TrustServerCertificate": false,
+              "ConnectTimeoutSeconds": 15,
+              "CommandTimeoutSeconds": 30
+            }
+            """);
+
+        try
+        {
+            Assert.True(DevelopmentInfrastructureConfiguration.Apply(configuration, path, DevelopmentService.Identity));
+            Assert.Equal("SqlServer", configuration["SqlSugar:DbType"]);
+            var connection = configuration["SqlSugar:ConnectionString"]!;
+            Assert.Contains("sql.test.invalid", connection);
+            Assert.Contains($"{SharedDatabase}", connection);
+            Assert.Contains("Encrypt=True", connection);
+            Assert.Contains("Trust Server Certificate=False", connection);
+            Assert.Equal("30", configuration["SqlSugar:CommandTimeoutSeconds"]);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void SqlServerSelectionWithoutTlsContractRejectsBeforeAnyFallback()
+    {
+        var configuration = CreateDefaults();
+        configuration["DatabaseTopology:SharedSqliteFile"] = "from-host-default.db";
+        var path = WriteLocalConfiguration(enabled: true, topology: SqlServerSharedTopology(), databaseProvider: "SqlServer", sqlServer: """
+            { "Host": "sql.test.invalid", "Port": 1433, "UserName": "sql-user", "Password": "sql-secret" }
+            """);
+
+        try
+        {
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                DevelopmentInfrastructureConfiguration.Apply(configuration, path, DevelopmentService.Identity));
+            Assert.Contains("Encrypt", exception.Message);
+            Assert.Equal("Sqlite", configuration["SqlSugar:DbType"]);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void UnknownDatabaseProviderRejectsBeforeAnyFallback()
+    {
+        var configuration = CreateDefaults();
+        var path = WriteLocalConfiguration(enabled: true, databaseProvider: "Unknown");
+
+        try
+        {
+            Assert.Throws<InvalidOperationException>(() =>
+                DevelopmentInfrastructureConfiguration.Apply(configuration, path, DevelopmentService.Identity));
+            Assert.Equal("Sqlite", configuration["SqlSugar:DbType"]);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void EnabledLocalFileMapsReferenceDataInfrastructureToSharedDatabase()
     {
         var configuration = CreateDefaults();
@@ -413,6 +501,16 @@ public sealed class DevelopmentInfrastructureConfigurationTests
         }
         """;
 
+    private static string SqlServerSharedTopology() => $$"""
+        {
+          "Mode": "Shared",
+          "SharedDatabaseName": "{{SharedDatabase}}",
+          "SharedSqliteFile": "",
+          "SharedDatabaseSchema": "dbo",
+          "ServiceDatabases": {}
+        }
+        """;
+
     private static string PerServiceTopology() => """
         {
           "Mode": "PerService",
@@ -461,15 +559,22 @@ public sealed class DevelopmentInfrastructureConfigurationTests
         return configuration;
     }
 
-    private static string WriteLocalConfiguration(bool enabled, string? topology = null)
+    private static string WriteLocalConfiguration(
+        bool enabled,
+        string? topology = null,
+        string databaseProvider = "PostgreSQL",
+        string? sqlServer = null)
     {
         topology ??= SharedTopology();
+        sqlServer ??= "{}";
         var path = Path.Combine(Path.GetTempPath(), $"industrial-platform-{Guid.NewGuid():N}.json");
         File.WriteAllText(path, $$"""
             {
               "RemoteDevelopment": {
                 "Enabled": {{enabled.ToString().ToLowerInvariant()}},
+                "DatabaseProvider": "{{databaseProvider}}",
                 "Host": "100.64.0.10",
+                "SqlServer": {{sqlServer}},
                 "PostgreSql": {
                   "Port": 5432,
                   "UserName": "db-user",

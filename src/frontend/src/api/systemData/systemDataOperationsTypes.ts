@@ -135,7 +135,7 @@ export interface AuditLifecycleRequest {
   legalHoldReason?: string
 }
 
-export interface Pf04Api {
+export interface SystemDataOperationsApi {
   listFiles(search?: string, page?: number, pageSize?: number, purpose?: string, ownerUserNId?: string, scanStatus?: string, restricted?: boolean): Promise<FilePageDto>
   createUploadSession(request: Record<string, unknown>): Promise<UploadSessionDto>
   discoverUpload(request: Record<string, unknown>): Promise<FileUploadDiscoveryDto>

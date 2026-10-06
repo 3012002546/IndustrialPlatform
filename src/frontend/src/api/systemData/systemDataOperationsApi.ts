@@ -11,9 +11,9 @@ import type {
   FileUploadDiscoveryDto,
   NotificationInboxItemDto,
   NotificationInboxPageDto,
-  Pf04Api,
+  SystemDataOperationsApi,
   UploadSessionDto,
-} from './pf04Types'
+} from './systemDataOperationsTypes'
 
 const BASE = '/systemdata/api/v1'
 const id = (value: string): string => encodeURIComponent(value)
@@ -25,7 +25,7 @@ function query(params: Record<string, string | number | boolean | undefined> = {
     : `?${entries.map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`).join('&')}`
 }
 
-export function createPf04Api(client: HttpClient): Pf04Api {
+export function createSystemDataOperationsApi(client: HttpClient): SystemDataOperationsApi {
   return {
     listFiles: (search, page = 1, pageSize = 50, purpose, ownerUserNId, scanStatus, restricted) =>
       client.get<FilePageDto>(`${BASE}/files${query({ search, purpose, ownerUserNId, scanStatus, restricted, page, pageSize })}`),

@@ -48,9 +48,12 @@ public class StandaloneDatabaseInitializationHostedService : IHostedService
         var topology = _topologyOptions.Value.ToTopology();
         if (!topology.IsStandalone)
             throw new InvalidOperationException("Standalone 初始化器必须使用显式 IsStandalone 拓扑。");
-        var provider = _sqlSugarOptions.Value.DbType == DbType.Sqlite
-            ? DatabaseProvider.Sqlite
-            : DatabaseProvider.PostgreSQL;
+        var provider = _sqlSugarOptions.Value.DbType switch
+        {
+            DbType.Sqlite => DatabaseProvider.Sqlite,
+            DbType.PostgreSQL => DatabaseProvider.PostgreSQL,
+            var value => throw new NotSupportedException($"Standalone 初始化尚不支持数据库提供程序 {value}。"),
+        };
         var operationNId = $"standalone-startup-{_environment.EnvironmentName}";
         var lockTarget = DatabaseTopologyResolver.Resolve(topology, ServiceOrder[0], provider, $"{ServiceOrder[0]}_db");
         await using var initializationLock = await _initializationLock.AcquireAsync(lockTarget, cancellationToken);

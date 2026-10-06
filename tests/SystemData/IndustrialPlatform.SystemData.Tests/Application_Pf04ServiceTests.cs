@@ -1,6 +1,6 @@
 using IndustrialPlatform.SystemData.Application.IdentityDirectory;
 using IndustrialPlatform.SystemData.Application.Notifications;
-using IndustrialPlatform.SystemData.Application.Pf04;
+using IndustrialPlatform.SystemData.Application.Operations;
 using IndustrialPlatform.SystemData.Contracts.Administration;
 using IndustrialPlatform.SystemData.Contracts.Notifications;
 
@@ -47,7 +47,7 @@ public sealed class Pf04ServiceTests
         await service.CreateAnnouncementAsync("tenant-1", "admin", new CreateAnnouncementRequest { AnnouncementNId = "ann-2", Title = "标题", Body = "正文", RecipientUserNIds = ["user-1"] }, CancellationToken.None);
         directory.Status = "Disabled";
 
-        var exception = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.PublishAnnouncementAsync("tenant-1", "admin", "ann-2", CancellationToken.None));
+        var exception = await Assert.ThrowsAsync<SystemDataOperationException>(() => service.PublishAnnouncementAsync("tenant-1", "admin", "ann-2", CancellationToken.None));
 
         Assert.Equal("NOTIFICATION_TARGET_INVALID", exception.Code);
         Assert.Equal(0, store.PublishCount);
@@ -61,7 +61,7 @@ public sealed class Pf04ServiceTests
         var request = new CreateAnnouncementRequest { IdempotencyKey = "key-1", Title = "标题", Body = "正文", RecipientUserNIds = ["user-1"] };
 
         await service.CreateAnnouncementAsync("tenant-1", "admin", request, CancellationToken.None);
-        var exception = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.CreateAnnouncementAsync("tenant-1", "admin", request with { Body = "不同正文" }, CancellationToken.None));
+        var exception = await Assert.ThrowsAsync<SystemDataOperationException>(() => service.CreateAnnouncementAsync("tenant-1", "admin", request with { Body = "不同正文" }, CancellationToken.None));
 
         Assert.Equal("NOTIFICATION_IDEMPOTENCY_CONFLICT", exception.Code);
         Assert.Equal(1, store.InsertedAnnouncements);
@@ -76,7 +76,7 @@ public sealed class Pf04ServiceTests
 
         var first = await service.SendSystemMessageAsync("tenant-1", "admin", request, CancellationToken.None);
         var retry = await service.SendSystemMessageAsync("tenant-1", "admin", request, CancellationToken.None);
-        var exception = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.SendSystemMessageAsync("tenant-1", "admin", request with { Body = "不同正文" }, CancellationToken.None));
+        var exception = await Assert.ThrowsAsync<SystemDataOperationException>(() => service.SendSystemMessageAsync("tenant-1", "admin", request with { Body = "不同正文" }, CancellationToken.None));
 
         Assert.Equal(first.NotificationNId, retry.NotificationNId);
         Assert.Equal("NOTIFICATION_IDEMPOTENCY_CONFLICT", exception.Code);
@@ -118,7 +118,7 @@ public sealed class Pf04ServiceTests
         var service = new NotificationService(store, new DirectoryStub(), TimeProvider.System);
         await service.CreateAnnouncementAsync("tenant-1", "admin", new CreateAnnouncementRequest { AnnouncementNId = "ann-expired", Title = "标题", Body = "正文", RecipientUserNIds = ["user-1"], ExpiresOn = DateTimeOffset.UtcNow.AddSeconds(-1) }, CancellationToken.None);
 
-        var exception = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.PublishAnnouncementAsync("tenant-1", "admin", "ann-expired", CancellationToken.None));
+        var exception = await Assert.ThrowsAsync<SystemDataOperationException>(() => service.PublishAnnouncementAsync("tenant-1", "admin", "ann-expired", CancellationToken.None));
 
         Assert.Equal("NOTIFICATION_EXPIRED", exception.Code);
     }

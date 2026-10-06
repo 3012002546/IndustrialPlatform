@@ -1,5 +1,6 @@
 using IndustrialPlatform.Application.Abstractions.Initialization;
 using IndustrialPlatform.ReferenceData.Infrastructure.UnitOfMeasure;
+using IndustrialPlatform.SharedKernel.Topology;
 
 namespace IndustrialPlatform.ReferenceData.Infrastructure.Initialization;
 
@@ -8,6 +9,8 @@ public sealed class ReferenceDataServiceInitializer : IServiceInitializer
 {
     public const string BaselineVersion = "reference-data-2.7-001";
     public const string CurrentVersion = "reference-data-2.7-011";
+    public const string SqlServerCurrentVersion = "reference-data-2.7-013";
+    public static string VersionFor(DatabaseProvider provider) => provider == DatabaseProvider.SqlServer ? SqlServerCurrentVersion : CurrentVersion;
     public const string BaselineSeedKey = "reference-data.baseline";
     public static readonly string BaselineChecksum =
         System.Security.Cryptography.SHA256.HashData(
@@ -53,7 +56,7 @@ public sealed class ReferenceDataServiceInitializer : IServiceInitializer
             var migration = await _ledger.GetMigrationAsync(cancellationToken);
             var seed = await _ledger.GetSeedAsync(BaselineSeedKey, BaselineVersion, cancellationToken);
             var unitSeed = await _ledger.GetSeedAsync(UnitOfMeasureSystemSeed.SeedKey, UnitOfMeasureSystemSeed.SeedVersion, cancellationToken);
-            var migrationReady = migration?.MigrationId == CurrentVersion && await _ledger.MigrationValidAsync(cancellationToken);
+            var migrationReady = migration?.MigrationId == _ledger.CurrentVersion && await _ledger.MigrationValidAsync(cancellationToken);
             var seedReady = seed is not null
                             && string.Equals(seed.Checksum, BaselineChecksum, StringComparison.Ordinal)
                             && string.Equals(seed.Scope, "System", StringComparison.OrdinalIgnoreCase);
@@ -126,8 +129,8 @@ public sealed class ReferenceDataServiceInitializer : IServiceInitializer
         if (string.Equals(context.EnvironmentName, "Production", StringComparison.OrdinalIgnoreCase)
             && context.Policy != ServiceInitializationPolicy.Advanced)
             throw new InvalidOperationException("REF-INITIALIZATION-ADVANCED-REQUIRED");
-        if (plan.ServiceKey != ServiceKey || plan.ModuleKey != ModuleKey || plan.DesiredVersion != CurrentVersion
-            || (!string.IsNullOrEmpty(context.DesiredVersion) && context.DesiredVersion != CurrentVersion))
+        if (plan.ServiceKey != ServiceKey || plan.ModuleKey != ModuleKey || plan.DesiredVersion != _ledger.CurrentVersion
+            || (!string.IsNullOrEmpty(context.DesiredVersion) && context.DesiredVersion != _ledger.CurrentVersion))
             throw new InvalidOperationException("REF-INITIALIZATION-VERSION-UNSUPPORTED");
         await _ledger.ApplyAsync(context, cancellationToken);
         return await InspectAsync(context, cancellationToken);
@@ -141,7 +144,7 @@ public sealed class ReferenceDataServiceInitializer : IServiceInitializer
         ServiceInitializationState inspection)
     {
         var desiredVersion = string.IsNullOrWhiteSpace(context.DesiredVersion)
-            ? CurrentVersion
+            ? _ledger.CurrentVersion
             : context.DesiredVersion;
         return new ServiceInitializationPlan(
             ServiceKey,
@@ -157,7 +160,8 @@ public sealed class ReferenceDataServiceInitializer : IServiceInitializer
         for (var current = exception; current is not null; current = current.InnerException)
         {
             var message = current.Message;
-            if (message.Contains("no such table", StringComparison.OrdinalIgnoreCase)
+            if (message.Contains("Invalid object name", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("no such table", StringComparison.OrdinalIgnoreCase)
                 || (message.Contains("relation", StringComparison.OrdinalIgnoreCase)
                     && message.Contains("does not exist", StringComparison.OrdinalIgnoreCase)))
             {
@@ -173,7 +177,8 @@ public sealed class ReferenceDataServiceInitializer : IServiceInitializer
         for (var current = exception; current is not null; current = current.InnerException)
         {
             var message = current.Message;
-            if (message.Contains("no such column", StringComparison.OrdinalIgnoreCase)
+            if (message.Contains("Invalid column name", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("no such column", StringComparison.OrdinalIgnoreCase)
                 || (message.Contains("column", StringComparison.OrdinalIgnoreCase)
                     && message.Contains("does not exist", StringComparison.OrdinalIgnoreCase)))
                 return true;

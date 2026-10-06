@@ -1,6 +1,6 @@
 using IndustrialPlatform.Collaboration.Application;
 using IndustrialPlatform.Collaboration.Contracts;
-using IndustrialPlatform.SystemData.Application.Pf04;
+using IndustrialPlatform.SystemData.Application.Operations;
 using IndustrialPlatform.SystemData.Application.Files;
 using IndustrialPlatform.SystemData.Contracts.Files;
 using System.Security.Cryptography;
@@ -159,7 +159,7 @@ public sealed class SystemDataFilePort : ICollaborationFilePort
                 ExpectedVersion = 0,
             }, cancellationToken);
         }
-        catch (Pf04ServiceException exception) when (exception.Code == "FILE_BUSINESS_REFERENCE_NOT_FOUND")
+        catch (SystemDataOperationException exception) when (exception.Code == "FILE_BUSINESS_REFERENCE_NOT_FOUND")
         {
             await _files.DeleteReferenceAsync(tenantNId, userNId, fileNId, referenceNId, cancellationToken);
         }

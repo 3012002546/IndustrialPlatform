@@ -71,12 +71,12 @@ public static class DependencyInjection
         services.AddSingleton<IControlPlaneOutbox, SqlControlPlaneOutbox>();
         services.AddSingleton<ILocalAuditCommand, SqlLocalAuditCommand>();
         services.AddSingleton<ISystemDataWriteTransaction, SqlSystemDataWriteTransaction>();
-        services.AddSingleton<Pf04Store>();
-        services.AddSingleton<IFileStore>(sp => sp.GetRequiredService<Pf04Store>());
-        services.AddSingleton<IFileStatusOutbox>(sp => sp.GetRequiredService<Pf04Store>());
-        services.AddSingleton<INotificationStore>(sp => sp.GetRequiredService<Pf04Store>());
+        services.AddSingleton<SystemDataOperationalStore>();
+        services.AddSingleton<IFileStore>(sp => sp.GetRequiredService<SystemDataOperationalStore>());
+        services.AddSingleton<IFileStatusOutbox>(sp => sp.GetRequiredService<SystemDataOperationalStore>());
+        services.AddSingleton<INotificationStore>(sp => sp.GetRequiredService<SystemDataOperationalStore>());
         services.AddSingleton<INotificationTargetValidator, NotificationTargetValidator>();
-        services.AddSingleton<IAuditStore>(sp => sp.GetRequiredService<Pf04Store>());
+        services.AddSingleton<IAuditStore>(sp => sp.GetRequiredService<SystemDataOperationalStore>());
         services.AddOptions<AuditFailureSpoolOptions>()
             .Bind(configuration.GetSection(AuditFailureSpoolOptions.SectionName));
         services.AddSingleton<IAuditFailureSink, FileAuditFailureSink>();
@@ -125,6 +125,7 @@ public static class DependencyInjection
 
         services.AddSingleton<PostgreSqlTargetDatabaseAdapter>();
         services.AddSingleton<SqliteTargetDatabaseAdapter>();
+        services.AddSingleton<SqlServerTargetDatabaseAdapter>();
         services.AddSingleton<DatabaseTargetAdapterRouter>();
         services.AddSingleton<ITargetDatabaseInspector>(sp => sp.GetRequiredService<DatabaseTargetAdapterRouter>());
         services.AddSingleton<ITargetDatabaseProvisioner>(sp => sp.GetRequiredService<DatabaseTargetAdapterRouter>());

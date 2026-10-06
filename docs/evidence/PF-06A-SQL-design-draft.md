@@ -1,5 +1,11 @@
 # PF-06A / 009 SQL Server 接入设计草案（D02/D03/D04/D06）
 
+> 历史设计草案。2026-09-30 当前实现/验收以 [09A §9](../implementation/09A-Industrial%20Platform终端运行时与客户端打包开发实施方案.md#9-sql-server-20192022接入)、[最新验证报告](PF-06A-SQL2019-compatibility-check.md)和[全表字典](../implementation/details/PF06A-SQLServer全表字段字典.md)为准。下文描述的是接入前现状，不再作为未实现清单。2022 与生产专项仍未实测。
+
+**2026-09-30 状态更新：** 下文是 09-21 的只读清点快照，其中“尚未进入编码”等表述只适用于当时。主控按用户继续开发的指令已做 Provider、拓扑、Development 连接构造、catalog 检查和 ReferenceData 目标身份等局部代码；未切换现有运行数据库。用户已提供 SQL Server 2019 隔离库的受控连接串；只读连通与实例身份检查通过，详情见[PF-06A 证据](PF-06A.md#sql-server-2019-隔离库连通性核查2026-09-30)。G06A-SQL 仍 OPEN，完整 DDL/仓储/锁与字段字典未完成，不构成 SQL Server 可用或验收结论；2022 真引擎验收保持 `NOT RUN`。
+
+本轮本机验证：原工作树 `dotnet build src/backend/IndustrialPlatform.slnx --configuration Release` 退出码 0、0 警告/0 错误；`dotnet test ... --no-build` 并行运行时 Identity 协作目录一例失败，其余七组通过；随后该例单独复测通过、Identity 整组串行复测 621/621 通过。BuildingBlocks 173/173、ReferenceData 262/262、SystemData 636/636、Collaboration 165/165、Gateway 14/14、UnifiedHost 23/23、Integration 12 通过/7 跳过。以上仅为现有 Provider 和新基础件回归，SQL-A01～A09 真实 SQL Server 2019/2022 仍 `NOT RUN`。清理后 `dotnet/testhost/VBCSCompiler` 残留进程为 0。
+
 > 状态：G06A-SQL **OPEN，主控复核未通过**。本文是基于当前仓库只读清点形成的逐服务设计输入，不是 SQL Server 已实现或已验收报告。
 >
 > 本轮没有修改 `src/backend` 生产代码，没有切换当前数据库，也没有创建 SQL Server 连接或凭据。主控确认配置合同、schema 策略、锁语义和驱动版本后，才允许进入编码与真实引擎验收。
