@@ -131,7 +131,7 @@ PF05/06、PF08/09、PF10/10A、PF10B、PF11均须完成[蓝图32§2.1～2.2](../
 | PF05 | details/PF05-数据接口与页面规格.md；PF04 File/Audit/身份消费语义核验 | 待派遣；待前置核验 |
 | PF06 | details/PF06-数据接口与页面规格.md V3.0；§2数据、§3事务、§4协议、§5媒体、§6页面、§8验收 | 2026-09-12已纠偏续行既定业务代码实现；工作线/设计已具备，G06-1/3真实环境限制最终验收，不再作为禁止002开工的条件；G06-2随接入核验 |
 | PF06A | 实施09A统一文档：§3扫码控件/页面，§4更新测试，§5/6接口字段，§9 SQL Server；仅001/005/009三个任务 | 待派遣；待实际目标核验 |
-| PF07 | 实施 10 尚未创建；Scheduler 的 Job/Trigger/Run/Lease、时区/DST/补偿/重入；Health 的 Probe/Observation/Incident 与权威/保留；各自字段/页面线框/API | 待细化，不得派遣编码 |
+| PF07 | [实施10](10-Industrial%20Platform%20Scheduler%20Platform%20Health开发实施方案.md)及[完整明细](details/PF07-数据接口与页面规格.md)V1.1：两自有表、单引擎/最小业务保护/Unknown、最新健康摘要、三路由/弹层/API/A01～A20；G07-1引擎底层存储/接口、G07-2公开适配仍是设计前置，G07-3为实施后真实验收环境 | 待前置核验/待派遣；G07-1/2设计闭合再派生产，G07-3实测不重复前移为整包开工门禁 |
 | PF08 | 实施 11 尚未创建；PageDefinition/Revision/Publication、组件白名单、数据源授权、回滚、设计器/预览图及运行时契约 | 待细化，不得派遣编码 |
 | PF09 | 实施 12 尚未创建；Dashboard/Widget/Revision 与 Report/Run/Artifact 分开；查询预算、权限/脱敏、导出取消/保留、设计和运行线框图 | 待细化，不得派遣编码 |
 | PF10 | 实施 13 尚未创建；ManagedNode/AgentCredential/MetricSample/Rule/Alert、指标保留/采样/聚合、凭据轮换；主从节点/告警图 | 待细化，不得派遣编码 |

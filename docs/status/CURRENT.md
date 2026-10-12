@@ -1,5 +1,9 @@
 # Industrial Platform 当前状态
 
+- 2026-10-12 / PF07整体复核与收敛：按用户要求调整[实施10](../implementation/10-Industrial%20Platform%20Scheduler%20Platform%20Health开发实施方案.md)与[字段/API/线框规格](../implementation/details/PF07-数据接口与页面规格.md)至V1.1评估稿。首版两自有表Job/Run（引擎物理表选型后补齐）、三PC管理页、每任务一个Cron、原生引擎执行/重试与最小业务防重；健康只汇总现有检查及最新内存快照；既有登录/统一审计入口保持，PF07写操作接统一Audit。撤出未实施的多Trigger/动态schema表单、业务Attempt/租约/通用请求响应表、健康三表/采样槽/探针和异常维护页面。六卡/20案例及全部当前索引已同步；G07-1/2仍是设计前置，G07-3为实施验收环境条件。当前待用户复评/待前置核验/待派遣，未实现或功能验收。仅改文档，记录见[本轮复核证据](../evidence/2026-10-12-pf07-document-convergence.md)；下条10-07的9表/5页是首稿历史快照，以本条收敛范围为准。
+
+- 2026-10-07 / PF07文档细化：已创建[实施10](../implementation/10-Industrial%20Platform%20Scheduler%20Platform%20Health开发实施方案.md)、[PF07明细](../implementation/details/PF07-数据接口与页面规格.md)及[pending工作包](../tasks/pending/PF-07.md)。两个模块扩展SystemData.Service；9张业务表及中文字段/三Provider映射、API/状态/事务、5条PC管理路由/弹层/工作台线框、6张内部九字段卡和20项验收案例已写入。设计就绪度待前置核验、派遣状态待派遣；G07-1引擎存储/初始化、G07-2公开适配、G07-3真实环境未关闭，不能直接派生产编码。本轮只改文档，未创建开发任务、未启动服务/PoC/数据库迁移、未运行功能测试。文档记录见[本轮证据](../evidence/2026-10-07-pf07-document-detail.md)。下条10-06的“PF07尚未补齐”为当时快照，由本条更新设计状态；旧阶段未测门禁不变。
+
 - 2026-10-06 / 提交前整体复核：本轮 SQL Server 适配与领域命名修改未发现新的阻断问题。再次执行新鲜 Release 编译及全量后端测试，0 警告／0 错误，1915 通过／0 失败／7 项外部环境测试跳过；SQL Server 2019 真库测试已启用并通过，前端 DEV 打包通过。私有配置、构建产物和旧规格跳转文档中的本地手动编辑不纳入提交。可转入 PF07 规格与任务细化；实施 10、表字段、API、页面和验收条件尚未补齐，不能直接派遣编码。2022 实机与生产部署门禁仍按 SQL2019 报告列为待验证，不因进入下一阶段而标记完成。
 
 - 2026-10-06 / 领域命名：Identity 两张安全表通过新增迁移改为 identity_service_call_nonce、identity_step_up_grant；SQL Server 2019 真库改名及新映射读写通过，数据、索引和表/列说明保留。SystemData 持久化类、异常类及前端 API 模型同步去除任务前缀；正常 PG 运行库未迁移。最终回归结果见 PF-06A SQL2019 验证记录。

@@ -376,23 +376,25 @@ Audit Advanced（010）包含哈希链、签名 checkpoint、外部锚点、完�
 
 # 14. PF-07 Scheduler / Platform Health
 
-PF-07 只使用一个阶段管理会话，输出实施文档 10。Scheduler 与 Platform Health 分开建模并拆成独立任务。
+PF-07只使用一个阶段管理会话；[实施10](../implementation/10-Industrial%20Platform%20Scheduler%20Platform%20Health开发实施方案.md)与[字段/API/页面规格](../implementation/details/PF07-数据接口与页面规格.md)2026-10-12收敛为V1.1评估稿。两自有表、三管理页、单引擎调度与健康最新摘要，既有Audit复用；Scheduler与PlatformHealth保持职责边界，内部001～006连续执行，整体派遣，不逐卡提交。
+
+**设计就绪度：** 待前置核验；**派遣状态：** 待派遣，当前供用户复评。G07-1引擎/受控存储、G07-2公开适配仍是设计前置；G07-3为实施后真实环境验收条件，不能前移成重复整包开工验收。责任及退出条件见实施10§1.3；未启动PoC/生产开发。
 
 **Service Host：** Scheduler 与 PlatformHealth 模块加入 `SystemData.Service`。
 
 ## 14.1 Scheduler
 
-**状态：** 待启动
-**建议会话标题：** `PF-07 Scheduler Platform Health详细设计与任务派遣`
-**目标：** 定义任务、Cron、启停、互斥、超时、重试、执行记录和人工触发。
+**状态：** 设计草案已细化，待前置核验/待派遣。
+**当前会话职责：** PF07主控维护设计、前置核验与任务输入。
+**目标：** 定义代码白名单任务及每任务一个Cron，原生引擎负责计划/工作器/重试；保留启停、业务防重/互斥、超时/取消、Unknown核对、执行记录和人工触发，不自建第二套调度机制。
 **边界：** Scheduler 不包含所属模块业务规则；处理器通过公开契约注册。
 **完成门禁：** 单实例和多实例互斥、失败重试、人工触发、审计、指标和管理页面通过。
 
 ## 14.2 Platform Health
 
-**状态：** 待启动
-**目标：** 聚合 API、数据库、缓存、消息、文件扫描、Realtime 和 RemoteAssistance 依赖摘要。
-**边界：** 不采集完整主机、进程、磁盘和日志告警。
+**状态：** 设计草案已细化，待前置核验/待派遣。
+**目标：** 聚合API、数据库、缓存、消息、文件扫描、Realtime和RemoteAssistance真实摘要、检查时间及降级原因；使用现有检查/受控适配，仅保留最新内存快照。
+**边界：** 首版不建探针配置/观察/异常表及对应维护页面，不采集完整主机、进程、磁盘和日志告警。
 **完成门禁：** 工作台和运行治理页显示真实服务状态、降级原因和 TraceId，不展示伪造健康数据。
 
 # 15. PF-08 Low Code
@@ -516,8 +518,8 @@ WorkOrder、Weighting、Trace、BatchRecord 和生产闭环分别开会话设计
 | PF-04 File / Notification / Audit | Core 已提交，真实验收待补 | 原开发/验收任务保留 | 蓝图 05/26/30/32/33 | 实施 07 | 001～009已有实现；010 后续待细化 | `docs/evidence/PF-04.md` 历史自测；真实浏览器/ClamAV/中间件/多实例仍待验收 |
 | PF-05 Collaboration | 已派遣，最小依赖先实现并做合同测试 | 原开发与独立验收任务继续协作 | 蓝图 04/05/32/33 | [实施 08](../implementation/08-Industrial%20Platform%20Collaboration开发实施方案.md)及[执行补充](../implementation/details/PF05-前置契约与合规执行补充.md) | 001～008整体执行，见[active工作包](../tasks/active/PF-05.md) | 基线已通过；PF05功能、真实环境与2C4G仍待验收 |
 | PF-06 RemoteAssistance | V3.0设计与详细任务已收敛，实测待核验 | 当前PF06主控会话 | 用户需求、当前公开代码契约与官方资料 | `docs/implementation/09-Industrial Platform RemoteAssistance开发实施方案.md` | 两独立业务状态、共用媒体连接、分项授权与结束 | 已纠偏续行正式业务实现；真实媒体/质量最终验收待完成 |
-| PF-06A 终端运行时与客户端打包（含SQL Server补充） | 待派遣/待前置核验 | 未创建执行任务 | 蓝图 34及用户SQL Server追加要求 | [实施 09A](../implementation/09A-Industrial%20Platform终端运行时与客户端打包开发实施方案.md) | 001客户端/扫码、005更新交付、009数据库，均未派遣 | 无原生/真机或SQL Server验收 |
-| PF-07 Scheduler / Platform Health | 待启动 | 待创建 | 蓝图 05、30 | 实施 10 待创建 | - | - |
+| PF-06A 终端运行时与客户端打包（含SQL Server补充） | 已有实现/分项实测，整包未验收完成 | 现有阶段安排见CURRENT/active | 蓝图34及用户SQL Server追加要求 | [实施09A](../implementation/09A-Industrial%20Platform终端运行时与客户端打包开发实施方案.md) | 001/005已实现且有Android手机实测；009有2019隔离验证 | PF-06A及SQL2019证据；正式更新/PDA/2022和生产门禁仍未测 |
+| PF-07 Scheduler / Platform Health | 待派遣 / 待前置核验，V1.1供复评 | 当前PF07主控；执行者未分配 | 蓝图05、30、32、33 | [实施10](../implementation/10-Industrial%20Platform%20Scheduler%20Platform%20Health开发实施方案.md)及PF07明细 | TASK-PF07-001～006；两自有表/三管理路由/20验收案例，另补引擎存储 | 仅文档收敛；G07-1/2设计未闭合，G07-3真实验收条件，无功能验收 |
 | PF-08 Low Code | 待启动 | 待创建 | 蓝图 21 待复核 | 实施 11 待创建 | - | - |
 | PF-09 Dashboard & Report | 待启动 | 待创建 | 蓝图 22 待复核 | 实施 12 待创建 | - | - |
 | PF-10 ServerMonitor | 待启动 | 待创建 | 蓝图 02、32 待复核 | 实施 13 待创建 | - | - |
@@ -563,4 +565,4 @@ PF-05/06 本次只改设计和九字段任务；新增 PF-06A/09A 与 PF-10B/13B
 
 统一遵守[派遣前详细设计与页面验收](../implementation/STANDARD-派遣前详细设计与页面验收.md)。PF05/PF06/PF10B的字段、接口、线框与任务断言读取各自details；PF06A统一读实施09A（已合并明细且简化为三个任务）；[待派遣索引](../tasks/pending/README.md)记录待派遣包与前置缺口。生产范围全部D01～D08已就绪后才能派遣，不能在开发任务中临时设计字段或布局。历史卡数量不作当前阶段数依据；按各现行任务清单纵向连续实现，不逐卡新增会话或提交。
 
-尚无实施方案的PF07/08/09/10/10A/11按共同规则§7逐阶段补齐全部设计后才进入待派遣；MES原暂缓不变。本轮未创建或发送外部任务，PF02/04现有工作线不受此文档更新影响。
+PF07实施10与明细已创建，进入待派遣/待前置核验草案；尚无实施方案的PF08/09/10/10A/11按共同规则§7继续细化，MES原暂缓不变。本轮未创建或发送外部任务，未改变既有工作线。
