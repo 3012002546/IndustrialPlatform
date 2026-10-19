@@ -1,6 +1,7 @@
 using System.Data.Common;
 using System.Globalization;
 using IndustrialPlatform.SharedKernel.Topology;
+using Microsoft.Data.SqlClient;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 
@@ -63,6 +64,10 @@ public static class DevelopmentInfrastructureConfiguration
             throw new InvalidOperationException(
                 $"{DevelopmentInfrastructureModeKey} 仅支持 Unified 或 Sqlite,当前值:{mode}。");
         }
+
+        // 部署环境从部署配置读取基础设施，不发现或加载开发者的私有连接信息。
+        if (!string.Equals(builder.Environment.EnvironmentName, "Development", StringComparison.OrdinalIgnoreCase))
+            return false;
 
         var localConfigurationPath = ResolveLocalConfigurationPath(
             builder.Environment.ContentRootPath,
@@ -136,28 +141,34 @@ public static class DevelopmentInfrastructureConfiguration
 
         var section = configuration.GetRequiredSection("RemoteDevelopment");
         var host = Required(section, "Host");
-        var postgres = section.GetRequiredSection("PostgreSql");
         var redis = section.GetRequiredSection("Redis");
 
         // 数据库物理名唯一来源:DatabaseTopology(解析失败抛明确、脱敏的启动错误)。
-        var target = ResolveTarget(configuration, service, DatabaseProvider.PostgreSQL, expectedEnvironmentName);
-
-        var sql = new DbConnectionStringBuilder
+        var provider = section["DatabaseProvider"] switch
         {
-            ["Host"] = host,
-            ["Port"] = PositivePort(postgres, "Port"),
-            ["Database"] = target.PhysicalDatabaseName,
-            ["User ID"] = Required(postgres, "UserName"),
-            ["Password"] = Required(postgres, "Password"),
+            null or "" or "PostgreSQL" => DatabaseProvider.PostgreSQL,
+            "SqlServer" => DatabaseProvider.SqlServer,
+            var value => throw new InvalidOperationException($"RemoteDevelopment:DatabaseProvider 不支持 {value}。"),
+        };
+        var target = ResolveTarget(configuration, service, provider, expectedEnvironmentName);
+        var connectionString = provider switch
+        {
+            DatabaseProvider.PostgreSQL => PostgreSqlConnectionString(section, host, target),
+            DatabaseProvider.SqlServer => SqlServerConnectionString(section, target),
+            _ => throw new InvalidOperationException($"RemoteDevelopment:DatabaseProvider 不支持 {provider}。"),
         };
 
         var overrides = new Dictionary<string, string?>
         {
-            ["SqlSugar:DbType"] = "PostgreSQL",
-            ["SqlSugar:ConnectionString"] = sql.ConnectionString,
+            ["SqlSugar:DbType"] = provider.ToString(),
+            ["SqlSugar:ConnectionString"] = connectionString,
             ["Redis:ConnectionString"] = $"{host}:{PositivePort(redis, "Port")},password={Required(redis, "Password")},defaultDatabase={redis.GetValue<int>("DefaultDatabase")}",
             ["Serilog:Seq:Enabled"] = "false",
         };
+        if (provider == DatabaseProvider.SqlServer)
+        {
+            overrides["SqlSugar:CommandTimeoutSeconds"] = PositiveSeconds(section.GetRequiredSection("SqlServer"), "CommandTimeoutSeconds", 30).ToString(CultureInfo.InvariantCulture);
+        }
 
         var seq = section.GetSection("Seq");
         if (seq.GetValue<bool>("Enabled"))
@@ -180,6 +191,59 @@ public static class DevelopmentInfrastructureConfiguration
 
         configuration.AddInMemoryCollection(overrides);
         return true;
+    }
+
+    private static string PostgreSqlConnectionString(
+        IConfigurationSection section,
+        string host,
+        ResolvedDatabaseTarget target)
+    {
+        var postgres = section.GetRequiredSection("PostgreSql");
+        return new DbConnectionStringBuilder
+        {
+            ["Host"] = host,
+            ["Port"] = PositivePort(postgres, "Port"),
+            ["Database"] = target.PhysicalDatabaseName,
+            ["User ID"] = Required(postgres, "UserName"),
+            ["Password"] = Required(postgres, "Password"),
+        }.ConnectionString;
+    }
+
+    private static string SqlServerConnectionString(IConfigurationSection section, ResolvedDatabaseTarget target)
+    {
+        var sqlServer = section.GetRequiredSection("SqlServer");
+        if (!bool.TryParse(sqlServer["Encrypt"], out var encrypt) || !encrypt)
+        {
+            throw new InvalidOperationException("RemoteDevelopment:SqlServer:Encrypt 必须显式为 true。");
+        }
+
+        if (!bool.TryParse(sqlServer["TrustServerCertificate"], out var trustCertificate))
+        {
+            throw new InvalidOperationException("RemoteDevelopment:SqlServer:TrustServerCertificate 必须显式指定。");
+        }
+
+        var connection = new SqlConnectionStringBuilder
+        {
+            DataSource = $"{Required(sqlServer, "Host")},{PositivePort(sqlServer, "Port")}",
+            InitialCatalog = target.PhysicalDatabaseName,
+            UserID = Required(sqlServer, "UserName"),
+            Password = Required(sqlServer, "Password"),
+            TrustServerCertificate = trustCertificate,
+            ConnectTimeout = PositiveSeconds(sqlServer, "ConnectTimeoutSeconds", 15),
+            PersistSecurityInfo = false,
+            ApplicationName = "IndustrialPlatform",
+        };
+        connection["Encrypt"] = true;
+        return connection.ConnectionString;
+    }
+
+    private static int PositiveSeconds(IConfigurationSection section, string key, int defaultValue)
+    {
+        if (section[key] is null) return defaultValue;
+        return int.TryParse(section[key], NumberStyles.None, CultureInfo.InvariantCulture, out var seconds)
+            && seconds is > 0 and <= 120
+                ? seconds
+                : throw new InvalidOperationException($"Local development configuration has an invalid {section.Path}:{key}.");
     }
 
     private static void ApplySqliteTopology(

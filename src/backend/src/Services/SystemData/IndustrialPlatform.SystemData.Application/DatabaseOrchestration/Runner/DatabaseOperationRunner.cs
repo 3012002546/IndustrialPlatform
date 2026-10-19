@@ -1608,6 +1608,7 @@ public sealed class DatabaseOperationRunner : IOperationRunnerCoordinator
     {
         "Sqlite" => DatabaseProvider.Sqlite,
         "PostgreSQL" => DatabaseProvider.PostgreSQL,
+        "SqlServer" => DatabaseProvider.SqlServer,
         _ => throw new ProviderUnsupportedException(provider),
     };
 

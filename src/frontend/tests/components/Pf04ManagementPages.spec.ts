@@ -8,8 +8,8 @@ import { defineComponent, h } from 'vue'
 import FileManagementPage from '@/pages/pc/systemData/FileManagementPage.vue'
 import NotificationManagementPage from '@/pages/pc/systemData/NotificationManagementPage.vue'
 import AuditManagementPage from '@/pages/pc/systemData/AuditManagementPage.vue'
-import { registerPf04Api } from '@/api/systemData/pf04Registry'
-import type { Pf04Api } from '@/api/systemData/pf04Types'
+import { registerSystemDataOperationsApi } from '@/api/systemData/systemDataOperationsRegistry'
+import type { SystemDataOperationsApi } from '@/api/systemData/systemDataOperationsTypes'
 import { PERMISSIONS } from '@/permissions'
 import { useAuthStore } from '@/stores/authStore'
 import { persistAuthSession } from '../fixtures/session'
@@ -75,7 +75,7 @@ describe('PF-04 PC management pages', () => {
       exportAudits: vi.fn().mockResolvedValue(new Blob(['csv'])),
       updateAuditLifecycle: vi.fn().mockResolvedValue(undefined),
     }
-    registerPf04Api(api as unknown as Pf04Api)
+    registerSystemDataOperationsApi(api as unknown as SystemDataOperationsApi)
   })
 
   afterEach(() => vi.unstubAllEnvs())

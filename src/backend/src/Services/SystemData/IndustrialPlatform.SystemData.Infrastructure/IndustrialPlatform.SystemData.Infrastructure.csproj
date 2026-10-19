@@ -4,6 +4,13 @@
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
     <PackageReference Include="Microsoft.Data.Sqlite" />
     <PackageReference Include="Npgsql" />
+    <PackageReference Include="Microsoft.Data.SqlClient" />
+    <PackageReference Include="Hangfire.Core" />
+    <PackageReference Include="Cronos" />
+    <PackageReference Include="Hangfire.SqlServer" />
+    <PackageReference Include="Hangfire.PostgreSql" />
+    <PackageReference Include="Hangfire.Storage.SQLite" />
+    <PackageReference Include="SQLitePCLRaw.bundle_green" ExcludeAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
@@ -15,4 +22,7 @@
     <ProjectReference Include="..\..\..\BuildingBlocks\IndustrialPlatform.EventBus\IndustrialPlatform.EventBus.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Persistence/Migrations/SqlServer/*.sql" />
+  </ItemGroup>
 </Project>

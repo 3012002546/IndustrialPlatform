@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using IndustrialPlatform.Security;
 using IndustrialPlatform.SystemData.Application.Files;
-using IndustrialPlatform.SystemData.Application.Pf04;
+using IndustrialPlatform.SystemData.Application.Operations;
 using IndustrialPlatform.SystemData.Contracts.Files;
 using IndustrialPlatform.Web.Results;
 using Microsoft.AspNetCore.Authorization;
@@ -147,7 +147,7 @@ public sealed class CollaborationSystemDataFileInternalController : ControllerBa
             var referenceNId = Request.Query["referenceNId"].FirstOrDefault();
             return File(await _files.OpenFileContentAsync(validation.Call.TenantNId, validation.Call.ActorUserNId, fileNId, referenceNId, cancellationToken), metadata.ContentType, metadata.FileName, enableRangeProcessing: true);
         }
-        catch (Pf04ServiceException exception)
+        catch (SystemDataOperationException exception)
         {
             return StatusCode(exception.StatusCode, ApiResult.Fail<object?>(exception.Code, exception.Message));
         }
@@ -255,7 +255,7 @@ public sealed class CollaborationSystemDataFileInternalController : ControllerBa
     private static async Task<IActionResult> Execute<T>(Func<Task<T>> operation)
     {
         try { return new OkObjectResult(ApiResult.Ok(await operation())); }
-        catch (Pf04ServiceException exception) { return new ObjectResult(ApiResult.Fail<object?>(exception.Code, exception.Message)) { StatusCode = exception.StatusCode }; }
+        catch (SystemDataOperationException exception) { return new ObjectResult(ApiResult.Fail<object?>(exception.Code, exception.Message)) { StatusCode = exception.StatusCode }; }
     }
 
     private async Task<ExportArtifactResponse> CreateExportArtifactAsync(

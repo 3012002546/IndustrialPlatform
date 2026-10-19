@@ -17,6 +17,7 @@ import { createCollaborationApi } from '@/api/collaboration'
 import { registerCollaborationApi } from '@/api/collaborationRegistry'
 import { CollaborationRealtimeManager, registerCollaborationRealtime } from '@/api/collaborationHub'
 import { createReferenceDataApi, registerReferenceDataApi } from '@/api/referenceData'
+import { createSchedulerApi, registerSchedulerApi } from '@/api/systemData/schedulerApi'
 import { createIdentityManagementApi } from '@/api/identity/management'
 import { registerManagementApi } from '@/api/identity/managementRegistry'
 import { createIdentitySsoApi, registerSsoApi } from '@/api/identity/sso'
@@ -39,8 +40,8 @@ import { useLocalizationStore } from '@/stores/localizationStore'
 import { useSystemDataRuntimeStore } from '@/stores/systemData/runtimeStore'
 import {
   createSystemDataManagementApi,
-  createPf04Api,
-  registerPf04Api,
+  createSystemDataOperationsApi,
+  registerSystemDataOperationsApi,
   createSystemDataRuntimeApi,
   registerSystemDataManagementApi,
   registerSystemDataRuntimeApi,
@@ -113,7 +114,8 @@ function installAuthGateway(pinia: Pinia, router: Router): void {
     )
     registerReferenceDataApi(createReferenceDataApi(client))
     registerSystemDataManagementApi(createSystemDataManagementApi(client))
-    registerPf04Api(createPf04Api(client))
+    registerSystemDataOperationsApi(createSystemDataOperationsApi(client))
+    registerSchedulerApi(createSchedulerApi(client))
     const systemDataRuntimeApi = createSystemDataRuntimeApi(client)
     registerSystemDataRuntimeApi(systemDataRuntimeApi)
     setTenantUiDefaultsSource(

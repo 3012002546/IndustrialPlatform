@@ -18,11 +18,18 @@ public sealed class ReferenceDataHostContext(IConfiguration configuration, IHost
         var key = unifiedHost ? "unifiedhost" : "referencedata";
         if (options.Mode == DatabaseTopologyMode.PerService && !options.ServiceDatabases.ContainsKey(key))
             throw new InvalidOperationException("REF-INITIALIZATION-TARGET-MISSING");
+        var provider = database.Value.DbType switch
+        {
+            DbType.PostgreSQL => DatabaseProvider.PostgreSQL,
+            DbType.Sqlite => DatabaseProvider.Sqlite,
+            DbType.SqlServer => DatabaseProvider.SqlServer,
+            var dbType => throw new NotSupportedException($"ReferenceData 不支持的数据库类型:{dbType}。"),
+        };
         var target = DatabaseTopologyResolver.Resolve(options.ToTopology(), key,
-            database.Value.DbType == DbType.PostgreSQL ? DatabaseProvider.PostgreSQL : DatabaseProvider.Sqlite, "referencedata_db")
+            provider, "referencedata_db")
             with { ServiceKey = "referencedata" };
         return new ServiceInitializationContext(environment.EnvironmentName, tenantNId, operationNId, "referencedata", "referencedata", target,
-            version ?? ReferenceDataServiceInitializer.CurrentVersion, policy, traceId);
+            version ?? ReferenceDataServiceInitializer.VersionFor(provider), policy, traceId);
     }
 }
 

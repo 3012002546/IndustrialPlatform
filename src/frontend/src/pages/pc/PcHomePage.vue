@@ -16,6 +16,7 @@ import type { LoginAuditItemDto } from '@/api/identity/management'
 import { getManagementApi } from '@/api/identity/managementRegistry'
 import AppPage from '@/components/base/AppPage.vue'
 import TimeGreetingHeader from '@/components/home/TimeGreetingHeader.vue'
+import PlatformHealthSummary from '@/components/home/PlatformHealthSummary.vue'
 import { loadRuntimeConfig } from '@/config/runtimeConfig'
 import type { TerminalType } from '@/device/types'
 import { localeMessages } from '@/localization/i18n'
@@ -115,6 +116,7 @@ onMounted(() => {
 
 <template>
   <AppPage class="pc-home">
+    <PlatformHealthSummary />
     <TimeGreetingHeader
       terminal="pc"
       :display-name="displayName"
@@ -172,7 +174,9 @@ onMounted(() => {
             <ElIcon><Monitor /></ElIcon>
             <div>
               <dt>{{ homeCopy.dataHost }}</dt>
-              <dd data-testid="data-source">{{ serviceLabel }} <em>{{ homeCopy.connected }}</em></dd>
+              <dd data-testid="data-source">
+                {{ serviceLabel }} <em>{{ homeCopy.connected }}</em>
+              </dd>
             </div>
           </div>
           <div>
@@ -212,12 +216,15 @@ onMounted(() => {
             }}</ElTag></template
           ></ElTableColumn
         >
-        <ElTableColumn prop="traceId" :label="homeCopy.traceId" min-width="220" show-overflow-tooltip />
+        <ElTableColumn
+          prop="traceId"
+          :label="homeCopy.traceId"
+          min-width="220"
+          show-overflow-tooltip
+        />
       </ElTable>
       <div v-else class="pc-home__audit-empty" v-loading="auditsLoading">
-        {{
-          auditsUnavailable ? homeCopy.auditUnavailable : homeCopy.auditEmpty
-        }}
+        {{ auditsUnavailable ? homeCopy.auditUnavailable : homeCopy.auditEmpty }}
       </div>
     </section>
   </AppPage>

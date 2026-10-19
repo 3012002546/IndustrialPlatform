@@ -131,8 +131,10 @@ public sealed class UnifiedHostTests : IDisposable
         Assert.Equal(0, await CountAsync("SELECT COUNT(*) FROM identity_seed_ledger WHERE seed_n_id = 'identity.bootstrap-admin'"));
     }
 
-    [Fact]
-    public async Task RealHostedServices_UpgradeExistingBaselineBeforeStartingBackgroundWriters()
+    [Theory]
+    [InlineData("1", null)]
+    [InlineData("4", "3")]
+    public async Task RealHostedServices_UpgradeExistingBaselineBeforeStartingBackgroundWriters(string resourceVersion, string? appliedConsistencyVersion)
     {
         using (var factory = CreateFactory())
         using (var client = factory.CreateClient())
@@ -141,20 +143,26 @@ public sealed class UnifiedHostTests : IDisposable
             Assert.Equal(HttpStatusCode.OK, health.StatusCode);
         }
 
-        // 仅将本测试的临时 SQLite 恢复到旧 SDM-017 已完成、资源仍为 v1 的状态。
+        // 覆盖旧修复种子缺失，以及旧 v3 账本仍在、PF07 清单已更新但资源仍为 v4 的失败现场。
         using (var db = CreateReadContext())
         {
             Assert.True(await db.SqlSugar.Updateable<SystemDataUiResourceTable>()
-                .SetColumns(row => row.ManifestVersion == "1")
+                .SetColumns(row => row.ManifestVersion == resourceVersion)
                 .Where(row => row.OwnerModuleNId == "systemdata")
                 .ExecuteCommandAsync() > 0);
-            Assert.Equal(1, await db.SqlSugar.Deleteable<SystemDataSeedLedgerTable>()
-                .Where(row => row.SeedKey == "SDM-018")
-                .ExecuteCommandAsync());
+            if (appliedConsistencyVersion is null)
+                Assert.Equal(1, await db.SqlSugar.Deleteable<SystemDataSeedLedgerTable>()
+                    .Where(row => row.SeedKey == "SDM-018")
+                    .ExecuteCommandAsync());
+            else
+                Assert.Equal(1, await db.SqlSugar.Updateable<SystemDataSeedLedgerTable>()
+                    .SetColumns(row => row.SeedVersion == appliedConsistencyVersion)
+                    .Where(row => row.SeedKey == "SDM-018")
+                    .ExecuteCommandAsync());
         }
 
         // 保留真实托管服务与同一数据库，升级和重复启动都不得留下缺失的修复账本。
-        for (var attempt = 0; attempt < 2; attempt++)
+        for (var attempt = 0; attempt < 3; attempt++)
         {
             using var factory = CreateFactory();
             using var client = factory.CreateClient();
@@ -162,8 +170,8 @@ public sealed class UnifiedHostTests : IDisposable
             Assert.Equal(HttpStatusCode.OK, health.StatusCode);
             using var db = CreateReadContext();
             Assert.False(await db.SqlSugar.Queryable<SystemDataUiResourceTable>()
-                .AnyAsync(row => row.OwnerModuleNId == "systemdata" && row.ManifestVersion != "3"));
-            Assert.Equal(1, await db.SqlSugar.Queryable<SystemDataSeedLedgerTable>()
+                .AnyAsync(row => row.OwnerModuleNId == "systemdata" && row.ManifestVersion != "5"));
+            Assert.Equal(appliedConsistencyVersion is null ? 1 : 2, await db.SqlSugar.Queryable<SystemDataSeedLedgerTable>()
                 .Where(row => row.SeedKey == "SDM-018")
                 .CountAsync());
         }
@@ -218,20 +226,22 @@ public sealed class UnifiedHostTests : IDisposable
         }
     }
 
-    [Fact]
-    public async Task DevelopmentCors_AllowsVitePreflight()
+    [Theory]
+    [InlineData("http://localhost:5173")]
+    [InlineData("app://app")]
+    public async Task DevelopmentCors_AllowsClientPreflight(string origin)
     {
         using var factory = CreateFactory();
         using var client = factory.CreateClient();
         using var request = new HttpRequestMessage(HttpMethod.Options, "/identity/api/v1/auth/login");
-        request.Headers.Add("Origin", "http://localhost:5173");
+        request.Headers.Add("Origin", origin);
         request.Headers.Add("Access-Control-Request-Method", "POST");
         request.Headers.Add("Access-Control-Request-Headers", "content-type");
 
         using var response = await client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-        Assert.Equal("http://localhost:5173", response.Headers.GetValues("Access-Control-Allow-Origin").Single());
+        Assert.Equal(origin, response.Headers.GetValues("Access-Control-Allow-Origin").Single());
         Assert.Contains("POST", response.Headers.GetValues("Access-Control-Allow-Methods"));
     }
 

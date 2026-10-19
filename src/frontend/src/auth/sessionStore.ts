@@ -79,6 +79,12 @@ export function parseStoredSession(raw: string | null, now: number): AuthSession
 
 export type SessionStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
 
+/** 将会话编码为版本化持久化载荷；Native安全存储复用相同格式。 */
+export function serializeAuthSession(session: AuthSession): string {
+  const payload: StoredSession = { version: AUTH_SESSION_VERSION, session }
+  return JSON.stringify(payload)
+}
+
 /** 读取会话;无有效会话返回 null。key 默认 Mock 键,Phase 3 真实会话传 HTTP 键。 */
 export function readAuthSession(
   storage: SessionStorage,
@@ -94,8 +100,7 @@ export function writeAuthSession(
   session: AuthSession,
   key: string = AUTH_SESSION_STORAGE_KEY,
 ): void {
-  const payload: StoredSession = { version: AUTH_SESSION_VERSION, session }
-  storage.setItem(key, JSON.stringify(payload))
+  storage.setItem(key, serializeAuthSession(session))
 }
 
 /** 清除会话。key 默认 Mock 键,Phase 3 真实会话传 HTTP 键。 */

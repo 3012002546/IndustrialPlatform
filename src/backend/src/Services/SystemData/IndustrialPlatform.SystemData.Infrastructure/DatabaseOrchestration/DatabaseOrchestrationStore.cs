@@ -375,6 +375,8 @@ public sealed class DatabaseOrchestrationStore : IDatabaseOrchestrationStore
         {
             var candidateId = isPostgreSql
                 ? await SelectNextCandidatePostgreSqlAsync(sugar, now, cancellationToken)
+                : sugar.CurrentConnectionConfig.DbType == DbType.SqlServer
+                ? await SelectNextCandidateSqlServerAsync(sugar, now, cancellationToken)
                 : await SelectNextCandidateSqliteAsync(sugar, now, cancellationToken);
             if (candidateId is null)
             {
@@ -473,6 +475,18 @@ public sealed class DatabaseOrchestrationStore : IDatabaseOrchestrationStore
             .OrderBy(t => t.QueuedOn)
             .FirstAsync(cancellationToken);
         return row?.Id;
+    }
+
+    /// <summary>SQL Server：在领取事务内锁住候选行，跳过其他 Runner 正在领取的行。</summary>
+    private static async Task<Guid?> SelectNextCandidateSqlServerAsync(
+        ISqlSugarClient sugar, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var raw = await sugar.Ado.GetScalarAsync("""
+            SELECT TOP(1) id FROM dbo.system_data_database_operation WITH (UPDLOCK,READPAST,READCOMMITTEDLOCK)
+            WHERE status=@status AND timeout_on>@now AND is_deleted=0 ORDER BY queued_on,id
+            """, new SugarParameter("@status", (int)OperationStatus.Queued), new SugarParameter("@now", now));
+        return raw is Guid id ? id : null;
     }
 
     /// <inheritdoc />

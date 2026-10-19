@@ -2,9 +2,9 @@ export { createSystemDataRuntimeApi, type SystemDataRuntimeApi } from './runtime
 export { getSystemDataRuntimeApi, registerSystemDataRuntimeApi } from './runtimeRegistry'
 export { createSystemDataManagementApi } from './managementApi'
 export { getSystemDataManagementApi, registerSystemDataManagementApi } from './managementRegistry'
-export { createPf04Api } from './pf04Api'
-export type { Pf04Api } from './pf04Types'
-export { getPf04Api, registerPf04Api } from './pf04Registry'
+export { createSystemDataOperationsApi } from './systemDataOperationsApi'
+export type { SystemDataOperationsApi } from './systemDataOperationsTypes'
+export { getSystemDataOperationsApi, registerSystemDataOperationsApi } from './systemDataOperationsRegistry'
 export type {
   FeatureDefinitionDto,
   SystemDataExportParams,

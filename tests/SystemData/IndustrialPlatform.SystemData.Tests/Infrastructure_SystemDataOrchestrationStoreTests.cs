@@ -102,7 +102,7 @@ public sealed class SystemDataOrchestrationStoreTests : IDisposable
             await AssertTableExistsAsync(_dbContext.SqlSugar, tableName);
         }
 
-        Assert.Equal(SystemDataSchemaMigrations.All.Count, await _dbContext.SqlSugar.Queryable<SchemaMigrationRecord>().CountAsync());
+        Assert.Equal(SystemDataSchemaMigrations.All.Count, await _dbContext.SqlSugar.Queryable<SystemDataSchemaMigrationRecord>().CountAsync());
     }
 
     [Fact]

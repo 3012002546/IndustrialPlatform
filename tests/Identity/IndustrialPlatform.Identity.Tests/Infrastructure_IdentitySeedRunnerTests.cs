@@ -84,10 +84,10 @@ public sealed class IdentitySeedRunnerTests : IDisposable
         Assert.Equal(3, await CountAsync("SELECT COUNT(*) FROM identity_seed_ledger"));
         Assert.Equal(1, await CountAsync("SELECT COUNT(*) FROM identity_seed_ledger WHERE status = 'Applied' AND seed_n_id = 'identity.bootstrap-admin'"));
 
-        // Identity 33 项 + Collaboration 19 项 + RemoteAssistance 3 项 + SystemData 50 项 + ReferenceData 38 项，SYSTEM_ADMIN 自动获得完整目录。
-        Assert.Equal(149, await CountAsync("SELECT COUNT(*) FROM identity_permission"));
+        // 既有152项及PF07新增9项，SYSTEM_ADMIN通过版本化种子获得完整目录。
+        Assert.Equal(161, await CountAsync("SELECT COUNT(*) FROM identity_permission"));
         Assert.Equal(1, await CountAsync("SELECT COUNT(*) FROM identity_role WHERE n_id = 'SYSTEM_ADMIN'"));
-        Assert.Equal(149, await CountAsync("SELECT COUNT(*) FROM identity_role_permission"));
+        Assert.Equal(161, await CountAsync("SELECT COUNT(*) FROM identity_role_permission"));
         Assert.Equal(1, await CountAsync("SELECT COUNT(*) FROM identity_user"));
 
         // 一次性凭据:密码满足策略且长度 >= 20
@@ -152,13 +152,13 @@ public sealed class IdentitySeedRunnerTests : IDisposable
         await _dbContext.SqlSugar.Ado.ExecuteCommandAsync(
             "UPDATE identity_seed_ledger SET seed_version = '1.0.0'");
 
-        Assert.Equal(99, await CountAsync("SELECT COUNT(*) FROM identity_permission"));
+        Assert.Equal(102, await CountAsync("SELECT COUNT(*) FROM identity_permission"));
 
         await IdentityTestDatabase.ApplyCatalogAsync(_dbContext);
 
-        Assert.Equal(149, await CountAsync("SELECT COUNT(*) FROM identity_permission"));
-        Assert.Equal(50, await CountAsync("SELECT COUNT(*) FROM identity_permission WHERE n_id LIKE 'systemdata.%'"));
-        Assert.Equal(149, await CountAsync("SELECT COUNT(*) FROM identity_role_permission"));
+        Assert.Equal(161, await CountAsync("SELECT COUNT(*) FROM identity_permission"));
+        Assert.Equal(59, await CountAsync("SELECT COUNT(*) FROM identity_permission WHERE n_id LIKE 'systemdata.%'"));
+        Assert.Equal(161, await CountAsync("SELECT COUNT(*) FROM identity_role_permission"));
         Assert.Equal(4, await CountAsync("SELECT COUNT(*) FROM identity_seed_ledger"));
     }
 

@@ -16,7 +16,9 @@ public sealed record TargetDatabaseConnection(
     string Database,
     string? Schema,
     string? Username,
-    string? Password);
+    string? Password,
+    bool Encrypt = true,
+    bool TrustServerCertificate = false);
 
 /// <summary>目标数据库三类连接:provision admin / migrator / runtime。admin 仅 provision 阶段解析。</summary>
 public sealed record DatabaseTargetCredentials(

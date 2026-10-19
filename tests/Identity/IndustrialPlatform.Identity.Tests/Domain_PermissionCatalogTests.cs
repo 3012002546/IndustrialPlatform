@@ -41,6 +41,9 @@ public sealed class PermissionCatalogTests
         "platform.operation.view",
         "platform.pda.view",
         "platform.mobile.view",
+        "runtime.read",
+        "runtime.configure",
+        "runtime.update",
         "identity.bootstrap.view",
         "identity.bootstrap.recover",
         "collaboration.messaging.read",
@@ -121,6 +124,8 @@ public sealed class PermissionCatalogTests
         "systemdata.audit.read",
         "systemdata.audit.export",
         "systemdata.audit.retention.manage",
+        "systemdata.scheduler.task.view", "systemdata.scheduler.task.manage", "systemdata.scheduler.run.view", "systemdata.scheduler.run.trigger",
+        "systemdata.scheduler.run.cancel", "systemdata.scheduler.run.retry", "systemdata.scheduler.run.resolve", "systemdata.platform-health.view", "systemdata.platform-health.workspace.view",
         "referencedata.dictionary.view",
         "referencedata.dictionary.create",
         "referencedata.dictionary.update",
@@ -164,7 +169,7 @@ public sealed class PermissionCatalogTests
     [Fact]
     public void FirstBatch_HasIdentityAndSystemDataPermissions()
     {
-        Assert.Equal(149, PermissionCatalog.FirstBatchNIds.Count);
+        Assert.Equal(161, PermissionCatalog.FirstBatchNIds.Count);
     }
 
     [Fact]

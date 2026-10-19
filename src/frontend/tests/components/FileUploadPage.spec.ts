@@ -2,8 +2,8 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import FileUploadPage from '@/pages/mobile/FileUploadPage.vue'
-import { registerPf04Api } from '@/api/systemData/pf04Registry'
-import type { FileObjectDto, Pf04Api, UploadSessionDto } from '@/api/systemData/pf04Types'
+import { registerSystemDataOperationsApi } from '@/api/systemData/systemDataOperationsRegistry'
+import type { FileObjectDto, SystemDataOperationsApi, UploadSessionDto } from '@/api/systemData/systemDataOperationsTypes'
 
 vi.mock('@/utils/sha256File', () => ({
   sampleFingerprint: vi.fn(async () => 'sample-fingerprint'),
@@ -34,7 +34,7 @@ function makeSession(overrides: Partial<UploadSessionDto> = {}): UploadSessionDt
   }
 }
 
-function makeApi(overrides: Partial<Pf04Api> = {}): Pf04Api {
+function makeApi(overrides: Partial<SystemDataOperationsApi> = {}): SystemDataOperationsApi {
   return {
     listFiles: vi.fn(),
     createUploadSession: vi.fn(async () => makeSession()),
@@ -65,7 +65,7 @@ function makeApi(overrides: Partial<Pf04Api> = {}): Pf04Api {
     getAudit: vi.fn(),
     exportAudits: vi.fn(),
     ...overrides,
-  } as unknown as Pf04Api
+  } as unknown as SystemDataOperationsApi
 }
 
 function makeFile(): File {
@@ -85,7 +85,7 @@ function buttonWithText(wrapper: ReturnType<typeof mount>, text: string) {
 }
 
 afterEach(() => {
-  registerPf04Api(makeApi())
+  registerSystemDataOperationsApi(makeApi())
 })
 
 describe('mobile FileUploadPage', () => {
@@ -110,7 +110,7 @@ describe('mobile FileUploadPage', () => {
     )
     const completeUpload = vi.fn()
     const cancelUpload = vi.fn()
-    registerPf04Api(
+    registerSystemDataOperationsApi(
       makeApi({
         createUploadSession: vi.fn(async () => makeSession({ status: 'WaitingForProof' })),
         resumeProof: vi.fn(async () => makeSession({ status: 'Ready' })),
@@ -168,7 +168,7 @@ describe('mobile FileUploadPage', () => {
       },
     )
     const completeUpload = vi.fn(async () => ({} as FileObjectDto))
-    registerPf04Api(
+    registerSystemDataOperationsApi(
       makeApi({ discoverUpload, getUploadSession, resumeProof, uploadChunk, completeUpload }),
     )
 

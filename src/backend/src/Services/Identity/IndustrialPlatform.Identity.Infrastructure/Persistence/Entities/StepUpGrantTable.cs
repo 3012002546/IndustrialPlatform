@@ -3,7 +3,7 @@ using SqlSugar;
 namespace IndustrialPlatform.Identity.Infrastructure.Persistence.Entities;
 
 /// <summary>PF05 step-up grant ledger. Proof material is stored only as a SHA-256 hash.</summary>
-[SugarTable("pf05_step_up_grant")]
+[SugarTable("identity_step_up_grant")]
 public sealed class StepUpGrantTable
 {
     [SugarColumn(ColumnName = "id", IsPrimaryKey = true)] public Guid Id { get; set; }

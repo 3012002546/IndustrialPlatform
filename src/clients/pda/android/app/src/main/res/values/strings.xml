@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Industrial Platform</string>
+    <string name="title_activity_main">Industrial Platform</string>
+    <string name="package_name">com.industrialplatform.pda</string>
+    <string name="custom_url_scheme">com.industrialplatform.pda</string>
+</resources>

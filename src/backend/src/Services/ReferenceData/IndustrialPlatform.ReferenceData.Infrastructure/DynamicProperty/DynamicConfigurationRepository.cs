@@ -266,7 +266,7 @@ public sealed class DynamicConfigurationRepository(SqlSugarDbContext context) : 
     }
     private DynamicEntityState Stamp(DynamicEntityRow row) => new(row.Id, row.IsFrozen, row.IsLocked, row.IsDeleted,
         Timestamp(row.CreatedOn), Timestamp(row.LastUpdatedOn), row.OptimisticVersion, row.ConcurrencyVersion);
-    private DateTimeOffset Timestamp(DateTimeOffset value) => Postgres ? value.ToUniversalTime() : new(value.DateTime, TimeSpan.Zero);
+    private DateTimeOffset Timestamp(DateTimeOffset value) => Db.CurrentConnectionConfig.DbType == DbType.Sqlite ? new(value.DateTime, TimeSpan.Zero) : value.ToUniversalTime();
     private static T Stamp<T>(T row, Entity entity) where T : DynamicEntityRow
     {
         row.Id = entity.Id; row.IsFrozen = entity.IsFrozen; row.IsLocked = entity.IsLocked; row.IsDeleted = entity.IsDeleted;
@@ -391,9 +391,10 @@ public sealed class DynamicConfigurationRepository(SqlSugarDbContext context) : 
     {
         for (var current = error; current is not null; current = current.InnerException!)
         {
-            if (current is Npgsql.PostgresException { SqlState: "23505" } || current is Microsoft.Data.Sqlite.SqliteException { SqliteExtendedErrorCode: 2067 or 1555 })
+            if (current is Microsoft.Data.SqlClient.SqlException { Number: 2601 or 2627 }
+                || current is Npgsql.PostgresException { SqlState: "23505" } || current is Microsoft.Data.Sqlite.SqliteException { SqliteExtendedErrorCode: 2067 or 1555 })
                 throw new ReferenceDataException("REF-DYNAMIC-CONFIG-DUPLICATE-NID", 409);
-            if (current is Npgsql.PostgresException { SqlState: "23503" or "23514" } || current is Microsoft.Data.Sqlite.SqliteException { SqliteExtendedErrorCode: 787 or 275 })
+            if (current is Microsoft.Data.SqlClient.SqlException { Number: 547 } || current is Npgsql.PostgresException { SqlState: "23503" or "23514" } || current is Microsoft.Data.Sqlite.SqliteException { SqliteExtendedErrorCode: 787 or 275 })
                 throw new ReferenceDataException("REF-DYNAMIC-CONFIG-FIELD-INVALID", 422);
         }
         if (error is DbException or SqlSugarException) throw new ReferenceDataException("503", 503);

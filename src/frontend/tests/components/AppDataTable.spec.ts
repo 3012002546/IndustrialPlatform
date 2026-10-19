@@ -1,4 +1,4 @@
-import { flushPromises, mount } from '@vue/test-utils'
+import { DOMWrapper, flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ElPagination } from 'element-plus'
@@ -186,6 +186,7 @@ describe('AppDataTable', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
+    vi.useRealTimers()
   })
 
   it('switches query modes by clearing the inactive mode and sends filters to the server loader', async () => {
@@ -1482,6 +1483,55 @@ describe('AppDataTable', () => {
       '开始',
       '结束',
     ])
+  })
+
+  it('commits a real date-range picker selection to the loader', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-15T12:00:00Z'))
+    const existingCalendars = new Set(
+      document.body.querySelectorAll('.el-date-range-picker__content.is-left'),
+    )
+    const loader = vi.fn().mockResolvedValue({ items: [], total: 0, pageIndex: 1, pageSize: 25 })
+    const wrapper = mount(AppDataTable, {
+      attachTo: document.body,
+      props: {
+        tableKey: 'date-range-input-commit',
+        queryMode: 'header',
+        rows: [],
+        columns: [{ field: 'createdOn', title: '创建日期', filter: { kind: 'date-range' } }],
+        loader,
+      },
+      global: { components: { 'el-pagination': ElPagination } },
+    })
+    await flushPromises()
+    const inputs = wrapper
+      .get('[data-testid="app-data-table-header-filter-createdOn-range"]')
+      .findAll('input')
+    inputs[0]!.element.focus()
+    await inputs[0]!.trigger('click')
+    await flushPromises()
+    const calendar = new DOMWrapper(
+      [...document.body.querySelectorAll('.el-date-range-picker__content.is-left')].find(
+        (element) => !existingCalendars.has(element),
+      )!,
+    )
+    await calendar
+      .findAll('td.available .el-date-table-cell__text')
+      .find((cell) => cell.text() === '1')!
+      .trigger('click')
+    await flushPromises()
+    await calendar
+      .findAll('td.available .el-date-table-cell__text')
+      .find((cell) => cell.text() === '2')!
+      .trigger('click')
+    await flushPromises()
+    expect(inputs.map((input) => input.element.value)).toEqual(['2026-10-01', '2026-10-02'])
+    await vi.waitFor(() =>
+      expect(loader).toHaveBeenLastCalledWith(
+        expect.objectContaining({ filters: { createdOn: ['2026-10-01', '2026-10-02'] } }),
+      ),
+    )
+    wrapper.unmount()
   })
 
   it('binds the selected density to the VXE cell height', async () => {

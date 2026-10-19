@@ -31,7 +31,7 @@ public sealed class SchemaMigrationRunner : ISchemaMigrationRunner
     public SchemaMigrationRunner(SqlSugarDbContext dbContext, IEnumerable<SchemaMigrationStep> steps, ILogger<SchemaMigrationRunner> logger)
     {
         _dbContext = dbContext;
-        _steps = steps.ToArray();
+        _steps = IdentitySchemaMigrations.For(dbContext.DbType, steps).ToArray();
         _logger = logger;
     }
 
@@ -39,10 +39,13 @@ public sealed class SchemaMigrationRunner : ISchemaMigrationRunner
     public async Task ApplyPendingAsync(CancellationToken cancellationToken = default)
     {
         var sugar = _dbContext.SqlSugar;
-        sugar.CodeFirst.InitTables<SchemaMigrationRecord>();
+        await using var initializationLock = await SqlServerMigrationArtifacts.AcquireLockAsync(sugar, "industrial-platform:migration:identity", cancellationToken);
+        if (sugar.CurrentConnectionConfig.DbType == DbType.SqlServer)
+            await SqlServerMigrationArtifacts.EnsureLedgerAsync(sugar, "identity_schema_migrations", cancellationToken);
+        else sugar.CodeFirst.InitTables<SchemaMigrationRecord>();
         await EnsureChecksumColumnAsync(cancellationToken);
 
-        var applied = (await sugar.Queryable<SchemaMigrationRecord>().ToListAsync(cancellationToken))
+        var applied = (await sugar.Queryable<SchemaMigrationRecord>().AS("identity_schema_migrations").ToListAsync(cancellationToken))
             .ToDictionary(record => record.MigrationId, StringComparer.Ordinal);
 
         foreach (var step in _steps.OrderBy(step => step.Id, StringComparer.Ordinal))
@@ -80,7 +83,7 @@ public sealed class SchemaMigrationRunner : ISchemaMigrationRunner
                 Description = step.Description,
                 Checksum = Checksum(step),
                 AppliedOn = DateTimeOffset.UtcNow,
-            }).ExecuteCommandAsync(cancellationToken);
+            }).AS("identity_schema_migrations").ExecuteCommandAsync(cancellationToken);
             sugar.Ado.CommitTran();
 
             MigrationApplied(_logger, step.Id, step.Description, null);
@@ -95,11 +98,13 @@ public sealed class SchemaMigrationRunner : ISchemaMigrationRunner
     private async Task EnsureChecksumColumnAsync(CancellationToken cancellationToken)
     {
         var dbType = _dbContext.SqlSugar.CurrentConnectionConfig.DbType;
-        var columns = dbType == DbType.Sqlite
+        var columns = dbType == DbType.SqlServer
+            ? SqlServerMigrationArtifacts.Columns(_dbContext.SqlSugar, "identity_schema_migrations")
+            : dbType == DbType.Sqlite
             ? _dbContext.SqlSugar.Ado.GetDataTable("SELECT name FROM pragma_table_info('identity_schema_migrations')").Rows.Cast<System.Data.DataRow>().Select(row => row["name"]?.ToString()).Where(name => name is not null).Select(name => name!).ToHashSet(StringComparer.OrdinalIgnoreCase)
             : _dbContext.SqlSugar.Ado.GetDataTable("SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'identity_schema_migrations'").Rows.Cast<System.Data.DataRow>().Select(row => row["column_name"]?.ToString()).Where(name => name is not null).Select(name => name!).ToHashSet(StringComparer.OrdinalIgnoreCase);
         if (!columns.Contains("checksum"))
-            await _dbContext.SqlSugar.Ado.ExecuteCommandAsync("ALTER TABLE identity_schema_migrations ADD COLUMN checksum TEXT NULL", parameters: null, cancellationToken: cancellationToken);
+            await _dbContext.SqlSugar.Ado.ExecuteCommandAsync(dbType == DbType.SqlServer ? "ALTER TABLE dbo.identity_schema_migrations ADD checksum varchar(64) NULL" : "ALTER TABLE identity_schema_migrations ADD COLUMN checksum TEXT NULL", parameters: null, cancellationToken: cancellationToken);
     }
 
     private Task<int> BackfillChecksumAsync(string migrationId, string checksum, CancellationToken cancellationToken) =>

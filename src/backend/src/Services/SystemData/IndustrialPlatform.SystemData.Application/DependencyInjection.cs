@@ -9,6 +9,8 @@ using IndustrialPlatform.SystemData.Application.ControlPlane;
 using IndustrialPlatform.SystemData.Application.Reliability;
 using IndustrialPlatform.SystemData.Application.Files;
 using IndustrialPlatform.SystemData.Application.Notifications;
+using IndustrialPlatform.SystemData.Application.Scheduler;
+using IndustrialPlatform.SystemData.Application.PlatformHealth;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -45,6 +47,8 @@ public static class DependencyInjection
 
         // TASK-SD-006:组织/岗位/任职管理用例与审计/目录端口。
         services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<SchedulerAdministration>();
+        services.AddSingleton<IPlatformHealthQuery, PlatformHealthQuery>();
         services.TryAddSingleton<ILocalAuditCommand, NoopLocalAuditCommand>();
         services.TryAddSingleton<ISystemDataWriteTransaction, NoopSystemDataWriteTransaction>();
         services.TryAddSingleton<IIdentityUserDirectory, UnavailableIdentityUserDirectory>();

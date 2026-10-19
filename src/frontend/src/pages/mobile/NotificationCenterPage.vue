@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { getPf04Api } from '@/api/systemData/pf04Registry'
+import { getSystemDataOperationsApi } from '@/api/systemData/systemDataOperationsRegistry'
 import { createNotificationRealtime, type NotificationRealtime } from '@/api/systemData/notificationHub'
-import type { NotificationInboxItemDto } from '@/api/systemData/pf04Types'
+import type { NotificationInboxItemDto } from '@/api/systemData/systemDataOperationsTypes'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
 import { platformI18n } from '@/localization/i18n'
@@ -22,9 +22,9 @@ const canReadInbox = computed(() => authStore.hasPermission(PERMISSIONS.systemDa
 const unsafeRouteCharacterPattern = /[\u0000-\u001f\u007f]/
 let pollTimer: number | undefined
 let realtime: NotificationRealtime | null = null
-async function load(): Promise<void> { const api = getPf04Api(); if (api === null || !canReadInbox.value) { items.value = []; return } loading.value = true; try { items.value = (await api.getInbox(1, 50)).items; errorMessage.value = '' } catch (error) { errorMessage.value = error instanceof Error ? error.message : copy.value.loadFailed } finally { loading.value = false } }
-async function read(item: NotificationInboxItemDto): Promise<void> { const api = getPf04Api(); if (api !== null && canReadInbox.value && !item.isRead) { try { await api.markRead(item.notificationNId); await load() } catch (error) { errorMessage.value = error instanceof Error ? error.message : copy.value.updateFailed } } }
-async function markAllRead(): Promise<void> { const api = getPf04Api(); const ids = items.value.filter((item) => !item.isRead).map((item) => item.notificationNId); if (api !== null && canReadInbox.value && ids.length > 0) { try { await api.batchRead(ids); await load() } catch (error) { errorMessage.value = error instanceof Error ? error.message : copy.value.updateFailed } } }
+async function load(): Promise<void> { const api = getSystemDataOperationsApi(); if (api === null || !canReadInbox.value) { items.value = []; return } loading.value = true; try { items.value = (await api.getInbox(1, 50)).items; errorMessage.value = '' } catch (error) { errorMessage.value = error instanceof Error ? error.message : copy.value.loadFailed } finally { loading.value = false } }
+async function read(item: NotificationInboxItemDto): Promise<void> { const api = getSystemDataOperationsApi(); if (api !== null && canReadInbox.value && !item.isRead) { try { await api.markRead(item.notificationNId); await load() } catch (error) { errorMessage.value = error instanceof Error ? error.message : copy.value.updateFailed } } }
+async function markAllRead(): Promise<void> { const api = getSystemDataOperationsApi(); const ids = items.value.filter((item) => !item.isRead).map((item) => item.notificationNId); if (api !== null && canReadInbox.value && ids.length > 0) { try { await api.batchRead(ids); await load() } catch (error) { errorMessage.value = error instanceof Error ? error.message : copy.value.updateFailed } } }
 function safeNotificationRoute(route: string | null | undefined): string | null { if (route === undefined || route === null || !route.startsWith('/') || route.startsWith('//') || unsafeRouteCharacterPattern.test(route)) return null; return route }
 function openTarget(route: string | null | undefined): void { const safeRoute = safeNotificationRoute(route); if (safeRoute !== null) void router.push(safeRoute) }
 onMounted(() => { void load(); if (!canReadInbox.value) return; realtime = createNotificationRealtime({ getAccessToken: () => authStore.session?.accessToken ?? null, onRefresh: load }); void realtime.start(); pollTimer = window.setInterval(() => { if (document.visibilityState === 'visible') void load() }, 15000) })

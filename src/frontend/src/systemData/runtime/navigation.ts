@@ -1,5 +1,7 @@
 import {
   Avatar,
+  Document,
+  FirstAidKit,
   House,
   Link,
   Lock,
@@ -7,6 +9,7 @@ import {
   Monitor,
   Setting,
   Tickets,
+  Timer,
   Tools,
   User,
   UserFilled,
@@ -39,6 +42,11 @@ const ICONS = new Map<string, Component>([
 ])
 const defaultGroups = getDefaultPcNavigationGroups()
 const defaultItems = defaultGroups.flatMap((group) => group.items)
+const BUILTIN_ROUTE_ICONS = new Map<string, Component>([
+  ['pc-scheduler-jobs', Timer],
+  ['pc-scheduler-runs', Document],
+  ['pc-platform-health', FirstAidKit],
+])
 
 /* Retained only as a compatibility marker for the historical snapshot shape;
 // runtime navigation never uses it to add nodes.
@@ -144,7 +152,7 @@ function iconFor(node: NavigationRuntimeNodeDto): Component {
           (group) => node.nodeNId === group.id || node.nodeNId === `navigation.group.${group.id}`,
         )
       : defaultItems.find((item) => item.routeName === node.routeName)
-  return fallback?.icon ?? Menu
+  return fallback?.icon ?? BUILTIN_ROUTE_ICONS.get(node.routeName ?? '') ?? Menu
 }
 
 function mapItem(node: NavigationRuntimeNodeDto, sectionId?: string): NavigationItem | null {

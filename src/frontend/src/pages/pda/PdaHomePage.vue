@@ -5,6 +5,7 @@ import { useRoute } from 'vue-router'
 import AppEmptyState from '@/components/base/AppEmptyState.vue'
 import AppPage from '@/components/base/AppPage.vue'
 import TimeGreetingHeader from '@/components/home/TimeGreetingHeader.vue'
+import PlatformHealthSummary from '@/components/home/PlatformHealthSummary.vue'
 import TerminalFeatureMenu from '@/components/home/TerminalFeatureMenu.vue'
 import { loadRuntimeConfig } from '@/config/runtimeConfig'
 import { resolveActiveTerminal, type TerminalType } from '@/device'
@@ -46,6 +47,7 @@ const authModeLabel = computed(() =>
 
 <template>
   <AppPage>
+    <PlatformHealthSummary />
     <TimeGreetingHeader
       terminal="pda"
       :display-name="displayName"

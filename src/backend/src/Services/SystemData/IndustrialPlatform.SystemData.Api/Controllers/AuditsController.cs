@@ -1,7 +1,7 @@
 using IndustrialPlatform.Security;
 using IndustrialPlatform.SystemData.Api.Authorization;
 using IndustrialPlatform.SystemData.Application.Auditing;
-using IndustrialPlatform.SystemData.Application.Pf04;
+using IndustrialPlatform.SystemData.Application.Operations;
 using IndustrialPlatform.SystemData.Contracts.Auditing;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -59,7 +59,7 @@ public sealed class AuditsController : SystemDataControllerBase
             var csv = await _service.ExportCsvAsync(tenant, actorUserNId, producerServiceKey, action, from, until, cancellationToken);
             return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv; charset=utf-8", $"systemdata-audit-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}.csv");
         }
-        catch (Pf04ServiceException exception) { return StatusCodeEnvelope(exception.StatusCode, exception.Code, exception.Message); }
+        catch (SystemDataOperationException exception) { return StatusCodeEnvelope(exception.StatusCode, exception.Code, exception.Message); }
     }
 
     [HttpPost("facts/{producerServiceKey}/{auditEventNId}/lifecycle")]
@@ -72,7 +72,7 @@ public sealed class AuditsController : SystemDataControllerBase
             await _service.UpdateLifecycleAsync(tenant, actorUserNId, producerServiceKey, auditEventNId, request, cancellationToken);
             return OkEnvelope();
         }
-        catch (Pf04ServiceException exception) { return StatusCodeEnvelope(exception.StatusCode, exception.Code, exception.Message); }
+        catch (SystemDataOperationException exception) { return StatusCodeEnvelope(exception.StatusCode, exception.Code, exception.Message); }
     }
 
     [HttpPost("outbox/{eventId:guid}/recover")]
@@ -86,12 +86,12 @@ public sealed class AuditsController : SystemDataControllerBase
                 ? OkEnvelope()
                 : NotFound();
         }
-        catch (Pf04ServiceException exception) { return StatusCodeEnvelope(exception.StatusCode, exception.Code, exception.Message); }
+        catch (SystemDataOperationException exception) { return StatusCodeEnvelope(exception.StatusCode, exception.Code, exception.Message); }
     }
 
     private static async Task<ActionResult<T>> Execute<T>(Func<Task<T>> operation)
     {
         try { return await operation(); }
-        catch (Pf04ServiceException exception) { return StatusCodeEnvelope(exception.StatusCode, exception.Code, exception.Message); }
+        catch (SystemDataOperationException exception) { return StatusCodeEnvelope(exception.StatusCode, exception.Code, exception.Message); }
     }
 }

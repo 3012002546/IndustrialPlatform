@@ -22,6 +22,7 @@ describe('useDeviceStore — 自动识别', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+    Reflect.deleteProperty(window, 'Capacitor')
   })
 
   it('1280 无触控 → PC', () => {
@@ -38,6 +39,21 @@ describe('useDeviceStore — 自动识别', () => {
     stubViewport(700, false)
     const store = useDeviceStore()
     store.init()
+    expect(store.terminal).toBe('mobile')
+  })
+
+  it('Android APK 窄屏默认进入 PDA，显式覆盖仍优先', () => {
+    Object.defineProperty(window, 'Capacitor', {
+      configurable: true,
+      value: { isNativePlatform: () => true, getPlatform: () => 'android' },
+    })
+    stubViewport(393, true)
+    const store = useDeviceStore()
+    store.init()
+    expect(store.suggested).toBe('pda')
+    expect(store.terminal).toBe('pda')
+
+    store.setOverride('mobile')
     expect(store.terminal).toBe('mobile')
   })
 

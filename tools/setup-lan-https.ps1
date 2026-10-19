@@ -37,10 +37,18 @@ foreach ($entry in @{ DEV_HTTPS_CERT = $serverPem; DEV_HTTPS_KEY = $serverKey }.
 # 私钥目录只允许当前用户与SYSTEM访问；位于源码仓库及前端root之外。
 $acl = [Security.AccessControl.DirectorySecurity]::new()
 $acl.SetAccessRuleProtection($true, $false)
-foreach ($sid in @([Security.Principal.WindowsIdentity]::GetCurrent().User, [Security.Principal.SecurityIdentifier]::new('S-1-5-18'))) {
+$allowedSids = @([Security.Principal.WindowsIdentity]::GetCurrent().User, [Security.Principal.SecurityIdentifier]::new('S-1-5-18'))
+foreach ($sid in $allowedSids) {
     $acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($sid, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow'))
 }
-Set-Acl -LiteralPath $certDir -AclObject $acl
+$currentAcl = Get-Acl -LiteralPath $certDir
+$currentRules = @($currentAcl.Access)
+$alreadyRestricted = $currentAcl.AreAccessRulesProtected -and $currentRules.Count -eq $allowedSids.Count -and
+    @($currentRules | Where-Object {
+        $_.IsInherited -or $_.AccessControlType -ne 'Allow' -or $_.FileSystemRights -ne 'FullControl' -or
+        $_.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value -notin @($allowedSids | ForEach-Object Value)
+    }).Count -eq 0
+if (-not $alreadyRestricted) { Set-Acl -LiteralPath $certDir -AclObject $acl }
 $hash = [Security.Cryptography.HashAlgorithmName]::SHA256
 $padding = [Security.Cryptography.RSASignaturePadding]::Pkcs1
 $now = [DateTimeOffset]::UtcNow

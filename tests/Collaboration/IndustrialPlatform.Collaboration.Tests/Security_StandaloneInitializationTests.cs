@@ -20,6 +20,39 @@ namespace IndustrialPlatform.Collaboration.Tests;
 
 public sealed class Security_StandaloneInitializationTests
 {
+    [Theory]
+    [InlineData("standalone_sql", "dbo", true)]
+    [InlineData("wrong_database", "dbo", false)]
+    [InlineData("standalone_sql", "custom", false)]
+    public void SqlServer_standalone_uses_explicit_target_and_rejects_mismatched_identity(string databaseName, string schema, bool accepted)
+    {
+        var root = Path.Combine(Path.GetTempPath(), "industrial-platform-standalone-config", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var path = Path.Combine(root, "standalone.local.json");
+        File.WriteAllText(path, $$"""
+            { "Standalone": { "Database": {
+                "Provider": "SqlServer", "DatabaseName": "{{databaseName}}", "Schema": "{{schema}}",
+                "ConnectionString": "Server=localhost;Database=standalone_sql;Integrated Security=True;Encrypt=True;TrustServerCertificate=False"
+            } } }
+            """);
+        try
+        {
+            var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development", ContentRootPath = root });
+            builder.Configuration[StandaloneConfiguration.ConfigurationPathKey] = path;
+            if (!accepted)
+            {
+                Assert.Throws<InvalidOperationException>(() => StandaloneConfiguration.Apply(builder, []));
+                return;
+            }
+            StandaloneConfiguration.Apply(builder, []);
+            Assert.Equal("SqlServer", builder.Configuration["SqlSugar:DbType"]);
+            Assert.Equal("standalone_sql", builder.Configuration["DatabaseTopology:SharedDatabaseName"]);
+            Assert.Equal("dbo", builder.Configuration["DatabaseTopology:SharedDatabaseSchema"]);
+            Assert.Equal("", builder.Configuration["DatabaseTopology:SharedSqliteFile"]);
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
     [Fact]
     public void Missing_standalone_configuration_fails_closed_with_the_resolved_path()
     {

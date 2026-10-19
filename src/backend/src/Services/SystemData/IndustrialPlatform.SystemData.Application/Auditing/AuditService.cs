@@ -1,5 +1,5 @@
 using System.Text;
-using IndustrialPlatform.SystemData.Application.Pf04;
+using IndustrialPlatform.SystemData.Application.Operations;
 using IndustrialPlatform.SystemData.Contracts.Auditing;
 using IndustrialPlatform.SystemData.Domain.Auditing;
 using Microsoft.Extensions.Logging;
@@ -54,7 +54,7 @@ public sealed partial class AuditService : IAuditService
 
             await _store.InsertAsync(fact, cancellationToken);
         }
-        catch (Pf04ServiceException)
+        catch (SystemDataOperationException)
         {
             throw;
         }
@@ -140,7 +140,7 @@ public sealed partial class AuditService : IAuditService
     }
 
     private static string Require(string? value, string code, string message) => string.IsNullOrWhiteSpace(value) ? throw Error(code, message) : value.Trim();
-    private static Pf04ServiceException Error(string code, string message, int status = 400) => new(code, message, status);
+    private static SystemDataOperationException Error(string code, string message, int status = 400) => new(code, message, status);
     private static AuditFactV1? ToContractOrNull(AuditFactRecord? fact) => fact is null ? null : ToContract(fact);
     private static AuditFactV1 ToContract(AuditFactRecord fact) => new()
     {

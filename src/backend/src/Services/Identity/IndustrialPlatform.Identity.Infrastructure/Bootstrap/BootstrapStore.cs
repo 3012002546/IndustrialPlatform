@@ -82,7 +82,7 @@ public sealed class BootstrapStore : IBootstrapStore
     /// <inheritdoc />
     public async Task<string> GetSchemaVersionAsync(CancellationToken cancellationToken = default)
     {
-        var ids = await _dbContext.SqlSugar.Queryable<SchemaMigrationRecord>()
+        var ids = await _dbContext.SqlSugar.Queryable<SchemaMigrationRecord>().AS("identity_schema_migrations")
             .Select(r => r.MigrationId)
             .ToListAsync(cancellationToken);
         return ids.Count == 0 ? string.Empty : ids.Max(StringComparer.Ordinal) ?? string.Empty;

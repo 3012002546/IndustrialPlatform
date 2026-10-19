@@ -221,6 +221,42 @@ public sealed class SchemaMigrationRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task SecurityTableRename_PreservesRowsAndLedger_AndIsIdempotent()
+    {
+        var previous = IdentitySchemaMigrations.All.Where(step => step.Id != "ID-022-01").ToArray();
+        await new SchemaMigrationRunner(_dbContext, previous, NullLogger<SchemaMigrationRunner>.Instance).ApplyPendingAsync();
+        var ledger = await _dbContext.SqlSugar.Ado.GetStringAsync("SELECT group_concat(migration_id || ':' || checksum) FROM (SELECT * FROM identity_schema_migrations ORDER BY migration_id)");
+        await _dbContext.SqlSugar.Ado.ExecuteCommandAsync("INSERT INTO pf05_service_call_nonce(issuer,nonce,expires_on,created_on) VALUES ('collaboration','retained-nonce','2030-01-01','2026-01-01')");
+        await _dbContext.SqlSugar.Ado.ExecuteCommandAsync("""
+            INSERT INTO pf05_step_up_grant(id,tenant_n_id,actor_user_n_id,actor_session_n_id,actor_security_version,action,request_n_id,scope_checksum,request_hash,binding_hash,proof_hash,issued_on,expires_on,consumed_on,consumed_by_service,consumed_receipt_n_id)
+            VALUES ('00000000-0000-0000-0000-000000000001','tenant','user','session','1','action','request','scope','request-hash','binding','proof','2026-01-01','2030-01-01','2026-01-02','collaboration','receipt')
+            """);
+        var runner = new SchemaMigrationRunner(_dbContext, IdentitySchemaMigrations.All, NullLogger<SchemaMigrationRunner>.Instance);
+        await runner.ApplyPendingAsync();
+        await runner.ApplyPendingAsync();
+        Assert.False(await TableExistsAsync("pf05_service_call_nonce"));
+        Assert.False(await TableExistsAsync("pf05_step_up_grant"));
+        Assert.Equal("retained-nonce", await _dbContext.SqlSugar.Ado.GetStringAsync("SELECT nonce FROM identity_service_call_nonce"));
+        Assert.Equal("receipt", await _dbContext.SqlSugar.Ado.GetStringAsync("SELECT consumed_receipt_n_id FROM identity_step_up_grant"));
+        Assert.Equal(ledger, await _dbContext.SqlSugar.Ado.GetStringAsync("SELECT group_concat(migration_id || ':' || checksum) FROM (SELECT * FROM identity_schema_migrations WHERE migration_id <> 'ID-022-01' ORDER BY migration_id)"));
+    }
+
+    [Fact]
+    public async Task SecurityTableRename_ConflictingDestination_RollsBackWithoutMergingRows()
+    {
+        var previous = IdentitySchemaMigrations.All.Where(step => step.Id != "ID-022-01").ToArray();
+        await new SchemaMigrationRunner(_dbContext, previous, NullLogger<SchemaMigrationRunner>.Instance).ApplyPendingAsync();
+        await _dbContext.SqlSugar.Ado.ExecuteCommandAsync("CREATE TABLE identity_step_up_grant (id TEXT PRIMARY KEY); INSERT INTO identity_step_up_grant VALUES ('destination-row')");
+        var runner = new SchemaMigrationRunner(_dbContext, IdentitySchemaMigrations.All, NullLogger<SchemaMigrationRunner>.Instance);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => runner.ApplyPendingAsync());
+        Assert.True(await TableExistsAsync("pf05_service_call_nonce"));
+        Assert.True(await TableExistsAsync("pf05_step_up_grant"));
+        Assert.False(await TableExistsAsync("identity_service_call_nonce"));
+        Assert.Equal("destination-row", await _dbContext.SqlSugar.Ado.GetStringAsync("SELECT id FROM identity_step_up_grant"));
+        Assert.Equal(0, await _dbContext.SqlSugar.Ado.GetIntAsync("SELECT COUNT(*) FROM identity_schema_migrations WHERE migration_id='ID-022-01'"));
+    }
+
+    [Fact]
     public async Task StepUpGrantExtension_RecreatesMissingBaseTableBeforeExtendingLegacySchema()
     {
         var extensionStep = IdentitySchemaMigrations.All.Single(step => step.Id == "ID-021-03");

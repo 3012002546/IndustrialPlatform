@@ -13,6 +13,15 @@ public static class SystemDataPermissionPolicies
 {
     /// <summary>策略名前缀。</summary>
     public const string Prefix = "permission:";
+    public const string SchedulerTaskView = Prefix + "systemdata.scheduler.task.view";
+    public const string SchedulerTaskManage = Prefix + "systemdata.scheduler.task.manage";
+    public const string SchedulerRunView = Prefix + "systemdata.scheduler.run.view";
+    public const string SchedulerRunTrigger = Prefix + "systemdata.scheduler.run.trigger";
+    public const string SchedulerRunCancel = Prefix + "systemdata.scheduler.run.cancel";
+    public const string SchedulerRunRetry = Prefix + "systemdata.scheduler.run.retry";
+    public const string SchedulerRunResolve = Prefix + "systemdata.scheduler.run.resolve";
+    public const string PlatformHealthView = Prefix + "systemdata.platform-health.view";
+    public const string PlatformHealthWorkspaceView = Prefix + "systemdata.platform-health.workspace.view";
 
     // ===== 行政组织(§9.3) =====
 
@@ -130,6 +139,8 @@ public static class SystemDataPermissionPolicies
     /// <summary>本任务登记的权限 NId 集合(§9.3 三组 + v1/v2 初始化兼容权限)。</summary>
     private static readonly string[] RegisteredPermissionNIds =
     [
+        "systemdata.scheduler.task.view", "systemdata.scheduler.task.manage", "systemdata.scheduler.run.view", "systemdata.scheduler.run.trigger",
+        "systemdata.scheduler.run.cancel", "systemdata.scheduler.run.retry", "systemdata.scheduler.run.resolve", "systemdata.platform-health.view", "systemdata.platform-health.workspace.view",
         "systemdata.organization.view",
         "systemdata.organization.create",
         "systemdata.organization.update",

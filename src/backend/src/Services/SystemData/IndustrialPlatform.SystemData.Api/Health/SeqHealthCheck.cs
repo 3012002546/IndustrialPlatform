@@ -27,7 +27,7 @@ public sealed class SeqHealthCheck : IHealthCheck
         var seq = _options.Seq;
         if (seq is null || !seq.Enabled || string.IsNullOrWhiteSpace(seq.ServerUrl))
         {
-            return HealthCheckResult.Healthy("Seq 未启用,跳过检查");
+            return HealthCheckResult.Healthy("Seq 未启用,跳过检查", data: new Dictionary<string, object> { ["reportedState"] = "Disabled" });
         }
 
         using var client = _httpClientFactory.CreateClient();

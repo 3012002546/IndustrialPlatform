@@ -23,6 +23,7 @@ import PcHomePage from '@/pages/pc/PcHomePage.vue'
 import PcOperationHomePage from '@/pages/pc/PcOperationHomePage.vue'
 import OperationLayout from '@/layouts/OperationLayout.vue'
 import TerminalPreviewPage from '@/pages/pc/TerminalPreviewPage.vue'
+import RuntimeScannerTestPage from '@/pages/pc/RuntimeScannerTestPage.vue'
 import IdentityAuditsPage from '@/pages/pc/identity/IdentityAuditsPage.vue'
 import IdentityPermissionsPage from '@/pages/pc/identity/IdentityPermissionsPage.vue'
 import IdentityRolesPage from '@/pages/pc/identity/IdentityRolesPage.vue'
@@ -56,6 +57,7 @@ import RetentionPage from '@/pages/pc/collaboration/RetentionPage.vue'
 import NotificationCenterPage from '@/pages/mobile/NotificationCenterPage.vue'
 import WorkspaceTabsSandboxPage from '@/pages/dev/WorkspaceTabsSandboxPage.vue'
 import PdaHomePage from '@/pages/pda/PdaHomePage.vue'
+import PdaRuntimeScannerTestPage from '@/pages/pda/RuntimeScannerTestPage.vue'
 import MobileHomePage from '@/pages/mobile/MobileHomePage.vue'
 import MobileMyPage from '@/pages/mobile/MobileMyPage.vue'
 import FileUploadPage from '@/pages/mobile/FileUploadPage.vue'
@@ -210,6 +212,20 @@ export const routes: RouteRecordRaw[] = [
           fallbackTitle: '终端预览',
           requiresAuth: true,
           anyPermissions: [PERMISSIONS.platformPdaView, PERMISSIONS.platformMobileView],
+          terminal: 'pc',
+          workspace: 'none',
+        },
+      },
+      {
+        path: 'terminal/scanner-test',
+        name: ROUTE_NAMES.pcRuntimeScannerTest,
+        component: RuntimeScannerTestPage,
+        meta: {
+          title: '测试扫码',
+          titleKey: 'shell.navigation.item.runtime-scanner-test',
+          fallbackTitle: '测试扫码',
+          requiresAuth: true,
+          permission: PERMISSIONS.runtimeRead,
           terminal: 'pc',
           workspace: 'none',
         },
@@ -548,6 +564,48 @@ export const routes: RouteRecordRaw[] = [
         },
       },
       {
+        path: 'system/scheduler/jobs',
+        name: ROUTE_NAMES.schedulerJobs,
+        component: () => import('@/pages/pc/scheduler/SchedulerJobsPage.vue'),
+        meta: {
+          title: '任务管理',
+          titleKey: 'shell.navigation.item.pc-scheduler-jobs',
+          fallbackTitle: '任务管理',
+          requiresAuth: true,
+          permission: PERMISSIONS.schedulerTaskView,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
+      {
+        path: 'system/scheduler/runs',
+        name: ROUTE_NAMES.schedulerRuns,
+        component: () => import('@/pages/pc/scheduler/SchedulerRunsPage.vue'),
+        meta: {
+          title: '运行记录',
+          titleKey: 'shell.navigation.item.pc-scheduler-runs',
+          fallbackTitle: '运行记录',
+          requiresAuth: true,
+          permission: PERMISSIONS.schedulerRunView,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
+      {
+        path: 'system/health',
+        name: ROUTE_NAMES.platformHealth,
+        component: () => import('@/pages/pc/scheduler/PlatformHealthPage.vue'),
+        meta: {
+          title: '平台健康',
+          titleKey: 'shell.navigation.item.pc-platform-health',
+          fallbackTitle: '平台健康',
+          requiresAuth: true,
+          permission: PERMISSIONS.platformHealthWorkspaceView,
+          terminal: 'pc',
+          workspace: 'business',
+        },
+      },
+      {
         path: 'collaboration',
         name: ROUTE_NAMES.collaborationChat,
         component: CollaborationPage,
@@ -693,6 +751,19 @@ export const routes: RouteRecordRaw[] = [
           title: 'PDA 首页',
           requiresAuth: true,
           permission: PERMISSIONS.platformPdaView,
+          terminal: 'pda',
+        },
+      },
+      {
+        path: 'terminal/scanner-test',
+        name: ROUTE_NAMES.pdaRuntimeScannerTest,
+        component: PdaRuntimeScannerTestPage,
+        meta: {
+          title: '测试扫码',
+          titleKey: 'shell.navigation.item.runtime-scanner-test',
+          fallbackTitle: '测试扫码',
+          requiresAuth: true,
+          permission: PERMISSIONS.runtimeRead,
           terminal: 'pda',
         },
       },

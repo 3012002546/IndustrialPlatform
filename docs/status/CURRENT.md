@@ -1,5 +1,21 @@
 # Industrial Platform 当前状态
 
+- 2026-10-19 / PF07版本提交与下一章判断：用户授权先提交当前一版。提交范围为PF07实现、升级/页面修复、菜单图标及相关测试/文档/可重复隔离探针；排除PF06A无关本地修改、CLAUDE.md/DSH.md、私有配置与构建/运行产物，本轮不推送。提交前新鲜Release为0警告/0错误，已有后端回归与ReferenceData独立复验、前端全量/菜单专项按各自范围保留。**当前可以开始PF08 Low Code的详细设计**；PF07未测生产项继续单列，不作为开始设计的阻断。PF08实施11尚未创建，须先复核蓝图21/32，确定DataSource/Dataset/LowCode/Publishing首期边界、设计/发布快照/运行态、表字段/授权/API、三端页面/回滚与最小装配，再派编码；本轮仅作判断，未创建新章节或开发任务。提交标识以本轮Git记录为准，PF07整包验收状态保持原边界。
+
+- 2026-10-19 / PF07整体复核：首版开发、启动升级/新建/黄金页查询/行内操作及菜单图标反馈返修完成，用户已确认页面整体效果；整包继续待验收，工作包保留active，尚未提交源码或推送。已同步[实施10 V1.3](../implementation/10-Industrial%20Platform%20Scheduler%20Platform%20Health开发实施方案.md)、[明细](../implementation/details/PF07-数据接口与页面规格.md)、[工作包](../tasks/active/PF-07.md)及索引，清除过时“仅评估稿/前置未冻结/自测收尾”描述。最新构建、回归、ReferenceData临时库清理问题和未测外部断言以[实施证据](../evidence/PF-07.md)最新复核节为准。最近实测调试入口为HTTPS 5173及UnifiedHost 7041/5041，私有配置已显式启用Scheduler、ReconciliationMode仍为Legacy；用户本轮已关闭VS调试，浏览器显示运行策略降级，不把缓存页面当成后端仍在线的证据。未擅自重启IDE或宿主，旧4173/5097仅属隔离自测历史。SQL2022、跨主机中断/网络恢复、生产负载、实际ClamAV与外部媒体/设备故障仍未计通过；PF06A无关修改保持原hash。下列10-13及更早条目保留为当时快照。
+
+- 2026-10-13 / PF07实现与开发自测：用户授权先提交文档，再在当前工作树连续实现。Job/Run两自有表、固定Hangfire三Provider原生存储、任务/运行管理、取消/安全重试/Unknown核对、最新健康摘要、三PC页及三端首页摘要已实现；操作审计复用既有统一Audit。[工作包已转active](../tasks/active/PF-07.md)，[字段/API/线框](../implementation/details/PF07-数据接口与页面规格.md)、[原生字段字典](../implementation/details/PF07-Hangfire存储字段字典.md)及[后续Job接入说明](../implementation/details/PF07-业务Job接入说明.md)按实际回写。新鲜Release、后端/前端回归、PG/SQL2019隔离双连接/双工作器、DST及真实HTTP/浏览器结果见[实施证据](../evidence/PF-07.md)。用户验收待执行，2022/跨主机故障/生产负载未计通过；正常数据库和用户调试未改，保留PF06A无关本地修改。下条10-12为实施前评估快照。
+
+- 2026-10-12 / PF07整体复核与收敛：按用户要求调整[实施10](../implementation/10-Industrial%20Platform%20Scheduler%20Platform%20Health开发实施方案.md)与[字段/API/线框规格](../implementation/details/PF07-数据接口与页面规格.md)至V1.1评估稿。首版两自有表Job/Run（引擎物理表选型后补齐）、三PC管理页、每任务一个Cron、原生引擎执行/重试与最小业务防重；健康只汇总现有检查及最新内存快照；既有登录/统一审计入口保持，PF07写操作接统一Audit。撤出未实施的多Trigger/动态schema表单、业务Attempt/租约/通用请求响应表、健康三表/采样槽/探针和异常维护页面。六卡/20案例及全部当前索引已同步；G07-1/2仍是设计前置，G07-3为实施验收环境条件。当前待用户复评/待前置核验/待派遣，未实现或功能验收。仅改文档，记录见[本轮复核证据](../evidence/2026-10-12-pf07-document-convergence.md)；下条10-07的9表/5页是首稿历史快照，以本条收敛范围为准。
+
+- 2026-10-07 / PF07文档细化：已创建[实施10](../implementation/10-Industrial%20Platform%20Scheduler%20Platform%20Health开发实施方案.md)、[PF07明细](../implementation/details/PF07-数据接口与页面规格.md)及[pending工作包](../tasks/active/PF-07.md)。两个模块扩展SystemData.Service；9张业务表及中文字段/三Provider映射、API/状态/事务、5条PC管理路由/弹层/工作台线框、6张内部九字段卡和20项验收案例已写入。设计就绪度待前置核验、派遣状态待派遣；G07-1引擎存储/初始化、G07-2公开适配、G07-3真实环境未关闭，不能直接派生产编码。本轮只改文档，未创建开发任务、未启动服务/PoC/数据库迁移、未运行功能测试。文档记录见[本轮证据](../evidence/2026-10-07-pf07-document-detail.md)。下条10-06的“PF07尚未补齐”为当时快照，由本条更新设计状态；旧阶段未测门禁不变。
+
+- 2026-10-06 / 提交前整体复核：本轮 SQL Server 适配与领域命名修改未发现新的阻断问题。再次执行新鲜 Release 编译及全量后端测试，0 警告／0 错误，1915 通过／0 失败／7 项外部环境测试跳过；SQL Server 2019 真库测试已启用并通过，前端 DEV 打包通过。私有配置、构建产物和旧规格跳转文档中的本地手动编辑不纳入提交。可转入 PF07 规格与任务细化；实施 10、表字段、API、页面和验收条件尚未补齐，不能直接派遣编码。2022 实机与生产部署门禁仍按 SQL2019 报告列为待验证，不因进入下一阶段而标记完成。
+
+- 2026-10-06 / 领域命名：Identity 两张安全表通过新增迁移改为 identity_service_call_nonce、identity_step_up_grant；SQL Server 2019 真库改名及新映射读写通过，数据、索引和表/列说明保留。SystemData 持久化类、异常类及前端 API 模型同步去除任务前缀；正常 PG 运行库未迁移。最终回归结果见 PF-06A SQL2019 验证记录。
+
+- 2026-09-30 / PF-06A SQL Server 最新：代码接入覆盖 109 表／1777 列，2019 隔离全表初始化、七模块读写及已列并发/回滚验证通过；可进入 IDE 开发联调。2019／2022 共用 Provider，2022 无实例；生产权限/备份恢复及客户端联合验收未实机完成。正常运行仍为 PG，未替用户启动或切库。详见[最新报告](../evidence/PF-06A-SQL2019-compatibility-check.md)、[字段字典](../implementation/details/PF06A-SQLServer全表字段字典.md)及[09A §9](../implementation/09A-Industrial%20Platform终端运行时与客户端打包开发实施方案.md#9-sql-server-20192022接入)。下方 SQL 未接入条目是历史状态。
+
 > 由 Codex 维护。只保留当前有效状态；历史细节进入任务归档、evidence、实施方案或 Git 历史。
 
 ## PF06 收口与后续主控边界（2026-09-15）
@@ -17,7 +33,15 @@
 
 ## 服务状态
 
-- 2026-09-14 / PF-06A新增要求：用户要求当前项目接入SQL Server 2019/2022，已录入TASK-PF06A-009及[SQL Server补充规格](../implementation/details/PF06A-SQLServer2019-2022接入补充规格.md)。覆盖当前平台Provider、配置/拓扑、各服务迁移/仓储、初始化/运维与真实业务回归；保留PostgreSQL/SQLite。当前待接入细化和G06A-SQL核验，未派遣/未实现/未连接SQL Server；不切现用云库，终端只经API访问，001～008编号与原延期安排保持。
+- 2026-09-30 / PF-06A 阶段收束与下步：Android 10 / WebView 153 手机已实测登录、相机二维码识别、双向语音与双向屏幕共享及采屏停止；调试入口和无线 ADB 注意事项见 [DEBUGGING §7](../../src/DEBUGGING.md#七android-手机pda-外壳联调)。该 APK 仍依赖局域网 Vite；旧 WebView 83 白屏、无 Google 扫码模块的 PDA、无 Vite 安装、正式 Web 必更与原生包升级仍未通过。001/005 不标整包完成，PDA 厂商广播范围外。下一项准备 009 SQL Server 2019/2022：按 [09A §9](../implementation/09A-Industrial%20Platform终端运行时与客户端打包开发实施方案.md)补齐逐表字段字典和配置／驱动／锁合同，隔离双引擎环境待核对；G06A-SQL 仍 OPEN，尚未接入或切换现用数据库。详见 [PF-06A 当前证据](../evidence/PF-06A.md)与[当前任务](../tasks/active/PF-06A.md)。以下 9 月 22 日及更早条目是历史快照。
+
+- 2026-09-22 / PF-06A Windows本机实测：修复构建缺`VITE_DEPLOYMENT_ENVIRONMENT`导致白屏、Electron从`/index.html`启动及业务路由刷新404；隔离NSIS安装显示登录页，临时本机签名渠道W1 `0.1.0`→W2 `0.1.1`、健康确认及lastGood可见。最新测试包未签名；5041后端未运行，登录后扫码未测。Android已重新`cap sync`，但无SDK/ADB/APK/手机实测；详见[主控证据](../evidence/PF-06A.md)。
+- 2026-09-21 / PF-06A 主控接管：已修复旧JS误报健康、补真实下载进度与Web构建版本注入；Electron/Android最小更新状态现含一次待确认activation、60秒截止和一个lastGood，超时恢复并阻止同一坏发布自动循环，Electron可变slot改到`userData/runtime`。前端构建与146文件/1084测试、Electron构建与3个updater测试及当前源码NSIS打包通过。Android仅`cap sync`通过，无SDK/adb/APK/真机；005仍待真实渠道和设备验收。G06A-SQL仍OPEN，009未进入生产编码。详见[当前工作包](../tasks/active/PF-06A.md)和[主控证据](../evidence/PF-06A.md)；下方记录为历史快照。
+- 2026-09-21 / PF-06A 范围收束：本次Android只以用户手机验证输入和拍照扫码；PDA厂商广播、专用SDK/Intent接收器及S06真机不纳入001/005交付。热更新固定为当前包、一个lastGood、一个暂存包和60秒健康确认；不建设策略中心、历史/审计平台、多级回滚、灰度编排、后台预下载、断点续传或独立安全下限治理。
+- 2026-09-20 / PF-06A 继续开发：此前 Web 扫码控件/测试页、路由菜单、权限种子和 Web 更新协调器已合入 `develop`，证据见[PF-06A](../evidence/PF-06A.md)；Windows Electron/Android Capacitor 外壳、真实安装/手机扫码/原生更新与 SQL Server 2019/2022 接入尚未完成。用户现指定原独立开发任务 `01a0beba-ac84-7af3-bdf1-6457127cfd8f`（gpt-5.6-luna max）直接在当前 `develop` 主工作树继续 PF-06A 全部功能开发，源码单一写入；[当前工作包](../tasks/active/PF-06A.md)。009 先闭合 §9.6 设计门禁再编码，真实设备/数据库缺项如实标未测；PDA 广播真机按用户要求后置。开发任务最终交接后主控接手调整、测试和验收。
+- 2026-09-21 / PF-06A 继续开发证据更新：共享运行时、Vue 挂载前可见启动更新门禁（进度/失败重试/退出）、Electron/Android 原生边界、签名 Web Bundle/W1→W2 slot 与 Windows installer 流程已实现；前端 145/1082 单测及 2400 modules 临时 Vite 构建通过，Electron updater 3/3 通过；启动门禁 UI 补丁后的 NSIS x64 包有隔离安装证据但未签名，本轮新增原生退出桥后因现有 `dist` EPERM 未能重打包。Android SDK/Gradle 分发/真机缺失，生产签名渠道未注入；G06A-SQL 的 D02/D03/D04/D06 设计稿已提交主控审定但仍 OPEN，未改 SQL 生产代码。
+- 2026-09-20 / PF-06A文档合并：实施09A成为唯一详细文档，原明细/字段/SQL文件只保留跳转。任务简化为001客户端与扫码、005更新与终端交付、009 SQL Server。§3新增共享扫码控件及结果Label/清空页面线框、属性和S01～S12；§4补N1/W1→W2→N2及U01～U12真实更新测试。使用中不切换、重开/重新登录必更，Android手机首验/PDA广播后置不变；仍未开发或实测。
+- 2026-09-14 / PF-06A新增要求：用户要求当前项目接入SQL Server 2019/2022，已录入TASK-PF06A-009及[统一规格§9](../implementation/09A-Industrial%20Platform终端运行时与客户端打包开发实施方案.md)。覆盖当前平台Provider、配置/拓扑、各服务迁移/仓储、初始化/运维与真实业务回归；保留PostgreSQL/SQLite。当前待接入细化和G06A-SQL核验，未派遣/未实现/未连接SQL Server；不切现用云库，终端只经API访问，旧终端任务已合并为001/005，原延期安排保持。
 
 - BuildingBlocks：基线与公共组件已完成。
 - 统一前端与 PF-01：已完成；外部真机 safe-area 项仍待验收。

@@ -52,15 +52,18 @@ public sealed class EnvironmentCredentialResolver : IDatabaseCredentialResolver
             return null;
         }
 
-        var port = int.TryParse(ReadEnv(prefix, "PORT"), out var parsed) && parsed > 0 ? parsed : 5432;
+        var port = int.TryParse(ReadEnv(prefix, "PORT"), out var parsed) && parsed is > 0 and <= 65535
+            ? parsed : target.Provider == DatabaseProvider.SqlServer ? 1433 : 5432;
         return new TargetDatabaseConnection(
-            "PostgreSQL",
+            target.Provider.ToString(),
             host,
             port,
             ReadEnv(prefix, "DATABASE") ?? target.PhysicalDatabaseName,
             ReadEnv(prefix, "SCHEMA"),
             ReadEnv(prefix, "USER"),
-            ReadEnv(prefix, "PASSWORD"));
+            ReadEnv(prefix, "PASSWORD"),
+            Encrypt: !string.Equals(ReadEnv(prefix, "ENCRYPT"), "false", StringComparison.OrdinalIgnoreCase),
+            TrustServerCertificate: string.Equals(ReadEnv(prefix, "TRUST_SERVER_CERTIFICATE"), "true", StringComparison.OrdinalIgnoreCase));
     }
 
     private static string? ReadEnv(string prefix, string name) =>

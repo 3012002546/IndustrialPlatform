@@ -13,6 +13,16 @@ public sealed record CollaborationMigrationStep(
 
 public static class CollaborationSchemaMigrations
 {
+    /// <summary>SQL Server 独立脚本流；其余数据库保持历史迁移与 checksum。</summary>
+    public static IReadOnlyList<CollaborationMigrationStep> For(DbType provider, IEnumerable<CollaborationMigrationStep>? steps = null) =>
+        provider == DbType.SqlServer
+            ? (steps ?? All).Concat([new CollaborationMigrationStep("SQLSERVER-999-Descriptions", "表与字段中文说明", (_, _) => Task.CompletedTask)]).Select(step => step with
+            {
+                Description = SqlServerMigrationArtifacts.Description(typeof(CollaborationSchemaMigrations).Assembly, step.Id, step.Description),
+                Apply = (database, token) => SqlServerMigrationArtifacts.ApplyAsync(database, typeof(CollaborationSchemaMigrations).Assembly, step.Id, token),
+            }).ToArray()
+            : (steps ?? All).ToArray();
+
     public static IReadOnlyList<CollaborationMigrationStep> All { get; } =
     [
         new("PF05-001", "create collaboration messaging tables", (sugar, _) => sugar.Ado.ExecuteCommandAsync(MessagingDdl(sugar.CurrentConnectionConfig.DbType)), ValidateMessagingSchemaAsync),

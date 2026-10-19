@@ -167,16 +167,16 @@ public sealed class SystemDataServiceInitializerTests : IDisposable
     [Fact]
     public async Task Inspect_rejects_a_partial_ledger_even_when_latest_id_is_present()
     {
-        _dbContext.SqlSugar.CodeFirst.InitTables<SchemaMigrationRecord>();
+        _dbContext.SqlSugar.CodeFirst.InitTables<SystemDataSchemaMigrationRecord>();
         await _dbContext.SqlSugar.Insertable(new[]
         {
-            new SchemaMigrationRecord
+            new SystemDataSchemaMigrationRecord
             {
                 MigrationId = "SDM-016-01",
                 Description = "current schema",
                 AppliedOn = new DateTimeOffset(2026, 8, 20, 0, 0, 0, TimeSpan.Zero),
             },
-            new SchemaMigrationRecord
+            new SystemDataSchemaMigrationRecord
             {
                 MigrationId = "SDM-007-05",
                 Description = "backfilled patch",
@@ -230,8 +230,8 @@ public sealed class SystemDataServiceInitializerTests : IDisposable
     {
         public async Task ApplyPendingAsync(CancellationToken cancellationToken = default)
         {
-            dbContext.SqlSugar.CodeFirst.InitTables<SchemaMigrationRecord>();
-            if (await dbContext.SqlSugar.Queryable<SchemaMigrationRecord>().AnyAsync(cancellationToken))
+            dbContext.SqlSugar.CodeFirst.InitTables<SystemDataSchemaMigrationRecord>();
+            if (await dbContext.SqlSugar.Queryable<SystemDataSchemaMigrationRecord>().AnyAsync(cancellationToken))
             {
                 return;
             }
@@ -239,7 +239,7 @@ public sealed class SystemDataServiceInitializerTests : IDisposable
             foreach (var step in SystemDataSchemaMigrations.All)
             {
                 await step.Apply(dbContext.SqlSugar, cancellationToken);
-                await dbContext.SqlSugar.Insertable(new SchemaMigrationRecord
+                await dbContext.SqlSugar.Insertable(new SystemDataSchemaMigrationRecord
                 {
                     MigrationId = step.Id,
                     Description = step.Description,

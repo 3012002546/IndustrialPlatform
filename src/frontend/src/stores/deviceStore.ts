@@ -20,6 +20,13 @@ function defaultStorage(): Storage {
   return globalThis.localStorage
 }
 
+function isAndroidApp(): boolean {
+  const capacitor = (globalThis.window as unknown as {
+    Capacitor?: { isNativePlatform?: () => boolean; getPlatform?: () => string }
+  } | undefined)?.Capacitor
+  return capacitor?.isNativePlatform?.() === true && capacitor.getPlatform?.() === 'android'
+}
+
 export const useDeviceStore = defineStore('device', () => {
   /** 自动识别建议终端(随视口变化)。 */
   const suggested = ref<TerminalType>('pc')
@@ -31,7 +38,8 @@ export const useDeviceStore = defineStore('device', () => {
   const ready = ref(false)
 
   function applyViewport(info: { width: number; hasTouch: boolean }): void {
-    suggested.value = detectTerminal(info.width, info.hasTouch)
+    // Android APK uses the PDA routes; Mobile remains the narrow-screen Web route.
+    suggested.value = isAndroidApp() ? 'pda' : detectTerminal(info.width, info.hasTouch)
     terminal.value = resolveTerminal(suggested.value, override.value)
   }
 

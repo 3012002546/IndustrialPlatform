@@ -21,7 +21,7 @@ public static class BootstrapSeedCatalog
     public const string BootstrapAdminSeedKey = "identity.bootstrap-admin";
 
     /// <summary>全部种子当前版本;目录内容变化必须递增。</summary>
-    public const string SeedVersion = "1.6.0";
+    public const string SeedVersion = "1.8.0";
 
     /// <summary>系统作用域。</summary>
     public const string SystemScope = "system";
@@ -84,6 +84,9 @@ public static class BootstrapSeedCatalog
         new(PermissionCatalog.PlatformOperationView, "生产操作模式", PermissionType.Page),
         new(PermissionCatalog.PlatformPdaView, "PDA 端页面", PermissionType.Page),
         new(PermissionCatalog.PlatformMobileView, "移动端页面", PermissionType.Page),
+        new(PermissionCatalog.RuntimeRead, "查看终端运行时", PermissionType.Page),
+        new(PermissionCatalog.RuntimeConfigure, "配置终端运行时", PermissionType.Action),
+        new(PermissionCatalog.RuntimeUpdate, "更新终端页面或客户端", PermissionType.Action),
         new(PermissionCatalog.BootstrapView, "查看 bootstrap 状态", PermissionType.Page),
         new(PermissionCatalog.BootstrapRecover, "紧急恢复内置 admin", PermissionType.Action),
         new(PermissionCatalog.CollaborationMessagingRead, "查看协作消息", PermissionType.Page),
@@ -164,6 +167,15 @@ public static class BootstrapSeedCatalog
         new(PermissionCatalog.SystemDataAuditRead, "查看审计事实", PermissionType.Page),
         new(PermissionCatalog.SystemDataAuditExport, "导出审计事实", PermissionType.Action),
         new(PermissionCatalog.SystemDataAuditRetentionManage, "管理审计保留", PermissionType.Action),
+        new(PermissionCatalog.SchedulerTaskView, "查看调度任务", PermissionType.Page),
+        new(PermissionCatalog.SchedulerTaskManage, "管理调度任务", PermissionType.Action),
+        new(PermissionCatalog.SchedulerRunView, "查看任务运行", PermissionType.Page),
+        new(PermissionCatalog.SchedulerRunTrigger, "手工触发任务", PermissionType.Action),
+        new(PermissionCatalog.SchedulerRunCancel, "取消任务运行", PermissionType.Action),
+        new(PermissionCatalog.SchedulerRunRetry, "重试任务运行", PermissionType.Action),
+        new(PermissionCatalog.SchedulerRunResolve, "核对未知运行结果", PermissionType.Action),
+        new(PermissionCatalog.PlatformHealthView, "查看健康摘要", PermissionType.Page),
+        new(PermissionCatalog.PlatformHealthWorkspaceView, "查看健康工作台", PermissionType.Page),
         new(PermissionCatalog.ReferenceDataDictionaryView, "字典：view", PermissionType.Page),
         new(PermissionCatalog.ReferenceDataDictionaryCreate, "字典：create", PermissionType.Action),
         new(PermissionCatalog.ReferenceDataDictionaryUpdate, "字典：update", PermissionType.Action),

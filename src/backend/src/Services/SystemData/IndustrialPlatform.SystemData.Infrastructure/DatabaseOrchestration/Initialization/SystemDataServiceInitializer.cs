@@ -39,7 +39,9 @@ public sealed class SystemDataServiceInitializer : IServiceInitializer
         try
         {
             var dbType = _dbContext.SqlSugar.CurrentConnectionConfig.DbType;
-            var ledgerColumns = dbType == DbType.Sqlite
+            var ledgerColumns = dbType == DbType.SqlServer
+                ? SqlServerMigrationArtifacts.Columns(_dbContext.SqlSugar, "system_data_schema_migrations")
+                : dbType == DbType.Sqlite
                 ? _dbContext.SqlSugar.Ado.GetDataTable("SELECT name FROM pragma_table_info('system_data_schema_migrations')").Rows.Cast<System.Data.DataRow>().Select(row => row["name"]?.ToString()).Where(name => name is not null).Select(name => name!).ToHashSet(StringComparer.OrdinalIgnoreCase)
                 : _dbContext.SqlSugar.Ado.GetDataTable("SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'system_data_schema_migrations'").Rows.Cast<System.Data.DataRow>().Select(row => row["column_name"]?.ToString()).Where(name => name is not null).Select(name => name!).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var requiredLedgerColumns = new[] { "migration_id", "description", "checksum", "applied_on" };
@@ -49,11 +51,11 @@ public sealed class SystemDataServiceInitializer : IServiceInitializer
                     ? "SystemData 本地迁移账本尚未创建。"
                     : $"SystemData 本地迁移账本缺少列:{string.Join(',', missingLedgerColumns)}，需要执行 Apply 升级。", null);
 
-            var appliedRows = await _dbContext.SqlSugar.Queryable<SchemaMigrationRecord>().ToListAsync(cancellationToken);
+            var appliedRows = await _dbContext.SqlSugar.Queryable<SystemDataSchemaMigrationRecord>().AS("system_data_schema_migrations").ToListAsync(cancellationToken);
             var applied = appliedRows.ToDictionary(record => record.MigrationId, StringComparer.Ordinal);
-            var expected = SystemDataSchemaMigrations.All.Select(step => step.Id).ToArray();
+            var expected = SystemDataSchemaMigrations.For(_dbContext.SqlSugar.CurrentConnectionConfig.DbType).Select(step => step.Id).ToArray();
             var missingMigrations = expected.Where(id => !applied.ContainsKey(id)).ToArray();
-            var invalidChecksums = SystemDataSchemaMigrations.All
+            var invalidChecksums = SystemDataSchemaMigrations.For(_dbContext.SqlSugar.CurrentConnectionConfig.DbType)
                 .Where(step => applied.TryGetValue(step.Id, out var row) && !string.Equals(row.Checksum, Checksum(step), StringComparison.OrdinalIgnoreCase))
                 .Select(step => step.Id)
                 .ToArray();
@@ -82,6 +84,7 @@ public sealed class SystemDataServiceInitializer : IServiceInitializer
 
             var seedReady = true;
             var bootstrapReady = true;
+            var readinessFailures = new List<string>();
             if (_controlPlaneStore is not null)
             {
                 var controlPlane = await _controlPlaneStore.LoadAsync(context.TenantNId, cancellationToken);
@@ -96,18 +99,20 @@ public sealed class SystemDataServiceInitializer : IServiceInitializer
                     && catalog.SupportedTerminals.Contains(UiTerminal.Pda)
                     && catalog.SupportedTerminals.Contains(UiTerminal.Mobile)
                     && SystemDataBaselineSeedRunner.IsCurrentTheme(controlPlane.Theme);
+                if (!seedReady)
+                    readinessFailures.Add("功能、服务目录或主题种子校验失败");
                 var requiredPermissions = SystemDataBaselineSeedRunner.RequiredPermissionNIds.Order(StringComparer.OrdinalIgnoreCase).ToArray();
                 var manifestPermissions = manifest?.PermissionNIds.Order(StringComparer.OrdinalIgnoreCase).ToArray();
-                var requiredResourcesReady = SystemDataBaselineSeedRunner.RequiredResourceFacts.All(required =>
-                    controlPlane.Resources.Any(resource =>
+                var invalidResources = SystemDataBaselineSeedRunner.RequiredResourceFacts.Where(required =>
+                    !controlPlane.Resources.Any(resource =>
                         resource.NId.Equals(required.NId, StringComparison.OrdinalIgnoreCase)
                         && resource.OwnerModuleNId.Equals(ModuleKey, StringComparison.OrdinalIgnoreCase)
                         && resource.Type == UiResourceType.Page
                         && resource.ManifestVersion == SystemDataBaselineSeedRunner.CurrentManifestVersion
                         && resource.RouteName == required.RouteName
                         && resource.RequiredPermissionNId == required.PermissionNId
-                        && resource.Status == UiResourceStatus.Active));
-                bootstrapReady = manifest is not null
+                        && resource.Status == UiResourceStatus.Active)).ToArray();
+                var manifestReady = manifest is not null
                     && manifest.ManifestVersion == SystemDataBaselineSeedRunner.CurrentManifestVersion
                     && manifest.Checksum.Equals(SystemDataBaselineSeedRunner.CurrentManifestChecksum, StringComparison.OrdinalIgnoreCase)
                     && manifestPermissions is not null
@@ -116,15 +121,24 @@ public sealed class SystemDataServiceInitializer : IServiceInitializer
                     && string.Equals(manifest.PermissionReceiptChecksum, SystemDataBaselineSeedRunner.CurrentManifestChecksum, StringComparison.OrdinalIgnoreCase)
                     && receipt is { Verified: true }
                     && receipt.ManifestVersion == SystemDataBaselineSeedRunner.CurrentManifestVersion
-                    && receipt.Checksum.Equals(SystemDataBaselineSeedRunner.CurrentManifestChecksum, StringComparison.OrdinalIgnoreCase)
-                    && requiredResourcesReady;
-                bootstrapReady = bootstrapReady
-                    && SystemDataBaselineSeedRunner.IsReferenceDataBootstrapReady(controlPlane)
-                    && SystemDataBaselineSeedRunner.IsCollaborationBootstrapReady(controlPlane);
+                    && receipt.Checksum.Equals(SystemDataBaselineSeedRunner.CurrentManifestChecksum, StringComparison.OrdinalIgnoreCase);
+                var referenceDataReady = SystemDataBaselineSeedRunner.IsReferenceDataBootstrapReady(controlPlane);
+                var collaborationReady = SystemDataBaselineSeedRunner.IsCollaborationBootstrapReady(controlPlane);
+                bootstrapReady = manifestReady && invalidResources.Length == 0 && referenceDataReady && collaborationReady;
+                if (!manifestReady)
+                    readinessFailures.Add($"systemdata 清单或权限回执校验失败(期望版本={SystemDataBaselineSeedRunner.CurrentManifestVersion})");
+                if (invalidResources.Length > 0)
+                    readinessFailures.Add($"资源事实不符(期望清单版本={SystemDataBaselineSeedRunner.CurrentManifestVersion}):"
+                        + string.Join(',', invalidResources.Select(required =>
+                            $"{required.NId}(实际清单版本={controlPlane.Resources.FirstOrDefault(resource => resource.NId.Equals(required.NId, StringComparison.OrdinalIgnoreCase))?.ManifestVersion ?? "缺失"})")));
+                if (!referenceDataReady)
+                    readinessFailures.Add("referencedata 引导事实校验失败");
+                if (!collaborationReady)
+                    readinessFailures.Add("collaboration 引导事实校验失败");
             }
 
             // 版本按声明的迁移序列计算，而不是按 AppliedOn 或字符串最大值，兼容历史补录旧编号。
-            return Ready(expected[^1], seedReady, bootstrapReady);
+            return Ready(expected[^1], seedReady, bootstrapReady, string.Join(';', readinessFailures));
         }
         catch (Exception exception) when (IsMissingLocalTable(exception))
         {
@@ -163,16 +177,16 @@ public sealed class SystemDataServiceInitializer : IServiceInitializer
     private ServiceInitializationState NotReady(string desiredVersion, string reason, string? observedVersion = null) =>
         new(ServiceKey, ModuleKey, observedVersion, false, false, false, false, reason);
 
-    private ServiceInitializationState Ready(string version, bool seedReady, bool bootstrapReady) =>
+    private ServiceInitializationState Ready(string version, bool seedReady, bool bootstrapReady, string reason) =>
         new(ServiceKey, ModuleKey, version, true, seedReady, bootstrapReady, seedReady && bootstrapReady,
-            seedReady && bootstrapReady ? null : "SystemData 控制面种子或引导事实尚未完成。");
+            seedReady && bootstrapReady ? null : $"SystemData 控制面种子或引导事实尚未完成:{reason}。");
 
     private ServiceInitializationPlan CreatePlan(
         ServiceInitializationContext context,
         ServiceInitializationState inspection)
     {
         var desiredVersion = string.IsNullOrWhiteSpace(context.DesiredVersion)
-            ? SystemDataSchemaMigrations.All[^1].Id
+            ? SystemDataSchemaMigrations.For(_dbContext.SqlSugar.CurrentConnectionConfig.DbType)[^1].Id
             : context.DesiredVersion;
         var steps = new List<string>();
         if (!inspection.MigrationReady || !string.Equals(inspection.ObservedVersion, desiredVersion, StringComparison.Ordinal))
@@ -204,7 +218,9 @@ public sealed class SystemDataServiceInitializer : IServiceInitializer
         foreach (var pair in required)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var columns = _dbContext.SqlSugar.CurrentConnectionConfig.DbType == DbType.Sqlite
+            var columns = _dbContext.SqlSugar.CurrentConnectionConfig.DbType == DbType.SqlServer
+                ? SqlServerMigrationArtifacts.Columns(_dbContext.SqlSugar, pair.Key)
+                : _dbContext.SqlSugar.CurrentConnectionConfig.DbType == DbType.Sqlite
                 ? _dbContext.SqlSugar.Ado.GetDataTable($"SELECT name FROM pragma_table_info('{pair.Key}')")
                     .Rows.Cast<System.Data.DataRow>()
                     .Select(row => row["name"]?.ToString())
@@ -225,7 +241,8 @@ public sealed class SystemDataServiceInitializer : IServiceInitializer
         for (var current = exception; current is not null; current = current.InnerException)
         {
             var message = current.Message;
-            if (message.Contains("no such table", StringComparison.OrdinalIgnoreCase)
+            if (message.Contains("Invalid object name", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("no such table", StringComparison.OrdinalIgnoreCase)
                 || (message.Contains("relation", StringComparison.OrdinalIgnoreCase)
                     && message.Contains("does not exist", StringComparison.OrdinalIgnoreCase)))
             {

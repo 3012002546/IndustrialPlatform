@@ -4,7 +4,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 namespace IndustrialPlatform.ReferenceData.Api.Health;
 
 /// <summary>
-/// PostgreSQL 依赖健康检查,执行 SELECT 1 验证连接可用。
+/// 关系库健康检查,执行 SELECT 1 验证所选 Provider；类名保留以兼容现有注册键。
 /// </summary>
 public sealed class PostgresHealthCheck : IHealthCheck
 {
@@ -23,11 +23,11 @@ public sealed class PostgresHealthCheck : IHealthCheck
         try
         {
             await _dbContext.SqlSugar.Ado.GetIntAsync("SELECT 1");
-            return HealthCheckResult.Healthy("PostgreSQL 可访问");
+            return HealthCheckResult.Healthy($"{_dbContext.SqlSugar.CurrentConnectionConfig.DbType} 可访问");
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            return HealthCheckResult.Unhealthy($"PostgreSQL 不可访问:{exception.GetType().Name}");
+            return HealthCheckResult.Unhealthy($"{_dbContext.SqlSugar.CurrentConnectionConfig.DbType} 不可访问:{exception.GetType().Name}");
         }
     }
 }

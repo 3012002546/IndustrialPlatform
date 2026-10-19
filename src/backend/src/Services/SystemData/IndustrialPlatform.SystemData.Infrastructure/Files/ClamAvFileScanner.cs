@@ -19,7 +19,7 @@ public sealed class ClamAvOptions
 /// is configured, it fails closed with Unknown unless the host explicitly
 /// enables the Development-only bypass. Bypass results retain a diagnostic marker.
 /// </summary>
-public sealed class ClamAvFileScanner : IFileScanner
+public sealed class ClamAvFileScanner : IFileScanner, IFileScannerHealth
 {
     private readonly ClamAvOptions _options;
 
@@ -54,6 +54,24 @@ public sealed class ClamAvFileScanner : IFileScanner
         {
             return new FileScanResult("Error", $"ClamAV 通信失败：{exception.Message}");
         }
+    }
+
+    public async Task<string> ReadHealthAsync(CancellationToken cancellationToken)
+    {
+        if (_options.DevelopmentBypass) return "Degraded";
+        if (string.IsNullOrWhiteSpace(_options.Host)) return "Unknown";
+        if (_options.Port is < 1 or > 65535) return "Degraded";
+        try
+        {
+            using var client = new TcpClient();
+            await client.ConnectAsync(_options.Host, _options.Port, cancellationToken);
+            await using var stream = client.GetStream();
+            await stream.WriteAsync("zPING\0"u8.ToArray(), cancellationToken);
+            var buffer = new byte[32];
+            var count = await stream.ReadAsync(buffer, cancellationToken);
+            return Encoding.ASCII.GetString(buffer, 0, count).Trim('\0', '\r', '\n') == "PONG" ? "Healthy" : "Unknown";
+        }
+        catch (Exception exception) when (exception is SocketException or IOException) { return "Degraded"; }
     }
 
     private async Task<FileScanResult> ScanConfiguredAsync(Stream content, CancellationToken cancellationToken)

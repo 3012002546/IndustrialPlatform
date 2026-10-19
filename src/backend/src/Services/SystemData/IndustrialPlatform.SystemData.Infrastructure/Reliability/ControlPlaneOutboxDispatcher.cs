@@ -1,6 +1,7 @@
 using IndustrialPlatform.EventBus.Abstractions;
 using IndustrialPlatform.EventBus.Events;
 using IndustrialPlatform.SystemData.Application.Reliability;
+using IndustrialPlatform.SystemData.Application.Scheduler;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -11,9 +12,10 @@ public sealed partial class ControlPlaneOutboxDispatcher : BackgroundService
     private readonly IControlPlaneOutbox _outbox;
     private readonly IEventBus _eventBus;
     private readonly ILogger<ControlPlaneOutboxDispatcher> _logger;
-    public ControlPlaneOutboxDispatcher(IControlPlaneOutbox outbox, IEventBus eventBus, ILogger<ControlPlaneOutboxDispatcher> logger)
+    private readonly ISchedulerCommandDispatcher? _scheduler;
+    public ControlPlaneOutboxDispatcher(IControlPlaneOutbox outbox, IEventBus eventBus, ILogger<ControlPlaneOutboxDispatcher> logger, ISchedulerCommandDispatcher? scheduler = null)
     {
-        _outbox = outbox; _eventBus = eventBus; _logger = logger;
+        _outbox = outbox; _eventBus = eventBus; _logger = logger; _scheduler = scheduler;
     }
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -34,7 +36,12 @@ public sealed partial class ControlPlaneOutboxDispatcher : BackgroundService
             {
                 try
                 {
-                    await _eventBus.PublishAsync(new ControlPlaneIntegrationEvent(@event), @event.EventType, stoppingToken);
+                    if (@event.EventType.StartsWith("Scheduler.", StringComparison.Ordinal))
+                    {
+                        if (_scheduler is null) throw new InvalidOperationException("调度内部命令适配器未注册。");
+                        await _scheduler.DispatchAsync(@event.EventType, @event.TenantNId, @event.Payload, stoppingToken);
+                    }
+                    else await _eventBus.PublishAsync(new ControlPlaneIntegrationEvent(@event), @event.EventType, stoppingToken);
                     await _outbox.MarkPublishedAsync(@event.EventId, stoppingToken);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)

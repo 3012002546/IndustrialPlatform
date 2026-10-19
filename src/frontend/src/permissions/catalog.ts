@@ -6,6 +6,15 @@ import { GENERATED_PERMISSION_NIDS } from './catalog.generated'
  */
 
 export const PERMISSIONS = {
+  schedulerTaskView: 'systemdata.scheduler.task.view',
+  schedulerTaskManage: 'systemdata.scheduler.task.manage',
+  schedulerRunView: 'systemdata.scheduler.run.view',
+  schedulerRunTrigger: 'systemdata.scheduler.run.trigger',
+  schedulerRunCancel: 'systemdata.scheduler.run.cancel',
+  schedulerRunRetry: 'systemdata.scheduler.run.retry',
+  schedulerRunResolve: 'systemdata.scheduler.run.resolve',
+  platformHealthView: 'systemdata.platform-health.view',
+  platformHealthWorkspaceView: 'systemdata.platform-health.workspace.view',
   userView: 'identity.user.view',
   userCreate: 'identity.user.create',
   userUpdate: 'identity.user.update',
@@ -37,6 +46,9 @@ export const PERMISSIONS = {
   platformOperationView: 'platform.operation.view',
   platformPdaView: 'platform.pda.view',
   platformMobileView: 'platform.mobile.view',
+  runtimeRead: 'runtime.read',
+  runtimeConfigure: 'runtime.configure',
+  runtimeUpdate: 'runtime.update',
   bootstrapView: 'identity.bootstrap.view',
   bootstrapRecover: 'identity.bootstrap.recover',
   systemDataOrganizationView: 'systemdata.organization.view',

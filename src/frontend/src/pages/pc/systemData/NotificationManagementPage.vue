@@ -8,9 +8,9 @@ import AppPage from '@/components/base/AppPage.vue'
 import AppQueryPanel from '@/components/management/AppQueryPanel.vue'
 import PermissionGate from '@/permissions/PermissionGate.vue'
 import { PERMISSIONS } from '@/permissions'
-import { getPf04Api } from '@/api/systemData/pf04Registry'
+import { getSystemDataOperationsApi } from '@/api/systemData/systemDataOperationsRegistry'
 import { createNotificationRealtime, type NotificationRealtime } from '@/api/systemData/notificationHub'
-import type { AnnouncementDto, NotificationInboxItemDto } from '@/api/systemData/pf04Types'
+import type { AnnouncementDto, NotificationInboxItemDto } from '@/api/systemData/systemDataOperationsTypes'
 import type { AppDataTableRequest } from '@/components/management/AppDataTable'
 import { useLocalizationStore } from '@/stores/localizationStore'
 import { useRouter } from 'vue-router'
@@ -92,7 +92,7 @@ const inboxColumns = computed(() => [
   { field: 'deliveredOn', title: copy.value.delivered, minWidth: 180 },
 ])
 async function load(): Promise<void> {
-  const api = getPf04Api()
+  const api = getSystemDataOperationsApi()
   if (api === null) return
   loading.value = true
   try {
@@ -116,7 +116,7 @@ async function load(): Promise<void> {
 }
 
 async function loadAnnouncementsPage(request: AppDataTableRequest): Promise<{ items: AnnouncementDto[]; total: number; pageIndex: number; pageSize: number }> {
-  const api = getPf04Api()
+  const api = getSystemDataOperationsApi()
   if (api === null || !canReadAnnouncements.value) return { items: [], total: 0, pageIndex: request.pageIndex, pageSize: request.pageSize }
   const result = await api.listAnnouncements(search.value, request.pageIndex, request.pageSize)
   announcements.value = result.items
@@ -125,7 +125,7 @@ async function loadAnnouncementsPage(request: AppDataTableRequest): Promise<{ it
 }
 
 async function loadInboxPage(request: AppDataTableRequest): Promise<{ items: NotificationInboxItemDto[]; total: number; pageIndex: number; pageSize: number }> {
-  const api = getPf04Api()
+  const api = getSystemDataOperationsApi()
   if (api === null || !canReadInbox.value) return { items: [], total: 0, pageIndex: request.pageIndex, pageSize: request.pageSize }
   const result = await api.getInbox(request.pageIndex, request.pageSize)
   inbox.value = result.items
@@ -134,7 +134,7 @@ async function loadInboxPage(request: AppDataTableRequest): Promise<{ items: Not
 }
 function reset(): void { search.value = ''; void load() }
 async function create(): Promise<void> {
-  const api = getPf04Api()
+  const api = getSystemDataOperationsApi()
   if (api === null || busy.value) return
   if (form.mode === 'system' && !canSendSystemMessages.value) return
   if (form.mode === 'announcement' && !canManageAnnouncements.value) return
@@ -161,8 +161,8 @@ async function create(): Promise<void> {
     open.value = true
   } finally { busy.value = false }
 }
-async function markRead(item: NotificationInboxItemDto): Promise<void> { const api = getPf04Api(); if (api !== null && canReadInbox.value && !item.isRead) { await api.markRead(item.notificationNId); await load() } }
-async function revoke(row: AnnouncementDto): Promise<void> { const api = getPf04Api(); if (api !== null && canManageAnnouncements.value && row.status === 'Published') { await api.revokeAnnouncement(row.announcementNId); await load() } }
+async function markRead(item: NotificationInboxItemDto): Promise<void> { const api = getSystemDataOperationsApi(); if (api !== null && canReadInbox.value && !item.isRead) { await api.markRead(item.notificationNId); await load() } }
+async function revoke(row: AnnouncementDto): Promise<void> { const api = getSystemDataOperationsApi(); if (api !== null && canManageAnnouncements.value && row.status === 'Published') { await api.revokeAnnouncement(row.announcementNId); await load() } }
 async function confirmRevoke(row: AnnouncementDto): Promise<void> {
   if (!canManageAnnouncements.value || row.status !== 'Published') return
   try {
@@ -170,7 +170,7 @@ async function confirmRevoke(row: AnnouncementDto): Promise<void> {
     await revoke(row)
   } catch { /* 用户取消或业务失败时保留当前页面状态 */ }
 }
-async function markAllRead(): Promise<void> { const api = getPf04Api(); if (api !== null && canReadInbox.value) { const ids = inbox.value.filter((item) => !item.isRead).map((item) => item.notificationNId); if (ids.length) { await api.batchRead(ids); await load() } } }
+async function markAllRead(): Promise<void> { const api = getSystemDataOperationsApi(); if (api !== null && canReadInbox.value) { const ids = inbox.value.filter((item) => !item.isRead).map((item) => item.notificationNId); if (ids.length) { await api.batchRead(ids); await load() } } }
 function openAnnouncement(): void { if (!canManageAnnouncements.value) return; mutationIdempotencyKey = `ui-${crypto.randomUUID?.() ?? Date.now()}`; form.mode = 'announcement'; editingId.value = null; open.value = true }
 function openSystemMessage(): void { if (!canSendSystemMessages.value) return; mutationIdempotencyKey = `ui-${crypto.randomUUID?.() ?? Date.now()}`; form.mode = 'system'; editingId.value = null; open.value = true }
 function edit(row: AnnouncementDto): void { mutationIdempotencyKey = `ui-${crypto.randomUUID?.() ?? Date.now()}`; editingId.value = row.announcementNId; Object.assign(form, { title: row.title, body: row.body, recipients: '', mode: 'announcement', publish: false }); open.value = true }

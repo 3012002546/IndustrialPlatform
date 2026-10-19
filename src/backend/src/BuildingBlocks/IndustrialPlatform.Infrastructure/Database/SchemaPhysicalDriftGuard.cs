@@ -12,15 +12,28 @@ public static class SchemaPhysicalDriftGuard
     {
         ArgumentNullException.ThrowIfNull(sugar);
         var dbType = sugar.CurrentConnectionConfig.DbType;
-        var columns = dbType == DbType.Sqlite
-            ? Names(sugar.Ado.GetDataTable($"SELECT name FROM pragma_table_info('{tableName}')"), "name")
-            : Names(sugar.Ado.GetDataTable($"SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = '{tableName}'"), "column_name");
-        var indexes = dbType == DbType.Sqlite
-            ? Names(sugar.Ado.GetDataTable($"SELECT name FROM pragma_index_list('{tableName}')"), "name")
-            : Names(sugar.Ado.GetDataTable($"SELECT indexname FROM pg_indexes WHERE schemaname = current_schema() AND tablename = '{tableName}'"), "indexname");
+        var (columns, indexes) = dbType switch
+        {
+            DbType.Sqlite => (
+                Names(sugar.Ado.GetDataTable($"SELECT name FROM pragma_table_info('{tableName}')"), "name"),
+                Names(sugar.Ado.GetDataTable($"SELECT name FROM pragma_index_list('{tableName}')"), "name")),
+            DbType.PostgreSQL => (
+                Names(sugar.Ado.GetDataTable($"SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = '{tableName}'"), "column_name"),
+                Names(sugar.Ado.GetDataTable($"SELECT indexname FROM pg_indexes WHERE schemaname = current_schema() AND tablename = '{tableName}'"), "indexname")),
+            DbType.SqlServer => (
+                Names(sugar.Ado.GetDataTable(
+                    "SELECT c.name FROM sys.columns AS c JOIN sys.tables AS t ON t.object_id = c.object_id JOIN sys.schemas AS s ON s.schema_id = t.schema_id WHERE s.name = 'dbo' AND t.name = @tableName",
+                    new SugarParameter("@tableName", tableName)), "name"),
+                Names(sugar.Ado.GetDataTable(
+                    "SELECT i.name FROM sys.indexes AS i JOIN sys.tables AS t ON t.object_id = i.object_id JOIN sys.schemas AS s ON s.schema_id = t.schema_id WHERE s.name = 'dbo' AND t.name = @tableName AND i.name IS NOT NULL",
+                    new SugarParameter("@tableName", tableName)), "name")),
+            _ => throw new NotSupportedException($"不支持的目标数据库类型:{dbType}。"),
+        };
 
         if (columns.Count == 0)
-            throw new InvalidOperationException($"physical schema drift: table '{tableName}' is missing.");
+            throw new InvalidOperationException(dbType == DbType.SqlServer
+                ? $"physical schema drift: table 'dbo.{tableName}' is missing or metadata is not visible to the current login."
+                : $"physical schema drift: table '{tableName}' is missing.");
         var missingColumns = requiredColumns.Where(column => !columns.Contains(column)).ToArray();
         var missingIndexes = requiredIndexes
             .Where(index =>

@@ -8,8 +8,8 @@ import AppPage from '@/components/base/AppPage.vue'
 import AppQueryPanel from '@/components/management/AppQueryPanel.vue'
 import PermissionGate from '@/permissions/PermissionGate.vue'
 import { PERMISSIONS } from '@/permissions'
-import { getPf04Api } from '@/api/systemData/pf04Registry'
-import type { FileObjectDto, UploadSessionDto } from '@/api/systemData/pf04Types'
+import { getSystemDataOperationsApi } from '@/api/systemData/systemDataOperationsRegistry'
+import type { FileObjectDto, UploadSessionDto } from '@/api/systemData/systemDataOperationsTypes'
 import { useLocalizationStore } from '@/stores/localizationStore'
 import { useAuthStore } from '@/stores/authStore'
 import type { AppDataTableRequest } from '@/components/management/AppDataTable'
@@ -66,7 +66,7 @@ async function load(): Promise<void> {
 
 async function loadPage(page: number, size: number): Promise<void> {
   if (!canRead.value) { rows.value = []; total.value = 0; return }
-  const api = getPf04Api()
+  const api = getSystemDataOperationsApi()
   if (api === null) return
   loading.value = true
   try {
@@ -92,7 +92,7 @@ function selectFile(event: Event): void {
 }
 
 async function upload(): Promise<void> {
-  const api = getPf04Api()
+  const api = getSystemDataOperationsApi()
   if (api === null || selectedFile.value === null) return
   busy.value = true
   try {
@@ -111,7 +111,7 @@ async function upload(): Promise<void> {
 }
 
 async function startUpload(candidate: UploadSessionDto | null, takeover = false): Promise<void> {
-  const api = getPf04Api()
+  const api = getSystemDataOperationsApi()
   if (api === null || selectedFile.value === null) return
   const controller = new AbortController()
   activeUploadController?.abort()
@@ -162,7 +162,7 @@ async function continueCandidate(candidate: UploadSessionDto, takeover = false):
 }
 
 async function pauseCurrent(): Promise<void> {
-  const api = getPf04Api()
+  const api = getSystemDataOperationsApi()
   if (api === null || currentSession.value === null) return
   paused.value = true
   activeUploadController?.abort()
@@ -172,14 +172,14 @@ async function pauseCurrent(): Promise<void> {
 }
 
 async function resumeCurrent(): Promise<void> {
-  const api = getPf04Api()
+  const api = getSystemDataOperationsApi()
   if (api === null || selectedFile.value === null || currentSession.value === null) return
   currentSession.value = await api.getUploadSession(currentSession.value.sessionNId)
   await startUpload(currentSession.value)
 }
 
 async function cancelCurrent(): Promise<void> {
-  const api = getPf04Api()
+  const api = getSystemDataOperationsApi()
   if (api === null || currentSession.value === null) return
   paused.value = true
   activeUploadController?.abort()
@@ -188,7 +188,7 @@ async function cancelCurrent(): Promise<void> {
 }
 
 async function download(row: FileObjectDto): Promise<void> {
-  const api = getPf04Api()
+  const api = getSystemDataOperationsApi()
   if (!canDownload.value || api === null || row.scanStatus !== 'Clean') return
   const blob = await api.downloadFile(row.fileNId)
   const url = URL.createObjectURL(blob); const anchor = document.createElement('a')
@@ -196,13 +196,13 @@ async function download(row: FileObjectDto): Promise<void> {
 }
 
 async function requestDeletion(row: FileObjectDto): Promise<void> {
-  const api = getPf04Api()
+  const api = getSystemDataOperationsApi()
   if (!canDelete.value || api === null) return
   await api.requestFileDeletion(row.fileNId); await load()
 }
 
 async function toggleRestriction(row: FileObjectDto): Promise<void> {
-  const api = getPf04Api()
+  const api = getSystemDataOperationsApi()
   if (!canManage.value || api === null) return
   await api.setFileRestriction(row.fileNId, !row.restricted); await load()
 }

@@ -3,6 +3,7 @@ using IndustrialPlatform.SystemData.Api.Authorization;
 using IndustrialPlatform.SystemData.Api.Health;
 using IndustrialPlatform.SystemData.Application;
 using IndustrialPlatform.SystemData.Application.Notifications;
+using IndustrialPlatform.SystemData.Application.PlatformHealth;
 using IndustrialPlatform.SystemData.Infrastructure;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
@@ -47,6 +48,10 @@ public static class SystemDataModule
         services.AddSystemDataAuthorization();
         services.AddCurrentUser();
         services.AddHttpClient();
+        services.AddSingleton<PlatformHealthSampler>();
+        services.AddOptions<PlatformHealthOptions>().Bind(configuration.GetSection(PlatformHealthOptions.SectionName));
+        services.AddSingleton<IPlatformHealthSnapshot>(sp => sp.GetRequiredService<PlatformHealthSampler>());
+        services.AddHostedService(sp => sp.GetRequiredService<PlatformHealthSampler>());
         return services;
     }
 
@@ -63,7 +68,9 @@ public static class SystemDataModule
             .AddCheck<RedisHealthCheck>(Name(namePrefix, "redis"), timeout: TimeSpan.FromSeconds(3))
             .AddCheck<RabbitMqHealthCheck>(Name(namePrefix, "rabbitmq"), timeout: TimeSpan.FromSeconds(3))
             .AddCheck<OutboxHealthCheck>(Name(namePrefix, "outbox"), timeout: TimeSpan.FromSeconds(3))
-            .AddCheck<SeqHealthCheck>(Name(namePrefix, "seq"), timeout: TimeSpan.FromSeconds(3));
+            .AddCheck<SeqHealthCheck>(Name(namePrefix, "seq"), timeout: TimeSpan.FromSeconds(3))
+            .AddCheck<SchedulerHealthCheck>(Name(namePrefix, "scheduler"), timeout: TimeSpan.FromSeconds(3))
+            .AddCheck<FileScanHealthCheck>(Name(namePrefix, "file-scan"), timeout: TimeSpan.FromSeconds(3));
     }
 
     /// <summary>映射 SystemData 模块端点(当前无模块专属 minimal API;控制器由宿主统一 MapControllers)。</summary>

@@ -11,6 +11,7 @@
 4. [前端调试(VS Code)](#四前端调试vs-code)
 5. [质量门禁命令](#五质量门禁命令)
 6. [已知预期与注意事项](#六已知预期与注意事项)
+7. [Android 手机／PDA 外壳联调](#七android-手机pda-外壳联调)
 
 ---
 
@@ -571,3 +572,51 @@ bash tests/scripts/bootstrap-admin.Tests.sh   # 需要 Git Bash;先 bash -n 校�
 | JWT `SigningKey` 为空 | 每次启动临时 RSA 密钥,重启后既有令牌失效;仅限开发环境,需持久化则配密钥 |
 
 要完整本地联调(不连云端),需安装 Docker 后执行 `docker compose up -d`(见 `deploy/scripts/README.md`),届时 `/health/ready` 应转 200。
+
+---
+
+## 七、Android 手机／PDA 外壳联调
+
+本节记录 PF-06A 在 **Android 10 手机**上的操作方式。这里的“PDA”指客户端页面和安装包，不代表已验证厂商扫码广播。先由调试者在 VS／VS Code 启动现有 UnifiedHost 和 Vite；以下 ADB 命令不会启动或结束这两个服务。当前手机测试使用云 Docker 后端依赖，手机只访问调试机的局域网 HTTPS 前端，不直连数据库。
+
+### 7.1 环境与入口
+
+- Android Studio 不是命令行构建 APK 的必要条件；需要 JDK 21、Android SDK（当前工程使用 API 36、Build Tools 35、Platform Tools）以及仓库已有的 Gradle wrapper。当前开发机的 JDK 位于 `C:\Program Files\Android\openjdk\jdk-21.0.8`，SDK 位于仓库外的 `D:\Code\Industrial Platform\开发辅助文件\AndroidSdk`。换机器时以实际安装路径为准。
+- 开发机与手机接入同一局域网，确认调试机当前 IPv4；历史使用过 `192.168.2.7`、`192.168.3.140`，均不是固定发布地址。调试机 IP 变化后，按 [局域网 HTTPS 指南](../docs/agents/局域网调试入口.md) 更新服务器证书 SAN；手机只安装开发 CA **公钥**，不得复制私钥。手机浏览器先打开 `https://<调试机IPv4>:5173/mobile`，确认无证书警告并能看到登录页。
+- 在 VS Code 的 `src/frontend` 工作区选择“局域网 HTTPS：启动 Vite”，或在该目录执行 `pnpm dev:lan:https`；后端沿用用户正在调试的 UnifiedHost `:5041`。5173 已被占用时检查现有 Vite 实例，不另起一个争用端口的进程。请求应经 `/_backend` 代理；手机上的 `localhost` 指手机自身。
+- 手机原生 App 的入口为 `/pda/home`；从实际菜单进入 `/pda/terminal/scanner-test`。用于真机联调的 **live-debug APK** 指向局域网 Vite，网页修改会随开发服务变化；它不证明无 Vite 的正式 APK、强制 Web 更新或生产签名已通过。真实页面包升级与 APK 升级按 [09A §4](../docs/implementation/09A-Industrial%20Platform终端运行时与客户端打包开发实施方案.md)另测。
+
+### 7.2 ADB 连接、安装与定位
+
+在 PowerShell 中按本机 SDK 路径设置变量；后续命令中的 `<手机IPv4>`、`<APK绝对路径>` 要替换为当次实值。手机首次需开启开发者选项／USB 调试并完成授权。**Android 10 的这次无线 ADB 是先用可传数据的 USB 线执行 `tcpip 5555`，再拔线连接；单靠同一 Wi-Fi 不足以首次建立连接。**
+
+```powershell
+$sdkRoot = 'D:\Code\Industrial Platform\开发辅助文件\AndroidSdk'
+$adbExe = Join-Path $sdkRoot 'platform-tools\adb.exe'
+& $adbExe devices -l
+& $adbExe tcpip 5555                 # 首次：USB 已连接且手机已授权时
+& $adbExe connect '<手机IPv4>:5555'  # 拔线后，手机和电脑仍在同一局域网
+& $adbExe devices -l
+& $adbExe -s '<手机IPv4>:5555' shell getprop ro.build.version.release
+& $adbExe -s '<手机IPv4>:5555' shell dumpsys webviewupdate
+& $adbExe -s '<手机IPv4>:5555' install -r '<APK绝对路径>'
+```
+
+`devices -l` 必须显示目标为 `device`；`unauthorized` 时到手机上允许调试。只对本任务 App 做冷启动复现，不结束 VS／VS Code 服务：
+
+```powershell
+& $adbExe -s '<手机IPv4>:5555' shell am force-stop com.industrialplatform.pda
+& $adbExe -s '<手机IPv4>:5555' shell am start -n com.industrialplatform.pda/.MainActivity
+```
+
+无线连接失败时先核对手机 IP、授权、同一 Wi-Fi 和数据线；`192.168.3.153:5555` 只是一次测试记录。调试结束可执行 `& $adbExe disconnect '<手机IPv4>:5555'`，并按设备管理要求关闭无线 ADB。APK 覆盖安装要求同一 `applicationId` 和连续签名；正式版本升级还须递增 `versionCode`。正式安装包与调试包不能混称。
+
+### 7.3 真机操作和常见问题
+
+1. 登录后进入“测试扫码”，先用文本框输入，确认下方 Label 原样显示并可清空；再点相机扫描二维码，核对返回原文及前导零。相机只打开但没有结果，不算通过。当前桥接读取扫码插件的 `rawValue`，缺失时才用 `displayValue`。
+2. 首次相机扫描会检查／安装 Google Barcode Scanner 模块；无 Google 服务、不能下载模块的 PDA **尚未验证**，不能将本次手机成功推断为该类 PDA 成功。报 `SCANNER_MODULE_UNAVAILABLE` 时先查模块与设备条件，再查扫码结果映射。
+3. 旧手机曾在 Android 10／WebView 83 出现空白页；更新到 WebView 153 后才完成登录、扫码和媒体验证。工程 `minSdkVersion=24` 只表示允许安装的 Android API 范围，**不保证旧 WebView 能执行当前网页**。当前尚未冻结最低 WebView 版本，也没有加载网页前的原生版本提示；旧 PDA 上架前必须读取实际 WebView 提供者／版本，核验登录、扫码和媒体，低于最终支持下限时应给原生升级或不支持提示。不能靠调低构建目标就宣称所有原生媒体能力可用。
+4. 语音测试使用两个账号在 Windows 与手机加入同一会话。手机首次允许麦克风；`MEDIA_MIC_PERMISSION_DENIED` 要同时核对系统录音授权、App 权限及 APK 是否包含 `MODIFY_AUDIO_SETTINGS`。电脑能听到手机而手机无声时，先调高手机**通话音量**，再检查远端音轨和连接状态。
+5. Windows→手机共享和手机→Windows 共享分别验证。手机发屏会请求系统录屏授权；切到桌面／其他 App 时画面应持续更新。点“停止共享”后要确认画面停止、系统采屏服务退出；只关闭网页视频轨不等于释放原生采屏。已验证范围仅为本次 Android 10／WebView 153 手机。
+
+当前真机结果与 APK hash 见 [PF-06A 证据](../docs/evidence/PF-06A.md)顶部；该文件后面的“无 SDK／ADB／真机”段落是历史快照。PDA 厂商广播不在本轮交付。正式发布还缺无 Vite 安装、签名渠道、Web 必更、APK 覆盖升级等实测，不能用 live-debug 的即时页面变化代替。

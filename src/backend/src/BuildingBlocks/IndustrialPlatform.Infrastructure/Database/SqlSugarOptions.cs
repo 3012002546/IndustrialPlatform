@@ -15,4 +15,7 @@ public sealed class SqlSugarOptions
 
     /// <summary>是否自动关闭连接,默认开启。</summary>
     public bool IsAutoCloseConnection { get; set; } = true;
+
+    /// <summary>可选命令超时（秒）；未设置时沿用 SqlSugar 原行为。</summary>
+    public int? CommandTimeoutSeconds { get; set; }
 }

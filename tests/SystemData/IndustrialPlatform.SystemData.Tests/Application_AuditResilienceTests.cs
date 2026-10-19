@@ -1,5 +1,5 @@
 using IndustrialPlatform.SystemData.Application.Auditing;
-using IndustrialPlatform.SystemData.Application.Pf04;
+using IndustrialPlatform.SystemData.Application.Operations;
 using IndustrialPlatform.SystemData.Contracts.Auditing;
 using IndustrialPlatform.SystemData.Infrastructure.Reliability;
 using Microsoft.Extensions.Logging;
@@ -20,7 +20,7 @@ public sealed class AuditResilienceTests
             var sink = new FileAuditFailureSink(Options.Create(new AuditFailureSpoolOptions { RootPath = root }));
             var service = new AuditService(new FailingAuditStore(), TimeProvider.System, sink);
 
-            var failure = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.IngestAsync("tenant-1", Request(), CancellationToken.None));
+            var failure = await Assert.ThrowsAsync<SystemDataOperationException>(() => service.IngestAsync("tenant-1", Request(), CancellationToken.None));
 
             Assert.Equal("AUDIT_WRITE_UNAVAILABLE", failure.Code);
             var pending = await ReadAsync(sink);
@@ -50,7 +50,7 @@ public sealed class AuditResilienceTests
             var sink = new FileAuditFailureSink(Options.Create(new AuditFailureSpoolOptions { RootPath = root }));
             var service = new AuditService(new FailingInsertAuditStore(), TimeProvider.System, sink);
 
-            var failure = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.IngestAsync("tenant-1", Request(), CancellationToken.None));
+            var failure = await Assert.ThrowsAsync<SystemDataOperationException>(() => service.IngestAsync("tenant-1", Request(), CancellationToken.None));
 
             Assert.Equal("AUDIT_WRITE_UNAVAILABLE", failure.Code);
             var pending = await ReadAsync(sink);
@@ -89,7 +89,7 @@ public sealed class AuditResilienceTests
         var logger = new RecordingLogger<AuditService>();
         var service = new AuditService(new FailingAuditStore(), TimeProvider.System, new FailingAuditFailureSink(), logger: logger);
 
-        var failure = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.IngestAsync("tenant-1", Request(), CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<SystemDataOperationException>(() => service.IngestAsync("tenant-1", Request(), CancellationToken.None));
 
         Assert.Equal("AUDIT_WRITE_UNAVAILABLE", failure.Code);
         Assert.Contains(LogLevel.Error, logger.Levels);
@@ -118,7 +118,7 @@ public sealed class AuditResilienceTests
         var held = new LifecycleAuditStore(legalHold: true);
         var service = new AuditService(held, TimeProvider.System);
 
-        var legalHoldFailure = await Assert.ThrowsAsync<Pf04ServiceException>(() => service.UpdateLifecycleAsync(
+        var legalHoldFailure = await Assert.ThrowsAsync<SystemDataOperationException>(() => service.UpdateLifecycleAsync(
             "tenant-1", "user-1", "systemdata", "audit-1",
             new AuditLifecycleRequest { State = "Deleted", RetentionUntil = DateTimeOffset.UtcNow.AddMinutes(-1) },
             CancellationToken.None));
@@ -126,7 +126,7 @@ public sealed class AuditResilienceTests
 
         var noHold = new LifecycleAuditStore(legalHold: false);
         var noHoldService = new AuditService(noHold, TimeProvider.System);
-        var retentionFailure = await Assert.ThrowsAsync<Pf04ServiceException>(() => noHoldService.UpdateLifecycleAsync(
+        var retentionFailure = await Assert.ThrowsAsync<SystemDataOperationException>(() => noHoldService.UpdateLifecycleAsync(
             "tenant-1", "user-1", "systemdata", "audit-1",
             new AuditLifecycleRequest { State = "Deleted" },
             CancellationToken.None));

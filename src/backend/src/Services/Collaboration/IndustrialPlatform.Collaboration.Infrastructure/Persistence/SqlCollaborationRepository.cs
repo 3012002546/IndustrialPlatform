@@ -548,7 +548,12 @@ public sealed partial class SqlCollaborationRepository : ICollaborationRepositor
         {
             var now = DateTimeOffset.UtcNow;
             var affected = await sugar.Ado.ExecuteCommandAsync(
-                """
+                sugar.CurrentConnectionConfig.DbType == SqlSugar.DbType.SqlServer ? """
+                INSERT INTO collaboration_message_personal_visibility (tenant_n_id, user_n_id, conversation_n_id, message_n_id, hidden_on)
+                SELECT @TenantNId, @UserNId, @ConversationNId, @MessageNId, @HiddenOn
+                WHERE NOT EXISTS (SELECT 1 FROM collaboration_message_personal_visibility WITH (UPDLOCK,HOLDLOCK)
+                    WHERE tenant_n_id=@TenantNId AND user_n_id=@UserNId AND message_n_id=@MessageNId)
+                """ : """
                 INSERT INTO collaboration_message_personal_visibility (tenant_n_id, user_n_id, conversation_n_id, message_n_id, hidden_on)
                 VALUES (@TenantNId, @UserNId, @ConversationNId, @MessageNId, @HiddenOn)
                 ON CONFLICT (tenant_n_id, user_n_id, message_n_id) DO NOTHING
@@ -959,6 +964,8 @@ public sealed partial class SqlCollaborationRepository : ICollaborationRepositor
             return new ComplianceViewBudgetReservation(windowStartOn, 0, 200);
 
         var dbType = _dbContext.SqlSugar.CurrentConnectionConfig.DbType;
+        if (dbType == SqlSugar.DbType.SqlServer)
+            return await ReserveSqlServerViewBudgetAsync(tenantNId, actorUserNId, windowStartOn, amount, cancellationToken);
         var sql = dbType == SqlSugar.DbType.PostgreSQL
             ? """
               INSERT INTO collaboration_compliance_view_budget (tenant_n_id, actor_user_n_id, window_start_on, result_count)
@@ -986,6 +993,50 @@ public sealed partial class SqlCollaborationRepository : ICollaborationRepositor
             .FirstAsync(cancellationToken);
         var reserved = row?.ResultCount ?? 0;
         return new ComplianceViewBudgetReservation(windowStartOn, affected == 1 ? amount : -1, Math.Max(0, 200 - reserved));
+    }
+
+    private async Task<ComplianceViewBudgetReservation> ReserveSqlServerViewBudgetAsync(
+        string tenantNId, string actorUserNId, DateTimeOffset windowStartOn, int amount, CancellationToken cancellationToken)
+    {
+        var sugar = _dbContext.SqlSugar;
+        var ownsTransaction = sugar.Ado.IsNoTran();
+        if (ownsTransaction) sugar.Ado.BeginTran();
+        try
+        {
+            var affected = await sugar.Ado.GetIntAsync("""
+                DECLARE @changed int=0;
+                IF @Amount<=200
+                BEGIN
+                    IF EXISTS (SELECT 1 FROM collaboration_compliance_view_budget WITH (UPDLOCK,HOLDLOCK)
+                        WHERE tenant_n_id=@TenantNId AND actor_user_n_id=@ActorUserNId AND window_start_on=@WindowStartOn)
+                    BEGIN
+                        UPDATE collaboration_compliance_view_budget SET result_count=result_count+@Amount
+                        WHERE tenant_n_id=@TenantNId AND actor_user_n_id=@ActorUserNId AND window_start_on=@WindowStartOn
+                            AND result_count<=200-@Amount;
+                        SET @changed=@@ROWCOUNT;
+                    END
+                    ELSE
+                    BEGIN
+                        INSERT INTO collaboration_compliance_view_budget (tenant_n_id,actor_user_n_id,window_start_on,result_count)
+                        VALUES (@TenantNId,@ActorUserNId,@WindowStartOn,@Amount);
+                        SET @changed=1;
+                    END
+                END;
+                SELECT @changed;
+                """, new SqlSugar.SugarParameter("@TenantNId", tenantNId),
+                new SqlSugar.SugarParameter("@ActorUserNId", actorUserNId),
+                new SqlSugar.SugarParameter("@WindowStartOn", windowStartOn), new SqlSugar.SugarParameter("@Amount", amount));
+            var row = await sugar.Queryable<ComplianceViewBudgetTable>()
+                .Where(item => item.TenantNId == tenantNId && item.ActorUserNId == actorUserNId && item.WindowStartOn == windowStartOn)
+                .FirstAsync(cancellationToken);
+            if (ownsTransaction) sugar.Ado.CommitTran();
+            return new(windowStartOn, affected == 1 ? amount : -1, Math.Max(0, 200 - (row?.ResultCount ?? 0)));
+        }
+        catch
+        {
+            if (ownsTransaction) sugar.Ado.RollbackTran();
+            throw;
+        }
     }
 
     public async Task<ComplianceViewBudgetReservation> ReleaseComplianceViewBudgetAsync(

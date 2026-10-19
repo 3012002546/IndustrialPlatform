@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Builder;
 using Npgsql;
+using Microsoft.Data.SqlClient;
 
 namespace IndustrialPlatform.Collaboration.EmbeddedHost.Configuration;
 
@@ -96,9 +97,35 @@ public static class StandaloneConfiguration
             projection["DatabaseTopology:SharedDatabaseName"] = connection.Database;
             projection["DatabaseTopology:SharedDatabaseSchema"] = schema;
         }
+        else if (string.Equals(provider, "SqlServer", StringComparison.OrdinalIgnoreCase))
+        {
+            var value = database["ConnectionString"];
+            if (string.IsNullOrWhiteSpace(value))
+                throw new InvalidOperationException("Standalone:Database:ConnectionString 未配置。");
+            SqlConnectionStringBuilder connection;
+            try { connection = new SqlConnectionStringBuilder(value); }
+            catch (Exception exception)
+            {
+                throw new InvalidOperationException("Standalone:Database:ConnectionString 无法解析。", exception);
+            }
+            if (string.IsNullOrWhiteSpace(connection.InitialCatalog))
+                throw new InvalidOperationException("Standalone:Database:ConnectionString 必须包含实际 Database。");
+            var configuredDatabase = database["DatabaseName"]?.Trim();
+            if (!string.IsNullOrWhiteSpace(configuredDatabase)
+                && !string.Equals(configuredDatabase, connection.InitialCatalog, StringComparison.Ordinal))
+                throw new InvalidOperationException("Standalone:Database:DatabaseName 必须与 ConnectionString 的实际 Database 一致。");
+            var schema = database["Schema"]?.Trim() ?? "dbo";
+            if (!string.Equals(schema, "dbo", StringComparison.Ordinal))
+                throw new InvalidOperationException("独立 SQL Server 宿主仅支持 dbo Schema。");
+            projection["SqlSugar:DbType"] = "SqlServer";
+            projection["SqlSugar:ConnectionString"] = connection.ConnectionString;
+            projection["DatabaseTopology:SharedDatabaseName"] = connection.InitialCatalog;
+            projection["DatabaseTopology:SharedDatabaseSchema"] = schema;
+            projection["DatabaseTopology:SharedSqliteFile"] = "";
+        }
         else
         {
-            throw new InvalidOperationException("Standalone:Database:Provider 仅支持 Sqlite 或 PostgreSQL。");
+            throw new InvalidOperationException("Standalone:Database:Provider 仅支持 Sqlite、PostgreSQL 或 SqlServer。");
         }
 
         builder.Configuration.AddInMemoryCollection(projection);
