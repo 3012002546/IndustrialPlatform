@@ -27,3 +27,5 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test:unit
       - run: pnpm build
+        env:
+          VITE_DEPLOYMENT_ENVIRONMENT: TEST
