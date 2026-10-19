@@ -450,7 +450,12 @@ public sealed class ParameterHttpTests
         finally
         {
             Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-            if (File.Exists(path)) File.Delete(path);
+            // Windows可短暂保留已关闭SQLite文件句柄；只重试本测试精确临时文件的清理，不吞业务断言或持久锁。
+            for (var cleanupAttempt = 0; ; cleanupAttempt++)
+            {
+                try { if (File.Exists(path)) File.Delete(path); break; }
+                catch (IOException) when (cleanupAttempt < 9) { await Task.Delay(100); }
+            }
             if (Directory.Exists(path + ".keys")) Directory.Delete(path + ".keys", true);
         }
     }

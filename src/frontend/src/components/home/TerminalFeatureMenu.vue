@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Bell, Camera, ChatDotRound, Document } from '@element-plus/icons-vue'
+import { Bell, ChatDotRound, Document, FullScreen } from '@element-plus/icons-vue'
 import { RouterLink } from 'vue-router'
 
 import { systemDataPageCopy } from '@/localization/systemData'
@@ -76,7 +76,7 @@ const fileRouteName = computed(() =>
       data-testid="terminal-feature-menu-scanner"
       :to="{ name: ROUTE_NAMES.pdaRuntimeScannerTest }"
     >
-      <span class="terminal-feature-menu__icon" aria-hidden="true"><Camera :size="24" /></span>
+      <span class="terminal-feature-menu__icon" aria-hidden="true"><FullScreen :size="24" /></span>
       <span class="terminal-feature-menu__item-copy">
         <strong>{{ copy.scannerTest }}</strong>
         <span>{{ copy.scannerTestDescription }}</span>

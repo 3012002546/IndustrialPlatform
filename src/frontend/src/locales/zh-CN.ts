@@ -166,6 +166,8 @@ export const zhCN = {
         'reference-data': '基础配置',
         system: '系统管理',
         collaboration: '协作',
+        'platform-services': '平台服务',
+        'task-scheduler': '任务调度',
       },
       section: {
         'reference-data': '基础配置',
@@ -203,6 +205,9 @@ export const zhCN = {
         'systemdata-files': '文件管理',
         'systemdata-notifications': '通知与公告',
         'systemdata-audits': '审计查询',
+        'pc-scheduler-jobs': '任务管理',
+        'pc-scheduler-runs': '运行记录',
+        'pc-platform-health': '平台健康',
         'collaboration-chat': '聊天',
         'collaboration-compliance-search': '受控查看',
         'collaboration-legal-holds': '保全案件',

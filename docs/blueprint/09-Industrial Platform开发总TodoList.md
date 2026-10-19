@@ -376,23 +376,23 @@ Audit Advanced（010）包含哈希链、签名 checkpoint、外部锚点、完�
 
 # 14. PF-07 Scheduler / Platform Health
 
-PF-07只使用一个阶段管理会话；[实施10](../implementation/10-Industrial%20Platform%20Scheduler%20Platform%20Health开发实施方案.md)与[字段/API/页面规格](../implementation/details/PF07-数据接口与页面规格.md)2026-10-12收敛为V1.1评估稿。两自有表、三管理页、单引擎调度与健康最新摘要，既有Audit复用；Scheduler与PlatformHealth保持职责边界，内部001～006连续执行，整体派遣，不逐卡提交。
+PF-07只使用一个阶段管理会话；[实施10](../implementation/10-Industrial%20Platform%20Scheduler%20Platform%20Health开发实施方案.md)与[字段/API/页面规格](../implementation/details/PF07-数据接口与页面规格.md)2026-10-19整体复核为V1.3。两自有表、三管理页、单引擎调度与健康最新摘要，既有Audit复用；Scheduler与PlatformHealth保持职责边界，内部001～006开发及反馈返修完成，不逐卡提交。
 
-**设计就绪度：** 待前置核验；**派遣状态：** 待派遣，当前供用户复评。G07-1引擎/受控存储、G07-2公开适配仍是设计前置；G07-3为实施后真实环境验收条件，不能前移成重复整包开工验收。责任及退出条件见实施10§1.3；未启动PoC/生产开发。
+**设计就绪度：** 已核验；**执行状态：** 开发与反馈返修完成，页面整体已获用户确认，整包仍待验收。G07-1/2已闭合；实际三Provider存储、双工作器、真实对账/审计/菜单/健康、最新回归结果及外部未测边界见[PF07证据](../evidence/PF-07.md)。工作包继续active，不把页面确认扩为生产准入。
 
 **Service Host：** Scheduler 与 PlatformHealth 模块加入 `SystemData.Service`。
 
 ## 14.1 Scheduler
 
-**状态：** 设计草案已细化，待前置核验/待派遣。
-**当前会话职责：** PF07主控维护设计、前置核验与任务输入。
+**状态：** 当前工作树实现与开发自测通过，待用户验收。
+**当前会话职责：** PF07主控按用户授权连续实施、自测与维护验收输入。
 **目标：** 定义代码白名单任务及每任务一个Cron，原生引擎负责计划/工作器/重试；保留启停、业务防重/互斥、超时/取消、Unknown核对、执行记录和人工触发，不自建第二套调度机制。
 **边界：** Scheduler 不包含所属模块业务规则；处理器通过公开契约注册。
-**完成门禁：** 单实例和多实例互斥、失败重试、人工触发、审计、指标和管理页面通过。
+**完成门禁：** 单实例和多实例互斥、失败重试、人工触发、审计、TraceId和管理页面通过。
 
 ## 14.2 Platform Health
 
-**状态：** 设计草案已细化，待前置核验/待派遣。
+**状态：** 当前工作树实现与开发自测通过，待用户验收。
 **目标：** 聚合API、数据库、缓存、消息、文件扫描、Realtime和RemoteAssistance真实摘要、检查时间及降级原因；使用现有检查/受控适配，仅保留最新内存快照。
 **边界：** 首版不建探针配置/观察/异常表及对应维护页面，不采集完整主机、进程、磁盘和日志告警。
 **完成门禁：** 工作台和运行治理页显示真实服务状态、降级原因和 TraceId，不展示伪造健康数据。
@@ -400,6 +400,7 @@ PF-07只使用一个阶段管理会话；[实施10](../implementation/10-Industr
 # 15. PF-08 Low Code
 
 **状态：** 待启动
+**2026-10-19启动判断：** PF07当前实现及反馈返修可作为后续设计输入，可以开始PF08详细设计；未测SQL2022/生产故障项继续登记，不阻断设计。实施11尚未创建，不具备直接派生产编码的详细规格；本轮仅评估，未启动新任务。
 **Service Host：** 创建 `PlatformStudio.Service`；内部模块边界读取蓝图 32。
 **建议会话标题：** `PF-08 Low Code阶段管理`
 **输入：** 蓝图 05、21、27、28、31；PF-01/02/03/04/07 稳定契约。
@@ -407,6 +408,7 @@ PF-07只使用一个阶段管理会话；[实施10](../implementation/10-Industr
 **禁止范围：** 任意 SQL、任意脚本、绕过权限、复杂工作流和插件市场。
 
 **设计门禁：** 明确设计态、发布快照和运行数据分离；与 ReferenceData、SystemData、File、Audit 的契约；三端渲染和版本回滚。
+首轮先按蓝图21/32收敛DataSource/Dataset/LowCode/Publishing的最小范围，补齐表/字段/索引、组件与数据源白名单、服务端授权、API/事务、设计器/预览/运行线框及发布回滚案例；平台原生链优先，外部嵌入和最小装配边界同时写清，不将通用流程引擎/规则引擎/AI或PF09报表纳入PF08首版。
 **完成门禁：** 一个示例应用可从建模、设计、授权、发布到运行和回滚，全程有版本和审计。
 
 # 16. PF-09 Dashboard & Report
@@ -519,7 +521,7 @@ WorkOrder、Weighting、Trace、BatchRecord 和生产闭环分别开会话设计
 | PF-05 Collaboration | 已派遣，最小依赖先实现并做合同测试 | 原开发与独立验收任务继续协作 | 蓝图 04/05/32/33 | [实施 08](../implementation/08-Industrial%20Platform%20Collaboration开发实施方案.md)及[执行补充](../implementation/details/PF05-前置契约与合规执行补充.md) | 001～008整体执行，见[active工作包](../tasks/active/PF-05.md) | 基线已通过；PF05功能、真实环境与2C4G仍待验收 |
 | PF-06 RemoteAssistance | V3.0设计与详细任务已收敛，实测待核验 | 当前PF06主控会话 | 用户需求、当前公开代码契约与官方资料 | `docs/implementation/09-Industrial Platform RemoteAssistance开发实施方案.md` | 两独立业务状态、共用媒体连接、分项授权与结束 | 已纠偏续行正式业务实现；真实媒体/质量最终验收待完成 |
 | PF-06A 终端运行时与客户端打包（含SQL Server补充） | 已有实现/分项实测，整包未验收完成 | 现有阶段安排见CURRENT/active | 蓝图34及用户SQL Server追加要求 | [实施09A](../implementation/09A-Industrial%20Platform终端运行时与客户端打包开发实施方案.md) | 001/005已实现且有Android手机实测；009有2019隔离验证 | PF-06A及SQL2019证据；正式更新/PDA/2022和生产门禁仍未测 |
-| PF-07 Scheduler / Platform Health | 待派遣 / 待前置核验，V1.1供复评 | 当前PF07主控；执行者未分配 | 蓝图05、30、32、33 | [实施10](../implementation/10-Industrial%20Platform%20Scheduler%20Platform%20Health开发实施方案.md)及PF07明细 | TASK-PF07-001～006；两自有表/三管理路由/20验收案例，另补引擎存储 | 仅文档收敛；G07-1/2设计未闭合，G07-3真实验收条件，无功能验收 |
+| PF-07 Scheduler / Platform Health | 当前工作树实现与自测，待用户验收；设计已核验 | 当前PF07主控直接执行 | 蓝图05、30、32、33 | [实施10](../implementation/10-Industrial%20Platform%20Scheduler%20Platform%20Health开发实施方案.md)及PF07明细/原生字典/Job接入说明 | TASK-PF07-001～006；两自有表/三管理路由/实际原生存储 | 开发自测结果见PF07 evidence；2022/跨主机故障/生产负载未测 |
 | PF-08 Low Code | 待启动 | 待创建 | 蓝图 21 待复核 | 实施 11 待创建 | - | - |
 | PF-09 Dashboard & Report | 待启动 | 待创建 | 蓝图 22 待复核 | 实施 12 待创建 | - | - |
 | PF-10 ServerMonitor | 待启动 | 待创建 | 蓝图 02、32 待复核 | 实施 13 待创建 | - | - |

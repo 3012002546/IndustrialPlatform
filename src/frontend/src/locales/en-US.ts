@@ -176,6 +176,8 @@ export const enUS = {
         'reference-data': 'Basic configuration',
         system: 'System management',
         collaboration: 'Collaboration',
+        'platform-services': 'Platform services',
+        'task-scheduler': 'Task scheduler',
       },
       section: {
         'reference-data': 'Basic configuration',
@@ -213,6 +215,9 @@ export const enUS = {
         'systemdata-files': 'File management',
         'systemdata-notifications': 'Notifications',
         'systemdata-audits': 'Audit query',
+        'pc-scheduler-jobs': 'Scheduled jobs',
+        'pc-scheduler-runs': 'Job runs',
+        'pc-platform-health': 'Platform health',
         'collaboration-chat': 'Chat',
         'collaboration-compliance-search': 'Controlled view',
         'collaboration-legal-holds': 'Legal holds',
@@ -1321,7 +1326,8 @@ export const enUS = {
         pdaDescription: 'Field workspace status and available features',
         mobileDescription: 'Mobile workspace status and available features',
         scannerTest: 'Scanner test',
-        scannerTestDescription: 'Enter a barcode or use the camera to verify this terminal scanner path.',
+        scannerTestDescription:
+          'Enter a barcode or use the camera to verify this terminal scanner path.',
         placeholder: 'Enter or scan a barcode',
         camera: 'Scan with camera',
         cameraUnsupported: 'Camera scanning is not verified in this container.',
@@ -1348,7 +1354,8 @@ export const enUS = {
         camera: 'Scan with camera',
         cameraPreparing: 'Preparing the scanner; first use may download a component…',
         cameraUnsupported: 'Camera scanning is not verified in this container.',
-        cameraSetupFailed: 'The scanner component could not be installed. Check the network and retry.',
+        cameraSetupFailed:
+          'The scanner component could not be installed. Check the network and retry.',
         cameraFailed: 'Camera scanning did not complete. Try again.',
         invalidValue: 'The barcode is empty or exceeds 4096 characters.',
         clearInput: 'Clear input',
@@ -1356,7 +1363,8 @@ export const enUS = {
         resultDescription: 'The latest valid barcode is shown as plain text.',
         clear: 'Clear',
         emptyResult: 'No barcode yet',
-        configureRequired: 'This account can view the page, but runtime configuration permission is required to run a scan test.',
+        configureRequired:
+          'This account can view the page, but runtime configuration permission is required to run a scan test.',
       },
       notificationsManagement: {
         title: 'Notifications',
@@ -1560,11 +1568,14 @@ export const enUS = {
         unsupported: 'This browser does not support the media capability.',
         unavailable: 'The media service is unavailable. Try again later.',
         signalFailed: 'The realtime signaling connection failed. Try again later.',
-        microphonePermissionDenied: 'Microphone permission was not granted. Allow it and try again.',
+        microphonePermissionDenied:
+          'Microphone permission was not granted. Allow it and try again.',
         microphoneUnavailable: 'No usable microphone was found. Check the device and try again.',
         screenCaptureCancelled: 'Screen sharing was cancelled or not allowed. Try again.',
-        secureContextRequired: 'Media capture requires trusted HTTPS. Open the app over HTTPS and try again.',
-        iceConfiguration: 'Media network configuration is unavailable. Ask an administrator to check ICE/TURN settings.',
+        secureContextRequired:
+          'Media capture requires trusted HTTPS. Open the app over HTTPS and try again.',
+        iceConfiguration:
+          'Media network configuration is unavailable. Ask an administrator to check ICE/TURN settings.',
         captureFailed: 'Media capture did not complete. Try again later.',
         unknown: 'The media operation did not complete. Try again later.',
       },

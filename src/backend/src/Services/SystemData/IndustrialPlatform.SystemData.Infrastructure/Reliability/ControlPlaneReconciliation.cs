@@ -5,24 +5,28 @@ using IndustrialPlatform.SystemData.Application.IdentityDirectory;
 using IndustrialPlatform.SystemData.Application.Reliability;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using IndustrialPlatform.SystemData.Application.Scheduler;
 
 namespace IndustrialPlatform.SystemData.Infrastructure.Reliability;
 
-public sealed partial class ControlPlaneReconciliationHostedService : BackgroundService
+public sealed partial class ControlPlaneReconciliationHostedService : BackgroundService, ISystemDataReconciliation
 {
     private readonly IControlPlaneTenantSource _tenants;
     private readonly IControlPlaneStore _store;
     private readonly IIdentityPermissionRegistry _permissions;
     private readonly IIdentityUserDirectory _users;
     private readonly ILogger<ControlPlaneReconciliationHostedService> _logger;
+    private readonly IOptions<SchedulerOptions>? _schedulerOptions;
 
-    public ControlPlaneReconciliationHostedService(IControlPlaneTenantSource tenants, IControlPlaneStore store, IIdentityPermissionRegistry permissions, IIdentityUserDirectory users, ILogger<ControlPlaneReconciliationHostedService> logger)
+    public ControlPlaneReconciliationHostedService(IControlPlaneTenantSource tenants, IControlPlaneStore store, IIdentityPermissionRegistry permissions, IIdentityUserDirectory users, ILogger<ControlPlaneReconciliationHostedService> logger, IOptions<SchedulerOptions>? schedulerOptions = null)
     {
-        _tenants = tenants; _store = store; _permissions = permissions; _users = users; _logger = logger;
+        _tenants = tenants; _store = store; _permissions = permissions; _users = users; _logger = logger; _schedulerOptions = schedulerOptions;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        if (_schedulerOptions?.Value.ReconciliationMode == "Scheduler") return;
         while (!stoppingToken.IsCancellationRequested)
         {
             try { await ReconcileOnceAsync(stoppingToken); }
@@ -34,7 +38,11 @@ public sealed partial class ControlPlaneReconciliationHostedService : Background
     public async Task ReconcileOnceAsync(CancellationToken cancellationToken)
     {
         foreach (var tenant in await _tenants.GetTenantNIdsAsync(cancellationToken))
-        {
+            await ReconcileTenantAsync(tenant, cancellationToken);
+    }
+
+    public async Task ReconcileTenantAsync(string tenant, CancellationToken cancellationToken)
+    {
             var state = await _store.LoadAsync(tenant, cancellationToken);
             var manifests = state.Manifests.ToArray();
             var receipts = state.PermissionReceipts.ToDictionary(x => x.ModuleNId, StringComparer.OrdinalIgnoreCase);
@@ -77,7 +85,6 @@ public sealed partial class ControlPlaneReconciliationHostedService : Background
                 await _store.CommitAsync(state with { Manifests = manifests, PermissionReceipts = receipts.Values.ToArray(), Catalog = catalog }, state.Revision,
                     new ControlPlaneCommit([new ControlPlaneEvent(Guid.NewGuid(), "SystemData.PermissionReconciled.v1", "v1", tenant, "{\"reconciled\":true}", DateTimeOffset.UtcNow)], [new LocalAuditEntry(tenant, "system", "permission.reconcile", "PermissionManifest", tenant, null, null, "reconciled", Guid.NewGuid().ToString("N"))]), cancellationToken);
             }
-        }
     }
 
     [LoggerMessage(EventId = 1, Level = LogLevel.Warning, Message = "SystemData Identity permission reconciliation failed.")]

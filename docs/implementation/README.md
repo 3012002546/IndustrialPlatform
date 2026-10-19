@@ -20,8 +20,8 @@ PF05起分开维护设计就绪度（待细化/待前置核验/已就绪）与�
 
 - [详细设计、线框图与验收规则](STANDARD-派遣前详细设计与页面验收.md)：字段/状态/契约/样例/页面/协作，含所有后续PF/MES的细化门禁。
 - [PF05细化规格](details/PF05-数据接口与页面规格.md)、[PF06细化规格](details/PF06-数据接口与页面规格.md)、[PF06A统一文档](09A-Industrial%20Platform终端运行时与客户端打包开发实施方案.md)、[PF10B细化规格](details/PF10B-数据接口与页面规格.md)：具体数据字典、接口和已绘线框图。
-- [待派遣工作包索引](../tasks/pending/README.md)：只记录待派遣范围和就绪缺口，不是已发出的任务。PF07为V1.1收敛评估稿，G07-1/2设计前置未闭合，G07-3为实施验收环境条件；后续实施11/12/13/13A/14未创建，必须先细化再派编码。
-- [PF07字段/接口/线框规格](details/PF07-数据接口与页面规格.md)：两张自有表及待选型补齐的引擎存储、单引擎状态/事务、DTO、三条管理路由与弹层、工作台摘要和20项验收映射；健康只保留最新内存快照，操作审计复用既有入口。
+- [待派遣工作包索引](../tasks/pending/README.md)：只记录待派遣范围和就绪缺口，不是已发出的任务。PF07已转active，开发及反馈返修完成、G07-1/2已闭合；用户已确认页面整体，整包仍待验收，最新回归与未测项见证据。后续实施11/12/13/13A/14未创建，必须先细化再派编码。
+- [PF07字段/接口/线框规格](details/PF07-数据接口与页面规格.md)：两张自有表及实际三Provider原生存储字段字典、单引擎状态/事务、DTO、三条管理路由与弹层、工作台摘要和20项验收映射；健康只保留最新内存快照，操作审计复用既有入口。
 
 ## 时间类型约束
 
@@ -45,8 +45,8 @@ PF05起分开维护设计就绪度（待细化/待前置核验/已就绪）与�
 | 08 | [PF-05 Collaboration实施方案](08-Industrial%20Platform%20Collaboration开发实施方案.md) | 已实现并完成有限收尾；外部/生产验收按CURRENT与active保留，不沿用待派遣摘要 |
 | 09 | [PF-06 RemoteAssistance实施方案](09-Industrial%20Platform%20RemoteAssistance开发实施方案.md) | 2026-09-12已派遣当前工作树执行；已纠偏从002继续正式业务实现，G06-1/3真实媒体待最终验收；负责人见active/PF-06 |
 | 09A | [PF-06A统一开发文档](09A-Industrial%20Platform终端运行时与客户端打包开发实施方案.md) | 已有客户端/扫码/更新实现及Android手机实测，SQL Server2019隔离验证已完成；正式更新、PDA/2022及生产门禁按CURRENT保留，非整包验收完成 |
-| 10 | [PF-07 Scheduler / Platform Health实施方案](10-Industrial%20Platform%20Scheduler%20Platform%20Health开发实施方案.md) | V1.1收敛评估稿；两自有表/三页面，G07-1/2设计前置待核验，G07-3实施验收环境，内部001～006；待派遣/未实现 |
-| 11 | PF-08 Low Code实施方案（待 PF-08 会话创建） | 待阶段管理会话设计和派遣 |
+| 10 | [PF-07 Scheduler / Platform Health实施方案](10-Industrial%20Platform%20Scheduler%20Platform%20Health开发实施方案.md) | V1.3整体复核；两自有表/三页面/原生字段字典，G07-1/2闭合，001～006开发及反馈返修完成；页面整体已获用户确认，整包待验收，回归与外部边界见证据 |
+| 11 | PF-08 Low Code实施方案（待 PF-08 会话创建） | 已具备开始详细设计的条件；方案/字段/接口/页面及验收门禁补齐后再派编码，本轮仅评估未启动 |
 | 12 | PF-09 Dashboard & Report实施方案（待 PF-09 会话创建） | 两个产品边界分开建模，在同一阶段管理会话协调和派遣 |
 | 13 | PF-10 ServerMonitor实施方案（待 PF-10 会话创建） | 创建 `OperationsCenter.Service`，本阶段只处理 ServerMonitor |
 | 13A | PF-10A Operations Center Knowledge & Assistant实施方案（待 PF-10A 会话创建） | 设计待确认；先补齐 IssueTracking 与 KnowledgeBase 完整数据闭环，不提前创建文档 |

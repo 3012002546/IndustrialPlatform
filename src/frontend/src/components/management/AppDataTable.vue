@@ -170,10 +170,22 @@ const PlatformDateRangeFilter = defineComponent({
   setup(dateProps, { emit }) {
     const localization = useLocalizationStore()
     const copy = computed(() => localeMessages[localization.locale].common.table)
-    const update = (value: string[] | null) => emit('update:modelValue', value ?? ['', ''])
+    // Native header cells mount this control with render(), outside the table's VNode tree.
+    // Keep edits reactive locally rather than waiting for its initial props to be rendered again.
+    const value = ref([...dateProps.modelValue])
+    watch(
+      () => dateProps.modelValue,
+      (next) => {
+        value.value = [...next]
+      },
+    )
+    const update = (next: string[] | null) => {
+      value.value = next ?? ['', '']
+      emit('update:modelValue', value.value)
+    }
     return () =>
       h(ElDatePicker, {
-        modelValue: dateProps.modelValue,
+        modelValue: value.value,
         type: 'daterange',
         valueFormat: 'YYYY-MM-DD',
         rangeSeparator: copy.value.rangeSeparator,
@@ -181,7 +193,7 @@ const PlatformDateRangeFilter = defineComponent({
         endPlaceholder: copy.value.rangeEnd,
         disabled: dateProps.disabled,
         clearable: false,
-        onUpdateModelValue: update,
+        'onUpdate:modelValue': update,
         onChange: (value: string[] | null) => emit('change', value ?? ['', '']),
       })
   },

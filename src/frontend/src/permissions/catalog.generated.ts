@@ -4,6 +4,15 @@
  * and the backend catalog test owns the authoritative ordering at the service edge.
  */
 export const GENERATED_PERMISSION_NIDS = [
+  'systemdata.scheduler.task.view',
+  'systemdata.scheduler.task.manage',
+  'systemdata.scheduler.run.view',
+  'systemdata.scheduler.run.trigger',
+  'systemdata.scheduler.run.cancel',
+  'systemdata.scheduler.run.retry',
+  'systemdata.scheduler.run.resolve',
+  'systemdata.platform-health.view',
+  'systemdata.platform-health.workspace.view',
   'identity.user.view',
   'identity.user.create',
   'identity.user.update',

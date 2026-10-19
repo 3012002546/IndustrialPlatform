@@ -17,6 +17,7 @@ public sealed partial class SystemDataBaselineSeedRunner : BackgroundService
 {
     private readonly SemaphoreSlim _applyGate = new(1, 1);
     private static readonly string[] SystemDataPermissions = [
+        "systemdata.scheduler.task.view", "systemdata.scheduler.task.manage", "systemdata.scheduler.run.view", "systemdata.scheduler.run.trigger", "systemdata.scheduler.run.cancel", "systemdata.scheduler.run.retry", "systemdata.scheduler.run.resolve", "systemdata.platform-health.view", "systemdata.platform-health.workspace.view",
         "systemdata.organization.view", "systemdata.organization.create", "systemdata.organization.update", "systemdata.organization.move", "systemdata.organization.status",
         "systemdata.position.view", "systemdata.position.create", "systemdata.position.update", "systemdata.position.status",
         "systemdata.assignment.view", "systemdata.assignment.manage",
@@ -73,6 +74,9 @@ public sealed partial class SystemDataBaselineSeedRunner : BackgroundService
         ("systemdata.navigation.systemdata-files", "文件管理", "systemdata-files", "systemdata.file.read"),
         ("systemdata.navigation.systemdata-notifications", "通知公告", "systemdata-notifications", "systemdata.notification.announcement.read"),
         ("systemdata.navigation.systemdata-audits", "审计查询", "systemdata-audits", "systemdata.audit.read"),
+        ("systemdata.navigation.scheduler-jobs", "任务管理", "pc-scheduler-jobs", "systemdata.scheduler.task.view"),
+        ("systemdata.navigation.scheduler-runs", "运行记录", "pc-scheduler-runs", "systemdata.scheduler.run.view"),
+        ("systemdata.navigation.platform-health", "平台健康", "pc-platform-health", "systemdata.platform-health.workspace.view"),
     ];
     private static readonly (string NId, string Name, string RouteName, string PermissionNId)[] ReferenceDataResources = [
         ("referencedata.navigation.dictionaries", "字典管理", "reference-data-dictionaries", "referencedata.dictionary.view"),
@@ -101,10 +105,11 @@ public sealed partial class SystemDataBaselineSeedRunner : BackgroundService
         ("collaboration.nav.pc-exports", "navigation.group.collaboration", "collaboration-exports", "collaboration.page.pc-exports", "collaboration.compliance.read", UiTerminal.Pc, 2),
         ("collaboration.nav.pc-retention", "navigation.group.collaboration", "collaboration-retention", "collaboration.page.pc-retention", "collaboration.compliance.retention.manage", UiTerminal.Pc, 3),
     ];
-    internal const string CurrentManifestSeedKey = "SDM-017";
-    internal const string CurrentManifestVersion = "4";
+    internal const string CurrentManifestSeedKey = "systemdata.pf07.baseline";
+    internal const string CurrentManifestVersion = "5";
     internal const string ResourceConsistencySeedKey = "SDM-018";
-    internal const string ResourceConsistencySeedVersion = "3";
+    // 每次清单升级都要重绑已存在的内置资源；历史版本的修复账本保持不变。
+    internal const string ResourceConsistencySeedVersion = CurrentManifestVersion;
     internal const string ReferenceDataManifestSeedKey = "SDM-019";
     internal const string ReferenceDataManifestVersion = "3";
     internal const string CollaborationManifestSeedKey = "collaboration.baseline";
@@ -357,7 +362,7 @@ public sealed partial class SystemDataBaselineSeedRunner : BackgroundService
                         item.Name,
                         item.RouteName,
                         item.PermissionNId,
-                        [UiTerminal.Pc, UiTerminal.Pda, UiTerminal.Mobile]));
+                        item.RouteName.StartsWith("pc-", StringComparison.Ordinal) && item.RouteName != "pc-home" ? [UiTerminal.Pc] : [UiTerminal.Pc, UiTerminal.Pda, UiTerminal.Mobile]));
                 }
                 return state with
                 {
@@ -514,6 +519,8 @@ public sealed partial class SystemDataBaselineSeedRunner : BackgroundService
             }, cancellationToken);
             await ApplySeedAsync(tenantNId, CollaborationNavigationSeedKey, CollaborationManifestVersion, ["navigation"],
                 state => ApplyCollaborationNavigationSeed(state, tenantNId), cancellationToken);
+            await ApplySeedAsync(tenantNId, "systemdata.pf07.navigation", "1", ["navigation"],
+                state => ApplySchedulerNavigation(state, tenantNId), cancellationToken);
             // SDM-017 updated the manifest/receipt but historical tenants may still
             // carry the v1 resource rows created by SDM-013.  Keep this as a new,
             // idempotent seed so old ledgers remain immutable and only known
@@ -559,6 +566,45 @@ public sealed partial class SystemDataBaselineSeedRunner : BackgroundService
         {
             _applyGate.Release();
         }
+    }
+
+    private static ControlPlaneSnapshot ApplySchedulerNavigation(ControlPlaneSnapshot state, string tenantNId)
+    {
+        var nodes = state.DraftNodes.ToList();
+        const string root = "navigation.group.platform-services";
+        const string scheduler = "navigation.group.task-scheduler";
+        foreach (var (nId, label, parent, order) in new[] { (root, "平台服务", (string?)null, 9), (scheduler, "任务调度", (string?)root, 0) })
+        {
+            if (nodes.Any(node => node.NId == nId)) continue;
+            var group = NavigationNode.CreateGroup(tenantNId, nId, label, parent, "PLATFORM_NAVIGATION", "setting");
+            group.SetDisplayOrder(order); nodes.Add(group);
+        }
+        var resources = DefaultResources.Where(resource => resource.RouteName is "pc-scheduler-jobs" or "pc-scheduler-runs" or "pc-platform-health").ToArray();
+        foreach (var resource in resources)
+        {
+            if (nodes.Any(node => node.NId == resource.NId)) continue;
+            var node = NavigationNode.CreateLink(tenantNId, resource.NId, resource.Name, resource.RouteName == "pc-platform-health" ? root : scheduler, "PLATFORM_NAVIGATION", resource.NId, null, [UiTerminal.Pc]);
+            node.SetDisplayOrder(90 + Array.IndexOf(resources, resource));
+            nodes.Add(node);
+        }
+        if (state.ActiveSnapshotRevision is not { } revision) return state with { Revision = state.Revision + 1, DraftNodes = nodes };
+        var active = state.Snapshots.Single(snapshot => snapshot.Revision == revision);
+        var published = active.Nodes.ToList();
+        var parentsChanged = false;
+        foreach (var resource in resources)
+        {
+            var node = nodes.Single(item => item.NId == resource.NId);
+            if (node.Status == NavigationNodeStatus.Inactive || published.Any(item => item.NodeNId == node.NId)) continue;
+            if (nodes.Any(parent => (parent.NId == root || parent.NId == scheduler) && parent.Status == NavigationNodeStatus.Inactive)) continue;
+            EnsurePublishedParent(root, nodes, published, ref parentsChanged);
+            if (resource.RouteName != "pc-platform-health") EnsurePublishedParent(scheduler, nodes, published, ref parentsChanged);
+            published.Add(new(node.NId, node.ParentNodeNId, NavigationNodeKind.Link, node.Label, null,
+                resource.NId, resource.RouteName, resource.PermissionNId, null, node.DisplayOrder, [UiTerminal.Pc]));
+        }
+        if (published.Count == active.Nodes.Count) return state with { Revision = state.Revision + 1, DraftNodes = nodes };
+        var next = state.Revision + 1;
+        return state with { Revision = next, DraftNodes = nodes, PreviousSnapshotRevision = revision, ActiveSnapshotRevision = next,
+            Snapshots = state.Snapshots.Append(new PublishedNavigationSnapshot(next, DateTimeOffset.UtcNow, published, NavigationSnapshotChecksum.Compute(published))).ToArray() };
     }
 
     private static ControlPlaneSnapshot ApplyCollaborationNavigationSeed(ControlPlaneSnapshot state, string tenantNId)

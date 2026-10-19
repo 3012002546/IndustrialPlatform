@@ -84,6 +84,7 @@ public sealed class SystemDataServiceInitializer : IServiceInitializer
 
             var seedReady = true;
             var bootstrapReady = true;
+            var readinessFailures = new List<string>();
             if (_controlPlaneStore is not null)
             {
                 var controlPlane = await _controlPlaneStore.LoadAsync(context.TenantNId, cancellationToken);
@@ -98,18 +99,20 @@ public sealed class SystemDataServiceInitializer : IServiceInitializer
                     && catalog.SupportedTerminals.Contains(UiTerminal.Pda)
                     && catalog.SupportedTerminals.Contains(UiTerminal.Mobile)
                     && SystemDataBaselineSeedRunner.IsCurrentTheme(controlPlane.Theme);
+                if (!seedReady)
+                    readinessFailures.Add("功能、服务目录或主题种子校验失败");
                 var requiredPermissions = SystemDataBaselineSeedRunner.RequiredPermissionNIds.Order(StringComparer.OrdinalIgnoreCase).ToArray();
                 var manifestPermissions = manifest?.PermissionNIds.Order(StringComparer.OrdinalIgnoreCase).ToArray();
-                var requiredResourcesReady = SystemDataBaselineSeedRunner.RequiredResourceFacts.All(required =>
-                    controlPlane.Resources.Any(resource =>
+                var invalidResources = SystemDataBaselineSeedRunner.RequiredResourceFacts.Where(required =>
+                    !controlPlane.Resources.Any(resource =>
                         resource.NId.Equals(required.NId, StringComparison.OrdinalIgnoreCase)
                         && resource.OwnerModuleNId.Equals(ModuleKey, StringComparison.OrdinalIgnoreCase)
                         && resource.Type == UiResourceType.Page
                         && resource.ManifestVersion == SystemDataBaselineSeedRunner.CurrentManifestVersion
                         && resource.RouteName == required.RouteName
                         && resource.RequiredPermissionNId == required.PermissionNId
-                        && resource.Status == UiResourceStatus.Active));
-                bootstrapReady = manifest is not null
+                        && resource.Status == UiResourceStatus.Active)).ToArray();
+                var manifestReady = manifest is not null
                     && manifest.ManifestVersion == SystemDataBaselineSeedRunner.CurrentManifestVersion
                     && manifest.Checksum.Equals(SystemDataBaselineSeedRunner.CurrentManifestChecksum, StringComparison.OrdinalIgnoreCase)
                     && manifestPermissions is not null
@@ -118,15 +121,24 @@ public sealed class SystemDataServiceInitializer : IServiceInitializer
                     && string.Equals(manifest.PermissionReceiptChecksum, SystemDataBaselineSeedRunner.CurrentManifestChecksum, StringComparison.OrdinalIgnoreCase)
                     && receipt is { Verified: true }
                     && receipt.ManifestVersion == SystemDataBaselineSeedRunner.CurrentManifestVersion
-                    && receipt.Checksum.Equals(SystemDataBaselineSeedRunner.CurrentManifestChecksum, StringComparison.OrdinalIgnoreCase)
-                    && requiredResourcesReady;
-                bootstrapReady = bootstrapReady
-                    && SystemDataBaselineSeedRunner.IsReferenceDataBootstrapReady(controlPlane)
-                    && SystemDataBaselineSeedRunner.IsCollaborationBootstrapReady(controlPlane);
+                    && receipt.Checksum.Equals(SystemDataBaselineSeedRunner.CurrentManifestChecksum, StringComparison.OrdinalIgnoreCase);
+                var referenceDataReady = SystemDataBaselineSeedRunner.IsReferenceDataBootstrapReady(controlPlane);
+                var collaborationReady = SystemDataBaselineSeedRunner.IsCollaborationBootstrapReady(controlPlane);
+                bootstrapReady = manifestReady && invalidResources.Length == 0 && referenceDataReady && collaborationReady;
+                if (!manifestReady)
+                    readinessFailures.Add($"systemdata 清单或权限回执校验失败(期望版本={SystemDataBaselineSeedRunner.CurrentManifestVersion})");
+                if (invalidResources.Length > 0)
+                    readinessFailures.Add($"资源事实不符(期望清单版本={SystemDataBaselineSeedRunner.CurrentManifestVersion}):"
+                        + string.Join(',', invalidResources.Select(required =>
+                            $"{required.NId}(实际清单版本={controlPlane.Resources.FirstOrDefault(resource => resource.NId.Equals(required.NId, StringComparison.OrdinalIgnoreCase))?.ManifestVersion ?? "缺失"})")));
+                if (!referenceDataReady)
+                    readinessFailures.Add("referencedata 引导事实校验失败");
+                if (!collaborationReady)
+                    readinessFailures.Add("collaboration 引导事实校验失败");
             }
 
             // 版本按声明的迁移序列计算，而不是按 AppliedOn 或字符串最大值，兼容历史补录旧编号。
-            return Ready(expected[^1], seedReady, bootstrapReady);
+            return Ready(expected[^1], seedReady, bootstrapReady, string.Join(';', readinessFailures));
         }
         catch (Exception exception) when (IsMissingLocalTable(exception))
         {
@@ -165,9 +177,9 @@ public sealed class SystemDataServiceInitializer : IServiceInitializer
     private ServiceInitializationState NotReady(string desiredVersion, string reason, string? observedVersion = null) =>
         new(ServiceKey, ModuleKey, observedVersion, false, false, false, false, reason);
 
-    private ServiceInitializationState Ready(string version, bool seedReady, bool bootstrapReady) =>
+    private ServiceInitializationState Ready(string version, bool seedReady, bool bootstrapReady, string reason) =>
         new(ServiceKey, ModuleKey, version, true, seedReady, bootstrapReady, seedReady && bootstrapReady,
-            seedReady && bootstrapReady ? null : "SystemData 控制面种子或引导事实尚未完成。");
+            seedReady && bootstrapReady ? null : $"SystemData 控制面种子或引导事实尚未完成:{reason}。");
 
     private ServiceInitializationPlan CreatePlan(
         ServiceInitializationContext context,
