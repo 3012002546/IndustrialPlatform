@@ -87,7 +87,7 @@ public sealed partial class ModuleMigrationCoordinatorHostedService : IHostedSer
         ArgumentNullException.ThrowIfNull(context);
 
         var byService = initializers.ToDictionary(initializer => initializer.ServiceKey, StringComparer.OrdinalIgnoreCase);
-        foreach (var serviceKey in UnifiedHostModuleCatalog.GetServiceKeys(UnifiedHostModuleCatalog.Modules))
+        foreach (var serviceKey in UnifiedHostModuleCatalog.GetServiceKeys(byService.ContainsKey("platform-studio") ? [.. UnifiedHostModuleCatalog.Modules, new IndustrialPlatform.PlatformStudio.Api.PlatformStudioUnifiedHostModule()] : UnifiedHostModuleCatalog.Modules))
         {
             if (!byService.TryGetValue(serviceKey, out var initializer))
             {

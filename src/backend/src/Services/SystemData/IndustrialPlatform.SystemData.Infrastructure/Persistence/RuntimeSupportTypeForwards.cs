@@ -1,0 +1,10 @@
+using System.Runtime.CompilerServices;
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Infrastructure.Persistence.Entities.FileUploadSessionTable))]
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Infrastructure.Persistence.Entities.FileObjectTable))]
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Infrastructure.Persistence.Entities.FileStatusOutboxTable))]
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Infrastructure.Persistence.Entities.FileScanAttemptTable))]
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Infrastructure.Persistence.Entities.FileReferenceGrantTable))]
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Infrastructure.Persistence.Entities.AuditFactTable))]
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Infrastructure.Persistence.Entities.AuditLifecycleTable))]
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Infrastructure.Persistence.Entities.AuditIngressFailureTable))]
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Infrastructure.Persistence.Entities.AuditOutboxTable))]

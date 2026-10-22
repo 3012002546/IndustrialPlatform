@@ -168,6 +168,20 @@ export const PERMISSIONS = {
   referenceDataStateMachinePublish: 'referencedata.state-machine.publish',
   referenceDataStateMachineDisable: 'referencedata.state-machine.disable',
   referenceDataPlatformManage: 'referencedata.platform.manage',
+  studioSourceView: 'studio.source.view',
+  studioSourceManage: 'studio.source.manage',
+  studioSourceTest: 'studio.source.test',
+  studioDatasetView: 'studio.dataset.view',
+  studioDatasetDesign: 'studio.dataset.design',
+  studioDatasetPublish: 'studio.dataset.publish',
+  studioDatasetRun: 'studio.dataset.run',
+  studioLowcodeView: 'studio.lowcode.view',
+  studioLowcodeDesign: 'studio.lowcode.design',
+  studioLowcodePublish: 'studio.lowcode.publish',
+  studioLowcodeRun: 'studio.lowcode.run',
+  studioLedgerRead: 'studio.ledger.read',
+  studioLedgerWrite: 'studio.ledger.write',
+  studioResourceGrant: 'studio.resource.grant',
 } as const
 
 export type PermissionNId = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]

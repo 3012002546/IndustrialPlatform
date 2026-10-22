@@ -1,13 +1,4 @@
-namespace IndustrialPlatform.SystemData.Application.Auditing;
-
-/// <summary>管理写入与本地审计的同库事务边界。</summary>
-public interface ISystemDataWriteTransaction
-{
-    Task ExecuteAsync(Func<Task> action, CancellationToken cancellationToken);
-}
-
-/// <summary>测试替身/无持久化宿主的直接执行实现。</summary>
-public sealed class NoopSystemDataWriteTransaction : ISystemDataWriteTransaction
-{
-    public Task ExecuteAsync(Func<Task> action, CancellationToken cancellationToken) => action();
-}
+// 兼容入口：实现唯一维护于BuildingBlocks/IndustrialPlatform.RuntimeSupport；保留旧程序集类型转发。
+using System.Runtime.CompilerServices;
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Application.Auditing.ISystemDataWriteTransaction))]
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Application.Auditing.NoopSystemDataWriteTransaction))]

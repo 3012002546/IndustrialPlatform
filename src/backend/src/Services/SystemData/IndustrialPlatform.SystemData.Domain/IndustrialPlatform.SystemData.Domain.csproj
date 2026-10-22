@@ -4,4 +4,5 @@
     <ProjectReference Include="..\..\..\BuildingBlocks\IndustrialPlatform.SharedKernel\IndustrialPlatform.SharedKernel.csproj" />
   </ItemGroup>
 
+  <ItemGroup><ProjectReference Include="../../../BuildingBlocks/IndustrialPlatform.RuntimeSupport/IndustrialPlatform.RuntimeSupport.csproj" /></ItemGroup>
 </Project>

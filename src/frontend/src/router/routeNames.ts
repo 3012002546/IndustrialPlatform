@@ -4,6 +4,17 @@
  * lazy route record in routes.ts; menu configuration never loads code itself.
  */
 export const ROUTE_NAMES = {
+  studioLowcode: 'studio-lowcode',
+  studioSources: 'studio-sources',
+  studioDatasets: 'studio-datasets',
+  studioLedgerModels: 'studio-ledger-models',
+  studioLowcodeDesign: 'studio-lowcode-design',
+  studioDatasetDesign: 'studio-dataset-design',
+  studioLedgerDesign: 'studio-ledger-design',
+  studioLowcodeRun: 'studio-lowcode-run',
+  studioLowcodeCreate: 'studio-lowcode-create',
+  studioLowcodeEdit: 'studio-lowcode-edit',
+  studioLowcodeDetail: 'studio-lowcode-detail',
   root: 'root',
   login: 'login',
   embeddedSessionRequired: 'embedded-session-required',

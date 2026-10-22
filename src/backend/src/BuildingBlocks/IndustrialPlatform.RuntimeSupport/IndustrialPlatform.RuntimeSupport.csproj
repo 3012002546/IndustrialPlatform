@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup><FrameworkReference Include="Microsoft.AspNetCore.App" /><PackageReference Include="BCrypt.Net-Next" /></ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../IndustrialPlatform.SharedKernel/IndustrialPlatform.SharedKernel.csproj" />
+    <ProjectReference Include="../IndustrialPlatform.Infrastructure/IndustrialPlatform.Infrastructure.csproj" />
+    <ProjectReference Include="../IndustrialPlatform.EventBus/IndustrialPlatform.EventBus.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="../../Services/SystemData/IndustrialPlatform.SystemData.Infrastructure/Persistence/Migrations/SqlServer/PF04-001-01.sql" Link="Migrations/SqlServer/PF04-001-01.sql" />
+    <EmbeddedResource Include="../../Services/SystemData/IndustrialPlatform.SystemData.Infrastructure/Persistence/Migrations/SqlServer/PF04-001-02.sql" Link="Migrations/SqlServer/PF04-001-02.sql" />
+    <EmbeddedResource Include="../../Services/SystemData/IndustrialPlatform.SystemData.Infrastructure/Persistence/Migrations/SqlServer/PF04-001-03.sql" Link="Migrations/SqlServer/PF04-001-03.sql" />
+    <EmbeddedResource Include="../../Services/SystemData/IndustrialPlatform.SystemData.Infrastructure/Persistence/Migrations/SqlServer/PF04-001-04.sql" Link="Migrations/SqlServer/PF04-001-04.sql" />
+    <EmbeddedResource Include="../../Services/SystemData/IndustrialPlatform.SystemData.Infrastructure/Persistence/Migrations/SqlServer/PF04-001-08.sql" Link="Migrations/SqlServer/PF04-001-08.sql" />
+    <EmbeddedResource Include="../../Services/SystemData/IndustrialPlatform.SystemData.Infrastructure/Persistence/Migrations/SqlServer/PF04-001-09.sql" Link="Migrations/SqlServer/PF04-001-09.sql" />
+    <EmbeddedResource Include="../../Services/SystemData/IndustrialPlatform.SystemData.Infrastructure/Persistence/Migrations/SqlServer/PF04-001-10.sql" Link="Migrations/SqlServer/PF04-001-10.sql" />
+    <EmbeddedResource Include="../../Services/SystemData/IndustrialPlatform.SystemData.Infrastructure/Persistence/Migrations/SqlServer/PF04-001-11.sql" Link="Migrations/SqlServer/PF04-001-11.sql" />
+    <EmbeddedResource Include="../../Services/SystemData/IndustrialPlatform.SystemData.Infrastructure/Persistence/Migrations/SqlServer/PF04-001-12.sql" Link="Migrations/SqlServer/PF04-001-12.sql" />
+    <EmbeddedResource Include="../../Services/SystemData/IndustrialPlatform.SystemData.Infrastructure/Persistence/Migrations/SqlServer/PF05-003.sql" Link="Migrations/SqlServer/PF05-003.sql" />
+  </ItemGroup>
+</Project>

@@ -6,6 +6,7 @@ import AppPage from '@/components/base/AppPage.vue'
 import { getSystemDataOperationsApi } from '@/api/systemData/systemDataOperationsRegistry'
 import type { UploadSessionDto } from '@/api/systemData/systemDataOperationsTypes'
 import { sampleFingerprint, sha256File } from '@/utils/sha256File'
+import { uploadFileChunks } from '@/utils/uploadFileChunks'
 import { platformI18n } from '@/localization/i18n'
 
 const selectedFile = ref<File | null>(null)
@@ -110,24 +111,14 @@ async function startUpload(candidate: UploadSessionDto | null, takeover = false)
     }
     currentSession.value = ready
     stopped.value = false
-    const chunkSize = 1024 * 1024
-    while (ready.offset < file.size) {
-      if (controller.signal.aborted || run !== uploadRun) return
-      const offset = ready.offset
-      status.value = copy.value.uploading(Math.min(offset + chunkSize, file.size), file.size)
-      ready = await api.uploadChunk(
-        ready.transportId,
-        file.slice(offset, Math.min(offset + chunkSize, file.size)),
-        offset,
-        ready.writerEpoch,
-        ready.resumeTicket ?? '',
-        controller.signal,
-      )
-      if (controller.signal.aborted || run !== uploadRun) return
-      currentSession.value = ready
-    }
-    if (controller.signal.aborted || run !== uploadRun) return
-    await api.completeUpload(ready.sessionNId)
+    const uploaded = await uploadFileChunks(api, file, ready, {
+      signal: controller.signal,
+      shouldStop: () => run !== uploadRun,
+      onChunk: (end) => { status.value = copy.value.uploading(end, file.size) },
+      onProgress: (next) => { currentSession.value = next },
+    })
+    if (!uploaded) return
+    await api.completeUpload(uploaded.sessionNId)
     status.value = copy.value.completed
     ElMessage.success(status.value)
     currentSession.value = null; uploadHash.value = ''; candidates.value = []

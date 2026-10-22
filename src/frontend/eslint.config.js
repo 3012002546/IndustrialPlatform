@@ -12,6 +12,7 @@ export default withVueTs(
     ignores: [
       '**/dist/**',
       '**/dist-collaboration/**',
+      '**/dist-studio/**',
       '**/coverage/**',
       '**/playwright-report/**',
       '**/playwright-report-real/**',

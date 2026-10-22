@@ -65,6 +65,7 @@ import PdaCollaborationPage from '@/pages/pda/collaboration/CollaborationPage.vu
 import MobileCollaborationPage from '@/pages/mobile/collaboration/CollaborationPage.vue'
 import { PERMISSIONS } from '@/permissions'
 import { ROUTE_NAMES } from './routeNames'
+import { studioRoutes } from './studioRoutes'
 
 export { ROUTE_NAMES } from './routeNames'
 
@@ -175,6 +176,7 @@ export const routes: RouteRecordRaw[] = [
     path: '/pc',
     component: PcLayout,
     children: [
+      ...studioRoutes,
       {
         path: 'home',
         name: ROUTE_NAMES.pcHome,

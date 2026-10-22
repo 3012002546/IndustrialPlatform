@@ -19,12 +19,16 @@ public sealed class ProjectReferenceArchitectureTests
                 ["IndustrialPlatform.Application.Abstractions"],
             ["src/backend/src/BuildingBlocks/IndustrialPlatform.SharedKernel/IndustrialPlatform.SharedKernel.csproj"] = [],
             ["src/backend/src/BuildingBlocks/IndustrialPlatform.Querying/IndustrialPlatform.Querying.csproj"] = [],
+            ["src/backend/src/BuildingBlocks/IndustrialPlatform.RuntimeSupport/IndustrialPlatform.RuntimeSupport.csproj"] =
+                ["IndustrialPlatform.EventBus", "IndustrialPlatform.Infrastructure", "IndustrialPlatform.SharedKernel"],
             ["src/backend/src/BuildingBlocks/IndustrialPlatform.Web/IndustrialPlatform.Web.csproj"] =
                 ["IndustrialPlatform.Application.Abstractions", "IndustrialPlatform.Querying", "IndustrialPlatform.SharedKernel"],
             ["src/backend/src/Gateway/IndustrialPlatform.Gateway/IndustrialPlatform.Gateway.csproj"] =
                 ["IndustrialPlatform.Logging", "IndustrialPlatform.Web"],
             ["src/backend/src/Hosts/IndustrialPlatform.UnifiedHost/IndustrialPlatform.UnifiedHost.csproj"] =
-                ["IndustrialPlatform.Collaboration.Api", "IndustrialPlatform.Identity.Api", "IndustrialPlatform.ReferenceData.Api", "IndustrialPlatform.SystemData.Api"],
+                ["IndustrialPlatform.Collaboration.Api", "IndustrialPlatform.Identity.Api", "IndustrialPlatform.PlatformStudio.Api", "IndustrialPlatform.ReferenceData.Api", "IndustrialPlatform.SystemData.Api"],
+            ["src/backend/src/Hosts/IndustrialPlatform.PlatformStudio.Host/IndustrialPlatform.PlatformStudio.Host.csproj"] =
+                ["IndustrialPlatform.PlatformStudio.Api"],
             ["src/backend/src/Services/Collaboration/IndustrialPlatform.Collaboration.Api/IndustrialPlatform.Collaboration.Api.csproj"] =
                 ["IndustrialPlatform.Collaboration.Application", "IndustrialPlatform.Collaboration.Contracts", "IndustrialPlatform.Collaboration.Infrastructure", "IndustrialPlatform.Identity.Api", "IndustrialPlatform.SystemData.Api", "IndustrialPlatform.Web"],
             ["src/backend/src/Services/Collaboration/IndustrialPlatform.Collaboration.Application/IndustrialPlatform.Collaboration.Application.csproj"] =
@@ -38,13 +42,21 @@ public sealed class ProjectReferenceArchitectureTests
             ["src/backend/src/Services/Identity/IndustrialPlatform.Identity.Api/IndustrialPlatform.Identity.Api.csproj"] =
                 ["IndustrialPlatform.Identity.Application", "IndustrialPlatform.Identity.Contracts", "IndustrialPlatform.Identity.Infrastructure", "IndustrialPlatform.Web"],
             ["src/backend/src/Services/Identity/IndustrialPlatform.Identity.Application/IndustrialPlatform.Identity.Application.csproj"] =
-                ["IndustrialPlatform.Application.Abstractions", "IndustrialPlatform.Identity.Contracts", "IndustrialPlatform.Identity.Domain", "IndustrialPlatform.Querying"],
+                ["IndustrialPlatform.Application.Abstractions", "IndustrialPlatform.Identity.Contracts", "IndustrialPlatform.Identity.Domain", "IndustrialPlatform.Querying", "IndustrialPlatform.RuntimeSupport"],
             ["src/backend/src/Services/Identity/IndustrialPlatform.Identity.Contracts/IndustrialPlatform.Identity.Contracts.csproj"] =
-                ["IndustrialPlatform.EventBus", "IndustrialPlatform.Security"],
+                ["IndustrialPlatform.EventBus", "IndustrialPlatform.RuntimeSupport", "IndustrialPlatform.Security"],
             ["src/backend/src/Services/Identity/IndustrialPlatform.Identity.Domain/IndustrialPlatform.Identity.Domain.csproj"] =
-                ["IndustrialPlatform.SharedKernel"],
+                ["IndustrialPlatform.RuntimeSupport", "IndustrialPlatform.SharedKernel"],
             ["src/backend/src/Services/Identity/IndustrialPlatform.Identity.Infrastructure/IndustrialPlatform.Identity.Infrastructure.csproj"] =
-                ["IndustrialPlatform.EventBus", "IndustrialPlatform.Identity.Application", "IndustrialPlatform.Identity.Domain", "IndustrialPlatform.Infrastructure", "IndustrialPlatform.Logging", "IndustrialPlatform.Security"],
+                ["IndustrialPlatform.EventBus", "IndustrialPlatform.Identity.Application", "IndustrialPlatform.Identity.Domain", "IndustrialPlatform.Infrastructure", "IndustrialPlatform.Logging", "IndustrialPlatform.RuntimeSupport", "IndustrialPlatform.Security"],
+            ["src/backend/src/Services/PlatformStudio/IndustrialPlatform.PlatformStudio.Api/IndustrialPlatform.PlatformStudio.Api.csproj"] =
+                ["IndustrialPlatform.PlatformStudio.Application", "IndustrialPlatform.PlatformStudio.Infrastructure", "IndustrialPlatform.Web"],
+            ["src/backend/src/Services/PlatformStudio/IndustrialPlatform.PlatformStudio.Application/IndustrialPlatform.PlatformStudio.Application.csproj"] =
+                ["IndustrialPlatform.PlatformStudio.Contracts", "IndustrialPlatform.PlatformStudio.Domain"],
+            ["src/backend/src/Services/PlatformStudio/IndustrialPlatform.PlatformStudio.Contracts/IndustrialPlatform.PlatformStudio.Contracts.csproj"] = [],
+            ["src/backend/src/Services/PlatformStudio/IndustrialPlatform.PlatformStudio.Domain/IndustrialPlatform.PlatformStudio.Domain.csproj"] = ["IndustrialPlatform.SharedKernel"],
+            ["src/backend/src/Services/PlatformStudio/IndustrialPlatform.PlatformStudio.Infrastructure/IndustrialPlatform.PlatformStudio.Infrastructure.csproj"] =
+                ["IndustrialPlatform.PlatformStudio.Application", "IndustrialPlatform.RuntimeSupport"],
             ["src/backend/src/Services/ReferenceData/IndustrialPlatform.ReferenceData.Api/IndustrialPlatform.ReferenceData.Api.csproj"] =
                 ["IndustrialPlatform.ReferenceData.Application", "IndustrialPlatform.ReferenceData.Contracts", "IndustrialPlatform.ReferenceData.Infrastructure", "IndustrialPlatform.Security", "IndustrialPlatform.Web"],
             ["src/backend/src/Services/ReferenceData/IndustrialPlatform.ReferenceData.Application/IndustrialPlatform.ReferenceData.Application.csproj"] =
@@ -58,13 +70,13 @@ public sealed class ProjectReferenceArchitectureTests
             ["src/backend/src/Services/SystemData/IndustrialPlatform.SystemData.Api/IndustrialPlatform.SystemData.Api.csproj"] =
                 ["IndustrialPlatform.SystemData.Application", "IndustrialPlatform.SystemData.Contracts", "IndustrialPlatform.SystemData.Infrastructure", "IndustrialPlatform.Web"],
             ["src/backend/src/Services/SystemData/IndustrialPlatform.SystemData.Application/IndustrialPlatform.SystemData.Application.csproj"] =
-                ["IndustrialPlatform.Application.Abstractions", "IndustrialPlatform.SystemData.Contracts", "IndustrialPlatform.SystemData.Domain"],
+                ["IndustrialPlatform.Application.Abstractions", "IndustrialPlatform.RuntimeSupport", "IndustrialPlatform.SystemData.Contracts", "IndustrialPlatform.SystemData.Domain"],
             ["src/backend/src/Services/SystemData/IndustrialPlatform.SystemData.Contracts/IndustrialPlatform.SystemData.Contracts.csproj"] =
-                [],
+                ["IndustrialPlatform.RuntimeSupport"],
             ["src/backend/src/Services/SystemData/IndustrialPlatform.SystemData.Domain/IndustrialPlatform.SystemData.Domain.csproj"] =
-                ["IndustrialPlatform.SharedKernel"],
+                ["IndustrialPlatform.RuntimeSupport", "IndustrialPlatform.SharedKernel"],
             ["src/backend/src/Services/SystemData/IndustrialPlatform.SystemData.Infrastructure/IndustrialPlatform.SystemData.Infrastructure.csproj"] =
-                ["IndustrialPlatform.EventBus", "IndustrialPlatform.Infrastructure", "IndustrialPlatform.Logging", "IndustrialPlatform.Security", "IndustrialPlatform.SystemData.Application", "IndustrialPlatform.SystemData.Domain"],
+                ["IndustrialPlatform.EventBus", "IndustrialPlatform.Infrastructure", "IndustrialPlatform.Logging", "IndustrialPlatform.RuntimeSupport", "IndustrialPlatform.Security", "IndustrialPlatform.SystemData.Application", "IndustrialPlatform.SystemData.Domain"],
             ["src/backend/src/Hosts/IndustrialPlatform.Collaboration.EmbeddedHost/IndustrialPlatform.Collaboration.EmbeddedHost.csproj"] =
                 ["IndustrialPlatform.Collaboration.Api", "IndustrialPlatform.Identity.Api", "IndustrialPlatform.ReferenceData.Api", "IndustrialPlatform.SystemData.Api", "IndustrialPlatform.Web"],
         };
@@ -118,6 +130,26 @@ public sealed class ProjectReferenceArchitectureTests
         var actualReferences = ReadProjectReferences(Path.Combine(repositoryRoot, fixtureProjectPath));
 
         Assert.Equal(ApprovedSystemDataTestingReferences.Order(StringComparer.Ordinal), actualReferences);
+    }
+
+    [Fact]
+    public void StandaloneStudioDependencyClosureDoesNotLoadPlatformControlPlaneServices()
+    {
+        var root = FindRepositoryRoot();
+        var paths = ExpectedReferences.Keys.ToDictionary(path => Path.GetFileNameWithoutExtension(path), StringComparer.Ordinal);
+        var pending = new Stack<string>();
+        var visited = new HashSet<string>(StringComparer.Ordinal);
+        pending.Push("IndustrialPlatform.PlatformStudio.Host");
+        while (pending.TryPop(out var project))
+        {
+            if (!visited.Add(project)) continue;
+            Assert.False(project.StartsWith("IndustrialPlatform.Identity.", StringComparison.Ordinal), project);
+            Assert.False(project.StartsWith("IndustrialPlatform.SystemData.", StringComparison.Ordinal), project);
+            Assert.False(project.StartsWith("IndustrialPlatform.ReferenceData.", StringComparison.Ordinal), project);
+            Assert.False(project.StartsWith("IndustrialPlatform.Collaboration.", StringComparison.Ordinal), project);
+            foreach (var reference in ReadProjectReferences(Path.Combine(root, paths[project]))) pending.Push(reference);
+        }
+        Assert.Contains("IndustrialPlatform.RuntimeSupport", visited);
     }
 
     [Theory]

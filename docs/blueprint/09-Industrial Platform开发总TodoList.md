@@ -399,14 +399,14 @@ PF-07只使用一个阶段管理会话；[实施10](../implementation/10-Industr
 
 # 15. PF-08 Low Code
 
-**2026-10-22开工核验：** 实施11/12已更新V1.4，新增双模式按需装配、B43～B45及16核心表/按需表/两账本的三Provider分配。已补[PF-08待派遣工作包](../tasks/pending/PF-08.md)，[本轮证据](../evidence/PF-08.md)确认001技术输入和现有构建/控件基线；正式编码待总控落实生产工作线及共享单写。002真实V0、C1实际候选及扫描/身份/Provider机制分别在接入/分部验收时关闭，不要求先完成001自己的G03/G04实现或后续Office/PDF/全30组合。PF08未生产编码或正式派遣，PF09未因此就绪；下方日期条目是历史设计进展。
+**2026-10-22当前进度：本地实现与自测完成，待用户验收。** 当前`develop`树PF08-001～008实现保留WIP，开工文档提交`1db23aa`。最终后端新鲜Release 0警告/0错误，完整测试2041通过/0失败/8外部集成跳过；前端152文件1128通过/0跳过，类型检查、ESLint及平台/独立双构建通过。真实HTTPS 11组、CLI及Crud/Compose浏览器操作已有本地证据，详情见[active工作包](../tasks/active/PF-08.md)和[evidence§3](../evidence/PF-08.md#3-本地最终验证与用户交接)；历史预检和阶段记录保留。真实MES/mTLS/roleFactory、现场来源/Provider、ClamAV与真实Rule编号适配保留对应验收条件，不阻塞当前Manual/无附件本地链。C0/C1用户验收未勾选，PF09状态不变。
 
 **文档归位：** 按既有风格，开发TodoList分别在implementation根目录的实施11/12维护；主文包含正文、依赖、完整九字段任务卡、完成标准、执行记录和下一阶段输入。details维护数据/接口/运行/页面/双模式规格和共享验收映射，任务编号与已确认范围保持不变。两份主文已更新当前详细设计稿，真实引擎/发行前置仍待核验。
 
-**状态：** 开发TodoList和工作包已补齐；001开工技术输入已核验，后续按进入范围保留门禁，生产工作线待落实，开发未正式派遣。
+**状态：** 本地实现与自测完成，待用户验收；生产代码尚未提交集成，最终本地门禁见evidence§3。原生显式工厂范围、来源非秘密实际目标指纹、Manual/Rule边界及独立部署真实字段已回写详细规格，Native只读readiness物理漂移监测已测试；用户验收、实际MES现场和PG/SQLServer实测保持待验。
 **2026-10-21最新入口：** [实施11：Low Code](../implementation/11-Industrial%20Platform%20Low%20Code开发实施方案.md)、[实施12：Dashboard / Report / Traceability](../implementation/12-Industrial%20Platform%20Dashboard%20Report开发实施方案.md)列出PF08的8项、PF09的16项内部任务及16项细化验收；[本轮复核](../evidence/2026-10-21-platformstudio-review-and-todo.md)记录与旧概念的差异和浏览器复验未完成项。字段绑定、注册业务动作及参数映射须可配置并试运行；独立页/组合页/代码扩展、自有辅助台账、共享数据/发布合同及平台组件复用均进入清单。实施11/12字段/接口/状态/页面/验收已补齐；候选PoC、发行准入和现场验收仍待完成，按对应分部关闭前置。
 **2026-10-19评估进展：** PF07当前实现及反馈返修可作为设计输入；未测SQL2022/生产故障项继续登记，不阻断设计。已完成[PF08/PF09仓库、候选与开源交付评估](../evidence/2026-10-19-pf08-pf09-design-tools-assessment.md)，记录复用差距、候选许可状态及最小验证。实施11尚未创建，未运行PoC、未引入候选依赖，不具备直接派生产编码的规格。
-**Service Host：** 创建 `PlatformStudio.Service`；内部模块边界读取蓝图 32。
+**Service Host：** 逻辑服务 `PlatformStudio.Service` 的当前可执行工程为 `IndustrialPlatform.PlatformStudio.Host`，同一应用核心也装配到UnifiedHost；内部模块边界读取蓝图32。
 **建议会话标题：** `PF-08 Low Code阶段管理`
 **输入：** 蓝图 05、21、27、28、31；PF-01/02/03/04/07 稳定契约。
 **目标：** 交付受治理的数据模型、表单、列表、页面、权限、发布、版本和回滚。
@@ -547,7 +547,7 @@ WorkOrder、Weighting、Trace、BatchRecord 和生产闭环分别开会话设计
 | PF-06 RemoteAssistance | V3.0设计与详细任务已收敛，实测待核验 | 当前PF06主控会话 | 用户需求、当前公开代码契约与官方资料 | `docs/implementation/09-Industrial Platform RemoteAssistance开发实施方案.md` | 两独立业务状态、共用媒体连接、分项授权与结束 | 已纠偏续行正式业务实现；真实媒体/质量最终验收待完成 |
 | PF-06A 终端运行时与客户端打包（含SQL Server补充） | 已有实现/分项实测，整包未验收完成 | 现有阶段安排见CURRENT/active | 蓝图34及用户SQL Server追加要求 | [实施09A](../implementation/09A-Industrial%20Platform终端运行时与客户端打包开发实施方案.md) | 001/005已实现且有Android手机实测；009有2019隔离验证 | PF-06A及SQL2019证据；正式更新/PDA/2022和生产门禁仍未测 |
 | PF-07 Scheduler / Platform Health | 当前工作树实现与自测，待用户验收；设计已核验 | 当前PF07主控直接执行 | 蓝图05、30、32、33 | [实施10](../implementation/10-Industrial%20Platform%20Scheduler%20Platform%20Health开发实施方案.md)及PF07明细/原生字典/Job接入说明 | TASK-PF07-001～006；两自有表/三管理路由/实际原生存储 | 开发自测结果见PF07 evidence；2022/跨主机故障/生产负载未测 |
-| PF-08 Low Code | 001技术输入已核验，待生产工作线/单写 | 当前PF08会话核验，总控落实派遣 | 当前双模式/数据/接口/页面规格；后续候选按范围核验 | [实施11](../implementation/11-Industrial%20Platform%20Low%20Code开发实施方案.md)、[工作包](../tasks/pending/PF-08.md) | 001～008未实施/待正式派遣 | [开工证据](../evidence/PF-08.md)；不替代C0/C1或现场验收 |
+| PF-08 Low Code | 001技术输入已核验，待生产工作线/单写 | 当前PF08会话核验，总控落实派遣 | 当前双模式/数据/接口/页面规格；后续候选按范围核验 | [实施11](../implementation/11-Industrial%20Platform%20Low%20Code开发实施方案.md)、[工作包](../tasks/active/PF-08.md) | 001～008未实施/待正式派遣 | [开工证据](../evidence/PF-08.md)；不替代C0/C1或现场验收 |
 | PF-09 Dashboard & Report | 开发清单已编写，规格/前置待闭合 | 当前PF08/PF09设计主控 | 蓝图22/32；四菜单与两种组合分别验收 | [实施12设计稿](../implementation/12-Industrial%20Platform%20Dashboard%20Report开发实施方案.md) | 001～016待派遣 | [本轮复核](../evidence/2026-10-21-platformstudio-review-and-todo.md)；当前页面复验未完成 |
 | PF-10 ServerMonitor | 待启动 | 待创建 | 蓝图 02、32 待复核 | 实施 13 待创建 | - | - |
 | PF-10A Operations Center Knowledge & Assistant | 设计待确认 | 待创建 | 蓝图 32 第 5.4 节 | 实施 13A 待创建 | - | - |

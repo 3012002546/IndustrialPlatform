@@ -5,4 +5,5 @@
          后续集成事件/事件枚举引入后,再按需引用 EventBus 基类。 -->
   </ItemGroup>
 
+  <ItemGroup><ProjectReference Include="../../../BuildingBlocks/IndustrialPlatform.RuntimeSupport/IndustrialPlatform.RuntimeSupport.csproj" /></ItemGroup>
 </Project>

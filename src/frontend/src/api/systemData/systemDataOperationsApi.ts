@@ -15,7 +15,6 @@ import type {
   UploadSessionDto,
 } from './systemDataOperationsTypes'
 
-const BASE = '/systemdata/api/v1'
 const id = (value: string): string => encodeURIComponent(value)
 
 function query(params: Record<string, string | number | boolean | undefined> = {}): string {
@@ -25,7 +24,8 @@ function query(params: Record<string, string | number | boolean | undefined> = {
     : `?${entries.map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`).join('&')}`
 }
 
-export function createSystemDataOperationsApi(client: HttpClient): SystemDataOperationsApi {
+export function createSystemDataOperationsApi(client: HttpClient, base = '/systemdata/api/v1'): SystemDataOperationsApi {
+  const BASE = base
   return {
     listFiles: (search, page = 1, pageSize = 50, purpose, ownerUserNId, scanStatus, restricted) =>
       client.get<FilePageDto>(`${BASE}/files${query({ search, purpose, ownerUserNId, scanStatus, restricted, page, pageSize })}`),

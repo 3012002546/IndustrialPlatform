@@ -10,6 +10,8 @@
   },
   "packageManager": "pnpm@11.16.0",
   "scripts": {
+    "dev:studio": "vite --mode studio",
+    "build:studio": "vue-tsc --build && vite build --mode studio",
     "dev": "vite",
     "dev:lan": "vite --mode lan",
     "dev:lan:https": "vite --mode lan-https",

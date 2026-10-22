@@ -65,8 +65,9 @@ public sealed class UnifiedHostTests : IDisposable
     /// 保留真实 HostedService 注册:模块迁移由 ModuleMigrationCoordinatorHostedService
     /// 在启动阶段确定顺序执行,不得通过移除托管服务掩盖迁移并发问题。
     /// </summary>
-    private WebApplicationFactory<IndustrialPlatform.UnifiedHost.Program> CreateFactory()
-        => new WebApplicationFactory<IndustrialPlatform.UnifiedHost.Program>()
+    private WebApplicationFactory<IndustrialPlatform.UnifiedHost.Program> CreateFactory(bool disableStudio = true)
+    {
+        var factory = new WebApplicationFactory<IndustrialPlatform.UnifiedHost.Program>()
             .WithWebHostBuilder(builder => builder
                 .UseSetting("IndustrialPlatform:DevelopmentInfrastructureMode", "Sqlite")
                 .UseSetting("SqlSugar:ConnectionString", $"Data Source={_dbPath};Foreign Keys=True")
@@ -79,10 +80,58 @@ public sealed class UnifiedHostTests : IDisposable
                     services.RemoveAll<ISessionRevocationStore>();
                     services.AddSingleton<ISessionRevocationStore>(new InMemorySessionRevocationStore());
                 }));
+        // 既有四模块用例明确隔离可选模块；开发默认用例则读取真实配置。
+        return disableStudio
+            ? factory.WithWebHostBuilder(builder => builder.UseSetting("PlatformStudio:Enabled", "false"))
+            : factory;
+    }
 
     // ---------------------------------------------------------------------------
     // 启动与路由可达
     // ---------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Development_defaults_publish_studio_navigation_without_manual_enable_flags()
+    {
+        using var factory = CreateFactory(disableStudio: false);
+        using var client = factory.CreateClient();
+        using var scope = factory.Services.CreateScope();
+        var profile = scope.ServiceProvider.GetRequiredService<IndustrialPlatform.PlatformStudio.Domain.StudioDeploymentProfile>();
+        Assert.True(profile.Enabled);
+        Assert.Equal("PlatformNative", profile.DeploymentMode);
+        Assert.True(await TableExistsAsync("studio_resource"));
+        var state = await scope.ServiceProvider.GetRequiredService<IndustrialPlatform.SystemData.Application.ControlPlane.IControlPlaneStore>()
+            .LoadAsync("development", CancellationToken.None);
+        var published = state.Snapshots.Single(snapshot => snapshot.Revision == state.ActiveSnapshotRevision);
+        Assert.Contains(published.Nodes, node => node.RouteName == "studio-sources");
+        Assert.Contains(published.Nodes, node => node.RouteName == "studio-datasets");
+        Assert.Contains(published.Nodes, node => node.RouteName == "studio-lowcode");
+        Assert.Contains(published.Nodes, node => node.RouteName == "studio-ledger-models");
+        using var response = await client.GetAsync("/api/v1/studio/deployment/profile");
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Studio_enabled_native_host_migrates_real_tables_maps_protected_routes_and_registers_services()
+    {
+        using var factory=CreateFactory().WithWebHostBuilder(builder=>builder
+            .UseSetting("PlatformStudio:Enabled","true")
+            .UseSetting("PlatformStudio:InstalledModules:0","LowCode")
+            .UseSetting("PlatformStudio:Files:Provider","Disabled"));
+        using var client=factory.CreateClient();
+        using var health=await client.GetAsync("/health");Assert.Equal(HttpStatusCode.OK,health.StatusCode);
+        Assert.True(await TableExistsAsync("studio_resource"));Assert.True(await TableExistsAsync("studio_schema_migrations"));
+        Assert.Contains(factory.Services.GetRequiredService<IOptions<Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckServiceOptions>>().Value.Registrations,registration=>registration.Name=="studio.core");
+        using var anonymous=await client.GetAsync("/api/v1/studio/deployment/profile");Assert.Equal(HttpStatusCode.Unauthorized,anonymous.StatusCode);
+        using var scope=factory.Services.CreateScope();
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IndustrialPlatform.PlatformStudio.Application.Data.SourceAdministration>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IndustrialPlatform.PlatformStudio.Application.Ledger.StudioLedger>());
+        var hosted=factory.Services.GetServices<IHostedService>().Select(service=>service.GetType()).ToArray();
+        Assert.Equal(typeof(IndustrialPlatform.UnifiedHost.StudioNativeNavigationBootstrap),hosted[1]);
+        var state=await scope.ServiceProvider.GetRequiredService<IndustrialPlatform.SystemData.Application.ControlPlane.IControlPlaneStore>().LoadAsync("development",CancellationToken.None);
+        Assert.Contains(state.Resources,resource=>resource.NId=="studio.page.lowcode");
+        Assert.Contains(state.Snapshots.Last().Nodes,node=>node.RouteName=="studio-lowcode");
+    }
 
     [Fact]
     public async Task Startup_ComposesAllModules_WithoutRouteOrDiConflicts()

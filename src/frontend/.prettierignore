@@ -1,4 +1,5 @@
 dist
+dist-studio
 coverage
 node_modules
 playwright-report

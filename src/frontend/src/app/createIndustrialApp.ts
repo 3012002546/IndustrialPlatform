@@ -12,6 +12,7 @@ import '@/styles/base.css'
 import App from '@/App.vue'
 import SingleUsersApp from '@/pages/pc/identity/SingleUsersApp.vue'
 import { createHttpClient, type HttpAuthRefresh } from '@/api/httpClient'
+import { createStudioApi, registerStudioApi } from '@/api/studio'
 import { createIdentityAuthApi } from '@/api/identity/identityApi'
 import { createCollaborationApi } from '@/api/collaboration'
 import { registerCollaborationApi } from '@/api/collaborationRegistry'
@@ -108,6 +109,7 @@ function installAuthGateway(pinia: Pinia, router: Router): void {
     )
     // 管理端 API 与认证共用同一 client(令牌注入 + 401 单飞刷新)。
     registerManagementApi(createIdentityManagementApi(client))
+    registerStudioApi(createStudioApi(client))
     registerCollaborationApi(createCollaborationApi(client))
     registerCollaborationRealtime(
       new CollaborationRealtimeManager(() => getCurrentSession()?.accessToken ?? null),

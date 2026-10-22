@@ -25,4 +25,5 @@
   <ItemGroup>
     <EmbeddedResource Include="Persistence/Migrations/SqlServer/*.sql" />
   </ItemGroup>
+  <ItemGroup><ProjectReference Include="../../../BuildingBlocks/IndustrialPlatform.RuntimeSupport/IndustrialPlatform.RuntimeSupport.csproj" /></ItemGroup>
 </Project>
