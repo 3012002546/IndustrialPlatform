@@ -1,5 +1,7 @@
 # Industrial Platform 实施文档索引
 
+2026-10-22 [PF08开工核验](../evidence/PF-08.md)已同步当前规格及真实源码/构建/公共控件基线，补齐[待派遣工作包](../tasks/pending/PF-08.md)。001技术输入已核验，待总控落实生产工作线/共享单写；002真实V0及C1候选/扫描/两模式机制按进入范围闭合，未实现的G03/G04及后续Office/PDF不形成001循环前置。功能仍未实施，PF09保持原状态。
+
 本目录是 Industrial Platform 开发实施方案和可派遣开发 TODO 的唯一维护源。蓝图决策来自 `docs/blueprint`；实际开发在其他任务或被派遣的协作任务中完成，当前任务只负责拆分、派遣、跟踪、验收信息汇总和结果回写。
 
 PlatformStudio实施11/12当前为V1.4详细设计稿，补齐[双模式适配与按需部署](details/PF08-PF09-双模式适配与按需部署.md)：平台原生优先契合，外部MES不依赖我们的平台，四产品可单装或组合；五类适配、16张核心表（13业务表+3身份技术表）、按需运行组件及D01～D16均已映射至原24任务。已完成[整体一致性复核](../evidence/2026-10-22-platformstudio-consistency-review.md)，分开研发/运行依赖、分段验收与任务交接，新增草稿预览及文件适配的B43～B45。单库schema/表/两账本及SQLite调度文件例外见[数据规格§6.3](details/PF08-PF09-数据模型与生命周期.md#63-单库下的schema表和账本分配)。实际实现、引擎许可/发行及客户验收仍待执行，不能将本轮文档核验当作交付通过。
@@ -52,7 +54,7 @@ PF08/PF09最新入口为[实施11：Low Code](11-Industrial%20Platform%20Low%20C
 | 09 | [PF-06 RemoteAssistance实施方案](09-Industrial%20Platform%20RemoteAssistance开发实施方案.md) | 2026-09-12已派遣当前工作树执行；已纠偏从002继续正式业务实现，G06-1/3真实媒体待最终验收；负责人见active/PF-06 |
 | 09A | [PF-06A统一开发文档](09A-Industrial%20Platform终端运行时与客户端打包开发实施方案.md) | 已有客户端/扫码/更新实现及Android手机实测，SQL Server2019隔离验证已完成；正式更新、PDA/2022及生产门禁按CURRENT保留，非整包验收完成 |
 | 10 | [PF-07 Scheduler / Platform Health实施方案](10-Industrial%20Platform%20Scheduler%20Platform%20Health开发实施方案.md) | V1.3整体复核；两自有表/三页面/原生字段字典，G07-1/2闭合，001～006开发及反馈返修完成；页面整体已获用户确认，整包待验收，回归与外部边界见证据 |
-| 11 | [PF-08 Low Code开发实施方案](11-Industrial%20Platform%20Low%20Code开发实施方案.md) | V1.4详细设计稿；001～008九字段卡与字段/API/页面/验收对应；共享基础、LowCode、双模式身份/File/Audit及按需装配合同已补齐；实现/发行前置待核验，未派遣 |
+| 11 | [PF-08 Low Code开发实施方案](11-Industrial%20Platform%20Low%20Code开发实施方案.md) | V1.4规格已同步；001开工技术输入已核验、工作包已补，待生产工作线/单写后正式派遣；002～008按实际接入门禁推进，功能/发行未验 |
 | 12 | [PF-09 Dashboard / Report / Traceability开发实施方案](12-Industrial%20Platform%20Dashboard%20Report开发实施方案.md) | V1.4详细设计稿；001～016九字段卡与字段/API/页面/验收对应；三部分逐块验收、外部Jobs/文件适配、单模块/组合离线包及MES验收合同已补齐；真实引擎/发行/现场待验，未派遣 |
 | 13 | PF-10 ServerMonitor实施方案（待 PF-10 会话创建） | 创建 `OperationsCenter.Service`，本阶段只处理 ServerMonitor |
 | 13A | PF-10A Operations Center Knowledge & Assistant实施方案（待 PF-10A 会话创建） | 设计待确认；先补齐 IssueTracking 与 KnowledgeBase 完整数据闭环，不提前创建文档 |

@@ -1,5 +1,7 @@
 # Industrial Platform 当前状态
 
+- 2026-10-22 / PF08开工前置核验：已同步当前V1.4规格并补[PF-08待派遣工作包](../tasks/pending/PF-08.md)，结果见[PF-08证据](../evidence/PF-08.md)。PF08-001技术输入已核验，正式编码待总控落实生产工作线和共享文件单写；不将本任务自身的适配实现、C3 Office/PDF或C5全30组合当成001前置。新鲜Release构建0警告/0错误，后端1939通过/0失败/8外部条件跳过，前端公共控件7文件86测试及类型检查通过，四项文档检查及diff检查通过。已补固定版pnpm工具缓存，修正测试目录和dirty-only文档检查误报。002真实V0、C1候选/扫描/两模式机制及后续发行/现场验收保持分范围待验；未修改生产源码/依赖/私有配置、迁移数据库、启动业务服务、正式派遣、提交或推送。
+
 - 2026-10-22 / PlatformStudio单库schema核对：实施11/12更新V1.4，[数据规格§6.3](../implementation/details/PF08-PF09-数据模型与生命周期.md#63-单库下的schema表和账本分配)固定三Provider分配。四产品共用业务schema；PG原生沿实际宿主schema、外部新安装默认platform_studio，SQL Server业务dbo，SQLite主文件main。File/Audit/Jobs按需表与2张Studio框架账本单列，不把16张核心表当安装总表数；Hangfire的PG/SQL Server为同库scheduler_hangfire，SQLite另有.scheduler.db，因此含Report不承诺严格单文件。已映射任务和B30/D13～D15，旧账本、实际连接核对和Unknown保护保持。只改文档，未迁移数据库/修改源码/部署/提交；三Provider实测待实施，见[源码与文档核对记录](../evidence/2026-10-22-platformstudio-schema-review.md)。
 
 - 2026-10-22 / PlatformStudio整体一致性复核：实施11/12更新V1.3。保留四部分逐块验收顺序，分开研发前置与编译/安装依赖；C0不等待C3 Office或C5全30组合，PF09-009分前置与真实输出收口，消除与005的循环等待。补齐未发布报表Preview快照/期限/Unknown维护、Studio公共上传门面及归属、追溯Owned/Mes文件来源/版本/扫描、Installed与Enabled语义和模式Provider校验；新增B43～B45并映射原24任务。详见[一致性复核](../evidence/2026-10-22-platformstudio-consistency-review.md)。本地已确认v17源保留，浏览器原站读取超时，未计新的在线视觉通过；未修改源码、站点、部署或私有配置，未派遣/提交/推送。下面V1.2为前一轮设计快照，实际引擎/适配/分部/现场验收仍待执行。
