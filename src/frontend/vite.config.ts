@@ -5,6 +5,7 @@ import vue from '@vitejs/plugin-vue'
 import { defineConfig, loadEnv } from 'vite'
 
 export default defineConfig(({ command, mode }) => {
+  const studio = mode === 'studio'
   const collaboration = mode === 'lan-https-collaboration' || mode === 'collaboration'
   // 两个 HTTPS 入口复用 LAN 证书，普通 LAN HTTP 调试不加载证书。
   const httpsRequired = mode === 'lan-https' || mode === 'lan-https-collaboration'
@@ -34,6 +35,19 @@ export default defineConfig(({ command, mode }) => {
     // lan-https也必须把同一LAN API入口注入页面，避免落回.env.local的localhost。
     plugins: [
       vue(),
+      ...(studio
+        ? [
+            {
+              name: 'studio-entry',
+              transformIndexHtml: {
+                order: 'pre' as const,
+                handler(html: string) {
+                  return html.replace('/src/main.ts', '/src/studio-main.ts')
+                },
+              },
+            },
+          ]
+        : []),
       {
         name: 'industrial-platform-web-version',
         generateBundle() {
@@ -71,6 +85,16 @@ export default defineConfig(({ command, mode }) => {
     },
     server: {
       port: 5173,
+      ...(studio
+        ? {
+            proxy: {
+              '/api': {
+                target: env.DEV_STUDIO_API_PROXY_TARGET || 'http://localhost:5258',
+                changeOrigin: true,
+              },
+            },
+          }
+        : {}),
       ...(lan
         ? {
             host: '0.0.0.0',
@@ -98,7 +122,7 @@ export default defineConfig(({ command, mode }) => {
       port: 4173,
     },
     build: {
-      outDir: mode === 'collaboration' ? 'dist-collaboration' : 'dist',
+      outDir: studio ? 'dist-studio' : mode === 'collaboration' ? 'dist-collaboration' : 'dist',
     },
   }
 })

@@ -21,7 +21,7 @@ public static class BootstrapSeedCatalog
     public const string BootstrapAdminSeedKey = "identity.bootstrap-admin";
 
     /// <summary>全部种子当前版本;目录内容变化必须递增。</summary>
-    public const string SeedVersion = "1.8.0";
+    public const string SeedVersion = "1.9.0";
 
     /// <summary>系统作用域。</summary>
     public const string SystemScope = "system";
@@ -214,6 +214,40 @@ public static class BootstrapSeedCatalog
         new(PermissionCatalog.ReferenceDataStateMachinePublish, "状态机：publish", PermissionType.Action),
         new(PermissionCatalog.ReferenceDataStateMachineDisable, "状态机：disable", PermissionType.Action),
         new(PermissionCatalog.ReferenceDataPlatformManage, "平台级参考定义：manage", PermissionType.Action),
+        new("studio.source.view", "Studio source.view", PermissionType.Page),
+        new("studio.source.manage", "Studio source.manage", PermissionType.Action),
+        new("studio.source.test", "Studio source.test", PermissionType.Action),
+        new("studio.dataset.view", "Studio dataset.view", PermissionType.Page),
+        new("studio.dataset.design", "Studio dataset.design", PermissionType.Action),
+        new("studio.dataset.publish", "Studio dataset.publish", PermissionType.Action),
+        new("studio.dataset.run", "Studio dataset.run", PermissionType.Action),
+        new("studio.lowcode.view", "Studio lowcode.view", PermissionType.Page),
+        new("studio.lowcode.design", "Studio lowcode.design", PermissionType.Action),
+        new("studio.lowcode.publish", "Studio lowcode.publish", PermissionType.Action),
+        new("studio.lowcode.run", "Studio lowcode.run", PermissionType.Action),
+        new("studio.ledger.read", "Studio ledger.read", PermissionType.Action),
+        new("studio.ledger.write", "Studio ledger.write", PermissionType.Action),
+        new("studio.dashboard.view", "Studio dashboard.view", PermissionType.Page),
+        new("studio.dashboard.design", "Studio dashboard.design", PermissionType.Action),
+        new("studio.dashboard.publish", "Studio dashboard.publish", PermissionType.Action),
+        new("studio.dashboard.run", "Studio dashboard.run", PermissionType.Action),
+        new("studio.report.view", "Studio report.view", PermissionType.Page),
+        new("studio.report.design", "Studio report.design", PermissionType.Action),
+        new("studio.report.publish", "Studio report.publish", PermissionType.Action),
+        new("studio.report.run", "Studio report.run", PermissionType.Action),
+        new("studio.report.export", "Studio report.export", PermissionType.Action),
+        new("studio.trace.view", "Studio trace.view", PermissionType.Page),
+        new("studio.trace.design", "Studio trace.design", PermissionType.Action),
+        new("studio.trace.publish", "Studio trace.publish", PermissionType.Action),
+        new("studio.trace.run", "Studio trace.run", PermissionType.Action),
+        new("studio.workbook.view", "Studio workbook.view", PermissionType.Page),
+        new("studio.workbook.edit", "Studio workbook.edit", PermissionType.Action),
+        new("studio.workbook.export", "Studio workbook.export", PermissionType.Action),
+        new("studio.resource.grant", "Studio resource.grant", PermissionType.Action),
+        new("studio.deployment.inspect", "Studio deployment.inspect", PermissionType.Action),
+        new("studio.audit.view", "Studio audit.view", PermissionType.Page),
+        new("studio.audit.export", "Studio audit.export", PermissionType.Action),
+        new("studio.report.reconcile", "Studio report.reconcile", PermissionType.Action),
     ];
 
     /// <summary>系统角色定义(SYSTEM_ADMIN 拥有全部目录权限)。</summary>

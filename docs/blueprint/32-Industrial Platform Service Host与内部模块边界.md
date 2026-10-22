@@ -45,6 +45,10 @@ PF-05、PF-06、PF-08、PF-09、PF-10、PF-10A、PF-10B、PF-11都属于Industri
 
 外部嵌入是完整集成契约，不能只证明iframe能显示：身份须服务端验证issuer/audience/时效并映射稳定租户/主体；页面参数不得作为授权依据；认证失效不能降级成同名本地账号。导航、主题/语言、退出、令牌续期与跨域/CSP/嵌入权限需按目标宿主验证。可选iframe或路由入口，具体方式在阶段设计中确定，不承诺任意MES即插即用。
 
+2026-10-22仅针对PlatformStudio澄清：平台内原生集成和契合度优先；独立指同一核心剥离后无需部署或连接我们的Identity/SystemData/ReferenceData及平台控制面，通过适配接入现有MES。复用代码/控件不等于运行依赖整个平台，不能把另装上述服务作为外部客户的强制前提。具体适配和双路径验收以[实施数据规格§6.1～6.2](../implementation/details/PF08-PF09-数据模型与生命周期.md#61-独立交付装配基线)为准；其他PF部署边界不因本次澄清改变。
+
+同日细化：Studio四产品可按任意非空子集交付，共用建模基础随带，LowCode不是其他产品安装前提。原生直接用平台身份/ReferenceData/File/Audit/Scheduler；外部身份及业务对接MES，默认自有File/Audit/报告Jobs来自中立RuntimeSupport类库的按需装配，不新增服务中心。仅Report需要Office/Renderer/报告worker，Report选中包含Excel。核心schema稳定，不按产品组合改历史DDL；停用需排空且保留Unknown、数据与审计。精确合同及D01～D16见[双模式适配与按需部署](../implementation/details/PF08-PF09-双模式适配与按需部署.md)，实际实现/发行仍待验证。
+
 ## 2.2 各功能的最小边界与兼容前置
 
 以下是必须细化的交付边界，不表示安装包或外部适配已实现；精确字段、接口和装配清单由所属阶段在派遣前补齐。

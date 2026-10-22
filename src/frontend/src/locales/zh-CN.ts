@@ -2,6 +2,14 @@ import type { PlatformLocaleMessages } from '@/localization/types'
 import { referenceDataZh } from '@/localization/referenceData'
 
 export const zhCN = {
+  studio: {
+    lowcode: '低代码',
+    sources: '数据源',
+    datasets: '数据集',
+    ledger: '台账模型',
+    design: '设计',
+    run: '运行',
+  },
   referenceData: referenceDataZh,
   common: {
     brand: { name: 'Industrial Platform', description: '工业平台统一工作空间' },
@@ -162,6 +170,7 @@ export const zhCN = {
       workspace: '工作台',
       platformManagement: '平台管理',
       group: {
+        studio: '低代码',
         workspace: '工作台',
         'reference-data': '基础配置',
         system: '系统管理',
@@ -178,6 +187,10 @@ export const zhCN = {
         'service-operations': '服务与运维',
       },
       item: {
+        'studio-lowcode': '低代码工作台',
+        'studio-sources': '数据源',
+        'studio-datasets': '数据集',
+        'studio-ledger-models': '台账模型',
         'reference-data-dictionaries': '字典管理',
         'reference-data-parameters': '参数管理',
         'reference-data-dynamic-properties': '动态属性',

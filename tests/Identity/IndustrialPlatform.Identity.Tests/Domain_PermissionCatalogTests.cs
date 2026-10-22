@@ -164,12 +164,46 @@ public sealed class PermissionCatalogTests
         "referencedata.state-machine.publish",
         "referencedata.state-machine.disable",
         "referencedata.platform.manage",
+        "studio.source.view",
+        "studio.source.manage",
+        "studio.source.test",
+        "studio.dataset.view",
+        "studio.dataset.design",
+        "studio.dataset.publish",
+        "studio.dataset.run",
+        "studio.lowcode.view",
+        "studio.lowcode.design",
+        "studio.lowcode.publish",
+        "studio.lowcode.run",
+        "studio.ledger.read",
+        "studio.ledger.write",
+        "studio.dashboard.view",
+        "studio.dashboard.design",
+        "studio.dashboard.publish",
+        "studio.dashboard.run",
+        "studio.report.view",
+        "studio.report.design",
+        "studio.report.publish",
+        "studio.report.run",
+        "studio.report.export",
+        "studio.trace.view",
+        "studio.trace.design",
+        "studio.trace.publish",
+        "studio.trace.run",
+        "studio.workbook.view",
+        "studio.workbook.edit",
+        "studio.workbook.export",
+        "studio.resource.grant",
+        "studio.deployment.inspect",
+        "studio.audit.view",
+        "studio.audit.export",
+        "studio.report.reconcile",
     ];
 
     [Fact]
     public void FirstBatch_HasIdentityAndSystemDataPermissions()
     {
-        Assert.Equal(161, PermissionCatalog.FirstBatchNIds.Count);
+        Assert.Equal(195, PermissionCatalog.FirstBatchNIds.Count);
     }
 
     [Fact]

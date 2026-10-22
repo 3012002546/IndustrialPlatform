@@ -14,6 +14,7 @@ import { useLocalizationStore } from '@/stores/localizationStore'
 import { useAuthStore } from '@/stores/authStore'
 import type { AppDataTableRequest } from '@/components/management/AppDataTable'
 import { sampleFingerprint, sha256File } from '@/utils/sha256File'
+import { uploadFileChunks } from '@/utils/uploadFileChunks'
 
 const localization = useLocalizationStore()
 const authStore = useAuthStore()
@@ -135,15 +136,13 @@ async function startUpload(candidate: UploadSessionDto | null, takeover = false)
     }
     currentSession.value = ready
     paused.value = false
-    const chunkSize = 1024 * 1024
-    while (ready.offset < file.size && !paused.value) {
-      const offset = ready.offset
-      const chunk = file.slice(offset, Math.min(offset + chunkSize, file.size))
-      ready = await api.uploadChunk(ready.transportId, chunk, offset, ready.writerEpoch, ready.resumeTicket ?? '', controller.signal)
-      currentSession.value = ready
-    }
-    if (paused.value) return
-    await api.completeUpload(ready.sessionNId)
+    const uploaded = await uploadFileChunks(api, file, ready, {
+      signal: controller.signal,
+      shouldStop: () => paused.value,
+      onProgress: (next) => { currentSession.value = next },
+    })
+    if (!uploaded) return
+    await api.completeUpload(uploaded.sessionNId)
     ElMessage.success(localization.locale === 'zh-CN' ? '上传完成，等待安全扫描。' : 'Upload complete; waiting for scan.')
     uploadOpen.value = false
     currentSession.value = null; uploadHash.value = ''; candidates.value = []

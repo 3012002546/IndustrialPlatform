@@ -85,9 +85,9 @@ public sealed class IdentitySeedRunnerTests : IDisposable
         Assert.Equal(1, await CountAsync("SELECT COUNT(*) FROM identity_seed_ledger WHERE status = 'Applied' AND seed_n_id = 'identity.bootstrap-admin'"));
 
         // 既有152项及PF07新增9项，SYSTEM_ADMIN通过版本化种子获得完整目录。
-        Assert.Equal(161, await CountAsync("SELECT COUNT(*) FROM identity_permission"));
+        Assert.Equal(195, await CountAsync("SELECT COUNT(*) FROM identity_permission"));
         Assert.Equal(1, await CountAsync("SELECT COUNT(*) FROM identity_role WHERE n_id = 'SYSTEM_ADMIN'"));
-        Assert.Equal(161, await CountAsync("SELECT COUNT(*) FROM identity_role_permission"));
+        Assert.Equal(195, await CountAsync("SELECT COUNT(*) FROM identity_role_permission"));
         Assert.Equal(1, await CountAsync("SELECT COUNT(*) FROM identity_user"));
 
         // 一次性凭据:密码满足策略且长度 >= 20
@@ -139,16 +139,16 @@ public sealed class IdentitySeedRunnerTests : IDisposable
     }
 
     [Fact]
-    public async Task UpgradeFromVersionOne_AddsSystemDataPermissionsToSystemAdmin()
+    public async Task UpgradeFromVersionOne_AddsSystemDataAndStudioPermissionsToSystemAdmin()
     {
         await IdentityTestDatabase.ApplyCatalogAsync(_dbContext);
 
-        // 模拟已完成 1.0.0 的生产库：只有原 33 项 Identity 目录和对应 SYSTEM_ADMIN 绑定。
+        // 模拟尚无SystemData/Studio增量的旧目录，保留Identity及其他既有目录和SYSTEM_ADMIN绑定。
         await _dbContext.SqlSugar.Ado.ExecuteCommandAsync(
             "DELETE FROM identity_role_permission WHERE permission_id IN " +
-            "(SELECT id FROM identity_permission WHERE n_id LIKE 'systemdata.%')");
+            "(SELECT id FROM identity_permission WHERE n_id LIKE 'systemdata.%' OR n_id LIKE 'studio.%')");
         await _dbContext.SqlSugar.Ado.ExecuteCommandAsync(
-            "DELETE FROM identity_permission WHERE n_id LIKE 'systemdata.%'");
+            "DELETE FROM identity_permission WHERE n_id LIKE 'systemdata.%' OR n_id LIKE 'studio.%'");
         await _dbContext.SqlSugar.Ado.ExecuteCommandAsync(
             "UPDATE identity_seed_ledger SET seed_version = '1.0.0'");
 
@@ -156,9 +156,10 @@ public sealed class IdentitySeedRunnerTests : IDisposable
 
         await IdentityTestDatabase.ApplyCatalogAsync(_dbContext);
 
-        Assert.Equal(161, await CountAsync("SELECT COUNT(*) FROM identity_permission"));
+        Assert.Equal(195, await CountAsync("SELECT COUNT(*) FROM identity_permission"));
         Assert.Equal(59, await CountAsync("SELECT COUNT(*) FROM identity_permission WHERE n_id LIKE 'systemdata.%'"));
-        Assert.Equal(161, await CountAsync("SELECT COUNT(*) FROM identity_role_permission"));
+        Assert.Equal(34, await CountAsync("SELECT COUNT(*) FROM identity_permission WHERE n_id LIKE 'studio.%'"));
+        Assert.Equal(195, await CountAsync("SELECT COUNT(*) FROM identity_role_permission"));
         Assert.Equal(4, await CountAsync("SELECT COUNT(*) FROM identity_seed_ledger"));
     }
 

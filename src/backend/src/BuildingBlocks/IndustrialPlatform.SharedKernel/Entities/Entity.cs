@@ -35,12 +35,17 @@ public abstract class Entity
     public Guid ConcurrencyVersion { get; protected set; }
 
     protected Entity()
+        : this(DateTimeOffset.UtcNow)
+    {
+    }
+
+    /// <summary>使用调用方的受控 UTC 时间创建实体,便于服务共享 TimeProvider。</summary>
+    protected Entity(DateTimeOffset createdOn)
     {
         Id = Guid.NewGuid();
         EntityType = GetType().FullName ?? GetType().Name;
-        var now = DateTimeOffset.UtcNow;
-        CreatedOn = now;
-        LastUpdatedOn = now;
+        CreatedOn = createdOn.ToUniversalTime();
+        LastUpdatedOn = CreatedOn;
         ConcurrencyVersion = Guid.NewGuid();
     }
 
@@ -65,6 +70,9 @@ public abstract class Entity
     {
         Advance();
     }
+
+    /// <summary>使用服务的受控时间推进审计与并发字段。</summary>
+    protected void Touch(DateTimeOffset now) => Advance(now);
 
     /// <summary>冻结业务修改;已冻结时幂等。</summary>
     public void Freeze()
@@ -127,6 +135,10 @@ public abstract class Entity
 
     /// <summary>标记软删除;已删除时幂等。</summary>
     public void MarkDeleted()
+        => MarkDeleted(DateTimeOffset.UtcNow);
+
+    /// <summary>使用服务的受控时间软删除;已删除时幂等。</summary>
+    public void MarkDeleted(DateTimeOffset now)
     {
         if (IsDeleted)
         {
@@ -137,11 +149,15 @@ public abstract class Entity
         ThrowIfFrozen(OperationName.Delete);
 
         IsDeleted = true;
-        Advance();
+        Advance(now);
     }
 
     /// <summary>恢复软删除实体;未删除时幂等。</summary>
     public void Restore()
+        => Restore(DateTimeOffset.UtcNow);
+
+    /// <summary>使用服务的受控时间恢复实体;未删除时幂等。</summary>
+    public void Restore(DateTimeOffset now)
     {
         if (!IsDeleted)
         {
@@ -149,14 +165,18 @@ public abstract class Entity
         }
 
         IsDeleted = false;
-        Advance();
+        Advance(now);
     }
 
     /// <summary>统一推进更新时间与双版本字段。</summary>
     private void Advance()
+        => Advance(DateTimeOffset.UtcNow);
+
+    private void Advance(DateTimeOffset now)
     {
-        LastUpdatedOn = DateTimeOffset.UtcNow;
-        OptimisticVersion++;
+        var nextVersion = checked(OptimisticVersion + 1);
+        LastUpdatedOn = now.ToUniversalTime();
+        OptimisticVersion = nextVersion;
         ConcurrencyVersion = Guid.NewGuid();
     }
 

@@ -13,4 +13,5 @@
     <ProjectReference Include="..\..\..\BuildingBlocks\IndustrialPlatform.Querying\IndustrialPlatform.Querying.csproj" />
   </ItemGroup>
 
+  <ItemGroup><ProjectReference Include="../../../BuildingBlocks/IndustrialPlatform.RuntimeSupport/IndustrialPlatform.RuntimeSupport.csproj" /></ItemGroup>
 </Project>

@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><IsTestProject>true</IsTestProject><IsPackable>false</IsPackable></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../../../src/backend/src/Services/PlatformStudio/IndustrialPlatform.PlatformStudio.Api/IndustrialPlatform.PlatformStudio.Api.csproj" /><Using Include="Xunit" /><PackageReference Include="Microsoft.NET.Test.Sdk" /><PackageReference Include="xunit" /><PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" /><PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../../../src/backend/src/Services/PlatformStudio/IndustrialPlatform.PlatformStudio.Domain/IndustrialPlatform.PlatformStudio.Domain.csproj" /></ItemGroup>
+<ItemGroup><ProjectReference Include="../../../src/backend/src/Services/PlatformStudio/IndustrialPlatform.PlatformStudio.Infrastructure/IndustrialPlatform.PlatformStudio.Infrastructure.csproj" /><ProjectReference Include="../../../src/backend/src/Hosts/IndustrialPlatform.PlatformStudio.Host/IndustrialPlatform.PlatformStudio.Host.csproj" /></ItemGroup></Project>

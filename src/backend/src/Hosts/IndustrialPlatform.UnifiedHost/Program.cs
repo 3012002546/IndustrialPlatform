@@ -21,13 +21,19 @@ var builder = WebApplication.CreateBuilder(args);
 // UnifiedHost 使用单连接承载全部模块:Shared 拓扑解析共享物理库(当前 Development 默认);
 // PerService 拓扑需要 ServiceDatabases["unifiedhost"] 显式映射,否则启动明确失败。
 builder.AddOptionalLocalDevelopmentInfrastructure(DevelopmentService.UnifiedHost);
+// 本地配置也可启停模块；必须加载完最终配置后再决定装配目录。
+var enabledModules = UnifiedHostModuleCatalog.GetModules(builder.Configuration);
 builder.UseIndustrialSerilog();
 // 模块迁移协调器注册在托管服务最前:启动时按 UnifiedHostModuleCatalog 顺序执行各模块迁移/种子,
 // 完成后宿主才继续启动其余托管服务(Outbox 派发、数据库编排 Runner 等)。
 // 因此 Identity/SystemData 的独立 SchemaMigrationBackgroundService 不在此注册(传 false),
 // 避免两套迁移后台服务并行迁移同一 Shared 物理库。
 builder.Services.AddHostedService<ModuleMigrationCoordinatorHostedService>();
-foreach (var module in UnifiedHostModuleCatalog.Modules)
+// 导航增量种子必须先于任何控制面后台写入者，避免启动CAS竞态。
+if (builder.Configuration.GetSection("PlatformStudio").Exists())
+    builder.Services.AddHostedService<StudioNativeNavigationBootstrap>();
+
+foreach (var module in enabledModules)
 {
     module.RegisterServices(builder.Services, builder.Configuration);
 }
@@ -42,6 +48,12 @@ builder.Services.PostConfigure<AuthorizationOptions>(SystemDataPermissionPolicie
 // 统一部署使用进程内适配器；独立 SystemData.Api 的默认实现仍为受信 HTTP 适配器。
 builder.Services.AddSingleton<IServiceInitializationInvoker>(sp =>
     new InProcessServiceInitializationInvoker(sp.GetServices<IServiceInitializer>()));
+if (builder.Configuration.GetValue<bool>("PlatformStudio:Enabled"))
+{
+    builder.Services.AddScoped<IndustrialPlatform.PlatformStudio.Application.IStudioIdentity, PlatformStudioIdentity>();
+    builder.Services.AddScoped<IndustrialPlatform.PlatformStudio.Application.Integration.IStudioFactoryScope, PlatformStudioFactoryScope>();
+    builder.Services.AddScoped<IndustrialPlatform.PlatformStudio.Application.Integration.IStudioSubjectDirectory, PlatformStudioSubjectDirectory>();
+}
 builder.Services.AddOpenApi();
 if (builder.Environment.IsDevelopment())
 {
@@ -55,13 +67,13 @@ if (builder.Environment.IsDevelopment())
 // 只注册一次,避免重复前缀或重复 ResultFilter 包装。
 var mvc = builder.Services.AddIndustrialApi(mvcOptions => mvcOptions.Conventions.Add(new RoutePrefixConvention()));
 // 模块适配器与控制器同属各自的 Api 程序集；仅注册显式目录中的模块，避免自动扫描其他程序集。
-foreach (var module in UnifiedHostModuleCatalog.Modules)
+foreach (var module in enabledModules)
 {
     mvc.AddApplicationPart(module.GetType().Assembly);
 }
 // 统一健康检查:各模块检查按模块前缀命名,避免同名覆盖(identity./systemdata./referencedata./collaboration.)。
 var healthChecks = builder.Services.AddHealthChecks();
-foreach (var module in UnifiedHostModuleCatalog.Modules)
+foreach (var module in enabledModules)
 {
     module.RegisterHealthChecks(healthChecks);
 }
@@ -72,7 +84,7 @@ app.UseIndustrialWeb();
 // 无前缀路由不受影响，独立 Gateway/Api Host 也无需改动。
 app.Use(async (context, next) =>
 {
-    foreach (var module in UnifiedHostModuleCatalog.Modules.Where(module => module.StripExternalPathPrefix))
+    foreach (var module in enabledModules.Where(module => module.StripExternalPathPrefix))
     {
         var prefix = module.ExternalPathPrefix;
         if (context.Request.Path.StartsWithSegments(prefix, out var remaining))
@@ -111,7 +123,7 @@ app.MapHealthChecks("/health/capabilities", new HealthCheckOptions
     ResponseWriter = HealthCheckResponseWriter.Write,
 });
 app.MapControllers();
-foreach (var module in UnifiedHostModuleCatalog.Modules)
+foreach (var module in enabledModules)
 {
     module.MapEndpoints(app);
 }

@@ -6,4 +6,5 @@
     <ProjectReference Include="..\..\..\BuildingBlocks\IndustrialPlatform.Security\IndustrialPlatform.Security.csproj" />
   </ItemGroup>
 
+  <ItemGroup><ProjectReference Include="../../../BuildingBlocks/IndustrialPlatform.RuntimeSupport/IndustrialPlatform.RuntimeSupport.csproj" /></ItemGroup>
 </Project>

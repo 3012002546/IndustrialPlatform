@@ -2,6 +2,7 @@
   <Folder Name="/src/" />
   <Folder Name="/src/BuildingBlocks/">
     <Project Path="src\BuildingBlocks\IndustrialPlatform.SharedKernel\IndustrialPlatform.SharedKernel.csproj" />
+    <Project Path="src/BuildingBlocks/IndustrialPlatform.RuntimeSupport/IndustrialPlatform.RuntimeSupport.csproj" />
     <Project Path="src\BuildingBlocks\IndustrialPlatform.Application.Abstractions\IndustrialPlatform.Application.Abstractions.csproj" />
     <Project Path="src\BuildingBlocks\IndustrialPlatform.Infrastructure\IndustrialPlatform.Infrastructure.csproj" />
     <Project Path="src\BuildingBlocks\IndustrialPlatform.EventBus\IndustrialPlatform.EventBus.csproj" />
@@ -70,5 +71,18 @@
   </Folder>
   <Folder Name="/tests/IntegrationTests/">
     <Project Path="..\..\tests\IntegrationTests\IndustrialPlatform.IntegrationTests\IndustrialPlatform.IntegrationTests.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/PlatformStudio/">
+    <Project Path="src/Services/PlatformStudio/IndustrialPlatform.PlatformStudio.Domain/IndustrialPlatform.PlatformStudio.Domain.csproj" />
+    <Project Path="src/Services/PlatformStudio/IndustrialPlatform.PlatformStudio.Contracts/IndustrialPlatform.PlatformStudio.Contracts.csproj" />
+    <Project Path="src/Services/PlatformStudio/IndustrialPlatform.PlatformStudio.Application/IndustrialPlatform.PlatformStudio.Application.csproj" />
+    <Project Path="src/Services/PlatformStudio/IndustrialPlatform.PlatformStudio.Infrastructure/IndustrialPlatform.PlatformStudio.Infrastructure.csproj" />
+    <Project Path="src/Services/PlatformStudio/IndustrialPlatform.PlatformStudio.Api/IndustrialPlatform.PlatformStudio.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/PlatformStudio/">
+    <Project Path="../../tests/PlatformStudio/IndustrialPlatform.PlatformStudio.Tests/IndustrialPlatform.PlatformStudio.Tests.csproj" />
+  </Folder>
+  <Folder Name="/src/Hosts/Studio/">
+    <Project Path="src/Hosts/IndustrialPlatform.PlatformStudio.Host/IndustrialPlatform.PlatformStudio.Host.csproj" />
   </Folder>
 </Solution>

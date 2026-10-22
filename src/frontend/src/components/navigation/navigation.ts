@@ -48,6 +48,41 @@ import type { NavigationGroup, NavigationItem, NavigationSection } from './types
  */
 const DEFAULT_PC_NAVIGATION_GROUPS: readonly NavigationGroup[] = [
   {
+    id: 'studio',
+    label: '低代码',
+    icon: EditPen,
+    items: [
+      {
+        id: 'studio-lowcode',
+        label: '低代码工作台',
+        routeName: 'studio-lowcode',
+        icon: EditPen,
+        permission: PERMISSIONS.studioLowcodeView,
+      },
+      {
+        id: 'studio-sources',
+        label: '数据源',
+        routeName: 'studio-sources',
+        icon: Connection,
+        permission: PERMISSIONS.studioSourceView,
+      },
+      {
+        id: 'studio-datasets',
+        label: '数据集',
+        routeName: 'studio-datasets',
+        icon: Coin,
+        permission: PERMISSIONS.studioDatasetView,
+      },
+      {
+        id: 'studio-ledger-models',
+        label: '台账模型',
+        routeName: 'studio-ledger-models',
+        icon: Collection,
+        permission: PERMISSIONS.studioLowcodeDesign,
+      },
+    ],
+  },
+  {
     id: 'workspace',
     label: '工作台',
     icon: House,

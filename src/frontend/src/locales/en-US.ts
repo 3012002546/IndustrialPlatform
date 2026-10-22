@@ -2,6 +2,14 @@ import type { PlatformLocaleMessages } from '@/localization/types'
 import { referenceDataEn } from '@/localization/referenceData'
 
 export const enUS = {
+  studio: {
+    lowcode: 'Low code',
+    sources: 'Data sources',
+    datasets: 'Datasets',
+    ledger: 'Ledger models',
+    design: 'Design',
+    run: 'Run',
+  },
   referenceData: referenceDataEn,
   common: {
     brand: { name: 'Industrial Platform', description: 'Unified industrial platform workspace' },
@@ -172,6 +180,7 @@ export const enUS = {
       workspace: 'Workspace',
       platformManagement: 'Platform management',
       group: {
+        studio: 'Low code',
         workspace: 'Workspace',
         'reference-data': 'Basic configuration',
         system: 'System management',
@@ -188,6 +197,10 @@ export const enUS = {
         'service-operations': 'Services & operations',
       },
       item: {
+        'studio-lowcode': 'Low code studio',
+        'studio-sources': 'Data sources',
+        'studio-datasets': 'Datasets',
+        'studio-ledger-models': 'Ledger models',
         'reference-data-dictionaries': 'Dictionaries',
         'reference-data-parameters': 'Parameters',
         'reference-data-dynamic-properties': 'Dynamic properties',

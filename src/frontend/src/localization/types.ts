@@ -465,6 +465,7 @@ export interface CollaborationLocaleMessages {
 }
 
 export interface PlatformLocaleMessages {
+  studio: Record<string,string>
   referenceData: ReferenceDataMessages
   collaboration: CollaborationLocaleMessages
   common: {

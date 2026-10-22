@@ -1,0 +1,1 @@
+<Project Sdk="Microsoft.NET.Sdk"><ItemGroup><ProjectReference Include="../IndustrialPlatform.PlatformStudio.Domain/IndustrialPlatform.PlatformStudio.Domain.csproj" /><ProjectReference Include="../IndustrialPlatform.PlatformStudio.Contracts/IndustrialPlatform.PlatformStudio.Contracts.csproj" /></ItemGroup></Project>

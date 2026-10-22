@@ -3,6 +3,7 @@ using IndustrialPlatform.Identity.Api.Modules;
 using IndustrialPlatform.ReferenceData.Api.Modules;
 using IndustrialPlatform.SystemData.Api.Modules;
 using IndustrialPlatform.Web.Extensions;
+using Microsoft.Extensions.Configuration;
 
 namespace IndustrialPlatform.UnifiedHost;
 
@@ -18,6 +19,9 @@ public static class UnifiedHostModuleCatalog
         new ReferenceDataUnifiedHostModule(),
         new CollaborationUnifiedHostModule(),
     ];
+
+    public static IReadOnlyList<IUnifiedHostModule> GetModules(Microsoft.Extensions.Configuration.IConfiguration configuration) =>
+        configuration.GetValue<bool>("PlatformStudio:Enabled") ? [.. Modules, new IndustrialPlatform.PlatformStudio.Api.PlatformStudioUnifiedHostModule()] : Modules;
 
     public static IReadOnlyList<string> GetServiceKeys(IEnumerable<IUnifiedHostModule> modules) =>
         modules.Select(module => module.ServiceKey).ToArray();
