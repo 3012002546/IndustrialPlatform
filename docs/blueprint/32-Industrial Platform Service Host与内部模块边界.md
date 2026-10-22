@@ -35,7 +35,11 @@ PF-05、PF-06、PF-08、PF-09、PF-10、PF-10A、PF-10B、PF-11都属于Industri
 | --- | --- | --- |
 | 平台原生（默认、首要验收） | 复用平台可信身份/租户、权限、File/Audit、菜单、初始化与可观测公开契约 | 使用平台共享UI、路由/菜单、主题/语言和Runtime；可按当前拓扑统一或独立Host运行 |
 | 独立部署 + 外部MES嵌入 | 信任已配置外部身份发行者，适配目录/租户映射和业务上下文；必要公共能力由精简复用部署或等价适配提供 | 使用同一页面/应用核心的嵌入入口或独立入口；明确SSO/退出/导航契约，不强制启动整套Industrial Platform |
-| 无外部宿主的独立使用 | 只在该产品明确范围内提供最小登录/管理员引导；复用成熟身份能力，不给每模块新建账号域 | 精简外壳/独立入口；Label已含此范围，其他PF须各自明确，不因“独立”一词自动扩张 |
+| 无外部宿主的独立使用 | 只在该产品明确范围内提供最小登录/管理员引导；复用成熟身份能力，不给每模块新建账号域 | 精简外壳/独立入口；Label及PF08/PF09的PlatformStudio已纳入此设计范围，其他PF须各自明确 |
+
+2026-10-19用户明确补充：低代码平台必须能够独立部署，随后增加第四部分追溯图谱建模。PF08/PF09按低代码、看板、报表（含Excel）、Traceability四部分共享PlatformStudio基础的方向评估：原生集成与独立安装使用同一业务核心；独立安装提供登录/管理员引导、权限和所选能力必需的公共模块，不要求启动完整Industrial Platform或连接生产MES。精确最小安装单元及初始化裁剪由实施11/12补齐，必须在无主平台运行的环境完成验收；这是一项交付要求，当前并未实现。数据接入首期包含注册API和受控只读数据库，追溯新增评估授权工程师配置SQL语句块/具名存储过程；开发先用自建模拟源，生产接入由用户后续完成。需求状态与验证范围见[PF08/PF09评估记录](../evidence/2026-10-19-pf08-pf09-design-tools-assessment.md)。
+
+用户已进一步确认PF08/PF09首期支持完全离线的内网安装与运行，覆盖登录、低代码、看板、报表及Excel打开/编辑/保存，新增追溯设计与查询继承同一约束。必需运行时、内网编辑服务、静态资源和许可允许交付的字体/素材预先准备；功能不依赖公网CDN、云端编辑/渲染或在线激活。用户明确部署兼容范围沿用主平台：平台支持什么，本产品就必须支持什么，不再单独征求Windows/Linux选择或因新增编辑/渲染引擎缩减支持范围。验收须按平台矩阵在无主平台运行、隔绝公网且无预热依赖缓存的目标环境完成安装及完整业务链；已有未测项与本模块实测结果分别记录，开发机启动或仅浏览器断网不能替代目标环境验收。
 
 身份、租户、权限、文件引用/保全、审计、初始化和业务数据源通过消费方公开端口接入。平台装配优先复用现有实现；同进程用公开Application契约，跨进程用API/事件。外部适配允许替换实现，但保留同等授权、数据隔离、幂等和恢复语义；缺少必要能力就阻止该操作并报告，不用空审计、跳扫描或浏览器自报权限冒充兼容。可选通知/定时/助手等功能须显式标注启用依赖与禁用行为。
 
@@ -49,8 +53,8 @@ PF-05、PF-06、PF-08、PF-09、PF-10、PF-10A、PF-10B、PF-11都属于Industri
 | --- | --- | --- |
 | PF-05 Collaboration | 平台登录/目录、全局连接、聊天入口、文件与审计 | 聊天核心+可信身份/目录+必要持久审计/文件能力；外部宿主适配，不复制人员主数据 |
 | PF-06 RemoteAssistance | 现有一对一聊天内屏幕共享与独立语音，分别邀请/结束、可同时使用；复用身份/成员/SignalR/审计 | 首版随Collaboration交付，原生WebRTC＋按需TURN；逻辑模块边界保留，复用服务级初始化/账本。外部MES与脱离聊天另验，不要求全量聊天历史 |
-| PF-08 Low Code | 平台权限、主题、路由、受控数据源、发布 | PlatformStudio选定的DataSource/Dataset/LowCode/Publishing；设计器与运行入口范围明确，不依赖Dashboard/Report自动启用 |
-| PF-09 Dashboard & Report | 平台受控Dataset、行列授权、File、通知/定时能力 | Dashboard/Report及所需Dataset运行能力；不强制低代码设计器。报告导出、定时报表分别声明存储/调度/通知的必需或可选适配 |
+| PF-08 Low Code | 平台权限、主题、路由、受控数据源、发布 | PlatformStudio选定的DataSource/Dataset/LowCode/Publishing，支持自有业务登记记录；交付原生装配与独立安装，列明必要身份/权限及公共能力。设计器与运行入口范围明确，不依赖Dashboard/Report自动启用 |
+| PF-09 Dashboard & Report | 平台受控Dataset、行列授权、File、通知/定时能力 | Dashboard/Report（含Excel）及所需Dataset运行能力沿同一PlatformStudio独立部署边界交付，不强制低代码设计器。首期Excel包含编辑保存、版本/会话及必要服务适配。组合报表分简单组合和电子记录组合：前者配置报告/参数/顺序，后者按SOP组织人工填写/HTML/系统操作记录、重复/条件区块、统一页头页脚及最终页码。单报告能力保留，两类共用受权取数/渲染/产物基础，不新增Host。来源系统保留执行事实、更正、业务完整性/审核/归档规则，Report忠实呈现并检查文档所需记录；简单组合不强制工单上下文。查询/普通导出可独立运行，生成/定时分别声明存储/调度/通知适配 |
 | PF-10 ServerMonitor | 平台节点权限、告警/通知、审计和健康摘要 | ServerMonitor+Agent+指标/告警存储及必要公共适配；不依赖知识库、问题和模型运行时 |
 | PF-10A Operations Center | 平台项目/用户范围、文件/知识/问题闭环及受控Dataset | 项目/问题/知识核心与按需助手组合；声明索引、模型和数据源依赖，关闭助手不应阻断基本问题/知识管理；不强制安装ServerMonitor |
 | PF-10B Label | 平台身份/权限、菜单/黄金页、File/Audit、SystemData初始化、Runtime及业务来源端口 | Label核心+数据库+必要文件/审计/身份能力+按需Agent/PDA；先平台闭环，再外部MES与无宿主模式；不依赖IoT或MES领域表 |
@@ -60,6 +64,12 @@ PF-05、PF-06、PF-08、PF-09、PF-10、PF-10A、PF-10B、PF-11都属于Industri
 
 # 3. 当前核心 Service Host
 
+第四部分Traceability目前为设计评估增量：建议在PlatformStudio内拥有模型主档/修订、图形设计、可选起点、数据列/条件、SQL或过程绑定、任意节点双向展开及来源证据，复用DataSource/Dataset/Publishing。按2026-10-20用户要求，须支持多行业对象类型/标识/粒度、关系语义、数据映射及工厂差异配置，半导体仅为行业样例。其运行不以MES已启用、事实全量同步或图数据库为前提。蓝图18的MES Trace仍负责业务事件形成的关系投影，原始事实及更正属于生产/库存等业务模块；未来通过公开查询合同成为Traceability的数据来源。当前新增的是产品建模范围和宿主建议，任务拆分随实施11/12细化，不新增核心Host或恢复MES开发。
+
+Report首期接收HTML富文本绑定，将流程中已填写并保存的页面渲染到SOP/电子批生产记录，负责内容和资源版本依据、只读渲染、分页及打印/PDF输出。用户明确页面设计、填写和HTML存储属于后续生产工单模块；本次用模拟记录定义并验证消费合同，不前置开发工单执行。HTML渲染所需引擎/资源仍须符合开源、独立及离线部署要求，具体技术未选定。
+
+2026-10-20进一步明确：电子记录支持数据驱动动态组装。Report根据工单、工序/执行上下文和实际返回数据匹配可变子报表规则、生成0/1/N区块及顺序，再紧凑连续排版；五类子报表只是MES实例，不能固化为平台结构。整份电子记录由主模板统一横向或纵向，统一页头页脚、分页后总页码；空数据与失败分开表达。简单组合保持独立模式。Dashboard支持页面聚合接口响应共享给各组件多属性，Traceability分别配置对象起点源、关系链源与双向映射；开发及概念只用模拟源，不据此宣称生产接入完成。详见PF08/PF09评估§16。
+
 平台基础层规划共八个核心 Service Host：
 
 | Service Host | 当前内部模块 |
@@ -68,7 +78,7 @@ PF-05、PF-06、PF-08、PF-09、PF-10、PF-10A、PF-10B、PF-11都属于Industri
 | `SystemData.Service` | SystemData、File、Notification、Audit、Scheduler、PlatformHealth |
 | `ReferenceData.Service` | Dictionary、Parameter、DynamicProperty、Metadata、CodingRule、StateMachine、UnitOfMeasure |
 | `Collaboration.Service` | Messaging、Presence、AttachmentIntegration、RemoteAssistance |
-| `PlatformStudio.Service` | DataSource、Dataset、LowCode、Dashboard、Report、Publishing |
+| `PlatformStudio.Service` | DataSource、Dataset、LowCode、Dashboard、Report、Publishing；Traceability纳入新增设计评估 |
 | `OperationsCenter.Service` | ServerMonitor、ProjectWorkspace、KnowledgeBase、IssueTracking、KnowledgeAssistant、DataAssistant、ModelGateway |
 | `Label.Service` | Template、DataPreparation、Rendering、PrintJob、History；PF-10B 新增规划 |
 | `IoTCollector.Service` | Driver、DeviceConnection、Point、CollectionTask、EdgeManagement |
@@ -108,7 +118,7 @@ StateMachine 管理 `StateMachineDefinition`、其 `StateNode` 和 `StateTransit
 | 09A / PF-06A | 终端运行时与客户端打包 | 不新增 Host；客户端辅助部署单元 | Web/Electron/Capacitor Runtime、设备桥接与更新 |
 | 10 / PF-07 | Scheduler / Platform Health | 加入 `SystemData.Service` | Scheduler、PlatformHealth |
 | 11 / PF-08 | Low Code | 创建 `PlatformStudio.Service` | DataSource、Dataset、LowCode、Publishing 的首期范围 |
-| 12 / PF-09 | Dashboard & Report | 加入 `PlatformStudio.Service` | Dashboard、Report，并复用受控 Dataset 契约 |
+| 12 / PF-09 | Dashboard & Report | 加入 `PlatformStudio.Service` | Dashboard、Report，并复用受控Dataset；新增Traceability设计章节与任务边界评估，未派遣实现 |
 | 13 / PF-10 | ServerMonitor | 创建 `OperationsCenter.Service` | 只交付 ServerMonitor；与知识、问题和助手模块保持隔离 |
 | 13A / PF-10A | Operations Center Knowledge & Assistant | 加入 `OperationsCenter.Service` | ProjectWorkspace、KnowledgeBase、IssueTracking、KnowledgeAssistant、DataAssistant、ModelGateway；进入实施前先补齐第 5.4 节的设计缺口 |
 | 13B / PF-10B | 标签管理平台 | 创建 `Label.Service`，先于 PF-11 | Template、DataPreparation、Rendering、PrintJob、History；先平台原生，再外部MES/无宿主同核心装配 |
