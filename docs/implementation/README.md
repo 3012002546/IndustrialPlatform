@@ -2,6 +2,8 @@
 
 本目录是 Industrial Platform 开发实施方案和可派遣开发 TODO 的唯一维护源。蓝图决策来自 `docs/blueprint`；实际开发在其他任务或被派遣的协作任务中完成，当前任务只负责拆分、派遣、跟踪、验收信息汇总和结果回写。
 
+PlatformStudio实施11/12当前为V1.4详细设计稿，补齐[双模式适配与按需部署](details/PF08-PF09-双模式适配与按需部署.md)：平台原生优先契合，外部MES不依赖我们的平台，四产品可单装或组合；五类适配、16张核心表（13业务表+3身份技术表）、按需运行组件及D01～D16均已映射至原24任务。已完成[整体一致性复核](../evidence/2026-10-22-platformstudio-consistency-review.md)，分开研发/运行依赖、分段验收与任务交接，新增草稿预览及文件适配的B43～B45。单库schema/表/两账本及SQLite调度文件例外见[数据规格§6.3](details/PF08-PF09-数据模型与生命周期.md#63-单库下的schema表和账本分配)。实际实现、引擎许可/发行及客户验收仍待执行，不能将本轮文档核验当作交付通过。
+
 总体开发优先级和阶段门禁统一读取 `docs/blueprint/09-Industrial Platform开发总TodoList.md`。PF-01～PF-10 对应本目录 04～13；新增 PF-06A 使用 09A，PF-10A 使用 13A，新增 PF-10B 使用 13B，PF-11 使用 14；MES 文档从 15 开始。后缀编号插入执行顺序，不改旧编号。
 
 所有PF阶段还必须读取 `docs/blueprint/32-Industrial Platform Service Host与内部模块边界.md`。阶段编号不等于Service Host；同宿主模块可共用物理Schema和服务级迁移/账本，但必须保留明确模块表命名空间、契约、权限与测试边界，不得跨模块直读Repository。只有独立持久化生命周期才拆初始化单元。平台原生优先、最小依赖与外部宿主装配前置见该蓝图§2.1～2.2。
@@ -18,13 +20,13 @@ PF05起分开维护设计就绪度（待细化/待前置核验/已就绪）与�
 
 ## PF05起派遣前必读
 
-PF08/PF09最新入口为[实施11：Low Code](11-Industrial%20Platform%20Low%20Code开发实施方案.md)、[实施12：Dashboard / Report / Traceability](12-Industrial%20Platform%20Dashboard%20Report开发实施方案.md)及[2026-10-21复核记录](../evidence/2026-10-21-platformstudio-review-and-todo.md)。四个独立菜单；工作台适配平台框架，看板1920×1080为可调整默认值；页面共享数据与行跳转→目标参数→查询条件均可配置。单报告采用同宽、可增减层级的主从明细带；简单组合与电子记录组合分别保留，电子记录按工单/工序实际数据动态匹配0～N个子报告并紧凑续排，长HTML不得截断；整份由主模板统一横向或纵向。追溯可配置起点/节点/关系查询，节点连线拖拽、当前页模态框明细；设计器统一返回、撤销/恢复、缩放和侧栏操作。旧v4.0仅作历史输入。实施11/12主文及开发任务已按既有格式编写，共享明细只维护约束/验收；详细字段/API/配置/状态/线框规格已补齐，候选PoC/许可与现场验收仍待完成；本轮已读取在线v7.7首页/菜单，设计页操作因浏览器超时未完成；本地最新概念源逐项对齐见[对齐复核](../evidence/2026-10-21-platformstudio-concept-alignment.md)，不以静态核对关闭实施门禁。
+PF08/PF09最新入口为[实施11：Low Code](11-Industrial%20Platform%20Low%20Code开发实施方案.md)、[实施12：Dashboard / Report / Traceability](12-Industrial%20Platform%20Dashboard%20Report开发实施方案.md)及[2026-10-21复核记录](../evidence/2026-10-21-platformstudio-review-and-todo.md)。四个独立菜单；工作台适配平台框架，看板1920×1080为可调整默认值；页面共享数据与行跳转→目标参数→查询条件均可配置。单报告采用同宽、可增减层级的主从明细带；简单组合与电子记录组合分别保留，电子记录按工单/工序实际数据动态匹配0～N个子报告并紧凑续排，长HTML不得截断；整份由主模板统一横向或纵向。追溯可配置起点/节点/关系查询，节点连线拖拽、当前页模态框明细；设计器统一返回、撤销/恢复、缩放和侧栏操作。旧v4.0仅作历史输入。实施11/12主文及开发任务已按既有格式编写，共享明细只维护约束/验收；详细字段/API/配置/状态/线框规格已补齐，候选PoC/许可与现场验收仍待完成；此前已读取在线v7.7首页/菜单，最新设计页操作复验仍因浏览器超时未完成；本地最新概念源逐项对齐见[对齐复核](../evidence/2026-10-21-platformstudio-concept-alignment.md)，不以静态核对关闭实施门禁。
 
 - [PF08/PF09四部分验收与页面规格](details/PF08-PF09-页面与验收规格.md)：共用基础后，低代码、看板、报表（含Excel）、追溯依次独立验收；关联[数据字典](details/PF08-PF09-数据模型与生命周期.md)、[接口与配置](details/PF08-PF09-接口与配置合同.md)、[分页与追溯运行](details/PF09-报表分页与追溯运行规则.md)，详见[本轮证据](../evidence/2026-10-21-platformstudio-detailed-spec.md)。
 
 - [详细设计、线框图与验收规则](STANDARD-派遣前详细设计与页面验收.md)：字段/状态/契约/样例/页面/协作，含所有后续PF/MES的细化门禁。
 - [PF05细化规格](details/PF05-数据接口与页面规格.md)、[PF06细化规格](details/PF06-数据接口与页面规格.md)、[PF06A统一文档](09A-Industrial%20Platform终端运行时与客户端打包开发实施方案.md)、[PF10B细化规格](details/PF10B-数据接口与页面规格.md)：具体数据字典、接口和已绘线框图。
-- [待派遣工作包索引](../tasks/pending/README.md)：只记录待派遣范围和就绪缺口，不是已发出的任务。PF07已转active，开发及反馈返修完成、G07-1/2已闭合；用户已确认页面整体，整包仍待验收，最新回归与未测项见证据。实施11/12已补为V1.1详细设计稿，真实引擎/发行前置仍待核验；实施13/13A/14未创建，均须细化后再派编码。
+- [待派遣工作包索引](../tasks/pending/README.md)：只记录待派遣范围和就绪缺口，不是已发出的任务。PF07已转active，开发及反馈返修完成、G07-1/2已闭合；用户已确认页面整体，整包仍待验收，最新回归与未测项见证据。实施11/12已补为V1.4详细设计稿，真实引擎/发行前置仍待核验；实施13/13A/14未创建，均须细化后再派编码。
 - [PF07字段/接口/线框规格](details/PF07-数据接口与页面规格.md)：两张自有表及实际三Provider原生存储字段字典、单引擎状态/事务、DTO、三条管理路由与弹层、工作台摘要和20项验收映射；健康只保留最新内存快照，操作审计复用既有入口。
 
 ## 时间类型约束
@@ -50,8 +52,8 @@ PF08/PF09最新入口为[实施11：Low Code](11-Industrial%20Platform%20Low%20C
 | 09 | [PF-06 RemoteAssistance实施方案](09-Industrial%20Platform%20RemoteAssistance开发实施方案.md) | 2026-09-12已派遣当前工作树执行；已纠偏从002继续正式业务实现，G06-1/3真实媒体待最终验收；负责人见active/PF-06 |
 | 09A | [PF-06A统一开发文档](09A-Industrial%20Platform终端运行时与客户端打包开发实施方案.md) | 已有客户端/扫码/更新实现及Android手机实测，SQL Server2019隔离验证已完成；正式更新、PDA/2022及生产门禁按CURRENT保留，非整包验收完成 |
 | 10 | [PF-07 Scheduler / Platform Health实施方案](10-Industrial%20Platform%20Scheduler%20Platform%20Health开发实施方案.md) | V1.3整体复核；两自有表/三页面/原生字段字典，G07-1/2闭合，001～006开发及反馈返修完成；页面整体已获用户确认，整包待验收，回归与外部边界见证据 |
-| 11 | [PF-08 Low Code开发实施方案](11-Industrial%20Platform%20Low%20Code开发实施方案.md) | V1.0设计稿；001～008完整九字段任务卡、依赖/完成标准/执行记录已编写；共享数据/动作/发布、辅助台账与三类页面；完整规格及前置待闭合，未派遣 |
-| 12 | [PF-09 Dashboard / Report / Traceability开发实施方案](12-Industrial%20Platform%20Dashboard%20Report开发实施方案.md) | V1.0设计稿；001～016完整九字段任务卡、依赖/完成标准/执行记录已编写；看板、报表/两种组合/HTML、Excel、追溯、独立离线及MES验收；完整规格及前置待闭合，未派遣 |
+| 11 | [PF-08 Low Code开发实施方案](11-Industrial%20Platform%20Low%20Code开发实施方案.md) | V1.4详细设计稿；001～008九字段卡与字段/API/页面/验收对应；共享基础、LowCode、双模式身份/File/Audit及按需装配合同已补齐；实现/发行前置待核验，未派遣 |
+| 12 | [PF-09 Dashboard / Report / Traceability开发实施方案](12-Industrial%20Platform%20Dashboard%20Report开发实施方案.md) | V1.4详细设计稿；001～016九字段卡与字段/API/页面/验收对应；三部分逐块验收、外部Jobs/文件适配、单模块/组合离线包及MES验收合同已补齐；真实引擎/发行/现场待验，未派遣 |
 | 13 | PF-10 ServerMonitor实施方案（待 PF-10 会话创建） | 创建 `OperationsCenter.Service`，本阶段只处理 ServerMonitor |
 | 13A | PF-10A Operations Center Knowledge & Assistant实施方案（待 PF-10A 会话创建） | 设计待确认；先补齐 IssueTracking 与 KnowledgeBase 完整数据闭环，不提前创建文档 |
 | 13B | [PF-10B 标签管理平台](13B-Industrial%20Platform标签管理平台开发实施方案.md) | PF-11前；先平台原生兼容/打印闭环，再外部MES与无宿主装配；核心字段/线框已细化，待派遣/待平台契约、客户设备及外部适配核验 |
