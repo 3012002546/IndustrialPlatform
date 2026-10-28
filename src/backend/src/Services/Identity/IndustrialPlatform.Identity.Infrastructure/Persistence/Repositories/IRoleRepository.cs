@@ -11,6 +11,8 @@ namespace IndustrialPlatform.Identity.Infrastructure.Persistence.Repositories;
 /// </summary>
 public interface IRoleRepository : IRepository<Role>
 {
+    /// <summary>批量读取与GetByIdAsync相同的活动角色事实，不装载本次快照不使用的权限关联。</summary>
+    Task<IReadOnlyList<Role>> GetAuthorizationRolesAsync(IReadOnlyCollection<Guid> roleIds, CancellationToken cancellationToken = default);
     /// <summary>按角色 Id 集查询活动角色的 NId 映射(不存在的角色不包含)。</summary>
     Task<IReadOnlyDictionary<Guid, string>> GetNIdsAsync(IReadOnlyCollection<Guid> roleIds, CancellationToken cancellationToken = default);
 

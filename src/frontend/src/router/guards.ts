@@ -39,6 +39,13 @@ export function setDocumentTitle(
 
 export function installRouterGuards(router: Router): void {
   router.beforeEach(async (to) => {
+    if (
+      to.name === ROUTE_NAMES.studioDashboardScreen ||
+      to.name === ROUTE_NAMES.studioPlaylistScreen
+    ) {
+      setDocumentTitle(to.meta.title)
+      return true
+    }
     // 1. 恢复会话(幂等:Store 内单飞,重复导航不重复读存储)
     const authStore = useAuthStore()
     await authStore.restore()

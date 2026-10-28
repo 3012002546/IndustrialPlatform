@@ -15,6 +15,7 @@ public sealed class StudioNativeNavigationBootstrap(IConfiguration configuration
     private const string Group="navigation.group.studio";
     private static readonly Page[] CorePages=[new("studio.page.sources","studio-sources","数据源","studio.source.view"),new("studio.page.datasets","studio-datasets","数据集","studio.dataset.view")];
     private static readonly Page[] LowCodePages=[new("studio.page.lowcode","studio-lowcode","低代码","studio.lowcode.view"),new("studio.page.ledger-models","studio-ledger-models","台账模型","studio.lowcode.design")];
+    private static readonly Page[] DashboardPages=[new("studio.page.dashboards","studio-dashboards","看板","studio.dashboard.view"),new("studio.page.playlists","studio-playlists","轮播","studio.dashboard.view")];
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         var profile=configuration.GetSection("PlatformStudio").Get<StudioDeploymentProfile>()??new();
@@ -24,8 +25,8 @@ public sealed class StudioNativeNavigationBootstrap(IConfiguration configuration
     public Task StopAsync(CancellationToken cancellationToken)=>Task.CompletedTask;
     public async Task ApplyAsync(string tenant,StudioDeploymentProfile profile,CancellationToken cancellationToken)
     {
-        var pages=profile.Enabled?CorePages.Concat(profile.ActiveModules.Contains("LowCode",StringComparer.Ordinal)?LowCodePages:[]).ToArray():[];
-        var permissions=StudioKinds.Permissions.Where(p=>!p.StartsWith("studio.dashboard.",StringComparison.Ordinal)&&!p.StartsWith("studio.report.",StringComparison.Ordinal)&&!p.StartsWith("studio.trace.",StringComparison.Ordinal)&&!p.StartsWith("studio.workbook.",StringComparison.Ordinal)).ToArray();
+        var pages=profile.Enabled?CorePages.Concat(profile.ActiveModules.Contains("LowCode",StringComparer.Ordinal)?LowCodePages:Array.Empty<Page>()).Concat(profile.ActiveModules.Contains("Dashboard",StringComparer.Ordinal)?DashboardPages:Array.Empty<Page>()).ToArray():Array.Empty<Page>();
+        var permissions=StudioKinds.Permissions.Where(p=>(!p.StartsWith("studio.dashboard.",StringComparison.Ordinal)||profile.ActiveModules.Contains("Dashboard",StringComparer.Ordinal))&&!p.StartsWith("studio.report.",StringComparison.Ordinal)&&!p.StartsWith("studio.trace.",StringComparison.Ordinal)&&!p.StartsWith("studio.workbook.",StringComparison.Ordinal)).ToArray();
         var version=profile.ProfileVersion;var checksum=StudioJson.Hash(JsonSerializer.Serialize(new {version,profile.Enabled,pages,permissions}));
         var key=profile.Enabled?"studio.native.navigation":"studio.native.navigation-disabled";
         if(await store.SeedAppliedAsync(tenant,key,version,checksum,cancellationToken))return;
@@ -50,7 +51,7 @@ public sealed class StudioNativeNavigationBootstrap(IConfiguration configuration
             }
         }
         if(pages.Length>0&&!nodes.Any(n=>n.NId==Group)){var group=NavigationNode.CreateGroup(tenant,Group,"工业应用",null,"PLATFORM_NAVIGATION","setting");group.SetDisplayOrder(4);nodes.Add(group);}
-        var ownIds=CorePages.Concat(LowCodePages).Select(p=>p.ResourceNId).Append(Group).ToHashSet(StringComparer.Ordinal);
+        var ownIds=CorePages.Concat(LowCodePages).Concat(DashboardPages).Select(p=>p.ResourceNId).Append(Group).ToHashSet(StringComparer.Ordinal);
         // 已有自定义节点及其它模块节点不覆盖；停用只撤下本模块发布入口，保留草稿和业务数据。
         var active=state.ActiveSnapshotRevision is {} activeRevision?state.Snapshots.SingleOrDefault(s=>s.Revision==activeRevision):null;
         var livePages=pages.Where(p=>resources.Any(r=>r.NId==p.ResourceNId&&r.Status==UiResourceStatus.Active)&&nodes.Any(n=>n.NId==p.ResourceNId&&n.Status==NavigationNodeStatus.Active)).ToArray();

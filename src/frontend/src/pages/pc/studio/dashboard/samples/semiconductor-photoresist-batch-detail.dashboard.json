@@ -1,0 +1,1641 @@
+{
+  "format": "IndustrialPlatform.DashboardDesign",
+  "version": 1,
+  "name": "半导体光刻胶 · 批次执行明细（演示）",
+  "exportedOn": "2026-10-27T00:00:00.000Z",
+  "document": {
+    "schemaVersion": 1,
+    "canvas": {
+      "width": 1920,
+      "height": 1080,
+      "fit": "Contain",
+      "background": "#081525"
+    },
+    "parameters": [
+      {
+        "name": "batchNo",
+        "label": "批次编号",
+        "type": "String",
+        "required": true,
+        "nullable": false,
+        "source": "Caller",
+        "maxLength": 64,
+        "enumValues": [
+          "PR-DEMO-101",
+          "PR-DEMO-102",
+          "PR-DEMO-103",
+          "PR-DEMO-104",
+          "PR-DEMO-105",
+          "PR-DEMO-106"
+        ]
+      }
+    ],
+    "instances": [],
+    "components": [
+      {
+        "id": "title",
+        "type": "Text",
+        "registryVersion": "1",
+        "name": "光刻胶 · 批次执行明细",
+        "x": 40,
+        "y": 25,
+        "width": 1400,
+        "height": 55,
+        "rotation": 0,
+        "zIndex": 1,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#29445b",
+            "borderWidth": 0,
+            "paddingPx": 0,
+            "color": "#dceaf6",
+            "fontSizePx": 36
+          },
+          "text": "光刻胶 · 批次执行明细",
+          "align": "left",
+          "wrap": true
+        },
+        "bindings": [],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "batch-label",
+        "type": "Text",
+        "registryVersion": "1",
+        "name": "当前批次",
+        "x": 40,
+        "y": 100,
+        "width": 140,
+        "height": 40,
+        "rotation": 0,
+        "zIndex": 1,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#29445b",
+            "borderWidth": 0,
+            "paddingPx": 0,
+            "color": "#dceaf6",
+            "fontSizePx": 24
+          },
+          "text": "当前批次",
+          "align": "left",
+          "wrap": true
+        },
+        "bindings": [],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "batch-number",
+        "type": "Text",
+        "registryVersion": "1",
+        "name": "批次编号",
+        "x": 200,
+        "y": 90,
+        "width": 1000,
+        "height": 55,
+        "rotation": 0,
+        "zIndex": 1,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#29445b",
+            "borderWidth": 0,
+            "paddingPx": 0,
+            "color": "#dceaf6",
+            "fontSizePx": 34
+          },
+          "text": "—",
+          "align": "left",
+          "wrap": true
+        },
+        "bindings": [
+          {
+            "property": "text",
+            "source": {
+              "from": "PageParam",
+              "path": ["batchNo"],
+              "nullPolicy": "Null"
+            }
+          }
+        ],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "demo",
+        "type": "Text",
+        "registryVersion": "1",
+        "name": "DEMO · 批次数据来自演示总览，执行与检验记录均为合成样例",
+        "x": 1000,
+        "y": 105,
+        "width": 850,
+        "height": 36,
+        "rotation": 0,
+        "zIndex": 1,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#29445b",
+            "borderWidth": 0,
+            "paddingPx": 0,
+            "color": "#dceaf6",
+            "fontSizePx": 19
+          },
+          "text": "DEMO · 批次数据来自演示总览，执行与检验记录均为合成样例",
+          "align": "left",
+          "wrap": true
+        },
+        "bindings": [],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "product",
+        "type": "Number",
+        "registryVersion": "1",
+        "name": "演示产品",
+        "x": 40,
+        "y": 170,
+        "width": 340,
+        "height": 140,
+        "rotation": 0,
+        "zIndex": 1,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "appearance": {
+            "background": "#15273a",
+            "borderColor": "#29445b",
+            "borderWidth": 1,
+            "paddingPx": 18,
+            "color": "#dceaf6",
+            "fontSizePx": 34
+          },
+          "unit": "演示产品",
+          "digits": 0,
+          "prefix": "",
+          "suffix": "",
+          "animate": false,
+          "display": "—"
+        },
+        "bindings": [
+          {
+            "property": "value",
+            "source": {
+              "from": "PageParam",
+              "path": ["batchNo"],
+              "nullPolicy": "Null",
+              "transform": {
+                "kind": "EnumMap",
+                "args": {
+                  "entries": [
+                    {
+                      "from": "PR-DEMO-101",
+                      "to": "DUV-A01"
+                    },
+                    {
+                      "from": "PR-DEMO-102",
+                      "to": "DUV-A01"
+                    },
+                    {
+                      "from": "PR-DEMO-103",
+                      "to": "DUV-B02"
+                    },
+                    {
+                      "from": "PR-DEMO-104",
+                      "to": "DUV-B02"
+                    },
+                    {
+                      "from": "PR-DEMO-105",
+                      "to": "DUV-A01"
+                    },
+                    {
+                      "from": "PR-DEMO-106",
+                      "to": "DUV-C03"
+                    }
+                  ],
+                  "onMissing": "Default",
+                  "defaultValue": null
+                }
+              }
+            }
+          }
+        ],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "equipment",
+        "type": "Number",
+        "registryVersion": "1",
+        "name": "当前设备",
+        "x": 420,
+        "y": 170,
+        "width": 340,
+        "height": 140,
+        "rotation": 0,
+        "zIndex": 1,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "appearance": {
+            "background": "#15273a",
+            "borderColor": "#29445b",
+            "borderWidth": 1,
+            "paddingPx": 18,
+            "color": "#dceaf6",
+            "fontSizePx": 34
+          },
+          "unit": "当前设备",
+          "digits": 0,
+          "prefix": "",
+          "suffix": "",
+          "animate": false,
+          "display": "—"
+        },
+        "bindings": [
+          {
+            "property": "value",
+            "source": {
+              "from": "PageParam",
+              "path": ["batchNo"],
+              "nullPolicy": "Null",
+              "transform": {
+                "kind": "EnumMap",
+                "args": {
+                  "entries": [
+                    {
+                      "from": "PR-DEMO-101",
+                      "to": "FILL-01"
+                    },
+                    {
+                      "from": "PR-DEMO-102",
+                      "to": "FLT-101"
+                    },
+                    {
+                      "from": "PR-DEMO-103",
+                      "to": "MIX-101"
+                    },
+                    {
+                      "from": "PR-DEMO-104",
+                      "to": "LAB-01"
+                    },
+                    {
+                      "from": "PR-DEMO-105",
+                      "to": "HOLD-101"
+                    },
+                    {
+                      "from": "PR-DEMO-106",
+                      "to": "PACK-01"
+                    }
+                  ],
+                  "onMissing": "Default",
+                  "defaultValue": null
+                }
+              }
+            }
+          }
+        ],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "volume",
+        "type": "Number",
+        "registryVersion": "1",
+        "name": "批次体积 / L",
+        "x": 800,
+        "y": 170,
+        "width": 340,
+        "height": 140,
+        "rotation": 0,
+        "zIndex": 1,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "appearance": {
+            "background": "#15273a",
+            "borderColor": "#29445b",
+            "borderWidth": 1,
+            "paddingPx": 18,
+            "color": "#dceaf6",
+            "fontSizePx": 34
+          },
+          "unit": "批次体积 / L",
+          "digits": 0,
+          "prefix": "",
+          "suffix": "",
+          "animate": false,
+          "display": "—"
+        },
+        "bindings": [
+          {
+            "property": "value",
+            "source": {
+              "from": "PageParam",
+              "path": ["batchNo"],
+              "nullPolicy": "Null",
+              "transform": {
+                "kind": "EnumMap",
+                "args": {
+                  "entries": [
+                    {
+                      "from": "PR-DEMO-101",
+                      "to": 280
+                    },
+                    {
+                      "from": "PR-DEMO-102",
+                      "to": 320
+                    },
+                    {
+                      "from": "PR-DEMO-103",
+                      "to": 250
+                    },
+                    {
+                      "from": "PR-DEMO-104",
+                      "to": 240
+                    },
+                    {
+                      "from": "PR-DEMO-105",
+                      "to": 180
+                    },
+                    {
+                      "from": "PR-DEMO-106",
+                      "to": 210
+                    }
+                  ],
+                  "onMissing": "Default",
+                  "defaultValue": null
+                }
+              }
+            }
+          }
+        ],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "quality",
+        "type": "Number",
+        "registryVersion": "1",
+        "name": "质量状态",
+        "x": 1180,
+        "y": 170,
+        "width": 680,
+        "height": 140,
+        "rotation": 0,
+        "zIndex": 1,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "appearance": {
+            "background": "#15273a",
+            "borderColor": "#29445b",
+            "borderWidth": 1,
+            "paddingPx": 18,
+            "color": "#dceaf6",
+            "fontSizePx": 34
+          },
+          "unit": "质量状态",
+          "digits": 0,
+          "prefix": "",
+          "suffix": "",
+          "animate": false,
+          "display": "—"
+        },
+        "bindings": [
+          {
+            "property": "value",
+            "source": {
+              "from": "PageParam",
+              "path": ["batchNo"],
+              "nullPolicy": "Null",
+              "transform": {
+                "kind": "EnumMap",
+                "args": {
+                  "entries": [
+                    {
+                      "from": "PR-DEMO-101",
+                      "to": "已放行"
+                    },
+                    {
+                      "from": "PR-DEMO-102",
+                      "to": "已放行"
+                    },
+                    {
+                      "from": "PR-DEMO-103",
+                      "to": "已放行"
+                    },
+                    {
+                      "from": "PR-DEMO-104",
+                      "to": "待检"
+                    },
+                    {
+                      "from": "PR-DEMO-105",
+                      "to": "复核中"
+                    },
+                    {
+                      "from": "PR-DEMO-106",
+                      "to": "已放行"
+                    }
+                  ],
+                  "onMissing": "Default",
+                  "defaultValue": null
+                }
+              }
+            }
+          }
+        ],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "stage-label",
+        "type": "Text",
+        "registryVersion": "1",
+        "name": "01 工序与执行进度",
+        "x": 40,
+        "y": 345,
+        "width": 850,
+        "height": 40,
+        "rotation": 0,
+        "zIndex": 1,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#29445b",
+            "borderWidth": 0,
+            "paddingPx": 0,
+            "color": "#dceaf6",
+            "fontSizePx": 26
+          },
+          "text": "01 工序与执行进度",
+          "align": "left",
+          "wrap": true
+        },
+        "bindings": [],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "current-stage",
+        "type": "Text",
+        "registryVersion": "1",
+        "name": "当前工序",
+        "x": 1030,
+        "y": 345,
+        "width": 830,
+        "height": 40,
+        "rotation": 0,
+        "zIndex": 1,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#29445b",
+            "borderWidth": 0,
+            "paddingPx": 0,
+            "color": "#dceaf6",
+            "fontSizePx": 24
+          },
+          "text": "—",
+          "align": "left",
+          "wrap": true
+        },
+        "bindings": [
+          {
+            "property": "text",
+            "source": {
+              "from": "PageParam",
+              "path": ["batchNo"],
+              "nullPolicy": "Null",
+              "transform": {
+                "kind": "EnumMap",
+                "args": {
+                  "entries": [
+                    {
+                      "from": "PR-DEMO-101",
+                      "to": "灌装完成"
+                    },
+                    {
+                      "from": "PR-DEMO-102",
+                      "to": "精密过滤"
+                    },
+                    {
+                      "from": "PR-DEMO-103",
+                      "to": "混配"
+                    },
+                    {
+                      "from": "PR-DEMO-104",
+                      "to": "取样检验"
+                    },
+                    {
+                      "from": "PR-DEMO-105",
+                      "to": "质量复核"
+                    },
+                    {
+                      "from": "PR-DEMO-106",
+                      "to": "包装"
+                    }
+                  ],
+                  "onMissing": "Default",
+                  "defaultValue": null
+                }
+              }
+            }
+          }
+        ],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "process-steps",
+        "type": "ProcessSteps",
+        "registryVersion": "1",
+        "name": "工序进度",
+        "x": 40,
+        "y": 405,
+        "width": 1820,
+        "height": 125,
+        "rotation": 0,
+        "zIndex": 1,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "appearance": {
+            "background": "#15273a",
+            "borderColor": "#29445b",
+            "borderWidth": 1,
+            "paddingPx": 18,
+            "color": "#dceaf6",
+            "fontSizePx": 24
+          },
+          "keyField": "key",
+          "labelField": "label",
+          "stateField": "state",
+          "direction": "horizontal"
+        },
+        "bindings": [
+          {
+            "property": "rows",
+            "source": {
+              "from": "PageParam",
+              "path": ["batchNo"],
+              "nullPolicy": "Null",
+              "transform": {
+                "kind": "EnumMap",
+                "args": {
+                  "entries": [
+                    {
+                      "from": "PR-DEMO-101",
+                      "to": [
+                        {
+                          "key": "1",
+                          "label": "原料核对",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "2",
+                          "label": "混配",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "3",
+                          "label": "精密过滤",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "4",
+                          "label": "取样检验",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "5",
+                          "label": "灌装包装",
+                          "state": "已完成"
+                        }
+                      ]
+                    },
+                    {
+                      "from": "PR-DEMO-102",
+                      "to": [
+                        {
+                          "key": "1",
+                          "label": "原料核对",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "2",
+                          "label": "混配",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "3",
+                          "label": "精密过滤",
+                          "state": "进行中"
+                        },
+                        {
+                          "key": "4",
+                          "label": "取样检验",
+                          "state": "待执行"
+                        },
+                        {
+                          "key": "5",
+                          "label": "灌装包装",
+                          "state": "待执行"
+                        }
+                      ]
+                    },
+                    {
+                      "from": "PR-DEMO-103",
+                      "to": [
+                        {
+                          "key": "1",
+                          "label": "原料核对",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "2",
+                          "label": "混配",
+                          "state": "进行中"
+                        },
+                        {
+                          "key": "3",
+                          "label": "精密过滤",
+                          "state": "待执行"
+                        },
+                        {
+                          "key": "4",
+                          "label": "取样检验",
+                          "state": "待执行"
+                        },
+                        {
+                          "key": "5",
+                          "label": "灌装包装",
+                          "state": "待执行"
+                        }
+                      ]
+                    },
+                    {
+                      "from": "PR-DEMO-104",
+                      "to": [
+                        {
+                          "key": "1",
+                          "label": "原料核对",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "2",
+                          "label": "混配",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "3",
+                          "label": "精密过滤",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "4",
+                          "label": "取样检验",
+                          "state": "进行中"
+                        },
+                        {
+                          "key": "5",
+                          "label": "灌装包装",
+                          "state": "待执行"
+                        }
+                      ]
+                    },
+                    {
+                      "from": "PR-DEMO-105",
+                      "to": [
+                        {
+                          "key": "1",
+                          "label": "原料核对",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "2",
+                          "label": "混配",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "3",
+                          "label": "精密过滤",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "4",
+                          "label": "取样检验",
+                          "state": "进行中"
+                        },
+                        {
+                          "key": "5",
+                          "label": "灌装包装",
+                          "state": "待执行"
+                        }
+                      ]
+                    },
+                    {
+                      "from": "PR-DEMO-106",
+                      "to": [
+                        {
+                          "key": "1",
+                          "label": "原料核对",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "2",
+                          "label": "混配",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "3",
+                          "label": "精密过滤",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "4",
+                          "label": "取样检验",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "5",
+                          "label": "灌装包装",
+                          "state": "已完成"
+                        }
+                      ]
+                    }
+                  ],
+                  "onMissing": "Default",
+                  "defaultValue": []
+                }
+              }
+            }
+          },
+          {
+            "property": "currentKey",
+            "source": {
+              "from": "PageParam",
+              "path": ["batchNo"],
+              "nullPolicy": "Null",
+              "transform": {
+                "kind": "EnumMap",
+                "args": {
+                  "entries": [
+                    {
+                      "from": "PR-DEMO-101",
+                      "to": ""
+                    },
+                    {
+                      "from": "PR-DEMO-102",
+                      "to": "3"
+                    },
+                    {
+                      "from": "PR-DEMO-103",
+                      "to": "2"
+                    },
+                    {
+                      "from": "PR-DEMO-104",
+                      "to": "4"
+                    },
+                    {
+                      "from": "PR-DEMO-105",
+                      "to": "4"
+                    },
+                    {
+                      "from": "PR-DEMO-106",
+                      "to": ""
+                    }
+                  ],
+                  "onMissing": "Default",
+                  "defaultValue": null
+                }
+              }
+            }
+          }
+        ],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "progress",
+        "type": "Progress",
+        "registryVersion": "1",
+        "name": "已完成工序比例",
+        "x": 40,
+        "y": 550,
+        "width": 1180,
+        "height": 70,
+        "rotation": 0,
+        "zIndex": 1,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "appearance": {
+            "background": "#15273a",
+            "borderColor": "#29445b",
+            "borderWidth": 1,
+            "paddingPx": 18,
+            "color": "#dceaf6",
+            "fontSizePx": 24
+          },
+          "min": 0,
+          "max": 100,
+          "unit": "%",
+          "orientation": "Horizontal"
+        },
+        "bindings": [
+          {
+            "property": "value",
+            "source": {
+              "from": "PageParam",
+              "path": ["batchNo"],
+              "nullPolicy": "Null",
+              "transform": {
+                "kind": "EnumMap",
+                "args": {
+                  "entries": [
+                    {
+                      "from": "PR-DEMO-101",
+                      "to": 100
+                    },
+                    {
+                      "from": "PR-DEMO-102",
+                      "to": 40
+                    },
+                    {
+                      "from": "PR-DEMO-103",
+                      "to": 20
+                    },
+                    {
+                      "from": "PR-DEMO-104",
+                      "to": 60
+                    },
+                    {
+                      "from": "PR-DEMO-105",
+                      "to": 60
+                    },
+                    {
+                      "from": "PR-DEMO-106",
+                      "to": 100
+                    }
+                  ],
+                  "onMissing": "Default",
+                  "defaultValue": null
+                }
+              }
+            }
+          }
+        ],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "next-action",
+        "type": "Text",
+        "registryVersion": "1",
+        "name": "下一步",
+        "x": 1260,
+        "y": 550,
+        "width": 600,
+        "height": 75,
+        "rotation": 0,
+        "zIndex": 1,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#29445b",
+            "borderWidth": 0,
+            "paddingPx": 0,
+            "color": "#dceaf6",
+            "fontSizePx": 22
+          },
+          "text": "—",
+          "align": "left",
+          "wrap": true
+        },
+        "bindings": [
+          {
+            "property": "text",
+            "source": {
+              "from": "PageParam",
+              "path": ["batchNo"],
+              "nullPolicy": "Null",
+              "transform": {
+                "kind": "EnumMap",
+                "args": {
+                  "entries": [
+                    {
+                      "from": "PR-DEMO-101",
+                      "to": "批次执行完成，按授权放行流程处理"
+                    },
+                    {
+                      "from": "PR-DEMO-102",
+                      "to": "继续执行精密过滤"
+                    },
+                    {
+                      "from": "PR-DEMO-103",
+                      "to": "继续执行混配"
+                    },
+                    {
+                      "from": "PR-DEMO-104",
+                      "to": "录入颗粒与黏度检验结果"
+                    },
+                    {
+                      "from": "PR-DEMO-105",
+                      "to": "复核痕量金属检验记录"
+                    },
+                    {
+                      "from": "PR-DEMO-106",
+                      "to": "批次执行完成，按授权放行流程处理"
+                    }
+                  ],
+                  "onMissing": "Default",
+                  "defaultValue": null
+                }
+              }
+            }
+          }
+        ],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "execution-heading",
+        "type": "Text",
+        "registryVersion": "1",
+        "name": "02 工序执行记录（演示）",
+        "x": 40,
+        "y": 665,
+        "width": 1100,
+        "height": 40,
+        "rotation": 0,
+        "zIndex": 1,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#29445b",
+            "borderWidth": 0,
+            "paddingPx": 0,
+            "color": "#dceaf6",
+            "fontSizePx": 26
+          },
+          "text": "02 工序执行记录（演示）",
+          "align": "left",
+          "wrap": true
+        },
+        "bindings": [],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "quality-heading",
+        "type": "Text",
+        "registryVersion": "1",
+        "name": "03 质量与处理事项（演示）",
+        "x": 1260,
+        "y": 665,
+        "width": 600,
+        "height": 40,
+        "rotation": 0,
+        "zIndex": 1,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#29445b",
+            "borderWidth": 0,
+            "paddingPx": 0,
+            "color": "#dceaf6",
+            "fontSizePx": 26
+          },
+          "text": "03 质量与处理事项（演示）",
+          "align": "left",
+          "wrap": true
+        },
+        "bindings": [],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "execution-records",
+        "type": "Table",
+        "registryVersion": "1",
+        "name": "工序执行记录",
+        "x": 40,
+        "y": 725,
+        "width": 1180,
+        "height": 280,
+        "rotation": 0,
+        "zIndex": 1,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "appearance": {
+            "background": "#15273a",
+            "borderColor": "#29445b",
+            "borderWidth": 1,
+            "paddingPx": 18,
+            "color": "#dceaf6",
+            "fontSizePx": 19
+          },
+          "rowKeyPath": ["id"],
+          "columns": [
+            {
+              "field": "stage",
+              "label": "工序",
+              "widthPercent": 17
+            },
+            {
+              "field": "equipment",
+              "label": "设备",
+              "widthPercent": 17
+            },
+            {
+              "field": "status",
+              "label": "状态",
+              "widthPercent": 15
+            },
+            {
+              "field": "start",
+              "label": "开始",
+              "widthPercent": 15
+            },
+            {
+              "field": "end",
+              "label": "完成",
+              "widthPercent": 15
+            },
+            {
+              "field": "remark",
+              "label": "记录说明",
+              "widthPercent": 21
+            }
+          ],
+          "scrollMode": "None",
+          "pageSeconds": 8,
+          "rowHeight": 44
+        },
+        "bindings": [
+          {
+            "property": "rows",
+            "source": {
+              "from": "PageParam",
+              "path": ["batchNo"],
+              "nullPolicy": "Null",
+              "transform": {
+                "kind": "EnumMap",
+                "args": {
+                  "entries": [
+                    {
+                      "from": "PR-DEMO-101",
+                      "to": [
+                        {
+                          "id": "step-1",
+                          "stage": "原料核对",
+                          "equipment": "CHK-01",
+                          "status": "已完成",
+                          "start": "演示 08:00",
+                          "end": "演示 08:40",
+                          "remark": "演示执行记录"
+                        },
+                        {
+                          "id": "step-2",
+                          "stage": "混配",
+                          "equipment": "MIX-101",
+                          "status": "已完成",
+                          "start": "演示 09:00",
+                          "end": "演示 09:40",
+                          "remark": "演示执行记录"
+                        },
+                        {
+                          "id": "step-3",
+                          "stage": "精密过滤",
+                          "equipment": "FLT-101",
+                          "status": "已完成",
+                          "start": "演示 10:00",
+                          "end": "演示 10:40",
+                          "remark": "演示执行记录"
+                        },
+                        {
+                          "id": "step-4",
+                          "stage": "取样检验",
+                          "equipment": "LAB-01",
+                          "status": "已完成",
+                          "start": "演示 11:00",
+                          "end": "演示 11:40",
+                          "remark": "演示执行记录"
+                        },
+                        {
+                          "id": "step-5",
+                          "stage": "灌装包装",
+                          "equipment": "PACK-01",
+                          "status": "已完成",
+                          "start": "演示 12:00",
+                          "end": "演示 12:40",
+                          "remark": "演示执行记录"
+                        }
+                      ]
+                    },
+                    {
+                      "from": "PR-DEMO-102",
+                      "to": [
+                        {
+                          "id": "step-1",
+                          "stage": "原料核对",
+                          "equipment": "CHK-01",
+                          "status": "已完成",
+                          "start": "演示 08:00",
+                          "end": "演示 08:40",
+                          "remark": "演示执行记录"
+                        },
+                        {
+                          "id": "step-2",
+                          "stage": "混配",
+                          "equipment": "MIX-101",
+                          "status": "已完成",
+                          "start": "演示 09:00",
+                          "end": "演示 09:40",
+                          "remark": "演示执行记录"
+                        },
+                        {
+                          "id": "step-3",
+                          "stage": "精密过滤",
+                          "equipment": "FLT-101",
+                          "status": "进行中",
+                          "start": "演示 10:00",
+                          "end": "—",
+                          "remark": "继续执行精密过滤"
+                        },
+                        {
+                          "id": "step-4",
+                          "stage": "取样检验",
+                          "equipment": "LAB-01",
+                          "status": "待执行",
+                          "start": "—",
+                          "end": "—",
+                          "remark": "演示执行记录"
+                        },
+                        {
+                          "id": "step-5",
+                          "stage": "灌装包装",
+                          "equipment": "PACK-01",
+                          "status": "待执行",
+                          "start": "—",
+                          "end": "—",
+                          "remark": "演示执行记录"
+                        }
+                      ]
+                    },
+                    {
+                      "from": "PR-DEMO-103",
+                      "to": [
+                        {
+                          "id": "step-1",
+                          "stage": "原料核对",
+                          "equipment": "CHK-01",
+                          "status": "已完成",
+                          "start": "演示 08:00",
+                          "end": "演示 08:40",
+                          "remark": "演示执行记录"
+                        },
+                        {
+                          "id": "step-2",
+                          "stage": "混配",
+                          "equipment": "MIX-101",
+                          "status": "进行中",
+                          "start": "演示 09:00",
+                          "end": "—",
+                          "remark": "继续执行混配"
+                        },
+                        {
+                          "id": "step-3",
+                          "stage": "精密过滤",
+                          "equipment": "FLT-101",
+                          "status": "待执行",
+                          "start": "—",
+                          "end": "—",
+                          "remark": "演示执行记录"
+                        },
+                        {
+                          "id": "step-4",
+                          "stage": "取样检验",
+                          "equipment": "LAB-01",
+                          "status": "待执行",
+                          "start": "—",
+                          "end": "—",
+                          "remark": "演示执行记录"
+                        },
+                        {
+                          "id": "step-5",
+                          "stage": "灌装包装",
+                          "equipment": "PACK-01",
+                          "status": "待执行",
+                          "start": "—",
+                          "end": "—",
+                          "remark": "演示执行记录"
+                        }
+                      ]
+                    },
+                    {
+                      "from": "PR-DEMO-104",
+                      "to": [
+                        {
+                          "id": "step-1",
+                          "stage": "原料核对",
+                          "equipment": "CHK-01",
+                          "status": "已完成",
+                          "start": "演示 08:00",
+                          "end": "演示 08:40",
+                          "remark": "演示执行记录"
+                        },
+                        {
+                          "id": "step-2",
+                          "stage": "混配",
+                          "equipment": "MIX-101",
+                          "status": "已完成",
+                          "start": "演示 09:00",
+                          "end": "演示 09:40",
+                          "remark": "演示执行记录"
+                        },
+                        {
+                          "id": "step-3",
+                          "stage": "精密过滤",
+                          "equipment": "FLT-101",
+                          "status": "已完成",
+                          "start": "演示 10:00",
+                          "end": "演示 10:40",
+                          "remark": "演示执行记录"
+                        },
+                        {
+                          "id": "step-4",
+                          "stage": "取样检验",
+                          "equipment": "LAB-01",
+                          "status": "进行中",
+                          "start": "演示 11:00",
+                          "end": "—",
+                          "remark": "录入颗粒与黏度检验结果"
+                        },
+                        {
+                          "id": "step-5",
+                          "stage": "灌装包装",
+                          "equipment": "PACK-01",
+                          "status": "待执行",
+                          "start": "—",
+                          "end": "—",
+                          "remark": "演示执行记录"
+                        }
+                      ]
+                    },
+                    {
+                      "from": "PR-DEMO-105",
+                      "to": [
+                        {
+                          "id": "step-1",
+                          "stage": "原料核对",
+                          "equipment": "CHK-01",
+                          "status": "已完成",
+                          "start": "演示 08:00",
+                          "end": "演示 08:40",
+                          "remark": "演示执行记录"
+                        },
+                        {
+                          "id": "step-2",
+                          "stage": "混配",
+                          "equipment": "MIX-101",
+                          "status": "已完成",
+                          "start": "演示 09:00",
+                          "end": "演示 09:40",
+                          "remark": "演示执行记录"
+                        },
+                        {
+                          "id": "step-3",
+                          "stage": "精密过滤",
+                          "equipment": "FLT-101",
+                          "status": "已完成",
+                          "start": "演示 10:00",
+                          "end": "演示 10:40",
+                          "remark": "演示执行记录"
+                        },
+                        {
+                          "id": "step-4",
+                          "stage": "取样检验",
+                          "equipment": "LAB-01",
+                          "status": "进行中",
+                          "start": "演示 11:00",
+                          "end": "—",
+                          "remark": "复核痕量金属检验记录"
+                        },
+                        {
+                          "id": "step-5",
+                          "stage": "灌装包装",
+                          "equipment": "PACK-01",
+                          "status": "待执行",
+                          "start": "—",
+                          "end": "—",
+                          "remark": "演示执行记录"
+                        }
+                      ]
+                    },
+                    {
+                      "from": "PR-DEMO-106",
+                      "to": [
+                        {
+                          "id": "step-1",
+                          "stage": "原料核对",
+                          "equipment": "CHK-01",
+                          "status": "已完成",
+                          "start": "演示 08:00",
+                          "end": "演示 08:40",
+                          "remark": "演示执行记录"
+                        },
+                        {
+                          "id": "step-2",
+                          "stage": "混配",
+                          "equipment": "MIX-101",
+                          "status": "已完成",
+                          "start": "演示 09:00",
+                          "end": "演示 09:40",
+                          "remark": "演示执行记录"
+                        },
+                        {
+                          "id": "step-3",
+                          "stage": "精密过滤",
+                          "equipment": "FLT-101",
+                          "status": "已完成",
+                          "start": "演示 10:00",
+                          "end": "演示 10:40",
+                          "remark": "演示执行记录"
+                        },
+                        {
+                          "id": "step-4",
+                          "stage": "取样检验",
+                          "equipment": "LAB-01",
+                          "status": "已完成",
+                          "start": "演示 11:00",
+                          "end": "演示 11:40",
+                          "remark": "演示执行记录"
+                        },
+                        {
+                          "id": "step-5",
+                          "stage": "灌装包装",
+                          "equipment": "PACK-01",
+                          "status": "已完成",
+                          "start": "演示 12:00",
+                          "end": "演示 12:40",
+                          "remark": "演示执行记录"
+                        }
+                      ]
+                    }
+                  ],
+                  "onMissing": "Default",
+                  "defaultValue": []
+                }
+              }
+            }
+          }
+        ],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "quality-records",
+        "type": "Table",
+        "registryVersion": "1",
+        "name": "质量与处理事项",
+        "x": 1260,
+        "y": 725,
+        "width": 600,
+        "height": 280,
+        "rotation": 0,
+        "zIndex": 1,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "appearance": {
+            "background": "#15273a",
+            "borderColor": "#29445b",
+            "borderWidth": 1,
+            "paddingPx": 18,
+            "color": "#dceaf6",
+            "fontSizePx": 19
+          },
+          "rowKeyPath": ["item"],
+          "columns": [
+            {
+              "field": "item",
+              "label": "项目",
+              "widthPercent": 30
+            },
+            {
+              "field": "result",
+              "label": "结果",
+              "widthPercent": 20
+            },
+            {
+              "field": "note",
+              "label": "说明",
+              "widthPercent": 50
+            }
+          ],
+          "scrollMode": "None",
+          "pageSeconds": 8,
+          "rowHeight": 44
+        },
+        "bindings": [
+          {
+            "property": "rows",
+            "source": {
+              "from": "PageParam",
+              "path": ["batchNo"],
+              "nullPolicy": "Null",
+              "transform": {
+                "kind": "EnumMap",
+                "args": {
+                  "entries": [
+                    {
+                      "from": "PR-DEMO-101",
+                      "to": [
+                        {
+                          "item": "批次质量状态",
+                          "result": "已放行",
+                          "note": "批次执行完成，按授权放行流程处理"
+                        },
+                        {
+                          "item": "黏度 / cP",
+                          "result": "4.8",
+                          "note": "合成数据；不含判定限"
+                        },
+                        {
+                          "item": "颗粒 / 痕量金属",
+                          "result": "已记录",
+                          "note": "以正式检验和授权放行流程为准"
+                        }
+                      ]
+                    },
+                    {
+                      "from": "PR-DEMO-102",
+                      "to": [
+                        {
+                          "item": "批次质量状态",
+                          "result": "已放行",
+                          "note": "继续执行精密过滤"
+                        },
+                        {
+                          "item": "黏度 / cP",
+                          "result": "4.81",
+                          "note": "合成数据；不含判定限"
+                        },
+                        {
+                          "item": "颗粒 / 痕量金属",
+                          "result": "已记录",
+                          "note": "以正式检验和授权放行流程为准"
+                        }
+                      ]
+                    },
+                    {
+                      "from": "PR-DEMO-103",
+                      "to": [
+                        {
+                          "item": "批次质量状态",
+                          "result": "已放行",
+                          "note": "继续执行混配"
+                        },
+                        {
+                          "item": "黏度 / cP",
+                          "result": "4.819999999999999",
+                          "note": "合成数据；不含判定限"
+                        },
+                        {
+                          "item": "颗粒 / 痕量金属",
+                          "result": "已记录",
+                          "note": "以正式检验和授权放行流程为准"
+                        }
+                      ]
+                    },
+                    {
+                      "from": "PR-DEMO-104",
+                      "to": [
+                        {
+                          "item": "批次质量状态",
+                          "result": "待检",
+                          "note": "录入颗粒与黏度检验结果"
+                        },
+                        {
+                          "item": "黏度 / cP",
+                          "result": "待检",
+                          "note": "合成数据；不含判定限"
+                        },
+                        {
+                          "item": "颗粒 / 痕量金属",
+                          "result": "待录入",
+                          "note": "以正式检验和授权放行流程为准"
+                        }
+                      ]
+                    },
+                    {
+                      "from": "PR-DEMO-105",
+                      "to": [
+                        {
+                          "item": "批次质量状态",
+                          "result": "复核中",
+                          "note": "复核痕量金属检验记录"
+                        },
+                        {
+                          "item": "黏度 / cP",
+                          "result": "4.84",
+                          "note": "合成数据；不含判定限"
+                        },
+                        {
+                          "item": "颗粒 / 痕量金属",
+                          "result": "复核中",
+                          "note": "以正式检验和授权放行流程为准"
+                        }
+                      ]
+                    },
+                    {
+                      "from": "PR-DEMO-106",
+                      "to": [
+                        {
+                          "item": "批次质量状态",
+                          "result": "已放行",
+                          "note": "批次执行完成，按授权放行流程处理"
+                        },
+                        {
+                          "item": "黏度 / cP",
+                          "result": "4.85",
+                          "note": "合成数据；不含判定限"
+                        },
+                        {
+                          "item": "颗粒 / 痕量金属",
+                          "result": "已记录",
+                          "note": "以正式检验和授权放行流程为准"
+                        }
+                      ]
+                    }
+                  ],
+                  "onMissing": "Default",
+                  "defaultValue": []
+                }
+              }
+            }
+          }
+        ],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "footer",
+        "type": "Text",
+        "registryVersion": "1",
+        "name": "演示数据 | 仅传递 batchNo 选择对应批次；不含真实配方，不作为生产判定或质量放行依据。",
+        "x": 40,
+        "y": 1030,
+        "width": 1820,
+        "height": 35,
+        "rotation": 0,
+        "zIndex": 1,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#29445b",
+            "borderWidth": 0,
+            "paddingPx": 0,
+            "color": "#dceaf6",
+            "fontSizePx": 19
+          },
+          "text": "演示数据 | 仅传递 batchNo 选择对应批次；不含真实配方，不作为生产判定或质量放行依据。",
+          "align": "left",
+          "wrap": true
+        },
+        "bindings": [],
+        "events": [],
+        "children": []
+      }
+    ],
+    "navigation": []
+  }
+}

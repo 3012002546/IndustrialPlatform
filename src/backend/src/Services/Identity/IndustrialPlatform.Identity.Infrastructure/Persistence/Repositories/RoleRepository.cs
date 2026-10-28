@@ -25,6 +25,15 @@ public sealed class RoleRepository : IRoleRepository
     }
 
     /// <inheritdoc/>
+    public async Task<IReadOnlyList<Role>> GetAuthorizationRolesAsync(IReadOnlyCollection<Guid> roleIds, CancellationToken cancellationToken = default)
+    {
+        if (roleIds.Count == 0) return [];
+        var rows = await _dbContext.SqlSugar.Queryable<RoleTable>()
+            .Where(row => roleIds.Contains(row.Id) && !row.IsDeleted).ToListAsync(cancellationToken);
+        return rows.Select(row => TableMapper.ToRole(row, [])).ToArray();
+    }
+
+    /// <inheritdoc/>
     public async Task<Role?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var row = await _dbContext.SqlSugar.Queryable<RoleTable>()
@@ -70,19 +79,11 @@ public sealed class RoleRepository : IRoleRepository
             return [];
         }
 
-        // 两段式查询:活动角色权限关联(子表与父级影子列均未删除)→ 去重权限 Id → 查询活动且启用权限
-        var permissionIds = await _dbContext.SqlSugar.Queryable<RolePermissionTable>()
-            .Where(t => roleIds.Contains(t.RoleId) && !t.IsDeleted && !t.RoleIsDeleted)
-            .Select(t => t.PermissionId)
-            .Distinct()
-            .ToListAsync(cancellationToken);
-        if (permissionIds.Count == 0)
-        {
-            return [];
-        }
-
+        // 同样的关联软删除与权限启用条件，用EXISTS在一次往返中完成；外层每个权限仅返回一次。
         var rows = await _dbContext.SqlSugar.Queryable<PermissionTable>()
-            .Where(t => permissionIds.Contains(t.Id) && !t.IsDeleted && t.Status == PermissionStatus.Active)
+            .Where(t => !t.IsDeleted && t.Status == PermissionStatus.Active)
+            .Where(t => SqlFunc.Subqueryable<RolePermissionTable>()
+                .Where(relation => relation.PermissionId == t.Id && roleIds.Contains(relation.RoleId) && !relation.IsDeleted && !relation.RoleIsDeleted).Any())
             .OrderBy(t => t.NormalizedNId)
             .ToListAsync(cancellationToken);
         return rows.Select(TableMapper.ToPermission).ToList();

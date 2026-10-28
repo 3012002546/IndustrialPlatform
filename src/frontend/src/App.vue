@@ -70,8 +70,20 @@ watch(
 
 <template>
   <PlatformConfigProvider :locale="elementLocale">
-    <SystemDataRuntimeStatus />
-    <CollaborationMediaHost />
+    <SystemDataRuntimeStatus
+      v-if="
+        ![ROUTE_NAMES.studioDashboardScreen, ROUTE_NAMES.studioPlaylistScreen].some(
+          (name) => name === route.name,
+        )
+      "
+    />
+    <CollaborationMediaHost
+      v-if="
+        ![ROUTE_NAMES.studioDashboardScreen, ROUTE_NAMES.studioPlaylistScreen].some(
+          (name) => name === route.name,
+        )
+      "
+    />
     <RouterView />
   </PlatformConfigProvider>
 </template>

@@ -1,5 +1,8 @@
 import {
   Avatar,
+  Connection,
+  Cpu,
+  DataAnalysis,
   Document,
   FirstAidKit,
   House,
@@ -13,6 +16,7 @@ import {
   Tools,
   User,
   UserFilled,
+  VideoPlay,
 } from '@element-plus/icons-vue'
 import type { Component } from 'vue'
 
@@ -24,11 +28,13 @@ import type {
 } from '@/components/navigation/types'
 import type { NavigationRuntimeNodeDto, ThemePolicyDto } from '@/api/systemData/types'
 import type { PcDensity, ThemeMode, ThemePalette, UiPreferencesV1 } from '@/theme/types'
-import { isRegisteredRouteName } from '@/router/routeNames'
+import { isRegisteredRouteName, ROUTE_NAMES } from '@/router/routeNames'
 import { getDefaultPcNavigationGroups } from '@/components/navigation/navigation'
 
 const ICONS = new Map<string, Component>([
   ['avatar', Avatar],
+  ['connection', Connection],
+  ['cpu', Cpu],
   ['house', House],
   ['link', Link],
   ['lock', Lock],
@@ -41,11 +47,19 @@ const ICONS = new Map<string, Component>([
   ['userfilled', UserFilled],
 ])
 const defaultGroups = getDefaultPcNavigationGroups()
+const BUILTIN_GROUP_ICONS = new Map<string, Component>([
+  ['studio', Cpu],
+  ['navigation.group.studio', Cpu],
+  ['platform-services', Connection],
+  ['navigation.group.platform-services', Connection],
+])
 const defaultItems = defaultGroups.flatMap((group) => group.items)
 const BUILTIN_ROUTE_ICONS = new Map<string, Component>([
   ['pc-scheduler-jobs', Timer],
   ['pc-scheduler-runs', Document],
   ['pc-platform-health', FirstAidKit],
+  [ROUTE_NAMES.studioDashboards, DataAnalysis],
+  [ROUTE_NAMES.studioPlaylists, VideoPlay],
 ])
 
 /* Retained only as a compatibility marker for the historical snapshot shape;
@@ -120,6 +134,10 @@ function builtinNavigationText(): Map<string, { labelKey: string; fallbackLabel:
     group.items.forEach(addItem)
   }
 
+  // Module-owned runtime links need text metadata without adding fallback menus
+  // when Dashboard is not installed or absent from the published snapshot.
+  add(`route:${ROUTE_NAMES.studioDashboards}`, 'studio.dashboards', '看板')
+  add(`route:${ROUTE_NAMES.studioPlaylists}`, 'studio.playlists', '轮播')
   return result
 }
 
@@ -142,6 +160,11 @@ function runtimeText(node: NavigationRuntimeNodeDto): {
 
 function iconFor(node: NavigationRuntimeNodeDto): Component {
   const key = node.iconKey?.trim().replace(/[-_]/g, '').toLowerCase()
+  // 兼容已发布菜单的旧setting占位；其它自定义图标仍按配置显示。
+  if (node.kind.toLowerCase() === 'group' && (!key || key === 'setting')) {
+    const builtIn = BUILTIN_GROUP_ICONS.get(node.nodeNId)
+    if (builtIn) return builtIn
+  }
   if (key) return ICONS.get(key) ?? Menu
 
   // Older/default imports have no iconKey. Reuse only icon metadata, never the

@@ -19,7 +19,7 @@ public sealed class StudioCommandLineTests
         Assert.False(File.Exists(fixture.Profile.Database!.SqliteFile));
         using var before = JsonDocument.Parse(output.ToString());
         Assert.False(before.RootElement.GetProperty("ok").GetBoolean());
-        Assert.Equal(7, before.RootElement.GetProperty("migrationPlan").GetArrayLength());
+        Assert.Equal(9, before.RootElement.GetProperty("migrationPlan").GetArrayLength());
         output.GetStringBuilder().Clear();
         Assert.Equal(0, await fixture.Command.ExecuteAsync(["--studio-initialize"], output, CancellationToken.None));
         Assert.True(File.Exists(fixture.Profile.Database.SqliteFile));

@@ -1,13 +1,37 @@
 import type { RouteRecordRaw } from 'vue-router'
+import { ROUTE_NAMES } from './routeNames'
 const list = () => import('@/pages/pc/studio/StudioListPage.vue')
 const design = () => import('@/pages/pc/studio/StudioDesignerPage.vue')
 const run = () => import('@/pages/pc/studio/StudioRuntimePage.vue')
+export const loadDashboardDesigner = () =>
+  import('@/pages/pc/studio/dashboard/DashboardDesignerPage.vue')
+const dashboardRun = () => import('@/pages/pc/studio/dashboard/DashboardRuntimePage.vue')
+export const loadPlaylistDesigner = () =>
+  import('@/pages/pc/studio/dashboard/PlaylistDesignerPage.vue')
+const playlistRun = () => import('@/pages/pc/studio/dashboard/PlaylistRuntimePage.vue')
+// 公开大屏不进入管理布局和工作区标签；访问权由服务端分享密钥决定。
+export const studioScreenRoutes: RouteRecordRaw[] = [
+  {
+    path: '/screen/playlists/:screenId',
+    name: ROUTE_NAMES.studioPlaylistScreen,
+    component: playlistRun,
+    meta: { title: '轮播大屏', requiresAuth: false, workspace: 'none', playlistScreen: true },
+  },
+  {
+    path: '/screen/dashboards/:screenId',
+    name: ROUTE_NAMES.studioDashboardScreen,
+    component: () => import('@/pages/pc/studio/dashboard/DashboardScreenPage.vue'),
+    meta: { title: '看板大屏', requiresAuth: false, workspace: 'none' },
+  },
+]
 export const studioRoutes: RouteRecordRaw[] = [
   ...[
     ['low-code', 'studio-lowcode', '低代码', 'lowcode', 'studio.lowcode.view'],
     ['sources', 'studio-sources', '数据源', 'sources', 'studio.source.view'],
     ['datasets', 'studio-datasets', '数据集', 'datasets', 'studio.dataset.view'],
     ['ledger-models', 'studio-ledger-models', '台账模型', 'ledger', 'studio.lowcode.design'],
+    ['dashboards', ROUTE_NAMES.studioDashboards, '看板', 'dashboards', 'studio.dashboard.view'],
+    ['playlists', ROUTE_NAMES.studioPlaylists, '轮播', 'playlists', 'studio.dashboard.view'],
   ].map(
     ([path, name, title, key, permission]) =>
       ({
@@ -46,6 +70,62 @@ export const studioRoutes: RouteRecordRaw[] = [
         },
       }) as RouteRecordRaw,
   ),
+  {
+    path: 'studio/dashboards/:nId/design',
+    name: ROUTE_NAMES.studioDashboardDesign,
+    component: loadDashboardDesigner,
+    meta: {
+      title: '看板设计',
+      titleKey: 'studio.dashboardDesign',
+      requiresAuth: true,
+      permission: 'studio.dashboard.design',
+      terminal: 'pc',
+      workspace: 'business',
+      pageId: ROUTE_NAMES.studioDashboardDesign,
+    },
+  },
+  {
+    path: 'studio/dashboards/:nId/run',
+    name: ROUTE_NAMES.studioDashboardRun,
+    component: dashboardRun,
+    meta: {
+      title: '看板运行',
+      titleKey: 'studio.dashboardRun',
+      requiresAuth: true,
+      permission: 'studio.dashboard.run',
+      terminal: 'pc',
+      workspace: 'business',
+      pageId: ROUTE_NAMES.studioDashboardRun,
+    },
+  },
+  {
+    path: 'studio/playlists/:nId/design',
+    name: ROUTE_NAMES.studioPlaylistDesign,
+    component: loadPlaylistDesigner,
+    meta: {
+      title: '轮播设计',
+      titleKey: 'studio.playlistDesign',
+      requiresAuth: true,
+      permission: 'studio.dashboard.design',
+      terminal: 'pc',
+      workspace: 'business',
+      pageId: ROUTE_NAMES.studioPlaylistDesign,
+    },
+  },
+  {
+    path: 'studio/playlists/:nId/run',
+    name: ROUTE_NAMES.studioPlaylistRun,
+    component: playlistRun,
+    meta: {
+      title: '轮播运行',
+      titleKey: 'studio.playlistRun',
+      requiresAuth: true,
+      permission: 'studio.dashboard.run',
+      terminal: 'pc',
+      workspace: 'business',
+      pageId: ROUTE_NAMES.studioPlaylistRun,
+    },
+  },
   ...[
     ['run', 'studio-lowcode-run'],
     ['records/new', 'studio-lowcode-create'],

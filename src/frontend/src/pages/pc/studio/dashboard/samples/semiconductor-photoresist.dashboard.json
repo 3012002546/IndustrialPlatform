@@ -1,0 +1,1120 @@
+{
+  "format": "IndustrialPlatform.DashboardDesign",
+  "version": 1,
+  "name": "半导体光刻胶 · 制造运营总览（演示）",
+  "exportedOn": "2026-10-26T00:00:00.000Z",
+  "document": {
+    "schemaVersion": 1,
+    "canvas": {
+      "width": 1920,
+      "height": 1080,
+      "fit": "Contain",
+      "background": "#081525"
+    },
+    "parameters": [],
+    "instances": [],
+    "components": [
+      {
+        "id": "brand",
+        "type": "Text",
+        "registryVersion": "1",
+        "name": "PHOTORESIST  /  光刻胶制造运营中心",
+        "x": 24,
+        "y": 20,
+        "width": 1400,
+        "height": 48,
+        "rotation": 0,
+        "zIndex": 0,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "text": "PHOTORESIST  /  光刻胶制造运营中心",
+          "align": "left",
+          "wrap": true,
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#24425a",
+            "paddingPx": 0,
+            "borderWidth": 0,
+            "fontSizePx": 32,
+            "color": "#deedf7"
+          }
+        },
+        "bindings": [],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "subtitle",
+        "type": "Text",
+        "registryVersion": "1",
+        "name": "DEMO FAB 01   ·   DUV 光刻胶   /   生产 · 工艺 · 质量 · 设备",
+        "x": 26,
+        "y": 76,
+        "width": 1400,
+        "height": 28,
+        "rotation": 0,
+        "zIndex": 1,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "text": "DEMO FAB 01   ·   DUV 光刻胶   /   生产 · 工艺 · 质量 · 设备",
+          "align": "left",
+          "wrap": true,
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#24425a",
+            "paddingPx": 0,
+            "borderWidth": 0,
+            "fontSizePx": 16,
+            "color": "#93abc5"
+          }
+        },
+        "bindings": [],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "clock",
+        "type": "Clock",
+        "registryVersion": "1",
+        "name": "当前时间 · 本地时区",
+        "x": 1510,
+        "y": 20,
+        "width": 386,
+        "height": 88,
+        "rotation": 0,
+        "zIndex": 2,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "pattern": "HH:mm:ss",
+          "timeZone": "Asia/Taipei",
+          "showDate": true,
+          "appearance": {
+            "background": "#153047",
+            "borderColor": "#24425a",
+            "paddingPx": 18,
+            "fontSizePx": 24
+          }
+        },
+        "bindings": [
+          {
+            "property": "shiftLabel",
+            "source": {
+              "from": "Constant",
+              "value": "演示班次 A  ·  08:00—20:00",
+              "nullPolicy": "Error"
+            }
+          }
+        ],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "output",
+        "type": "Number",
+        "registryVersion": "1",
+        "name": "本班合格产出 / L",
+        "x": 24,
+        "y": 126,
+        "width": 444,
+        "height": 116,
+        "rotation": 0,
+        "zIndex": 3,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "unit": "本班合格产出 / L",
+          "digits": 0,
+          "prefix": "",
+          "suffix": "",
+          "display": "1,480",
+          "animate": false,
+          "appearance": {
+            "background": "#102439",
+            "borderColor": "#24425a",
+            "paddingPx": 18,
+            "fontSizePx": 40,
+            "color": "#45d8cf"
+          }
+        },
+        "bindings": [
+          {
+            "property": "value",
+            "source": {
+              "from": "Constant",
+              "value": 1480,
+              "nullPolicy": "Error"
+            }
+          }
+        ],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "fpy",
+        "type": "Number",
+        "registryVersion": "1",
+        "name": "一次检验合格率 / %",
+        "x": 500,
+        "y": 126,
+        "width": 444,
+        "height": 116,
+        "rotation": 0,
+        "zIndex": 4,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "unit": "一次检验合格率 / %",
+          "digits": 1,
+          "prefix": "",
+          "suffix": "",
+          "display": "98.7",
+          "animate": false,
+          "appearance": {
+            "background": "#102439",
+            "borderColor": "#24425a",
+            "paddingPx": 18,
+            "fontSizePx": 40,
+            "color": "#45d8cf"
+          }
+        },
+        "bindings": [
+          {
+            "property": "value",
+            "source": {
+              "from": "Constant",
+              "value": 98.7,
+              "nullPolicy": "Error"
+            }
+          }
+        ],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "wip",
+        "type": "Number",
+        "registryVersion": "1",
+        "name": "在制批次 / 批",
+        "x": 976,
+        "y": 126,
+        "width": 444,
+        "height": 116,
+        "rotation": 0,
+        "zIndex": 5,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "unit": "在制批次 / 批",
+          "digits": 0,
+          "prefix": "",
+          "suffix": "",
+          "display": "6",
+          "animate": false,
+          "appearance": {
+            "background": "#102439",
+            "borderColor": "#24425a",
+            "paddingPx": 18,
+            "fontSizePx": 40,
+            "color": "#79aeff"
+          }
+        },
+        "bindings": [
+          {
+            "property": "value",
+            "source": {
+              "from": "Constant",
+              "value": 6,
+              "nullPolicy": "Error"
+            }
+          }
+        ],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "pending",
+        "type": "Number",
+        "registryVersion": "1",
+        "name": "待处理质量事项 / 项",
+        "x": 1452,
+        "y": 126,
+        "width": 444,
+        "height": 116,
+        "rotation": 0,
+        "zIndex": 6,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "unit": "待处理质量事项 / 项",
+          "digits": 0,
+          "prefix": "",
+          "suffix": "",
+          "display": "2",
+          "animate": false,
+          "appearance": {
+            "background": "#102439",
+            "borderColor": "#24425a",
+            "paddingPx": 18,
+            "fontSizePx": 40,
+            "color": "#ffd082"
+          }
+        },
+        "bindings": [
+          {
+            "property": "value",
+            "source": {
+              "from": "Constant",
+              "value": 2,
+              "nullPolicy": "Error"
+            }
+          }
+        ],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "process-label",
+        "type": "Text",
+        "registryVersion": "1",
+        "name": "01  配液与精密过滤",
+        "x": 42,
+        "y": 264,
+        "width": 612,
+        "height": 28,
+        "rotation": 0,
+        "zIndex": 7,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "text": "01  配液与精密过滤",
+          "align": "left",
+          "wrap": true,
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#24425a",
+            "paddingPx": 0,
+            "borderWidth": 0,
+            "fontSizePx": 20,
+            "color": "#deedf7"
+          }
+        },
+        "bindings": [],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "steps",
+        "type": "ProcessSteps",
+        "registryVersion": "1",
+        "name": "演示生产步骤",
+        "x": 24,
+        "y": 304,
+        "width": 648,
+        "height": 102,
+        "rotation": 0,
+        "zIndex": 8,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "keyField": "key",
+          "labelField": "label",
+          "stateField": "state",
+          "direction": "Horizontal",
+          "appearance": {
+            "background": "#102439",
+            "borderColor": "#24425a",
+            "paddingPx": 18,
+            "fontSizePx": 15
+          }
+        },
+        "bindings": [
+          {
+            "property": "rows",
+            "source": {
+              "from": "Constant",
+              "value": [
+                {
+                  "key": "feed",
+                  "label": "原料核对",
+                  "state": "已完成"
+                },
+                {
+                  "key": "blend",
+                  "label": "混配",
+                  "state": "已完成"
+                },
+                {
+                  "key": "filter",
+                  "label": "过滤",
+                  "state": "进行中"
+                },
+                {
+                  "key": "qc",
+                  "label": "取样检验",
+                  "state": "待执行"
+                },
+                {
+                  "key": "fill",
+                  "label": "灌装",
+                  "state": "待执行"
+                }
+              ],
+              "nullPolicy": "Error"
+            }
+          },
+          {
+            "property": "currentKey",
+            "source": {
+              "from": "Constant",
+              "value": "filter",
+              "nullPolicy": "Error"
+            }
+          }
+        ],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "blend-tank",
+        "type": "Tank",
+        "registryVersion": "1",
+        "name": "MIX-101 配液罐",
+        "x": 24,
+        "y": 422,
+        "width": 232,
+        "height": 194,
+        "rotation": 0,
+        "zIndex": 9,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "shape": "vertical",
+          "min": 0,
+          "max": 100,
+          "unit": "%",
+          "label": "MIX-101 配液罐",
+          "appearance": {
+            "background": "#102439",
+            "borderColor": "#24425a",
+            "paddingPx": 6
+          }
+        },
+        "bindings": [
+          {
+            "property": "level",
+            "source": {
+              "from": "Constant",
+              "value": 68.4,
+              "nullPolicy": "Error"
+            }
+          },
+          {
+            "property": "temperature",
+            "source": {
+              "from": "Constant",
+              "value": 22.8,
+              "nullPolicy": "Error"
+            }
+          },
+          {
+            "property": "state",
+            "source": {
+              "from": "Constant",
+              "value": "Running",
+              "nullPolicy": "Error"
+            }
+          }
+        ],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "filter-pump",
+        "type": "Pump",
+        "registryVersion": "1",
+        "name": "P-101 过滤循环泵",
+        "x": 272,
+        "y": 422,
+        "width": 160,
+        "height": 194,
+        "rotation": 0,
+        "zIndex": 10,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "label": "P-101",
+          "flowUnit": "L/min",
+          "appearance": {
+            "background": "#102439",
+            "borderColor": "#24425a",
+            "paddingPx": 6
+          }
+        },
+        "bindings": [
+          {
+            "property": "running",
+            "source": {
+              "from": "Constant",
+              "value": true,
+              "nullPolicy": "Error"
+            }
+          },
+          {
+            "property": "flow",
+            "source": {
+              "from": "Constant",
+              "value": 12.6,
+              "nullPolicy": "Error"
+            }
+          },
+          {
+            "property": "state",
+            "source": {
+              "from": "Constant",
+              "value": "Running",
+              "nullPolicy": "Error"
+            }
+          }
+        ],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "standby-tank",
+        "type": "Tank",
+        "registryVersion": "1",
+        "name": "HOLD-102 待用罐",
+        "x": 448,
+        "y": 422,
+        "width": 224,
+        "height": 194,
+        "rotation": 0,
+        "zIndex": 11,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "shape": "vertical",
+          "min": 0,
+          "max": 100,
+          "unit": "%",
+          "label": "HOLD-102 待用罐",
+          "appearance": {
+            "background": "#102439",
+            "borderColor": "#24425a",
+            "paddingPx": 6
+          }
+        },
+        "bindings": [
+          {
+            "property": "level",
+            "source": {
+              "from": "Constant",
+              "value": 0,
+              "nullPolicy": "Error"
+            }
+          },
+          {
+            "property": "temperature",
+            "source": {
+              "from": "Constant",
+              "value": 22.4,
+              "nullPolicy": "Error"
+            }
+          },
+          {
+            "property": "state",
+            "source": {
+              "from": "Constant",
+              "value": "Stopped",
+              "nullPolicy": "Error"
+            }
+          }
+        ],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "hourly-label",
+        "type": "Text",
+        "registryVersion": "1",
+        "name": "02  本班累计产出 / L",
+        "x": 714,
+        "y": 264,
+        "width": 564,
+        "height": 28,
+        "rotation": 0,
+        "zIndex": 12,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "text": "02  本班累计产出 / L",
+          "align": "left",
+          "wrap": true,
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#24425a",
+            "paddingPx": 0,
+            "borderWidth": 0,
+            "fontSizePx": 20,
+            "color": "#deedf7"
+          }
+        },
+        "bindings": [],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "production-chart",
+        "type": "Chart",
+        "registryVersion": "1",
+        "name": "累计合格产出（演示）",
+        "x": 696,
+        "y": 304,
+        "width": 600,
+        "height": 256,
+        "rotation": 0,
+        "zIndex": 13,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "kind": "Bar",
+          "categoryField": "time",
+          "series": [
+            {
+              "name": "实际",
+              "valueField": "actual"
+            },
+            {
+              "name": "计划",
+              "valueField": "plan"
+            }
+          ],
+          "legend": true,
+          "unit": "L",
+          "appearance": {
+            "background": "#102439",
+            "borderColor": "#24425a",
+            "paddingPx": 18
+          }
+        },
+        "bindings": [
+          {
+            "property": "rows",
+            "source": {
+              "from": "Constant",
+              "value": [
+                {
+                  "time": "08:00",
+                  "actual": 120,
+                  "plan": 150
+                },
+                {
+                  "time": "10:00",
+                  "actual": 390,
+                  "plan": 400
+                },
+                {
+                  "time": "12:00",
+                  "actual": 680,
+                  "plan": 700
+                },
+                {
+                  "time": "14:00",
+                  "actual": 940,
+                  "plan": 1000
+                },
+                {
+                  "time": "16:00",
+                  "actual": 1220,
+                  "plan": 1300
+                },
+                {
+                  "time": "18:00",
+                  "actual": 1480,
+                  "plan": 1600
+                }
+              ],
+              "nullPolicy": "Error"
+            }
+          }
+        ],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "output-note",
+        "type": "Text",
+        "registryVersion": "1",
+        "name": "实际 1,480 L   /   计划 1,600 L   /   达成率 92.5%",
+        "x": 714,
+        "y": 582,
+        "width": 564,
+        "height": 30,
+        "rotation": 0,
+        "zIndex": 14,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "text": "实际 1,480 L   /   计划 1,600 L   /   达成率 92.5%",
+          "align": "left",
+          "wrap": true,
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#24425a",
+            "paddingPx": 0,
+            "borderWidth": 0,
+            "fontSizePx": 17,
+            "color": "#45d8cf"
+          }
+        },
+        "bindings": [],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "quality-label",
+        "type": "Text",
+        "registryVersion": "1",
+        "name": "03  批次质量与放行",
+        "x": 1338,
+        "y": 264,
+        "width": 540,
+        "height": 28,
+        "rotation": 0,
+        "zIndex": 15,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "text": "03  批次质量与放行",
+          "align": "left",
+          "wrap": true,
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#24425a",
+            "paddingPx": 0,
+            "borderWidth": 0,
+            "fontSizePx": 20,
+            "color": "#deedf7"
+          }
+        },
+        "bindings": [],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "qc-chart",
+        "type": "Chart",
+        "registryVersion": "1",
+        "name": "批次黏度趋势（演示 cP）",
+        "x": 1320,
+        "y": 304,
+        "width": 576,
+        "height": 204,
+        "rotation": 0,
+        "zIndex": 16,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "kind": "Line",
+          "categoryField": "batch",
+          "series": [
+            {
+              "name": "黏度 / cP",
+              "valueField": "viscosity"
+            }
+          ],
+          "legend": true,
+          "unit": "cP",
+          "appearance": {
+            "background": "#102439",
+            "borderColor": "#24425a",
+            "paddingPx": 18
+          }
+        },
+        "bindings": [
+          {
+            "property": "rows",
+            "source": {
+              "from": "Constant",
+              "value": [
+                {
+                  "batch": "101",
+                  "viscosity": 3.52
+                },
+                {
+                  "batch": "102",
+                  "viscosity": 3.49
+                },
+                {
+                  "batch": "103",
+                  "viscosity": 3.51
+                },
+                {
+                  "batch": "104",
+                  "viscosity": 3.54
+                },
+                {
+                  "batch": "105",
+                  "viscosity": 3.5
+                },
+                {
+                  "batch": "106",
+                  "viscosity": 3.53
+                }
+              ],
+              "nullPolicy": "Error"
+            }
+          }
+        ],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "qc-summary",
+        "type": "Text",
+        "registryVersion": "1",
+        "name": "颗粒 / 痕量金属 / 固含量：按批次检验记录",
+        "x": 1340,
+        "y": 530,
+        "width": 536,
+        "height": 28,
+        "rotation": 0,
+        "zIndex": 17,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "text": "颗粒 / 痕量金属 / 固含量：按批次检验记录",
+          "align": "left",
+          "wrap": true,
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#24425a",
+            "paddingPx": 0,
+            "borderWidth": 0,
+            "fontSizePx": 16,
+            "color": "#93abc5"
+          }
+        },
+        "bindings": [],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "qc-release",
+        "type": "Text",
+        "registryVersion": "1",
+        "name": "4 批已放行   ·   1 批待检   ·   1 批复核中",
+        "x": 1340,
+        "y": 574,
+        "width": 536,
+        "height": 32,
+        "rotation": 0,
+        "zIndex": 18,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "text": "4 批已放行   ·   1 批待检   ·   1 批复核中",
+          "align": "left",
+          "wrap": true,
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#24425a",
+            "paddingPx": 0,
+            "borderWidth": 0,
+            "fontSizePx": 19,
+            "color": "#ffd082"
+          }
+        },
+        "bindings": [],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "batches-label",
+        "type": "Text",
+        "registryVersion": "1",
+        "name": "04  在制批次与执行进度",
+        "x": 42,
+        "y": 650,
+        "width": 1148,
+        "height": 28,
+        "rotation": 0,
+        "zIndex": 19,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "text": "04  在制批次与执行进度",
+          "align": "left",
+          "wrap": true,
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#24425a",
+            "paddingPx": 0,
+            "borderWidth": 0,
+            "fontSizePx": 20,
+            "color": "#deedf7"
+          }
+        },
+        "bindings": [],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "batch-table",
+        "type": "Table",
+        "registryVersion": "1",
+        "name": "在制批次（合成演示数据）",
+        "x": 24,
+        "y": 692,
+        "width": 1184,
+        "height": 296,
+        "rotation": 0,
+        "zIndex": 20,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "presentation": "Table",
+          "rowKeyPath": [
+            "batch"
+          ],
+          "columns": [
+            {
+              "field": "batch",
+              "label": "批次编号"
+            },
+            {
+              "field": "product",
+              "label": "演示产品"
+            },
+            {
+              "field": "stage",
+              "label": "当前工序"
+            },
+            {
+              "field": "equipment",
+              "label": "设备"
+            },
+            {
+              "field": "volume",
+              "label": "体积 / L"
+            },
+            {
+              "field": "quality",
+              "label": "质量状态"
+            }
+          ],
+          "scrollMode": "None",
+          "pageSeconds": 8,
+          "appearance": {
+            "background": "#102439",
+            "borderColor": "#24425a",
+            "paddingPx": 18
+          }
+        },
+        "bindings": [
+          {
+            "property": "rows",
+            "source": {
+              "from": "Constant",
+              "value": [
+                {
+                  "batch": "PR-DEMO-101",
+                  "product": "DUV-A01",
+                  "stage": "灌装完成",
+                  "equipment": "FILL-01",
+                  "volume": 280,
+                  "quality": "已放行"
+                },
+                {
+                  "batch": "PR-DEMO-102",
+                  "product": "DUV-A01",
+                  "stage": "精密过滤",
+                  "equipment": "FLT-101",
+                  "volume": 320,
+                  "quality": "已放行"
+                },
+                {
+                  "batch": "PR-DEMO-103",
+                  "product": "DUV-B02",
+                  "stage": "混配",
+                  "equipment": "MIX-101",
+                  "volume": 250,
+                  "quality": "已放行"
+                },
+                {
+                  "batch": "PR-DEMO-104",
+                  "product": "DUV-B02",
+                  "stage": "取样检验",
+                  "equipment": "LAB-01",
+                  "volume": 240,
+                  "quality": "待检"
+                },
+                {
+                  "batch": "PR-DEMO-105",
+                  "product": "DUV-A01",
+                  "stage": "质量复核",
+                  "equipment": "HOLD-101",
+                  "volume": 180,
+                  "quality": "复核中"
+                },
+                {
+                  "batch": "PR-DEMO-106",
+                  "product": "DUV-C03",
+                  "stage": "包装",
+                  "equipment": "PACK-01",
+                  "volume": 210,
+                  "quality": "已放行"
+                }
+              ],
+              "nullPolicy": "Error"
+            }
+          }
+        ],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "actions-label",
+        "type": "Text",
+        "registryVersion": "1",
+        "name": "05  质量事项与设备提示",
+        "x": 1250,
+        "y": 650,
+        "width": 628,
+        "height": 28,
+        "rotation": 0,
+        "zIndex": 21,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "text": "05  质量事项与设备提示",
+          "align": "left",
+          "wrap": true,
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#24425a",
+            "paddingPx": 0,
+            "borderWidth": 0,
+            "fontSizePx": 20,
+            "color": "#deedf7"
+          }
+        },
+        "bindings": [],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "actions-table",
+        "type": "Table",
+        "registryVersion": "1",
+        "name": "待办与提醒（演示）",
+        "x": 1232,
+        "y": 692,
+        "width": 664,
+        "height": 296,
+        "rotation": 0,
+        "zIndex": 22,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "presentation": "Table",
+          "rowKeyPath": [
+            "id"
+          ],
+          "columns": [
+            {
+              "field": "type",
+              "label": "分类"
+            },
+            {
+              "field": "object",
+              "label": "对象"
+            },
+            {
+              "field": "action",
+              "label": "下一步"
+            }
+          ],
+          "scrollMode": "None",
+          "pageSeconds": 8,
+          "appearance": {
+            "background": "#102439",
+            "borderColor": "#24425a",
+            "paddingPx": 18
+          }
+        },
+        "bindings": [
+          {
+            "property": "rows",
+            "source": {
+              "from": "Constant",
+              "value": [
+                {
+                  "id": "a1",
+                  "type": "质量复核",
+                  "object": "PR-DEMO-105",
+                  "action": "复核痕量金属检验记录"
+                },
+                {
+                  "id": "a2",
+                  "type": "待检",
+                  "object": "PR-DEMO-104",
+                  "action": "录入颗粒与黏度检验结果"
+                },
+                {
+                  "id": "a3",
+                  "type": "保养提醒",
+                  "object": "FLT-101",
+                  "action": "核对滤芯更换计划"
+                },
+                {
+                  "id": "a4",
+                  "type": "待用",
+                  "object": "HOLD-102",
+                  "action": "空罐，液位真实显示 0%"
+                }
+              ],
+              "nullPolicy": "Error"
+            }
+          }
+        ],
+        "events": [],
+        "children": []
+      },
+      {
+        "id": "demo-note",
+        "type": "Text",
+        "registryVersion": "1",
+        "name": "演示快照  |  所有产品、批次、设备和数值均为合成样例；不含真实配方，不作为生产判定或放行标准。",
+        "x": 26,
+        "y": 1022,
+        "width": 1870,
+        "height": 34,
+        "rotation": 0,
+        "zIndex": 23,
+        "locked": false,
+        "visible": true,
+        "props": {
+          "text": "演示快照  |  所有产品、批次、设备和数值均为合成样例；不含真实配方，不作为生产判定或放行标准。",
+          "align": "left",
+          "wrap": true,
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#24425a",
+            "paddingPx": 0,
+            "borderWidth": 0,
+            "fontSizePx": 16,
+            "color": "#ffd082"
+          }
+        },
+        "bindings": [],
+        "events": [],
+        "children": []
+      }
+    ],
+    "navigation": []
+  }
+}

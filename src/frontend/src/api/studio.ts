@@ -75,6 +75,15 @@ export interface StudioRuntime {
   diagnostics: unknown[]
   ledgerModel?: { nId: string; revisionNId: string; document: Json }
 }
+export interface DashboardRuntime {
+  resource: StudioResource
+  revisionNId: string
+  document: Json
+  instances: Record<string, Json>
+  diagnostics: unknown[]
+  transport?: string
+  sourceFreshness?: Json
+}
 export interface StudioCapabilities {
   coreReady: boolean
   modules: {
@@ -222,6 +231,47 @@ export function createStudioApi(client: HttpClient) {
       post<StudioRuntime>(`/pages/${id(nId)}/runtime`, { revisionNId, parameters }),
     preview: (nId: string, document: Json, parameters: Json) =>
       post<StudioRuntime>(`/pages/${id(nId)}/preview`, { document, parameters }),
+    dashboardRuntime: (
+      nId: string,
+      revisionNId?: string,
+      parameters: Json = {},
+      instanceIds?: string[],
+    ) =>
+      get<DashboardRuntime>(
+        `/dashboards/${id(nId)}/runtime?${new URLSearchParams({
+          ...(revisionNId ? { revisionNId } : {}),
+          parameters: JSON.stringify(parameters),
+          ...(instanceIds ? { instanceIds: JSON.stringify(instanceIds) } : {}),
+        })}`,
+      ),
+    dashboardDefinition: (nId: string, revisionNId?: string) =>
+      get<Json>(
+        `/dashboards/${encodeURIComponent(nId)}/definition${revisionNId ? '?revisionNId=' + encodeURIComponent(revisionNId) : ''}`,
+      ),
+    dashboardPreview: (
+      document: Json,
+      parameters: Json,
+      selectedComponentId?: string,
+      sampleRow?: Json,
+      nId?: string,
+      instanceIds?: string[],
+    ) =>
+      post<DashboardRuntime>('/dashboards/preview', {
+        nId,
+        document,
+        parameters,
+        selectedComponentId,
+        sampleRow,
+        ...(instanceIds ? { instanceIds } : {}),
+      }),
+    dashboardResolve: (nId: string, request: Json) =>
+      post<Json>(`/dashboards/${id(nId)}/navigation/resolve`, request),
+    dashboardPreviewNavigation: (nId: string, request: Json) =>
+      post<Json>(`/dashboards/${id(nId)}/preview/navigation`, request),
+    playlistRuntime: (nId: string, revisionNId?: string) =>
+      get<Json>(
+        `/playlists/${id(nId)}/runtime${revisionNId ? '?revisionNId=' + id(revisionNId) : ''}`,
+      ),
     action: (nId: string, actionId: string, body: Json, preview: boolean, key?: string) =>
       post<Json>(
         preview ? '/actions/preview' : `/pages/${id(nId)}/actions/${id(actionId)}/execute`,

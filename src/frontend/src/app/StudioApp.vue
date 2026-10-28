@@ -31,11 +31,30 @@ const provider = ref(import.meta.env.VITE_STUDIO_IDENTITY_PROVIDER ?? 'LocalAdmi
 const ConfigProvider = ElConfigProvider as unknown as DefineComponent<{ locale?: Language }>
 const english = computed(() => locale.locale === 'en-US'),
   tr = (zh: string, en: string) => (english.value ? en : zh)
-const modulesReady = computed(
-  () =>
-    capabilities.value?.coreReady &&
-    capabilities.value.modules.some((m) => m.key === 'LowCode' && m.installed && m.enabled),
+const moduleReady = (key: string) =>
+  key === 'Core' ||
+  !!capabilities.value?.modules.some((m) => m.key === key && m.installed && m.enabled)
+const activeModuleReady = computed(() =>
+  route.path.includes('/dashboards') || route.path.includes('/playlists')
+    ? moduleReady('Dashboard')
+    : route.path.includes('/low-code') || route.path.includes('/ledger-models')
+      ? moduleReady('LowCode')
+      : true,
 )
+function defaultStudioPath(): string {
+  if (moduleReady('Dashboard') && auth.hasPermission('studio.dashboard.view'))
+    return '/pc/studio/dashboards'
+  if (moduleReady('LowCode') && auth.hasPermission('studio.lowcode.view'))
+    return '/pc/studio/low-code'
+  return '/pc/studio/sources'
+}
+function redirectFromUnavailableEntry() {
+  if (route.path === '/pc/studio/dashboards' && !moduleReady('Dashboard')) {
+    void router.replace(defaultStudioPath())
+  } else if (route.path === '/pc/studio/low-code' && !moduleReady('LowCode')) {
+    void router.replace(defaultStudioPath())
+  }
+}
 const links = computed(() =>
   [
     {
@@ -62,9 +81,19 @@ const links = computed(() =>
       permission: 'studio.lowcode.design',
       module: 'LowCode',
     },
-  ].filter(
-    (link) => auth.hasPermission(link.permission) && (link.module === 'Core' || modulesReady.value),
-  ),
+    {
+      path: '/pc/studio/dashboards',
+      label: t.value('dashboards'),
+      permission: 'studio.dashboard.view',
+      module: 'Dashboard',
+    },
+    {
+      path: '/pc/studio/playlists',
+      label: t.value('playlists'),
+      permission: 'studio.dashboard.view',
+      module: 'Dashboard',
+    },
+  ].filter((link) => auth.hasPermission(link.permission) && moduleReady(link.module)),
 )
 async function loadIdentity() {
   const client = getStudioApi().client
@@ -74,6 +103,7 @@ async function loadIdentity() {
     const profile = await client.get<Json>('/api/v1/studio/deployment/profile')
     provider.value = profile.identityProvider
     capabilities.value = await getStudioApi().capabilities()
+    redirectFromUnavailableEntry()
     await theme.bindUser({ tenantId: me.principal.tenantNId, userId: me.principal.subjectNId })
   }
 }
@@ -117,12 +147,13 @@ async function changePassword() {
 }
 async function logout() {
   await guard(async () => {
+    const nextPath = defaultStudioPath()
     try {
       await getStudioApi().client.post('/api/v1/studio/auth/logout')
     } finally {
       auth.clearLocalSession()
       capabilities.value = null
-      void router.push('/pc/studio/low-code')
+      void router.push(nextPath)
     }
   })
 }
@@ -133,6 +164,8 @@ function mesLogin() {
   )
 }
 onMounted(async () => {
+  await router.isReady()
+  if (route.name === 'studio-dashboard-screen') return
   try {
     await loadIdentity()
   } catch (e) {
@@ -145,7 +178,8 @@ onMounted(async () => {
 </script>
 <template>
   <ConfigProvider :locale="english ? elementEn : elementZh"
-    ><div class="studio-standalone">
+    ><RouterView v-if="route.name === 'studio-dashboard-screen'" />
+    <div v-else class="studio-standalone">
       <header class="studio-standalone-header">
         <strong>Platform Studio</strong><span class="studio-fill" /><el-select
           :model-value="locale.locale"
@@ -227,7 +261,7 @@ onMounted(async () => {
         </nav>
         <main class="studio-standalone-body">
           <el-alert
-            v-if="route.path.includes('/low-code') && !modulesReady"
+            v-if="!activeModuleReady"
             :title="t('unavailable')"
             type="warning"
             :closable="false"

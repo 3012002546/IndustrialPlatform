@@ -59,7 +59,7 @@ public sealed class StudioCommandLine(StudioDeploymentProfile profile, StudioDat
         var validation = JsonSerializer.Deserialize<StudioDeploymentProfile>(Serialize(next), Json)!;
         validation.Enabled = true;
         validation.Validate();
-        if (next.Enabled && next.ActiveModules.Any(module => module != "LowCode")) throw new StudioException("STUDIO_MODULE_UNAVAILABLE", "当前交付物只提供LowCode。");
+        if (next.Enabled && next.ActiveModules.Any(module => module is not ("LowCode" or "Dashboard"))) throw new StudioException("STUDIO_MODULE_UNAVAILABLE", "当前交付物只提供LowCode和Dashboard。");
         if (StudioJson.Version(next.ProfileVersion) <= StudioJson.Version(profile.ProfileVersion)) throw new StudioException("STUDIO_VERSION_CONFLICT", "新部署版本必须递增。", 409);
         if (next.DeploymentMode != profile.DeploymentMode || next.Identity.Provider != profile.Identity.Provider || Serialize(next.Database) != Serialize(profile.Database))
             throw new StudioException("STUDIO_DEPLOYMENT_MIGRATION_REQUIRED", "模式和持久目标改变需要显式迁移。", 409);

@@ -29,6 +29,8 @@ public static class StudioDocuments
         if (kind == "LedgerModel") ValidateModel(document, errors);
         if (kind == "LowCodePage") ValidatePage(document, errors);
         if (kind == "Dataset") ValidateDataset(document, errors);
+        if (kind == "Dashboard") ValidateDashboard(document, errors);
+        if (kind == "Playlist") ValidatePlaylist(document, errors);
         return errors;
     }
 
@@ -220,6 +222,234 @@ public static class StudioDocuments
         }
     }
 
+    private static void ValidateDashboard(JsonObject document, List<StudioDiagnostic> errors)
+    {
+        Allowed(document, ["schemaVersion", "canvas", "parameters", "instances", "components", "navigation", "theme", "samples"], "", errors);
+        if (document["canvas"] is not JsonObject canvas)
+            errors.Add(new("STUDIO_VALIDATION", "canvas", "看板必须声明画布尺寸。"));
+        else
+        {
+            Allowed(canvas, ["width", "height", "background", "fit"], "canvas", errors);
+            var width = canvas["width"]?.GetValue<int>() ?? 0;
+            var height = canvas["height"]?.GetValue<int>() ?? 0;
+            if (width is < 320 or > 16384) errors.Add(new("STUDIO_VALIDATION", "canvas.width", "画布宽度必须在320至16384之间。"));
+            if (height is < 320 or > 16384) errors.Add(new("STUDIO_VALIDATION", "canvas.height", "画布高度必须在320至16384之间。"));
+            if (StudioJson.Text(canvas["fit"]) is not ("Contain" or "Cover" or "Actual")) errors.Add(new("STUDIO_VALIDATION", "canvas.fit", "适配模式未登记。"));
+        }
+
+        var parameterNames = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var parameter in Objects(document["parameters"], "parameters", errors))
+        {
+            var name = StudioJson.RequiredString(parameter, "name", 128);
+            if (!parameterNames.Add(name)) errors.Add(new("STUDIO_VALIDATION", "parameters." + name, "参数名重复。"));
+            Allowed(parameter, ["name", "label", "type", "required", "nullable", "defaultValue", "enumValues", "maxLength", "min", "max", "source", "contextKey", "itemType"], "parameters." + name, errors);
+            if (StudioJson.Text(parameter["type"]) is not ("String" or "Int32" or "Int64" or "Decimal" or "Boolean" or "Date" or "DateTime" or "Guid" or "Array"))
+                errors.Add(new("TYPE_MISMATCH", "parameters." + name + ".type", "参数类型未登记。"));
+            if (StudioJson.Text(parameter["type"]) == "Array" && StudioJson.Text(parameter["itemType"]) is not ("String" or "Int32" or "Int64" or "Decimal" or "Boolean" or "Date" or "DateTime" or "Guid"))
+                errors.Add(new("TYPE_MISMATCH", "parameters." + name + ".itemType", "数组参数必须声明已登记的itemType。"));
+            if (StudioJson.Text(parameter["source"]) is not (null or "Caller" or "TrustedContext"))
+                errors.Add(new("STUDIO_VALIDATION", "parameters." + name + ".source", "参数来源未登记。"));
+            if (StudioJson.Text(parameter["source"]) == "TrustedContext" && StudioJson.Text(parameter["contextKey"]) is not ("tenant" or "user" or "authorizedFactoryIds"))
+                errors.Add(new("STUDIO_VALIDATION", "parameters." + name + ".contextKey", "可信上下文键未登记。"));
+        }
+
+        var instanceIds = Objects(document["instances"], "instances", errors).Select(instance => StudioJson.RequiredString(instance, "instanceId", 64)).ToHashSet(StringComparer.Ordinal);
+        if (instanceIds.Count != (document["instances"] as JsonArray)?.Count) errors.Add(new("STUDIO_VALIDATION", "instances", "数据实例标识重复。"));
+        if (instanceIds.Count > 64) errors.Add(new("STUDIO_LIMIT", "instances", "页面数据实例最多64项。"));
+        var dependencyReferences = new List<(string Id, JsonArray Dependencies)>();
+        foreach (var instance in Objects(document["instances"], "instances", errors))
+        {
+            var id = StudioJson.RequiredString(instance, "instanceId", 64);
+            Allowed(instance, ["instanceId", "sourceType", "value", "scopeComponentId", "datasetNId", "revisionNId", "parameters", "refreshSeconds", "staleAfterSeconds", "dependsOn", "label"], "instances." + id, errors);
+            var sourceType = StudioJson.Text(instance["sourceType"]) ?? "Dataset";
+            if (sourceType is not ("Dataset" or "Api" or "Constant")) errors.Add(new("STUDIO_VALIDATION", "instances." + id + ".sourceType", "数据来源类型未登记。"));
+            if (sourceType == "Constant")
+            {
+                if (!instance.ContainsKey("value")) errors.Add(new("PARAM_REQUIRED", "instances." + id + ".value", "常量数据实例须声明value。"));
+                if ((instance["refreshSeconds"]?.GetValue<int>() ?? 0) != 0) errors.Add(new("STUDIO_VALIDATION", "instances." + id + ".refreshSeconds", "常量数据不需要定时读取。"));
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(StudioJson.Text(instance["datasetNId"]))) errors.Add(new("PARAM_REQUIRED", "instances." + id + ".datasetNId", "动态数据实例必须指定Dataset。"));
+                if (string.IsNullOrWhiteSpace(StudioJson.Text(instance["revisionNId"]))) errors.Add(new("PARAM_REQUIRED", "instances." + id + ".revisionNId", "数据实例必须固定Dataset修订。"));
+            }
+            foreach (var mapping in Objects(instance["parameters"], "instances." + id + ".parameters", errors))
+            {
+                StudioJson.RequiredString(mapping, "target", 128);
+                ValidateBinding(mapping["source"], "instances." + id + ".parameters.source", [.. instanceIds], errors);
+            }
+            if (instance["refreshSeconds"] is { } refresh && (refresh.GetValue<int>() is < 0 or > 86400)) errors.Add(new("STUDIO_VALIDATION", "instances." + id + ".refreshSeconds", "刷新周期超出范围。"));
+            if (instance["staleAfterSeconds"] is { } stale && (stale.GetValue<int>() is < 1 or > 86400)) errors.Add(new("STUDIO_VALIDATION", "instances." + id + ".staleAfterSeconds", "过期阈值超出范围。"));
+            if (instance["dependsOn"] is JsonArray dependsOn) dependencyReferences.Add((id, dependsOn));
+        }
+        foreach (var (id, dependencies) in dependencyReferences)
+            if (dependencies.Any(item => !instanceIds.Contains(StudioJson.Text(item), StringComparer.Ordinal)))
+                errors.Add(new("PATH_INVALID", "instances." + id + ".dependsOn", "依赖实例不存在。"));
+        var instanceDefinitions = (document["instances"] as JsonArray ?? []).OfType<JsonObject>().GroupBy(item => StudioJson.RequiredString(item, "instanceId")).ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        var visiting = new HashSet<string>(StringComparer.Ordinal);
+        var visited = new HashSet<string>(StringComparer.Ordinal);
+        bool Visit(string id)
+        {
+            if (visited.Contains(id) || !instanceDefinitions.TryGetValue(id, out var definition)) return true;
+            if (!visiting.Add(id)) return false;
+            var dependencies = (definition["dependsOn"] as JsonArray ?? []).Select(StudioJson.Text)
+                .Concat((definition["parameters"] as JsonArray ?? []).OfType<JsonObject>().Where(map => StudioJson.Text(map["source"]?["from"]) == "Instance").Select(map => StudioJson.Text(map["source"]?["instanceId"])));
+            foreach (var dependency in dependencies.Where(value => value is not null)) if (!Visit(dependency!)) return false;
+            visiting.Remove(id); visited.Add(id); return true;
+        }
+        if (instanceDefinitions.Keys.Any(id => !Visit(id))) errors.Add(new("STUDIO_VALIDATION", "instances.dependsOn", "数据实例存在循环依赖。"));
+
+        var componentIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var component in Objects(document["components"], "components", errors))
+        {
+            var id = StudioJson.RequiredString(component, "id", 64);
+            if (!componentIds.Add(id)) errors.Add(new("STUDIO_VALIDATION", "components." + id, "组件标识重复。"));
+            var type = StudioJson.Text(component["type"]);
+            var componentProps = component["props"] as JsonObject ?? new JsonObject();
+            var registryKey = type == "Chart"
+                ? "Chart." + StudioJson.Text(componentProps["kind"])
+                : type == "Table"
+                    ? (StudioJson.Text(componentProps["presentation"]) == "List" ? "List.Scroll" : "Table.Scroll")
+                    : type;
+            if (!DashboardComponentRegistry.TryGet(registryKey, out var registration))
+            {
+                errors.Add(new("STUDIO_VALIDATION", "components." + id + ".type", "组件不在Dashboard注册表。"));
+                continue;
+            }
+            if (StudioJson.Text(component["registryVersion"]) != registration.Version) errors.Add(new("STUDIO_VALIDATION", "components." + id + ".registryVersion", "组件注册版本未登记。"));
+            Allowed(component, ["id", "type", "registryVersion", "name", "x", "y", "width", "height", "rotation", "zIndex", "locked", "visible", "props", "bindings", "events", "children"], "components." + id, errors);
+            foreach (var key in new[] { "x", "y", "width", "height", "rotation", "zIndex" })
+            {
+                if (!TryNumber(component[key], out _)) errors.Add(new("TYPE_MISMATCH", "components." + id + "." + key, "几何属性必须为有限数字。"));
+            }
+            if (!TryNumber(component["width"], out var width) || !TryNumber(component["height"], out var height) || width <= 0 || height <= 0) errors.Add(new("STUDIO_VALIDATION", "components." + id, "组件宽高必须为正数。"));
+            var props = componentProps;
+            var propNames = registration.PropsSchema["properties"]?.AsObject().Select(pair => pair.Key).ToHashSet(StringComparer.Ordinal)
+                ?? new HashSet<string>(StringComparer.Ordinal);
+            foreach (var prop in props)
+            {
+                if (!propNames.Contains(prop.Key) && prop.Key is not "children")
+                {
+                    errors.Add(new("STUDIO_VALIDATION", "components." + id + ".props." + prop.Key, "组件属性未在注册表声明。"));
+                    continue;
+                }
+                if (registration.PropsSchema["properties"]?.AsObject()[prop.Key] is JsonObject propertySchema)
+                    ValidateRegistryProperty(prop.Value, propertySchema, "components." + id + ".props." + prop.Key, errors);
+            }
+            if (registration.Key is "Table.Scroll" or "List.Scroll" && props["columns"] is JsonArray tableColumns)
+            {
+                var totalWidth = 0d;
+                foreach (var column in tableColumns.OfType<JsonObject>())
+                    if (column["widthPercent"] is { } widthNode)
+                    {
+                        if (!TryNumber(widthNode, out var percent) || percent <= 0 || percent > 100)
+                            errors.Add(new("STUDIO_VALIDATION", "components." + id + ".props.columns.widthPercent", "列宽百分比必须大于0且不超过100。"));
+                        else totalWidth += percent;
+                    }
+                if (totalWidth > 100.000001) errors.Add(new("STUDIO_VALIDATION", "components." + id + ".props.columns.widthPercent", "已设置的列宽百分比合计不能超过100。"));
+            }
+            foreach (var binding in Objects(component["bindings"], "components." + id + ".bindings", errors))
+            {
+                var property = StudioJson.RequiredString(binding, "property", 128);
+                if (!registration.BindableProperties.Contains(property, StringComparer.Ordinal)) errors.Add(new("PATH_INVALID", "components." + id + ".bindings.property", "该属性不可绑定。"));
+                ValidateBinding(binding["source"], "components." + id + ".bindings.source", [.. instanceIds], errors);
+            }
+            foreach (var eventId in (component["events"] as JsonArray ?? []).Select(StudioJson.Text))
+                if (eventId is not { Length: > 0 and <= 64 }) errors.Add(new("STUDIO_VALIDATION", "components." + id + ".events", "组件事件标识无效。"));
+        }
+
+        var navigationIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var rule in Objects(document["navigation"], "navigation", errors))
+        {
+            var id = StudioJson.RequiredString(rule, "id", 64);
+            if (!navigationIds.Add(id)) errors.Add(new("STUDIO_VALIDATION", "navigation." + id, "导航规则标识重复。"));
+            Allowed(rule, ["id", "componentId", "event", "target", "parameterMap", "enabledWhen", "openMode"], "navigation." + id, errors);
+            var componentId = StudioJson.Text(rule["componentId"]);
+            if (componentId is null || !componentIds.Contains(componentId)) errors.Add(new("PATH_INVALID", "navigation." + id + ".componentId", "导航规则组件不存在。"));
+            if (StudioJson.Text(rule["event"]) is not ("Click" or "RowClick")) errors.Add(new("STUDIO_VALIDATION", "navigation." + id + ".event", "导航事件未登记。"));
+            if (rule["target"] is not JsonObject target) errors.Add(new("PARAM_REQUIRED", "navigation." + id + ".target", "导航必须声明目标。"));
+            else
+            {
+                Allowed(target, ["kind", "resourceNId", "revisionNId", "routeKey"], "navigation." + id + ".target", errors);
+                if (StudioJson.Text(target["kind"]) is not ("Dashboard" or "LowCodePage" or "Report" or "BusinessPage")) errors.Add(new("TYPE_MISMATCH", "navigation." + id + ".target.kind", "导航目标类型未登记。"));
+                if (string.IsNullOrWhiteSpace(StudioJson.Text(target["resourceNId"]))) errors.Add(new("PARAM_REQUIRED", "navigation." + id + ".target.resourceNId", "导航目标资源不能为空。"));
+            }
+            if (StudioJson.Text(rule["openMode"]) is not (null or "Current" or "Modal")) errors.Add(new("STUDIO_VALIDATION", "navigation." + id + ".openMode", "打开方式未登记。"));
+            var mapTargets = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var map in Objects(rule["parameterMap"], "navigation." + id + ".parameterMap", errors))
+            {
+                var mapTarget = StudioJson.RequiredString(map, "target", 128);
+                if (!mapTargets.Add(mapTarget)) errors.Add(new("STUDIO_VALIDATION", "navigation." + id + ".parameterMap.target", "目标参数不能重复。"));
+                ValidateBinding(map["source"], "navigation." + id + ".parameterMap.source", [.. instanceIds], errors);
+            }
+            if (rule["enabledWhen"] is { } condition) ValidateCondition(condition, "navigation." + id + ".enabledWhen", [.. instanceIds], errors);
+        }
+    }
+
+    private static void ValidatePlaylist(JsonObject document, List<StudioDiagnostic> errors)
+    {
+        Allowed(document, ["schemaVersion", "parameters", "items", "loop", "onFailure", "preloadCount"], "", errors);
+        foreach (var parameter in Objects(document["parameters"], "parameters", errors))
+            if (StudioJson.Text(parameter["name"]) is null) errors.Add(new("PARAM_REQUIRED", "parameters.name", "轮播参数必须有名称。"));
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var item in Objects(document["items"], "items", errors))
+        {
+            var id = StudioJson.RequiredString(item, "id", 64);
+            if (!ids.Add(id)) errors.Add(new("STUDIO_VALIDATION", "items." + id, "轮播项标识重复。"));
+            Allowed(item, ["id", "dashboardNId", "revisionNId", "parameterMap", "staySeconds", "enabled", "label"], "items." + id, errors);
+            if (string.IsNullOrWhiteSpace(StudioJson.Text(item["dashboardNId"]))) errors.Add(new("PARAM_REQUIRED", "items." + id + ".dashboardNId", "轮播项必须指定看板。"));
+            if (item["staySeconds"] is not JsonValue seconds || !seconds.TryGetValue<int>(out var stay) || stay is < 3 or > 3600) errors.Add(new("STUDIO_VALIDATION", "items." + id + ".staySeconds", "停留时长必须为3至3600秒。"));
+            foreach (var map in Objects(item["parameterMap"], "items." + id + ".parameterMap", errors))
+            {
+                StudioJson.RequiredString(map, "target", 128);
+                ValidateBinding(map["source"], "items." + id + ".parameterMap.source", [], errors);
+            }
+        }
+        if (StudioJson.Text(document["onFailure"]) is not ("Skip" or "Pause")) errors.Add(new("STUDIO_VALIDATION", "onFailure", "失败策略未登记。"));
+        if ((document["preloadCount"]?.GetValue<int>() ?? 1) is not 0 and not 1) errors.Add(new("STUDIO_VALIDATION", "preloadCount", "预加载最多只能为1项。"));
+    }
+
+    private static bool TryNumber(JsonNode? value, out double result)
+    {
+        result = 0;
+        if (value is not JsonValue jsonValue) return false;
+        if (jsonValue.TryGetValue<double>(out result)) return double.IsFinite(result);
+        if (jsonValue.TryGetValue<int>(out var integer)) { result = integer; return true; }
+        if (jsonValue.TryGetValue<long>(out var longValue)) { result = longValue; return true; }
+        if (jsonValue.TryGetValue<decimal>(out var decimalValue)) { result = (double)decimalValue; return double.IsFinite(result); }
+        return false;
+    }
+
+    private static void ValidateRegistryProperty(JsonNode? value, JsonObject schema, string path, List<StudioDiagnostic> errors)
+    {
+        var type = StudioJson.Text(schema["type"]);
+        var valid = type switch
+        {
+            "string" => value is JsonValue stringValue && stringValue.TryGetValue<string>(out _),
+            "number" => TryNumber(value, out _),
+            "boolean" => value is JsonValue boolValue && boolValue.TryGetValue<bool>(out _),
+            "array" => value is JsonArray,
+            "object" => value is JsonObject,
+            _ => true,
+        };
+        if (!valid)
+        {
+            errors.Add(new("TYPE_MISMATCH", path, "组件属性类型与注册Schema不一致。"));
+            return;
+        }
+        if (schema["enum"] is JsonArray options && !options.Any(option => JsonNode.DeepEquals(option, value)))
+            errors.Add(new("STUDIO_VALIDATION", path, "组件属性值不在注册枚举中。"));
+        if (TryNumber(value, out var number))
+        {
+            if (schema["minimum"] is { } minimum && TryNumber(minimum, out var lower) && number < lower) errors.Add(new("STUDIO_VALIDATION", path, "组件属性低于注册范围。"));
+            if (schema["maximum"] is { } maximum && TryNumber(maximum, out var upper) && number > upper) errors.Add(new("STUDIO_VALIDATION", path, "组件属性高于注册范围。"));
+        }
+        if (value is JsonObject objectValue && schema["properties"] is JsonObject properties)
+            foreach (var child in objectValue)
+                if (properties[child.Key] is JsonObject childSchema) ValidateRegistryProperty(child.Value, childSchema, path + "." + child.Key, errors);
+                else errors.Add(new("STUDIO_VALIDATION", path + "." + child.Key, "组件对象属性未在注册Schema声明。"));
+    }
+
     public static void ValidateFieldSchema(JsonObject field, string path, HashSet<string> ids, List<StudioDiagnostic> errors, int depth = 0)
     {
         if (depth > 32 || ids.Count >= 2000) throw new StudioException("STUDIO_LIMIT", "结果Schema超过保护预算。", 429, path);
@@ -268,6 +498,23 @@ public static class StudioDocuments
         else if (binding["path"] is not JsonArray segments || segments.Count > 32 || segments.Any(segment => StudioJson.Text(segment) is not { Length: > 0 and <= 128 } key || key is "__proto__" or "constructor" or "prototype")) errors.Add(new("PATH_INVALID", path + ".path", "绑定路径非法。"));
         if (from == "Instance" && !instanceIds.Contains(StudioJson.Text(binding["instanceId"]), StringComparer.Ordinal)) errors.Add(new("PATH_INVALID", path + ".instanceId", "绑定实例不存在。"));
         if (StudioJson.Text(binding["nullPolicy"]) is not ("Error" or "Null" or "Default")) errors.Add(new("STUDIO_VALIDATION", path + ".nullPolicy", "须声明空值策略。"));
+    }
+
+    private static void ValidateCondition(JsonNode? value, string path, string[] instanceIds, List<StudioDiagnostic> errors, int depth = 0)
+    {
+        if (depth > 32) { errors.Add(new("STUDIO_LIMIT", path, "条件嵌套超过保护预算。")); return; }
+        if (value is not JsonObject condition) { errors.Add(new("TYPE_MISMATCH", path, "必须声明Condition。")); return; }
+        var op = StudioJson.Text(condition["op"]);
+        if (op is "And" or "Or")
+        {
+            var items = Objects(condition["items"], path + ".items", errors);
+            if (items.Length == 0) errors.Add(new("TYPE_MISMATCH", path + ".items", "组合条件不能为空。"));
+            foreach (var item in items) ValidateCondition(item, path + ".items", instanceIds, errors, depth + 1);
+            return;
+        }
+        if (op is not ("Eq" or "Ne" or "In" or "Gt" or "Ge" or "Lt" or "Le" or "IsNull" or "HasRows")) errors.Add(new("TYPE_MISMATCH", path + ".op", "条件操作未登记。"));
+        ValidateBinding(condition["left"], path + ".left", instanceIds, errors);
+        if (op is not ("IsNull" or "HasRows")) ValidateBinding(condition["right"], path + ".right", instanceIds, errors);
     }
 
     private static void Allowed(JsonObject value, IReadOnlyList<string> allowed, string path, List<StudioDiagnostic> errors)

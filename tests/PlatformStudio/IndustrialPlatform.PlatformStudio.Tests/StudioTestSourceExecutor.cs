@@ -10,11 +10,13 @@ internal sealed class StudioTestSourceExecutor : IStudioSourceExecutor
     public int Calls { get; private set; }
     public JsonNode? Data { get; set; } = new JsonArray();
     public JsonObject? Parameters { get; private set; }
+    public Func<JsonObject, Exception?>? Failure { get; set; }
     public string ConfigurationHash(StudioSourceEndpoint endpoint) => SourceAdministration.EndpointHash(endpoint);
     public Task<JsonObject> TestAsync(StudioSource source, CancellationToken cancellationToken) => Task.FromResult(new JsonObject { ["status"] = "Ready" });
     public Task<StudioSourceResult> ExecuteAsync(StudioPrincipal principal, StudioSource source, JsonObject document, JsonObject parameters, bool preview, CancellationToken cancellationToken)
     {
         Calls++; Parameters = parameters.DeepClone().AsObject();
+        if (Failure?.Invoke(parameters) is { } failure) return Task.FromException<StudioSourceResult>(failure);
         return Task.FromResult(new StudioSourceResult(Data?.DeepClone(), DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, Data is JsonArray array ? array.Count : 1, 1));
     }
 }

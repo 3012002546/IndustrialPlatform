@@ -7,6 +7,7 @@ namespace IndustrialPlatform.PlatformStudio.Infrastructure.Persistence;
 public static class StudioSchema
 {
     public sealed record Definition(string Name, string Columns, string Step);
+    public static Definition ScreenPolicy { get; } = new("studio_dashboard_screen", "never_expires:flag,follow_published:flag", "STU-008-DashboardScreenPolicy");
     public static IReadOnlyList<Definition> Core { get; } =
     [
         new("studio_source", "id:id,is_frozen:flag,is_locked:flag,is_deleted:flag,entity_type:txt512,created_on:time,last_updated_on:time,optimistic_version:i64,concurrency_version:id,n_id:key128,tenant_n_id:key128,name:txt128,description:txt1000?,provider:key32,endpoint_key:key128,endpoint_configuration_hash:sha,credential_ref:key256?,catalog_key:key128?,allowed_objects_json:json64,is_enabled:flag,configuration_version:i64,timeout_seconds:i32,max_rows:i32,max_bytes:i64", "STU-001-Resources"),
@@ -25,6 +26,7 @@ public static class StudioSchema
         new("studio_auth_request", "id:id,state_hash:sha,issuer_key:key64,provider:key16,nonce_hash:sha,verifier_cipher:txt2048,return_path:txt512,status:key16,created_on:time,expires_on:time,consumed_on:time?,optimistic_version:i64", "STU-006-ExternalIdentity"),
         new("studio_auth_session", "id:id,session_hash:sha,tenant_n_id:key128,subject_n_id:key128,issuer_key:key64,provider:key16,external_subject_id:key256?,external_tenant_id:key256?,context_handle_cipher:txt4096?,principal_json:json32,auth_version:key128,policy_version:i64,created_on:time,last_seen_on:time,context_checked_on:time,expires_on:time,revoked_on:time?,optimistic_version:i64", "STU-006-ExternalIdentity"),
         new("studio_local_admin", "id:id,tenant_n_id:key128,subject_n_id:key128,login_name:key128,password_hash:txt1024,enabled:flag,must_change_password:flag,auth_version:i64,failed_count:i32,locked_until:time?,created_on:time,last_updated_on:time,optimistic_version:i64", "STU-006-ExternalIdentity"),
+        new("studio_dashboard_screen", "id:id,tenant_n_id:key128,resource_n_id:key128,revision_n_id:key128,created_by:key128,issuer_key:key64,auth_version:key128,parameters_json:json64,token_hash:sha,created_on:time,expires_on:time,revoked_on:time?", "STU-007-DashboardScreen"),
     ];
     public const string SeedColumns = "id:id,is_frozen:flag,is_locked:flag,is_deleted:flag,entity_type:txt512,created_on:time,last_updated_on:time,optimistic_version:i64,concurrency_version:id,tenant_n_id:key128,seed_n_id:key128,seed_version:key128,seed_class:key32,scope:key128,checksum:sha,status:key32,applied_on:time?,system_data_operation_n_id:key128?,trace_id:key128?";
 

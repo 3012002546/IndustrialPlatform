@@ -49,8 +49,8 @@ import type { NavigationGroup, NavigationItem, NavigationSection } from './types
 const DEFAULT_PC_NAVIGATION_GROUPS: readonly NavigationGroup[] = [
   {
     id: 'studio',
-    label: '低代码',
-    icon: EditPen,
+    label: '工业应用',
+    icon: Cpu,
     items: [
       {
         id: 'studio-lowcode',

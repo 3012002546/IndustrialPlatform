@@ -1,8 +1,10 @@
 using System.Globalization;
+using System.Diagnostics;
 using System.Text.Json.Nodes;
 using System.Text.Json;
 using IndustrialPlatform.PlatformStudio.Application;
 using IndustrialPlatform.PlatformStudio.Application.Data;
+using IndustrialPlatform.PlatformStudio.Application.Dashboard;
 using IndustrialPlatform.PlatformStudio.Application.Ledger;
 using IndustrialPlatform.PlatformStudio.Application.Publishing;
 using IndustrialPlatform.PlatformStudio.Contracts;
@@ -19,6 +21,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace IndustrialPlatform.PlatformStudio.Api;
 
@@ -107,10 +110,11 @@ public static class StudioEndpoints
         group.MapGet("/resources/{nId}/grants",(string nId,HttpContext http,StudioGrants grants,CancellationToken ct)=>grants.GetAsync(Principal(http),nId,ct));
         group.MapPut("/resources/{nId}/grants",(string nId,GrantSave request,HttpContext http,StudioGrants grants,CancellationToken ct)=>grants.SaveAsync(Principal(http),nId,request,ct));
         group.MapGet("/catalog/actions",(HttpContext http,IEnumerable<IStudioAction> actions)=>actions.Where(a=>Principal(http).HasPermission(a.PermissionKey)).Select(a=>new {a.Key,a.ExecutorVersion,a.InputSchema,a.OutputSchema,a.PermissionKey,a.Mutating,idempotency=a.Mutating?"Required":"None",preview=a.Mutating?"Mock":"ReadOnly"}));
-        group.MapGet("/catalog/components",()=>StudioDocuments.ComponentTypes.Select(type=>new {key=type,registryVersion="1",type}));
+        group.MapGet("/catalog/components",()=>StudioDocuments.ComponentTypes.Select(type=>(object)new {key=type,registryVersion="1",type}).Concat(DashboardComponentRegistry.Entries.Select(entry=>(object)new {key=entry.Key,registryVersion=entry.Version,type=entry.Key,label=entry.Label,category=entry.Category,propsSchema=entry.PropsSchema,bindableProperties=entry.BindableProperties,events=entry.Events})));
         group.MapGet("/catalog/data-policies",()=>new[] {new {key="public",description="服务器明确登记可公开的来源"},new {key="authorized-factories",description="可信工厂范围交集"}});
-        group.MapGet("/registry/catalog",(HttpContext http,IEnumerable<IStudioAction> actions)=>new {components=StudioDocuments.ComponentTypes.Select(type=>new {key=type,type,registryVersion="1"}),codePages=new[]{new {key="studio.summary",registryVersion="1"}},actions=actions.Where(a=>Principal(http).HasPermission(a.PermissionKey)).Select(a=>new {a.Key,a.ExecutorVersion,a.InputSchema,a.OutputSchema,a.PermissionKey,a.Mutating})});
+        group.MapGet("/registry/catalog",(HttpContext http,IEnumerable<IStudioAction> actions)=>new {components=StudioDocuments.ComponentTypes.Select(type=>(object)new {key=type,type,registryVersion="1"}).Concat(DashboardComponentRegistry.Entries.Select(entry=>(object)new {key=entry.Key,type=entry.Key,registryVersion=entry.Version,label=entry.Label,category=entry.Category,propsSchema=entry.PropsSchema,bindableProperties=entry.BindableProperties,events=entry.Events})),codePages=new[]{new {key="studio.summary",registryVersion="1"}},actions=actions.Where(a=>Principal(http).HasPermission(a.PermissionKey)).Select(a=>new {a.Key,a.ExecutorVersion,a.InputSchema,a.OutputSchema,a.PermissionKey,a.Mutating})});
         if(profile.ActiveModules.Contains("LowCode",StringComparer.Ordinal))MapLowCode(group);
+        if(profile.ActiveModules.Contains("Dashboard",StringComparer.Ordinal))MapDashboard(group);
         group.MapStudioFiles();
         group.MapStudioAudit(profile);
         return endpoints;
@@ -132,6 +136,60 @@ public static class StudioEndpoints
         group.MapPost("/actions/preview",(JsonObject request,HttpContext http,StudioPages pages,CancellationToken ct)=>pages.PreviewActionAsync(Principal(http),(request["pageDocument"]??request["document"])!.AsObject(),StudioJson.RequiredString(request,"actionId"),request["context"] as JsonObject,ct));
         group.MapPost("/pages/{nId}/actions/{actionId}/execute",(string nId,string actionId,StudioPageInput request,HttpContext http,StudioPages pages,CancellationToken ct)=>pages.ExecuteActionAsync(Principal(http),nId,actionId,request,Key(http),ct));
         group.MapGet("/operations/{operationKey}",(string operationKey,HttpContext http,StudioPages pages,CancellationToken ct)=>pages.GetOperationAsync(Principal(http),operationKey,ct));
+    }
+    private static void MapDashboard(RouteGroupBuilder group)
+    {
+        group.MapGet("/dashboards/{nId}/screens", (string nId, HttpContext http, DashboardScreens screens, CancellationToken ct) => {
+            http.Response.Headers.CacheControl = "no-store";
+            return screens.ListAsync(Principal(http), nId, ct);
+        });
+        group.MapPost("/dashboards/{nId}/screens", (string nId, CreateDashboardScreen request, HttpContext http, DashboardScreens screens, CancellationToken ct) => screens.CreateAsync(Principal(http), nId, request, ct));
+        group.MapDelete("/dashboards/{nId}/screens/{id:guid}", async (string nId, Guid id, HttpContext http, DashboardScreens screens, CancellationToken ct) => {
+            await screens.RevokeAsync(Principal(http), nId, id, ct);
+            return new { revoked = true };
+        });
+        group.MapGet("/playlists/{nId}/screens", (string nId, HttpContext http, DashboardScreens screens, CancellationToken ct) => {
+            http.Response.Headers.CacheControl = "no-store";
+            return screens.ListAsync(Principal(http), nId, ct, "Playlist");
+        });
+        group.MapPost("/playlists/{nId}/screens", (string nId, CreateDashboardScreen request, HttpContext http, DashboardScreens screens, CancellationToken ct) => screens.CreateAsync(Principal(http), nId, request, ct, "Playlist"));
+        group.MapDelete("/playlists/{nId}/screens/{id:guid}", async (string nId, Guid id, HttpContext http, DashboardScreens screens, CancellationToken ct) => {
+            await screens.RevokeAsync(Principal(http), nId, id, ct, "Playlist");
+            return new { revoked = true };
+        });
+        group.MapGet("/screens/{id:guid}/runtime", async (Guid id, HttpContext http, DashboardScreens screens, CancellationToken ct) =>
+            await ScreenRuntimeAsync(id, http, screens, ct)).WithMetadata(new PublicEndpoint()).RequireRateLimiting("studio-dashboard-screen");
+        group.MapGet("/dashboards/{nId}/definition",(string nId,string? revisionNId,HttpContext http,DashboardNavigation dashboards,CancellationToken ct)=>dashboards.DefinitionAsync(Principal(http),nId,revisionNId,ct));
+        group.MapGet("/dashboards/{nId}/runtime",(string nId,string? revisionNId,HttpContext http,DashboardNavigation dashboards,CancellationToken ct)=>dashboards.RuntimeAsync(Principal(http),nId,revisionNId,Parameters(http),ct,InstanceIds(http)));
+        group.MapPost("/dashboards/preview",(JsonObject request,HttpContext http,DashboardNavigation dashboards,CancellationToken ct)=>dashboards.PreviewAsync(Principal(http),StudioJson.Text(request["nId"]),request["document"]?.AsObject()??throw new StudioException("STUDIO_VALIDATION","看板文档缺失。"),request["parameters"]?.AsObject()??new JsonObject(),StudioJson.Text(request["selectedComponentId"]),request["sampleRow"]?.AsObject(),ct, request["instanceIds"] is JsonArray ids ? ids.Select(item => StudioJson.Text(item) ?? throw new StudioException("STUDIO_VALIDATION", "实例标识无效。")).ToArray() : null));
+        group.MapPost("/dashboards/{nId}/navigation/resolve",(string nId,DashboardNavigationRequest request,HttpContext http,DashboardNavigation dashboards,CancellationToken ct)=>dashboards.ResolveAsync(Principal(http),nId,request,ct));
+        group.MapPost("/dashboards/{nId}/preview/navigation",(string nId,JsonObject request,HttpContext http,DashboardNavigation dashboards,CancellationToken ct)=>dashboards.PreviewResolveAsync(Principal(http),nId,request["document"]?.AsObject()??throw new StudioException("STUDIO_VALIDATION","看板文档缺失。"),new(null,StudioJson.Text(request["ruleId"]),request["rowKey"] as JsonObject,request["parameters"] as JsonObject),ct));
+        group.MapGet("/playlists/{nId}/runtime",(string nId,string? revisionNId,HttpContext http,DashboardNavigation dashboards,CancellationToken ct)=>dashboards.PlaylistRuntimeAsync(Principal(http),nId,revisionNId,ct));
+    }
+    private static async Task<JsonObject> ScreenRuntimeAsync(Guid id, HttpContext http, DashboardScreens screens, CancellationToken ct)
+    {
+        using var timing = http.RequestServices.GetRequiredService<IHostEnvironment>().IsDevelopment() ? new Activity("studio.screen.runtime").Start() : null;
+        http.Response.Headers.CacheControl = "no-store";
+        http.Response.Headers["Referrer-Policy"] = "no-referrer";
+        http.Response.Headers["X-Content-Type-Options"] = "nosniff";
+        var text = http.Request.Query["navigation"].FirstOrDefault();
+        if (text?.Length > 8192) throw new StudioException("STUDIO_LIMIT", "大屏明细路径超过预算。", 429);
+        var navigation = text is null ? null : JsonNode.Parse(text) as JsonArray ?? throw new StudioException("STUDIO_VALIDATION", "大屏明细路径无效。");
+        var result = await screens.RuntimeAsync(id, http.Request.Headers["X-Dashboard-Screen-Key"].FirstOrDefault(), ct, InstanceIds(http), http.Request.Query["knownRevisionNId"].FirstOrDefault(), navigation, http.Request.Query["playlistItemId"].FirstOrDefault());
+        if (timing is not null)
+        {
+            timing.Stop();
+            http.Response.Headers["Server-Timing"] = string.Join(", ", timing.Events.GroupBy(item => item.Name).Select(items =>
+                items.Key + ";dur=" + items.Sum(item => Convert.ToDouble(item.Tags.Single(tag => tag.Key == "duration").Value, CultureInfo.InvariantCulture)).ToString("F2", CultureInfo.InvariantCulture))
+                .Append("total;dur=" + timing.Duration.TotalMilliseconds.ToString("F2", CultureInfo.InvariantCulture)));
+        }
+        return result;
+    }
+    private static string[]? InstanceIds(HttpContext http)
+    {
+        if (http.Request.Query["instanceIds"].FirstOrDefault() is not { } text) return null;
+        if (text.Length > 8192 || JsonNode.Parse(text) is not JsonArray ids || ids.Count > 64) throw new StudioException("STUDIO_VALIDATION", "数据实例选择无效。");
+        return ids.Select(item => StudioJson.Text(item) ?? throw new StudioException("STUDIO_VALIDATION", "实例标识无效。")).ToArray();
     }
     private static JsonObject Parameters(HttpContext http)
     {

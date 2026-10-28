@@ -228,6 +228,79 @@ public sealed class AuthorizationDataStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task GetSnapshotAsync_MultipleRoles_UsesTwoReadsWithoutPermissionAggregationPerRole()
+    {
+        await SeedAliceWithDirectAndGroupRolesAsync();
+        var reads = 0;
+        _dbContext.SqlSugar.Aop.OnLogExecuting = (sql, _) =>
+        {
+            if (sql.TrimStart().StartsWith("SELECT", StringComparison.OrdinalIgnoreCase)) reads++;
+        };
+        try
+        {
+            var store = new AuthorizationDataStore(_users, _roles, _userGroups);
+            var snapshot = await store.GetSnapshotAsync(TenantNId, "user.alice", CancellationToken.None);
+            Assert.NotNull(snapshot);
+            Assert.Equal(["identity.role.view", "identity.user.view"], snapshot.PermissionNIds);
+            Assert.Equal(["role.direct", "role.group"], snapshot.RoleNIds);
+            Assert.Equal(2, reads);
+        }
+        finally { _dbContext.SqlSugar.Aop.OnLogExecuting = null; }
+    }
+
+    [Fact]
+    public async Task GetSnapshotAsync_KeepsRolesWithoutActivePermissions_AndReadsPermissionChangesImmediately()
+    {
+        await SeedAliceWithPermissionAsync();
+        var store = new AuthorizationDataStore(_users, _roles, _userGroups);
+        Assert.Equal(["identity.user.view"], (await store.GetSnapshotAsync(TenantNId, "user.alice", CancellationToken.None))!.PermissionNIds);
+        await _dbContext.SqlSugar.Updateable<IndustrialPlatform.Identity.Infrastructure.Persistence.Entities.PermissionTable>()
+            .SetColumns(p => p.Status == PermissionStatus.Disabled).Where(p => p.NId == "identity.user.view").ExecuteCommandAsync();
+        var snapshot = (await store.GetSnapshotAsync(TenantNId, "user.alice", CancellationToken.None))!;
+        Assert.Empty(snapshot.PermissionNIds);
+        Assert.Equal(["role.operator"], snapshot.RoleNIds);
+    }
+
+    [Fact]
+    public async Task GetSnapshotAsync_UserWithoutRoles_IsStillAValidEmptySnapshot_AndDoesNotReadPassword()
+    {
+        var user = User.Create(TenantNId, "user.no-roles", "no-roles", "No roles", null, null, PasswordHash);
+        await _users.AddAsync(user);
+        var statements = new List<string>();
+        _dbContext.SqlSugar.Aop.OnLogExecuting = (sql, _) => statements.Add(sql);
+        try
+        {
+            var snapshot = (await new AuthorizationDataStore(_users, _roles, _userGroups).GetSnapshotAsync(TenantNId, user.NId, CancellationToken.None))!;
+            Assert.Empty(snapshot.PermissionNIds);Assert.Empty(snapshot.RoleNIds!);Assert.False(snapshot.IsSystemAdmin);
+            Assert.Equal(2, statements.Count);
+            Assert.DoesNotContain(statements, sql => sql.Contains("password_hash", StringComparison.OrdinalIgnoreCase));
+        }
+        finally { _dbContext.SqlSugar.Aop.OnLogExecuting = null; }
+    }
+
+    [Fact]
+    public async Task User_security_state_is_one_fresh_read_and_still_observes_disable_and_delete()
+    {
+        await SeedAliceWithPermissionAsync();
+        var directory = new IndustrialPlatform.Identity.Infrastructure.Management.ManagementStore(_dbContext, _users, _roles, _permissions);
+        var reads = 0;
+        _dbContext.SqlSugar.Aop.OnLogExecuting = (sql, _) => { if (sql.TrimStart().StartsWith("SELECT", StringComparison.OrdinalIgnoreCase)) reads++; };
+        try
+        {
+            var state = await directory.GetUserSecurityStateAsync("user.alice", CancellationToken.None);
+            Assert.NotNull(state);Assert.Equal(UserStatus.Active,state.Status);Assert.Equal(1,reads);
+        }
+        finally { _dbContext.SqlSugar.Aop.OnLogExecuting = null; }
+        var user = (await _users.GetByNIdAsync("user.alice"))!;
+        var version = user.OptimisticVersion;var token = user.ConcurrencyVersion;
+        user.Disable();await _users.UpdateAsync(user,version,token);
+        var disabled = (await directory.GetUserSecurityStateAsync("user.alice",CancellationToken.None))!;
+        Assert.Equal(UserStatus.Disabled,disabled.Status);Assert.Equal(user.AuthVersion,disabled.AuthVersion);
+        await _users.DeleteAsync(user,user.OptimisticVersion,user.ConcurrencyVersion);
+        Assert.Null(await directory.GetUserSecurityStateAsync("user.alice",CancellationToken.None));
+    }
+
+    [Fact]
     public async Task GetSnapshotAsync_DisabledGroup_ExcludesGroupPermissions()
     {
         // Arrange

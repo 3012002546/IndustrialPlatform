@@ -45,7 +45,15 @@ public static class StudioJson
         var current = root;
         foreach (var segment in path.Split('.'))
         {
-            if (current is not JsonObject item || !item.TryGetPropertyValue(segment, out current)) return null;
+            if (current is JsonObject item)
+            {
+                if (!item.TryGetPropertyValue(segment, out current)) return null;
+            }
+            else if (current is JsonArray array && int.TryParse(segment, NumberStyles.None, CultureInfo.InvariantCulture, out var index) && index >= 0 && index < array.Count)
+            {
+                current = array[index];
+            }
+            else return null;
         }
         return current?.DeepClone();
     }

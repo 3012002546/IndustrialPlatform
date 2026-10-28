@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { Avatar, House, Lock, Menu, Tools, UserFilled } from '@element-plus/icons-vue'
+import {
+  Avatar,
+  DataAnalysis,
+  House,
+  Lock,
+  Menu,
+  Tools,
+  UserFilled,
+  VideoPlay,
+} from '@element-plus/icons-vue'
 
 import {
   applyNavigationPolicy,
@@ -12,6 +21,8 @@ import type { NavigationGroup } from '@/components/navigation/types'
 import { getDefaultPcNavigationGroups } from '@/components/navigation/navigation'
 import { enUS } from '@/locales/en-US'
 import { zhCN } from '@/locales/zh-CN'
+import { studioRoutes } from '@/router/studioRoutes'
+import { isRegisteredRouteName } from '@/router/routeNames'
 
 const node = (overrides: Partial<NavigationRuntimeNodeDto>): NavigationRuntimeNodeDto => ({
   nodeNId: 'group-1',
@@ -135,9 +146,11 @@ function runtimeDefaults(): NavigationRuntimeNodeDto[] {
   )
 }
 
-function flattenLabels(groups: NavigationGroup[]): Array<{ labelKey: string; fallbackLabel: string }> {
+function flattenLabels(
+  groups: NavigationGroup[],
+): Array<{ labelKey: string; fallbackLabel: string }> {
   return groups.flatMap((group) => [
-      { labelKey: group.labelKey ?? '', fallbackLabel: group.fallbackLabel ?? group.label },
+    { labelKey: group.labelKey ?? '', fallbackLabel: group.fallbackLabel ?? group.label },
     ...(group.sections ?? []).map((section) => ({
       labelKey: section.labelKey ?? '',
       fallbackLabel: section.fallbackLabel ?? section.label,
@@ -153,6 +166,59 @@ function flattenLabels(groups: NavigationGroup[]): Array<{ labelKey: string; fal
 }
 
 describe('SystemData runtime navigation adapter', () => {
+  it('keeps every shipped Studio route in the native menu route catalog', () => {
+    for (const route of studioRoutes) {
+      expect(isRegisteredRouteName(String(route.name)), String(route.name)).toBe(true)
+    }
+  })
+
+  it('keeps published Dashboard menus with permission and localizes their native labels', () => {
+    const groups = mapRuntimeNavigation([
+      node({
+        nodeNId: 'navigation.group.studio',
+        label: '工业应用',
+        children: [
+          node({
+            nodeNId: 'studio.page.dashboards',
+            kind: 'Link',
+            label: '看板',
+            routeName: 'studio-dashboards',
+            requiredPermissionNId: 'studio.dashboard.view',
+            iconKey: null,
+          }),
+          node({
+            nodeNId: 'studio.page.playlists',
+            kind: 'Link',
+            label: '轮播',
+            routeName: 'studio-playlists',
+            requiredPermissionNId: 'studio.dashboard.view',
+            iconKey: null,
+          }),
+        ],
+      }),
+    ])
+    const allowed = applyNavigationPolicy(groups, ['studio.dashboard.view'], new Set())
+    expect(allowed[0]?.items.map((item) => item.routeName)).toEqual([
+      'studio-dashboards',
+      'studio-playlists',
+    ])
+    expect(allowed[0]?.items[0]?.icon).toBe(DataAnalysis)
+    expect(allowed[0]?.items[1]?.icon).toBe(VideoPlay)
+    expect(applyNavigationPolicy(groups, ['studio.lowcode.view'], new Set())).toEqual([])
+    expect(allowed[0]?.labelKey).toBe('shell.navigation.group.studio')
+    expect(allowed[0]?.items.map((item) => localizedMessage(enUS, item.labelKey!))).toEqual([
+      'Dashboards',
+      'Playlists',
+    ])
+    expect(allowed[0]?.items.map((item) => localizedMessage(zhCN, item.labelKey!))).toEqual([
+      '看板',
+      '轮播',
+    ])
+    expect(
+      mapRuntimeNavigation([node({ nodeNId: 'navigation.group.studio', children: [] })])[0]?.items,
+    ).toEqual([])
+  })
+
   it('localizes every platform-owned runtime group, section, and item in both locales', () => {
     const groups = mapRuntimeNavigation(runtimeDefaults())
     const labels = flattenLabels(groups)
