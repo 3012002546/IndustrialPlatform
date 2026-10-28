@@ -26,11 +26,12 @@ public sealed class StudioIdentityTests
         public IServiceProvider Services=>_app.Services;
         private readonly Dictionary<string,string> _cookies=new(StringComparer.Ordinal);
         private ApiFixture(string folder,WebApplication app,HttpClient client){_folder=folder;_app=app;Client=client;}
-        public static async Task<ApiFixture> CreateAsync(string provider="LocalAdmin",IStudioMesBridge? bridge=null)
+        public static async Task<ApiFixture> CreateAsync(string provider="LocalAdmin",IStudioMesBridge? bridge=null,bool dashboard=false)
         {
             var folder=Path.Combine(Path.GetTempPath(),"studio-api-test-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(folder);
             var builder=WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName="Testing" });builder.WebHost.UseTestServer();
             var config=new Dictionary<string,string?> { ["PlatformStudio:Enabled"]="true",["PlatformStudio:DeploymentMode"]="ExternalMes",["PlatformStudio:InstalledModules:0"]="LowCode",["PlatformStudio:Identity:Provider"]=provider,["PlatformStudio:Identity:LocalAdminEnabled"]=(provider=="LocalAdmin").ToString(CultureInfo.InvariantCulture),["PlatformStudio:Identity:IssuerKey"]="test-mes",["PlatformStudio:Identity:PolicyVersion"]="1",["PlatformStudio:Identity:DataProtectionKeyPath"]=Path.Combine(folder,"keys"),["PlatformStudio:Files:Provider"]="Disabled",["PlatformStudio:Audit:Provider"]="Embedded",["PlatformStudio:Jobs:Provider"]="Disabled",["PlatformStudio:PublicOrigin"]="https://localhost",["PlatformStudio:Database:Provider"]="Sqlite",["PlatformStudio:Database:SqliteFile"]=Path.Combine(folder,"studio.db"),["PlatformStudio:Identity:AuthorityKey"]="mes",["PlatformStudio:Identity:ContextEndpointKey"]="mes",["PlatformStudio:Identity:Authorities:mes:Issuer"]="https://issuer.example",["PlatformStudio:Identity:Authorities:mes:ClientId"]="studio",["PlatformStudio:Identity:Authorities:mes:AuthorizationEndpoint"]="https://issuer.example/login",["PlatformStudio:Identity:TenantMappings:0:ExternalTenantId"]="external-a",["PlatformStudio:Identity:TenantMappings:0:TenantNId"]="tenant-a",["PlatformStudio:Identity:RoleMappings:0:ExternalTenantId"]="external-a",["PlatformStudio:Identity:RoleMappings:0:ExternalRoleId"]="designer",["PlatformStudio:Identity:RoleMappings:0:RoleNId"]=StudioPrincipal.ExternalNId("test-mes","external-a","designer","mes-role-"),["PlatformStudio:Identity:RoleMappings:0:Permissions:0"]="studio.lowcode.view" };
+            if(dashboard)config["PlatformStudio:InstalledModules:1"]="Dashboard";
             builder.Configuration.AddInMemoryCollection(config);builder.Services.AddAuthentication();builder.Services.AddAuthorization();builder.Services.AddRateLimiter(o=>o.AddConcurrencyLimiter("studio-local-login",policy=>{policy.PermitLimit=10;policy.QueueLimit=0;}));
             builder.Services.AddPlatformStudio(builder.Configuration);
             if(bridge is not null)builder.Services.AddSingleton(bridge);
@@ -78,6 +79,16 @@ public sealed class StudioIdentityTests
         var report=await f.SendAsync(HttpMethod.Post,"/api/v1/studio/reports/preview",new {});Assert.Equal(HttpStatusCode.NotFound,report.StatusCode);
         await using var scope=f.Services.CreateAsyncScope();var db=scope.ServiceProvider.GetRequiredService<StudioDatabase>();
         var admin=await db.Client.Queryable<StudioLocalAdmin>().FirstAsync();Assert.StartsWith("$2",admin.PasswordHash,StringComparison.Ordinal);Assert.DoesNotContain("Changed!",admin.PasswordHash,StringComparison.Ordinal);
+    }
+    [Fact]
+    public async Task Local_admin_dashboard_permissions_follow_the_enabled_module_boundary()
+    {
+        await using var f=await ApiFixture.CreateAsync(dashboard:true);await f.CreateAdminAsync();
+        Assert.Equal(HttpStatusCode.OK,(await f.SendAsync(HttpMethod.Post,"/api/v1/studio/auth/local-login",new {tenantNId="tenant-a",loginName="admin",password="Initial!Studio123"})).StatusCode);
+        var json=await (await f.SendAsync(HttpMethod.Get,"/api/v1/studio/auth/me")).Content.ReadFromJsonAsync<JsonObject>();
+        var permissions=json!["data"]!["principal"]!["permissions"]!.AsArray().Select(item=>item!.GetValue<string>()).ToArray();
+        Assert.Contains("studio.dashboard.view",permissions);Assert.Contains("studio.dashboard.design",permissions);Assert.Contains("studio.dashboard.publish",permissions);Assert.Contains("studio.dashboard.run",permissions);
+        Assert.DoesNotContain(permissions,permission=>permission.StartsWith("studio.report.",StringComparison.Ordinal));Assert.DoesNotContain(permissions,permission=>permission.StartsWith("studio.trace.",StringComparison.Ordinal));Assert.DoesNotContain(permissions,permission=>permission.StartsWith("studio.workbook.",StringComparison.Ordinal));
     }
     [Fact]
     public async Task Wrong_password_locks_after_five_failures_and_csrf_is_required()

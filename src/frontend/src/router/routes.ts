@@ -65,7 +65,7 @@ import PdaCollaborationPage from '@/pages/pda/collaboration/CollaborationPage.vu
 import MobileCollaborationPage from '@/pages/mobile/collaboration/CollaborationPage.vue'
 import { PERMISSIONS } from '@/permissions'
 import { ROUTE_NAMES } from './routeNames'
-import { studioRoutes } from './studioRoutes'
+import { studioRoutes, studioScreenRoutes } from './studioRoutes'
 
 export { ROUTE_NAMES } from './routeNames'
 
@@ -91,6 +91,7 @@ function rootStub() {
 }
 
 export const routes: RouteRecordRaw[] = [
+  ...studioScreenRoutes,
   {
     path: '/',
     name: ROUTE_NAMES.root,

@@ -56,6 +56,12 @@ internal static class StudioSchemaIntegrity
 
         foreach (var migration in migrations)
         {
+            if (migration.Id == StudioSchema.ScreenPolicy.Step)
+            {
+                var policy = StudioSchema.ScreenPolicy;
+                SchemaPhysicalDriftGuard.Validate(database.Client, policy.Name, policy.Columns.Split(',').Select(column => column.Split(':')[0]).ToArray(), []);
+                if (database.Provider == DbType.SqlServer) await StudioSqlServerDescriptions.VerifyAsync(database, policy, cancellationToken);
+            }
             foreach (var table in StudioSchema.Core.Where(table => table.Step == migration.Id))
             {
                 var target = database.Table(table.Name);

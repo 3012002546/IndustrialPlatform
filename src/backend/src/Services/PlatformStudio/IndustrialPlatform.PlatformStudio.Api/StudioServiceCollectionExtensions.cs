@@ -1,7 +1,11 @@
 using System.Security.Cryptography.X509Certificates;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Builder;
 using IndustrialPlatform.Application.Abstractions.Initialization;
 using IndustrialPlatform.PlatformStudio.Application;
 using IndustrialPlatform.PlatformStudio.Application.Data;
+using IndustrialPlatform.PlatformStudio.Application.Dashboard;
 using IndustrialPlatform.PlatformStudio.Application.Integration;
 using IndustrialPlatform.PlatformStudio.Application.Ledger;
 using IndustrialPlatform.PlatformStudio.Application.Publishing;
@@ -30,7 +34,6 @@ public static class StudioServiceCollectionExtensions
         var profile=configuration.GetSection("PlatformStudio").Get<StudioDeploymentProfile>()??new();
         if(!profile.Enabled)return services;
         profile.Validate();
-        if(profile.ActiveModules.Any(m=>m!="LowCode"))throw new StudioException("STUDIO_MODULE_UNAVAILABLE","当前交付物只提供LowCode，共用Core随包。");
         foreach(var endpoint in profile.SourceRegistry)
         foreach(var declaration in endpoint.Value.Catalog)
         {
@@ -47,6 +50,22 @@ public static class StudioServiceCollectionExtensions
         {
             services.AddScoped<IStudioAction,StudioLedgerSaveAction>();
             services.AddScoped<StudioLedger>();services.AddScoped<StudioPages>();
+        }
+        if(profile.ActiveModules.Contains("Dashboard",StringComparer.Ordinal))
+        {
+            services.AddRateLimiter(options => {
+                options.RejectionStatusCode = 429;
+                options.AddPolicy("studio-dashboard-screen", context => RateLimitPartition.GetFixedWindowLimiter(
+                    context.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new FixedWindowRateLimiterOptions {
+                        PermitLimit = 60, Window = TimeSpan.FromMinutes(1), QueueLimit = 0, AutoReplenishment = true
+                    }));
+            });
+            services.AddScoped<DashboardNavigation>();
+            services.AddScoped<DashboardScreens>();
+            services.AddScoped<IStudioScreenKeys,StudioScreenKeys>();
+            services.AddScoped<IStudioScreenStore,StudioScreenStore>();
+            services.AddScoped<IStudioScreenIdentity>(sp => sp.GetRequiredService<IStudioIdentity>() as IStudioScreenIdentity
+                ?? throw new StudioException("STUDIO_SCREEN_UNSUPPORTED", "当前身份适配器不支持匿名大屏发布。", 409));
         }
         if(profile.DeploymentMode=="ExternalMes") services.AddStudioEmbeddedFileAudit(profile); else services.AddStudioPlatformFileAudit(profile);
         services.AddHttpClient<RegisteredSourceExecutor>().ConfigurePrimaryHttpMessageHandler(()=>new HttpClientHandler { AllowAutoRedirect=false });

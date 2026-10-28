@@ -1,0 +1,1761 @@
+{
+  "format": "IndustrialPlatform.DashboardDesign",
+  "version": 1,
+  "name": "半导体研磨液 · 批次制备与检验明细（演示）",
+  "exportedOn": "2026-10-28T00:00:00.000Z",
+  "document": {
+    "canvas": {
+      "background": "#081e25",
+      "fit": "Contain",
+      "height": 1080,
+      "width": 1920
+    },
+    "components": [
+      {
+        "bindings": [],
+        "children": [],
+        "events": [],
+        "height": 55,
+        "id": "title",
+        "locked": false,
+        "name": "CMP研磨液 · 批次制备与检验明细",
+        "props": {
+          "align": "left",
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#28515c",
+            "borderWidth": 0,
+            "color": "#e2f6f0",
+            "fontSizePx": 36,
+            "paddingPx": 0
+          },
+          "text": "CMP研磨液 · 批次制备与检验明细",
+          "wrap": true
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Text",
+        "visible": true,
+        "width": 1400,
+        "x": 40,
+        "y": 25,
+        "zIndex": 1
+      },
+      {
+        "bindings": [],
+        "children": [],
+        "events": [],
+        "height": 40,
+        "id": "batch-label",
+        "locked": false,
+        "name": "当前批次",
+        "props": {
+          "align": "left",
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#28515c",
+            "borderWidth": 0,
+            "color": "#e2f6f0",
+            "fontSizePx": 24,
+            "paddingPx": 0
+          },
+          "text": "当前批次",
+          "wrap": true
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Text",
+        "visible": true,
+        "width": 140,
+        "x": 40,
+        "y": 100,
+        "zIndex": 1
+      },
+      {
+        "bindings": [
+          {
+            "property": "text",
+            "source": {
+              "from": "PageParam",
+              "nullPolicy": "Null",
+              "path": ["batchNo"]
+            }
+          }
+        ],
+        "children": [],
+        "events": [],
+        "height": 55,
+        "id": "batch-number",
+        "locked": false,
+        "name": "批次编号",
+        "props": {
+          "align": "left",
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#28515c",
+            "borderWidth": 0,
+            "color": "#e2f6f0",
+            "fontSizePx": 34,
+            "paddingPx": 0
+          },
+          "text": "—",
+          "wrap": true
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Text",
+        "visible": true,
+        "width": 1000,
+        "x": 200,
+        "y": 90,
+        "zIndex": 1
+      },
+      {
+        "bindings": [],
+        "children": [],
+        "events": [],
+        "height": 36,
+        "id": "demo",
+        "locked": false,
+        "name": "DEMO · 氧化物 / 铜 / 阻挡层CMP研磨液；制备与检验记录均为合成示例",
+        "props": {
+          "align": "left",
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#28515c",
+            "borderWidth": 0,
+            "color": "#e2f6f0",
+            "fontSizePx": 19,
+            "paddingPx": 0
+          },
+          "text": "DEMO · 氧化物 / 铜 / 阻挡层CMP研磨液；制备与检验记录均为合成示例",
+          "wrap": true
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Text",
+        "visible": true,
+        "width": 850,
+        "x": 1000,
+        "y": 105,
+        "zIndex": 1
+      },
+      {
+        "bindings": [
+          {
+            "property": "value",
+            "source": {
+              "from": "PageParam",
+              "nullPolicy": "Null",
+              "path": ["batchNo"],
+              "transform": {
+                "args": {
+                  "defaultValue": null,
+                  "entries": [
+                    {
+                      "from": "SL-DEMO-201",
+                      "to": "CMP-OX01"
+                    },
+                    {
+                      "from": "SL-DEMO-202",
+                      "to": "CMP-CU01"
+                    },
+                    {
+                      "from": "SL-DEMO-203",
+                      "to": "CMP-OX02"
+                    },
+                    {
+                      "from": "SL-DEMO-204",
+                      "to": "CMP-CU02"
+                    },
+                    {
+                      "from": "SL-DEMO-205",
+                      "to": "CMP-BAR01"
+                    },
+                    {
+                      "from": "SL-DEMO-206",
+                      "to": "CMP-OX03"
+                    }
+                  ],
+                  "onMissing": "Default"
+                },
+                "kind": "EnumMap"
+              }
+            }
+          }
+        ],
+        "children": [],
+        "events": [],
+        "height": 140,
+        "id": "product",
+        "locked": false,
+        "name": "研磨液产品",
+        "props": {
+          "animate": false,
+          "appearance": {
+            "background": "#102b33",
+            "borderColor": "#28515c",
+            "borderWidth": 1,
+            "color": "#e2f6f0",
+            "fontSizePx": 34,
+            "paddingPx": 18
+          },
+          "digits": 0,
+          "display": "—",
+          "prefix": "",
+          "suffix": "",
+          "unit": "研磨液产品"
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Number",
+        "visible": true,
+        "width": 340,
+        "x": 40,
+        "y": 170,
+        "zIndex": 1
+      },
+      {
+        "bindings": [
+          {
+            "property": "value",
+            "source": {
+              "from": "PageParam",
+              "nullPolicy": "Null",
+              "path": ["batchNo"],
+              "transform": {
+                "args": {
+                  "defaultValue": null,
+                  "entries": [
+                    {
+                      "from": "SL-DEMO-201",
+                      "to": "FILL-201"
+                    },
+                    {
+                      "from": "SL-DEMO-202",
+                      "to": "FILL-202"
+                    },
+                    {
+                      "from": "SL-DEMO-203",
+                      "to": "FILL-201"
+                    },
+                    {
+                      "from": "SL-DEMO-204",
+                      "to": "LAB-201"
+                    },
+                    {
+                      "from": "SL-DEMO-205",
+                      "to": "HOLD-201"
+                    },
+                    {
+                      "from": "SL-DEMO-206",
+                      "to": "FILL-203"
+                    }
+                  ],
+                  "onMissing": "Default"
+                },
+                "kind": "EnumMap"
+              }
+            }
+          }
+        ],
+        "children": [],
+        "events": [],
+        "height": 140,
+        "id": "equipment",
+        "locked": false,
+        "name": "当前设备",
+        "props": {
+          "animate": false,
+          "appearance": {
+            "background": "#102b33",
+            "borderColor": "#28515c",
+            "borderWidth": 1,
+            "color": "#e2f6f0",
+            "fontSizePx": 34,
+            "paddingPx": 18
+          },
+          "digits": 0,
+          "display": "—",
+          "prefix": "",
+          "suffix": "",
+          "unit": "当前设备"
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Number",
+        "visible": true,
+        "width": 340,
+        "x": 420,
+        "y": 170,
+        "zIndex": 1
+      },
+      {
+        "bindings": [
+          {
+            "property": "value",
+            "source": {
+              "from": "PageParam",
+              "nullPolicy": "Null",
+              "path": ["batchNo"],
+              "transform": {
+                "args": {
+                  "defaultValue": null,
+                  "entries": [
+                    {
+                      "from": "SL-DEMO-201",
+                      "to": 360
+                    },
+                    {
+                      "from": "SL-DEMO-202",
+                      "to": 420
+                    },
+                    {
+                      "from": "SL-DEMO-203",
+                      "to": 480
+                    },
+                    {
+                      "from": "SL-DEMO-204",
+                      "to": 380
+                    },
+                    {
+                      "from": "SL-DEMO-205",
+                      "to": 440
+                    },
+                    {
+                      "from": "SL-DEMO-206",
+                      "to": 400
+                    }
+                  ],
+                  "onMissing": "Default"
+                },
+                "kind": "EnumMap"
+              }
+            }
+          }
+        ],
+        "children": [],
+        "events": [],
+        "height": 140,
+        "id": "volume",
+        "locked": false,
+        "name": "批次体积 / L",
+        "props": {
+          "animate": false,
+          "appearance": {
+            "background": "#102b33",
+            "borderColor": "#28515c",
+            "borderWidth": 1,
+            "color": "#e2f6f0",
+            "fontSizePx": 34,
+            "paddingPx": 18
+          },
+          "digits": 0,
+          "display": "—",
+          "prefix": "",
+          "suffix": "",
+          "unit": "批次体积 / L"
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Number",
+        "visible": true,
+        "width": 340,
+        "x": 800,
+        "y": 170,
+        "zIndex": 1
+      },
+      {
+        "bindings": [
+          {
+            "property": "value",
+            "source": {
+              "from": "PageParam",
+              "nullPolicy": "Null",
+              "path": ["batchNo"],
+              "transform": {
+                "args": {
+                  "defaultValue": null,
+                  "entries": [
+                    {
+                      "from": "SL-DEMO-201",
+                      "to": "已放行"
+                    },
+                    {
+                      "from": "SL-DEMO-202",
+                      "to": "已放行"
+                    },
+                    {
+                      "from": "SL-DEMO-203",
+                      "to": "已放行"
+                    },
+                    {
+                      "from": "SL-DEMO-204",
+                      "to": "待检"
+                    },
+                    {
+                      "from": "SL-DEMO-205",
+                      "to": "复核中"
+                    },
+                    {
+                      "from": "SL-DEMO-206",
+                      "to": "已放行"
+                    }
+                  ],
+                  "onMissing": "Default"
+                },
+                "kind": "EnumMap"
+              }
+            }
+          }
+        ],
+        "children": [],
+        "events": [],
+        "height": 140,
+        "id": "quality",
+        "locked": false,
+        "name": "检验状态",
+        "props": {
+          "animate": false,
+          "appearance": {
+            "background": "#102b33",
+            "borderColor": "#28515c",
+            "borderWidth": 1,
+            "color": "#e2f6f0",
+            "fontSizePx": 34,
+            "paddingPx": 18
+          },
+          "digits": 0,
+          "display": "—",
+          "prefix": "",
+          "suffix": "",
+          "unit": "检验状态"
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Number",
+        "visible": true,
+        "width": 680,
+        "x": 1180,
+        "y": 170,
+        "zIndex": 1
+      },
+      {
+        "bindings": [],
+        "children": [],
+        "events": [],
+        "height": 40,
+        "id": "stage-label",
+        "locked": false,
+        "name": "01 制备工序与执行进度",
+        "props": {
+          "align": "left",
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#28515c",
+            "borderWidth": 0,
+            "color": "#e2f6f0",
+            "fontSizePx": 26,
+            "paddingPx": 0
+          },
+          "text": "01 制备工序与执行进度",
+          "wrap": true
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Text",
+        "visible": true,
+        "width": 850,
+        "x": 40,
+        "y": 345,
+        "zIndex": 1
+      },
+      {
+        "bindings": [
+          {
+            "property": "text",
+            "source": {
+              "from": "PageParam",
+              "nullPolicy": "Null",
+              "path": ["batchNo"],
+              "transform": {
+                "args": {
+                  "defaultValue": null,
+                  "entries": [
+                    {
+                      "from": "SL-DEMO-201",
+                      "to": "灌装完成"
+                    },
+                    {
+                      "from": "SL-DEMO-202",
+                      "to": "灌装完成"
+                    },
+                    {
+                      "from": "SL-DEMO-203",
+                      "to": "灌装完成"
+                    },
+                    {
+                      "from": "SL-DEMO-204",
+                      "to": "取样检验"
+                    },
+                    {
+                      "from": "SL-DEMO-205",
+                      "to": "粒度复核"
+                    },
+                    {
+                      "from": "SL-DEMO-206",
+                      "to": "灌装完成"
+                    }
+                  ],
+                  "onMissing": "Default"
+                },
+                "kind": "EnumMap"
+              }
+            }
+          }
+        ],
+        "children": [],
+        "events": [],
+        "height": 40,
+        "id": "current-stage",
+        "locked": false,
+        "name": "当前工序",
+        "props": {
+          "align": "left",
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#28515c",
+            "borderWidth": 0,
+            "color": "#e2f6f0",
+            "fontSizePx": 24,
+            "paddingPx": 0
+          },
+          "text": "—",
+          "wrap": true
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Text",
+        "visible": true,
+        "width": 830,
+        "x": 1030,
+        "y": 345,
+        "zIndex": 1
+      },
+      {
+        "bindings": [
+          {
+            "property": "rows",
+            "source": {
+              "from": "PageParam",
+              "nullPolicy": "Null",
+              "path": ["batchNo"],
+              "transform": {
+                "args": {
+                  "defaultValue": [],
+                  "entries": [
+                    {
+                      "from": "SL-DEMO-201",
+                      "to": [
+                        {
+                          "key": "1",
+                          "label": "原料核对",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "2",
+                          "label": "磨粒分散",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "3",
+                          "label": "精密过滤",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "4",
+                          "label": "取样检验",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "5",
+                          "label": "成品灌装",
+                          "state": "已完成"
+                        }
+                      ]
+                    },
+                    {
+                      "from": "SL-DEMO-202",
+                      "to": [
+                        {
+                          "key": "1",
+                          "label": "原料核对",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "2",
+                          "label": "磨粒分散",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "3",
+                          "label": "精密过滤",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "4",
+                          "label": "取样检验",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "5",
+                          "label": "成品灌装",
+                          "state": "已完成"
+                        }
+                      ]
+                    },
+                    {
+                      "from": "SL-DEMO-203",
+                      "to": [
+                        {
+                          "key": "1",
+                          "label": "原料核对",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "2",
+                          "label": "磨粒分散",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "3",
+                          "label": "精密过滤",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "4",
+                          "label": "取样检验",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "5",
+                          "label": "成品灌装",
+                          "state": "已完成"
+                        }
+                      ]
+                    },
+                    {
+                      "from": "SL-DEMO-204",
+                      "to": [
+                        {
+                          "key": "1",
+                          "label": "原料核对",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "2",
+                          "label": "磨粒分散",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "3",
+                          "label": "精密过滤",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "4",
+                          "label": "取样检验",
+                          "state": "进行中"
+                        },
+                        {
+                          "key": "5",
+                          "label": "成品灌装",
+                          "state": "待执行"
+                        }
+                      ]
+                    },
+                    {
+                      "from": "SL-DEMO-205",
+                      "to": [
+                        {
+                          "key": "1",
+                          "label": "原料核对",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "2",
+                          "label": "磨粒分散",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "3",
+                          "label": "精密过滤",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "4",
+                          "label": "取样检验",
+                          "state": "进行中"
+                        },
+                        {
+                          "key": "5",
+                          "label": "成品灌装",
+                          "state": "待执行"
+                        }
+                      ]
+                    },
+                    {
+                      "from": "SL-DEMO-206",
+                      "to": [
+                        {
+                          "key": "1",
+                          "label": "原料核对",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "2",
+                          "label": "磨粒分散",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "3",
+                          "label": "精密过滤",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "4",
+                          "label": "取样检验",
+                          "state": "已完成"
+                        },
+                        {
+                          "key": "5",
+                          "label": "成品灌装",
+                          "state": "已完成"
+                        }
+                      ]
+                    }
+                  ],
+                  "onMissing": "Default"
+                },
+                "kind": "EnumMap"
+              }
+            }
+          },
+          {
+            "property": "currentKey",
+            "source": {
+              "from": "PageParam",
+              "nullPolicy": "Null",
+              "path": ["batchNo"],
+              "transform": {
+                "args": {
+                  "defaultValue": null,
+                  "entries": [
+                    {
+                      "from": "SL-DEMO-201",
+                      "to": ""
+                    },
+                    {
+                      "from": "SL-DEMO-202",
+                      "to": ""
+                    },
+                    {
+                      "from": "SL-DEMO-203",
+                      "to": ""
+                    },
+                    {
+                      "from": "SL-DEMO-204",
+                      "to": "4"
+                    },
+                    {
+                      "from": "SL-DEMO-205",
+                      "to": "4"
+                    },
+                    {
+                      "from": "SL-DEMO-206",
+                      "to": ""
+                    }
+                  ],
+                  "onMissing": "Default"
+                },
+                "kind": "EnumMap"
+              }
+            }
+          }
+        ],
+        "children": [],
+        "events": [],
+        "height": 125,
+        "id": "process-steps",
+        "locked": false,
+        "name": "工序进度",
+        "props": {
+          "appearance": {
+            "background": "#102b33",
+            "borderColor": "#28515c",
+            "borderWidth": 1,
+            "color": "#e2f6f0",
+            "fontSizePx": 24,
+            "paddingPx": 18
+          },
+          "direction": "horizontal",
+          "keyField": "key",
+          "labelField": "label",
+          "stateField": "state"
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "ProcessSteps",
+        "visible": true,
+        "width": 1820,
+        "x": 40,
+        "y": 405,
+        "zIndex": 1
+      },
+      {
+        "bindings": [
+          {
+            "property": "value",
+            "source": {
+              "from": "PageParam",
+              "nullPolicy": "Null",
+              "path": ["batchNo"],
+              "transform": {
+                "args": {
+                  "defaultValue": null,
+                  "entries": [
+                    {
+                      "from": "SL-DEMO-201",
+                      "to": 100
+                    },
+                    {
+                      "from": "SL-DEMO-202",
+                      "to": 100
+                    },
+                    {
+                      "from": "SL-DEMO-203",
+                      "to": 100
+                    },
+                    {
+                      "from": "SL-DEMO-204",
+                      "to": 60
+                    },
+                    {
+                      "from": "SL-DEMO-205",
+                      "to": 60
+                    },
+                    {
+                      "from": "SL-DEMO-206",
+                      "to": 100
+                    }
+                  ],
+                  "onMissing": "Default"
+                },
+                "kind": "EnumMap"
+              }
+            }
+          }
+        ],
+        "children": [],
+        "events": [],
+        "height": 70,
+        "id": "progress",
+        "locked": false,
+        "name": "已完成工序比例",
+        "props": {
+          "appearance": {
+            "background": "#102b33",
+            "borderColor": "#28515c",
+            "borderWidth": 1,
+            "color": "#e2f6f0",
+            "fontSizePx": 24,
+            "paddingPx": 18
+          },
+          "max": 100,
+          "min": 0,
+          "orientation": "Horizontal",
+          "unit": "%"
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Progress",
+        "visible": true,
+        "width": 1180,
+        "x": 40,
+        "y": 550,
+        "zIndex": 1
+      },
+      {
+        "bindings": [
+          {
+            "property": "text",
+            "source": {
+              "from": "PageParam",
+              "nullPolicy": "Null",
+              "path": ["batchNo"],
+              "transform": {
+                "args": {
+                  "defaultValue": null,
+                  "entries": [
+                    {
+                      "from": "SL-DEMO-201",
+                      "to": "已放行，按授权出库流程处理"
+                    },
+                    {
+                      "from": "SL-DEMO-202",
+                      "to": "已放行，按授权出库流程处理"
+                    },
+                    {
+                      "from": "SL-DEMO-203",
+                      "to": "已放行，按授权出库流程处理"
+                    },
+                    {
+                      "from": "SL-DEMO-204",
+                      "to": "录入粒度、pH、固含量及大颗粒检验记录"
+                    },
+                    {
+                      "from": "SL-DEMO-205",
+                      "to": "复核D90、大颗粒计数与留样记录"
+                    },
+                    {
+                      "from": "SL-DEMO-206",
+                      "to": "已放行，按授权出库流程处理"
+                    }
+                  ],
+                  "onMissing": "Default"
+                },
+                "kind": "EnumMap"
+              }
+            }
+          }
+        ],
+        "children": [],
+        "events": [],
+        "height": 75,
+        "id": "next-action",
+        "locked": false,
+        "name": "下一步",
+        "props": {
+          "align": "left",
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#28515c",
+            "borderWidth": 0,
+            "color": "#e2f6f0",
+            "fontSizePx": 22,
+            "paddingPx": 0
+          },
+          "text": "—",
+          "wrap": true
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Text",
+        "visible": true,
+        "width": 600,
+        "x": 1260,
+        "y": 550,
+        "zIndex": 1
+      },
+      {
+        "bindings": [],
+        "children": [],
+        "events": [],
+        "height": 40,
+        "id": "execution-heading",
+        "locked": false,
+        "name": "02 工序执行记录（演示）",
+        "props": {
+          "align": "left",
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#28515c",
+            "borderWidth": 0,
+            "color": "#e2f6f0",
+            "fontSizePx": 26,
+            "paddingPx": 0
+          },
+          "text": "02 工序执行记录（演示）",
+          "wrap": true
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Text",
+        "visible": true,
+        "width": 1100,
+        "x": 40,
+        "y": 665,
+        "zIndex": 1
+      },
+      {
+        "bindings": [],
+        "children": [],
+        "events": [],
+        "height": 40,
+        "id": "quality-heading",
+        "locked": false,
+        "name": "03 粒度与理化检验（演示）",
+        "props": {
+          "align": "left",
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#28515c",
+            "borderWidth": 0,
+            "color": "#e2f6f0",
+            "fontSizePx": 26,
+            "paddingPx": 0
+          },
+          "text": "03 粒度与理化检验（演示）",
+          "wrap": true
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Text",
+        "visible": true,
+        "width": 600,
+        "x": 1260,
+        "y": 665,
+        "zIndex": 1
+      },
+      {
+        "bindings": [
+          {
+            "property": "rows",
+            "source": {
+              "from": "PageParam",
+              "nullPolicy": "Null",
+              "path": ["batchNo"],
+              "transform": {
+                "args": {
+                  "defaultValue": [],
+                  "entries": [
+                    {
+                      "from": "SL-DEMO-201",
+                      "to": [
+                        {
+                          "id": "step-1",
+                          "stage": "原料核对",
+                          "equipment": "RM-201",
+                          "status": "已完成",
+                          "start": "演示 08:00",
+                          "end": "演示 08:40",
+                          "remark": "原料与容器核对（演示）"
+                        },
+                        {
+                          "id": "step-2",
+                          "stage": "磨粒分散",
+                          "equipment": "DISP-201",
+                          "status": "已完成",
+                          "start": "演示 09:00",
+                          "end": "演示 09:40",
+                          "remark": "分散与配比记录（演示）"
+                        },
+                        {
+                          "id": "step-3",
+                          "stage": "精密过滤",
+                          "equipment": "FLT-201",
+                          "status": "已完成",
+                          "start": "演示 10:00",
+                          "end": "演示 10:40",
+                          "remark": "过滤与循环记录（演示）"
+                        },
+                        {
+                          "id": "step-4",
+                          "stage": "取样检验",
+                          "equipment": "LAB-201",
+                          "status": "已完成",
+                          "start": "演示 11:00",
+                          "end": "演示 11:40",
+                          "remark": "检验记录已完成（演示）"
+                        },
+                        {
+                          "id": "step-5",
+                          "stage": "成品灌装",
+                          "equipment": "FILL-201",
+                          "status": "已完成",
+                          "start": "演示 12:00",
+                          "end": "演示 12:40",
+                          "remark": "灌装记录已完成（演示）"
+                        }
+                      ]
+                    },
+                    {
+                      "from": "SL-DEMO-202",
+                      "to": [
+                        {
+                          "id": "step-1",
+                          "stage": "原料核对",
+                          "equipment": "RM-201",
+                          "status": "已完成",
+                          "start": "演示 08:00",
+                          "end": "演示 08:40",
+                          "remark": "原料与容器核对（演示）"
+                        },
+                        {
+                          "id": "step-2",
+                          "stage": "磨粒分散",
+                          "equipment": "DISP-201",
+                          "status": "已完成",
+                          "start": "演示 09:00",
+                          "end": "演示 09:40",
+                          "remark": "分散与配比记录（演示）"
+                        },
+                        {
+                          "id": "step-3",
+                          "stage": "精密过滤",
+                          "equipment": "FLT-201",
+                          "status": "已完成",
+                          "start": "演示 10:00",
+                          "end": "演示 10:40",
+                          "remark": "过滤与循环记录（演示）"
+                        },
+                        {
+                          "id": "step-4",
+                          "stage": "取样检验",
+                          "equipment": "LAB-201",
+                          "status": "已完成",
+                          "start": "演示 11:00",
+                          "end": "演示 11:40",
+                          "remark": "检验记录已完成（演示）"
+                        },
+                        {
+                          "id": "step-5",
+                          "stage": "成品灌装",
+                          "equipment": "FILL-202",
+                          "status": "已完成",
+                          "start": "演示 12:00",
+                          "end": "演示 12:40",
+                          "remark": "灌装记录已完成（演示）"
+                        }
+                      ]
+                    },
+                    {
+                      "from": "SL-DEMO-203",
+                      "to": [
+                        {
+                          "id": "step-1",
+                          "stage": "原料核对",
+                          "equipment": "RM-201",
+                          "status": "已完成",
+                          "start": "演示 08:00",
+                          "end": "演示 08:40",
+                          "remark": "原料与容器核对（演示）"
+                        },
+                        {
+                          "id": "step-2",
+                          "stage": "磨粒分散",
+                          "equipment": "DISP-201",
+                          "status": "已完成",
+                          "start": "演示 09:00",
+                          "end": "演示 09:40",
+                          "remark": "分散与配比记录（演示）"
+                        },
+                        {
+                          "id": "step-3",
+                          "stage": "精密过滤",
+                          "equipment": "FLT-201",
+                          "status": "已完成",
+                          "start": "演示 10:00",
+                          "end": "演示 10:40",
+                          "remark": "过滤与循环记录（演示）"
+                        },
+                        {
+                          "id": "step-4",
+                          "stage": "取样检验",
+                          "equipment": "LAB-201",
+                          "status": "已完成",
+                          "start": "演示 11:00",
+                          "end": "演示 11:40",
+                          "remark": "检验记录已完成（演示）"
+                        },
+                        {
+                          "id": "step-5",
+                          "stage": "成品灌装",
+                          "equipment": "FILL-201",
+                          "status": "已完成",
+                          "start": "演示 12:00",
+                          "end": "演示 12:40",
+                          "remark": "灌装记录已完成（演示）"
+                        }
+                      ]
+                    },
+                    {
+                      "from": "SL-DEMO-204",
+                      "to": [
+                        {
+                          "id": "step-1",
+                          "stage": "原料核对",
+                          "equipment": "RM-201",
+                          "status": "已完成",
+                          "start": "演示 08:00",
+                          "end": "演示 08:40",
+                          "remark": "原料与容器核对（演示）"
+                        },
+                        {
+                          "id": "step-2",
+                          "stage": "磨粒分散",
+                          "equipment": "DISP-201",
+                          "status": "已完成",
+                          "start": "演示 09:00",
+                          "end": "演示 09:40",
+                          "remark": "分散与配比记录（演示）"
+                        },
+                        {
+                          "id": "step-3",
+                          "stage": "精密过滤",
+                          "equipment": "FLT-201",
+                          "status": "已完成",
+                          "start": "演示 10:00",
+                          "end": "演示 10:40",
+                          "remark": "过滤与循环记录（演示）"
+                        },
+                        {
+                          "id": "step-4",
+                          "stage": "取样检验",
+                          "equipment": "LAB-201",
+                          "status": "进行中",
+                          "start": "演示 11:00",
+                          "end": "—",
+                          "remark": "录入粒度、pH、固含量及大颗粒检验记录"
+                        },
+                        {
+                          "id": "step-5",
+                          "stage": "成品灌装",
+                          "equipment": "FILL-201",
+                          "status": "待执行",
+                          "start": "—",
+                          "end": "—",
+                          "remark": "等待检验及授权放行"
+                        }
+                      ]
+                    },
+                    {
+                      "from": "SL-DEMO-205",
+                      "to": [
+                        {
+                          "id": "step-1",
+                          "stage": "原料核对",
+                          "equipment": "RM-201",
+                          "status": "已完成",
+                          "start": "演示 08:00",
+                          "end": "演示 08:40",
+                          "remark": "原料与容器核对（演示）"
+                        },
+                        {
+                          "id": "step-2",
+                          "stage": "磨粒分散",
+                          "equipment": "DISP-201",
+                          "status": "已完成",
+                          "start": "演示 09:00",
+                          "end": "演示 09:40",
+                          "remark": "分散与配比记录（演示）"
+                        },
+                        {
+                          "id": "step-3",
+                          "stage": "精密过滤",
+                          "equipment": "FLT-201",
+                          "status": "已完成",
+                          "start": "演示 10:00",
+                          "end": "演示 10:40",
+                          "remark": "过滤与循环记录（演示）"
+                        },
+                        {
+                          "id": "step-4",
+                          "stage": "取样检验",
+                          "equipment": "LAB-201",
+                          "status": "进行中",
+                          "start": "演示 11:00",
+                          "end": "—",
+                          "remark": "复核D90、大颗粒计数与留样记录"
+                        },
+                        {
+                          "id": "step-5",
+                          "stage": "成品灌装",
+                          "equipment": "FILL-201",
+                          "status": "待执行",
+                          "start": "—",
+                          "end": "—",
+                          "remark": "等待检验及授权放行"
+                        }
+                      ]
+                    },
+                    {
+                      "from": "SL-DEMO-206",
+                      "to": [
+                        {
+                          "id": "step-1",
+                          "stage": "原料核对",
+                          "equipment": "RM-201",
+                          "status": "已完成",
+                          "start": "演示 08:00",
+                          "end": "演示 08:40",
+                          "remark": "原料与容器核对（演示）"
+                        },
+                        {
+                          "id": "step-2",
+                          "stage": "磨粒分散",
+                          "equipment": "DISP-201",
+                          "status": "已完成",
+                          "start": "演示 09:00",
+                          "end": "演示 09:40",
+                          "remark": "分散与配比记录（演示）"
+                        },
+                        {
+                          "id": "step-3",
+                          "stage": "精密过滤",
+                          "equipment": "FLT-201",
+                          "status": "已完成",
+                          "start": "演示 10:00",
+                          "end": "演示 10:40",
+                          "remark": "过滤与循环记录（演示）"
+                        },
+                        {
+                          "id": "step-4",
+                          "stage": "取样检验",
+                          "equipment": "LAB-201",
+                          "status": "已完成",
+                          "start": "演示 11:00",
+                          "end": "演示 11:40",
+                          "remark": "检验记录已完成（演示）"
+                        },
+                        {
+                          "id": "step-5",
+                          "stage": "成品灌装",
+                          "equipment": "FILL-203",
+                          "status": "已完成",
+                          "start": "演示 12:00",
+                          "end": "演示 12:40",
+                          "remark": "灌装记录已完成（演示）"
+                        }
+                      ]
+                    }
+                  ],
+                  "onMissing": "Default"
+                },
+                "kind": "EnumMap"
+              }
+            }
+          }
+        ],
+        "children": [],
+        "events": [],
+        "height": 280,
+        "id": "execution-records",
+        "locked": false,
+        "name": "工序执行记录",
+        "props": {
+          "appearance": {
+            "background": "#102b33",
+            "borderColor": "#28515c",
+            "borderWidth": 1,
+            "color": "#e2f6f0",
+            "fontSizePx": 17,
+            "paddingPx": 12
+          },
+          "columns": [
+            {
+              "field": "stage",
+              "label": "工序",
+              "widthPercent": 17
+            },
+            {
+              "field": "equipment",
+              "label": "设备",
+              "widthPercent": 17
+            },
+            {
+              "field": "status",
+              "label": "状态",
+              "widthPercent": 15
+            },
+            {
+              "field": "start",
+              "label": "开始",
+              "widthPercent": 15
+            },
+            {
+              "field": "end",
+              "label": "完成",
+              "widthPercent": 15
+            },
+            {
+              "field": "remark",
+              "label": "记录说明",
+              "widthPercent": 21
+            }
+          ],
+          "pageSeconds": 8,
+          "rowHeight": 34,
+          "rowKeyPath": ["id"],
+          "scrollMode": "None"
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Table",
+        "visible": true,
+        "width": 1180,
+        "x": 40,
+        "y": 725,
+        "zIndex": 1
+      },
+      {
+        "bindings": [
+          {
+            "property": "rows",
+            "source": {
+              "from": "PageParam",
+              "nullPolicy": "Null",
+              "path": ["batchNo"],
+              "transform": {
+                "args": {
+                  "defaultValue": [],
+                  "entries": [
+                    {
+                      "from": "SL-DEMO-201",
+                      "to": [
+                        {
+                          "item": "检验状态",
+                          "result": "已放行",
+                          "note": "按正式检验合同核验"
+                        },
+                        {
+                          "item": "磨粒类型",
+                          "result": "胶体二氧化硅",
+                          "note": "氧化物CMP（演示）"
+                        },
+                        {
+                          "item": "D50 / nm",
+                          "result": "65.2",
+                          "note": "合成示例，无判定限"
+                        },
+                        {
+                          "item": "D90 / nm",
+                          "result": "101.8",
+                          "note": "合成示例，无判定限"
+                        },
+                        {
+                          "item": "pH",
+                          "result": "10.1",
+                          "note": "合成示例，无判定限"
+                        },
+                        {
+                          "item": "固含量 / wt%",
+                          "result": "15.2",
+                          "note": "合成示例，无判定限"
+                        },
+                        {
+                          "item": "大颗粒 / 个·mL⁻¹",
+                          "result": "102",
+                          "note": "合成示例，无判定限"
+                        }
+                      ]
+                    },
+                    {
+                      "from": "SL-DEMO-202",
+                      "to": [
+                        {
+                          "item": "检验状态",
+                          "result": "已放行",
+                          "note": "按正式检验合同核验"
+                        },
+                        {
+                          "item": "磨粒类型",
+                          "result": "胶体二氧化硅",
+                          "note": "铜CMP（演示）"
+                        },
+                        {
+                          "item": "D50 / nm",
+                          "result": "58.4",
+                          "note": "合成示例，无判定限"
+                        },
+                        {
+                          "item": "D90 / nm",
+                          "result": "90.6",
+                          "note": "合成示例，无判定限"
+                        },
+                        {
+                          "item": "pH",
+                          "result": "8.2",
+                          "note": "合成示例，无判定限"
+                        },
+                        {
+                          "item": "固含量 / wt%",
+                          "result": "7.8",
+                          "note": "合成示例，无判定限"
+                        },
+                        {
+                          "item": "大颗粒 / 个·mL⁻¹",
+                          "result": "88",
+                          "note": "合成示例，无判定限"
+                        }
+                      ]
+                    },
+                    {
+                      "from": "SL-DEMO-203",
+                      "to": [
+                        {
+                          "item": "检验状态",
+                          "result": "已放行",
+                          "note": "按正式检验合同核验"
+                        },
+                        {
+                          "item": "磨粒类型",
+                          "result": "氧化铈",
+                          "note": "氧化物CMP（演示）"
+                        },
+                        {
+                          "item": "D50 / nm",
+                          "result": "112.0",
+                          "note": "合成示例，无判定限"
+                        },
+                        {
+                          "item": "D90 / nm",
+                          "result": "169.5",
+                          "note": "合成示例，无判定限"
+                        },
+                        {
+                          "item": "pH",
+                          "result": "6.8",
+                          "note": "合成示例，无判定限"
+                        },
+                        {
+                          "item": "固含量 / wt%",
+                          "result": "2.5",
+                          "note": "合成示例，无判定限"
+                        },
+                        {
+                          "item": "大颗粒 / 个·mL⁻¹",
+                          "result": "135",
+                          "note": "合成示例，无判定限"
+                        }
+                      ]
+                    },
+                    {
+                      "from": "SL-DEMO-204",
+                      "to": [
+                        {
+                          "item": "检验状态",
+                          "result": "待检",
+                          "note": "按正式检验合同核验"
+                        },
+                        {
+                          "item": "磨粒类型",
+                          "result": "胶体二氧化硅",
+                          "note": "铜CMP（演示）"
+                        },
+                        {
+                          "item": "D50 / nm",
+                          "result": "待检",
+                          "note": "等待检验录入"
+                        },
+                        {
+                          "item": "D90 / nm",
+                          "result": "待检",
+                          "note": "等待检验录入"
+                        },
+                        {
+                          "item": "pH",
+                          "result": "待检",
+                          "note": "等待检验录入"
+                        },
+                        {
+                          "item": "固含量 / wt%",
+                          "result": "待检",
+                          "note": "等待检验录入"
+                        },
+                        {
+                          "item": "大颗粒 / 个·mL⁻¹",
+                          "result": "待检",
+                          "note": "等待检验录入"
+                        }
+                      ]
+                    },
+                    {
+                      "from": "SL-DEMO-205",
+                      "to": [
+                        {
+                          "item": "检验状态",
+                          "result": "复核中",
+                          "note": "按正式检验合同核验"
+                        },
+                        {
+                          "item": "磨粒类型",
+                          "result": "胶体二氧化硅",
+                          "note": "阻挡层CMP（演示）"
+                        },
+                        {
+                          "item": "D50 / nm",
+                          "result": "83.6",
+                          "note": "合成示例，无判定限"
+                        },
+                        {
+                          "item": "D90 / nm",
+                          "result": "131.2",
+                          "note": "复核留样与分布记录"
+                        },
+                        {
+                          "item": "pH",
+                          "result": "9.2",
+                          "note": "合成示例，无判定限"
+                        },
+                        {
+                          "item": "固含量 / wt%",
+                          "result": "12.4",
+                          "note": "合成示例，无判定限"
+                        },
+                        {
+                          "item": "大颗粒 / 个·mL⁻¹",
+                          "result": "288",
+                          "note": "复核留样与分布记录"
+                        }
+                      ]
+                    },
+                    {
+                      "from": "SL-DEMO-206",
+                      "to": [
+                        {
+                          "item": "检验状态",
+                          "result": "已放行",
+                          "note": "按正式检验合同核验"
+                        },
+                        {
+                          "item": "磨粒类型",
+                          "result": "胶体二氧化硅",
+                          "note": "氧化物CMP（演示）"
+                        },
+                        {
+                          "item": "D50 / nm",
+                          "result": "68.1",
+                          "note": "合成示例，无判定限"
+                        },
+                        {
+                          "item": "D90 / nm",
+                          "result": "104.2",
+                          "note": "合成示例，无判定限"
+                        },
+                        {
+                          "item": "pH",
+                          "result": "9.9",
+                          "note": "合成示例，无判定限"
+                        },
+                        {
+                          "item": "固含量 / wt%",
+                          "result": "14.8",
+                          "note": "合成示例，无判定限"
+                        },
+                        {
+                          "item": "大颗粒 / 个·mL⁻¹",
+                          "result": "96",
+                          "note": "合成示例，无判定限"
+                        }
+                      ]
+                    }
+                  ],
+                  "onMissing": "Default"
+                },
+                "kind": "EnumMap"
+              }
+            }
+          }
+        ],
+        "children": [],
+        "events": [],
+        "height": 280,
+        "id": "quality-records",
+        "locked": false,
+        "name": "质量与处理事项",
+        "props": {
+          "appearance": {
+            "background": "#102b33",
+            "borderColor": "#28515c",
+            "borderWidth": 1,
+            "color": "#e2f6f0",
+            "fontSizePx": 17,
+            "paddingPx": 12
+          },
+          "columns": [
+            {
+              "field": "item",
+              "label": "项目",
+              "widthPercent": 36
+            },
+            {
+              "field": "result",
+              "label": "结果",
+              "widthPercent": 24
+            },
+            {
+              "field": "note",
+              "label": "说明",
+              "widthPercent": 40
+            }
+          ],
+          "pageSeconds": 8,
+          "rowHeight": 28,
+          "rowKeyPath": ["item"],
+          "scrollMode": "None"
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Table",
+        "visible": true,
+        "width": 600,
+        "x": 1260,
+        "y": 725,
+        "zIndex": 1
+      },
+      {
+        "bindings": [],
+        "children": [],
+        "events": [],
+        "height": 35,
+        "id": "footer",
+        "locked": false,
+        "name": "演示数据 | batchNo仅选择合成批次；粒度、pH、固含量及检验状态均为示例，不含真实配方或生产判定限。",
+        "props": {
+          "align": "left",
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#28515c",
+            "borderWidth": 0,
+            "color": "#e2f6f0",
+            "fontSizePx": 19,
+            "paddingPx": 0
+          },
+          "text": "演示数据 | batchNo仅选择合成批次；粒度、pH、固含量及检验状态均为示例，不含真实配方或生产判定限。",
+          "wrap": true
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Text",
+        "visible": true,
+        "width": 1820,
+        "x": 40,
+        "y": 1030,
+        "zIndex": 1
+      }
+    ],
+    "instances": [],
+    "navigation": [],
+    "parameters": [
+      {
+        "name": "batchNo",
+        "label": "批次编号",
+        "type": "String",
+        "source": "Caller",
+        "required": true,
+        "nullable": false,
+        "defaultValue": "SL-DEMO-205",
+        "enumValues": [
+          "SL-DEMO-201",
+          "SL-DEMO-202",
+          "SL-DEMO-203",
+          "SL-DEMO-204",
+          "SL-DEMO-205",
+          "SL-DEMO-206"
+        ]
+      }
+    ],
+    "schemaVersion": 1
+  }
+}

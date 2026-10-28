@@ -107,8 +107,36 @@ public sealed class UnifiedHostTests : IDisposable
         Assert.Contains(published.Nodes, node => node.RouteName == "studio-datasets");
         Assert.Contains(published.Nodes, node => node.RouteName == "studio-lowcode");
         Assert.Contains(published.Nodes, node => node.RouteName == "studio-ledger-models");
+        Assert.Contains(published.Nodes, node => node.RouteName == "studio-dashboards");
+        Assert.Contains(published.Nodes, node => node.RouteName == "studio-playlists");
         using var response = await client.GetAsync("/api/v1/studio/deployment/profile");
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Native_dashboard_only_activation_maps_protected_endpoints_and_withdraws_lowcode_navigation()
+    {
+        using var factory = CreateFactory(disableStudio: false).WithWebHostBuilder(builder => builder
+            .UseSetting("PlatformStudio:EnabledModules:0", "Dashboard")
+            .UseSetting("PlatformStudio:Files:Provider", "Disabled"));
+        using var client = factory.CreateClient();
+        using var scope = factory.Services.CreateScope();
+        var profile = scope.ServiceProvider.GetRequiredService<IndustrialPlatform.PlatformStudio.Domain.StudioDeploymentProfile>();
+        Assert.Equal("Dashboard", Assert.Single(profile.ActiveModules));
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IndustrialPlatform.PlatformStudio.Application.Dashboard.DashboardNavigation>());
+        var state = await scope.ServiceProvider.GetRequiredService<IndustrialPlatform.SystemData.Application.ControlPlane.IControlPlaneStore>().LoadAsync("development", CancellationToken.None);
+        var nodes = state.Snapshots.Last().Nodes;
+        Assert.Contains(nodes, node => node.RouteName == "studio-dashboards");
+        Assert.Contains(nodes, node => node.RouteName == "studio-playlists");
+        Assert.DoesNotContain(nodes, node => node.RouteName is "studio-lowcode" or "studio-ledger-models");
+        using var dashboard = await client.GetAsync("/api/v1/studio/dashboards/missing/runtime");
+        using var playlist = await client.GetAsync("/api/v1/studio/playlists/missing/runtime");
+        Assert.Equal(HttpStatusCode.Unauthorized, dashboard.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, playlist.StatusCode);
+        Assert.IsType<IndustrialPlatform.UnifiedHost.PlatformStudioIdentity>(scope.ServiceProvider.GetRequiredService<IndustrialPlatform.PlatformStudio.Application.Dashboard.IStudioScreenIdentity>());
+        using var screen = await client.GetAsync("/api/v1/studio/screens/00000000-0000-0000-0000-000000000001/runtime");
+        Assert.Equal(HttpStatusCode.NotFound, screen.StatusCode);
+        Assert.True(screen.Headers.CacheControl!.NoStore);
     }
 
     [Fact]

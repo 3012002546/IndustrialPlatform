@@ -1,4 +1,7 @@
 using IndustrialPlatform.Identity.Application.Management;
+using IndustrialPlatform.Identity.Application.Authorization;
+using IndustrialPlatform.Identity.Domain.Permissions;
+using IndustrialPlatform.Identity.Domain.UserGroups;
 using IndustrialPlatform.Identity.Domain.Identities;
 using IndustrialPlatform.Identity.Domain.Users;
 using IndustrialPlatform.Identity.Infrastructure.Outbox;
@@ -22,6 +25,35 @@ public sealed class UserRepository : IUserRepository
     {
         ArgumentNullException.ThrowIfNull(dbContext);
         _dbContext = dbContext;
+    }
+
+    /// <summary>按需投影权威授权事实；不载入用户聚合、不缓存角色或权限。</summary>
+    internal async Task<AuthorizationSnapshot?> GetAuthorizationSnapshotAsync(string tenantNId, string userNId, CancellationToken ct)
+    {
+        var normalized = NId.Create(userNId).Normalized;
+        var user = await _dbContext.SqlSugar.Queryable<UserTable>()
+            .Where(u => u.NormalizedNId == normalized && u.TenantNId == tenantNId && !u.IsDeleted)
+            .Select(u => new { u.Id, u.NId, u.TenantNId, u.Status, u.AuthVersion }).FirstAsync(ct);
+        if (user is null) return null;
+        // EXISTS合并直接/组继承角色；LEFT JOIN保留没有权限的有效角色（含工厂范围角色）。
+        var facts = await _dbContext.SqlSugar.Queryable<RoleTable>()
+            .LeftJoin<RolePermissionTable>((r, rp) => rp.RoleId == r.Id && !rp.IsDeleted && !rp.RoleIsDeleted)
+            .LeftJoin<PermissionTable>((r, rp, p) => p.Id == rp.PermissionId && !p.IsDeleted && p.Status == PermissionStatus.Active)
+            .Where((r, rp, p) => r.TenantNId == tenantNId && !r.IsDeleted &&
+                (SqlFunc.Subqueryable<UserRoleTable>().Where(ur => ur.UserId == user.Id && ur.RoleId == r.Id && !ur.IsDeleted && !ur.UserIsDeleted).Any()
+                 || SqlFunc.Subqueryable<UserGroupMembershipTable>()
+                    .InnerJoin<UserGroupTable>((m, g) => m.UserGroupId == g.Id && g.TenantNId == tenantNId && !g.IsDeleted && g.Status == UserGroupStatus.Active)
+                    .InnerJoin<UserGroupRoleTable>((m, g, gr) => gr.UserGroupId == m.UserGroupId && gr.RoleId == r.Id && !gr.IsDeleted && !gr.UserGroupIsDeleted && !gr.RoleIsDeleted)
+                    .Where((m, g, gr) => m.UserId == user.Id && m.TenantNId == tenantNId && !m.IsDeleted && !m.UserIsDeleted && !m.UserGroupIsDeleted).Any()))
+            .Select((r, rp, p) => new { RoleNId = r.NId, r.IsSystem, PermissionNId = p.NId })
+            .ToListAsync(ct);
+        return new(user.TenantNId, user.NId, user.Status, user.AuthVersion,
+            facts.Select(f => f.PermissionNId).Where(p => !string.IsNullOrEmpty(p) && !AuthorizationPermissionPolicy.IsProtectedInitializationPermission(p))
+                .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray(),
+            facts.Any(f => f.IsSystem && f.RoleNId.Equals("SYSTEM_ADMIN", StringComparison.OrdinalIgnoreCase)))
+        {
+            RoleNIds = facts.Select(f => f.RoleNId).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray(),
+        };
     }
 
     /// <inheritdoc/>

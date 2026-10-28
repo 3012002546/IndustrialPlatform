@@ -50,13 +50,13 @@ public sealed class DatasetExecution(IStudioResourceStore store, StudioPublishin
         if (StudioJson.Text(document["sourceNId"]) != request.SourceNId || StudioJson.Text(document["sourceConfigurationVersion"]) != request.SourceConfigurationVersion) throw new StudioException("SOURCE_CHANGED", "试查来源与文档合同不一致。", 409);
         return await ExecuteDocumentAsync(principal, "draft", document, request.Parameters ?? new(), true, null, null, cancellationToken);
     }
-    public async Task<JsonObject> ExecuteAsync(StudioPrincipal principal, string nId, DatasetExecute request, CancellationToken cancellationToken)
+    public async Task<JsonObject> ExecuteAsync(StudioPrincipal principal, string nId, DatasetExecute request, CancellationToken cancellationToken, bool bypassCache = false)
     {
         var (resource, revision) = await publishing.RequireRuntimeAsync(principal, nId, request.RevisionNId, cancellationToken);
         if (resource.Kind != "Dataset") throw new StudioException("STUDIO_NOT_FOUND", "数据集不存在。", 404);
-        return await ExecuteDocumentAsync(principal, revision.NId, StudioPublishing.Parse(revision.DocumentJson), request.Parameters ?? new(), false, request.Page, request.PageSize, cancellationToken);
+        return await ExecuteDocumentAsync(principal, revision.NId, StudioPublishing.Parse(revision.DocumentJson), request.Parameters ?? new(), false, request.Page, request.PageSize, cancellationToken, bypassCache);
     }
-    public async Task<JsonObject> ExecuteDocumentAsync(StudioPrincipal principal, string revisionNId, JsonObject document, JsonObject supplied, bool preview, int? page, int? pageSize, CancellationToken cancellationToken)
+    public async Task<JsonObject> ExecuteDocumentAsync(StudioPrincipal principal, string revisionNId, JsonObject document, JsonObject supplied, bool preview, int? page, int? pageSize, CancellationToken cancellationToken, bool bypassCache = false)
     {
         var diagnostics = StudioDocuments.Validate("Dataset", document);
         if (diagnostics.FirstOrDefault(item => item.Severity == "Error") is { } error) throw new StudioException(error.Code, error.Message, path: error.Path);
@@ -103,7 +103,7 @@ public sealed class DatasetExecution(IStudioResourceStore store, StudioPublishin
         if (!preview && seconds > 0) publishing.ValidateSourceConfiguration(source);
         var fingerprint = StudioJson.Hash(principal.TenantNId + "|" + principal.SubjectNId + "|" + principal.AuthVersion + "|" + principal.PolicyVersion + "|" + string.Join('|', principal.Permissions.Order(StringComparer.Ordinal)) + "|" + string.Join('|', principal.Roles.Order(StringComparer.Ordinal)) + "|" + string.Join('|', principal.FactoryNIds.Order(StringComparer.Ordinal)));
         var key = fingerprint + "/" + revisionNId + "/" + source.EndpointConfigurationHash + "/" + StudioJson.Hash(StudioJson.Canonicalize(document)) + "/" + StudioJson.Hash(StudioJson.Canonicalize(parameters));
-        if (!preview && seconds > 0 && cache.Get(key, clock.GetUtcNow()) is { } cached) { cached["requestId"] = "request-" + Guid.NewGuid().ToString("N"); return cached; }
+        if (!preview && !bypassCache && seconds > 0 && cache.Get(key, clock.GetUtcNow()) is { } cached) { cached["requestId"] = "request-" + Guid.NewGuid().ToString("N"); return cached; }
         var query = document["query"]!.AsObject();
         var resolved = MapQuery(query, parameters, principal);
         var result = await executor.ExecuteAsync(principal, source, document, resolved, preview, cancellationToken);
@@ -138,7 +138,7 @@ public sealed class DatasetExecution(IStudioResourceStore store, StudioPublishin
         };
         if (pageInfo is not null) outputResult["pageInfo"] = pageInfo;
         if (preview) outputResult["diagnostics"] = new JsonObject { ["resolvedParameters"] = resolved.DeepClone(), ["preview"] = true, ["maxSampleRows"] = 100 };
-        if (!preview && seconds > 0) cache.Put(key, outputResult, clock.GetUtcNow().AddSeconds(seconds));
+        if (!preview && !bypassCache && seconds > 0) cache.Put(key, outputResult, clock.GetUtcNow().AddSeconds(seconds));
         return outputResult;
     }
     private static JsonObject MapQuery(JsonObject query, JsonObject parameters, StudioPrincipal principal)

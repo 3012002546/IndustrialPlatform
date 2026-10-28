@@ -62,4 +62,12 @@ public sealed class StudioFoundationTests
     [InlineData("prototype")]
     public void Binding_rejects_unsafe_paths(string segment) =>
         Assert.Throws<StudioException>(() => StudioJson.ReadPath(JsonNode.Parse("{}"), segment));
+
+    [Fact]
+    public void ReadPath_supports_numeric_segments_for_array_results()
+    {
+        var result = StudioJson.ReadPath(JsonNode.Parse("[{\"source_time\":\"2026-10-22T00:00:00Z\"}]"), "0.source_time");
+
+        Assert.Equal("2026-10-22T00:00:00Z", StudioJson.Text(result));
+    }
 }

@@ -8,7 +8,7 @@ import 'vxe-table/lib/style.css'
 import '@/styles/tokens.css'
 import '@/styles/base.css'
 import StudioApp from './StudioApp.vue'
-import { studioRoutes } from '@/router/studioRoutes'
+import { studioRoutes, studioScreenRoutes } from '@/router/studioRoutes'
 import { createHttpClient } from '@/api/httpClient'
 import { createStudioApi, registerStudioApi } from '@/api/studio'
 import { studioCookieClient } from './studioSession'
@@ -29,9 +29,10 @@ export function createStudioApp() {
   const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
     routes: [
-      { path: '/', redirect: '/pc/studio/low-code' },
+      ...studioScreenRoutes,
+      { path: '/', redirect: '/pc/studio/dashboards' },
       ...studioRoutes.map((route) => ({ ...route, path: '/pc/' + route.path })),
-      { path: '/:pathMatch(.*)*', redirect: '/pc/studio/low-code' },
+      { path: '/:pathMatch(.*)*', redirect: '/pc/studio/dashboards' },
     ],
   })
   app.use(router)

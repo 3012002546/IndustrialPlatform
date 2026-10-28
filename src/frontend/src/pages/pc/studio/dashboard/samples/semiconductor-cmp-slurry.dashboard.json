@@ -1,0 +1,1242 @@
+{
+  "format": "IndustrialPlatform.DashboardDesign",
+  "version": 1,
+  "name": "半导体研磨液 · 制造运营总览（演示）",
+  "exportedOn": "2026-10-28T00:00:00.000Z",
+  "document": {
+    "canvas": {
+      "background": "#081e25",
+      "fit": "Contain",
+      "height": 1080,
+      "width": 1920
+    },
+    "components": [
+      {
+        "bindings": [],
+        "children": [],
+        "events": [],
+        "height": 48,
+        "id": "brand",
+        "locked": false,
+        "name": "CMP SLURRY  /  半导体研磨液制造运营中心",
+        "props": {
+          "align": "left",
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#28515c",
+            "borderWidth": 0,
+            "color": "#e2f6f0",
+            "fontSizePx": 32,
+            "paddingPx": 0
+          },
+          "text": "CMP SLURRY  /  半导体研磨液制造运营中心",
+          "wrap": true
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Text",
+        "visible": true,
+        "width": 1400,
+        "x": 24,
+        "y": 20,
+        "zIndex": 0
+      },
+      {
+        "bindings": [],
+        "children": [],
+        "events": [],
+        "height": 28,
+        "id": "subtitle",
+        "locked": false,
+        "name": "DEMO CMP 01   ·   氧化物 / 铜 / 阻挡层研磨液   ·   制备 · 粒度 · 质量 · 设备",
+        "props": {
+          "align": "left",
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#28515c",
+            "borderWidth": 0,
+            "color": "#93abc5",
+            "fontSizePx": 16,
+            "paddingPx": 0
+          },
+          "text": "DEMO CMP 01   ·   氧化物 / 铜 / 阻挡层研磨液   ·   制备 · 粒度 · 质量 · 设备",
+          "wrap": true
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Text",
+        "visible": true,
+        "width": 1400,
+        "x": 26,
+        "y": 76,
+        "zIndex": 1
+      },
+      {
+        "bindings": [
+          {
+            "property": "shiftLabel",
+            "source": {
+              "from": "Instance",
+              "instanceId": "cmp-overview-data",
+              "nullPolicy": "Error",
+              "path": [
+                "shiftLabel"
+              ]
+            }
+          }
+        ],
+        "children": [],
+        "events": [],
+        "height": 88,
+        "id": "clock",
+        "locked": false,
+        "name": "当前时间 · 本地时区",
+        "props": {
+          "appearance": {
+            "background": "#153047",
+            "borderColor": "#28515c",
+            "fontSizePx": 24,
+            "paddingPx": 18
+          },
+          "pattern": "HH:mm:ss",
+          "showDate": true,
+          "timeZone": "Asia/Taipei"
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Clock",
+        "visible": true,
+        "width": 386,
+        "x": 1510,
+        "y": 20,
+        "zIndex": 2
+      },
+      {
+        "bindings": [
+          {
+            "property": "value",
+            "source": {
+              "from": "Instance",
+              "instanceId": "cmp-overview-data",
+              "nullPolicy": "Error",
+              "path": [
+                "metrics",
+                "output_value"
+              ]
+            }
+          }
+        ],
+        "children": [],
+        "events": [],
+        "height": 116,
+        "id": "output",
+        "locked": false,
+        "name": "本班配制量 / L",
+        "props": {
+          "animate": false,
+          "appearance": {
+            "background": "#102b33",
+            "borderColor": "#28515c",
+            "color": "#67e8c4",
+            "fontSizePx": 40,
+            "paddingPx": 18
+          },
+          "digits": 0,
+          "display": "2,480",
+          "prefix": "",
+          "suffix": "",
+          "unit": "本班配制量 / L"
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Number",
+        "visible": true,
+        "width": 444,
+        "x": 24,
+        "y": 126,
+        "zIndex": 3
+      },
+      {
+        "bindings": [
+          {
+            "property": "value",
+            "source": {
+              "from": "Instance",
+              "instanceId": "cmp-overview-data",
+              "nullPolicy": "Error",
+              "path": [
+                "metrics",
+                "fpy_value"
+              ]
+            }
+          }
+        ],
+        "children": [],
+        "events": [],
+        "height": 116,
+        "id": "fpy",
+        "locked": false,
+        "name": "本班批次放行率 / %",
+        "props": {
+          "animate": false,
+          "appearance": {
+            "background": "#102b33",
+            "borderColor": "#28515c",
+            "color": "#67e8c4",
+            "fontSizePx": 40,
+            "paddingPx": 18
+          },
+          "digits": 1,
+          "display": "66.7",
+          "prefix": "",
+          "suffix": "",
+          "unit": "本班批次放行率 / %"
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Number",
+        "visible": true,
+        "width": 444,
+        "x": 500,
+        "y": 126,
+        "zIndex": 4
+      },
+      {
+        "bindings": [
+          {
+            "property": "value",
+            "source": {
+              "from": "Instance",
+              "instanceId": "cmp-overview-data",
+              "nullPolicy": "Error",
+              "path": [
+                "metrics",
+                "wip_value"
+              ]
+            }
+          }
+        ],
+        "children": [],
+        "events": [],
+        "height": 116,
+        "id": "wip",
+        "locked": false,
+        "name": "本班批次 / 批",
+        "props": {
+          "animate": false,
+          "appearance": {
+            "background": "#102b33",
+            "borderColor": "#28515c",
+            "color": "#79aeff",
+            "fontSizePx": 40,
+            "paddingPx": 18
+          },
+          "digits": 0,
+          "display": "6",
+          "prefix": "",
+          "suffix": "",
+          "unit": "本班批次 / 批"
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Number",
+        "visible": true,
+        "width": 444,
+        "x": 976,
+        "y": 126,
+        "zIndex": 5
+      },
+      {
+        "bindings": [
+          {
+            "property": "value",
+            "source": {
+              "from": "Instance",
+              "instanceId": "cmp-overview-data",
+              "nullPolicy": "Error",
+              "path": [
+                "metrics",
+                "pending_value"
+              ]
+            }
+          }
+        ],
+        "children": [],
+        "events": [],
+        "height": 116,
+        "id": "pending",
+        "locked": false,
+        "name": "待处理检验事项 / 项",
+        "props": {
+          "animate": false,
+          "appearance": {
+            "background": "#102b33",
+            "borderColor": "#28515c",
+            "color": "#ffd082",
+            "fontSizePx": 40,
+            "paddingPx": 18
+          },
+          "digits": 0,
+          "display": "2",
+          "prefix": "",
+          "suffix": "",
+          "unit": "待处理检验事项 / 项"
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Number",
+        "visible": true,
+        "width": 444,
+        "x": 1452,
+        "y": 126,
+        "zIndex": 6
+      },
+      {
+        "bindings": [],
+        "children": [],
+        "events": [],
+        "height": 28,
+        "id": "process-label",
+        "locked": false,
+        "name": "01  磨粒分散与精密过滤",
+        "props": {
+          "align": "left",
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#28515c",
+            "borderWidth": 0,
+            "color": "#e2f6f0",
+            "fontSizePx": 20,
+            "paddingPx": 0
+          },
+          "text": "01  磨粒分散与精密过滤",
+          "wrap": true
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Text",
+        "visible": true,
+        "width": 612,
+        "x": 42,
+        "y": 264,
+        "zIndex": 7
+      },
+      {
+        "bindings": [
+          {
+            "property": "rows",
+            "source": {
+              "from": "Instance",
+              "instanceId": "cmp-overview-data",
+              "nullPolicy": "Error",
+              "path": [
+                "process",
+                "rows"
+              ]
+            }
+          },
+          {
+            "property": "currentKey",
+            "source": {
+              "from": "Instance",
+              "instanceId": "cmp-overview-data",
+              "nullPolicy": "Error",
+              "path": [
+                "process",
+                "currentKey"
+              ]
+            }
+          }
+        ],
+        "children": [],
+        "events": [],
+        "height": 102,
+        "id": "steps",
+        "locked": false,
+        "name": "研磨液制备步骤（演示）",
+        "props": {
+          "appearance": {
+            "background": "#102b33",
+            "borderColor": "#28515c",
+            "fontSizePx": 15,
+            "paddingPx": 18
+          },
+          "direction": "Horizontal",
+          "keyField": "key",
+          "labelField": "label",
+          "stateField": "state"
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "ProcessSteps",
+        "visible": true,
+        "width": 648,
+        "x": 24,
+        "y": 304,
+        "zIndex": 8
+      },
+      {
+        "bindings": [
+          {
+            "property": "level",
+            "source": {
+              "from": "Instance",
+              "instanceId": "cmp-overview-data",
+              "nullPolicy": "Error",
+              "path": [
+                "dispersionTank",
+                "level"
+              ]
+            }
+          },
+          {
+            "property": "temperature",
+            "source": {
+              "from": "Instance",
+              "instanceId": "cmp-overview-data",
+              "nullPolicy": "Error",
+              "path": [
+                "dispersionTank",
+                "temperature"
+              ]
+            }
+          },
+          {
+            "property": "state",
+            "source": {
+              "from": "Instance",
+              "instanceId": "cmp-overview-data",
+              "nullPolicy": "Error",
+              "path": [
+                "dispersionTank",
+                "state"
+              ]
+            }
+          }
+        ],
+        "children": [],
+        "events": [],
+        "height": 194,
+        "id": "blend-tank",
+        "locked": false,
+        "name": "DISP-201 分散罐",
+        "props": {
+          "appearance": {
+            "background": "#102b33",
+            "borderColor": "#28515c",
+            "paddingPx": 6
+          },
+          "label": "DISP-201 分散罐",
+          "max": 100,
+          "min": 0,
+          "shape": "vertical",
+          "unit": "%"
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Tank",
+        "visible": true,
+        "width": 232,
+        "x": 24,
+        "y": 422,
+        "zIndex": 9
+      },
+      {
+        "bindings": [
+          {
+            "property": "running",
+            "source": {
+              "from": "Instance",
+              "instanceId": "cmp-overview-data",
+              "nullPolicy": "Error",
+              "path": [
+                "loopPump",
+                "running"
+              ]
+            }
+          },
+          {
+            "property": "flow",
+            "source": {
+              "from": "Instance",
+              "instanceId": "cmp-overview-data",
+              "nullPolicy": "Error",
+              "path": [
+                "loopPump",
+                "flow"
+              ]
+            }
+          },
+          {
+            "property": "state",
+            "source": {
+              "from": "Instance",
+              "instanceId": "cmp-overview-data",
+              "nullPolicy": "Error",
+              "path": [
+                "loopPump",
+                "state"
+              ]
+            }
+          }
+        ],
+        "children": [],
+        "events": [],
+        "height": 194,
+        "id": "filter-pump",
+        "locked": false,
+        "name": "P-201 过滤循环泵",
+        "props": {
+          "appearance": {
+            "background": "#102b33",
+            "borderColor": "#28515c",
+            "paddingPx": 6
+          },
+          "flowUnit": "L/min",
+          "label": "P-201"
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Pump",
+        "visible": true,
+        "width": 160,
+        "x": 272,
+        "y": 422,
+        "zIndex": 10
+      },
+      {
+        "bindings": [
+          {
+            "property": "level",
+            "source": {
+              "from": "Instance",
+              "instanceId": "cmp-overview-data",
+              "nullPolicy": "Error",
+              "path": [
+                "standbyTank",
+                "level"
+              ],
+              "value": 0
+            }
+          },
+          {
+            "property": "temperature",
+            "source": {
+              "from": "Instance",
+              "instanceId": "cmp-overview-data",
+              "nullPolicy": "Error",
+              "path": [
+                "standbyTank",
+                "temperature"
+              ]
+            }
+          },
+          {
+            "property": "state",
+            "source": {
+              "from": "Instance",
+              "instanceId": "cmp-overview-data",
+              "nullPolicy": "Error",
+              "path": [
+                "standbyTank",
+                "state"
+              ]
+            }
+          }
+        ],
+        "children": [],
+        "events": [],
+        "height": 194,
+        "id": "standby-tank",
+        "locked": false,
+        "name": "HOLD-202 待用罐",
+        "props": {
+          "appearance": {
+            "background": "#102b33",
+            "borderColor": "#28515c",
+            "paddingPx": 6
+          },
+          "label": "HOLD-202 待用罐",
+          "max": 100,
+          "min": 0,
+          "shape": "vertical",
+          "unit": "%"
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Tank",
+        "visible": true,
+        "width": 224,
+        "x": 448,
+        "y": 422,
+        "zIndex": 11
+      },
+      {
+        "bindings": [],
+        "children": [],
+        "events": [],
+        "height": 28,
+        "id": "hourly-label",
+        "locked": false,
+        "name": "02  本班累计配制量 / L",
+        "props": {
+          "align": "left",
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#28515c",
+            "borderWidth": 0,
+            "color": "#e2f6f0",
+            "fontSizePx": 20,
+            "paddingPx": 0
+          },
+          "text": "02  本班累计配制量 / L",
+          "wrap": true
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Text",
+        "visible": true,
+        "width": 564,
+        "x": 714,
+        "y": 264,
+        "zIndex": 12
+      },
+      {
+        "bindings": [
+          {
+            "property": "rows",
+            "source": {
+              "from": "Instance",
+              "instanceId": "cmp-overview-data",
+              "nullPolicy": "Error",
+              "path": [
+                "production"
+              ]
+            }
+          }
+        ],
+        "children": [],
+        "events": [],
+        "height": 256,
+        "id": "production-chart",
+        "locked": false,
+        "name": "累计配制量（演示）",
+        "props": {
+          "appearance": {
+            "background": "#102b33",
+            "borderColor": "#28515c",
+            "paddingPx": 18
+          },
+          "categoryField": "time",
+          "kind": "Bar",
+          "legend": true,
+          "series": [
+            {
+              "name": "实际",
+              "valueField": "actual"
+            },
+            {
+              "name": "计划",
+              "valueField": "plan"
+            }
+          ],
+          "unit": "L"
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Chart",
+        "visible": true,
+        "width": 600,
+        "x": 696,
+        "y": 304,
+        "zIndex": 13
+      },
+      {
+        "bindings": [],
+        "children": [],
+        "events": [],
+        "height": 30,
+        "id": "output-note",
+        "locked": false,
+        "name": "实际 2,480 L   /   计划 2,800 L   /   达成率 88.6%",
+        "props": {
+          "align": "left",
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#28515c",
+            "borderWidth": 0,
+            "color": "#67e8c4",
+            "fontSizePx": 17,
+            "paddingPx": 0
+          },
+          "text": "实际 2,480 L   /   计划 2,800 L   /   达成率 88.6%",
+          "wrap": true
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Text",
+        "visible": true,
+        "width": 564,
+        "x": 714,
+        "y": 582,
+        "zIndex": 14
+      },
+      {
+        "bindings": [],
+        "children": [],
+        "events": [],
+        "height": 28,
+        "id": "quality-label",
+        "locked": false,
+        "name": "03  批次粒度与检验放行",
+        "props": {
+          "align": "left",
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#28515c",
+            "borderWidth": 0,
+            "color": "#e2f6f0",
+            "fontSizePx": 20,
+            "paddingPx": 0
+          },
+          "text": "03  批次粒度与检验放行",
+          "wrap": true
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Text",
+        "visible": true,
+        "width": 540,
+        "x": 1338,
+        "y": 264,
+        "zIndex": 15
+      },
+      {
+        "bindings": [
+          {
+            "property": "rows",
+            "source": {
+              "from": "Instance",
+              "instanceId": "cmp-overview-data",
+              "nullPolicy": "Error",
+              "path": [
+                "particleSize"
+              ]
+            }
+          }
+        ],
+        "children": [],
+        "events": [],
+        "height": 204,
+        "id": "qc-chart",
+        "locked": false,
+        "name": "已检测批次D50（演示 nm）",
+        "props": {
+          "appearance": {
+            "background": "#102b33",
+            "borderColor": "#28515c",
+            "paddingPx": 18
+          },
+          "categoryField": "batch",
+          "kind": "Line",
+          "legend": true,
+          "series": [
+            {
+              "name": "D50 / nm",
+              "valueField": "d50"
+            }
+          ],
+          "unit": "nm"
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Chart",
+        "visible": true,
+        "width": 576,
+        "x": 1320,
+        "y": 304,
+        "zIndex": 16
+      },
+      {
+        "bindings": [],
+        "children": [],
+        "events": [],
+        "height": 28,
+        "id": "qc-summary",
+        "locked": false,
+        "name": "D50 / D90 / pH / 固含量 / 大颗粒：按产品检验合同核验",
+        "props": {
+          "align": "left",
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#28515c",
+            "borderWidth": 0,
+            "color": "#93abc5",
+            "fontSizePx": 15,
+            "paddingPx": 0
+          },
+          "text": "D50 / D90 / pH / 固含量 / 大颗粒：按产品检验合同核验",
+          "wrap": true
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Text",
+        "visible": true,
+        "width": 536,
+        "x": 1340,
+        "y": 530,
+        "zIndex": 17
+      },
+      {
+        "bindings": [],
+        "children": [],
+        "events": [],
+        "height": 32,
+        "id": "qc-release",
+        "locked": false,
+        "name": "4 批已放行   ·   1 批待检   ·   1 批粒度复核中",
+        "props": {
+          "align": "left",
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#28515c",
+            "borderWidth": 0,
+            "color": "#ffd082",
+            "fontSizePx": 19,
+            "paddingPx": 0
+          },
+          "text": "4 批已放行   ·   1 批待检   ·   1 批粒度复核中",
+          "wrap": true
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Text",
+        "visible": true,
+        "width": 536,
+        "x": 1340,
+        "y": 574,
+        "zIndex": 18
+      },
+      {
+        "bindings": [],
+        "children": [],
+        "events": [],
+        "height": 28,
+        "id": "batches-label",
+        "locked": false,
+        "name": "04  本班批次与执行进度",
+        "props": {
+          "align": "left",
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#28515c",
+            "borderWidth": 0,
+            "color": "#e2f6f0",
+            "fontSizePx": 20,
+            "paddingPx": 0
+          },
+          "text": "04  本班批次与执行进度",
+          "wrap": true
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Text",
+        "visible": true,
+        "width": 1148,
+        "x": 42,
+        "y": 650,
+        "zIndex": 19
+      },
+      {
+        "bindings": [
+          {
+            "property": "rows",
+            "source": {
+              "from": "Instance",
+              "instanceId": "cmp-overview-data",
+              "nullPolicy": "Error",
+              "path": [
+                "batches"
+              ]
+            }
+          }
+        ],
+        "children": [],
+        "events": [],
+        "height": 296,
+        "id": "batch-table",
+        "locked": false,
+        "name": "研磨液批次（合成演示数据）",
+        "props": {
+          "appearance": {
+            "background": "#102b33",
+            "borderColor": "#28515c",
+            "paddingPx": 18
+          },
+          "columns": [
+            {
+              "field": "batch",
+              "label": "批次编号",
+              "widthPercent": 22
+            },
+            {
+              "field": "product",
+              "label": "研磨液产品",
+              "widthPercent": 18
+            },
+            {
+              "field": "stage",
+              "label": "当前工序",
+              "widthPercent": 17
+            },
+            {
+              "field": "equipment",
+              "label": "设备",
+              "widthPercent": 17
+            },
+            {
+              "field": "volume",
+              "label": "体积 / L",
+              "widthPercent": 11
+            },
+            {
+              "field": "quality",
+              "label": "检验状态",
+              "widthPercent": 15
+            }
+          ],
+          "pageSeconds": 10,
+          "presentation": "Table",
+          "rowKeyPath": [
+            "batch"
+          ],
+          "scrollMode": "Continuous",
+          "rowHeight": 44
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Table",
+        "visible": true,
+        "width": 1184,
+        "x": 24,
+        "y": 692,
+        "zIndex": 20
+      },
+      {
+        "bindings": [],
+        "children": [],
+        "events": [],
+        "height": 28,
+        "id": "actions-label",
+        "locked": false,
+        "name": "05  检验事项与设备提示",
+        "props": {
+          "align": "left",
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#28515c",
+            "borderWidth": 0,
+            "color": "#e2f6f0",
+            "fontSizePx": 20,
+            "paddingPx": 0
+          },
+          "text": "05  检验事项与设备提示",
+          "wrap": true
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Text",
+        "visible": true,
+        "width": 628,
+        "x": 1250,
+        "y": 650,
+        "zIndex": 21
+      },
+      {
+        "bindings": [
+          {
+            "property": "rows",
+            "source": {
+              "from": "Instance",
+              "instanceId": "cmp-overview-data",
+              "nullPolicy": "Error",
+              "path": [
+                "actions"
+              ]
+            }
+          }
+        ],
+        "children": [],
+        "events": [],
+        "height": 296,
+        "id": "actions-table",
+        "locked": false,
+        "name": "研磨液检验与设备事项",
+        "props": {
+          "appearance": {
+            "background": "#102b33",
+            "borderColor": "#28515c",
+            "paddingPx": 18
+          },
+          "columns": [
+            {
+              "field": "type",
+              "label": "分类",
+              "widthPercent": 18
+            },
+            {
+              "field": "object",
+              "label": "对象",
+              "widthPercent": 25
+            },
+            {
+              "field": "action",
+              "label": "下一步",
+              "widthPercent": 57
+            }
+          ],
+          "pageSeconds": 8,
+          "presentation": "Table",
+          "rowKeyPath": [
+            "id"
+          ],
+          "scrollMode": "None",
+          "rowHeight": 36
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Table",
+        "visible": true,
+        "width": 664,
+        "x": 1232,
+        "y": 692,
+        "zIndex": 22
+      },
+      {
+        "bindings": [],
+        "children": [],
+        "events": [],
+        "height": 34,
+        "id": "demo-note",
+        "locked": false,
+        "name": "演示快照 | 批次、粒度、pH、固含量及设备数值均为合成样例；不含真实配方，不作为生产判定或放行标准。",
+        "props": {
+          "align": "left",
+          "appearance": {
+            "background": "transparent",
+            "borderColor": "#28515c",
+            "borderWidth": 0,
+            "color": "#ffd082",
+            "fontSizePx": 16,
+            "paddingPx": 0
+          },
+          "text": "演示快照 | 批次、粒度、pH、固含量及设备数值均为合成样例；不含真实配方，不作为生产判定或放行标准。",
+          "wrap": true
+        },
+        "registryVersion": "1",
+        "rotation": 0,
+        "type": "Text",
+        "visible": true,
+        "width": 1870,
+        "x": 26,
+        "y": 1022,
+        "zIndex": 23
+      }
+    ],
+    "instances": [
+      {
+        "instanceId": "cmp-overview-data",
+        "label": "研磨液总览 · 页面共享数据（常量演示）",
+        "sourceType": "Constant",
+        "refreshSeconds": 0,
+        "value": {
+          "shiftLabel": "演示班次 A  ·  08:00—20:00",
+          "metrics": {
+            "output_value": 2480,
+            "fpy_value": 66.7,
+            "wip_value": 6,
+            "pending_value": 2
+          },
+          "process": {
+            "currentKey": "3",
+            "rows": [
+              {
+                "key": "1",
+                "label": "原料核对",
+                "state": "已完成"
+              },
+              {
+                "key": "2",
+                "label": "磨粒分散",
+                "state": "已完成"
+              },
+              {
+                "key": "3",
+                "label": "精密过滤",
+                "state": "进行中"
+              },
+              {
+                "key": "4",
+                "label": "取样检验",
+                "state": "待执行"
+              },
+              {
+                "key": "5",
+                "label": "成品灌装",
+                "state": "待执行"
+              }
+            ]
+          },
+          "dispersionTank": {
+            "level": 72.6,
+            "temperature": 23.3,
+            "state": "Running"
+          },
+          "loopPump": {
+            "flow": 18.4,
+            "running": true,
+            "state": "Running"
+          },
+          "standbyTank": {
+            "level": 0,
+            "state": "Stopped",
+            "temperature": 23.1
+          },
+          "production": [
+            {
+              "time": "08:00",
+              "actual": 180,
+              "plan": 200
+            },
+            {
+              "time": "10:00",
+              "actual": 620,
+              "plan": 650
+            },
+            {
+              "time": "12:00",
+              "actual": 1030,
+              "plan": 1150
+            },
+            {
+              "time": "14:00",
+              "actual": 1480,
+              "plan": 1700
+            },
+            {
+              "time": "16:00",
+              "actual": 2020,
+              "plan": 2250
+            },
+            {
+              "time": "18:00",
+              "actual": 2480,
+              "plan": 2800
+            }
+          ],
+          "particleSize": [
+            {
+              "batch": "201",
+              "d50": 65.2
+            },
+            {
+              "batch": "202",
+              "d50": 58.4
+            },
+            {
+              "batch": "203",
+              "d50": 112.0
+            },
+            {
+              "batch": "205",
+              "d50": 83.6
+            },
+            {
+              "batch": "206",
+              "d50": 68.1
+            }
+          ],
+          "batches": [
+            {
+              "batch": "SL-DEMO-201",
+              "product": "CMP-OX01",
+              "stage": "灌装完成",
+              "equipment": "FILL-201",
+              "volume": 360,
+              "quality": "已放行"
+            },
+            {
+              "batch": "SL-DEMO-202",
+              "product": "CMP-CU01",
+              "stage": "灌装完成",
+              "equipment": "FILL-202",
+              "volume": 420,
+              "quality": "已放行"
+            },
+            {
+              "batch": "SL-DEMO-203",
+              "product": "CMP-OX02",
+              "stage": "灌装完成",
+              "equipment": "FILL-201",
+              "volume": 480,
+              "quality": "已放行"
+            },
+            {
+              "batch": "SL-DEMO-204",
+              "product": "CMP-CU02",
+              "stage": "取样检验",
+              "equipment": "LAB-201",
+              "volume": 380,
+              "quality": "待检"
+            },
+            {
+              "batch": "SL-DEMO-205",
+              "product": "CMP-BAR01",
+              "stage": "粒度复核",
+              "equipment": "HOLD-201",
+              "volume": 440,
+              "quality": "复核中"
+            },
+            {
+              "batch": "SL-DEMO-206",
+              "product": "CMP-OX03",
+              "stage": "灌装完成",
+              "equipment": "FILL-203",
+              "volume": 400,
+              "quality": "已放行"
+            }
+          ],
+          "actions": [
+            {
+              "id": "q1",
+              "type": "粒度复核",
+              "object": "SL-DEMO-205",
+              "action": "复核D90、大颗粒及留样记录"
+            },
+            {
+              "id": "q2",
+              "type": "待检",
+              "object": "SL-DEMO-204",
+              "action": "录入粒度、pH及固含量结果"
+            },
+            {
+              "id": "q3",
+              "type": "保养提醒",
+              "object": "FLT-201",
+              "action": "核对滤芯与循环清洗记录"
+            },
+            {
+              "id": "q4",
+              "type": "待用",
+              "object": "HOLD-202",
+              "action": "空罐，液位真实显示0%"
+            }
+          ]
+        }
+      }
+    ],
+    "navigation": [],
+    "parameters": [],
+    "schemaVersion": 1
+  }
+}

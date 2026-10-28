@@ -6,8 +6,13 @@
 
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { nextTick } from 'vue'
+import { Connection, DataAnalysis, Monitor, VideoPlay } from '@element-plus/icons-vue'
+import {
+  replacePcNavigationGroups,
+  resetPcNavigationGroups,
+} from '@/components/navigation/navigation'
 
 import PcWorkspaceTabs from '@/components/shell/PcWorkspaceTabs.vue'
 import { useWorkspaceTabsStore } from '@/stores/workspaceTabsStore'
@@ -29,7 +34,9 @@ describe('PcWorkspaceTabs', () => {
     pinia = createPinia()
     setActivePinia(pinia)
     localStorage.clear()
+    resetPcNavigationGroups()
   })
+  afterEach(resetPcNavigationGroups)
 
   function mountWithTabs(slots: number[]): ReturnType<typeof mount> {
     const tabsStore = useWorkspaceTabsStore()
@@ -37,6 +44,65 @@ describe('PcWorkspaceTabs', () => {
     for (const slot of slots) tabsStore.requestOpen(sandboxCandidate(slot))
     return mount(PcWorkspaceTabs, { global: { plugins: [pinia] } })
   }
+
+  it('uses sidebar icons for existing tabs and follows published nested-menu icon changes', async () => {
+    const tabsStore = useWorkspaceTabsStore()
+    tabsStore.bindUser({ tenantId: 't1', userId: 'u1' })
+    for (const name of ['studio-sources', 'studio-dashboards', 'studio-playlists']) {
+      tabsStore.requestOpen({
+        id: name,
+        title: name,
+        kind: 'business',
+        route: { name, params: {}, query: {} },
+      })
+    }
+    const wrapper = mount(PcWorkspaceTabs, { global: { plugins: [pinia] } })
+    expect(
+      wrapper.get('[role="tab"][aria-label="studio-sources"]').findComponent(Connection).exists(),
+    ).toBe(true)
+    replacePcNavigationGroups([
+      {
+        id: 'studio',
+        label: '工业应用',
+        icon: Monitor,
+        items: [
+          {
+            id: 'dashboards',
+            label: '看板',
+            routeName: 'studio-dashboards',
+            icon: DataAnalysis,
+            children: [
+              { id: 'playlists', label: '轮播', routeName: 'studio-playlists', icon: VideoPlay },
+            ],
+          },
+        ],
+      },
+    ])
+    await nextTick()
+    expect(
+      wrapper
+        .get('[role="tab"][aria-label="studio-dashboards"]')
+        .findComponent(DataAnalysis)
+        .exists(),
+    ).toBe(true)
+    expect(
+      wrapper.get('[role="tab"][aria-label="studio-playlists"]').findComponent(VideoPlay).exists(),
+    ).toBe(true)
+    replacePcNavigationGroups([
+      {
+        id: 'studio',
+        label: '工业应用',
+        icon: Monitor,
+        items: [{ id: 'dashboards', label: '看板', routeName: 'studio-dashboards', icon: Monitor }],
+      },
+    ])
+    await nextTick()
+    expect(
+      wrapper.get('[role="tab"][aria-label="studio-dashboards"]').findComponent(Monitor).exists(),
+    ).toBe(true)
+    expect(tabsStore.businessTabs).toHaveLength(3)
+    wrapper.unmount()
+  })
 
   it('固定工作台标签恒在首位,无关闭按钮', () => {
     const wrapper = mountWithTabs([0, 1])
@@ -88,7 +154,9 @@ describe('PcWorkspaceTabs', () => {
     const wrapper = mount(PcWorkspaceTabs, { global: { plugins: [pinia] } })
     expect(wrapper.findAll('.ip-pc-tabs__item')[1]?.find('.ip-pc-tabs__close').exists()).toBe(false)
     await wrapper.findAll('.ip-pc-tabs__item')[1]!.trigger('contextmenu')
-    expect(wrapper.get('[data-testid="workspace-tab-menu-toggle-pin"]').text()).toContain('取消固定')
+    expect(wrapper.get('[data-testid="workspace-tab-menu-toggle-pin"]').text()).toContain(
+      '取消固定',
+    )
     await wrapper.get('[data-testid="workspace-tab-menu-toggle-pin"]').trigger('click')
     expect(wrapper.emitted('toggle-pin')).toEqual([['sandbox:0']])
   })
@@ -139,12 +207,12 @@ describe('PcWorkspaceTabs', () => {
     })
     await wrapper.vm.$nextTick()
     const menu = wrapper.get('[data-testid="workspace-tab-context-menu"]')
-    expect(Number.parseInt(menu.attributes('style')?.match(/left: ([^;]+)/)?.[1] ?? '0')).toBeLessThan(
-      window.innerWidth,
-    )
-    expect(Number.parseInt(menu.attributes('style')?.match(/top: ([^;]+)/)?.[1] ?? '0')).toBeLessThan(
-      window.innerHeight,
-    )
+    expect(
+      Number.parseInt(menu.attributes('style')?.match(/left: ([^;]+)/)?.[1] ?? '0'),
+    ).toBeLessThan(window.innerWidth)
+    expect(
+      Number.parseInt(menu.attributes('style')?.match(/top: ([^;]+)/)?.[1] ?? '0'),
+    ).toBeLessThan(window.innerHeight)
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
     await nextTick()
     expect(wrapper.find('[data-testid="workspace-tab-context-menu"]').exists()).toBe(false)
@@ -170,7 +238,9 @@ describe('PcWorkspaceTabs', () => {
     expect(source).toMatch(
       /\.ip-pc-tabs__item\s*\{[\s\S]*?box-sizing:\s*border-box;[\s\S]*?border-bottom:\s*2px\s+solid\s+transparent;/,
     )
-    expect(source).toMatch(/\.ip-pc-tabs__item--active\s*\{[\s\S]*?border-bottom-color:\s*var\(--ip-color-primary\);/)
+    expect(source).toMatch(
+      /\.ip-pc-tabs__item--active\s*\{[\s\S]*?border-bottom-color:\s*var\(--ip-color-primary\);/,
+    )
   })
 
   it('整项占满 38px 标签栏,标签文字使用紧凑字号', async () => {
@@ -182,9 +252,7 @@ describe('PcWorkspaceTabs', () => {
 
     expect(source).toMatch(/\.ip-pc-tabs\s*\{[\s\S]*?padding:\s*0;/)
     expect(source).toMatch(/\.ip-pc-tabs__item\s*\{[\s\S]*?height:\s*100%;/)
-    expect(source).toMatch(
-      /\.ip-pc-tabs__tab\s*\{[\s\S]*?font-size:\s*var\(--ip-font-size-xs\);/,
-    )
+    expect(source).toMatch(/\.ip-pc-tabs__tab\s*\{[\s\S]*?font-size:\s*var\(--ip-font-size-xs\);/)
   })
 
   it('keeps the tab actions in a fixed non-scrolling region', async () => {
@@ -197,8 +265,6 @@ describe('PcWorkspaceTabs', () => {
     expect(source).toMatch(
       /\.ip-pc-tabs__items\s*\{[\s\S]*?overflow-x:\s*auto;[\s\S]*?min-width:\s*0;/,
     )
-    expect(source).toMatch(
-      /\.ip-pc-tabs__actions\s*\{[\s\S]*?flex:\s*0\s+0\s+auto;/,
-    )
+    expect(source).toMatch(/\.ip-pc-tabs__actions\s*\{[\s\S]*?flex:\s*0\s+0\s+auto;/)
   })
 })

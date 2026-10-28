@@ -228,6 +228,13 @@ public sealed class ManagementStore : IManagementStore, IUserQueryStore
     }
 
     /// <inheritdoc/>
+    public async Task<StoredUserSecurityState?> GetUserSecurityStateAsync(string userNId, CancellationToken cancellationToken)
+    {
+        var row = await QueryUserRowByNIdAsync(userNId, includeDeleted: false, cancellationToken);
+        return row is null ? null : new(row.TenantNId, row.NId, row.Name, row.Status, row.IsDeleted, row.AuthVersion);
+    }
+
+    /// <inheritdoc/>
     public async Task<User?> GetUserAggregateAsync(string userNId, CancellationToken cancellationToken)
     {
         var row = await QueryUserRowByNIdAsync(userNId, includeDeleted: false, cancellationToken);

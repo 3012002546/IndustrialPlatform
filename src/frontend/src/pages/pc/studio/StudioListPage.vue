@@ -9,6 +9,7 @@ import AppFormDrawer from '@/components/management/AppFormDrawer.vue'
 import type { AppDataTableRequest } from '@/components/management/AppDataTable'
 import { PermissionGate } from '@/permissions'
 import { useAuthStore } from '@/stores/authStore'
+import { loadDashboardDesigner, loadPlaylistDesigner } from '@/router/studioRoutes'
 import {
   getStudioApi,
   type Json,
@@ -17,6 +18,7 @@ import {
   type StudioRevisionSummary,
 } from '@/api/studio'
 import { initialDocument, safeTotal } from '@/components/studio/shared/model'
+import { initialDashboardDocument, initialPlaylistDocument } from './dashboard/model'
 import { useStudioCopy } from '@/components/studio/shared/copy'
 import '@/components/studio/shared/studio.css'
 
@@ -24,14 +26,21 @@ const route = useRoute(),
   router = useRouter(),
   t = useStudioCopy()
 const auth = useAuthStore(),
-  lowCodeReady = ref(false)
+  lowCodeReady = ref(false),
+  dashboardReady = ref(false)
 const isSource = computed(() => route.path.endsWith('/sources'))
+const isDashboard = computed(() => route.path.endsWith('/dashboards'))
+const isPlaylist = computed(() => route.path.endsWith('/playlists'))
 const kind = computed(() =>
   route.path.endsWith('/datasets')
     ? 'Dataset'
     : route.path.endsWith('/ledger-models')
       ? 'LedgerModel'
-      : 'LowCodePage',
+      : isDashboard.value
+        ? 'Dashboard'
+        : isPlaylist.value
+          ? 'Playlist'
+          : 'LowCodePage',
 )
 const section = computed(() =>
   isSource.value
@@ -40,14 +49,20 @@ const section = computed(() =>
       ? 'datasets'
       : kind.value === 'LedgerModel'
         ? 'ledger'
-        : 'lowcode',
+        : kind.value === 'Dashboard'
+          ? 'dashboards'
+          : kind.value === 'Playlist'
+            ? 'playlists'
+            : 'lowcode',
 )
 const permission = computed(() =>
   isSource.value
     ? 'studio.source.manage'
     : kind.value === 'Dataset'
       ? 'studio.dataset.design'
-      : 'studio.lowcode.design',
+      : kind.value === 'Dashboard' || kind.value === 'Playlist'
+        ? 'studio.dashboard.design'
+        : 'studio.lowcode.design',
 )
 const keyword = ref(''),
   status = ref(''),
@@ -138,10 +153,25 @@ async function load(request: AppDataTableRequest) {
   error.value = ''
   try {
     const cap = await getStudioApi().capabilities()
-    const module = cap.modules.find((x) => x.key.toLowerCase().replaceAll('-', '') === 'lowcode')
-    lowCodeReady.value = !!module?.installed && !!module.enabled && !!module.available
-    if (!cap.coreReady || (!isSource.value && kind.value !== 'Dataset' && !lowCodeReady.value)) {
-      unavailable.value = module?.reasonCode ?? t.value('unavailable')
+    const lowCodeModule = cap.modules.find(
+      (x) => x.key.toLowerCase().replaceAll('-', '') === 'lowcode',
+    )
+    const dashboardModule = cap.modules.find(
+      (x) => x.key.toLowerCase().replaceAll('-', '') === 'dashboard',
+    )
+    lowCodeReady.value =
+      !!lowCodeModule?.installed && !!lowCodeModule.enabled && !!lowCodeModule.available
+    dashboardReady.value =
+      !!dashboardModule?.installed && !!dashboardModule.enabled && !!dashboardModule.available
+    const moduleReady =
+      kind.value === 'Dashboard' || kind.value === 'Playlist'
+        ? dashboardReady.value
+        : isSource.value || kind.value === 'Dataset' || lowCodeReady.value
+    if (!cap.coreReady || !moduleReady) {
+      unavailable.value =
+        (kind.value === 'Dashboard' || kind.value === 'Playlist'
+          ? dashboardModule?.reasonCode
+          : lowCodeModule?.reasonCode) ?? t.value('unavailable')
       return { items: [], total: 0, pageIndex: request.pageIndex, pageSize: request.pageSize }
     }
     unavailable.value = ''
@@ -201,11 +231,13 @@ function openCreate() {
 }
 function design(row: Json) {
   void router.push(
-    `/pc/studio/${kind.value === 'Dataset' ? 'datasets' : kind.value === 'LedgerModel' ? 'ledger-models' : 'low-code'}/${encodeURIComponent(String(row.nId))}/design`,
+    `/pc/studio/${kind.value === 'Dataset' ? 'datasets' : kind.value === 'LedgerModel' ? 'ledger-models' : kind.value === 'Dashboard' ? 'dashboards' : kind.value === 'Playlist' ? 'playlists' : 'low-code'}/${encodeURIComponent(String(row.nId))}/design`,
   )
 }
 function run(row: Json) {
-  void router.push(`/pc/studio/low-code/${encodeURIComponent(String(row.nId))}/run`)
+  void router.push(
+    `/pc/studio/${kind.value === 'Dashboard' ? 'dashboards' : kind.value === 'Playlist' ? 'playlists' : 'low-code'}/${encodeURIComponent(String(row.nId))}/run`,
+  )
 }
 async function guarded(action: () => Promise<void>) {
   if (busy.value) return
@@ -236,7 +268,12 @@ function save() {
       drawer.value = ''
       refresh()
     } else {
-      const document = initialDocument(kind.value)
+      const document =
+        kind.value === 'Dashboard'
+          ? initialDashboardDocument()
+          : kind.value === 'Playlist'
+            ? initialPlaylistDocument()
+            : initialDocument(kind.value)
       if (kind.value === 'LowCodePage') document.mode = pageMode.value
       const created = await getStudioApi().create({
         kind: kind.value,
@@ -291,6 +328,17 @@ function rollback(revision: StudioRevisionSummary) {
     ElMessage.success(t.value('saved'))
   })
 }
+// 在用户查看列表时预热设计页代码；不缓存草稿或任何业务数据。
+watch(
+  kind,
+  (value) => {
+    if (value === 'Dashboard' && auth.hasPermission('studio.dashboard.design'))
+      void loadDashboardDesigner().catch(() => undefined)
+    if (value === 'Playlist' && auth.hasPermission('studio.dashboard.design'))
+      void loadPlaylistDesigner().catch(() => undefined)
+  },
+  { immediate: true },
+)
 watch(
   () => route.path,
   () => {
@@ -323,6 +371,14 @@ watch(
               v-if="lowCodeReady && auth.hasPermission('studio.lowcode.view')"
               command="low-code"
               >{{ t('lowcode') }}</el-dropdown-item
+            ><el-dropdown-item
+              v-if="dashboardReady && auth.hasPermission('studio.dashboard.view')"
+              command="dashboards"
+              >{{ t('dashboards') }}</el-dropdown-item
+            ><el-dropdown-item
+              v-if="dashboardReady && auth.hasPermission('studio.dashboard.view')"
+              command="playlists"
+              >{{ t('playlists') }}</el-dropdown-item
             ></el-dropdown-menu
           ></template
         ></el-dropdown
@@ -378,9 +434,16 @@ watch(
             t('edit')
           }}</el-button></PermissionGate
         >
-        <PermissionGate permission-n-id="studio.lowcode.run"
+        <PermissionGate
+          :permission-n-id="
+            kind === 'Dashboard' || kind === 'Playlist'
+              ? 'studio.dashboard.run'
+              : 'studio.lowcode.run'
+          "
           ><el-button
-            v-if="kind === 'LowCodePage' && !isSource"
+            v-if="
+              (kind === 'LowCodePage' || kind === 'Dashboard' || kind === 'Playlist') && !isSource
+            "
             link
             type="primary"
             :disabled="!row.publishedRevisionNId || !row.isEnabled"
@@ -497,7 +560,11 @@ watch(
           </div>
           <PermissionGate
             :permission-n-id="
-              kind === 'Dataset' ? 'studio.dataset.publish' : 'studio.lowcode.publish'
+              kind === 'Dataset'
+                ? 'studio.dataset.publish'
+                : kind === 'Dashboard' || kind === 'Playlist'
+                  ? 'studio.dashboard.publish'
+                  : 'studio.lowcode.publish'
             "
             ><el-button :disabled="busy || !note.trim()" @click="rollback(rev)">{{
               t('rollback')

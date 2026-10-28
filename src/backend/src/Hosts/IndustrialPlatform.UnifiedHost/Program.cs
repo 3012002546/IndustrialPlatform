@@ -98,6 +98,8 @@ app.Use(async (context, next) =>
     await next(context);
 });
 app.UseRouting();
+if (app.Services.GetService<IndustrialPlatform.PlatformStudio.Domain.StudioDeploymentProfile>()?.ActiveModules.Contains("Dashboard", StringComparer.Ordinal) == true)
+    app.UseRateLimiter();
 IndustrialPlatform.ReferenceData.Api.Endpoints.ReferenceDataRequestErrors.UseReferenceDataRequestErrors(app);
 if (app.Environment.IsDevelopment())
 {

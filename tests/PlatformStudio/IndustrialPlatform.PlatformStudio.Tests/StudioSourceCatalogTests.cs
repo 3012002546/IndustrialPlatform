@@ -72,8 +72,8 @@ public sealed class StudioSourceCatalogTests
     [Fact]
     public void Sqlserver_chinese_dictionary_covers_all_core_and_framework_columns_without_fallback_labels()
     {
-        var tables = StudioSchema.Core.Concat([StudioSqlServerDescriptions.MigrationLedger, StudioSqlServerDescriptions.SeedLedger]).ToArray();
-        Assert.Equal(18, tables.Length);
+        var tables = StudioSchema.Core.Concat([StudioSqlServerDescriptions.MigrationLedger, StudioSqlServerDescriptions.SeedLedger, StudioSchema.ScreenPolicy]).ToArray();
+        Assert.Equal(20, tables.Length);
         foreach (var table in tables)
         {
             var statements = StudioSqlServerDescriptions.Statements(table);

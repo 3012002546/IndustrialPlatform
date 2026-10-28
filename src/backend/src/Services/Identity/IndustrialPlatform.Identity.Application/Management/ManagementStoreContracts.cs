@@ -127,6 +127,9 @@ public sealed record LoginAuditRow(
 /// <summary>登录审计查询分页结果。</summary>
 public sealed record LoginAuditPage(IReadOnlyList<LoginAuditRow> Items, long Total);
 
+/// <summary>一次独立查询的用户安全状态，不含角色投影；删除、禁用与安全版本均必须重新核查。</summary>
+public sealed record StoredUserSecurityState(string TenantNId, string NId, string Name, UserStatus Status, bool IsDeleted, int AuthVersion);
+
 /// <summary>
 /// 管理用例持久化端口(§16):用户/角色/权限的查询、冲突检查与写操作。
 /// 组合领域仓储实现;所有按 NId 查询不区分租户,租户隔离由应用层显式校验,
@@ -139,6 +142,13 @@ public interface IManagementStore
 
     /// <summary>按业务标识查询用户投影(含活动角色 NId);不存在返回 <c>null</c>。</summary>
     Task<StoredUser?> GetUserAsync(string userNId, CancellationToken cancellationToken);
+
+    /// <summary>独立重读用户删除/禁用及安全版本，不重复装载角色；默认兼容原聚合适配。</summary>
+    async Task<StoredUserSecurityState?> GetUserSecurityStateAsync(string userNId, CancellationToken cancellationToken)
+    {
+        var user = await GetUserAggregateAsync(userNId, cancellationToken);
+        return user is null ? null : new(user.TenantNId, user.NId, user.Name, user.Status, user.IsDeleted, user.AuthVersion);
+    }
 
     /// <summary>按业务标识装载完整用户聚合(含活动角色关系),供写操作;不存在返回 <c>null</c>。</summary>
     Task<User?> GetUserAggregateAsync(string userNId, CancellationToken cancellationToken);

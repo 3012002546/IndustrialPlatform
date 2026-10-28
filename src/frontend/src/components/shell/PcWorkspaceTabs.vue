@@ -6,8 +6,10 @@
  * 组件为展示层:数据来自 WorkspaceTabsStore,动作 emit 给 PcLayout 处理导航。
  */
 
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import { ArrowDown, Close, House, Refresh, User } from '@element-plus/icons-vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, type Component } from 'vue'
+import { ArrowDown, Close, Document, House, Refresh } from '@element-plus/icons-vue'
+import { pcNavigationGroups } from '@/components/navigation/navigation'
+import type { NavigationItem } from '@/components/navigation/types'
 import { localeMessages, resolveLocaleMessage } from '@/localization/i18n'
 import { useLocalizationStore } from '@/stores/localizationStore'
 import { useWorkspaceTabsStore } from '@/stores/workspaceTabsStore'
@@ -32,11 +34,24 @@ const props = withDefaults(defineProps<{ focusMode?: boolean }>(), { focusMode: 
 const tabsStore = useWorkspaceTabsStore()
 const localization = useLocalizationStore()
 const copy = computed(() => localeMessages[localization.locale].shell.copy)
+// Read the same current menu icons as the sidebar, including published overrides.
+// Icons are presentation metadata and are never saved in the tab snapshot.
+const navigationIcons = computed(() => {
+  const icons = new Map<string, Component>()
+  const collect = (items: readonly NavigationItem[]) => {
+    for (const item of items) {
+      if (item.icon && !icons.has(item.routeName)) icons.set(item.routeName, item.icon)
+      if (item.children) collect(item.children)
+    }
+  }
+  for (const group of pcNavigationGroups) collect(group.items)
+  return icons
+})
 const contextTabId = ref<string | null>(null)
 const contextMenuStyle = ref<Record<string, string>>({})
 const contextMenuRef = ref<HTMLElement | null>(null)
-const contextTab = computed(() =>
-  tabsStore.tabs.find((item) => item.id === contextTabId.value) ?? null,
+const contextTab = computed(
+  () => tabsStore.tabs.find((item) => item.id === contextTabId.value) ?? null,
 )
 
 function activate(tab: WorkspaceTab): void {
@@ -138,8 +153,11 @@ onBeforeUnmount(() => {
             :title="titleFor(tab)"
             @click="activate(tab)"
           >
-            <House v-if="tab.kind === 'fixed'" class="ip-pc-tabs__tab-icon" aria-hidden="true" />
-            <User v-else class="ip-pc-tabs__tab-icon" aria-hidden="true" />
+            <component
+              :is="navigationIcons.get(tab.route.name) ?? (tab.kind === 'fixed' ? House : Document)"
+              class="ip-pc-tabs__tab-icon"
+              aria-hidden="true"
+            />
             <span class="ip-pc-tabs__tab-label">{{ titleFor(tab) }}</span>
           </button>
 
@@ -188,7 +206,12 @@ onBeforeUnmount(() => {
       role="menu"
       :style="contextMenuStyle"
     >
-      <button type="button" data-testid="workspace-tab-menu-reload" role="menuitem" @click="selectContextCommand('reload')">
+      <button
+        type="button"
+        data-testid="workspace-tab-menu-reload"
+        role="menuitem"
+        @click="selectContextCommand('reload')"
+      >
         {{ localeMessages[localization.locale].common.action.refresh }}
       </button>
       <button
@@ -200,16 +223,36 @@ onBeforeUnmount(() => {
       >
         {{ copy.tabClose }}
       </button>
-      <button type="button" data-testid="workspace-tab-menu-close-left" role="menuitem" @click="selectContextCommand('close-left')">
+      <button
+        type="button"
+        data-testid="workspace-tab-menu-close-left"
+        role="menuitem"
+        @click="selectContextCommand('close-left')"
+      >
         {{ copy.tabCloseLeft }}
       </button>
-      <button type="button" data-testid="workspace-tab-menu-close-right" role="menuitem" @click="selectContextCommand('close-right')">
+      <button
+        type="button"
+        data-testid="workspace-tab-menu-close-right"
+        role="menuitem"
+        @click="selectContextCommand('close-right')"
+      >
         {{ copy.tabCloseRight }}
       </button>
-      <button type="button" data-testid="workspace-tab-menu-close-others" role="menuitem" @click="selectContextCommand('close-others')">
+      <button
+        type="button"
+        data-testid="workspace-tab-menu-close-others"
+        role="menuitem"
+        @click="selectContextCommand('close-others')"
+      >
         {{ copy.tabCloseOthers }}
       </button>
-      <button type="button" data-testid="workspace-tab-menu-close-all" role="menuitem" @click="selectContextCommand('close-all')">
+      <button
+        type="button"
+        data-testid="workspace-tab-menu-close-all"
+        role="menuitem"
+        @click="selectContextCommand('close-all')"
+      >
         {{ copy.tabCloseAll }}
       </button>
       <button

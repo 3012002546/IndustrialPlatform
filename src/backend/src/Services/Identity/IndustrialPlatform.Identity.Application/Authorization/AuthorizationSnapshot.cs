@@ -13,4 +13,8 @@ public sealed record AuthorizationSnapshot(
     UserStatus Status,
     int AuthVersion,
     IReadOnlyList<string> PermissionNIds,
-    bool IsSystemAdmin = false);
+    bool IsSystemAdmin = false)
+{
+    /// <summary>同次权威查询的活动角色，用于读取安全状态后复用角色事实；旧适配可留空。</summary>
+    public IReadOnlyList<string>? RoleNIds { get; init; }
+}

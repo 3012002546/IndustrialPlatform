@@ -19,7 +19,7 @@ public sealed class StudioPublishing(IStudioResourceStore store, IStudioAuthoriz
     private void RequireKind(string kind)
     {
         _ = StudioKinds.PermissionPrefix(kind);
-        if (kind is not ("Dataset" or "LedgerModel" or "LowCodePage") || !profile.IsKindEnabled(kind)) throw new StudioException("STUDIO_MODULE_UNAVAILABLE", "该产品未安装、未启用或尚未交付。", 409);
+        if (kind is not ("Dataset" or "LedgerModel" or "LowCodePage" or "Dashboard" or "Playlist") || !profile.IsKindEnabled(kind)) throw new StudioException("STUDIO_MODULE_UNAVAILABLE", "该产品未安装、未启用或尚未交付。", 409);
     }
     public void ValidateSourceConfiguration(StudioSource source)
     {
@@ -167,6 +167,67 @@ public sealed class StudioPublishing(IStudioResourceStore store, IStudioAuthoriz
             }
             if (StudioJson.Text(document["mode"]) == "Code" && StudioJson.Text(document["codeComponentKey"]) != "studio.summary") diagnostics.Add(new("STUDIO_VALIDATION", "codeComponentKey", "整页扩展未登记。"));
         }
+        if (resource.Kind is "Dashboard" or "Playlist")
+        {
+            if (resource.Kind == "Dashboard")
+            {
+                foreach (var instance in (document["instances"] as JsonArray ?? []).OfType<JsonObject>())
+                {
+                    if (StudioJson.Text(instance["sourceType"]) == "Constant") continue;
+                    var revisionNId = StudioJson.Text(instance["revisionNId"]);
+                    var datasetNId = StudioJson.Text(instance["datasetNId"]);
+                    if (revisionNId is null || datasetNId is null) continue;
+                    await AddRevision(revisionNId, datasetNId);
+                    var revision = await store.FindRevisionAsync(principal.TenantNId, revisionNId, cancellationToken);
+                    var target = revision is null ? null : await store.FindResourceByIdAsync(principal.TenantNId, revision.ResourceId, cancellationToken);
+                    if (target?.Kind != "Dataset") diagnostics.Add(new("TYPE_MISMATCH", "instances", "看板数据实例必须引用Dataset修订。"));
+                    if (StudioJson.Text(instance["sourceType"]) == "Api" && revision is not null)
+                    {
+                        var query = Parse(revision.DocumentJson)["query"];
+                        if ((StudioJson.Text(query?["kind"]) ?? StudioJson.Text(query?["type"])) != "Api") diagnostics.Add(new("TYPE_MISMATCH", "instances." + StudioJson.Text(instance["instanceId"]), "接口来源必须引用接口类型数据集。"));
+                    }
+                }
+                foreach (var rule in (document["navigation"] as JsonArray ?? []).OfType<JsonObject>())
+                {
+                    if (rule["target"] is not JsonObject target) continue;
+                    var targetKind = StudioJson.Text(target["kind"]);
+                    if (targetKind is not ("Dashboard" or "LowCodePage" or "Report")) continue;
+                    var targetNId = StudioJson.Text(target["resourceNId"]);
+                    if (targetNId is null) continue;
+                    var targetRevisionNId = StudioJson.Text(target["revisionNId"]);
+                    if (string.IsNullOrWhiteSpace(targetRevisionNId)) targetRevisionNId = null;
+                    if (targetRevisionNId is null)
+                    {
+                        var targetResource = await store.FindResourceAsync(principal.TenantNId, targetNId, cancellationToken);
+                        targetRevisionNId = targetResource?.PublishedRevisionId is { } id ? (await store.FindRevisionByIdAsync(principal.TenantNId, id, cancellationToken))?.NId : null;
+                    }
+                    if (targetRevisionNId is null) throw new StudioException("DEPENDENCY_CHANGED", "导航目标必须已发布并固定修订。", 409, "navigation.target.revisionNId");
+                    // Persist the direct edge on the immutable published document. The dependency
+                    // plan also contains the recursive closure, so selecting a revision from that
+                    // flat list would be ambiguous when a resource is reached through two paths.
+                    target["revisionNId"] = targetRevisionNId;
+                    await AddRevision(targetRevisionNId, targetNId);
+                }
+            }
+            else
+            {
+                foreach (var item in (document["items"] as JsonArray ?? []).OfType<JsonObject>())
+                {
+                    var dashboardNId = StudioJson.Text(item["dashboardNId"]);
+                    if (dashboardNId is null) continue;
+                    var dashboardRevisionNId = StudioJson.Text(item["revisionNId"]);
+                    if (string.IsNullOrWhiteSpace(dashboardRevisionNId)) dashboardRevisionNId = null;
+                    if (dashboardRevisionNId is null)
+                    {
+                        var dashboard = await store.FindResourceAsync(principal.TenantNId, dashboardNId, cancellationToken);
+                        dashboardRevisionNId = dashboard?.PublishedRevisionId is { } id ? (await store.FindRevisionByIdAsync(principal.TenantNId, id, cancellationToken))?.NId : null;
+                    }
+                    if (dashboardRevisionNId is null) throw new StudioException("DEPENDENCY_CHANGED", "轮播项必须固定已发布看板修订。", 409, "items.revisionNId");
+                    item["revisionNId"] = dashboardRevisionNId;
+                    await AddRevision(dashboardRevisionNId, dashboardNId);
+                }
+            }
+        }
         if (resource.Kind == "LedgerModel" && resource.PublishedRevisionId is { } oldId)
         {
             var old = await store.FindRevisionByIdAsync(principal.TenantNId, oldId, cancellationToken) ?? throw Missing();
@@ -208,7 +269,7 @@ public sealed class StudioPublishing(IStudioResourceStore store, IStudioAuthoriz
             if (request.DependencyPlanHash != plan.DependencyPlanHash) throw new StudioException("DEPENDENCY_CHANGED", "发布计划已改变，请重新校验并确认。", 409);
             var releaseNote = Required(request.ReleaseNote, "releaseNote", 1000);
             var expected = resource.OptimisticVersion; var token = resource.ConcurrencyVersion;
-            var revision = new StudioRevision { NId = "revision-" + Guid.NewGuid().ToString("N"), TenantNId = principal.TenantNId, ResourceId = resource.Id, RevisionNo = checked(resource.RevisionSequence + 1), CreatedOn = clock.GetUtcNow(), DocumentJson = resource.DraftJson, DependenciesJson = StudioJson.Canonicalize(plan.DependencyPlan), SourcePinsJson = StudioJson.Canonicalize(plan.SourcePins), ContentHash = plan.DependencyPlanHash, PublishedBy = principal.SubjectNId, ReleaseNote = releaseNote };
+            var revision = new StudioRevision { NId = "revision-" + Guid.NewGuid().ToString("N"), TenantNId = principal.TenantNId, ResourceId = resource.Id, RevisionNo = checked(resource.RevisionSequence + 1), CreatedOn = clock.GetUtcNow(), DocumentJson = StudioJson.Canonicalize(document), DependenciesJson = StudioJson.Canonicalize(plan.DependencyPlan), SourcePinsJson = StudioJson.Canonicalize(plan.SourcePins), ContentHash = plan.DependencyPlanHash, PublishedBy = principal.SubjectNId, ReleaseNote = releaseNote };
             await store.InsertRevisionAsync(revision, cancellationToken);
             resource.RevisionSequence = revision.RevisionNo; resource.PublishedRevisionId = revision.Id; resource.DraftBaseRevisionId = revision.Id; resource.IsEnabled = request.Enable;
             resource.MarkChanged(clock.GetUtcNow());
@@ -290,7 +351,36 @@ public sealed class StudioPublishing(IStudioResourceStore store, IStudioAuthoriz
     public async Task<ResourceDto> ToDtoAsync(StudioResource resource, CancellationToken cancellationToken)
     {
         var published = resource.PublishedRevisionId is { } id ? await store.FindRevisionByIdAsync(resource.TenantNId, id, cancellationToken) : null;
-        return new(resource.NId, resource.Kind, resource.Name, resource.Description, resource.Folder, resource.IsEnabled, published?.NId, published?.RevisionNo.ToString(CultureInfo.InvariantCulture), published is null || published.DocumentJson != resource.DraftJson, resource.OwnerUserNId, resource.CreatedOn, resource.LastUpdatedOn, resource.OptimisticVersion.ToString(CultureInfo.InvariantCulture), resource.ConcurrencyVersion);
+        return ResourceDto(resource, published);
+    }
+    /// <summary>只复用同次已读取的当前发布修订；历史运行版仍读取实际当前发布摘要。</summary>
+    public Task<ResourceDto> ToDtoAsync(StudioResource resource, StudioRevision revision, CancellationToken cancellationToken) =>
+        resource.PublishedRevisionId == revision.Id ? Task.FromResult(ResourceDto(resource, revision)) : ToDtoAsync(resource, cancellationToken);
+    private static ResourceDto ResourceDto(StudioResource resource, StudioRevision? published)
+    {
+        return new(resource.NId, resource.Kind, resource.Name, resource.Description, resource.Folder, resource.IsEnabled, published?.NId, published?.RevisionNo.ToString(CultureInfo.InvariantCulture), published is null || !PublishedMatchesDraft(resource.Kind, published.DocumentJson, resource.DraftJson), resource.OwnerUserNId, resource.CreatedOn, resource.LastUpdatedOn, resource.OptimisticVersion.ToString(CultureInfo.InvariantCulture), resource.ConcurrencyVersion);
+    }
+    private static bool PublishedMatchesDraft(string kind, string publishedJson, string draftJson)
+    {
+        if (publishedJson == draftJson) return true;
+        if (kind is not ("Dashboard" or "Playlist")) return false;
+        var published = Parse(publishedJson);
+        var draft = Parse(draftJson);
+        var collection = kind == "Dashboard" ? "navigation" : "items";
+        foreach (var entry in (published[collection] as JsonArray ?? []).OfType<JsonObject>())
+        {
+            var original = (draft[collection] as JsonArray ?? []).OfType<JsonObject>().SingleOrDefault(item => StudioJson.Text(item["id"]) == StudioJson.Text(entry["id"]));
+            var target = kind == "Dashboard" ? entry["target"] as JsonObject : entry;
+            var originalTarget = kind == "Dashboard" ? original?["target"] as JsonObject : original;
+            // Auto-selected targets are pinned only in immutable revisions. Their generated
+            // pin does not constitute a user edit and must not modify the editable draft.
+            if (target is not null && originalTarget is not null && string.IsNullOrWhiteSpace(StudioJson.Text(originalTarget["revisionNId"])))
+            {
+                target.Remove("revisionNId");
+                if (originalTarget.ContainsKey("revisionNId")) target["revisionNId"] = originalTarget["revisionNId"]?.DeepClone();
+            }
+        }
+        return StudioJson.Canonicalize(published) == StudioJson.Canonicalize(draft);
     }
     public static RevisionDto ToDto(string resourceNId, StudioRevision revision) => new(revision.NId, resourceNId, revision.RevisionNo.ToString(CultureInfo.InvariantCulture), revision.DocumentSchemaVersion, Parse(revision.DocumentJson), JsonNode.Parse(revision.DependenciesJson)!.AsArray(), JsonNode.Parse(revision.SourcePinsJson)!.AsArray(), revision.ContentHash, revision.PublishedBy, revision.CreatedOn, revision.ReleaseNote);
     public static JsonObject Parse(string json) => JsonNode.Parse(json)?.AsObject() ?? throw Invalid("document");

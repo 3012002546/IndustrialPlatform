@@ -11,6 +11,7 @@ public static class StudioSqlServerDescriptions
     public static StudioSchema.Definition SeedLedger { get; } = new("studio_seed_ledger", StudioSchema.SeedColumns, "baseline");
     private static readonly Dictionary<string, string> Tables = new(StringComparer.Ordinal)
     {
+        ["studio_dashboard_screen"] = "看板匿名大屏链接；固定修订、参数及发布者安全版本，可到期和撤销，不保存明文密钥。",
         ["studio_source"] = "受控数据来源；只保存服务端登记键和秘密引用，不保存明文凭据。",
         ["studio_resource"] = "共享设计资源及草稿；发布指向由发布事务和双版本并发控制维护。",
         ["studio_revision"] = "不可变发布修订；固定配置、依赖闭包和来源合同，禁止更新及删除。",
@@ -32,6 +33,10 @@ public static class StudioSqlServerDescriptions
     };
     private static readonly Dictionary<string, string> Columns = new(StringComparer.Ordinal)
     {
+        ["never_expires"] = "无限期标志；为真时忽略原到期时间，仍重验发布者及资源授权，可随时撤销。",
+        ["follow_published"] = "跟随发布标志；为真时按当前已发布修订运行，为假时固定创建修订；草稿不生效。",
+        ["revision_n_id"] = "链接固定的已发布修订业务标识。",
+        ["token_hash"] = "256位随机大屏密钥的SHA256摘要，不保存明文密钥。",
         ["id"]="物理主键GUID，由服务生成，不供用户编辑。", ["n_id"]="公开业务或技术记录标识；租户内唯一，软删除后不可复用。", ["tenant_n_id"]="可信租户标识；仅从已验证身份上下文取得。",
         ["is_frozen"]="冻结标志；冻结后拒绝普通修改。", ["is_locked"]="锁定标志；锁定后拒绝普通修改。", ["is_deleted"]="软删除标志；删除不复用编号或级联删除历史。", ["entity_type"]="平台实体类型标识。",
         ["created_on"]="创建UTC时间，由服务端时钟填入。", ["last_updated_on"]="实际修改UTC时间，幂等无变化时不推进。", ["optimistic_version"]="乐观并发版本；实际修改递增，JSON使用十进制字符串。", ["concurrency_version"]="并发GUID令牌；实际修改时重新生成。",
@@ -64,7 +69,7 @@ public static class StudioSqlServerDescriptions
         statements.AddRange(table.Columns.Split(',').Select(column => column.Split(':')[0]).Select(column => AddProperty(table.Name, column, ColumnDescription(column), schema)));
         return statements;
     }
-    private static string AddProperty(string table, string? column, string description, string schema)
+    internal static string AddProperty(string table, string? column, string description, string schema)
     {
         _ = StudioSchema.Quote(table, DbType.SqlServer);
         if (column is not null) _ = StudioSchema.Quote(column, DbType.SqlServer);

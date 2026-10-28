@@ -31,6 +31,8 @@ public sealed class AuthorizationDataStore : IAuthorizationDataStore
         string userNId,
         CancellationToken cancellationToken)
     {
+        if (_users is UserRepository native)
+            return await native.GetAuthorizationSnapshotAsync(tenantNId, userNId, cancellationToken);
         var user = await _users.GetByNIdAsync(userNId, cancellationToken);
         if (user is null || !string.Equals(user.TenantNId, tenantNId, StringComparison.Ordinal))
         {
@@ -47,8 +49,8 @@ public sealed class AuthorizationDataStore : IAuthorizationDataStore
 
         // 权限集与登录/刷新返回的 AuthUser.PermissionNIds 一致(同一仓储方法、同样序去重)。
         var permissions = await _roles.GetActivePermissionsForRolesAsync(roleIds, cancellationToken);
-        var roles = await Task.WhenAll(roleIds.Select(roleId => _roles.GetByIdAsync(roleId, cancellationToken)));
-        var isSystemAdmin = roles.Where(role => role is not null).Select(role => role!).Any(role =>
+        var roleFacts = await _roles.GetAuthorizationRolesAsync(roleIds, cancellationToken);
+        var isSystemAdmin = roleFacts.Any(role =>
             !role.IsDeleted
             && role.IsSystem
             && string.Equals(role.NId, "SYSTEM_ADMIN", StringComparison.OrdinalIgnoreCase)
@@ -68,6 +70,9 @@ public sealed class AuthorizationDataStore : IAuthorizationDataStore
             user.Status,
             user.AuthVersion,
             permissionNIds,
-            isSystemAdmin);
+            isSystemAdmin)
+        {
+            RoleNIds = roleFacts.Where(role => role.TenantNId == tenantNId).Select(role => role.NId).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray(),
+        };
     }
 }

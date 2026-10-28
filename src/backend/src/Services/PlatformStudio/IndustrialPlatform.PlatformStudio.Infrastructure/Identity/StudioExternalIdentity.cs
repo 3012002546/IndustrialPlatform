@@ -17,8 +17,16 @@ using SqlSugar;
 namespace IndustrialPlatform.PlatformStudio.Infrastructure.Identity;
 
 /// <summary>独立宿主持久会话；cookie只含随机句柄，写操作每次重验来源身份。</summary>
-public sealed class StudioExternalIdentity(StudioDatabase database,IStudioResourceStore store,StudioDeploymentProfile profile,IHttpContextAccessor accessor,IDataProtectionProvider protection,IStudioMesBridge bridge,TimeProvider clock,IServiceProvider services) : IStudioIdentity,IStudioSubjectDirectory
+public sealed class StudioExternalIdentity(StudioDatabase database,IStudioResourceStore store,StudioDeploymentProfile profile,IHttpContextAccessor accessor,IDataProtectionProvider protection,IStudioMesBridge bridge,TimeProvider clock,IServiceProvider services) : IStudioIdentity,IStudioSubjectDirectory,IndustrialPlatform.PlatformStudio.Application.Dashboard.IStudioScreenIdentity
 {
+    public async Task<StudioPrincipal> GetPublisherAsync(StudioScreenLink link, CancellationToken ct)
+    {
+        if (profile.Identity.Provider != "LocalAdmin") throw new StudioException("STUDIO_SCREEN_UNSUPPORTED", "当前外部身份提供方未开放无会话的大屏发布，请使用平台原生身份。", 409);
+        var admin = await Db.Queryable<StudioLocalAdmin>().Where(a => a.TenantNId == link.TenantNId && a.SubjectNId == link.CreatedBy).FirstUtcAsync(database.Provider, ct);
+        if (admin is null || !admin.Enabled || admin.MustChangePassword || admin.AuthVersion.ToString(CultureInfo.InvariantCulture) != link.AuthVersion)
+            throw new StudioException("STUDIO_SCREEN_UNAVAILABLE", "大屏发布者已失效。", 404);
+        return LocalPrincipal(admin, clock.GetUtcNow(), link.NeverExpires ? clock.GetUtcNow().AddMinutes(5) : link.ExpiresOn);
+    }
     private sealed record RequestEvidence(StudioAuthSession Session,StudioPrincipal Principal,bool Forced);
     public const string CookieName="__Host-StudioSession";
     public const string CorrelationCookie="__Host-StudioCorrelation";
@@ -166,7 +174,7 @@ public sealed class StudioExternalIdentity(StudioDatabase database,IStudioResour
         if(profile.Identity.Provider=="LocalAdmin")return await Db.Queryable<StudioLocalAdmin>().Where(a=>a.TenantNId==principal.TenantNId&&a.SubjectNId==subjectNId&&a.Enabled).AnyAsync(cancellationToken);
         var now=clock.GetUtcNow();return await Db.Queryable<StudioAuthSession>().Where(s=>s.TenantNId==principal.TenantNId&&s.SubjectNId==subjectNId&&s.RevokedOn==null&&s.ExpiresOn>now).AnyAsync(cancellationToken);
     }
-    private StudioPrincipal LocalPrincipal(StudioLocalAdmin admin,DateTimeOffset now,DateTimeOffset expires)=>new(admin.TenantNId,admin.SubjectNId,profile.Identity.IssuerKey,admin.LoginName,[],StudioKinds.Permissions.Where(p=>!p.StartsWith("studio.dashboard.",StringComparison.Ordinal)&&!p.StartsWith("studio.report.",StringComparison.Ordinal)&&!p.StartsWith("studio.trace.",StringComparison.Ordinal)&&!p.StartsWith("studio.workbook.",StringComparison.Ordinal)).ToArray(),profile.Identity.LocalAdminFactoryNIds,admin.AuthVersion.ToString(CultureInfo.InvariantCulture),profile.Identity.PolicyVersion,now,expires);
+    private StudioPrincipal LocalPrincipal(StudioLocalAdmin admin,DateTimeOffset now,DateTimeOffset expires)=>new(admin.TenantNId,admin.SubjectNId,profile.Identity.IssuerKey,admin.LoginName,[],StudioKinds.Permissions.Where(p=>(!p.StartsWith("studio.dashboard.",StringComparison.Ordinal)||profile.ActiveModules.Contains("Dashboard",StringComparer.Ordinal))&&!p.StartsWith("studio.report.",StringComparison.Ordinal)&&!p.StartsWith("studio.trace.",StringComparison.Ordinal)&&!p.StartsWith("studio.workbook.",StringComparison.Ordinal)).ToArray(),profile.Identity.LocalAdminFactoryNIds,admin.AuthVersion.ToString(CultureInfo.InvariantCulture),profile.Identity.PolicyVersion,now,expires);
     private Task<int> RevokeSubjectAsync(string tenant,string subject,CancellationToken cancellationToken){var now=clock.GetUtcNow();return Db.Updateable<StudioAuthSession>().SetColumns(s=>new StudioAuthSession { RevokedOn=now }).Where(s=>s.TenantNId==tenant&&s.SubjectNId==subject&&s.RevokedOn==null).ExecuteCommandAsync(cancellationToken);}
     private Task<int> RevokeAsync(StudioAuthSession session,CancellationToken cancellationToken){var now=clock.GetUtcNow();return Db.Updateable<StudioAuthSession>().SetColumns(s=>new StudioAuthSession { RevokedOn=now }).Where(s=>s.Id==session.Id).ExecuteCommandAsync(cancellationToken);}
     private void RequireLocal(){if(profile.DeploymentMode!="ExternalMes"||profile.Identity.Provider!="LocalAdmin"||!profile.Identity.LocalAdminEnabled)throw new StudioException("STUDIO_NOT_FOUND","此登录方式未启用。",404);}

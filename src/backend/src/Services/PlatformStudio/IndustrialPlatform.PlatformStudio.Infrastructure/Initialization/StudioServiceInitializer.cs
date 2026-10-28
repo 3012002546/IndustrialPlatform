@@ -68,6 +68,13 @@ public sealed class StudioServiceInitializer(StudioDatabase database, StudioDepl
                 : new List<string> { RuntimeFileAuditSchema.AuditFactDdl(provider), RuntimeFileAuditSchema.AuditLifecycleDdl(provider), RuntimeFileAuditSchema.AuditIngressFailureDdl(provider), RuntimeFileAuditSchema.AuditOutboxDdl(provider), RuntimeFileAuditSchema.AuditLifecycleLegalHoldAlterDdl(provider) };
             steps.Add(new("STA-001-AuditCore", "Embedded持久审计及保全", ddl));
         }
+        // 只追加列，既有链接默认仍为有限期、固定修订；不改STU-007或其他已应用迁移的摘要。
+        var screenPolicy = StudioSchema.ScreenPolicy;
+        var policySql = screenPolicy.Columns.Split(',').Select(column =>
+            $"ALTER TABLE {database.Table(screenPolicy.Name)} ADD {StudioSchema.Column(column, provider)} DEFAULT {(provider == DbType.PostgreSQL ? "false" : "0")}").ToList();
+        if (provider == DbType.SqlServer)
+            policySql.AddRange(screenPolicy.Columns.Split(',').Select(column => StudioSqlServerDescriptions.AddProperty(screenPolicy.Name, column.Split(':')[0], StudioSqlServerDescriptions.ColumnDescription(column.Split(':')[0]), schema)));
+        steps.Add(new(screenPolicy.Step, "看板大屏无限期与跟随最新发布策略；保留既有链接规则", policySql));
         return steps;
     }
 
@@ -76,6 +83,7 @@ public sealed class StudioServiceInitializer(StudioDatabase database, StudioDepl
         string Index(string table, string suffix, string columns, bool unique = false, string? filter = null) => $"CREATE {(unique ? "UNIQUE " : "")}INDEX {StudioSchema.Quote((unique ? "uq_st_" : "ix_st_") + suffix, database.Provider)} ON {(database.Provider == DbType.Sqlite ? StudioSchema.Quote(table, database.Provider) : database.Table(table))} ({columns})" + (filter is null ? "" : " WHERE " + filter);
         switch (step)
         {
+            case "STU-007-DashboardScreen": yield return Index("studio_dashboard_screen", "screen_resource", "tenant_n_id,resource_n_id,created_on"); break;
             case "STU-001-Resources":
                 yield return Index("studio_source", "source_provider", "tenant_n_id,provider,is_enabled");
                 yield return Index("studio_resource", "resource_list", "tenant_n_id,kind,is_deleted,last_updated_on,id");
@@ -167,8 +175,12 @@ public sealed class StudioServiceInitializer(StudioDatabase database, StudioDepl
             else if (!(await ColumnsAsync("studio_schema_migrations", cancellationToken)).Contains("checksum"))
                 await Db.Ado.ExecuteCommandAsync($"ALTER TABLE {database.Table("studio_schema_migrations")} ADD {StudioSchema.Column("checksum:sha?", database.Provider)}");
             var rows = await ReadLedgerAsync(cancellationToken);
-            if (rows.Any(row => !Migrations().Any(migration => migration.Id == row.MigrationId))) throw new StudioException("STUDIO_SCHEMA_DRIFT", "账本含未知或未来迁移，不允许降级接管。", 409);
-            foreach (var migration in Migrations())
+            var migrations = Migrations();
+            if (rows.Any(row => !migrations.Any(migration => migration.Id == row.MigrationId))) throw new StudioException("STUDIO_SCHEMA_DRIFT", "账本含未知或未来迁移，不允许降级接管。", 409);
+            // 按已应用步骤的最终形状核验；后续ALTER已改变旧表，不能再拿单个旧CREATE与现表比较。
+            var applied = migrations.Where(migration => rows.Any(row => row.MigrationId == migration.Id)).ToArray();
+            if (applied.Length > 0) await StudioSchemaIntegrity.ValidatePhysicalAsync(database, applied, cancellationToken);
+            foreach (var migration in migrations)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var old = rows.SingleOrDefault(row => row.MigrationId == migration.Id);
@@ -180,7 +192,6 @@ public sealed class StudioServiceInitializer(StudioDatabase database, StudioDepl
                         var actual = await ColumnsAsync(table.Name, cancellationToken);
                         if (table.Columns.Split(',').Select(column => column.Split(':')[0]).Any(column => !actual.Contains(column))) throw new StudioException("STUDIO_SCHEMA_DRIFT", "旧账本对应物理结构缺失，拒绝回填校验值。", 409);
                     }
-                    await StudioSchemaIntegrity.ValidatePhysicalAsync(database, [migration], cancellationToken);
                     if (old.Checksum is null) await Db.Ado.ExecuteCommandAsync($"UPDATE {database.Table("studio_schema_migrations")} SET checksum=@checksum WHERE migration_id=@id AND checksum IS NULL", new { checksum = migration.Checksum, id = migration.Id }, cancellationToken);
                     continue;
                 }
