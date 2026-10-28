@@ -10,6 +10,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { ROUTE_NAMES } from '@/router/routeNames'
 
 const key = 'a'.repeat(64)
+const requestUrl = (value: string) => new URL(value, window.location.origin)
 const runtime = () => ({
   resource: { name: '光刻胶制造运营总览' },
   revisionNId: 'rev-1',
@@ -98,7 +99,7 @@ describe('standalone anonymous dashboard screen', () => {
         data: {
           ...runtime(),
           resource: {
-            name: new URL(url).searchParams.has('navigation')
+            name: requestUrl(url).searchParams.has('navigation')
               ? '批次 PR-DEMO-104'
               : '光刻胶制造运营总览',
           },
@@ -117,14 +118,14 @@ describe('standalone anonymous dashboard screen', () => {
     await flushPromises()
     expect(page.text()).toContain('批次 PR-DEMO-104')
     const steps = JSON.parse(
-      new URL(fetchMock.mock.calls.at(-1)![0]).searchParams.get('navigation')!,
+      requestUrl(fetchMock.mock.calls.at(-1)![0]).searchParams.get('navigation')!,
     )
     expect(steps).toEqual([{ ruleId: 'batch-detail', rowKey: { key: 'PR-DEMO-104' } }])
     expect(page.vm.$router.currentRoute.value.path).toBe('/screen/dashboards/screen-1')
     await vi.advanceTimersByTimeAsync(30000)
     await flushPromises()
     expect(
-      JSON.parse(new URL(fetchMock.mock.calls.at(-1)![0]).searchParams.get('navigation')!),
+      JSON.parse(requestUrl(fetchMock.mock.calls.at(-1)![0]).searchParams.get('navigation')!),
     ).toEqual(steps)
     await page
       .findAll('button')
@@ -132,7 +133,7 @@ describe('standalone anonymous dashboard screen', () => {
       .trigger('click')
     await flushPromises()
     expect(page.text()).toContain('光刻胶制造运营总览')
-    expect(new URL(fetchMock.mock.calls.at(-1)![0]).searchParams.has('navigation')).toBe(false)
+    expect(requestUrl(fetchMock.mock.calls.at(-1)![0]).searchParams.has('navigation')).toBe(false)
   })
   it('rejects a malformed detail path without losing the error screen', async () => {
     const page = await mountScreen(`#key=${key}&navigation=invalid`)
@@ -148,7 +149,7 @@ describe('standalone anonymous dashboard screen', () => {
     let finish: (value: unknown) => void = () => {}
     let detailReads = 0
     fetchMock.mockImplementation((url: string) => {
-      const detail = new URL(url).searchParams.has('navigation')
+      const detail = requestUrl(url).searchParams.has('navigation')
       const response = {
         ok: true,
         json: async () => ({
@@ -180,7 +181,7 @@ describe('standalone anonymous dashboard screen', () => {
       .vm.$emit('navigate', item.component, item.row)
     await flushPromises()
     expect(detailReads).toBe(2)
-    const checkQuery = new URL(fetchMock.mock.calls.at(-1)![0]).searchParams
+    const checkQuery = requestUrl(fetchMock.mock.calls.at(-1)![0]).searchParams
     expect(checkQuery.get('instanceIds')).toBe('[]')
     expect(checkQuery.get('knownRevisionNId')).toBe('rev-1')
     expect(page.text()).toContain('批次 B-04')
@@ -213,7 +214,7 @@ describe('standalone anonymous dashboard screen', () => {
     }
     let finish: (value: unknown) => void = () => {}
     fetchMock.mockImplementation((url: string) =>
-      new URL(url).searchParams.has('navigation')
+      requestUrl(url).searchParams.has('navigation')
         ? new Promise((resolve) => {
             finish = resolve
           })
@@ -253,7 +254,7 @@ describe('standalone anonymous dashboard screen', () => {
     }
     let changed = false
     fetchMock.mockImplementation(async (url: string) => {
-      const query = new URL(url).searchParams
+      const query = requestUrl(url).searchParams
       const detail = query.has('navigation')
       return {
         ok: true,
@@ -278,11 +279,11 @@ describe('standalone anonymous dashboard screen', () => {
       .vm.$emit('navigate', item.component, item.row)
     await flushPromises()
     const detailReads = fetchMock.mock.calls.filter(([url]) =>
-      new URL(url).searchParams.has('navigation'),
+      requestUrl(url).searchParams.has('navigation'),
     )
     expect(detailReads).toHaveLength(3)
-    expect(new URL(detailReads[1]![0]).searchParams.get('instanceIds')).toBe('[]')
-    expect(new URL(detailReads[2]![0]).searchParams.has('instanceIds')).toBe(false)
+    expect(requestUrl(detailReads[1]![0]).searchParams.get('instanceIds')).toBe('[]')
+    expect(requestUrl(detailReads[2]![0]).searchParams.has('instanceIds')).toBe(false)
     const props = page.findComponent({ name: 'DashboardRuntimeView' }).props()
     expect(props.parameters).toEqual({ batchNo: 'B-04', lineId: 'L02' })
     expect(props.runtime.instances.value.data).toBe(12)
@@ -349,7 +350,7 @@ describe('standalone anonymous dashboard screen', () => {
     let detailReads = 0
     let finish: (value: unknown) => void = () => {}
     fetchMock.mockImplementation((url: string) => {
-      if (new URL(url).searchParams.has('navigation')) {
+      if (requestUrl(url).searchParams.has('navigation')) {
         detailReads++
         if (detailReads > 1)
           return new Promise((resolve) => {
@@ -465,8 +466,8 @@ describe('standalone anonymous dashboard screen', () => {
       'rev-2',
     )
     expect(page.text()).toContain('光刻胶已发布调整')
-    const firstUrl = new URL(fetchMock.mock.calls[0]![0])
-    const nextUrl = new URL(fetchMock.mock.calls[1]![0])
+    const firstUrl = requestUrl(fetchMock.mock.calls[0]![0])
+    const nextUrl = requestUrl(fetchMock.mock.calls[1]![0])
     expect(firstUrl.pathname).toBe(nextUrl.pathname)
     expect(nextUrl.searchParams.get('instanceIds')).toBe('[]')
     expect(nextUrl.searchParams.get('knownRevisionNId')).toBe('rev-1')
