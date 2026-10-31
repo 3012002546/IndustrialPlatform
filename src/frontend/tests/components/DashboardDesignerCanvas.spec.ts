@@ -361,10 +361,30 @@ describe('dashboard designer live canvas', () => {
     await categories[1]!.trigger('click')
     expect(cards()).toHaveLength(10)
     expect(categories[1]!.attributes('aria-pressed')).toBe('true')
-    await cards()
-      .find((card) => card.text() === '折线 / 多序列')!
-      .trigger('click')
+    const paletteCard = cards().find((card) => card.text() === '折线 / 多序列')!
+    await paletteCard.trigger('click')
+    expect(view.findAll('.dashboard-editor-component')).toHaveLength(24)
+    const payload = new Map<string, string>()
+    const dataTransfer = {
+      effectAllowed: '',
+      setData: (key: string, value: string) => payload.set(key, value),
+      getData: (key: string) => payload.get(key) ?? '',
+    }
+    await paletteCard.trigger('dragstart', { dataTransfer })
+    const canvas = view.get('.dashboard-editor-canvas')
+    vi.spyOn(canvas.element, 'getBoundingClientRect').mockReturnValue(
+      new DOMRect(100, 80, 1000, 600),
+    )
+    const scale = Number(view.findComponent(DashboardRuntimeView).props('editorScale'))
+    await canvas.trigger('drop', {
+      dataTransfer,
+      clientX: 100 + 200 * scale,
+      clientY: 80 + 150 * scale,
+    })
     expect(view.findAll('.dashboard-editor-component')).toHaveLength(25)
+    const added = view.findAll('[data-component-id]').at(-1)!.element as HTMLElement
+    expect(added.style.left).toBe('200px')
+    expect(added.style.top).toBe('150px')
     await click(view, '撤销')
     expect(view.findAll('.dashboard-editor-component')).toHaveLength(24)
     await view.get('input[aria-label="搜索组件"]').setValue('StatusLamp')

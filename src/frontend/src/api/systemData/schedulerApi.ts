@@ -27,6 +27,9 @@ export interface SchedulerJob extends JobValues, JobVersion {
   handlerKey: string
   status: string
   retrySafety: string
+  jobKind?: 'Recurring' | 'OneShot'
+  ownerService?: string | null
+  ownerObjectNId?: string | null
   isSystemOwned: boolean
   createdOn: string
   lastUpdatedOn: string

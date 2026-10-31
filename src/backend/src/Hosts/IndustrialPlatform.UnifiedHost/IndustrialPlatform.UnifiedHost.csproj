@@ -16,4 +16,14 @@
     <ProjectReference Include="..\..\Services\ReferenceData\IndustrialPlatform.ReferenceData.Api\IndustrialPlatform.ReferenceData.Api.csproj" />
   </ItemGroup>
 
+  <!-- Referenced API hosts keep their own settings for standalone publishing.
+       The composed host publishes only its own application settings. -->
+  <Target Name="UseUnifiedHostPublishSettings" AfterTargets="ComputeFilesToPublish" BeforeTargets="_HandleFileConflictsForPublish">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)"
+        Condition="'%(ResolvedFileToPublish.Extension)' == '.json' and $([System.String]::Copy('%(ResolvedFileToPublish.Filename)').StartsWith('appsettings'))" />
+      <_UnifiedHostPublishSettings Include="$(MSBuildProjectDirectory)/appsettings*.json" Exclude="$(MSBuildProjectDirectory)/appsettings.*.local.json" />
+      <ResolvedFileToPublish Include="@(_UnifiedHostPublishSettings)" RelativePath="%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
+  </Target>
 </Project>

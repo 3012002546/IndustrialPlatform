@@ -22,6 +22,10 @@ public sealed class StudioDatabase : IDisposable
     private readonly bool _schemaExplicit;
     private static readonly Dictionary<Type, string> Tables = new Dictionary<Type, string>
     {
+        [typeof(StudioReportRun)] = "studio_report_run",
+        [typeof(StudioReportArtifact)] = "studio_report_artifact",
+        [typeof(StudioWorkbook)] = "studio_workbook", [typeof(StudioWorkbookVersion)] = "studio_workbook_version", [typeof(StudioWorkbookSession)] = "studio_workbook_session",
+        [typeof(StudioWorkbookRetiredFile)] = "studio_workbook_retired_file",
         [typeof(StudioScreenLink)] = "studio_dashboard_screen",
         [typeof(StudioSource)] = "studio_source", [typeof(StudioResource)] = "studio_resource", [typeof(StudioRevision)] = "studio_revision",
         [typeof(StudioGrant)] = "studio_grant", [typeof(StudioLedgerRecord)] = "studio_ledger_record", [typeof(StudioLedgerValue)] = "studio_ledger_value",

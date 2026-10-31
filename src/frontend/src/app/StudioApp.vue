@@ -11,6 +11,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useLocalizationStore } from '@/stores/localizationStore'
 import { useThemeStore } from '@/stores/themeStore'
 import { useStudioCopy } from '@/components/studio/shared/copy'
+import { studioNavigationIcons } from '@/components/studio/shared/navigation'
 const auth = useAuthStore(),
   locale = useLocalizationStore(),
   theme = useThemeStore(),
@@ -39,13 +40,18 @@ const activeModuleReady = computed(() =>
     ? moduleReady('Dashboard')
     : route.path.includes('/low-code') || route.path.includes('/ledger-models')
       ? moduleReady('LowCode')
-      : true,
+      : route.path.includes('/reports') ||
+          route.path.includes('/report-bundles') ||
+          route.path.includes('/workbooks')
+        ? moduleReady('Report')
+        : true,
 )
 function defaultStudioPath(): string {
   if (moduleReady('Dashboard') && auth.hasPermission('studio.dashboard.view'))
     return '/pc/studio/dashboards'
   if (moduleReady('LowCode') && auth.hasPermission('studio.lowcode.view'))
     return '/pc/studio/low-code'
+  if (moduleReady('Report') && auth.hasPermission('studio.report.view')) return '/pc/studio/reports'
   return '/pc/studio/sources'
 }
 function redirectFromUnavailableEntry() {
@@ -57,6 +63,24 @@ function redirectFromUnavailableEntry() {
 }
 const links = computed(() =>
   [
+    {
+      path: '/pc/studio/reports',
+      label: t.value('reports'),
+      permission: 'studio.report.view',
+      module: 'Report',
+    },
+    {
+      path: '/pc/studio/report-bundles',
+      label: t.value('reportBundles'),
+      permission: 'studio.report.view',
+      module: 'Report',
+    },
+    {
+      path: '/pc/studio/workbooks',
+      label: t.value('workbooks'),
+      permission: 'studio.workbook.view',
+      module: 'Report',
+    },
     {
       path: '/pc/studio/low-code',
       label: t.value('lowcode'),
@@ -93,7 +117,12 @@ const links = computed(() =>
       permission: 'studio.dashboard.view',
       module: 'Dashboard',
     },
-  ].filter((link) => auth.hasPermission(link.permission) && moduleReady(link.module)),
+  ]
+    .filter((link) => auth.hasPermission(link.permission) && moduleReady(link.module))
+    .map((link) => ({
+      ...link,
+      icon: studioNavigationIcons.find((item) => item.path === link.path)?.icon,
+    })),
 )
 async function loadIdentity() {
   const client = getStudioApi().client
@@ -254,6 +283,7 @@ onMounted(async () => {
           <el-button
             v-for="link in links"
             :key="link.path"
+            :icon="link.icon"
             :type="route.path.startsWith(link.path) ? 'primary' : 'default'"
             @click="router.push(link.path)"
             >{{ link.label }}</el-button

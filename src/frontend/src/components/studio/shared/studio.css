@@ -98,7 +98,8 @@
   margin-bottom: 12px;
 }
 .studio-sidebar .el-input-number,
-.studio-sidebar .el-select {
+.studio-sidebar .el-select,
+.studio-sidebar .el-select-v2 {
   width: 100%;
 }
 .studio-sidebar h3 {

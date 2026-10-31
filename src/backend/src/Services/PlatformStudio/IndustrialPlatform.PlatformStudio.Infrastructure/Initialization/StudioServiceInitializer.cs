@@ -18,6 +18,7 @@ public sealed class StudioServiceInitializer(StudioDatabase database, StudioDepl
     private static readonly string[] FileSqlServerIds = ["PF04-001-01", "PF04-001-02", "PF04-001-03", "PF04-001-04", "PF05-003"];
     private static readonly string[] AuditSqlServerIds = ["PF04-001-08", "PF04-001-09", "PF04-001-10", "PF04-001-11", "PF04-001-12"];
     private ISqlSugarClient Db => database.Client;
+    private bool _hasJobsHistory;
     public sealed record Migration(string Id, string Description, IReadOnlyList<string> Statements)
     {
         public string Checksum => StudioJson.Hash(string.Join("\n", Statements));
@@ -68,6 +69,13 @@ public sealed class StudioServiceInitializer(StudioDatabase database, StudioDepl
                 : new List<string> { RuntimeFileAuditSchema.AuditFactDdl(provider), RuntimeFileAuditSchema.AuditLifecycleDdl(provider), RuntimeFileAuditSchema.AuditIngressFailureDdl(provider), RuntimeFileAuditSchema.AuditOutboxDdl(provider), RuntimeFileAuditSchema.AuditLifecycleLegalHoldAlterDdl(provider) };
             steps.Add(new("STA-001-AuditCore", "Embedded持久审计及保全", ddl));
         }
+        if (profile.Jobs.Provider == "Embedded" || _hasJobsHistory)
+        {
+            var jobs = new List<string> { IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchedulerSchemaMigrations.JobDdl(provider), IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchedulerSchemaMigrations.RunDdl(provider) };
+            jobs.AddRange(IndustrialPlatform.RuntimeSupport.Jobs.SchedulerOnceSchema.Statements(provider));
+            steps.Add(new("STJ-001-JobRun", "Embedded Jobs任务运行与一次性业务归属", jobs));
+            steps.Add(new("STJ-002-EngineStorage", "Hangfire固定Provider原生存储1.8.25", ["SELECT 1"]));
+        }
         // 只追加列，既有链接默认仍为有限期、固定修订；不改STU-007或其他已应用迁移的摘要。
         var screenPolicy = StudioSchema.ScreenPolicy;
         var policySql = screenPolicy.Columns.Split(',').Select(column =>
@@ -75,6 +83,7 @@ public sealed class StudioServiceInitializer(StudioDatabase database, StudioDepl
         if (provider == DbType.SqlServer)
             policySql.AddRange(screenPolicy.Columns.Split(',').Select(column => StudioSqlServerDescriptions.AddProperty(screenPolicy.Name, column.Split(':')[0], StudioSqlServerDescriptions.ColumnDescription(column.Split(':')[0]), schema)));
         steps.Add(new(screenPolicy.Step, "看板大屏无限期与跟随最新发布策略；保留既有链接规则", policySql));
+        steps.Add(StudioWorkbookSchema.Migration(database));
         return steps;
     }
 
@@ -198,6 +207,7 @@ public sealed class StudioServiceInitializer(StudioDatabase database, StudioDepl
                 await Db.Ado.BeginTranAsync();
                 try
                 {
+                    if (migration.Id == "STJ-002-EngineStorage") await IndustrialPlatform.SystemData.Infrastructure.Scheduler.SchedulerStorageSchema.InitializeAsync(Db, cancellationToken);
                     foreach (var sql in migration.Statements)
                         foreach (var batch in System.Text.RegularExpressions.Regex.Split(sql, @"(?im)^\s*GO\s*$", System.Text.RegularExpressions.RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)).Where(batch => !string.IsNullOrWhiteSpace(batch))) await Db.Ado.ExecuteCommandAsync(batch, parameters: null, cancellationToken: cancellationToken);
                     await Db.Ado.ExecuteCommandAsync($"INSERT INTO {database.Table("studio_schema_migrations")} (migration_id,description,checksum,applied_on) VALUES (@id,@description,@checksum,@applied)", new { id = migration.Id, description = migration.Description, checksum = migration.Checksum, applied = clock.GetUtcNow() }, cancellationToken);
@@ -226,7 +236,12 @@ public sealed class StudioServiceInitializer(StudioDatabase database, StudioDepl
         await Db.Ado.ExecuteCommandAsync($"INSERT INTO {database.Table("studio_seed_ledger")} (id,is_frozen,is_locked,is_deleted,entity_type,created_on,last_updated_on,optimistic_version,concurrency_version,tenant_n_id,seed_n_id,seed_version,seed_class,scope,checksum,status,applied_on,system_data_operation_n_id,trace_id) VALUES (@id,@frozen,@locked,@deleted,@type,@now,@now,0,@version,@tenant,@seed,'1','SystemBaseline','system',@checksum,'Applied',@now,NULL,NULL)", new { id = Guid.NewGuid(), frozen = true, locked = false, deleted = false, type = "Studio.SeedLedger", now, version = Guid.NewGuid(), tenant = "system", seed = "studio.core.baseline", checksum = BaselineChecksum }, cancellationToken);
     }
 
-    private Task<List<MigrationRow>> ReadLedgerAsync(CancellationToken cancellationToken) => Db.Ado.SqlQueryAsync<MigrationRow>($"SELECT migration_id AS MigrationId,description AS Description,checksum AS Checksum,applied_on AS AppliedOn FROM {database.Table("studio_schema_migrations")}", new { }, cancellationToken);
+    private async Task<List<MigrationRow>> ReadLedgerAsync(CancellationToken cancellationToken)
+    {
+        var rows = await Db.Ado.SqlQueryAsync<MigrationRow>($"SELECT migration_id AS MigrationId,description AS Description,checksum AS Checksum,applied_on AS AppliedOn FROM {database.Table("studio_schema_migrations")}", new { }, cancellationToken);
+        _hasJobsHistory |= rows.Any(row => row.MigrationId.StartsWith("STJ-", StringComparison.Ordinal));
+        return rows;
+    }
     private async Task<HashSet<string>> ColumnsAsync(string table, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

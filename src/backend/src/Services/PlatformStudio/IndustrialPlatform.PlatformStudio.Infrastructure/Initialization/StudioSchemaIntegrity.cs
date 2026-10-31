@@ -56,6 +56,7 @@ internal static class StudioSchemaIntegrity
 
         foreach (var migration in migrations)
         {
+            if (migration.Id == StudioWorkbookSchema.Step) StudioWorkbookSchema.Verify(database);
             if (migration.Id == StudioSchema.ScreenPolicy.Step)
             {
                 var policy = StudioSchema.ScreenPolicy;

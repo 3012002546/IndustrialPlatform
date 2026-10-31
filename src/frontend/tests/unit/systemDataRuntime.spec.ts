@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
   Avatar,
   DataAnalysis,
+  Document,
+  Files,
+  Grid,
   House,
   Lock,
   Menu,
@@ -166,6 +169,18 @@ function flattenLabels(
 }
 
 describe('SystemData runtime navigation adapter', () => {
+  it.each([
+    ['studio-reports', 'document', Document],
+    ['studio-report-bundles', 'files', Files],
+    ['studio-workbooks', 'grid', Grid],
+  ])('maps the %s functional icon for both old and upgraded seeds', (routeName, key, icon) => {
+    for (const iconKey of [null, key]) {
+      const groups = mapRuntimeNavigation([
+        node({ children: [node({ kind: 'Link', routeName, iconKey })] }),
+      ])
+      expect(groups[0]?.items[0]?.icon).toBe(icon)
+    }
+  })
   it('keeps every shipped Studio route in the native menu route catalog', () => {
     for (const route of studioRoutes) {
       expect(isRegisteredRouteName(String(route.name)), String(route.name)).toBe(true)

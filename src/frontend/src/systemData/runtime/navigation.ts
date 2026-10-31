@@ -2,7 +2,6 @@ import {
   Avatar,
   Connection,
   Cpu,
-  DataAnalysis,
   Document,
   FirstAidKit,
   House,
@@ -16,7 +15,6 @@ import {
   Tools,
   User,
   UserFilled,
-  VideoPlay,
 } from '@element-plus/icons-vue'
 import type { Component } from 'vue'
 
@@ -30,8 +28,10 @@ import type { NavigationRuntimeNodeDto, ThemePolicyDto } from '@/api/systemData/
 import type { PcDensity, ThemeMode, ThemePalette, UiPreferencesV1 } from '@/theme/types'
 import { isRegisteredRouteName, ROUTE_NAMES } from '@/router/routeNames'
 import { getDefaultPcNavigationGroups } from '@/components/navigation/navigation'
+import { studioNavigationIcons } from '@/components/studio/shared/navigation'
 
 const ICONS = new Map<string, Component>([
+  ...studioNavigationIcons.map((item): [string, Component] => [item.key, item.icon]),
   ['avatar', Avatar],
   ['connection', Connection],
   ['cpu', Cpu],
@@ -58,8 +58,7 @@ const BUILTIN_ROUTE_ICONS = new Map<string, Component>([
   ['pc-scheduler-jobs', Timer],
   ['pc-scheduler-runs', Document],
   ['pc-platform-health', FirstAidKit],
-  [ROUTE_NAMES.studioDashboards, DataAnalysis],
-  [ROUTE_NAMES.studioPlaylists, VideoPlay],
+  ...studioNavigationIcons.map((item): [string, Component] => [item.route, item.icon]),
 ])
 
 /* Retained only as a compatibility marker for the historical snapshot shape;
@@ -138,6 +137,9 @@ function builtinNavigationText(): Map<string, { labelKey: string; fallbackLabel:
   // when Dashboard is not installed or absent from the published snapshot.
   add(`route:${ROUTE_NAMES.studioDashboards}`, 'studio.dashboards', '看板')
   add(`route:${ROUTE_NAMES.studioPlaylists}`, 'studio.playlists', '轮播')
+  add('route:studio-reports', 'studio.reports', '单报表')
+  add('route:studio-report-bundles', 'studio.reportBundles', '组合报表')
+  add('route:studio-workbooks', 'studio.workbooks', '在线 Excel')
   return result
 }
 

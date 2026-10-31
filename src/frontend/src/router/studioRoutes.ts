@@ -25,6 +25,53 @@ export const studioScreenRoutes: RouteRecordRaw[] = [
   },
 ]
 export const studioRoutes: RouteRecordRaw[] = [
+  ...['reports', 'report-bundles'].flatMap(
+    (section) =>
+      [
+        {
+          path: `studio/${section}/:nId/design`,
+          name: `studio-${section}-design`,
+          component: () => import('@/pages/pc/studio/report/ReportDesignerPage.vue'),
+          meta: {
+            title: 'Report design',
+            titleKey: 'studio.reportDesign',
+            requiresAuth: true,
+            permission: 'studio.report.design',
+            terminal: 'pc',
+            workspace: 'business',
+            pageId: `studio-${section}-design`,
+          },
+        },
+        {
+          path: `studio/${section}/:nId/run`,
+          name: `studio-${section}-run`,
+          component: () => import('@/pages/pc/studio/report/ReportRuntimePage.vue'),
+          meta: {
+            title: 'Report runtime',
+            titleKey: 'studio.reportRun',
+            requiresAuth: true,
+            permission: 'studio.report.run',
+            terminal: 'pc',
+            workspace: 'business',
+            pageId: `studio-${section}-run`,
+          },
+        },
+      ] as RouteRecordRaw[],
+  ),
+  {
+    path: 'studio/workbooks',
+    name: 'studio-workbooks',
+    component: () => import('@/pages/pc/studio/report/WorkbookPage.vue'),
+    meta: {
+      title: 'Online Excel',
+      titleKey: 'studio.workbooks',
+      requiresAuth: true,
+      permission: 'studio.workbook.view',
+      terminal: 'pc',
+      workspace: 'business',
+      pageId: 'studio-workbooks',
+    },
+  },
   ...[
     ['low-code', 'studio-lowcode', '低代码', 'lowcode', 'studio.lowcode.view'],
     ['sources', 'studio-sources', '数据源', 'sources', 'studio.source.view'],
@@ -32,6 +79,8 @@ export const studioRoutes: RouteRecordRaw[] = [
     ['ledger-models', 'studio-ledger-models', '台账模型', 'ledger', 'studio.lowcode.design'],
     ['dashboards', ROUTE_NAMES.studioDashboards, '看板', 'dashboards', 'studio.dashboard.view'],
     ['playlists', ROUTE_NAMES.studioPlaylists, '轮播', 'playlists', 'studio.dashboard.view'],
+    ['reports', 'studio-reports', '单报表', 'reports', 'studio.report.view'],
+    ['report-bundles', 'studio-report-bundles', '组合报表', 'reportBundles', 'studio.report.view'],
   ].map(
     ([path, name, title, key, permission]) =>
       ({

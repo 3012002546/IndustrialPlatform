@@ -17,4 +17,4 @@
     <EmbeddedResource Include="../../Services/SystemData/IndustrialPlatform.SystemData.Infrastructure/Persistence/Migrations/SqlServer/PF04-001-12.sql" Link="Migrations/SqlServer/PF04-001-12.sql" />
     <EmbeddedResource Include="../../Services/SystemData/IndustrialPlatform.SystemData.Infrastructure/Persistence/Migrations/SqlServer/PF05-003.sql" Link="Migrations/SqlServer/PF05-003.sql" />
   </ItemGroup>
-</Project>
+<ItemGroup><PackageReference Include="Hangfire.Core" /><PackageReference Include="Cronos" /><PackageReference Include="Hangfire.SqlServer" /><PackageReference Include="Hangfire.PostgreSql" /><PackageReference Include="Hangfire.Storage.SQLite" /><PackageReference Include="Microsoft.Data.Sqlite" /><PackageReference Include="Npgsql" /><PackageReference Include="Microsoft.Data.SqlClient" /><PackageReference Include="SQLitePCLRaw.bundle_green" ExcludeAssets="all" /></ItemGroup></Project>

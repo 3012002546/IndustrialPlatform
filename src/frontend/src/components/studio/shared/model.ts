@@ -11,6 +11,7 @@ export interface Binding {
   from: string
   path?: (string | number)[]
   instanceId?: string
+  contextBandId?: string
   value?: unknown
   nullPolicy?: string
   defaultValue?: unknown

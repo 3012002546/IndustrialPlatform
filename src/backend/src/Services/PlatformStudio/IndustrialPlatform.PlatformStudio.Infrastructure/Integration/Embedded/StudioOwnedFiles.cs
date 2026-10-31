@@ -13,6 +13,7 @@ public interface IStudioOwnedFiles
     Task<OwnedFileStatusV1> GetStatusAsync(StudioPrincipal principal, string resourceNId, string referenceNId, CancellationToken cancellationToken);
     Task<OwnedFileReadTicketV1> GetReadTicketAsync(StudioPrincipal principal, string resourceNId, string referenceNId, CancellationToken cancellationToken);
     Task<Stream> OpenReadAsync(StudioPrincipal principal, string resourceNId, OwnedFileReadV1 request, CancellationToken cancellationToken);
+    Task<Stream> OpenReadForExecutionAsync(string identityEvidence, string resourceNId, string referenceNId, CancellationToken cancellationToken);
     Task<OwnedFileStatusV1> ReleaseAsync(StudioPrincipal principal, string resourceNId, OwnedFileReleaseV1 request, CancellationToken cancellationToken);
     Task<OwnedFileStatusV1> SetRetentionAsync(StudioPrincipal principal, string resourceNId, OwnedFileRetentionV1 request, CancellationToken cancellationToken);
     Task<OwnedFileListV1> ListAsync(StudioPrincipal principal, string resourceNId, string? cursor, CancellationToken cancellationToken);
@@ -31,6 +32,14 @@ public sealed class StudioOwnedFiles(StudioDeploymentProfile profile, IStudioIde
     public async Task<OwnedFileStatusV1> GetStatusAsync(StudioPrincipal principal, string resourceNId, string referenceNId, CancellationToken cancellationToken) => await files!.GetStatusAsync(await Reference(principal, resourceNId, referenceNId, false, cancellationToken), referenceNId, cancellationToken);
     public async Task<OwnedFileReadTicketV1> GetReadTicketAsync(StudioPrincipal principal, string resourceNId, string referenceNId, CancellationToken cancellationToken) => await files!.GetReadTicketAsync(await Reference(principal, resourceNId, referenceNId, false, cancellationToken), referenceNId, cancellationToken);
     public async Task<Stream> OpenReadAsync(StudioPrincipal principal, string resourceNId, OwnedFileReadV1 request, CancellationToken cancellationToken) => await files!.ReadAsync(await Reference(principal, resourceNId, request.ReferenceNId, false, cancellationToken), request, cancellationToken);
+    public async Task<Stream> OpenReadForExecutionAsync(string identityEvidence, string resourceNId, string referenceNId, CancellationToken cancellationToken)
+    {
+        var principal = await identity.RefreshExecutionAsync(identityEvidence, cancellationToken);
+        var context = await Authorize(principal, resourceNId, false, cancellationToken, refresh: false);
+        await RequireReference(context, resourceNId, referenceNId, cancellationToken);
+        var ticket = await files!.GetReadTicketAsync(context, referenceNId, cancellationToken);
+        return await files.ReadAsync(context, new(referenceNId, principal.SubjectNId, ticket.AuthorizationTicket), cancellationToken);
+    }
     public async Task<OwnedFileStatusV1> ReleaseAsync(StudioPrincipal principal, string resourceNId, OwnedFileReleaseV1 request, CancellationToken cancellationToken) => await files!.ReleaseAsync(await Reference(principal, resourceNId, request.ReferenceNId, true, cancellationToken), request, cancellationToken);
     public async Task<OwnedFileStatusV1> SetRetentionAsync(StudioPrincipal principal, string resourceNId, OwnedFileRetentionV1 request, CancellationToken cancellationToken)
     {
@@ -39,10 +48,10 @@ public sealed class StudioOwnedFiles(StudioDeploymentProfile profile, IStudioIde
         return await files!.SetRetentionAsync(await Reference(principal, resourceNId, request.ReferenceNId, true, cancellationToken), request, cancellationToken);
     }
     public async Task<OwnedFileListV1> ListAsync(StudioPrincipal principal, string resourceNId, string? cursor, CancellationToken cancellationToken) => await files!.ListByOwnerAsync(await Authorize(principal, resourceNId, true, cancellationToken), "StudioAsset", resourceNId, cursor, cancellationToken);
-    private async Task<TrustedServiceContext> Authorize(StudioPrincipal principal, string resourceNId, bool write, CancellationToken cancellationToken)
+    private async Task<TrustedServiceContext> Authorize(StudioPrincipal principal, string resourceNId, bool write, CancellationToken cancellationToken, bool refresh = true)
     {
         if (!Enabled || files is null) throw new StudioException("STUDIO_FILES_UNAVAILABLE", "文件能力不可用。", 503);
-        principal = await identity.RefreshAsync(principal, cancellationToken);
+        if (refresh) principal = await identity.RefreshAsync(principal, cancellationToken);
         var resource = await store.FindResourceAsync(principal.TenantNId, resourceNId, cancellationToken) ?? throw new StudioException("STUDIO_NOT_FOUND", "资源不存在。", 404);
         if (resource.IsDeleted || !StudioKinds.Modules.TryGetValue(resource.Kind, out var module) || !profile.ActiveModules.Contains(module, StringComparer.Ordinal)) throw new StudioException("STUDIO_NOT_FOUND", "资源不可用。", 404);
         await authorization.RequireAsync(principal, resource, StudioKinds.PermissionPrefix(resource.Kind) + (write ? ".design" : ".view"), write ? "Design" : "View", cancellationToken);
@@ -51,11 +60,16 @@ public sealed class StudioOwnedFiles(StudioDeploymentProfile profile, IStudioIde
     private async Task<TrustedServiceContext> Reference(StudioPrincipal principal, string resourceNId, string referenceNId, bool write, CancellationToken cancellationToken)
     {
         var context = await Authorize(principal, resourceNId, write, cancellationToken);
+        await RequireReference(context, resourceNId, referenceNId, cancellationToken);
+        return context;
+    }
+    private async Task RequireReference(TrustedServiceContext context, string resourceNId, string referenceNId, CancellationToken cancellationToken)
+    {
         string? cursor = null;
         do
         {
             var page = await files!.ListByOwnerAsync(context, "StudioAsset", resourceNId, cursor, cancellationToken);
-            if (page.Items.Any(item => item.ReferenceNId == referenceNId)) return context;
+            if (page.Items.Any(item => item.ReferenceNId == referenceNId)) return;
             cursor = page.NextCursor;
         } while (cursor is not null);
         throw new StudioException("STUDIO_NOT_FOUND", "该资源不存在此文件引用。", 404);

@@ -69,6 +69,7 @@ public static class DependencyInjection
         services.AddSingleton<ISystemDataPermissionEvaluator>(sp => sp.GetRequiredService<HttpIdentityDirectoryClient>());
         services.AddHostedService<ControlPlaneOutboxDispatcher>();
         services.AddOptions<SchedulerOptions>().Bind(configuration.GetSection(SchedulerOptions.SectionName));
+        services.AddSingleton<IndustrialPlatform.RuntimeSupport.Jobs.IScheduledTaskSubmission>(sp => sp.GetRequiredService<SchedulerAdministration>());
         services.AddSingleton<ISchedulerStore, SqlSchedulerStore>();
         services.AddSingleton<HangfireSchedulerEngine>();
         services.AddSingleton<ISchedulerEngine>(sp => sp.GetRequiredService<HangfireSchedulerEngine>());

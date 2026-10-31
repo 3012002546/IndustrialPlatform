@@ -17,6 +17,7 @@ import {
   type StudioSource,
   type StudioRevisionSummary,
 } from '@/api/studio'
+import { initialReportDocument } from '@/components/studio/report/model'
 import { initialDocument, safeTotal } from '@/components/studio/shared/model'
 import { initialDashboardDocument, initialPlaylistDocument } from './dashboard/model'
 import { useStudioCopy } from '@/components/studio/shared/copy'
@@ -32,37 +33,47 @@ const isSource = computed(() => route.path.endsWith('/sources'))
 const isDashboard = computed(() => route.path.endsWith('/dashboards'))
 const isPlaylist = computed(() => route.path.endsWith('/playlists'))
 const kind = computed(() =>
-  route.path.endsWith('/datasets')
-    ? 'Dataset'
-    : route.path.endsWith('/ledger-models')
-      ? 'LedgerModel'
-      : isDashboard.value
-        ? 'Dashboard'
-        : isPlaylist.value
-          ? 'Playlist'
-          : 'LowCodePage',
+  route.path.endsWith('/reports')
+    ? 'Report'
+    : route.path.endsWith('/report-bundles')
+      ? 'ReportBundle'
+      : route.path.endsWith('/datasets')
+        ? 'Dataset'
+        : route.path.endsWith('/ledger-models')
+          ? 'LedgerModel'
+          : isDashboard.value
+            ? 'Dashboard'
+            : isPlaylist.value
+              ? 'Playlist'
+              : 'LowCodePage',
 )
 const section = computed(() =>
-  isSource.value
-    ? 'sources'
-    : kind.value === 'Dataset'
-      ? 'datasets'
-      : kind.value === 'LedgerModel'
-        ? 'ledger'
-        : kind.value === 'Dashboard'
-          ? 'dashboards'
-          : kind.value === 'Playlist'
-            ? 'playlists'
-            : 'lowcode',
+  kind.value === 'Report'
+    ? 'reports'
+    : kind.value === 'ReportBundle'
+      ? 'reportBundles'
+      : isSource.value
+        ? 'sources'
+        : kind.value === 'Dataset'
+          ? 'datasets'
+          : kind.value === 'LedgerModel'
+            ? 'ledger'
+            : kind.value === 'Dashboard'
+              ? 'dashboards'
+              : kind.value === 'Playlist'
+                ? 'playlists'
+                : 'lowcode',
 )
 const permission = computed(() =>
-  isSource.value
-    ? 'studio.source.manage'
-    : kind.value === 'Dataset'
-      ? 'studio.dataset.design'
-      : kind.value === 'Dashboard' || kind.value === 'Playlist'
-        ? 'studio.dashboard.design'
-        : 'studio.lowcode.design',
+  kind.value === 'Report' || kind.value === 'ReportBundle'
+    ? 'studio.report.design'
+    : isSource.value
+      ? 'studio.source.manage'
+      : kind.value === 'Dataset'
+        ? 'studio.dataset.design'
+        : kind.value === 'Dashboard' || kind.value === 'Playlist'
+          ? 'studio.dashboard.design'
+          : 'studio.lowcode.design',
 )
 const keyword = ref(''),
   status = ref(''),
@@ -164,9 +175,11 @@ async function load(request: AppDataTableRequest) {
     dashboardReady.value =
       !!dashboardModule?.installed && !!dashboardModule.enabled && !!dashboardModule.available
     const moduleReady =
-      kind.value === 'Dashboard' || kind.value === 'Playlist'
-        ? dashboardReady.value
-        : isSource.value || kind.value === 'Dataset' || lowCodeReady.value
+      kind.value === 'Report' || kind.value === 'ReportBundle'
+        ? !!cap.modules.find((m) => m.key === 'Report')?.available
+        : kind.value === 'Dashboard' || kind.value === 'Playlist'
+          ? dashboardReady.value
+          : isSource.value || kind.value === 'Dataset' || lowCodeReady.value
     if (!cap.coreReady || !moduleReady) {
       unavailable.value =
         (kind.value === 'Dashboard' || kind.value === 'Playlist'
@@ -231,12 +244,12 @@ function openCreate() {
 }
 function design(row: Json) {
   void router.push(
-    `/pc/studio/${kind.value === 'Dataset' ? 'datasets' : kind.value === 'LedgerModel' ? 'ledger-models' : kind.value === 'Dashboard' ? 'dashboards' : kind.value === 'Playlist' ? 'playlists' : 'low-code'}/${encodeURIComponent(String(row.nId))}/design`,
+    `/pc/studio/${kind.value === 'Report' ? 'reports' : kind.value === 'ReportBundle' ? 'report-bundles' : kind.value === 'Dataset' ? 'datasets' : kind.value === 'LedgerModel' ? 'ledger-models' : kind.value === 'Dashboard' ? 'dashboards' : kind.value === 'Playlist' ? 'playlists' : 'low-code'}/${encodeURIComponent(String(row.nId))}/design`,
   )
 }
 function run(row: Json) {
   void router.push(
-    `/pc/studio/${kind.value === 'Dashboard' ? 'dashboards' : kind.value === 'Playlist' ? 'playlists' : 'low-code'}/${encodeURIComponent(String(row.nId))}/run`,
+    `/pc/studio/${kind.value === 'Report' ? 'reports' : kind.value === 'ReportBundle' ? 'report-bundles' : kind.value === 'Dashboard' ? 'dashboards' : kind.value === 'Playlist' ? 'playlists' : 'low-code'}/${encodeURIComponent(String(row.nId))}/run`,
   )
 }
 async function guarded(action: () => Promise<void>) {
@@ -269,11 +282,16 @@ function save() {
       refresh()
     } else {
       const document =
-        kind.value === 'Dashboard'
-          ? initialDashboardDocument()
-          : kind.value === 'Playlist'
-            ? initialPlaylistDocument()
-            : initialDocument(kind.value)
+        kind.value === 'Report' || kind.value === 'ReportBundle'
+          ? initialReportDocument(
+              kind.value,
+              pageMode.value === 'ElectronicRecord' ? 'ElectronicRecord' : 'Simple',
+            )
+          : kind.value === 'Dashboard'
+            ? initialDashboardDocument()
+            : kind.value === 'Playlist'
+              ? initialPlaylistDocument()
+              : initialDocument(kind.value)
       if (kind.value === 'LowCodePage') document.mode = pageMode.value
       const created = await getStudioApi().create({
         kind: kind.value,
@@ -436,13 +454,20 @@ watch(
         >
         <PermissionGate
           :permission-n-id="
-            kind === 'Dashboard' || kind === 'Playlist'
-              ? 'studio.dashboard.run'
-              : 'studio.lowcode.run'
+            kind === 'Report' || kind === 'ReportBundle'
+              ? 'studio.report.run'
+              : kind === 'Dashboard' || kind === 'Playlist'
+                ? 'studio.dashboard.run'
+                : 'studio.lowcode.run'
           "
           ><el-button
             v-if="
-              (kind === 'LowCodePage' || kind === 'Dashboard' || kind === 'Playlist') && !isSource
+              (kind === 'LowCodePage' ||
+                kind === 'Dashboard' ||
+                kind === 'Playlist' ||
+                kind === 'Report' ||
+                kind === 'ReportBundle') &&
+              !isSource
             "
             link
             type="primary"
@@ -498,6 +523,14 @@ watch(
     >
       <el-alert v-if="error" :title="error" type="error" :closable="false" />
       <el-form v-if="drawer === 'create' || drawer === 'edit'" label-position="top">
+        <el-form-item v-if="kind === 'ReportBundle'" :label="t('mode')"
+          ><el-radio-group v-model="pageMode"
+            ><el-radio-button value="Simple">Simple</el-radio-button
+            ><el-radio-button value="ElectronicRecord"
+              >ElectronicRecord</el-radio-button
+            ></el-radio-group
+          ></el-form-item
+        >
         <el-form-item :label="t('name')" required
           ><el-input v-model="name" maxlength="128" /></el-form-item
         ><el-form-item :label="t('descriptionField')"

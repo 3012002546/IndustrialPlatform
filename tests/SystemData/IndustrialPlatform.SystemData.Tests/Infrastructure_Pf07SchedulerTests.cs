@@ -17,7 +17,7 @@ using SqlSugar;
 namespace IndustrialPlatform.SystemData.Infrastructure.Tests;
 
 /// <summary>真实文件库、数据库唯一活动槽和原生队列；不以伪造运行成功验证执行器。</summary>
-public sealed class Pf07SchedulerTests : IDisposable
+public sealed partial class Pf07SchedulerTests : IDisposable
 {
     private readonly string _file = Path.Combine(Path.GetTempPath(), "pf07-" + Guid.NewGuid().ToString("N") + ".db");
     private readonly SqlSugarDbContext _database;

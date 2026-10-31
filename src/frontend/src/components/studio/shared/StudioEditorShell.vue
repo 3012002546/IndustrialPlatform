@@ -11,17 +11,44 @@ import {
 } from './model'
 import type { Json } from '@/api/studio'
 
-const props = defineProps<{ modelValue: Json }>()
+const props = defineProps<{
+  modelValue: Json
+  canvasWidth?: number
+  canvasHeight?: number
+  propertiesOpen?: boolean
+  leftTitle?: string
+  sidebarWidths?: [number, number]
+  centerCanvas?: boolean
+  interactionActive?: boolean
+}>()
 const emit = defineEmits<{ 'update:modelValue': [value: Json]; select: [id: string] }>()
 const t = useStudioCopy(),
   selected = ref(''),
   leftOpen = ref(true),
   rightOpen = ref(false),
   zoom = ref(1),
-  width = ref(Number((props.modelValue.layout?.grid as Json | undefined)?.canvasWidth ?? 1200)),
-  height = ref(Number((props.modelValue.layout?.grid as Json | undefined)?.canvasHeight ?? 800))
-const leftWidth = ref(240),
-  rightWidth = ref(320),
+  width = ref(
+    Number(
+      props.canvasWidth ?? (props.modelValue.layout?.grid as Json | undefined)?.canvasWidth ?? 1200,
+    ),
+  ),
+  height = ref(
+    Number(
+      props.canvasHeight ??
+        (props.modelValue.layout?.grid as Json | undefined)?.canvasHeight ??
+        800,
+    ),
+  )
+watch(
+  () => [props.canvasWidth, props.canvasHeight],
+  ([w, h]) => {
+    if (w) width.value = w
+    if (h) height.value = h
+    if (!props.interactionActive) void nextTick(fit)
+  },
+)
+const leftWidth = ref(props.sidebarWidths?.[0] ?? 240),
+  rightWidth = ref(props.sidebarWidths?.[1] ?? 320),
   viewport = ref<HTMLElement | null>(null)
 const revision = ref(0),
   history = createHistory({ document: props.modelValue, selected: '' })
@@ -42,6 +69,11 @@ function changeZoom(delta: number) {
   fitMode.value = false
   zoom.value = Math.max(0.001, Math.min(3, zoom.value + delta))
 }
+function setZoom(value: number) {
+  if (!Number.isFinite(value)) return
+  fitMode.value = false
+  zoom.value = Math.max(0.1, Math.min(3, value))
+}
 const narrow = () => window.innerWidth <= 1024
 function sizeChanged() {
   if (!Number.isFinite(width.value) || !Number.isFinite(height.value)) return
@@ -61,6 +93,10 @@ function toggleLeft() {
 function toggleRight() {
   rightOpen.value = !rightOpen.value
   if (rightOpen.value && narrow()) leftOpen.value = false
+}
+function showProperties() {
+  rightOpen.value = true
+  if (narrow()) leftOpen.value = false
 }
 let observer: ResizeObserver | undefined
 let ownChange = false
@@ -229,47 +265,76 @@ watch(
 )
 onMounted(() => {
   leftOpen.value = true
-  rightOpen.value = window.innerWidth > 1280
+  rightOpen.value = window.innerWidth > (props.propertiesOpen ? 1024 : 1280)
   observer = new ResizeObserver(() => {
-    if (fitMode.value) fit()
+    if (fitMode.value && !props.interactionActive) fit()
   })
   if (viewport.value) observer.observe(viewport.value)
   fit()
 })
 onBeforeUnmount(() => observer?.disconnect())
-defineExpose({ select, apply, fit, selected, focused })
+watch(
+  () => props.interactionActive,
+  (active) => {
+    if (!active && fitMode.value) void nextTick(fit)
+  },
+)
+defineExpose({
+  select,
+  apply,
+  update,
+  fit,
+  showProperties,
+  selected,
+  focused,
+  undo,
+  redo,
+  canUndo,
+  canRedo,
+})
 </script>
 <template>
   <div tabindex="0" :aria-label="t('design')" @keydown="keydown">
-    <div class="studio-tools">
-      <el-button :disabled="!canUndo" @click="undo">{{ t('undo') }}</el-button
-      ><el-button :disabled="!canRedo" @click="redo">{{ t('redo') }}</el-button>
-      <el-button @click="toggleLeft">{{ t('left') }}</el-button
-      ><el-button @click="toggleRight">{{ t('right') }}</el-button>
-      <el-checkbox v-model="panMode">{{ t('pan') }}</el-checkbox
-      ><el-button @click="changeZoom(-0.1)">−</el-button><span>{{ Math.round(zoom * 100) }}%</span
-      ><el-button @click="changeZoom(0.1)">+</el-button
-      ><el-button @click="fit">{{ t('fit') }}</el-button>
-      <label
-        >{{ t('width') }}
-        <input
-          v-model.number="width"
-          type="number"
-          min="320"
-          max="16384"
-          style="width: 70px"
-          @change="sizeChanged" /></label
-      ><label
-        >{{ t('height') }}
-        <input
-          v-model.number="height"
-          type="number"
-          min="320"
-          max="16384"
-          style="width: 70px"
-          @change="sizeChanged"
-      /></label>
-    </div>
+    <slot
+      name="toolbar"
+      :zoom="zoom"
+      :set-zoom="setZoom"
+      :fit="fit"
+      :left-open="leftOpen"
+      :right-open="rightOpen"
+      :toggle-left="toggleLeft"
+      :toggle-right="toggleRight"
+    >
+      <div class="studio-tools">
+        <el-button :disabled="!canUndo" @click="undo">{{ t('undo') }}</el-button
+        ><el-button :disabled="!canRedo" @click="redo">{{ t('redo') }}</el-button>
+        <el-button @click="toggleLeft">{{ leftTitle ?? t('left') }}</el-button
+        ><el-button @click="toggleRight">{{ t('right') }}</el-button>
+        <el-checkbox v-model="panMode">{{ t('pan') }}</el-checkbox
+        ><el-button @click="changeZoom(-0.1)">−</el-button><span>{{ Math.round(zoom * 100) }}%</span
+        ><el-button @click="changeZoom(0.1)">+</el-button
+        ><el-button @click="fit">{{ t('fit') }}</el-button>
+        <label v-if="canvasWidth === undefined"
+          >{{ t('width') }}
+          <input
+            v-model.number="width"
+            type="number"
+            min="320"
+            max="16384"
+            style="width: 70px"
+            @change="sizeChanged" /></label
+        ><label v-if="canvasHeight === undefined"
+          >{{ t('height') }}
+          <input
+            v-model.number="height"
+            type="number"
+            min="320"
+            max="16384"
+            style="width: 70px"
+            @change="sizeChanged"
+        /></label>
+      </div>
+    </slot>
     <div
       class="studio-editor"
       :class="{ 'left-hidden': !leftOpen, 'right-hidden': !rightOpen }"
@@ -295,6 +360,7 @@ defineExpose({ select, apply, fit, selected, focused })
             height: height * zoom + 'px',
             padding: '16px',
             boxSizing: 'content-box',
+            marginInline: centerCanvas ? 'auto' : undefined,
           }"
         >
           <div
@@ -302,33 +368,35 @@ defineExpose({ select, apply, fit, selected, focused })
             :style="{ width: width + 'px', height: height + 'px', transform: `scale(${zoom})` }"
             @pointerdown.self="pointer($event)"
           >
-            <button v-if="root" class="studio-canvas-root" @click="select(root.id)">
-              {{ root.type }} · {{ root.id.slice(0, 8) }}
-            </button>
-            <div
-              v-for="node in flat.filter((n) => n.id !== root?.id)"
-              :key="node.id"
-              class="studio-design-node"
-              :class="{ active: selected === node.id }"
-              :style="{
-                left: geometry(node).x + 'px',
-                top: geometry(node).y + 'px',
-                width: geometry(node).width + 'px',
-                height: geometry(node).height + 'px',
-              }"
-              @pointerdown.stop="pointer($event, node)"
-              @click="select(node.id)"
-            >
-              <div class="studio-design-label">{{ node.type }} · {{ node.id.slice(0, 8) }}</div>
-              <slot name="node" :node="node"
-                ><strong>{{ node.props.text ?? node.props.fieldId ?? node.type }}</strong></slot
-              >
+            <slot name="canvas" :zoom="zoom" :select="select" :selected="selected" :apply="apply">
+              <button v-if="root" class="studio-canvas-root" @click="select(root.id)">
+                {{ root.type }} · {{ root.id.slice(0, 8) }}
+              </button>
               <div
-                v-if="selected === node.id"
-                class="studio-resize"
-                @pointerdown.stop="pointer($event, node, true)"
-              />
-            </div>
+                v-for="node in flat.filter((n) => n.id !== root?.id)"
+                :key="node.id"
+                class="studio-design-node"
+                :class="{ active: selected === node.id }"
+                :style="{
+                  left: geometry(node).x + 'px',
+                  top: geometry(node).y + 'px',
+                  width: geometry(node).width + 'px',
+                  height: geometry(node).height + 'px',
+                }"
+                @pointerdown.stop="pointer($event, node)"
+                @click="select(node.id)"
+              >
+                <div class="studio-design-label">{{ node.type }} · {{ node.id.slice(0, 8) }}</div>
+                <slot name="node" :node="node"
+                  ><strong>{{ node.props.text ?? node.props.fieldId ?? node.type }}</strong></slot
+                >
+                <div
+                  v-if="selected === node.id"
+                  class="studio-resize"
+                  @pointerdown.stop="pointer($event, node, true)"
+                />
+              </div>
+            </slot>
           </div>
         </div>
       </main>

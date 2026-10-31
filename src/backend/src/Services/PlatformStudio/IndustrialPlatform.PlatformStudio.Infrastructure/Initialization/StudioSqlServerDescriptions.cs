@@ -11,6 +11,7 @@ public static class StudioSqlServerDescriptions
     public static StudioSchema.Definition SeedLedger { get; } = new("studio_seed_ledger", StudioSchema.SeedColumns, "baseline");
     private static readonly Dictionary<string, string> Tables = new(StringComparer.Ordinal)
     {
+        ["studio_workbook_retired_file"] = "工作副本替换后的临时文件回收队列；历史版本与冲突恢复文件不入队。",
         ["studio_dashboard_screen"] = "看板匿名大屏链接；固定修订、参数及发布者安全版本，可到期和撤销，不保存明文密钥。",
         ["studio_source"] = "受控数据来源；只保存服务端登记键和秘密引用，不保存明文凭据。",
         ["studio_resource"] = "共享设计资源及草稿；发布指向由发布事务和双版本并发控制维护。",

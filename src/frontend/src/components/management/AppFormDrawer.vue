@@ -18,7 +18,7 @@ const props = withDefaults(
   defineProps<{
     modelValue: boolean
     title: string
-    size?: 'narrow' | 'medium' | 'wide' | 'chat'
+    size?: 'narrow' | 'medium' | 'wide' | 'extra-wide' | 'chat' | 'fullscreen'
     busy?: boolean
     hideFooter?: boolean
     mode?: 'drawer' | 'modal'
@@ -51,7 +51,9 @@ const surfaceMode = ref<'drawer' | 'modal'>(props.mode)
 const open = computed(() => props.modelValue)
 const handheld = computed(() => deviceStore.terminal !== 'pc')
 const effectiveMode = computed(() => (handheld.value ? 'drawer' : surfaceMode.value))
-const canSwitchMode = computed(() => !handheld.value && props.allowModeSwitch)
+const canSwitchMode = computed(
+  () => !handheld.value && props.allowModeSwitch && props.size !== 'fullscreen',
+)
 
 /** 打开前的焦点元素,关闭时归还(§7.10 focus trap)。 */
 let lastFocused: HTMLElement | null = null
@@ -100,7 +102,11 @@ function close(kind: 'cancel'): void {
 }
 
 function onKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape') close('cancel')
+  if (event.key === 'Escape' && !event.defaultPrevented) {
+    event.preventDefault()
+    event.stopPropagation()
+    close('cancel')
+  }
 }
 
 function onSubmit(): void {
@@ -121,7 +127,7 @@ function onSubmit(): void {
         data-testid="form-drawer-backdrop"
         @click="close('cancel')"
       />
-      <ElFocusTrap :trapped="open" :loop="true">
+      <ElFocusTrap :trapped="open" :loop="true" @release-requested="onKeydown">
         <aside
           class="app-form-drawer__panel"
           :class="{ 'app-form-drawer__panel--handheld': handheld }"
@@ -237,6 +243,10 @@ function onSubmit(): void {
   width: 720px;
 }
 
+.app-form-drawer--extra-wide .app-form-drawer__panel {
+  width: min(1200px, calc(100vw - 32px));
+}
+
 .app-form-drawer--chat {
   align-items: center;
   justify-content: center;
@@ -250,6 +260,20 @@ function onSubmit(): void {
 }
 
 .app-form-drawer--chat .app-form-drawer__body {
+  overflow: hidden;
+  padding: 0;
+}
+
+.app-form-drawer--fullscreen .app-form-drawer__panel {
+  width: 100vw;
+  height: 100dvh;
+  max-height: none;
+  border-radius: 0;
+}
+
+.app-form-drawer--fullscreen .app-form-drawer__body {
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   padding: 0;
 }
