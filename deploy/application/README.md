@@ -1,5 +1,7 @@
 # deploy/application — 云端应用部署(单应用容器)
 
+平台与独立 Office 的 Tailnet HTTPS 开发部署、共享文件和许可边界见 [OFFICE.md](OFFICE.md)。该可选覆盖不改变下面的基础单容器部署方式。
+
 本目录承载平台云端短期部署的应用侧资产:一次性 admin 初始化脚本、
 应用镜像与 Compose 编排(编排部分见下文「部署」)。
 

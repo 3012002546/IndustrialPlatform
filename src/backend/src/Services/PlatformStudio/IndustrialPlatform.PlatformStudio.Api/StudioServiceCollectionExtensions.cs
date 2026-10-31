@@ -22,6 +22,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 
 namespace IndustrialPlatform.PlatformStudio.Api;
@@ -34,6 +35,8 @@ public static class StudioServiceCollectionExtensions
         var profile=configuration.GetSection("PlatformStudio").Get<StudioDeploymentProfile>()??new();
         if(!profile.Enabled)return services;
         profile.Validate();
+        // Hosting request-start messages include raw query strings. Office protocol tickets must never enter those logs.
+        if (profile.Office.Admitted) services.AddLogging(o => o.AddFilter("Microsoft.AspNetCore.Hosting.Diagnostics", LogLevel.Warning));
         foreach(var endpoint in profile.SourceRegistry)
         foreach(var declaration in endpoint.Value.Catalog)
         {
@@ -67,11 +70,29 @@ public static class StudioServiceCollectionExtensions
             services.AddScoped<IStudioScreenIdentity>(sp => sp.GetRequiredService<IStudioIdentity>() as IStudioScreenIdentity
                 ?? throw new StudioException("STUDIO_SCREEN_UNSUPPORTED", "当前身份适配器不支持匿名大屏发布。", 409));
         }
+        if (profile.ActiveModules.Contains("Report", StringComparer.Ordinal))
+        {
+            services.AddScoped<IndustrialPlatform.PlatformStudio.Application.Report.IReportRunStore, IndustrialPlatform.PlatformStudio.Infrastructure.Report.ReportRunStore>();
+            services.AddScoped<IndustrialPlatform.PlatformStudio.Application.Report.ReportRuns>();
+            services.AddScoped<IndustrialPlatform.PlatformStudio.Application.Report.ReportDesign>();
+            services.AddScoped<IndustrialPlatform.PlatformStudio.Infrastructure.Report.ReportCommandRenderer>();
+            services.AddScoped<IndustrialPlatform.PlatformStudio.Infrastructure.Report.ReportPreview>();
+            services.AddScoped<IndustrialPlatform.PlatformStudio.Infrastructure.Report.ReportExecution>();
+            services.AddScoped<IndustrialPlatform.PlatformStudio.Infrastructure.Report.ReportOutputs>();
+            services.AddScoped<IndustrialPlatform.PlatformStudio.Infrastructure.Report.ReportRetries>();
+            services.AddScoped<IndustrialPlatform.PlatformStudio.Infrastructure.Report.ReportResources>();
+            services.AddScoped<IndustrialPlatform.PlatformStudio.Infrastructure.Report.ReportReconciliation>();
+            services.AddScoped<IndustrialPlatform.PlatformStudio.Infrastructure.Report.StudioWorkbooks>();
+            services.AddHostedService<WorkbookMaintenanceWorker>();
+            services.AddScoped<IndustrialPlatform.PlatformStudio.Infrastructure.Report.ReportOwnedFiles>();
+        }
         if(profile.DeploymentMode=="ExternalMes") services.AddStudioEmbeddedFileAudit(profile); else services.AddStudioPlatformFileAudit(profile);
+        services.AddStudioJobs(profile);
         services.AddHttpClient<RegisteredSourceExecutor>().ConfigurePrimaryHttpMessageHandler(()=>new HttpClientHandler { AllowAutoRedirect=false });
         services.AddScoped<IStudioSourceExecutor>(sp=>sp.GetRequiredService<RegisteredSourceExecutor>());
         services.TryAddSingleton<IStudioFactoryScope,EmptyStudioFactoryScope>();
         services.AddAntiforgery(o=>{o.HeaderName="X-Studio-CSRF";o.Cookie.Name="__Host-StudioCsrf";o.Cookie.Path="/";o.Cookie.SecurePolicy=Microsoft.AspNetCore.Http.CookieSecurePolicy.Always;});
+
         if(profile.DeploymentMode=="ExternalMes")
         {
             var keyPath=profile.Identity.DataProtectionKeyPath;

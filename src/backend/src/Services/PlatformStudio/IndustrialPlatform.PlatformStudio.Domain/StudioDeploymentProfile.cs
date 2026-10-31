@@ -13,6 +13,8 @@ public sealed class StudioDeploymentProfile
     public StudioAdapterOptions Audit { get; set; } = new() { Provider = "Platform" };
     public StudioAdapterOptions Jobs { get; set; } = new() { Provider = "Disabled" };
     public StudioDatabaseOptions? Database { get; set; }
+    public StudioOfficeOptions Office { get; set; } = new();
+    public StudioRendererOptions Renderer { get; set; } = new();
     public string PublicOrigin { get; set; } = "";
     public string PathBase { get; set; } = "";
     public string[] AllowedFrameOrigins { get; set; } = [];
@@ -50,6 +52,8 @@ public sealed class StudioDeploymentProfile
         }
         if (PathBase.Length > 128 || PathBase.Length > 0 && (!PathBase.StartsWith('/') || PathBase.EndsWith('/') || PathBase.Contains("..", StringComparison.Ordinal) || PathBase.Any(c=>!(char.IsAsciiLetterOrDigit(c)||c is '/' or '-' or '_')))) Fail("pathBase");
         var report = ActiveModules.Contains("Report", StringComparer.Ordinal);
+        Office.Validate(); Renderer.Validate();
+        if (Office.Admitted && (!Uri.TryCreate(PublicOrigin, UriKind.Absolute, out var officeParent) || officeParent.Scheme != "https" || officeParent.AbsolutePath != "/" || !string.IsNullOrEmpty(officeParent.Query) || !string.IsNullOrEmpty(officeParent.Fragment))) Fail("publicOrigin");
         if (report && Jobs.Provider != (DeploymentMode == "PlatformNative" ? "Platform" : "Embedded") || !report && Jobs.Provider != "Disabled") Fail("jobs.provider");
         if (InstalledModules.Contains("Report", StringComparer.Ordinal) && Files.Provider == "Disabled") Fail("files.provider");
         if (Files.Provider == "Embedded" && (string.IsNullOrWhiteSpace(Files.Root) || !Path.IsPathFullyQualified(Files.Root))) Fail("files.root");
@@ -58,6 +62,39 @@ public sealed class StudioDeploymentProfile
 
     public bool IsKindEnabled(string kind) => StudioKinds.Modules.TryGetValue(kind, out var module) && (module == "Core" || ActiveModules.Contains(module, StringComparer.Ordinal));
     private static void Fail(string path) => throw new StudioException("STUDIO_VALIDATION", "部署模式、模块及必需适配器配置不一致。", path: path);
+}
+
+public sealed class StudioOfficeOptions
+{
+    public bool Admitted { get; set; }
+    public string Provider { get; set; } = "Collabora";
+    public string? Version { get; set; }
+    public string? EditorAction { get; set; }
+    public string? PublicWopiBase { get; set; }
+    public bool AccessLogsRedacted { get; set; }
+    public bool SupportsTokenRefresh { get; set; }
+    public void Validate()
+    {
+        if (!Admitted) return;
+        if (Provider != "Collabora" || string.IsNullOrWhiteSpace(Version) || !AccessLogsRedacted || !Uri.TryCreate(EditorAction, UriKind.Absolute, out var editor) || editor.Scheme != "https" || !Uri.TryCreate(PublicWopiBase, UriKind.Absolute, out var wopi) || wopi.Scheme != "https" || !string.IsNullOrEmpty(wopi.Query) || !string.IsNullOrEmpty(wopi.Fragment)) throw new StudioException("STUDIO_VALIDATION", "Office准入必须登记精确版本、HTTPS地址及访问日志脱敏。", path: "office");
+    }
+}
+public sealed class StudioRendererOptions
+{
+    public bool Admitted { get; set; }
+    public string? Command { get; set; }
+    public string? CommandSha256 { get; set; }
+    public string? Script { get; set; }
+    public string? ScriptSha256 { get; set; }
+    public string? EngineManifestHash { get; set; }
+    public string? EngineManifestPath { get; set; }
+    public string? WorkingRoot { get; set; }
+    public int TimeoutSeconds { get; set; } = 240;
+    public void Validate()
+    {
+        if (!Admitted) return;
+        if (Command is null || !Path.IsPathFullyQualified(Command) || Script is null || !Path.IsPathFullyQualified(Script) || WorkingRoot is null || !Path.IsPathFullyQualified(WorkingRoot) || EngineManifestPath is null || !Path.IsPathFullyQualified(EngineManifestPath) || CommandSha256?.Length != 64 || ScriptSha256?.Length != 64 || EngineManifestHash?.Length != 64 || TimeoutSeconds is < 1 or > 3600) throw new StudioException("STUDIO_VALIDATION", "Renderer准入必须登记绝对路径、精确hash、引擎manifest和有界预算。", path: "renderer");
+    }
 }
 
 public sealed class StudioIdentityOptions

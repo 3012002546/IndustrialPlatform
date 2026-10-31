@@ -15,6 +15,62 @@ public sealed class StudioNativeBootstrapTests
 {
     private static readonly string[] BothFactories = ["F1","F2"];
     private static readonly string[] FirstFactory = ["F1"];
+    private sealed class Revocations : IndustrialPlatform.Identity.Application.Authentication.ISessionRevocationStore
+    {
+        public bool Revoked { get; set; }
+        public int Reads { get; private set; }
+        public Task RevokeAsync(string sessionNId, TimeSpan ttl, CancellationToken token) { Revoked = true; return Task.CompletedTask; }
+        public Task<bool> IsRevokedAsync(string sessionNId, CancellationToken token) { Reads++; return Task.FromResult(Revoked); }
+    }
+    [Fact]
+    public async Task Native_request_principal_is_shared_only_within_the_same_http_request()
+    {
+        var directory = DispatchProxy.Create<IManagementStore, DirectoryProxy>(); var proxy = (DirectoryProxy)(object)directory;
+        proxy.User = new(Guid.NewGuid(), "t", "u", "login", "name", null, null, UserStatus.Active, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, false, [], [], [], 0, Guid.NewGuid(), false);
+        var snapshots = new Snapshots(); var revocations = new Revocations(); var profile = new StudioDeploymentProfile();
+        var user = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity([
+            new(IndustrialPlatform.Security.ClaimConstants.TenantId,"t"), new(IndustrialPlatform.Security.ClaimConstants.UserNId,"u"),
+            new(IndustrialPlatform.Security.ClaimConstants.SessionId,"sid"),new(IndustrialPlatform.Security.ClaimConstants.AuthVersion,"1"),
+            new("exp",DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture))], "test"));
+        var accessor = new Microsoft.AspNetCore.Http.HttpContextAccessor { HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext { User = user } };
+        var identity = new PlatformStudioIdentity(accessor, snapshots, directory, revocations, new PlatformStudioFactoryScope(directory,profile), profile, TimeProvider.System);
+        try
+        {
+            var first = await identity.GetCurrentAsync(default);
+            Assert.Same(first, await identity.RefreshAsync(first, default));
+            Assert.Equal(1, snapshots.Reads); Assert.Equal(1, proxy.Reads); Assert.Equal(1, revocations.Reads);
+            revocations.Revoked = true;
+            accessor.HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext { User = user };
+            await Assert.ThrowsAsync<StudioException>(() => identity.GetCurrentAsync(default));
+            Assert.Equal(2, revocations.Reads);
+        }
+        finally { accessor.HttpContext = null; }
+    }
+    [Fact]
+    public async Task Background_session_reuses_snapshot_roles_but_rechecks_security_and_scope_every_time()
+    {
+        var directory = DispatchProxy.Create<IManagementStore, DirectoryProxy>(); var proxy = (DirectoryProxy)(object)directory;
+        proxy.User = new(Guid.NewGuid(), "t", "u", "login", "name", null, null, UserStatus.Active, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, false, [], [], [], 0, Guid.NewGuid(), false);
+        var profile = new StudioDeploymentProfile { Identity = new() { NativeFactoryScopes = [new("t", "u", null, ["F1"]), new("t", null, "role", ["F2"])] } };
+        var snapshots = new Snapshots(); snapshots.Current = snapshots.Current with { RoleNIds = ["role"] };
+        var revoked = new Revocations();
+        var identity = new PlatformStudioIdentity(new Microsoft.AspNetCore.Http.HttpContextAccessor(), snapshots, directory, revoked, new PlatformStudioFactoryScope(directory, profile), profile, TimeProvider.System);
+        var principal = new StudioPrincipal("t", "u", "platform", "name", [], [], [], "1", profile.Identity.PolicyVersion, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1));
+        var evidence = System.Text.Json.JsonSerializer.Serialize(new { principal, sessionId = "sid" }, IndustrialPlatform.PlatformStudio.Application.StudioCommands.JsonOptions);
+        Assert.Equal(BothFactories, (await identity.RefreshExecutionAsync(evidence, default)).FactoryNIds);
+        snapshots.Current = snapshots.Current with { RoleNIds = [], PermissionNIds = [] };
+        var next = await identity.RefreshExecutionAsync(evidence, default);
+        Assert.Equal(FirstFactory, next.FactoryNIds); Assert.Empty(next.Permissions);
+        Assert.Equal(2, proxy.SecurityReads); Assert.Equal(0, proxy.FullReads);
+        proxy.SecurityVersion = 2;
+        await Assert.ThrowsAsync<StudioException>(() => identity.RefreshExecutionAsync(evidence, default));
+        proxy.SecurityVersion = 1; proxy.User = proxy.User with { IsDeleted = true };
+        await Assert.ThrowsAsync<StudioException>(() => identity.RefreshExecutionAsync(evidence, default));
+        proxy.User = proxy.User with { IsDeleted = false, Status = UserStatus.Disabled };
+        await Assert.ThrowsAsync<StudioException>(() => identity.RefreshExecutionAsync(evidence, default));
+        proxy.User = proxy.User with { Status = UserStatus.Active }; revoked.Revoked = true;
+        await Assert.ThrowsAsync<StudioException>(() => identity.RefreshExecutionAsync(evidence, default));
+    }
     private sealed class Store : IControlPlaneStore,IControlPlaneTenantSource
     {
         public ControlPlaneSnapshot State {get;set;}=ControlPlaneSnapshot.Empty("t");
@@ -62,6 +118,31 @@ public sealed class StudioNativeBootstrapTests
         var store=new Store();var bootstrap=new StudioNativeNavigationBootstrap(new ConfigurationBuilder().Build(),store,store,new Registry(false),new RuntimeSnapshotLoader(store));
         await Assert.ThrowsAsync<InvalidOperationException>(()=>bootstrap.ApplyAsync("t",new() {Enabled=true,InstalledModules=["LowCode"]},CancellationToken.None));
         Assert.Empty(store.State.Resources);Assert.Empty(store.State.Snapshots);
+    }
+    [Fact]
+    public async Task Report_navigation_upgrades_legacy_seed_fills_only_missing_icons_and_replays_without_duplicates()
+    {
+        var store=new Store();
+        var group=NavigationNode.CreateGroup("t","navigation.group.studio","工业应用",null,"PLATFORM_NAVIGATION","setting");
+        var report=NavigationNode.CreateLink("t","studio.page.reports","单报表","navigation.group.studio","PLATFORM_NAVIGATION","studio.page.reports",null,[UiTerminal.Pc]);
+        var bundle=NavigationNode.CreateLink("t","studio.page.report-bundles","我的组合","navigation.group.studio","PLATFORM_NAVIGATION","studio.page.report-bundles",null,[UiTerminal.Pc],"tools");
+        PublishedNavigationNode[] legacy=[new(group.NId,null,NavigationNodeKind.Group,"工业应用","setting",null,null,null,null,4,[UiTerminal.Pc]),new(report.NId,group.NId,NavigationNodeKind.Link,"单报表",null,report.NId,"studio-reports","studio.report.view",null,0,[UiTerminal.Pc]),new(bundle.NId,group.NId,NavigationNodeKind.Link,"我的组合","tools",bundle.NId,"studio-report-bundles","studio.report.view",null,1,[UiTerminal.Pc])];
+        store.State=store.State with {DraftNodes=[group,report,bundle],Snapshots=[new(1,DateTimeOffset.UtcNow,legacy)],ActiveSnapshotRevision=1};
+        await store.CommitAsync(store.State,0,new([],[],[new("t","studio.native.navigation","1","legacy-checksum")]),default);
+        var bootstrap=new StudioNativeNavigationBootstrap(new ConfigurationBuilder().Build(),store,store,new Registry(),new RuntimeSnapshotLoader(store));
+        var profile=new StudioDeploymentProfile {Enabled=true,InstalledModules=["Report"]};
+        await bootstrap.ApplyAsync("t",profile,default);
+        var nodes=store.State.Snapshots.Last().Nodes;
+        Assert.Equal("document",nodes.Single(n=>n.NodeNId==report.NId).IconKey);
+        Assert.Equal("tools",nodes.Single(n=>n.NodeNId==bundle.NId).IconKey);
+        Assert.Equal("我的组合",nodes.Single(n=>n.NodeNId==bundle.NId).Label);
+        Assert.Equal("grid",nodes.Single(n=>n.NodeNId=="studio.page.workbooks").IconKey);
+        Assert.Equal("cpu",nodes.Single(n=>n.NodeNId==group.NId).IconKey);
+        Assert.Equal("document",report.IconKey);Assert.Equal("tools",bundle.IconKey);
+        Assert.Contains(Assert.Single(store.State.Manifests).PermissionDeclarationItems,p=>p.PermissionNId=="studio.report.reconcile");
+        var revision=store.State.Revision;
+        await bootstrap.ApplyAsync("t",profile,default);Assert.Equal(revision,store.State.Revision);
+        Assert.Equal(nodes.Count,nodes.Select(n=>n.NodeNId).Distinct().Count());
     }
     [Fact]
     public async Task Dashboard_only_registers_its_pages_and_verified_permissions_without_lowcode_pages()
@@ -123,15 +204,17 @@ public sealed class StudioNativeBootstrapTests
         public StoredUser? User {get;set;}
         public int SecurityVersion {get;set;}=1;
         public int Reads {get;private set;}
+        public int SecurityReads {get;private set;}
+        public int FullReads {get;private set;}
         protected override object? Invoke(MethodInfo? targetMethod,object?[]? args)
         {
             if(targetMethod?.Name=="GetUserSecurityStateAsync")
             {
-                Reads++;
+                Reads++; SecurityReads++;
                 return Task.FromResult(User is null ? null : new StoredUserSecurityState(User.TenantNId,User.NId,User.Name,User.Status,User.IsDeleted,SecurityVersion));
             }
             if(targetMethod?.Name!="GetUserAsync")throw new NotSupportedException();
-            Reads++;return Task.FromResult(User);
+            Reads++;FullReads++;return Task.FromResult(User);
         }
     }
     private sealed class Snapshots : IAuthorizationDataStore

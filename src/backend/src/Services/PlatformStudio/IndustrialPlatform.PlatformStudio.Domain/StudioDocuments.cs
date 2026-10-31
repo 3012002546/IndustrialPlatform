@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 namespace IndustrialPlatform.PlatformStudio.Domain;
 
 /// <summary>Studio发布文档白名单、台账字段约束和升级兼容性；不生成客户物理表。</summary>
-public static class StudioDocuments
+public static partial class StudioDocuments
 {
     public static readonly string[] ComponentTypes = ["Container", "Grid", "Text", "FormField", "Table", "Tree", "Tabs", "File", "Chart", "RegisteredPage", "RegisteredComponent"];
     private static readonly string[] LedgerTypes = ["String", "Text", "Decimal", "Int32", "Boolean", "Date", "DateTime", "Enum", "FileReference"];
@@ -31,6 +31,7 @@ public static class StudioDocuments
         if (kind == "Dataset") ValidateDataset(document, errors);
         if (kind == "Dashboard") ValidateDashboard(document, errors);
         if (kind == "Playlist") ValidatePlaylist(document, errors);
+        if (kind is "Report" or "ReportBundle") ValidateReport(kind, document, errors);
         return errors;
     }
 

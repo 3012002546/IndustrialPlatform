@@ -19,7 +19,9 @@ public sealed class StudioCommandLineTests
         Assert.False(File.Exists(fixture.Profile.Database!.SqliteFile));
         using var before = JsonDocument.Parse(output.ToString());
         Assert.False(before.RootElement.GetProperty("ok").GetBoolean());
-        Assert.Equal(9, before.RootElement.GetProperty("migrationPlan").GetArrayLength());
+        var plan = before.RootElement.GetProperty("migrationPlan");
+        Assert.Equal(10, plan.GetArrayLength());
+        Assert.Contains(plan.EnumerateArray(), step => step.GetRawText().Contains("STU-009-WorkbookWorkingCopy", StringComparison.Ordinal));
         output.GetStringBuilder().Clear();
         Assert.Equal(0, await fixture.Command.ExecuteAsync(["--studio-initialize"], output, CancellationToken.None));
         Assert.True(File.Exists(fixture.Profile.Database.SqliteFile));

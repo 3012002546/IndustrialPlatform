@@ -19,7 +19,7 @@ public sealed class StudioPublishing(IStudioResourceStore store, IStudioAuthoriz
     private void RequireKind(string kind)
     {
         _ = StudioKinds.PermissionPrefix(kind);
-        if (kind is not ("Dataset" or "LedgerModel" or "LowCodePage" or "Dashboard" or "Playlist") || !profile.IsKindEnabled(kind)) throw new StudioException("STUDIO_MODULE_UNAVAILABLE", "该产品未安装、未启用或尚未交付。", 409);
+        if (kind is not ("Dataset" or "LedgerModel" or "LowCodePage" or "Dashboard" or "Playlist" or "Report" or "ReportBundle") || !profile.IsKindEnabled(kind)) throw new StudioException("STUDIO_MODULE_UNAVAILABLE", "该产品未安装、未启用或尚未交付。", 409);
     }
     public void ValidateSourceConfiguration(StudioSource source)
     {
@@ -77,6 +77,7 @@ public sealed class StudioPublishing(IStudioResourceStore store, IStudioAuthoriz
         GuardWritable(resource); MatchVersion(resource, request);
         var document = request.Document ?? throw Invalid("document");
         _ = StudioDocuments.Validate(resource.Kind, document);
+        if (resource.Kind == "ReportBundle" && StudioJson.Text(document["mode"]) != StudioJson.Text(Parse(resource.DraftJson)["mode"])) throw new StudioException("STUDIO_VALIDATION", "组合模式创建后不可变，请复制为新资源。", path: "mode");
         var canonical = StudioJson.Canonicalize(document);
         var name = Required(request.Name, "name", 128);
         var description = Optional(request.Description, 1000); var folder = Optional(request.Folder, 256);
@@ -97,7 +98,7 @@ public sealed class StudioPublishing(IStudioResourceStore store, IStudioAuthoriz
         var resource = await RequireResourceAsync(principal, nId, "design", "Design", cancellationToken);
         return await PlanAsync(principal, resource, document, cancellationToken);
     }
-    private async Task<StudioValidation> PlanAsync(StudioPrincipal principal, StudioResource resource, JsonObject document, CancellationToken cancellationToken)
+    public async Task<StudioValidation> PlanAsync(StudioPrincipal principal, StudioResource resource, JsonObject document, CancellationToken cancellationToken)
     {
         var diagnostics = StudioDocuments.Validate(resource.Kind, document).ToList();
         bool HasFileNode(JsonNode? node) => node is JsonObject obj && (StudioJson.Text(obj["type"]) == "File" || obj.Any(p => HasFileNode(p.Value))) || node is JsonArray array && array.Any(HasFileNode);
@@ -225,6 +226,49 @@ public sealed class StudioPublishing(IStudioResourceStore store, IStudioAuthoriz
                     if (dashboardRevisionNId is null) throw new StudioException("DEPENDENCY_CHANGED", "轮播项必须固定已发布看板修订。", 409, "items.revisionNId");
                     item["revisionNId"] = dashboardRevisionNId;
                     await AddRevision(dashboardRevisionNId, dashboardNId);
+                }
+            }
+        }
+        if (resource.Kind is "Report" or "ReportBundle")
+        {
+            var datasetSchemas = new Dictionary<string, JsonObject>(StringComparer.Ordinal);
+            async Task ReportDataset(string revisionNId, string? nId = null)
+            {
+                await AddRevision(revisionNId, nId);
+                var revision = await store.FindRevisionAsync(principal.TenantNId, revisionNId, cancellationToken) ?? throw Missing();
+                var target = await store.FindResourceByIdAsync(principal.TenantNId, revision.ResourceId, cancellationToken) ?? throw Missing();
+                if (target.Kind != "Dataset") diagnostics.Add(new("TYPE_MISMATCH", "instances", "报告数据必须引用Dataset修订。"));
+                else datasetSchemas[revisionNId] = Parse(revision.DocumentJson)["result"]!.AsObject();
+            }
+            foreach (var instance in (document["instances"] as JsonArray ?? []).OfType<JsonObject>())
+                if (StudioJson.Text(instance["sourceType"]) != "Constant" && StudioJson.Text(instance["revisionNId"]) is { } revision) await ReportDataset(revision, StudioJson.Text(instance["datasetNId"]));
+            IEnumerable<JsonObject> Collections(JsonNode? node)
+            {
+                if (node is JsonArray array) { foreach (var item in array) foreach (var match in Collections(item)) yield return match; }
+                if (node is not JsonObject obj || StudioJson.Text(obj["from"]) == "Constant") yield break;
+                if (StudioJson.Text(obj["mode"]) == "Dataset" && StudioJson.Text(obj["datasetRevisionNId"]) is not null) yield return obj;
+                foreach (var property in obj) foreach (var match in Collections(property.Value)) yield return match;
+            }
+            foreach (var collection in Collections(document)) await ReportDataset(StudioJson.RequiredString(collection, "datasetRevisionNId"));
+            foreach (var filter in (document["query"]?["filters"] as JsonArray ?? []).OfType<JsonObject>())
+                if (StudioJson.Text(filter["optionsDatasetRevisionNId"]) is { } revision) await ReportDataset(revision);
+            if (resource.Kind == "Report" && !diagnostics.Any(d => d.Severity == "Error")) StudioReportContracts.ValidateBindings(document, datasetSchemas, diagnostics);
+            var children = resource.Kind == "ReportBundle" ? (StudioJson.Text(document["mode"]) == "Simple" ? document["items"] as JsonArray : document["assembly"]?["rules"] as JsonArray) ?? [] : new JsonArray();
+            foreach (var child in children.OfType<JsonObject>())
+            {
+                var nId = StudioJson.RequiredString(child, "reportNId");
+                if (nId == resource.NId) throw new StudioException("DEPENDENCY_CHANGED", "组合不能引用自己。", 409);
+                var target = await store.FindResourceAsync(principal.TenantNId, nId, cancellationToken) ?? throw Missing();
+                if (target.Kind != "Report") throw new StudioException("TYPE_MISMATCH", "组合项目必须引用单报表。", path: "reportNId");
+                var revision = StudioJson.Text(child["revisionNId"]) is { Length: > 0 } pin ? await store.FindRevisionAsync(principal.TenantNId, pin, cancellationToken) : target.PublishedRevisionId is { } published ? await store.FindRevisionByIdAsync(principal.TenantNId, published, cancellationToken) : null;
+                if (revision is null) throw new StudioException("DEPENDENCY_CHANGED", "子报表必须已发布并固定修订。", 409);
+                await AddRevision(revision.NId, nId); child["revisionNId"] = revision.NId;
+                if (child["content"] is JsonObject content && StudioJson.Text(content["mode"]) == "BandSubtree")
+                {
+                    var childDocument = Parse(revision.DocumentJson); var entry = StudioJson.RequiredString(content, "entryBandId");
+                    if (!(childDocument["bands"] as JsonArray ?? []).OfType<JsonObject>().Any(b => StudioJson.Text(b["id"]) == entry && StudioJson.Text(b["kind"]) == "Detail")) diagnostics.Add(new("PATH_INVALID", "content.entryBandId", "固定子报表不存在该明细带。"));
+                    var supplied = (content["ancestorMap"] as JsonArray ?? []).OfType<JsonObject>().Select(m => StudioJson.Text(m["bandId"])).ToHashSet(StringComparer.Ordinal);
+                    foreach (var ancestor in StudioReportContracts.RequiredAncestors(childDocument, entry)) if (!supplied.Contains(ancestor)) diagnostics.Add(new("PATH_INVALID", "content.ancestorMap", "缺少子报表实际引用的祖先映射：" + ancestor));
                 }
             }
         }

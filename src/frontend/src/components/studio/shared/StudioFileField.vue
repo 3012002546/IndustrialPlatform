@@ -6,7 +6,15 @@ import type { UploadSessionDto, FileObjectDto } from '@/api/systemData/systemDat
 import { sha256File, sampleFingerprint } from '@/utils/sha256File'
 import { uploadFileChunks } from '@/utils/uploadFileChunks'
 import { useStudioCopy } from './copy'
-const props = defineProps<{ modelValue?: Json | null; modelNId: string; disabled?: boolean }>()
+const props = defineProps<{
+  modelValue?: Json | null
+  modelNId: string
+  disabled?: boolean
+  moduleKey?: string
+  purpose?: 'LedgerField' | 'WorkbookImport' | 'TemplateAsset' | 'TemplatePackage'
+  accept?: string
+}>()
+const usagePurpose = computed(() => props.purpose ?? 'LedgerField')
 const emit = defineEmits<{ 'update:modelValue': [value: Json] }>()
 const t = useStudioCopy(),
   busy = ref(false),
@@ -26,7 +34,7 @@ async function finalize(file: FileObjectDto) {
   }
   await getStudioApi().client.put(
     `/api/v1/studio/files/${encodeURIComponent(file.fileNId)}/references/${encodeURIComponent(referenceNId.value)}`,
-    { purpose: 'LedgerField' },
+    { purpose: usagePurpose.value },
   )
   emit('update:modelValue', {
     fileNId: file.fileNId,
@@ -68,9 +76,13 @@ async function upload(event: Event) {
       contentType: file.type || 'application/octet-stream',
       length: String(file.size),
       sha256: hash,
-      purpose: 'LedgerField',
+      purpose: usagePurpose.value,
       sampleFingerprint: await sampleFingerprint(file),
-      usage: { moduleKey: 'LowCode', resourceNId: props.modelNId, purpose: 'LedgerField' },
+      usage: {
+        moduleKey: props.moduleKey ?? 'LowCode',
+        ...(props.modelNId ? { resourceNId: props.modelNId } : {}),
+        purpose: usagePurpose.value,
+      },
     })
     session.value = ready
     await api.setContentHash(ready.sessionNId, hash)
@@ -128,6 +140,7 @@ onBeforeUnmount(() => controller?.abort())
     ><input
       v-if="!disabled"
       type="file"
+      :accept="accept"
       :aria-label="t('upload')"
       :disabled="busy"
       @change="upload"

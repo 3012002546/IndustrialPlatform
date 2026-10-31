@@ -131,6 +131,49 @@ export function createStudioApi(client: HttpClient) {
     client.put<T>(BASE + path, body, { headers: { 'Idempotency-Key': key } })
   return {
     client,
+    reportPlan: (input: Json) => post<Json>('/reports/plan', input),
+    reportDraftContract: (input: Json) => post<Json>('/reports/binding-contract', input),
+    reportPreview: (input: Json) => post<Json>('/reports/preview', input),
+    reportPreviewState: (nId: string) => get<Json>(`/reports/previews/${id(nId)}`),
+    reportQuery: (nId: string | null, input: Json) =>
+      post<Json>(nId ? `/reports/${id(nId)}/query` : '/reports/query-preview', input),
+    reportAsset: (nId: string, input: Json, key: string) =>
+      post<Json>(`/reports/${id(nId)}/assets`, input, key),
+    reportResolve: (runNId: string, stateVersion: string, reason: string) =>
+      post<Json>(`/report-runs/${id(runNId)}/resolve`, { stateVersion, reason }),
+    reportQueryOptions: (nId: string, input: Json) =>
+      post<Json>(`/reports/${id(nId)}/query-options`, input),
+    reportRun: (nId: string, input: Json, key?: string) =>
+      post<Json>(`/reports/${id(nId)}/runs`, input, key),
+    reportRuns: (nId: string, page: number, pageSize: number) =>
+      get<Json>(
+        `/report-runs?${new URLSearchParams({ resourceNId: nId, page: String(page), pageSize: String(pageSize) })}`,
+      ),
+    reportState: (runNId: string) => get<Json>(`/report-runs/${id(runNId)}`),
+    reportCancel: (runNId: string, stateVersion: string) =>
+      post<Json>(`/report-runs/${id(runNId)}/cancel`, { stateVersion }),
+    reportRetry: (runNId: string, stateVersion: string, mode: string, key?: string) =>
+      post<Json>(`/report-runs/${id(runNId)}/retry`, { stateVersion, mode }, key),
+    reportContract: (nId: string, revisionNId: string) =>
+      get<Json>(`/reports/${id(nId)}/binding-contract?revisionNId=${id(revisionNId)}`),
+    workbooks: () => get<Json[]>('/workbooks'),
+    importWorkbook: (input: Json, key?: string) => post<Json>('/workbooks', input, key),
+    copyWorkbook: (nId: string, input: Json, key?: string) =>
+      post<Json>(`/workbooks/${id(nId)}/copy`, input, key),
+    workbookVersions: (nId: string) => get<Json[]>(`/workbooks/${id(nId)}/versions`),
+    editWorkbook: (nId: string, input: Json) => post<Json>(`/workbooks/${id(nId)}/edit`, input),
+    saveWorkbookVersion: (nId: string, input: Json) =>
+      post<Json>(`/workbooks/${id(nId)}/versions`, input),
+    workbookState: (nId: string, sessionNId: string) =>
+      get<Json>(`/workbooks/${id(nId)}/sessions/${id(sessionNId)}`),
+    workbookSession: (nId: string, input: Json) =>
+      post<Json>(`/workbooks/${id(nId)}/sessions`, input),
+    renewWorkbookSession: (nId: string, sessionNId: string) =>
+      post<Json>(`/workbooks/${id(nId)}/sessions/${id(sessionNId)}/renew`, {}),
+    closeWorkbookSession: (nId: string, sessionNId: string) =>
+      post<Json>(`/workbooks/${id(nId)}/sessions/${id(sessionNId)}/close`, {}),
+    archiveWorkbook: (nId: string, input: Json) =>
+      post<Json>(`/workbooks/${id(nId)}/archive`, input),
     capabilities: async (): Promise<StudioCapabilities> => {
       const profile = await get<{ installedModules: string[]; enabledModules: string[] }>(
         '/deployment/profile',

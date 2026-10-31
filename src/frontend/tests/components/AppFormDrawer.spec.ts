@@ -124,6 +124,17 @@ describe('AppFormDrawer', () => {
     expect(wrapper.emitted('update:modelValue')).toEqual([[false]])
   })
 
+  it('handles the focus trap release request once when focus has not entered the panel', async () => {
+    const wrapper = mountDrawer({ modelValue: true, title: '表单' })
+    const event = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
+    const trap = wrapper.findComponent({ name: 'ElFocusTrapStub' })
+    trap.vm.$emit('release-requested', event)
+    trap.vm.$emit('release-requested', event)
+    expect(event.defaultPrevented).toBe(true)
+    expect(wrapper.emitted('cancel')).toEqual([[]])
+    expect(wrapper.emitted('update:modelValue')).toEqual([[false]])
+  })
+
   it('关闭后焦点归还打开前元素', async () => {
     const trigger = document.createElement('button')
     document.body.appendChild(trigger)
@@ -154,6 +165,15 @@ describe('AppFormDrawer', () => {
     const reopened = mountDrawer({ modelValue: true, title: '表单', storageKey: 'test-form-mode' })
     await new Promise((resolve) => setTimeout(resolve))
     expect(reopened.get('.app-form-drawer').classes()).toContain('app-form-drawer--modal')
+  })
+
+  it('keeps fullscreen editors independent of the stored form surface preference', async () => {
+    localStorage.setItem('industrial-platform:form-surface-mode', 'modal')
+    const wrapper = mountDrawer({ modelValue: true, title: 'Editor', size: 'fullscreen' })
+    expect(wrapper.get('.app-form-drawer').classes()).toContain('app-form-drawer--fullscreen')
+    expect(wrapper.find('[data-testid="form-surface-mode-toggle"]').exists()).toBe(false)
+    await wrapper.setProps({ size: 'wide' })
+    expect(wrapper.get('[data-testid="form-surface-mode-toggle"]').text()).toBe('右侧抽屉')
   })
 
   it('随平台语言切换表单载体文案', async () => {

@@ -93,6 +93,7 @@ public static class StudioSchema
             case "studio_workbook": if (provider == DbType.Sqlite) yield return Fk("current_version_id", "studio_workbook_version"); break;
             case "studio_workbook_version": yield return Fk("workbook_id", "studio_workbook"); yield return Fk("base_version_id", "studio_workbook_version"); yield return "UNIQUE (workbook_id,content_version)"; yield return "UNIQUE (workbook_id,save_operation_key)"; break;
             case "studio_workbook_session": yield return Fk("workbook_id", "studio_workbook"); yield return Fk("base_version_id", "studio_workbook_version"); yield return "CHECK (mode IN ('Edit','View') AND status IN ('Active','Saving','Conflict','Closed','Expired'))"; break;
+            case "studio_workbook_retired_file": yield return Fk("workbook_id", "studio_workbook"); break;
             case "studio_auth_request": yield return "UNIQUE (state_hash)"; yield return "CHECK (status IN ('Created','Exchanging','Consumed','Failed'))"; break;
             case "studio_auth_session": yield return "UNIQUE (session_hash)"; break;
             case "studio_local_admin": yield return "UNIQUE (tenant_n_id)"; yield return "UNIQUE (tenant_n_id,login_name)"; yield return "UNIQUE (tenant_n_id,subject_n_id)"; yield return "CHECK (failed_count>=0 AND auth_version>0)"; break;

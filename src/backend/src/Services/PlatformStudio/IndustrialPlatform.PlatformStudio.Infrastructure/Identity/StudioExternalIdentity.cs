@@ -63,8 +63,29 @@ public sealed class StudioExternalIdentity(StudioDatabase database,IStudioResour
         if(Http.Items["StudioIdentityEvidence"] is RequestEvidence evidence&&(!force||evidence.Forced))return (evidence.Session,evidence.Principal);
         var cookie=Http.Request.Cookies[CookieName];
         if(cookie is null||cookie.Length>128) throw new StudioException("STUDIO_UNAUTHENTICATED","请登录Studio。",401);
-        var hash=StudioJson.Hash(cookie);var now=clock.GetUtcNow();
+        var hash=StudioJson.Hash(cookie);
         var session=await Db.Queryable<StudioAuthSession>().Where(s=>s.SessionHash==hash).FirstUtcAsync(database.Provider,cancellationToken);
+        var result = await RefreshSessionAsync(session, force, cancellationToken, attempt);
+        Http.Items["StudioIdentityEvidence"]=new RequestEvidence(result.Item1,result.Item2,force);
+        return result;
+    }
+    public async Task<string> CaptureExecutionEvidenceAsync(StudioPrincipal principal, CancellationToken cancellationToken)
+    {
+        var (session, current) = await ReadSessionAsync(true, cancellationToken);
+        if (current.TenantNId != principal.TenantNId || current.SubjectNId != principal.SubjectNId) throw new StudioException("STUDIO_UNAUTHENTICATED", "执行身份与来源会话不一致。", 401);
+        return JsonSerializer.Serialize(new { sessionId = session.Id, principal.TenantNId, principal.SubjectNId, principal.AuthVersion }, StudioCommands.JsonOptions);
+    }
+    public async Task<StudioPrincipal> RefreshExecutionAsync(string evidence, CancellationToken cancellationToken)
+    {
+        var value = JsonNode.Parse(evidence)!.AsObject();
+        var id = Guid.Parse(StudioJson.RequiredString(value, "sessionId"));
+        var session = await Db.Queryable<StudioAuthSession>().Where(s => s.Id == id).FirstUtcAsync(database.Provider, cancellationToken);
+        if (session is null || session.TenantNId != StudioJson.Text(value["tenantNId"]) || session.SubjectNId != StudioJson.Text(value["subjectNId"]) || session.AuthVersion != StudioJson.Text(value["authVersion"])) throw new StudioException("STUDIO_UNAUTHENTICATED", "后台执行的来源会话已改变。", 401);
+        return (await RefreshSessionAsync(session, true, cancellationToken)).Item2;
+    }
+    private async Task<(StudioAuthSession,StudioPrincipal)> RefreshSessionAsync(StudioAuthSession? session, bool force, CancellationToken cancellationToken, int attempt=0)
+    {
+        var now=clock.GetUtcNow();
         if(session is null||session.RevokedOn is not null||session.ExpiresOn<=now||session.LastSeenOn<=now.AddMinutes(-30)||session.Provider!=profile.Identity.Provider||session.IssuerKey!=profile.Identity.IssuerKey) throw new StudioException("STUDIO_UNAUTHENTICATED","会话已过期或撤销。",401);
         var refreshed=false;
         var principal=JsonSerializer.Deserialize<StudioPrincipal>(session.PrincipalJson,StudioCommands.JsonOptions)??throw new StudioException("STUDIO_UNAUTHENTICATED","会话上下文无效。",401);
@@ -89,9 +110,12 @@ public sealed class StudioExternalIdentity(StudioDatabase database,IStudioResour
         var affected=refreshed
             ? await Db.Updateable(session).Where(s=>s.Id==session.Id&&s.OptimisticVersion==expected&&s.RevokedOn==null).ExecuteCommandAsync(cancellationToken)
             : await Db.Updateable<StudioAuthSession>().SetColumns(s=>new StudioAuthSession { LastSeenOn=now }).Where(s=>s.Id==session.Id&&s.RevokedOn==null&&s.ExpiresOn>now).ExecuteCommandAsync(cancellationToken);
-        if(affected!=1){if(attempt<2)return await ReadSessionAsync(force,cancellationToken,attempt+1);throw new StudioException("STUDIO_IDENTITY_UNAVAILABLE","会话并发刷新未完成，请重试。",503);}
+        if(affected!=1)
+        {
+            if(attempt<2) return await RefreshSessionAsync(await Db.Queryable<StudioAuthSession>().Where(s=>s.Id==session.Id).FirstUtcAsync(database.Provider,cancellationToken), force,cancellationToken,attempt+1);
+            throw new StudioException("STUDIO_IDENTITY_UNAVAILABLE","会话并发刷新未完成，请重试。",503);
+        }
         principal=principal with { ExpiresOn=session.ExpiresOn };
-        Http.Items["StudioIdentityEvidence"]=new RequestEvidence(session,principal,force);
         return (session,principal);
     }
     public async Task<object> LoginLocalAsync(string tenant,string login,string password,CancellationToken cancellationToken)

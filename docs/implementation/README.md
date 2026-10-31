@@ -1,5 +1,7 @@
 # Industrial Platform 实施文档索引
 
+2026-10-29 公共图形能力：用户已确认 X6 + 现有 .NET/Studio 路线及“公共合同 → 双领域复用PoC → PF09-011～014 → 后续生产接入”顺序，主控统一读取[Studio公共图形工作台与流程复用架构](details/Studio-公共图形工作台与流程复用架构.md)。本轮只整理文档；未安装X6、未完成PoC或追溯实现，不改变其他分部交付状态。现有TraceModel/API/算法继续由原详细规格维护。
+
 2026-10-22 PF08为**本地实现与自测完成，待用户验收**；[active工作包](../tasks/active/PF-08.md)及[evidence§3](../evidence/PF-08.md#3-本地最终验证与用户交接)记录最终本地门禁：后端Release 0警告/0错误、2035通过/0失败/8外部跳过，前端1121通过/0跳过及类型/ESLint/双构建，真实HTTPS/CLI和浏览器链。代码保留当前树WIP，开工/阶段快照留在§1/§2；用户验收、客户MES/mTLS/roleFactory、真实扫描、现场来源/Provider及编号adapter仍待对应环境，不阻塞已完成Manual/无附件本地链。PF09保持原状态。
 
 本目录是 Industrial Platform 开发实施方案和可派遣开发 TODO 的唯一维护源。蓝图决策来自 `docs/blueprint`；实际开发在其他任务或被派遣的协作任务中完成，当前任务只负责拆分、派遣、跟踪、验收信息汇总和结果回写。

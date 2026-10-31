@@ -118,7 +118,9 @@ public sealed class UnifiedHostTests : IDisposable
     {
         using var factory = CreateFactory(disableStudio: false).WithWebHostBuilder(builder => builder
             .UseSetting("PlatformStudio:EnabledModules:0", "Dashboard")
-            .UseSetting("PlatformStudio:Files:Provider", "Disabled"));
+            // Report remains installed by development defaults; only activation is narrowed here.
+            .UseSetting("PlatformStudio:Files:Provider", "Platform")
+            .UseSetting("PlatformStudio:Jobs:Provider", "Disabled"));
         using var client = factory.CreateClient();
         using var scope = factory.Services.CreateScope();
         var profile = scope.ServiceProvider.GetRequiredService<IndustrialPlatform.PlatformStudio.Domain.StudioDeploymentProfile>();
@@ -144,14 +146,16 @@ public sealed class UnifiedHostTests : IDisposable
     {
         using var factory=CreateFactory().WithWebHostBuilder(builder=>builder
             .UseSetting("PlatformStudio:Enabled","true")
-            .UseSetting("PlatformStudio:InstalledModules:0","LowCode")
-            .UseSetting("PlatformStudio:Files:Provider","Disabled"));
+            .UseSetting("PlatformStudio:EnabledModules:0","LowCode")
+            .UseSetting("PlatformStudio:Files:Provider","Platform")
+            .UseSetting("PlatformStudio:Jobs:Provider","Disabled"));
         using var client=factory.CreateClient();
         using var health=await client.GetAsync("/health");Assert.Equal(HttpStatusCode.OK,health.StatusCode);
         Assert.True(await TableExistsAsync("studio_resource"));Assert.True(await TableExistsAsync("studio_schema_migrations"));
         Assert.Contains(factory.Services.GetRequiredService<IOptions<Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckServiceOptions>>().Value.Registrations,registration=>registration.Name=="studio.core");
         using var anonymous=await client.GetAsync("/api/v1/studio/deployment/profile");Assert.Equal(HttpStatusCode.Unauthorized,anonymous.StatusCode);
         using var scope=factory.Services.CreateScope();
+        Assert.Equal("LowCode", Assert.Single(scope.ServiceProvider.GetRequiredService<IndustrialPlatform.PlatformStudio.Domain.StudioDeploymentProfile>().ActiveModules));
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IndustrialPlatform.PlatformStudio.Application.Data.SourceAdministration>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IndustrialPlatform.PlatformStudio.Application.Ledger.StudioLedger>());
         var hosted=factory.Services.GetServices<IHostedService>().Select(service=>service.GetType()).ToArray();

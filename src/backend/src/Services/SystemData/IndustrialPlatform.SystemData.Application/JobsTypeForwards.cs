@@ -1,0 +1,12 @@
+using System.Runtime.CompilerServices;
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Application.Scheduler.ISchedulerStore))]
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Application.Scheduler.ISchedulerEngine))]
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Application.Scheduler.SchedulerEnginePlan))]
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Application.Scheduler.ISchedulerCommandDispatcher))]
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Application.Scheduler.ISystemDataReconciliation))]
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Application.Scheduler.SchedulerDuplicateException))]
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Application.Scheduler.SchedulerOptions))]
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Application.Scheduler.SchedulerAdministration))]
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Application.Reliability.ControlPlaneEvent))]
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Application.Reliability.OutboxEventStatus))]
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Application.Reliability.IControlPlaneOutbox))]

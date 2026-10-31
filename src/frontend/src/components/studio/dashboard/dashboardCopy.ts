@@ -125,7 +125,7 @@ export const dashboardMessages = {
     componentCount: '{count} 类',
     componentCategories: '组件分类',
     componentLibraryHint:
-      '点击加入工艺画布；页面数据源和页面参数统一从顶部配置。多个组件可共享同一个数据源。',
+      '将组件拖到画布上的目标位置；键盘 Enter 可添加。页面数据源和页面参数从顶部配置，多个组件可共享数据源。',
     pageParametersHint: '定义看板输入参数；参数值显示组件只展示已定义参数的值。',
     searchComponents: '搜索组件',
     insertSample: '插入样例',
@@ -426,7 +426,7 @@ export const dashboardMessages = {
     componentCount: '{count} types',
     componentCategories: 'Component categories',
     componentLibraryHint:
-      'Click to add a canvas component. Configure page sources and parameters from the toolbar. Components can share one source.',
+      'Drag a component to its canvas position, or press Enter to add it. Configure shared sources and parameters from the toolbar.',
     pageParametersHint:
       'Define dashboard input parameters; parameter value components display their values.',
     searchComponents: 'Search components',

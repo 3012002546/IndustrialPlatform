@@ -1,0 +1,62 @@
+# Optional cloud development overlay: compose.yaml + this file.
+# Tailnet Serve terminates HTTPS; neither application port is public.
+services:
+  app:
+    ports: !override
+      - "127.0.0.1:${APP_HTTP_PORT:-8080}:8080"
+    user: "1000:1000"
+    environment:
+      HOME: /home/ubuntu
+      # A cloud placeholder sharing the local development DB must not consume
+      # its jobs with an older application build. Enable only for a coordinated deployment.
+      SystemData__Scheduler__Enabled: ${CLOUD_SCHEDULER_ENABLED:-false}
+    security_opt:
+      - seccomp=${RENDERER_SECCOMP_PROFILE:?RENDERER_SECCOMP_PROFILE is required}
+    init: true
+    mem_limit: ${APP_MEM_LIMIT:-1536m}
+    memswap_limit: ${APP_MEMSWAP_LIMIT:-3g}
+    cpus: ${APP_CPUS:-1.0}
+    pids_limit: 512
+    shm_size: 256m
+    extra_hosts:
+      - "${PLATFORM_HOSTNAME:?PLATFORM_HOSTNAME is required}:${TAILSCALE_IP:?TAILSCALE_IP is required}"
+    volumes:
+      - ${APPLICATION_CONFIG_FILE:?APPLICATION_CONFIG_FILE is required}:/run/config/appsettings.Cloud.local.json:ro
+      - ${RENDERER_MANIFEST_FILE:?RENDERER_MANIFEST_FILE is required}:/run/config/renderer-manifest.json:ro
+      - ${APPLICATION_FILES_ROOT:?APPLICATION_FILES_ROOT shared mount is required}:/data/files
+      - ${APPLICATION_DATA_ROOT:?APPLICATION_DATA_ROOT is required}/renderer:/data/renderer
+      - ${APPLICATION_DATA_ROOT:?APPLICATION_DATA_ROOT is required}/protection:/home/ubuntu/.aspnet/DataProtection-Keys
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+
+  office:
+    image: collabora/code@sha256:c7415b963e32eb0986a562583f154d36d3d7a461e1ddfb660a95e87094328acb
+    container_name: industrial-platform-office
+    network_mode: host
+    restart: unless-stopped
+    init: true
+    mem_limit: ${OFFICE_MEM_LIMIT:-1280m}
+    memswap_limit: ${OFFICE_MEMSWAP_LIMIT:-2g}
+    cpus: ${OFFICE_CPUS:-1.0}
+    pids_limit: 384
+    shm_size: 256m
+    extra_hosts:
+      - "${PLATFORM_HOSTNAME:?PLATFORM_HOSTNAME is required}:${TAILSCALE_IP:?TAILSCALE_IP is required}"
+    command:
+      - --o:net.listen=loopback
+      - --o:net.proto=IPv4
+      - --o:ssl.enable=false
+      - --o:ssl.termination=true
+      - --o:server_name=${OFFICE_AUTHORITY:?OFFICE_AUTHORITY is required}
+      - --o:storage.wopi.alias_groups.mode=groups
+      - --o:storage.wopi.alias_groups.group[0].host=${PLATFORM_ORIGIN:?PLATFORM_ORIGIN is required}
+      - --o:storage.wopi.alias_groups.group[0].host[@allow]=true
+      # Optional local development callback; defaults to the platform itself.
+      - --o:storage.wopi.alias_groups.group[1].host=${OFFICE_DEVELOPMENT_WOPI_ORIGIN:-${PLATFORM_ORIGIN}}
+      - --o:storage.wopi.alias_groups.group[1].host[@allow]=true
+      - --o:net.frame_ancestors=${PLATFORM_ORIGIN:?PLATFORM_ORIGIN is required} ${OFFICE_DEVELOPMENT_FRAME_ORIGIN:-}
+      # WOPI bearer values must never enter access/protocol/debug logs.
+      - --o:logging.level=none
+      - --o:logging.level_startup=none
+      - --o:logging.protocol=false
+      - --o:browser_logging=false

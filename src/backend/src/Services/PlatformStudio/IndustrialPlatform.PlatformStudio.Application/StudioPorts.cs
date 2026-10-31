@@ -48,6 +48,9 @@ public interface IStudioIdentity
 {
     Task<StudioPrincipal> GetCurrentAsync(CancellationToken cancellationToken);
     Task<StudioPrincipal> RefreshAsync(StudioPrincipal principal, CancellationToken cancellationToken);
+    /// <summary>后台执行只保存来源会话依据，不保存Cookie或登录令牌；不支持的适配器拒绝受理。</summary>
+    Task<string> CaptureExecutionEvidenceAsync(StudioPrincipal principal, CancellationToken cancellationToken) => throw new StudioException("STUDIO_EXECUTION_IDENTITY_UNAVAILABLE", "当前身份适配尚未提供后台执行依据。", 503);
+    Task<StudioPrincipal> RefreshExecutionAsync(string evidence, CancellationToken cancellationToken) => throw new StudioException("STUDIO_EXECUTION_IDENTITY_UNAVAILABLE", "当前身份适配尚未提供后台执行复核。", 503);
 }
 
 public interface IStudioSourceExecutor

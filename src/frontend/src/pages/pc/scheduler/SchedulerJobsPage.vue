@@ -62,6 +62,20 @@ const canManage = computed(() => auth.hasPermission(PERMISSIONS.schedulerTaskMan
 const columns = computed<readonly AppDataTableColumn[]>(() => [
   { field: 'nId', title: text('标识', 'Identifier'), minWidth: 180, filter: false as const },
   { field: 'name', title: text('名称', 'Name'), minWidth: 180, filter: { kind: 'text' } },
+  {
+    field: 'jobKind',
+    title: text('任务类型', 'Job kind'),
+    minWidth: 110,
+    sortable: false,
+    filter: false as const,
+  },
+  {
+    field: 'ownerService',
+    title: text('所属业务', 'Owner service'),
+    minWidth: 140,
+    sortable: false,
+    filter: false as const,
+  },
   { field: 'handlerKey', title: text('处理器', 'Handler'), minWidth: 180, filter: false as const },
   {
     field: 'status',
@@ -169,7 +183,8 @@ async function open(row: SchedulerJob | null, readonly = false): Promise<void> {
     const fresh = row ? await getSchedulerApi().job(row.nId) : null
     if (sequence !== detailSequence) return
     editing.value = fresh !== null
-    readOnly.value = readonly || (fresh !== null && fresh.status !== 'Disabled')
+    readOnly.value =
+      readonly || (fresh !== null && (fresh.status !== 'Disabled' || fresh.jobKind === 'OneShot'))
     Object.assign(
       form,
       fresh
@@ -365,7 +380,7 @@ onMounted(() => void reload())
             v-if="canManage && availableWidth >= 180"
             link
             type="primary"
-            :disabled="row.status !== 'Disabled' || busy"
+            :disabled="row.jobKind === 'OneShot' || row.status !== 'Disabled' || busy"
             @click="open(row)"
             >{{ text('编辑', 'Edit') }}</el-button
           ><el-dropdown
@@ -378,12 +393,12 @@ onMounted(() => void reload())
               ><el-dropdown-menu>
                 <el-dropdown-item
                   v-if="canManage && availableWidth < 180"
-                  :disabled="row.status !== 'Disabled' || busy"
+                  :disabled="row.jobKind === 'OneShot' || row.status !== 'Disabled' || busy"
                   command="edit"
                   >{{ text('编辑', 'Edit') }}</el-dropdown-item
                 >
                 <el-dropdown-item
-                  v-if="canManage && row.status !== 'Deleted'"
+                  v-if="canManage && row.jobKind !== 'OneShot' && row.status !== 'Deleted'"
                   :disabled="busy"
                   :command="row.status === 'Enabled' ? 'disable' : 'enable'"
                   >{{
@@ -411,6 +426,15 @@ onMounted(() => void reload())
           </el-dropdown>
         </div></template
       >
+      <template #cell-jobKind="{ row }">{{
+        row.jobKind === 'OneShot' ? text('一次性', 'One-shot') : text('周期', 'Recurring')
+      }}</template>
+      <template #cell-ownerService="{ row }">{{
+        row.ownerService === 'platform-studio' ? text('报表', 'Report') : row.ownerService || '—'
+      }}</template>
+      <template #cell-cronExpression="{ row }">{{
+        row.jobKind === 'OneShot' ? '—' : row.cronExpression
+      }}</template>
       <template #cell-nextFireOn="{ row }">{{
         row.nextFireOn ? new Date(row.nextFireOn).toLocaleString(locale.locale) : '—'
       }}</template>

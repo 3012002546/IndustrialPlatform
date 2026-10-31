@@ -1,0 +1,12 @@
+using System.Runtime.CompilerServices;
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Infrastructure.Scheduler.HangfireSchedulerEngine))]
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Infrastructure.Scheduler.HangfireScheduledTask))]
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Infrastructure.Scheduler.SchedulerBusyException))]
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Infrastructure.Scheduler.SchedulerRetryableException))]
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Infrastructure.Scheduler.SchedulerRetryPolicyAttribute))]
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Infrastructure.Scheduler.SchedulerStorageSchema))]
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Infrastructure.Scheduler.SqlSchedulerStore))]
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Infrastructure.Persistence.Entities.SchedulerJobTable))]
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Infrastructure.Persistence.Entities.SchedulerRunTable))]
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchedulerSchemaMigrations))]
+[assembly: TypeForwardedTo(typeof(IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations.SchemaMigrationStep))]

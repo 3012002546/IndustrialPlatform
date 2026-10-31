@@ -52,6 +52,12 @@ import {
   type StudioResource,
 } from '@/api/studio'
 import { clone, createHistory } from '@/components/studio/shared/model'
+import {
+  allowPaletteDrop,
+  canvasDropPoint,
+  paletteKey,
+  startPaletteDrag,
+} from '@/components/studio/shared/paletteDrag'
 import { useStudioCopy } from '@/components/studio/shared/copy'
 import {
   dashboardComponentLabels,
@@ -692,12 +698,26 @@ async function loadResourceOptions(current: number) {
     if (current === loadVersion) error.value = e instanceof Error ? e.message : t.value('error')
   }
 }
-function addComponent(entry: RegistryEntry) {
+function addComponent(entry: RegistryEntry, point?: { x: number; y: number }) {
   mutate((next) => {
     const component = makeComponent(entry, next.components.length)
+    if (point) {
+      component.width = Math.min(component.width, next.canvas.width)
+      component.height = Math.min(component.height, next.canvas.height)
+      component.x = Math.round(Math.max(0, Math.min(next.canvas.width - component.width, point.x)))
+      component.y = Math.round(
+        Math.max(0, Math.min(next.canvas.height - component.height, point.y)),
+      )
+    }
     next.components.push(component)
     selectedId.value = component.id
   })
+}
+function dropComponent(event: DragEvent) {
+  const key = paletteKey(event, 'dashboard')
+  const entry = dashboardEntries.value.find((item) => item.key === key)
+  if (!entry) return
+  addComponent(entry, canvasDropPoint(event, event.currentTarget as HTMLElement, zoom.value))
 }
 function removeSelected() {
   if (!selectedId.value) return
@@ -1322,7 +1342,10 @@ onBeforeUnmount(() => {
               :key="entry.key"
               type="button"
               :title="`${dashboardT.componentLabel(entry.key)} · ${entry.key}`"
-              @click="addComponent(entry)"
+              draggable="true"
+              @dragstart="startPaletteDrag($event, 'dashboard', entry.key)"
+              @keydown.enter.prevent="addComponent(entry)"
+              @keydown.space.prevent="addComponent(entry)"
             >
               <component :is="componentIcons[entry.key] ?? Box" aria-hidden="true" />
               <span>{{ dashboardT.componentLabel(entry.key) }}</span>
@@ -1339,6 +1362,8 @@ onBeforeUnmount(() => {
         <div ref="canvasHost" class="dashboard-canvas-scroll">
           <div
             class="dashboard-editor-canvas"
+            @dragover="allowPaletteDrop($event)"
+            @drop.prevent="dropComponent"
             :style="canvasStyle"
             @pointermove="pointerMove"
             @pointerup="pointerUp"

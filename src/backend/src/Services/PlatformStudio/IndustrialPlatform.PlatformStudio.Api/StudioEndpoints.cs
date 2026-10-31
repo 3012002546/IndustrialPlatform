@@ -7,6 +7,8 @@ using IndustrialPlatform.PlatformStudio.Application.Data;
 using IndustrialPlatform.PlatformStudio.Application.Dashboard;
 using IndustrialPlatform.PlatformStudio.Application.Ledger;
 using IndustrialPlatform.PlatformStudio.Application.Publishing;
+using IndustrialPlatform.PlatformStudio.Application.Report;
+using IndustrialPlatform.PlatformStudio.Infrastructure.Report;
 using IndustrialPlatform.PlatformStudio.Contracts;
 using IndustrialPlatform.PlatformStudio.Domain;
 using IndustrialPlatform.PlatformStudio.Infrastructure.Identity;
@@ -31,6 +33,16 @@ public static class StudioEndpoints
     private sealed record PublicEndpoint;
     public sealed record LocalLogin(string TenantNId,string LoginName,string Password);
     public sealed record ChangePassword(string CurrentPassword,string NewPassword);
+    public sealed record ReportCancelInput(string StateVersion);
+    public sealed record ReportRetryInput(string StateVersion, string Mode);
+    public sealed record ReportAssetInput(string FileNId, string ReferenceNId);
+    public sealed record ReportResolutionInput(string StateVersion, string Reason);
+    public sealed record WorkbookCreateInput(string Name, string? SourceFileNId, string? SourceArtifactNId);
+    public sealed record WorkbookSessionInput(string Mode, string BaseContentVersion);
+    public sealed record WorkbookCopyInput(string Name, string BaseContentVersion);
+    public sealed record WorkbookEditInput(string Name, string OptimisticVersion, Guid ConcurrencyVersion);
+    public sealed record WorkbookVersionInput(string BaseContentVersion, string? Note);
+    public sealed record ReportRunInput(string? RevisionNId, JsonObject? Parameters, string Format, JsonArray? Sort = null);
     public static IEndpointRouteBuilder MapPlatformStudio(this IEndpointRouteBuilder endpoints)
     {
         var profile=endpoints.ServiceProvider.GetService<StudioDeploymentProfile>();
@@ -85,6 +97,58 @@ public static class StudioEndpoints
             }
         }
         group.MapGet("/deployment/profile",(HttpContext http)=>new { schemaVersion=1,profile.ProfileVersion,profile.DeploymentMode,profile.InstalledModules,enabledModules=profile.ActiveModules,identityProvider=profile.Identity.Provider,filesProvider=profile.Files.Provider,auditProvider=profile.Audit.Provider });
+        if (profile.ActiveModules.Contains("Report", StringComparer.Ordinal))
+        {
+            endpoints.MapStudioWopi(profile);
+            group.MapPost("/reports/{nId}/assets", (string nId, ReportAssetInput input, HttpContext http, ReportResources assets, CancellationToken ct) => assets.ImportAsync(Principal(http), nId, input.FileNId, input.ReferenceNId, Key(http), ct));
+            group.MapPost("/report-runs/{runNId}/resolve", (string runNId, ReportResolutionInput input, HttpContext http, ReportReconciliation resolution, CancellationToken ct) => resolution.ResolveAsync(Principal(http), runNId, input.StateVersion, input.Reason, ct));
+            group.MapPost("/reports/plan", (ReportPreviewInput input, HttpContext http, ReportDesign reports, CancellationToken ct) => reports.PlanAsync(Principal(http), input, ct));
+            group.MapGet("/reports/{nId}/runtime", (string nId, string? revisionNId, HttpContext http, ReportDesign reports, CancellationToken ct) => reports.RuntimeAsync(Principal(http), nId, revisionNId, ct));
+            group.MapPost("/reports/query-preview", (ReportQueryInput input, HttpContext http, ReportDesign reports, CancellationToken ct) => reports.QueryAsync(Principal(http), null, input, ct));
+            group.MapPost("/reports/{nId}/query", (string nId, ReportQueryInput input, HttpContext http, ReportDesign reports, CancellationToken ct) => reports.QueryAsync(Principal(http), nId, input, ct));
+            group.MapPost("/reports/{nId}/query-options", (string nId, ReportQueryInput input, HttpContext http, ReportDesign reports, CancellationToken ct) => reports.QueryOptionsAsync(Principal(http), nId, input, ct));
+            group.MapGet("/reports/{nId}/binding-contract", (string nId, string revisionNId, HttpContext http, ReportDesign reports, CancellationToken ct) => reports.BindingContractAsync(Principal(http), nId, revisionNId, ct));
+            group.MapPost("/reports/binding-contract", (ReportPreviewInput input, HttpContext http, ReportDesign reports, CancellationToken ct) => reports.DraftBindingContractAsync(Principal(http), input, ct));
+            group.MapGet("/workbooks", (HttpContext http, StudioWorkbooks books, CancellationToken ct) => books.ListAsync(Principal(http), ct));
+            group.MapPost("/workbooks", (WorkbookCreateInput input, HttpContext http, StudioWorkbooks books, ReportOutputs reports, CancellationToken ct) => (input.SourceFileNId is not null, input.SourceArtifactNId is not null) switch { (true, false) => books.ImportAsync(Principal(http), input.Name, input.SourceFileNId!, Key(http), ct), (false, true) => books.ImportArtifactAsync(Principal(http), input.Name, input.SourceArtifactNId!, Key(http), reports, ct), _ => throw new StudioException("STUDIO_VALIDATION", "请选择一个xlsx文件或报告产物。") });
+            group.MapPost("/workbooks/{nId}/copy", (string nId, WorkbookCopyInput input, HttpContext http, StudioWorkbooks books, CancellationToken ct) => books.CopyAsync(Principal(http), nId, input.Name, input.BaseContentVersion, Key(http), ct));
+            group.MapGet("/workbooks/{nId}/versions", (string nId, HttpContext http, StudioWorkbooks books, CancellationToken ct) => books.VersionsAsync(Principal(http), nId, ct));
+            group.MapPost("/workbooks/{nId}/edit", (string nId, WorkbookEditInput input, HttpContext http, StudioWorkbooks books, CancellationToken ct) => books.EditAsync(Principal(http), nId, input.Name, new(input.OptimisticVersion, input.ConcurrencyVersion), ct));
+            group.MapPost("/workbooks/{nId}/versions", (string nId, WorkbookVersionInput input, HttpContext http, StudioWorkbooks books, CancellationToken ct) => books.SaveVersionAsync(Principal(http), nId, input.BaseContentVersion, input.Note, ct));
+            group.MapGet("/workbooks/{nId}/sessions/{sessionNId}", (string nId, string sessionNId, HttpContext http, StudioWorkbooks books, CancellationToken ct) => books.StateAsync(Principal(http), nId, sessionNId, ct));
+            group.MapGet("/workbooks/{nId}/versions/{versionNId}/content", async (string nId, string versionNId, HttpContext http, StudioWorkbooks books, CancellationToken ct) => Results.Stream(await books.ReadVersionAsync(Principal(http), nId, versionNId, ct), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", nId + ".xlsx"));
+            group.MapPost("/workbooks/{nId}/archive", (string nId, VersionCommand input, HttpContext http, StudioWorkbooks books, CancellationToken ct) => books.ArchiveAsync(Principal(http), nId, input, ct));
+            group.MapPost("/workbooks/{nId}/sessions", async (string nId, WorkbookSessionInput input, HttpContext http, StudioWorkbooks books, CancellationToken ct) => profile.Office.Admitted ? Results.Ok(ApiResult.Ok(await books.CreateSessionAsync(Principal(http), nId, input.Mode, input.BaseContentVersion, new Uri(profile.Office.EditorAction!), new Uri(profile.Office.PublicWopiBase!), ct))) : Results.Json(ApiResult.Fail<object?>("OFFICE_UNAVAILABLE", "Office发行包及编辑器尚未准入；已有xlsx内容版本保留。"), statusCode: 503));
+            group.MapPost("/workbooks/{nId}/sessions/{sessionNId}/close", async (string nId, string sessionNId, HttpContext http, StudioWorkbooks books, CancellationToken ct) => { await books.CloseAsync(Principal(http), nId, sessionNId, ct); return new { closed = true }; });
+            group.MapPost("/workbooks/{nId}/sessions/{sessionNId}/renew", (string nId, string sessionNId, HttpContext http, StudioWorkbooks books, CancellationToken ct) => books.RenewAsync(Principal(http), nId, sessionNId, ct));
+            group.MapGet("/report-runs/{runNId}", (string runNId, HttpContext http, ReportOutputs outputs, CancellationToken ct) => outputs.DetailAsync(Principal(http), runNId, ct));
+            group.MapGet("/report-runs", (int? page, int? pageSize, string? resourceNId, HttpContext http, ReportOutputs outputs, CancellationToken ct) => outputs.ListAsync(Principal(http), page ?? 1, pageSize ?? 20, ct, resourceNId));
+            group.MapGet("/report-runs/{runNId}/artifacts/{artifactNId}/content", async (string runNId, string artifactNId, HttpContext http, ReportOutputs outputs, CancellationToken ct) => { var result = await outputs.ArtifactAsync(Principal(http), runNId, artifactNId, ct); var extension = result.ContentType switch { "application/pdf" => ".pdf", "text/html" => ".html", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" => ".xlsx", _ => ".json" }; http.Response.Headers.ContentSecurityPolicy = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox"; return Results.Stream(result.Content, result.ContentType, artifactNId + extension); });
+            group.MapPost("/report-runs/{runNId}/cancel", (string runNId, ReportCancelInput input, HttpContext http, IndustrialPlatform.PlatformStudio.Application.Report.ReportRuns runs, CancellationToken ct) => runs.CancelAsync(Principal(http), runNId, input.StateVersion, ct));
+            group.MapPost("/report-runs/{runNId}/retry", async (string runNId, ReportRetryInput input, HttpContext http, ReportRetries retries, CancellationToken ct) => { if (!profile.Renderer.Admitted) throw new StudioException("STUDIO_RENDERER_UNAVAILABLE", "报告分页引擎尚未准入。", 503); return Results.Json(ApiResult.Ok(await retries.RetryAsync(Principal(http), runNId, input.StateVersion, input.Mode, Key(http), http.TraceIdentifier, ct)), statusCode: 202); });
+            group.MapPost("/reports/preview", async (ReportPreviewInput input, HttpContext http, ReportPreview preview, CancellationToken ct) =>
+            {
+                if (!profile.Renderer.Admitted) throw new StudioException("STUDIO_RENDERER_UNAVAILABLE", "报告分页引擎尚未准入。", 503);
+                http.Response.Headers.CacheControl = "no-store";
+                return Results.Json(ApiResult.Ok(await preview.RenderAsync(Principal(http), input, ct)));
+            });
+            group.MapGet("/reports/previews/{previewNId}", (string previewNId, HttpContext http, ReportOutputs outputs, CancellationToken ct) => outputs.PreviewAsync(Principal(http), previewNId, ct));
+            group.MapPost("/reports/previews/{previewNId}/cancel", (string previewNId, ReportCancelInput input, HttpContext http, ReportRuns runs, CancellationToken ct) => runs.CancelAsync(Principal(http), previewNId, input.StateVersion, ct));
+            group.MapGet("/reports/previews/{previewNId}/pages/{pageNo:int}/content", async (string previewNId, int pageNo, HttpContext http, ReportOutputs outputs, CancellationToken ct) => { http.Response.Headers.ContentSecurityPolicy = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; sandbox"; http.Response.Headers.CacheControl = "no-store"; return Results.Stream(await outputs.PreviewPageAsync(Principal(http), previewNId, pageNo, ct), "text/html; charset=utf-8"); });
+            group.MapPost("/reports/{nId}/runs", async (string nId, ReportRunInput input, HttpContext http, StudioPublishing publishing, IStudioAuthorization authorization, ReportRuns runs, CancellationToken ct) =>
+            {
+                if (!profile.Renderer.Admitted) throw new StudioException("STUDIO_RENDERER_UNAVAILABLE", "报告分页引擎尚未准入。", 503);
+                var (resource, revision) = await publishing.RequireRuntimeAsync(Principal(http), nId, input.RevisionNId, ct);
+                if (resource.Kind is not ("Report" or "ReportBundle")) throw new StudioException("STUDIO_NOT_FOUND", "报告不存在。", 404);
+                if (input.Format is not ("Pdf" or "Html" or "Xlsx")) throw new StudioException("REPORT_FORMAT_UNSUPPORTED", "输出格式未登记。", 422);
+                await authorization.RequireAsync(Principal(http), resource, "studio.report.export", "Export", ct);
+                var document = StudioPublishing.Parse(revision.DocumentJson);
+                var parameters = DatasetValues.Parameters(Principal(http), document, input.Parameters ?? new());
+                var sort = ReportDesign.ResolveSort(document, input.Sort);
+                var result = await runs.AcceptFrozenAsync(Principal(http), new("Production", revision.Id, null, parameters.ToJsonString(), input.Format, http.TraceIdentifier, sort.ToJsonString()), Key(http), ct);
+                return Results.Json(ApiResult.Ok(result), statusCode: 202);
+            });
+        }
         group.MapGet("/health/capabilities",async(HttpContext http,IndustrialPlatform.PlatformStudio.Infrastructure.Integration.Embedded.StudioFileCapabilityProbe files,CancellationToken ct)=>new { files=await files.GetStatusAsync(ct),identity=new {provider=profile.Identity.Provider,status="Ready"},dataScope=new {status=Principal(http).FactoryNIds.Count>0?"Ready":profile.DeploymentMode=="PlatformNative"&&profile.Identity.NativeFactoryScopes.Length==0?"Unavailable":"Empty",reasonCode=Principal(http).FactoryNIds.Count>0?null:profile.DeploymentMode=="PlatformNative"&&profile.Identity.NativeFactoryScopes.Length==0?"STUDIO_FACTORY_SCOPE_UNAVAILABLE":"NO_AUTHORIZED_FACTORIES"} });
         group.MapGet("/deployment/inspect",async(HttpContext http,IStudioAuthorization auth,StudioServiceInitializer initializer,CancellationToken ct)=>{auth.RequirePermission(Principal(http),"studio.deployment.inspect");return await initializer.InspectLocalAsync(ct);});
         group.MapGet("/sources",([AsParameters] StudioQuery query,HttpContext http,SourceAdministration sources,CancellationToken ct)=>sources.ListAsync(Principal(http),query,ct));

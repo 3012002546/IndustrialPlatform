@@ -36,6 +36,7 @@ public sealed class StudioIdentityTests
             builder.Services.AddPlatformStudio(builder.Configuration);
             if(bridge is not null)builder.Services.AddSingleton(bridge);
             var app=builder.Build();await app.Services.GetRequiredService<StudioServiceInitializer>().InitializeLocalAsync(CancellationToken.None);
+            app.MapGet("/fixture/execution-evidence", async (StudioExternalIdentity identity, CancellationToken ct) => await identity.CaptureExecutionEvidenceAsync(await identity.GetCurrentAsync(ct), ct));
             app.UseRouting();app.UseRateLimiter();app.UseAuthentication();app.UseAuthorization();app.MapPlatformStudio();await app.StartAsync();
             var client=app.GetTestClient();client.BaseAddress=new Uri("https://localhost");var fixture=new ApiFixture(folder,app,client);await fixture.CsrfAsync();return fixture;
         }
@@ -61,6 +62,21 @@ public sealed class StudioIdentityTests
         {
             Client.Dispose();await _app.DisposeAsync();Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();if(Directory.Exists(_folder))Directory.Delete(_folder,true);
         }
+    }
+    [Fact]
+    public async Task Background_execution_reuses_source_session_without_cookie_and_rejects_revocation()
+    {
+        await using var f = await ApiFixture.CreateAsync(); await f.CreateAdminAsync();
+        await f.SendAsync(HttpMethod.Post,"/api/v1/studio/auth/local-login",new { tenantNId="tenant-a",loginName="admin",password="Initial!Studio123" });
+        await f.SendAsync(HttpMethod.Post,"/api/v1/studio/auth/local-change-password",new { currentPassword="Initial!Studio123",newPassword="Changed!Studio456" });
+        await f.SendAsync(HttpMethod.Post,"/api/v1/studio/auth/local-login",new { tenantNId="tenant-a",loginName="admin",password="Changed!Studio456" });
+        var response = await f.SendAsync(HttpMethod.Get, "/fixture/execution-evidence"); response.EnsureSuccessStatusCode();
+        var evidence = await response.Content.ReadAsStringAsync();
+        await using var scope = f.Services.CreateAsyncScope();
+        var identity = scope.ServiceProvider.GetRequiredService<StudioExternalIdentity>();
+        Assert.Equal("tenant-a", (await identity.RefreshExecutionAsync(evidence, default)).TenantNId);
+        await f.SendAsync(HttpMethod.Post, "/api/v1/studio/auth/logout");
+        await Assert.ThrowsAsync<StudioException>(() => identity.RefreshExecutionAsync(evidence, default));
     }
     [Fact]
     public async Task Local_first_login_requires_password_change_and_revokes_old_sessions()
