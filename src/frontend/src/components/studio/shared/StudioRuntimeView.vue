@@ -10,6 +10,7 @@ import type { AppDataTableRequest } from '@/components/management/AppDataTable'
 import { PermissionGate } from '@/permissions'
 import { useAuthStore } from '@/stores/authStore'
 import StudioLayoutRenderer from './StudioLayoutRenderer.vue'
+import StudioCustomRuntime from './StudioCustomRuntime.vue'
 import StudioFileField from './StudioFileField.vue'
 import { useStudioCopy } from './copy'
 import {
@@ -37,6 +38,7 @@ const route = useRoute(),
   t = useStudioCopy(),
   error = ref(''),
   busy = ref(false),
+  recordLoading = ref(false),
   form = ref<Json>({}),
   current = ref<LedgerRecord | undefined>(),
   table = ref<{
@@ -52,6 +54,10 @@ const route = useRoute(),
   selectedRow = ref<{ instanceId: string; key: unknown } | undefined>(),
   selectedRowData = ref<Json | undefined>(),
   parameters = ref<Json>({ ...props.parameters })
+const pageOrigin = computed(() => ({
+  pageNId: props.runtime.resource.nId,
+  pageRevisionNId: props.runtime.revisionNId,
+}))
 const recordKey = ref(crypto.randomUUID())
 watch(table, (value) => {
   if (value) void value.reload()
@@ -169,6 +175,9 @@ const displayedForm = computed(() =>
   mappedFormValues(props.runtime.document.fields ?? [], form.value, bindingContext.value, false),
 )
 const isCrud = computed(() => props.runtime.document.mode === 'Crud')
+const recordUnavailable = computed(
+  () => recordLoading.value || (!!props.recordNId && !current.value),
+)
 function resetFilters() {
   filters.value = {}
   void table.value?.reload()
@@ -237,14 +246,19 @@ async function loadRecords(request: AppDataTableRequest) {
       })
   }
   try {
-    const page = await getStudioApi().ledgerQuery(model.value.nId, model.value.revisionNId, {
-      page: request.pageIndex,
-      pageSize: request.pageSize,
-      sortFieldId: request.sort?.field ?? null,
-      sortOrder: request.sort?.order ?? 'desc',
-      deleted: deleted.value,
-      filters: conditions,
-    })
+    const page = await getStudioApi().ledgerQuery(
+      model.value.nId,
+      model.value.revisionNId,
+      {
+        page: request.pageIndex,
+        pageSize: request.pageSize,
+        sortFieldId: request.sort?.field ?? null,
+        sortOrder: request.sort?.order ?? 'desc',
+        deleted: deleted.value,
+        filters: conditions,
+      },
+      pageOrigin.value,
+    )
     return {
       items: page.items.map((r) => ({ ...r.values, nId: r.nId, _record: r })),
       total: safeTotal(page.totalCount),
@@ -287,6 +301,7 @@ function writableValues(): Json {
   return values
 }
 function save() {
+  if (recordUnavailable.value) return
   void guarded(async () => {
     if (!model.value || props.preview || unknown.value) return
     if (!current.value && !recordNumber.value.trim())
@@ -299,6 +314,7 @@ function save() {
       current.value,
       recordKey.value,
       recordNumber.value.trim(),
+      pageOrigin.value,
     )
     back()
   }, true)
@@ -307,7 +323,12 @@ function lifecycle(row: Json, action: string) {
   void guarded(async () => {
     if (!model.value) return
     await ElMessageBox.confirm(t.value('confirm') + ' ' + t.value(action), t.value(action))
-    await getStudioApi().ledgerAction(model.value.nId, row._record as LedgerRecord, action)
+    await getStudioApi().ledgerAction(
+      model.value.nId,
+      row._record as LedgerRecord,
+      action,
+      pageOrigin.value,
+    )
     void table.value?.reload()
   }, true)
 }
@@ -324,6 +345,7 @@ async function selectRow(row: Json, instanceId: string) {
   for (const action of actions.value.filter((a) => a.event === 'RowClick')) await execute(action)
 }
 async function execute(action: Json) {
+  if (recordUnavailable.value) return
   await guarded(async () => {
     if (unknown.value) return
     const effective = mappedFormValues(
@@ -383,7 +405,7 @@ async function execute(action: Json) {
   }, !props.preview)
 }
 async function submit() {
-  if (props.recordMode === 'detail') return
+  if (props.recordMode === 'detail' || recordUnavailable.value) return
   const configured = actions.value.filter((action) => action.event === 'Submit')
   if (configured.length) {
     for (const action of configured) await execute(action)
@@ -407,8 +429,14 @@ function reload() {
   })
 }
 watch(
-  () => [props.recordNId, props.runtime.revisionNId],
-  async () => {
+  () => [props.recordNId, props.runtime.revisionNId, model.value],
+  async (_, __, onCleanup) => {
+    let active = true
+    onCleanup(() => {
+      active = false
+    })
+    current.value = undefined
+    recordLoading.value = !!props.recordNId
     error.value = ''
     form.value = Object.fromEntries(
       fields.value
@@ -423,18 +451,23 @@ watch(
     )
     if (props.recordNId && model.value) {
       try {
-        current.value = await getStudioApi().ledgerGet(
+        const record = await getStudioApi().ledgerGet(
           model.value.nId,
           props.recordNId,
           model.value.revisionNId,
+          pageOrigin.value,
         )
-        form.value = clone(current.value.values)
+        if (!active) return
+        current.value = record
+        form.value = clone(record.values)
       } catch (e) {
-        error.value = e instanceof Error ? e.message : t.value('error')
+        if (active) error.value = e instanceof Error ? e.message : t.value('error')
+      } finally {
+        if (active) recordLoading.value = false
       }
     }
   },
-  { immediate: true },
+  { immediate: true, flush: 'sync' },
 )
 watch(
   () => props.parameters,
@@ -452,7 +485,13 @@ defineExpose({ save, back })
       @click="checkOperation"
       >{{ t('check') }} · {{ operationKey }}</el-button
     >
-    <template v-if="runtime.document.mode === 'Code'"
+    <StudioCustomRuntime
+      v-if="['Html', 'Link'].includes(runtime.document.mode)"
+      :runtime="runtime"
+      :preview="preview"
+      :parameters="parameters"
+    />
+    <template v-else-if="runtime.document.mode === 'Code'"
       ><div v-if="runtime.document.codeComponentKey === 'studio.summary'">
         <h2>{{ runtime.resource.name }}</h2>
         <p>{{ t('codeSummary') }}</p>
@@ -469,6 +508,9 @@ defineExpose({ save, back })
     <template v-else>
       <el-form
         v-if="recordMode || !isCrud || preview"
+        v-loading="recordLoading"
+        :disabled="recordUnavailable"
+        :aria-busy="recordLoading"
         label-position="top"
         @submit.prevent="submit"
       >
@@ -484,7 +526,7 @@ defineExpose({ save, back })
           :parameters="parameters"
           :row="selectedRowData"
           :preview="preview"
-          :read-only="recordMode === 'detail'"
+          :read-only="recordMode === 'detail' || recordUnavailable"
           @row="selectRow"
         />
         <div
@@ -500,13 +542,13 @@ defineExpose({ save, back })
               v-if="field.type === 'FileReference'"
               v-model="form[String(field.id)]"
               :model-n-id="model.nId"
-              :disabled="recordMode === 'detail' || preview" /><el-switch
+              :disabled="recordMode === 'detail' || preview || recordUnavailable" /><el-switch
               v-else-if="field.type === 'Boolean'"
               v-model="form[String(field.id)]"
-              :disabled="recordMode === 'detail'" /><el-select
+              :disabled="recordMode === 'detail' || recordUnavailable" /><el-select
               v-else-if="field.type === 'Enum'"
               v-model="form[String(field.id)]"
-              :disabled="recordMode === 'detail'"
+              :disabled="recordMode === 'detail' || recordUnavailable"
               ><el-option
                 v-for="value in field.enumValues as string[]"
                 :key="value"
@@ -517,19 +559,19 @@ defineExpose({ save, back })
               v-model="form[String(field.id)]"
               type="date"
               value-format="YYYY-MM-DD"
-              :disabled="recordMode === 'detail'" /><el-date-picker
+              :disabled="recordMode === 'detail' || recordUnavailable" /><el-date-picker
               v-else-if="field.type === 'DateTime'"
               v-model="form[String(field.id)]"
               type="datetime"
               value-format="YYYY-MM-DDTHH:mm:ssZ"
-              :disabled="recordMode === 'detail'" /><el-input-number
+              :disabled="recordMode === 'detail' || recordUnavailable" /><el-input-number
               v-else-if="field.type === 'Int32'"
               v-model="form[String(field.id)]"
-              :disabled="recordMode === 'detail'" /><el-input
+              :disabled="recordMode === 'detail' || recordUnavailable" /><el-input
               v-else
               v-model="form[String(field.id)]"
               :type="field.type === 'Text' ? 'textarea' : 'text'"
-              :disabled="recordMode === 'detail'"
+              :disabled="recordMode === 'detail' || recordUnavailable"
               :aria-label="String(field.label || field.name)"
           /></el-form-item>
         </div>
@@ -540,7 +582,7 @@ defineExpose({ save, back })
               v-if="recordMode !== 'detail'"
               type="primary"
               :loading="busy"
-              :disabled="unknown || preview"
+              :disabled="unknown || preview || recordUnavailable"
               @click="submit"
               >{{ t('submit') }}</el-button
             ></PermissionGate
@@ -633,7 +675,7 @@ defineExpose({ save, back })
           ><PermissionGate :permission-n-id="String(action.permissionKey ?? 'studio.lowcode.run')"
             ><el-button
               :loading="busy"
-              :disabled="unknown || recordMode === 'detail'"
+              :disabled="unknown || recordMode === 'detail' || recordUnavailable"
               @click="execute(action)"
               >{{ action.label || action.actionKey }}
               {{ preview ? '(' + t('mock') + ')' : '' }}</el-button

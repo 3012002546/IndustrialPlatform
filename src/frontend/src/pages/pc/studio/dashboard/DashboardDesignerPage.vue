@@ -28,6 +28,7 @@ import {
   Warning,
 } from '@element-plus/icons-vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
+import { returnFromWorkspace } from '@/workspace/returnFromWorkspace'
 import { ElMessageBox } from 'element-plus'
 import AppPage from '@/components/base/AppPage.vue'
 import AppFormDrawer from '@/components/management/AppFormDrawer.vue'
@@ -1223,7 +1224,9 @@ onBeforeUnmount(() => {
     class="studio-page dashboard-designer"
   >
     <template #actions
-      ><el-button @click="router.push('/pc/studio/dashboards')">{{ dashboardT('back') }}</el-button
+      ><el-button @click="returnFromWorkspace(router, '/pc/studio/dashboards')">{{
+        dashboardT('back')
+      }}</el-button
       ><el-button :disabled="busy || !history.canUndo" @click="undo">{{
         dashboardT('undo')
       }}</el-button

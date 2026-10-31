@@ -35,8 +35,8 @@ public static class StudioServiceCollectionExtensions
         var profile=configuration.GetSection("PlatformStudio").Get<StudioDeploymentProfile>()??new();
         if(!profile.Enabled)return services;
         profile.Validate();
-        // Hosting request-start messages include raw query strings. Office protocol tickets must never enter those logs.
-        if (profile.Office.Admitted) services.AddLogging(o => o.AddFilter("Microsoft.AspNetCore.Hosting.Diagnostics", LogLevel.Warning));
+        // Request-start messages include document ticket paths and Office protocol query strings.
+        if (profile.Office.Admitted || profile.ActiveModules.Contains("LowCode", StringComparer.Ordinal)) services.AddLogging(o => o.AddFilter("Microsoft.AspNetCore.Hosting.Diagnostics", LogLevel.Warning));
         foreach(var endpoint in profile.SourceRegistry)
         foreach(var declaration in endpoint.Value.Catalog)
         {
@@ -48,7 +48,10 @@ public static class StudioServiceCollectionExtensions
         services.AddSingleton(profile);services.TryAddSingleton(TimeProvider.System);services.AddHttpContextAccessor();
         services.AddSingleton<StudioDatabase>();services.AddSingleton<StudioServiceInitializer>();services.AddSingleton<IServiceInitializer>(sp=>sp.GetRequiredService<StudioServiceInitializer>());
         services.AddScoped<IStudioResourceStore,StudioResourceStore>();services.AddScoped<IStudioAuthorization,StudioAuthorization>();services.AddScoped<StudioCommands>();
-        services.AddScoped<StudioPublishing>();services.AddScoped<StudioGrants>();services.AddScoped<SourceAdministration>();services.AddScoped<SourceCatalog>();services.AddScoped<IStudioSourceCatalogReader,RegisteredSourceCatalog>();services.AddScoped<DatasetExecution>();services.AddSingleton<StudioDatasetCache>();services.AddSingleton<StudioSourceProbes>();services.AddSingleton<StudioSourceLimits>();
+        services.AddScoped<StudioPublishing>();
+        services.AddScoped<StudioPageNavigation>();
+        services.AddSingleton<StudioCustomContentTickets>();
+        services.AddScoped<StudioCustomContent>();services.AddScoped<StudioGrants>();services.AddScoped<SourceAdministration>();services.AddScoped<SourceCatalog>();services.AddScoped<IStudioSourceCatalogReader,RegisteredSourceCatalog>();services.AddScoped<DatasetExecution>();services.AddSingleton<StudioDatasetCache>();services.AddSingleton<StudioSourceProbes>();services.AddSingleton<StudioSourceLimits>();
         if(profile.ActiveModules.Contains("LowCode",StringComparer.Ordinal))
         {
             services.AddScoped<IStudioAction,StudioLedgerSaveAction>();

@@ -8,9 +8,10 @@ namespace IndustrialPlatform.PlatformStudio.Application.Publishing;
 public sealed record StudioValidation(bool Valid, IReadOnlyList<StudioDiagnostic> Diagnostics, JsonArray DependencyPlan, JsonArray SourcePins, string DependencyPlanHash);
 
 /// <summary>唯一发布器：服务器重算依赖/来源计划，在本地事务中追加不可变修订并CAS切指向。</summary>
-public sealed class StudioPublishing(IStudioResourceStore store, IStudioAuthorization authorization, StudioCommands commands, StudioDeploymentProfile profile, TimeProvider clock, IEnumerable<IStudioAction> actions, IStudioSourceExecutor executor)
+public sealed class StudioPublishing(IStudioResourceStore store, IStudioAuthorization authorization, StudioCommands commands, StudioDeploymentProfile profile, TimeProvider clock, IEnumerable<IStudioAction> actions, IStudioSourceExecutor executor, IEnumerable<IStudioPageLifecycle>? pageLifecycles = null)
 {
     private readonly IStudioAction[] _actions = actions.ToArray();
+    private readonly IStudioPageLifecycle[] _pageLifecycles = pageLifecycles?.ToArray() ?? [];
     private static readonly string[] OwnerCapabilities = ["View", "Design", "Publish", "Run", "Export"];
     public static void ValidateQuery(StudioQuery query)
     {
@@ -101,6 +102,11 @@ public sealed class StudioPublishing(IStudioResourceStore store, IStudioAuthoriz
     public async Task<StudioValidation> PlanAsync(StudioPrincipal principal, StudioResource resource, JsonObject document, CancellationToken cancellationToken)
     {
         var diagnostics = StudioDocuments.Validate(resource.Kind, document).ToList();
+        if (resource.Kind == "LowCodePage" && StudioJson.Text(document["mode"]) == "Link")
+        {
+            try { _ = StudioCustomPagePolicy.RequireLink(document, profile); }
+            catch (StudioException ex) { diagnostics.Add(new(ex.Code, ex.Path ?? "embeddedPage.url", ex.Message)); }
+        }
         bool HasFileNode(JsonNode? node) => node is JsonObject obj && (StudioJson.Text(obj["type"]) == "File" || obj.Any(p => HasFileNode(p.Value))) || node is JsonArray array && array.Any(HasFileNode);
         var needsFiles = resource.Kind == "LedgerModel" && (document["fields"] as JsonArray ?? []).OfType<JsonObject>().Any(f => StudioJson.Text(f["type"]) == "FileReference" && f["retired"]?.GetValue<bool>() != true) || resource.Kind == "LowCodePage" && HasFileNode(document["layout"]);
         if (needsFiles && profile.Files.Provider == "Disabled") diagnostics.Add(new("STUDIO_FILES_UNAVAILABLE", "files", "此文档依赖文件能力，当前部署未安装，不能发布。"));
@@ -366,7 +372,10 @@ public sealed class StudioPublishing(IStudioResourceStore store, IStudioAuthoriz
             {
                 case "enable": if (resource.PublishedRevisionId is null || resource.IsDeleted) throw new StudioException("STUDIO_NOT_READY", "未发布或已删除资源不能启用。", 409); resource.IsEnabled = true; resource.MarkChanged(clock.GetUtcNow()); break;
                 case "disable": resource.IsEnabled = false; resource.MarkChanged(clock.GetUtcNow()); break;
-                case "delete": if (await store.IsResourceReferencedAsync(principal.TenantNId, nId, cancellationToken)) throw new StudioException("DEPENDENCY_CHANGED", "资源仍被已发布修订引用。", 409); resource.MarkDeleted(clock.GetUtcNow()); resource.IsEnabled = false; break;
+                case "delete":
+                    if (await store.IsResourceReferencedAsync(principal.TenantNId, nId, cancellationToken)) throw new StudioException("DEPENDENCY_CHANGED", "资源仍被已发布修订引用。", 409);
+                    if (resource.Kind == "LowCodePage" && profile.DeploymentMode == "PlatformNative") foreach (var lifecycle in _pageLifecycles) await lifecycle.BeforeDeleteAsync(principal, nId, cancellationToken);
+                    resource.MarkDeleted(clock.GetUtcNow()); resource.IsEnabled = false; break;
                 case "restore":
                     resource.Restore(clock.GetUtcNow());
                     // 已激活资源的restore仍保持原合同:关闭运行,实际变化必须推进版本。
@@ -402,7 +411,7 @@ public sealed class StudioPublishing(IStudioResourceStore store, IStudioAuthoriz
         resource.PublishedRevisionId == revision.Id ? Task.FromResult(ResourceDto(resource, revision)) : ToDtoAsync(resource, cancellationToken);
     private static ResourceDto ResourceDto(StudioResource resource, StudioRevision? published)
     {
-        return new(resource.NId, resource.Kind, resource.Name, resource.Description, resource.Folder, resource.IsEnabled, published?.NId, published?.RevisionNo.ToString(CultureInfo.InvariantCulture), published is null || !PublishedMatchesDraft(resource.Kind, published.DocumentJson, resource.DraftJson), resource.OwnerUserNId, resource.CreatedOn, resource.LastUpdatedOn, resource.OptimisticVersion.ToString(CultureInfo.InvariantCulture), resource.ConcurrencyVersion);
+        return new(resource.NId, resource.Kind, resource.Name, resource.Description, resource.Folder, resource.IsEnabled, published?.NId, published?.RevisionNo.ToString(CultureInfo.InvariantCulture), published is null || !PublishedMatchesDraft(resource.Kind, published.DocumentJson, resource.DraftJson), resource.OwnerUserNId, resource.CreatedOn, resource.LastUpdatedOn, resource.OptimisticVersion.ToString(CultureInfo.InvariantCulture), resource.ConcurrencyVersion, resource.Kind == "LowCodePage" ? StudioJson.Text(Parse(resource.DraftJson)["mode"]) : null);
     }
     private static bool PublishedMatchesDraft(string kind, string publishedJson, string draftJson)
     {

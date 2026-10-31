@@ -57,7 +57,8 @@ public sealed class ResourcesController : SystemDataControllerBase
 public sealed class NavigationController : SystemDataControllerBase
 {
     private readonly IResourceNavigationService _service;
-    public NavigationController(IResourceNavigationService service, ICurrentUser currentUser) : base(currentUser) => _service = service;
+    private readonly INavigationRuntimePolicy[] _runtimePolicies;
+    public NavigationController(IResourceNavigationService service, ICurrentUser currentUser, IEnumerable<INavigationRuntimePolicy>? runtimePolicies = null) : base(currentUser) { _service = service; _runtimePolicies = runtimePolicies?.ToArray() ?? []; }
 
     [HttpGet("draft")]
     [Authorize(Policy = SystemDataPermissionPolicies.NavigationView)]
@@ -105,7 +106,7 @@ public sealed class NavigationController : SystemDataControllerBase
     {
         if (!TryGetActorContext(out var tenant, out _)) return UnauthorizedEnvelope();
         if (!Enum.TryParse<UiTerminal>(terminal, true, out var parsed)) return BadRequestEnvelope("SD_VALIDATION_FAILED", "Invalid terminal.");
-        try { var result = await _service.RuntimeAsync(tenant, parsed, cancellationToken); if (IsNotModified(result.Revision)) return StatusCode(StatusCodes.Status304NotModified); return Ok(result); } catch (ValidationException ex) { return StatusCodeEnvelope(503, "SD_NAVIGATION_NOT_READY", ex.Message); }
+        try { var result = await _service.RuntimeAsync(tenant, parsed, cancellationToken); foreach (var policy in _runtimePolicies) result = await policy.ApplyAsync(tenant, result, cancellationToken); if (_runtimePolicies.Length == 0 && IsNotModified(result.Revision)) return StatusCode(StatusCodes.Status304NotModified); return Ok(result); } catch (ValidationException ex) { return StatusCodeEnvelope(503, "SD_NAVIGATION_NOT_READY", ex.Message); }
     }
 
     private string Actor() => TryGetActorContext(out _, out var actor) ? actor : string.Empty;

@@ -189,6 +189,7 @@ function mapItem(node: NavigationRuntimeNodeDto, sectionId?: string): Navigation
     id: node.nodeNId,
     ...text,
     routeName: node.routeName,
+    ...(node.routeParams ? { routeParams: node.routeParams } : {}),
     icon: iconFor(node),
     ...(node.requiredPermissionNId === null ? {} : { permission: node.requiredPermissionNId }),
     ...(node.featureNId === null ? {} : { featureNId: node.featureNId }),

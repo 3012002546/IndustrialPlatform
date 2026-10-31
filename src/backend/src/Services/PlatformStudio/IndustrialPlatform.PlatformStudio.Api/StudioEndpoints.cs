@@ -60,10 +60,20 @@ public static class StudioEndpoints
                 }
                 if(http.GetEndpoint()?.Metadata.GetMetadata<PublicEndpoint>() is null)
                     http.Items["StudioPrincipal"]=await http.RequestServices.GetRequiredService<IStudioIdentity>().GetCurrentAsync(http.RequestAborted);
+                if (http.Request.Query.TryGetValue("pageNId", out var pageNId) && http.Request.RouteValues["modelNId"] is string modelNId)
+                {
+                    var publishing = http.RequestServices.GetRequiredService<StudioPublishing>();
+                    var (_, pageRevision) = await publishing.RequireRuntimeAsync(Principal(http), pageNId.ToString(), http.Request.Query["pageRevisionNId"].ToString(), http.RequestAborted);
+                    var pageDocument = StudioPublishing.Parse(pageRevision.DocumentJson);
+                    var modelRevision = await http.RequestServices.GetRequiredService<IndustrialPlatform.PlatformStudio.Application.IStudioResourceStore>().FindRevisionAsync(Principal(http).TenantNId, StudioJson.RequiredString(pageDocument, "ledgerModelRevisionNId"), http.RequestAborted);
+                    var model = modelRevision is null ? null : await http.RequestServices.GetRequiredService<IndustrialPlatform.PlatformStudio.Application.IStudioResourceStore>().FindResourceByIdAsync(Principal(http).TenantNId, modelRevision.ResourceId, http.RequestAborted);
+                    if (model?.Kind != "LedgerModel" || model.NId != modelNId) throw new StudioException("STUDIO_FORBIDDEN", "页面未引用此台账模型。", 403);
+                }
                 var result=await next(context);
                 return result is IResult ? result : Results.Ok(ApiResult.Ok(result));
             }
             catch(StudioException ex){return Error(http,ex.StatusCode,ex.Code,ex.Message,ex.Path);}
+            catch(IndustrialPlatform.SharedKernel.Exceptions.ConcurrencyException){return Error(http,409,"STUDIO_VERSION_CONFLICT","菜单配置已被其他操作修改，请刷新关联后重试。",null);}
             catch(Exception ex) when(StudioStorageErrors.IsUnique(ex)){return Error(http,409,"STUDIO_VERSION_CONFLICT","记录或操作键已被并发请求使用，请重新读取。",null);}
             catch(SystemDataOperationException ex){return Error(http,ex.StatusCode,ex.Code,ex.Message,null);}
             catch(AntiforgeryValidationException){return Error(http,403,"STUDIO_CSRF_INVALID","会话相关性验证失败，请刷新页面。",null);}
@@ -96,7 +106,7 @@ public static class StudioEndpoints
                 if(profile.Identity.Provider=="MesCode")group.MapGet("/auth/callback",async (StudioExternalLogin login,string? code,string? state,CancellationToken ct)=>Results.Redirect(profile.PathBase+await login.CompleteMesCodeAsync(code,state,ct))).WithMetadata(new PublicEndpoint());
             }
         }
-        group.MapGet("/deployment/profile",(HttpContext http)=>new { schemaVersion=1,profile.ProfileVersion,profile.DeploymentMode,profile.InstalledModules,enabledModules=profile.ActiveModules,identityProvider=profile.Identity.Provider,filesProvider=profile.Files.Provider,auditProvider=profile.Audit.Provider });
+        group.MapGet("/deployment/profile",(HttpContext http)=>new { schemaVersion=1,profile.ProfileVersion,profile.DeploymentMode,profile.InstalledModules,enabledModules=profile.ActiveModules,profile.AllowedFrameOrigins,identityProvider=profile.Identity.Provider,filesProvider=profile.Files.Provider,auditProvider=profile.Audit.Provider });
         if (profile.ActiveModules.Contains("Report", StringComparer.Ordinal))
         {
             endpoints.MapStudioWopi(profile);
@@ -192,6 +202,13 @@ public static class StudioEndpoints
         group.MapGet("/ledger/{modelNId}/records/{nId}",(string modelNId,string nId,string? revisionNId,HttpContext http,StudioLedger ledger,CancellationToken ct)=>ledger.GetAsync(Principal(http),modelNId,nId,revisionNId,ct));
         group.MapPut("/ledger/{modelNId}/records/{nId}",(string modelNId,string nId,LedgerWrite request,HttpContext http,StudioLedger ledger,CancellationToken ct)=>ledger.WriteAsync(Principal(http),modelNId,nId,request,Key(http),ct));
         foreach(var state in new[] {"delete","restore"})group.MapPost("/ledger/{modelNId}/records/{nId}/"+state,(string modelNId,string nId,VersionCommand request,HttpContext http,StudioLedger ledger,CancellationToken ct)=>ledger.SetStateAsync(Principal(http),modelNId,nId,state,request,Key(http),ct));
+        group.MapPost("/pages/{nId}/custom-content", (string nId, StudioCustomContentInput input, HttpContext http, StudioCustomContent content, CancellationToken ct) => content.PrepareAsync(Principal(http), nId, input, http.Request.Headers.Origin.ToString(), ct));
+        group.MapGet("/pages/custom-content/{ticket}", (string ticket, HttpContext http, StudioCustomContentTickets tickets) => { http.Response.Headers.ContentSecurityPolicy = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'; sandbox allow-scripts"; http.Response.Headers.CacheControl = "no-store"; http.Response.Headers["Referrer-Policy"] = "no-referrer"; return Results.Content(tickets.Consume(ticket), "text/html; charset=utf-8"); }).WithMetadata(new PublicEndpoint());
+        group.MapGet("/pages/publication-capabilities", (HttpContext http, StudioPageNavigation menus) => menus.Capabilities(Principal(http)));
+        group.MapGet("/pages/{nId}/menus", (string nId, HttpContext http, StudioPageNavigation menus, CancellationToken ct) => menus.ReadAsync(Principal(http), nId, ct));
+        group.MapPost("/pages/{nId}/menus", (string nId, StudioMenuCommand input, HttpContext http, StudioPageNavigation menus, CancellationToken ct) => menus.MountAsync(Principal(http), nId, input, ct));
+        group.MapDelete("/pages/{nId}/menus/{nodeNId}", (string nId, string nodeNId, string expectedRevision, HttpContext http, StudioPageNavigation menus, CancellationToken ct) => menus.DetachAsync(Principal(http), nId, nodeNId, expectedRevision, ct));
+        group.MapGet("/pages/{nId}/availability", async (string nId, HttpContext http, StudioPublishing publishing, CancellationToken ct) => { var (_, revision) = await publishing.RequireRuntimeAsync(Principal(http), nId, null, ct); return new { available = true, revisionNId = revision.NId }; });
         group.MapGet("/pages/{nId}/contract",(string nId,string? revisionNId,HttpContext http,StudioPages pages,CancellationToken ct)=>pages.ContractAsync(Principal(http),nId,revisionNId,ct));
         group.MapGet("/pages/{nId}/runtime",(string nId,string? revisionNId,HttpContext http,StudioPages pages,CancellationToken ct)=>pages.RuntimeAsync(Principal(http),nId,new(revisionNId,Parameters(http)),ct));
         group.MapPost("/pages/{nId}/runtime",(string nId,StudioPageInput request,HttpContext http,StudioPages pages,CancellationToken ct)=>pages.RuntimeAsync(Principal(http),nId,request,ct));

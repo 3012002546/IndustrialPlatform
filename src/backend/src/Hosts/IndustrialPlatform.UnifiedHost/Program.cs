@@ -48,12 +48,17 @@ builder.Services.PostConfigure<AuthorizationOptions>(SystemDataPermissionPolicie
 // 统一部署使用进程内适配器；独立 SystemData.Api 的默认实现仍为受信 HTTP 适配器。
 builder.Services.AddSingleton<IServiceInitializationInvoker>(sp =>
     new InProcessServiceInitializationInvoker(sp.GetServices<IServiceInitializer>()));
-if (builder.Configuration.GetValue<bool>("PlatformStudio:Enabled"))
+if (builder.Configuration.GetValue<bool>("PlatformStudio:Enabled") && builder.Configuration["PlatformStudio:DeploymentMode"] is null or "PlatformNative")
 {
     builder.Services.AddScoped<IndustrialPlatform.PlatformStudio.Application.IStudioIdentity, PlatformStudioIdentity>();
+    builder.Services.AddScoped<IndustrialPlatform.PlatformStudio.Application.Publishing.IStudioPageNavigationHost, PlatformStudioPageNavigation>();
+    builder.Services.AddScoped<IndustrialPlatform.SystemData.Application.ControlPlane.INavigationRuntimePolicy, PlatformStudioNavigationRuntimePolicy>();
+    builder.Services.AddScoped<IndustrialPlatform.PlatformStudio.Application.Publishing.IStudioPageLifecycle, PlatformStudioPageNavigation>();
     builder.Services.AddScoped<IndustrialPlatform.PlatformStudio.Application.Integration.IStudioFactoryScope, PlatformStudioFactoryScope>();
     builder.Services.AddScoped<IndustrialPlatform.PlatformStudio.Application.Integration.IStudioSubjectDirectory, PlatformStudioSubjectDirectory>();
 }
+if (builder.Configuration.GetValue<bool>("PlatformStudio:Enabled") && builder.Configuration["PlatformStudio:DeploymentMode"] == "ExternalMes")
+    builder.Services.AddScoped<IndustrialPlatform.SystemData.Application.ControlPlane.INavigationRuntimePolicy, PlatformStudioDeploymentNavigationPolicy>();
 builder.Services.AddOpenApi();
 if (builder.Environment.IsDevelopment())
 {

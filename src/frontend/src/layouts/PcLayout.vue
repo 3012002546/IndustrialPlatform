@@ -157,10 +157,16 @@ const authorizedNavigationGroups = computed(() =>
 const activeGroupId = ref(pcNavigationGroups[0]?.id ?? '')
 
 watch(
-  () => route.name,
+  [() => route.fullPath, () => pcNavigationGroups.map((group) => group.items)],
   () => {
     const group = pcNavigationGroups.find((g) =>
-      g.items.some((item) => item.routeName === route.name),
+      flattenNavigationItems([g]).some(
+        (item) =>
+          item.routeName === route.name &&
+          Object.entries(item.routeParams ?? {}).every(
+            ([key, value]) => route.params[key] === value,
+          ),
+      ),
     )
     if (group !== undefined) activeGroupId.value = group.id
   },
@@ -325,7 +331,11 @@ function onCommandSearchSelect(id: string): void {
     (item) => item.id === id,
   )
   if (navigation !== undefined) {
-    onMenuSelect(navigation.routeName)
+    void router.push({
+      name: navigation.routeName,
+      params: navigation.routeParams ?? {},
+      query: navigation.routeQuery ?? {},
+    })
     return
   }
   const tab = tabsStore.tabs.find((candidate) => candidate.id === id)

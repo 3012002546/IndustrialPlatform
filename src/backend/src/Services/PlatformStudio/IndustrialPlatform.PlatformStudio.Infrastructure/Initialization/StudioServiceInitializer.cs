@@ -84,6 +84,7 @@ public sealed class StudioServiceInitializer(StudioDatabase database, StudioDepl
             policySql.AddRange(screenPolicy.Columns.Split(',').Select(column => StudioSqlServerDescriptions.AddProperty(screenPolicy.Name, column.Split(':')[0], StudioSqlServerDescriptions.ColumnDescription(column.Split(':')[0]), schema)));
         steps.Add(new(screenPolicy.Step, "看板大屏无限期与跟随最新发布策略；保留既有链接规则", policySql));
         steps.Add(StudioWorkbookSchema.Migration(database));
+        steps.Add(new(StudioDeletedLedgerIndexes.Step, "补齐已删除台账类型索引，保留查询排序且释放唯一占用", ["SELECT 1 /* deleted-ledger-indexes-v1 */"]));
         return steps;
     }
 
@@ -208,6 +209,7 @@ public sealed class StudioServiceInitializer(StudioDatabase database, StudioDepl
                 try
                 {
                     if (migration.Id == "STJ-002-EngineStorage") await IndustrialPlatform.SystemData.Infrastructure.Scheduler.SchedulerStorageSchema.InitializeAsync(Db, cancellationToken);
+                    if (migration.Id == StudioDeletedLedgerIndexes.Step) await StudioDeletedLedgerIndexes.RebuildAsync(database, clock, cancellationToken);
                     foreach (var sql in migration.Statements)
                         foreach (var batch in System.Text.RegularExpressions.Regex.Split(sql, @"(?im)^\s*GO\s*$", System.Text.RegularExpressions.RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)).Where(batch => !string.IsNullOrWhiteSpace(batch))) await Db.Ado.ExecuteCommandAsync(batch, parameters: null, cancellationToken: cancellationToken);
                     await Db.Ado.ExecuteCommandAsync($"INSERT INTO {database.Table("studio_schema_migrations")} (migration_id,description,checksum,applied_on) VALUES (@id,@description,@checksum,@applied)", new { id = migration.Id, description = migration.Description, checksum = migration.Checksum, applied = clock.GetUtcNow() }, cancellationToken);

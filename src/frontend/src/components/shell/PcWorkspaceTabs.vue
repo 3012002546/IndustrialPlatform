@@ -59,7 +59,35 @@ function activate(tab: WorkspaceTab): void {
 }
 
 function titleFor(tab: WorkspaceTab): string {
+  const menu = parameterizedMenu(tab)
+  if (menu)
+    return resolveLocaleMessage(
+      localization.locale,
+      menu.labelKey,
+      menu.fallbackLabel ?? menu.label,
+    )
   return resolveLocaleMessage(localization.locale, tab.titleKey, tab.fallbackTitle ?? tab.title)
+}
+
+function parameterizedMenu(tab: WorkspaceTab): NavigationItem | undefined {
+  const find = (items: readonly NavigationItem[]): NavigationItem | undefined => {
+    for (const item of items) {
+      if (
+        item.routeName === tab.route.name &&
+        item.routeParams &&
+        Object.entries(item.routeParams).every(([key, value]) => tab.route.params[key] === value)
+      )
+        return item
+      const child = item.children && find(item.children)
+      if (child) return child
+    }
+    return undefined
+  }
+  for (const group of pcNavigationGroups) {
+    const item = find(group.items)
+    if (item) return item
+  }
+  return undefined
 }
 
 function close(tabId: string): void {
@@ -154,7 +182,11 @@ onBeforeUnmount(() => {
             @click="activate(tab)"
           >
             <component
-              :is="navigationIcons.get(tab.route.name) ?? (tab.kind === 'fixed' ? House : Document)"
+              :is="
+                parameterizedMenu(tab)?.icon ??
+                navigationIcons.get(tab.route.name) ??
+                (tab.kind === 'fixed' ? House : Document)
+              "
               class="ip-pc-tabs__tab-icon"
               aria-hidden="true"
             />

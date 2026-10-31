@@ -20,7 +20,7 @@ public sealed class StudioCommandLineTests
         using var before = JsonDocument.Parse(output.ToString());
         Assert.False(before.RootElement.GetProperty("ok").GetBoolean());
         var plan = before.RootElement.GetProperty("migrationPlan");
-        Assert.Equal(10, plan.GetArrayLength());
+        Assert.Equal(11, plan.GetArrayLength());
         Assert.Contains(plan.EnumerateArray(), step => step.GetRawText().Contains("STU-009-WorkbookWorkingCopy", StringComparison.Ordinal));
         output.GetStringBuilder().Clear();
         Assert.Equal(0, await fixture.Command.ExecuteAsync(["--studio-initialize"], output, CancellationToken.None));

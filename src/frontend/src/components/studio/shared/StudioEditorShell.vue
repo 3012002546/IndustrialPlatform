@@ -12,6 +12,7 @@ import {
 import type { Json } from '@/api/studio'
 
 const props = defineProps<{
+  freeCanvas?: boolean
   modelValue: Json
   canvasWidth?: number
   canvasHeight?: number
@@ -85,6 +86,11 @@ function sizeChanged() {
     grid.canvasHeight = height.value
   })
   fit()
+}
+function setCanvasSize(nextWidth: number | undefined, nextHeight: number | undefined) {
+  if (nextWidth !== undefined) width.value = nextWidth
+  if (nextHeight !== undefined) height.value = nextHeight
+  sizeChanged()
 }
 function toggleLeft() {
   leftOpen.value = !leftOpen.value
@@ -304,6 +310,11 @@ defineExpose({
       :right-open="rightOpen"
       :toggle-left="toggleLeft"
       :toggle-right="toggleRight"
+      :canvas-width="width"
+      :canvas-height="height"
+      :set-canvas-size="setCanvasSize"
+      :pan-mode="panMode"
+      :set-pan-mode="(value: boolean) => (panMode = value)"
     >
       <div class="studio-tools">
         <el-button :disabled="!canUndo" @click="undo">{{ t('undo') }}</el-button
@@ -354,7 +365,9 @@ defineExpose({
         :style="{ overflow: fitMode ? 'hidden' : 'auto', gridColumn: 2, gridRow: 1 }"
         @pointerdown.self="pointer($event)"
       >
+        <slot v-if="freeCanvas" name="workspace" />
         <div
+          v-else
           :style="{
             width: width * zoom + 'px',
             height: height * zoom + 'px',

@@ -57,7 +57,7 @@ public sealed class StudioDeploymentProfile
         if (report && Jobs.Provider != (DeploymentMode == "PlatformNative" ? "Platform" : "Embedded") || !report && Jobs.Provider != "Disabled") Fail("jobs.provider");
         if (InstalledModules.Contains("Report", StringComparer.Ordinal) && Files.Provider == "Disabled") Fail("files.provider");
         if (Files.Provider == "Embedded" && (string.IsNullOrWhiteSpace(Files.Root) || !Path.IsPathFullyQualified(Files.Root))) Fail("files.root");
-        if (AllowedFrameOrigins.Any(value => !Uri.TryCreate(value, UriKind.Absolute, out var uri) || uri.Scheme != "https" || uri.AbsolutePath != "/" || !string.IsNullOrEmpty(uri.Query))) Fail("allowedFrameOrigins");
+        if (AllowedFrameOrigins.Any(value => !Uri.TryCreate(value, UriKind.Absolute, out var uri) || uri.Scheme != "https" || uri.AbsolutePath != "/" || !string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment) || !string.IsNullOrEmpty(uri.UserInfo))) Fail("allowedFrameOrigins");
     }
 
     public bool IsKindEnabled(string kind) => StudioKinds.Modules.TryGetValue(kind, out var module) && (module == "Core" || ActiveModules.Contains(module, StringComparer.Ordinal));

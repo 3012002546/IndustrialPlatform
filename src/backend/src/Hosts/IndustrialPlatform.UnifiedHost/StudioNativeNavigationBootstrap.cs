@@ -20,16 +20,20 @@ public sealed class StudioNativeNavigationBootstrap(IConfiguration configuration
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         var profile=configuration.GetSection("PlatformStudio").Get<StudioDeploymentProfile>()??new();
+        if (profile.DeploymentMode != "PlatformNative") return;
         var tenantIds=(await tenants.GetTenantNIdsAsync(cancellationToken)).Concat(new[] {configuration["SystemData:BaselineTenantNId"],configuration["Identity:Bootstrap:TenantNId"]}.Where(t=>!string.IsNullOrWhiteSpace(t)).Select(t=>t!)).Distinct(StringComparer.Ordinal).ToArray();
         foreach(var tenant in tenantIds)await ApplyAsync(tenant,profile,cancellationToken);
     }
     public Task StopAsync(CancellationToken cancellationToken)=>Task.CompletedTask;
     public async Task ApplyAsync(string tenant,StudioDeploymentProfile profile,CancellationToken cancellationToken)
     {
+        if (profile.DeploymentMode != "PlatformNative") return;
         var pages=profile.Enabled?CorePages.Concat(profile.ActiveModules.Contains("LowCode",StringComparer.Ordinal)?LowCodePages:Array.Empty<Page>()).Concat(profile.ActiveModules.Contains("Dashboard",StringComparer.Ordinal)?DashboardPages:Array.Empty<Page>()).Concat(profile.ActiveModules.Contains("Report",StringComparer.Ordinal)?ReportPages:Array.Empty<Page>()).ToArray():Array.Empty<Page>();
+        var runtimePages = profile.Enabled && profile.ActiveModules.Contains("LowCode",StringComparer.Ordinal) ? new[] {new Page(PlatformStudioPageNavigation.RuntimeResource,"studio-lowcode-run","低代码运行","studio.lowcode.run","editpen")} : Array.Empty<Page>();
+        var declarations = pages.Concat(runtimePages).ToArray();
         var permissions=StudioKinds.Permissions.Where(p=>(!p.StartsWith("studio.dashboard.",StringComparison.Ordinal)||profile.ActiveModules.Contains("Dashboard",StringComparer.Ordinal))&&(!p.StartsWith("studio.report.",StringComparison.Ordinal)||profile.ActiveModules.Contains("Report",StringComparer.Ordinal))&&!p.StartsWith("studio.trace.",StringComparison.Ordinal)&&(!p.StartsWith("studio.workbook.",StringComparison.Ordinal)||profile.ActiveModules.Contains("Report",StringComparer.Ordinal))).ToArray();
-        var version=profile.ProfileVersion;var checksum=StudioJson.Hash(JsonSerializer.Serialize(new {version,profile.Enabled,pages,permissions}));
-        var seedVersion=version+".navigation2"; // Append a new ledger version; never rewrite an applied v1 checksum.
+        var version=profile.ProfileVersion;var checksum=StudioJson.Hash(JsonSerializer.Serialize(new {version,profile.Enabled,pages=declarations,permissions}));
+        var seedVersion=version+".navigation3"; // Append a new ledger version; never rewrite an applied v1 checksum.
         var key=profile.Enabled?"studio.native.navigation":"studio.native.navigation-disabled";
         if(await store.SeedAppliedAsync(tenant,key,seedVersion,checksum,cancellationToken))return;
         var state=await store.LoadAsync(tenant,cancellationToken);
@@ -41,6 +45,14 @@ public sealed class StudioNativeNavigationBootstrap(IConfiguration configuration
             if(verified is not {Verified:true}||verified.ModuleNId!=Module||verified.ManifestVersion!=version||verified.Checksum!=checksum)throw new InvalidOperationException("Studio权限目录未被Identity验证。");
         }
         var resources=state.Resources.ToList();var nodes=state.DraftNodes.ToList();
+        foreach(var page in runtimePages)
+        {
+            var old = resources.SingleOrDefault(r=>r.NId==page.ResourceNId);
+            if(old is null) resources.Add(UiResource.Create(tenant,page.ResourceNId,Module,version,UiResourceType.Page,page.Label,page.RouteName,page.Permission,[UiTerminal.Pc]));
+            else if(old.OwnerModuleNId!=Module) throw new InvalidOperationException("Studio runtime resource collision.");
+            else resources[resources.IndexOf(old)] = UiResource.Create(tenant,page.ResourceNId,Module,version,UiResourceType.Page,page.Label,page.RouteName,page.Permission,[UiTerminal.Pc]);
+        }
+        if(runtimePages.Length == 0) resources.SingleOrDefault(r=>r.NId==PlatformStudioPageNavigation.RuntimeResource)?.Retire();
         foreach(var page in pages)
         {
             var existing=resources.SingleOrDefault(r=>r.NId==page.ResourceNId);
@@ -79,7 +91,7 @@ public sealed class StudioNativeNavigationBootstrap(IConfiguration configuration
         var manifest=new ModuleManifestState(tenant,Module,version,checksum,permissions,verified?.ManifestVersion,verified?.Checksum,verified?.VerifiedOn)
         {
             PermissionDeclarationItems=permissions.Select(p=>new PermissionManifestEntry(p,p,p.EndsWith(".view",StringComparison.Ordinal)?"Page":"Action",null)).ToArray(),
-            ResourceDeclarations=pages.Select(p=>new ModuleResourceDeclaration(p.ResourceNId,version,"Page",p.Label,p.RouteName,p.Permission,[UiTerminal.Pc])).ToArray(),
+            ResourceDeclarations=declarations.Select(p=>new ModuleResourceDeclaration(p.ResourceNId,version,"Page",p.Label,p.RouteName,p.Permission,[UiTerminal.Pc])).ToArray(),
         };
         var next=state with {Resources=resources,DraftNodes=nodes,Manifests=state.Manifests.Where(m=>m.ModuleNId!=Module).Append(manifest).ToArray(),PermissionReceipts=state.PermissionReceipts.Where(r=>r.ModuleNId!=Module).Concat(profile.Enabled?[new PermissionReceipt(Module,version,checksum,true)]:Array.Empty<PermissionReceipt>()).ToArray(),Snapshots=state.Snapshots.Append(new(nextRevision,now,published,NavigationSnapshotChecksum.Compute(published))).ToArray(),PreviousSnapshotRevision=state.ActiveSnapshotRevision,ActiveSnapshotRevision=nextRevision};
         var payload=JsonSerializer.Serialize(new {moduleNId=Module,revision=nextRevision,profile.Enabled});

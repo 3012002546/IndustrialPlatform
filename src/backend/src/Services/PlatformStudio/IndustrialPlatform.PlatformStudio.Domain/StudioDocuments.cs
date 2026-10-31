@@ -142,8 +142,9 @@ public static partial class StudioDocuments
 
     private static void ValidatePage(JsonObject page, List<StudioDiagnostic> errors)
     {
-        Allowed(page, ["schemaVersion", "mode", "parameters", "instances", "layout", "fields", "actions", "codeComponentKey", "ledgerModelRevisionNId"], "", errors);
-        if (StudioJson.Text(page["mode"]) is not ("Crud" or "Compose" or "Code")) errors.Add(new("STUDIO_VALIDATION", "mode", "页面模式未登记。"));
+        Allowed(page, ["schemaVersion", "mode", "parameters", "instances", "layout", "fields", "actions", "codeComponentKey", "ledgerModelRevisionNId", "customHtml", "embeddedPage"], "", errors);
+        if (StudioJson.Text(page["mode"]) is not ("Crud" or "Compose" or "Code" or "Html" or "Link")) errors.Add(new("STUDIO_VALIDATION", "mode", "页面模式未登记。"));
+        ValidateCustomPage(page, errors);
         var ids = new HashSet<string>(StringComparer.Ordinal);
         void Layout(JsonObject node, int depth)
         {

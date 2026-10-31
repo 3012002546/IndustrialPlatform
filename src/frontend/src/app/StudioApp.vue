@@ -208,6 +208,14 @@ onMounted(async () => {
 <template>
   <ConfigProvider :locale="english ? elementEn : elementZh"
     ><RouterView v-if="route.name === 'studio-dashboard-screen'" />
+    <RouterView
+      v-else-if="
+        route.meta.lowcodeScreen &&
+        ready &&
+        auth.isAuthenticated &&
+        !auth.user?.mustChangePassword &&
+        activeModuleReady
+      " />
     <div v-else class="studio-standalone">
       <header class="studio-standalone-header">
         <strong>Platform Studio</strong><span class="studio-fill" /><el-select

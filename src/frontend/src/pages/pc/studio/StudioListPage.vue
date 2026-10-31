@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import AppPage from '@/components/base/AppPage.vue'
+import StudioPageMenu from '@/components/studio/shared/StudioPageMenu.vue'
 import AppQueryPanel from '@/components/management/AppQueryPanel.vue'
 import AppDataTable from '@/components/management/AppDataTable.vue'
 import AppFormDrawer from '@/components/management/AppFormDrawer.vue'
@@ -113,6 +114,7 @@ const drawer = ref(''),
   description = ref(''),
   pageMode = ref('Crud'),
   note = ref('')
+const pageMenu = ref<InstanceType<typeof StudioPageMenu> | null>(null)
 const current = ref<StudioResource | null>(null),
   revisions = ref<StudioRevisionSummary[]>([]),
   grants = ref<Json[]>([])
@@ -120,6 +122,18 @@ const source = ref<Json>({}),
   diagnostics = ref<unknown>(null)
 const columns = computed(() => [
   { field: 'name', title: t.value('name'), minWidth: 180, sortable: true },
+  ...(kind.value === 'LowCodePage' && !isSource.value
+    ? [
+        {
+          field: 'pageMode',
+          title: t.value('mode'),
+          width: 150,
+          filter: false as const,
+          formatter: ({ cellValue }: { cellValue: unknown }) =>
+            t.value('mode' + String(cellValue ?? '')),
+        },
+      ]
+    : []),
   ...(isSource.value
     ? [
         { field: 'provider', title: t.value('provider'), width: 150 },
@@ -292,7 +306,17 @@ function save() {
             : kind.value === 'Playlist'
               ? initialPlaylistDocument()
               : initialDocument(kind.value)
-      if (kind.value === 'LowCodePage') document.mode = pageMode.value
+      if (kind.value === 'LowCodePage') {
+        document.mode = pageMode.value
+        if (pageMode.value === 'Html')
+          document.customHtml = {
+            html: '<h1>自定义页面</h1>',
+            css: 'body{font-family:system-ui;padding:24px}',
+            js: '',
+            formFields: [],
+          }
+        if (pageMode.value === 'Link') document.embeddedPage = { url: '', parameterMap: [] }
+      }
       const created = await getStudioApi().create({
         kind: kind.value,
         name: name.value,
@@ -322,6 +346,11 @@ async function more(row: Json, command: string) {
       return
     }
     current.value = row as unknown as StudioResource
+    if (command === 'pageEntry') {
+      await nextTick()
+      await pageMenu.value?.open()
+      return
+    }
     if (command === 'revisions') {
       revisions.value = await getStudioApi().revisions(current.value.nId)
       note.value = ''
@@ -420,7 +449,10 @@ watch(
         /><el-select v-model="status" :placeholder="t('status')" :aria-label="t('status')" clearable
           ><el-option :label="t('enable')" value="Enabled" /><el-option
             :label="t('disable')"
-            value="Disabled" /><el-option v-if="!isSource" :label="t('unsaved')" value="Draft"
+            value="Disabled" /><el-option
+            v-if="!isSource"
+            :label="t('unsaved')"
+            value="Draft" /><el-option v-if="!isSource" :label="t('deleted')" value="Deleted"
         /></el-select></div
     ></AppQueryPanel>
     <AppDataTable
@@ -445,9 +477,13 @@ watch(
       }}</template>
       <template #actions="{ row }">
         <PermissionGate :permission-n-id="permission"
-          ><el-button v-if="!isSource" link type="primary" @click="design(row)">{{
-            t('design')
-          }}</el-button
+          ><el-button
+            v-if="!isSource"
+            link
+            type="primary"
+            :disabled="status === 'Deleted'"
+            @click="design(row)"
+            >{{ t('design') }}</el-button
           ><el-button v-else link type="primary" @click="more(row, 'edit')">{{
             t('edit')
           }}</el-button></PermissionGate
@@ -486,23 +522,31 @@ watch(
                     t('test')
                   }}</el-dropdown-item></PermissionGate
                 ><PermissionGate permission-n-id="studio.source.manage"
-                  ><el-dropdown-item :command="row.isEnabled ? 'disable' : 'enable'">{{
-                    t(row.isEnabled ? 'disable' : 'enable')
-                  }}</el-dropdown-item></PermissionGate
+                  ><el-dropdown-item
+                    v-if="status !== 'Deleted'"
+                    :command="row.isEnabled ? 'disable' : 'enable'"
+                    >{{ t(row.isEnabled ? 'disable' : 'enable') }}</el-dropdown-item
+                  ></PermissionGate
                 ></template
               >
               <template v-else
+                ><el-dropdown-item v-if="kind === 'LowCodePage'" command="pageEntry">{{
+                  t('pageEntry')
+                }}</el-dropdown-item
                 ><el-dropdown-item command="revisions">{{ t('revisions') }}</el-dropdown-item
                 ><PermissionGate permission-n-id="studio.resource.grant"
                   ><el-dropdown-item command="grants">{{
                     t('grants')
                   }}</el-dropdown-item></PermissionGate
                 ><PermissionGate :permission-n-id="permission"
-                  ><el-dropdown-item :command="row.isEnabled ? 'disable' : 'enable'">{{
-                    t(row.isEnabled ? 'disable' : 'enable')
+                  ><el-dropdown-item
+                    v-if="status !== 'Deleted'"
+                    :command="row.isEnabled ? 'disable' : 'enable'"
+                    >{{ t(row.isEnabled ? 'disable' : 'enable') }}</el-dropdown-item
+                  ><el-dropdown-item v-if="status !== 'Deleted'" command="delete">{{
+                    t('delete')
                   }}</el-dropdown-item
-                  ><el-dropdown-item command="delete">{{ t('delete') }}</el-dropdown-item
-                  ><el-dropdown-item command="restore">{{
+                  ><el-dropdown-item v-if="status === 'Deleted'" command="restore">{{
                     t('restore')
                   }}</el-dropdown-item></PermissionGate
                 ></template
@@ -512,6 +556,12 @@ watch(
         >
       </template>
     </AppDataTable>
+    <StudioPageMenu
+      v-if="kind === 'LowCodePage' && !isSource"
+      ref="pageMenu"
+      :resource="current"
+      headless
+    />
     <AppFormDrawer
       :model-value="!!drawer"
       :title="t(drawer === 'create' ? 'create' : drawer)"
@@ -538,9 +588,11 @@ watch(
         /></el-form-item>
         <el-form-item v-if="!isSource && kind === 'LowCodePage'" :label="t('mode')"
           ><el-radio-group v-model="pageMode"
-            ><el-radio-button value="Crud">CRUD</el-radio-button
-            ><el-radio-button value="Compose">Compose</el-radio-button
-            ><el-radio-button value="Code">Code</el-radio-button></el-radio-group
+            ><el-radio-button value="Crud">{{ t('modeCrud') }}</el-radio-button
+            ><el-radio-button value="Compose">{{ t('modeCompose') }}</el-radio-button
+            ><el-radio-button value="Code">{{ t('modeCode') }}</el-radio-button
+            ><el-radio-button value="Html">{{ t('modeHtml') }}</el-radio-button
+            ><el-radio-button value="Link">{{ t('modeLink') }}</el-radio-button></el-radio-group
           ></el-form-item
         >
         <template v-if="isSource"

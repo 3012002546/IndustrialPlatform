@@ -12,6 +12,18 @@ const playlistRun = () => import('@/pages/pc/studio/dashboard/PlaylistRuntimePag
 // 公开大屏不进入管理布局和工作区标签；访问权由服务端分享密钥决定。
 export const studioScreenRoutes: RouteRecordRaw[] = [
   {
+    path: '/screen/low-code/:nId',
+    name: 'studio-lowcode-screen',
+    component: run,
+    meta: {
+      title: '低代码全屏展示',
+      requiresAuth: true,
+      permission: 'studio.lowcode.run',
+      workspace: 'none',
+      lowcodeScreen: true,
+    },
+  },
+  {
     path: '/screen/playlists/:screenId',
     name: ROUTE_NAMES.studioPlaylistScreen,
     component: playlistRun,

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { ApiError } from '@/api/errors'
 import { useRoute, useRouter } from 'vue-router'
 import { getStudioApi, type Json, type StudioRuntime } from '@/api/studio'
 import AppPage from '@/components/base/AppPage.vue'
@@ -81,7 +82,22 @@ async function load() {
       runParameters.value = { ...parameters.value }
     }
   } catch (e) {
-    if (request === generation) error.value = e instanceof Error ? e.message : t.value('error')
+    if (request === generation) {
+      runtime.value = null
+      contract.value = null
+      error.value =
+        e instanceof ApiError &&
+        [
+          'STUDIO_NOT_READY',
+          'STUDIO_NOT_FOUND',
+          'STUDIO_FORBIDDEN',
+          'STUDIO_UNAUTHENTICATED',
+        ].includes(e.details.code ?? '')
+          ? t.value('pageUnavailable')
+          : e instanceof Error
+            ? e.message
+            : t.value('error')
+    }
   } finally {
     if (request === generation) busy.value = false
   }
@@ -90,12 +106,64 @@ watch(
   () => route.fullPath,
   () => void load(),
 )
-onMounted(load)
+let availabilityBusy = false
+async function checkAvailability() {
+  if (document.visibilityState !== 'visible' || availabilityBusy || !runtime.value) return
+  availabilityBusy = true
+  const nId = String(route.params.nId)
+  try {
+    const state = await getStudioApi().pageAvailability(nId)
+    if (
+      nId === String(route.params.nId) &&
+      state.revisionNId !== runtime.value?.revisionNId &&
+      !route.query.revisionNId
+    )
+      await load()
+  } catch (e) {
+    if (nId === String(route.params.nId)) {
+      ++generation
+      runtime.value = null
+      contract.value = null
+      parameters.value = {}
+      runParameters.value = {}
+      needsParameters.value = false
+      busy.value = false
+      error.value =
+        e instanceof ApiError &&
+        [
+          'STUDIO_NOT_READY',
+          'STUDIO_NOT_FOUND',
+          'STUDIO_FORBIDDEN',
+          'STUDIO_UNAUTHENTICATED',
+        ].includes(e.details.code ?? '')
+          ? t.value('pageUnavailable')
+          : e instanceof Error
+            ? e.message
+            : t.value('error')
+    }
+  } finally {
+    availabilityBusy = false
+  }
+}
+let availabilityTimer: ReturnType<typeof setInterval> | undefined
+onMounted(() => {
+  void load()
+  availabilityTimer = setInterval(() => void checkAvailability(), 5000)
+  window.addEventListener('focus', checkAvailability)
+  document.addEventListener('visibilitychange', checkAvailability)
+})
+onBeforeUnmount(() => {
+  ++generation
+  clearInterval(availabilityTimer)
+  window.removeEventListener('focus', checkAvailability)
+  document.removeEventListener('visibilitychange', checkAvailability)
+})
 </script>
 <template>
   <AppPage
     :title="runtime?.resource.name ?? contract?.resource.name ?? t('run')"
     class="studio-page"
+    :class="{ 'studio-lowcode-screen': route.meta.lowcodeScreen }"
     ><template #actions
       ><el-button @click="router.push('/pc/studio/low-code')">{{ t('back') }}</el-button
       ><el-button :disabled="busy" @click="load">{{ t('refresh') }}</el-button></template

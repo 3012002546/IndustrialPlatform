@@ -36,6 +36,7 @@ export interface NavigationItem {
   /** 二级导航中的真实业务分组,仅由导航数据声明,不创建额外入口。 */
   sectionId?: string
   /** 菜单需要携带的显式查询参数,用于正式终端预览等场景。 */
+  routeParams?: Readonly<Record<string, string>>
   routeQuery?: Readonly<Record<string, string>>
   displayOrder?: number
 }

@@ -41,6 +41,31 @@ const node = (overrides: Partial<NavigationRuntimeNodeDto>): NavigationRuntimeNo
   ...overrides,
 })
 
+it('preserves distinct page params for owned low-code menu entries', () => {
+  const groups = mapRuntimeNavigation([
+    node({
+      children: [
+        node({
+          nodeNId: 'page-a',
+          kind: 'Link',
+          routeName: 'studio-lowcode-run',
+          routeParams: { nId: 'page-a' },
+        }),
+        node({
+          nodeNId: 'page-b',
+          kind: 'Link',
+          routeName: 'studio-lowcode-run',
+          routeParams: { nId: 'page-b' },
+        }),
+      ],
+    }),
+  ])
+  expect(groups[0]!.items.map((item) => item.routeParams)).toEqual([
+    { nId: 'page-a' },
+    { nId: 'page-b' },
+  ])
+})
+
 type LegacyDeclaration = readonly [
   parentNodeNId: string | null,
   nodeNId: string,

@@ -1,6 +1,7 @@
 /** SystemData v1 runtime DTOs. These mirror the backend public response contracts. */
 
 export interface NavigationRuntimeNodeDto {
+  routeParams?: Record<string, string> | null
   nodeNId: string
   kind: string
   label: string

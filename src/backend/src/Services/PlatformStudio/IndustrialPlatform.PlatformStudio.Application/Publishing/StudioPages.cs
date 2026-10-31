@@ -261,7 +261,10 @@ public sealed class StudioPages(IStudioResourceStore store,StudioPublishing publ
     {
         var fields=(document["fields"] as JsonArray??[]).OfType<JsonObject>().Select(f=>StudioJson.Text(f["writeTarget"])).Where(f=>f is not null).Select(f=>f!).ToHashSet(StringComparer.Ordinal);
         void Walk(JsonObject? node){if(node is null)return;if(StudioJson.Text(node["type"])=="FormField"&&StudioJson.Text(node["props"]?["fieldId"]) is {} id)fields.Add(id);foreach(var child in (node["children"] as JsonArray??[]).OfType<JsonObject>())Walk(child);}
-        Walk(document["layout"] as JsonObject);return fields;
+        Walk(document["layout"] as JsonObject);
+        if (StudioJson.Text(document["mode"]) == "Html")
+            foreach (var field in (document["customHtml"]?["formFields"] as JsonArray ?? []).Select(StudioJson.Text).OfType<string>()) fields.Add(field);
+        return fields;
     }
     private static IEnumerable<JsonObject> Tables(JsonObject? node)
     {

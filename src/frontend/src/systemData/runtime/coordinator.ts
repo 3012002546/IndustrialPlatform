@@ -35,7 +35,8 @@ export function createSystemDataRuntimePlugin(pinia: Pinia): Plugin {
       if (typeof window !== 'undefined') {
         const onFocus = () => refreshIfAuthenticated()
         window.addEventListener('focus', onFocus)
-        window.setInterval(refreshIfAuthenticated, 5 * 60 * 1000)
+        window.addEventListener('studio-navigation-changed', onFocus)
+        window.setInterval(refreshIfAuthenticated, 30 * 1000)
       }
     },
   }
