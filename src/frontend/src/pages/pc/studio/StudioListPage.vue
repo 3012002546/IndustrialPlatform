@@ -19,6 +19,7 @@ import {
   type StudioRevisionSummary,
 } from '@/api/studio'
 import { initialReportDocument } from '@/components/studio/report/model'
+import { initialTraceDocument } from '@/components/studio/trace/model'
 import { initialDocument, safeTotal } from '@/components/studio/shared/model'
 import { initialDashboardDocument, initialPlaylistDocument } from './dashboard/model'
 import { useStudioCopy } from '@/components/studio/shared/copy'
@@ -33,48 +34,55 @@ const auth = useAuthStore(),
 const isSource = computed(() => route.path.endsWith('/sources'))
 const isDashboard = computed(() => route.path.endsWith('/dashboards'))
 const isPlaylist = computed(() => route.path.endsWith('/playlists'))
+const isTrace = computed(() => route.path.endsWith('/trace-models'))
 const kind = computed(() =>
-  route.path.endsWith('/reports')
-    ? 'Report'
-    : route.path.endsWith('/report-bundles')
-      ? 'ReportBundle'
-      : route.path.endsWith('/datasets')
-        ? 'Dataset'
-        : route.path.endsWith('/ledger-models')
-          ? 'LedgerModel'
-          : isDashboard.value
-            ? 'Dashboard'
-            : isPlaylist.value
-              ? 'Playlist'
-              : 'LowCodePage',
+  isTrace.value
+    ? 'TraceModel'
+    : route.path.endsWith('/reports')
+      ? 'Report'
+      : route.path.endsWith('/report-bundles')
+        ? 'ReportBundle'
+        : route.path.endsWith('/datasets')
+          ? 'Dataset'
+          : route.path.endsWith('/ledger-models')
+            ? 'LedgerModel'
+            : isDashboard.value
+              ? 'Dashboard'
+              : isPlaylist.value
+                ? 'Playlist'
+                : 'LowCodePage',
 )
 const section = computed(() =>
-  kind.value === 'Report'
-    ? 'reports'
-    : kind.value === 'ReportBundle'
-      ? 'reportBundles'
-      : isSource.value
-        ? 'sources'
-        : kind.value === 'Dataset'
-          ? 'datasets'
-          : kind.value === 'LedgerModel'
-            ? 'ledger'
-            : kind.value === 'Dashboard'
-              ? 'dashboards'
-              : kind.value === 'Playlist'
-                ? 'playlists'
-                : 'lowcode',
+  isTrace.value
+    ? 'traceModels'
+    : kind.value === 'Report'
+      ? 'reports'
+      : kind.value === 'ReportBundle'
+        ? 'reportBundles'
+        : isSource.value
+          ? 'sources'
+          : kind.value === 'Dataset'
+            ? 'datasets'
+            : kind.value === 'LedgerModel'
+              ? 'ledger'
+              : kind.value === 'Dashboard'
+                ? 'dashboards'
+                : kind.value === 'Playlist'
+                  ? 'playlists'
+                  : 'lowcode',
 )
 const permission = computed(() =>
-  kind.value === 'Report' || kind.value === 'ReportBundle'
-    ? 'studio.report.design'
-    : isSource.value
-      ? 'studio.source.manage'
-      : kind.value === 'Dataset'
-        ? 'studio.dataset.design'
-        : kind.value === 'Dashboard' || kind.value === 'Playlist'
-          ? 'studio.dashboard.design'
-          : 'studio.lowcode.design',
+  isTrace.value
+    ? 'studio.trace.design'
+    : kind.value === 'Report' || kind.value === 'ReportBundle'
+      ? 'studio.report.design'
+      : isSource.value
+        ? 'studio.source.manage'
+        : kind.value === 'Dataset'
+          ? 'studio.dataset.design'
+          : kind.value === 'Dashboard' || kind.value === 'Playlist'
+            ? 'studio.dashboard.design'
+            : 'studio.lowcode.design',
 )
 const keyword = ref(''),
   status = ref(''),
@@ -188,17 +196,20 @@ async function load(request: AppDataTableRequest) {
       !!lowCodeModule?.installed && !!lowCodeModule.enabled && !!lowCodeModule.available
     dashboardReady.value =
       !!dashboardModule?.installed && !!dashboardModule.enabled && !!dashboardModule.available
-    const moduleReady =
-      kind.value === 'Report' || kind.value === 'ReportBundle'
+    const moduleReady = isTrace.value
+      ? !!cap.modules.find((m) => m.key === 'Traceability')?.available
+      : kind.value === 'Report' || kind.value === 'ReportBundle'
         ? !!cap.modules.find((m) => m.key === 'Report')?.available
         : kind.value === 'Dashboard' || kind.value === 'Playlist'
           ? dashboardReady.value
           : isSource.value || kind.value === 'Dataset' || lowCodeReady.value
     if (!cap.coreReady || !moduleReady) {
       unavailable.value =
-        (kind.value === 'Dashboard' || kind.value === 'Playlist'
-          ? dashboardModule?.reasonCode
-          : lowCodeModule?.reasonCode) ?? t.value('unavailable')
+        (isTrace.value
+          ? cap.modules.find((m) => m.key === 'Traceability')?.reasonCode
+          : kind.value === 'Dashboard' || kind.value === 'Playlist'
+            ? dashboardModule?.reasonCode
+            : lowCodeModule?.reasonCode) ?? t.value('unavailable')
       return { items: [], total: 0, pageIndex: request.pageIndex, pageSize: request.pageSize }
     }
     unavailable.value = ''
@@ -258,12 +269,16 @@ function openCreate() {
 }
 function design(row: Json) {
   void router.push(
-    `/pc/studio/${kind.value === 'Report' ? 'reports' : kind.value === 'ReportBundle' ? 'report-bundles' : kind.value === 'Dataset' ? 'datasets' : kind.value === 'LedgerModel' ? 'ledger-models' : kind.value === 'Dashboard' ? 'dashboards' : kind.value === 'Playlist' ? 'playlists' : 'low-code'}/${encodeURIComponent(String(row.nId))}/design`,
+    `/pc/studio/${isTrace.value ? 'trace-models' : kind.value === 'Report' ? 'reports' : kind.value === 'ReportBundle' ? 'report-bundles' : kind.value === 'Dataset' ? 'datasets' : kind.value === 'LedgerModel' ? 'ledger-models' : kind.value === 'Dashboard' ? 'dashboards' : kind.value === 'Playlist' ? 'playlists' : 'low-code'}/${encodeURIComponent(String(row.nId))}/design`,
   )
 }
 function run(row: Json) {
+  if (isTrace.value) {
+    void router.push({ path: '/pc/studio/trace', query: { model: String(row.nId) } })
+    return
+  }
   void router.push(
-    `/pc/studio/${kind.value === 'Report' ? 'reports' : kind.value === 'ReportBundle' ? 'report-bundles' : kind.value === 'Dashboard' ? 'dashboards' : kind.value === 'Playlist' ? 'playlists' : 'low-code'}/${encodeURIComponent(String(row.nId))}/run`,
+    `/pc/studio/${isTrace.value ? 'trace-models' : kind.value === 'Report' ? 'reports' : kind.value === 'ReportBundle' ? 'report-bundles' : kind.value === 'Dashboard' ? 'dashboards' : kind.value === 'Playlist' ? 'playlists' : 'low-code'}/${encodeURIComponent(String(row.nId))}/run`,
   )
 }
 async function guarded(action: () => Promise<void>) {
@@ -295,8 +310,9 @@ function save() {
       drawer.value = ''
       refresh()
     } else {
-      const document =
-        kind.value === 'Report' || kind.value === 'ReportBundle'
+      const document = isTrace.value
+        ? initialTraceDocument()
+        : kind.value === 'Report' || kind.value === 'ReportBundle'
           ? initialReportDocument(
               kind.value,
               pageMode.value === 'ElectronicRecord' ? 'ElectronicRecord' : 'Simple',
@@ -490,15 +506,18 @@ watch(
         >
         <PermissionGate
           :permission-n-id="
-            kind === 'Report' || kind === 'ReportBundle'
-              ? 'studio.report.run'
-              : kind === 'Dashboard' || kind === 'Playlist'
-                ? 'studio.dashboard.run'
-                : 'studio.lowcode.run'
+            isTrace
+              ? 'studio.trace.run'
+              : kind === 'Report' || kind === 'ReportBundle'
+                ? 'studio.report.run'
+                : kind === 'Dashboard' || kind === 'Playlist'
+                  ? 'studio.dashboard.run'
+                  : 'studio.lowcode.run'
           "
           ><el-button
             v-if="
               (kind === 'LowCodePage' ||
+                kind === 'TraceModel' ||
                 kind === 'Dashboard' ||
                 kind === 'Playlist' ||
                 kind === 'Report' ||
@@ -645,11 +664,13 @@ watch(
           </div>
           <PermissionGate
             :permission-n-id="
-              kind === 'Dataset'
-                ? 'studio.dataset.publish'
-                : kind === 'Dashboard' || kind === 'Playlist'
-                  ? 'studio.dashboard.publish'
-                  : 'studio.lowcode.publish'
+              isTrace
+                ? 'studio.trace.publish'
+                : kind === 'Dataset'
+                  ? 'studio.dataset.publish'
+                  : kind === 'Dashboard' || kind === 'Playlist'
+                    ? 'studio.dashboard.publish'
+                    : 'studio.lowcode.publish'
             "
             ><el-button :disabled="busy || !note.trim()" @click="rollback(rev)">{{
               t('rollback')

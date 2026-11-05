@@ -115,6 +115,55 @@ public sealed class UnifiedHostInitializationOrderTests
         Assert.Contains("external-target-v1", exception.Data["Reason"]?.ToString(), StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData(1)]
+    [InlineData(3)]
+    public async Task Connection_open_failure_retries_only_inspection_with_a_finite_limit(int failures)
+    {
+        var calls = new List<string>();
+        var identity = new RecordingInitializer("identity", calls, connectionFailures: failures);
+        var initializers = new IServiceInitializer[] { identity, new RecordingInitializer("systemdata", calls), new RecordingInitializer("referencedata", calls), new RecordingInitializer("collaboration", calls) };
+        var invoker = new InProcessServiceInitializationInvoker(initializers);
+        var run = ModuleMigrationCoordinatorHostedService.RunInitializersAsync(invoker, initializers, CreateContext(), CancellationToken.None);
+        if (failures >= 3)
+        {
+            await Assert.ThrowsAsync<SqlSugar.SqlSugarException>(() => run);
+            Assert.Equal(0, identity.ApplyCount);
+            Assert.DoesNotContain("inspect:systemdata", calls);
+        }
+        else
+        {
+            await run;
+            Assert.Equal(1, identity.ApplyCount);
+        }
+        Assert.Equal(Math.Min(failures + 1, 3), calls.Count(x => x == "inspect:identity"));
+    }
+
+    [Fact]
+    public async Task Authentication_failure_is_not_retried()
+    {
+        var calls = new List<string>();
+        var identity = new RecordingInitializer("identity", calls, connectionFailures: 3, connectionMessage: "password authentication failed");
+        var initializers = new IServiceInitializer[] { identity };
+        await Assert.ThrowsAsync<SqlSugar.SqlSugarException>(() => ModuleMigrationCoordinatorHostedService.RunInitializersAsync(new InProcessServiceInitializationInvoker(initializers), initializers, CreateContext(), CancellationToken.None));
+        Assert.Equal(["inspect:identity"], calls);
+        Assert.Equal(0, identity.ApplyCount);
+    }
+
+    [Fact]
+    public async Task Cancellation_stops_the_connection_retry_delay()
+    {
+        var calls = new List<string>();
+        var identity = new RecordingInitializer("identity", calls, connectionFailures: 3);
+        var initializers = new IServiceInitializer[] { identity };
+        using var cancellation = new CancellationTokenSource();
+        var run = ModuleMigrationCoordinatorHostedService.RunInitializersAsync(new InProcessServiceInitializationInvoker(initializers), initializers, CreateContext(), cancellation.Token);
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run);
+        Assert.Equal(["inspect:identity"], calls);
+        Assert.Equal(0, identity.ApplyCount);
+    }
+
     private static ServiceInitializationContext CreateContext(string desiredVersion = "") => new(
         "Test",
         "tenant-1",
@@ -136,7 +185,9 @@ public sealed class UnifiedHostInitializationOrderTests
     private sealed class RecordingInitializer(
         string serviceKey,
         List<string> calls,
-        bool verifyReady = true) : IServiceInitializer
+        bool verifyReady = true,
+        int connectionFailures = 0,
+        string connectionMessage = "Failed to connect to database:5432") : IServiceInitializer
     {
         private bool _applied;
 
@@ -156,6 +207,7 @@ public sealed class UnifiedHostInitializationOrderTests
         public Task<ServiceInitializationState> InspectAsync(ServiceInitializationContext context, CancellationToken cancellationToken)
         {
             calls.Add($"inspect:{serviceKey}");
+            if (connectionFailures-- > 0) throw new SqlSugar.SqlSugarException(connectionMessage);
             return Task.FromResult(new ServiceInitializationState(
                 serviceKey,
                 serviceKey,

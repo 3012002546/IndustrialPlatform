@@ -128,7 +128,10 @@ export function installRouterGuards(router: Router): void {
         })
       }
       const candidate: WorkspaceRouteCandidate = {
-        id: buildTabId(String(to.name ?? ''), to.params, to.query),
+        id: buildTabId(String(to.name ?? ''), to.params, to.query, to.meta.workspaceQueryKeys),
+        ...(to.meta.workspaceQueryKeys === undefined
+          ? {}
+          : { identityQueryKeys: to.meta.workspaceQueryKeys }),
         title: to.meta.fallbackTitle ?? to.meta.title,
         ...(to.meta.titleKey === undefined ? {} : { titleKey: to.meta.titleKey }),
         fallbackTitle: to.meta.fallbackTitle ?? to.meta.title,

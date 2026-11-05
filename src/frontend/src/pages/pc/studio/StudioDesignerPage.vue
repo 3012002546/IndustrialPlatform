@@ -1161,13 +1161,13 @@ onMounted(async () => {
                 >{{ t('delete') }}</el-button
               >
             </div>
-            <el-tabs v-model="tab" class="lowcode-property-tabs"
+            <div v-if="!customMode && node" class="lowcode-selection-title">
+              {{ componentLabel(node.type) }} · {{ node.id.slice(0, 8) }}
+            </div>
+            <el-tabs v-model="tab" stretch
               ><el-tab-pane v-if="!customMode" :label="t('properties')" name="properties"
                 ><template v-if="node"
-                  ><div class="lowcode-selection-title">
-                    {{ componentLabel(node.type) }} · {{ node.id.slice(0, 8) }}
-                  </div>
-                  <el-form label-position="top"
+                  ><el-form label-position="top"
                     ><div class="studio-prop-row">
                       <el-form-item :label="t('span')"
                         ><el-input-number
@@ -1870,25 +1870,6 @@ onMounted(async () => {
 .lowcode-designer :deep(.studio-sidebar .el-tabs__item) {
   padding-inline: 10px;
   font-size: 13px;
-}
-.lowcode-property-tabs :deep(.el-tabs__nav) {
-  display: flex;
-  gap: 4px;
-}
-.lowcode-designer :deep(.studio-sidebar .lowcode-property-tabs .el-tabs__item) {
-  height: 36px;
-  padding-inline: 6px;
-  border: 1px solid var(--el-border-color);
-  border-radius: 4px;
-}
-.lowcode-property-tabs :deep(.el-tabs__active-bar),
-.lowcode-property-tabs :deep(.el-tabs__nav-wrap::after) {
-  display: none;
-}
-.lowcode-property-tabs :deep(.el-tabs__item.is-active) {
-  border-color: var(--el-color-primary);
-  color: var(--el-color-primary);
-  background: var(--el-fill-color-light);
 }
 .lowcode-designer :deep(.studio-design-label) {
   display: none;

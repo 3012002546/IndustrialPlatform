@@ -19,6 +19,8 @@ import { redactHeaders } from './redact'
 export interface RequestOptions {
   headers?: Record<string, string>
   signal?: AbortSignal
+  /** Override only this request's transport budget; other requests retain the client default. */
+  timeoutMs?: number
   /** Parse selected JSON numeric properties as their exact source tokens. */
   preserveJsonNumberKeys?: readonly string[]
 }
@@ -123,6 +125,7 @@ export function createHttpClient(deps: HttpClientDeps): HttpClient {
           url: path,
           data: body,
           headers,
+          ...(options.timeoutMs === undefined ? {} : { timeout: options.timeoutMs }),
           validateStatus: (status) =>
             (status >= 200 && status < 300) || (withMeta && status === 304),
           ...(options.signal === undefined ? {} : { signal: options.signal }),

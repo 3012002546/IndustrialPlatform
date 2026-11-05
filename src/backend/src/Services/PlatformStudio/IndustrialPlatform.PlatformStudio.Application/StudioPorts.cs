@@ -11,6 +11,7 @@ public interface IStudioResourceStore
     Task<StudioResource?> FindResourceByIdAsync(string tenantNId, Guid id, CancellationToken cancellationToken);
     Task<StudioResource?> FindResourceAsync(string tenantNId, string nId, CancellationToken cancellationToken);
     Task<IReadOnlyList<StudioResource>> ListResourcesAsync(StudioPrincipal principal, string kind, StudioQuery query, CancellationToken cancellationToken);
+    Task<IReadOnlyList<StudioResource>> ListRunnableResourcesAsync(StudioPrincipal principal, string kind, StudioQuery query, CancellationToken cancellationToken);
     Task<long> CountResourcesAsync(StudioPrincipal principal, string kind, StudioQuery query, CancellationToken cancellationToken);
     Task InsertResourceAsync(StudioResource resource, CancellationToken cancellationToken);
     Task<bool> UpdateResourceAsync(StudioResource resource, long expectedVersion, Guid expectedConcurrencyVersion, CancellationToken cancellationToken);

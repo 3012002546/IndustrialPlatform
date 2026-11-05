@@ -21,6 +21,8 @@ public sealed class StudioDeploymentProfile
     public int DefaultQueryTimeoutSeconds { get; set; } = 30;
     public int MaxQueryConcurrencyPerTenant { get; set; } = 8;
     public Dictionary<string, StudioSourceEndpoint> SourceRegistry { get; set; } = new(StringComparer.Ordinal);
+    public Dictionary<string, StudioTraceExternalLink> TraceExternalLinks { get; set; } = new(StringComparer.Ordinal);
+    public Dictionary<string, StudioMesFileSource> MesFileSources { get; set; } = new(StringComparer.Ordinal);
     public string[] ActiveModules => EnabledModules ?? InstalledModules;
 
     public void Validate()
@@ -58,10 +60,38 @@ public sealed class StudioDeploymentProfile
         if (InstalledModules.Contains("Report", StringComparer.Ordinal) && Files.Provider == "Disabled") Fail("files.provider");
         if (Files.Provider == "Embedded" && (string.IsNullOrWhiteSpace(Files.Root) || !Path.IsPathFullyQualified(Files.Root))) Fail("files.root");
         if (AllowedFrameOrigins.Any(value => !Uri.TryCreate(value, UriKind.Absolute, out var uri) || uri.Scheme != "https" || uri.AbsolutePath != "/" || !string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment) || !string.IsNullOrEmpty(uri.UserInfo))) Fail("allowedFrameOrigins");
+        foreach (var entry in TraceExternalLinks)
+            if (string.IsNullOrWhiteSpace(entry.Key) || !Uri.TryCreate(entry.Value.BaseAddress, UriKind.Absolute, out var target) || target.Scheme != "https" || !string.IsNullOrEmpty(target.UserInfo) || !string.IsNullOrEmpty(target.Query) || !string.IsNullOrEmpty(target.Fragment) || string.IsNullOrWhiteSpace(entry.Value.ValueParameter) || entry.Value.AllowedParameters.Contains(entry.Value.ValueParameter, StringComparer.Ordinal)) Fail("traceExternalLinks");
+        foreach (var entry in MesFileSources)
+            if (string.IsNullOrWhiteSpace(entry.Key) || string.IsNullOrWhiteSpace(entry.Value.MetadataEndpointKey) || string.IsNullOrWhiteSpace(entry.Value.ContentEndpointKey) || string.IsNullOrWhiteSpace(entry.Value.PermissionAction) || entry.Value.MaxBytes is < 1 or > 52428800 || entry.Value.AllowedContentTypes.Length == 0 || entry.Value.ScanPolicy is not ("ImportAndScan" or "VerifySourceEvidence") || entry.Value.ScanPolicy == "VerifySourceEvidence" && string.IsNullOrWhiteSpace(entry.Value.TrustedScannerKey)) Fail("mesFileSources");
     }
 
     public bool IsKindEnabled(string kind) => StudioKinds.Modules.TryGetValue(kind, out var module) && (module == "Core" || ActiveModules.Contains(module, StringComparer.Ordinal));
     private static void Fail(string path) => throw new StudioException("STUDIO_VALIDATION", "部署模式、模块及必需适配器配置不一致。", path: path);
+}
+
+/// <summary>Deployment-owned target. Browser and model values can only become encoded query values.</summary>
+public sealed class StudioTraceExternalLink
+{
+    public string BaseAddress { get; set; } = "";
+    public string ValueParameter { get; set; } = "value";
+    public string[] AllowedParameters { get; set; } = [];
+    public bool Embeddable { get; set; } = true;
+}
+
+/// <summary>Endpoint keys refer to existing read-only SourceRegistry HTTPS operations; secrets remain server-side.</summary>
+public sealed class StudioMesFileSource
+{
+    public string MetadataEndpointKey { get; set; } = "";
+    public string MetadataOperationKey { get; set; } = "metadata";
+    public string ContentEndpointKey { get; set; } = "";
+    public string ContentOperationKey { get; set; } = "content";
+    public string? CredentialRef { get; set; }
+    public string[] AllowedContentTypes { get; set; } = ["application/pdf", "image/png", "image/jpeg", "text/plain"];
+    public long MaxBytes { get; set; } = 20 * 1024 * 1024;
+    public string PermissionAction { get; set; } = "";
+    public string ScanPolicy { get; set; } = "ImportAndScan";
+    public string? TrustedScannerKey { get; set; }
 }
 
 public sealed class StudioOfficeOptions

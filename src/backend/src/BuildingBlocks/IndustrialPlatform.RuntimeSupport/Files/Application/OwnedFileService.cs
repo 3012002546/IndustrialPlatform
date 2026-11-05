@@ -16,7 +16,7 @@ namespace IndustrialPlatform.RuntimeSupport.Files;
 /// <summary>唯一owned状态机。调用者必须是服务端已完成资源授权的受信适配器。</summary>
 public sealed class OwnedFileService(SqlSugarDbContext database, IFileService files, IFileStore store,
     IFileContentStore content, FileAuditOperationalStore persistence, ISystemDataWriteTransaction transaction,
-    ILocalAuditCommand audit, IFileUploadCoordinator coordinator, IDataProtectionProvider protection, TimeProvider clock) : IOwnedFileService
+    ILocalAuditCommand audit, IFileUploadCoordinator coordinator, IDataProtectionProvider protection, TimeProvider clock) : IOwnedFileService, IOwnedFilePreviewCleanup
 {
     private readonly IDataProtector _tickets = protection.CreateProtector("RuntimeSupport.OwnedFile.Read.v1");
     private static readonly HashSet<string> Kinds = ["ReportArtifact", "ReportPreview", "DetailPreview", "WorkbookVersion", "StudioAsset"];
@@ -33,16 +33,17 @@ public sealed class OwnedFileService(SqlSugarDbContext database, IFileService fi
         var existing = await database.SqlSugar.Queryable<OwnedFileReferenceTable>().Where(row => row.TenantNId == context.TenantNId && row.OwnerService == context.ServiceKey && row.OperationKey == request.OperationKey).FirstAsync(cancellationToken);
         if (existing is not null)
         {
+            if (existing.OwnerKind == "DetailPreview" && Normalize(existing).ExpiresOn <= clock.GetUtcNow()) throw Error("FILE_PREVIEW_EXPIRED", 410);
             var session = await store.GetSessionAsync(context.TenantNId, sessionNId, cancellationToken);
             if (existing.OwnerKind != request.OwnerKind || existing.OwnerNId != request.OwnerNId || existing.Status == "Released"
                 || session is null || session.UploaderUserNId != context.ActorUserNId || session.FileName != FileUploadRules.SanitizeFileName(request.FileName)
                 || session.ContentType != request.ContentType || session.ExpectedLength != request.ExpectedLength || session.ExpectedSha256 != hash) throw Error("FILE_OPERATION_CONFLICT", 409);
-            return new(sessionNId, existing.ReferenceNId, session.ExpiresOn);
+            return new(sessionNId, existing.ReferenceNId, existing.OwnerKind == "DetailPreview" ? Normalize(existing).ExpiresOn!.Value : session.ExpiresOn);
         }
         var now = clock.GetUtcNow();
         var reference = new OwnedFileReferenceTable { TenantNId = context.TenantNId, ReferenceNId = "owned-" + id, OwnerService = context.ServiceKey,
             OwnerKind = request.OwnerKind, OwnerNId = request.OwnerNId, OperationKey = request.OperationKey, Status = "Pending", CreatedOn = now,
-            LastUpdatedOn = now, ExpiresOn = now.AddHours(24) };
+            LastUpdatedOn = now, ExpiresOn = request.OwnerKind == "DetailPreview" ? now.AddMinutes(30) : now.AddHours(24) };
         await transaction.ExecuteAsync(async () =>
         {
             await files.CreateSessionAsync(context.TenantNId, context.ActorUserNId, new CreateUploadSessionRequest { SessionNId = sessionNId, FileName = request.FileName,
@@ -52,12 +53,13 @@ public sealed class OwnedFileService(SqlSugarDbContext database, IFileService fi
             await Record(context, "file.owned.prepare", reference.ReferenceNId, cancellationToken);
         }, cancellationToken);
         var persisted = await store.GetSessionAsync(context.TenantNId, sessionNId, cancellationToken) ?? throw Error("FILE_UPLOAD_NOT_FOUND", 404);
-        return new(sessionNId, reference.ReferenceNId, persisted.ExpiresOn);
+        return new(sessionNId, reference.ReferenceNId, reference.OwnerKind == "DetailPreview" ? reference.ExpiresOn!.Value : persisted.ExpiresOn);
     }
 
     public async Task<OwnedFileStatusV1> CommitAsync(TrustedServiceContext context, OwnedFileCommitV1 request, CancellationToken cancellationToken)
     {
         var row = await Require(context, request.ReferenceNId, cancellationToken);
+        if (row.OwnerKind == "DetailPreview" && row.ExpiresOn <= clock.GetUtcNow()) throw Error("FILE_PREVIEW_EXPIRED", 410);
         var file = await store.GetFileAsync(context.TenantNId, request.FileNId, cancellationToken) ?? throw Error("FILE_NOT_FOUND", 404);
         var session = await store.GetSessionAsync(context.TenantNId, file.UploadSessionNId, cancellationToken);
         var expected = "owned-upload-" + row.ReferenceNId[6..];
@@ -104,10 +106,22 @@ public sealed class OwnedFileService(SqlSugarDbContext database, IFileService fi
         if (row.Status == "Released") { if (Version(request.ExpectedVersion) != row.Version && Version(request.ExpectedVersion) != row.Version - 1) throw Error("FILE_VERSION_CONFLICT", 409); return Status(row); }
         if (string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Length > 512) throw Error("FILE_RELEASE_REASON_REQUIRED", 422);
         if (row.LegalHold || row.RetentionUntil > clock.GetUtcNow() || row.FileNId is not null && await store.HasActiveLegalHoldsAsync(context.TenantNId, row.FileNId, cancellationToken)) throw Error("FILE_RETENTION_ACTIVE", 409);
+        if (row.OwnerKind == "DetailPreview")
+        {
+            var upload = await store.GetSessionAsync(context.TenantNId, "owned-upload-" + row.ReferenceNId[6..], cancellationToken);
+            if (upload is not null && upload.Status is not ("Completed" or "Cancelled" or "Expired")) throw Error("FILE_UPLOAD_ACTIVE", 409);
+            var previewFileNId = row.FileNId ?? upload?.FileNId;
+            if (previewFileNId is not null)
+            {
+                var previewFile = await store.GetFileAsync(context.TenantNId, previewFileNId, cancellationToken);
+                if (previewFile is not null && previewFile.ScanStatus is not ("Clean" or "Malicious")) throw Error("FILE_SCAN_UNCONFIRMED", 409);
+                if (await store.HasActiveLegalHoldsAsync(context.TenantNId, previewFileNId, cancellationToken)) throw Error("FILE_RETENTION_ACTIVE", 409);
+            }
+        }
         if (row.Status == "Pending")
         {
             var session = await store.GetSessionAsync(context.TenantNId, "owned-upload-" + row.ReferenceNId[6..], cancellationToken);
-            if (row.CreatedOn.AddHours(24) > clock.GetUtcNow()) throw Error("FILE_PENDING_RETENTION_ACTIVE", 409);
+            if ((row.OwnerKind == "DetailPreview" ? row.ExpiresOn : row.CreatedOn.AddHours(24)) > clock.GetUtcNow()) throw Error("FILE_PENDING_RETENTION_ACTIVE", 409);
             if (session is not null && session.Status is not ("Completed" or "Cancelled" or "Expired") && (session.ExpiresOn > clock.GetUtcNow() || session.LastUpdatedOn > clock.GetUtcNow().AddHours(-24))) throw Error("FILE_UPLOAD_ACTIVE", 409);
             if (row.FileNId is not null)
             {
@@ -164,9 +178,29 @@ public sealed class OwnedFileService(SqlSugarDbContext database, IFileService fi
     }
     private async Task<FileObjectRecord> Readable(OwnedFileReferenceTable row, CancellationToken ct)
     {
+        if (row.OwnerKind == "DetailPreview" && row.ExpiresOn <= clock.GetUtcNow()) throw Error("FILE_PREVIEW_EXPIRED", 410);
         var file = row.FileNId is null ? null : await store.GetFileAsync(row.TenantNId, row.FileNId, ct);
         if (row.Status != "Active" || file is null || file.ScanStatus != "Clean" || file.Restricted || file.DeletionStatus != "Active") throw Error("FILE_CONTENT_UNAVAILABLE", 409);
         return file;
+    }
+    public async Task<OwnedFilePreviewCleanupResult> CleanupExpiredPreviewsAsync(CancellationToken cancellationToken)
+    {
+        var now = clock.GetUtcNow();
+        var rows = await database.SqlSugar.Queryable<OwnedFileReferenceTable>().Where(row => row.OwnerService == "platform-studio" && row.OwnerKind == "DetailPreview" && row.Status != "Released" && row.ExpiresOn <= now).OrderBy(row => row.LastUpdatedOn).Take(200).ToListAsync(cancellationToken);
+        var released = 0; var retained = 0;
+        foreach (var raw in rows)
+        {
+            var row = Normalize(raw);
+            var session = await store.GetSessionAsync(row.TenantNId, "owned-upload-" + row.ReferenceNId[6..], cancellationToken);
+            if (session is null) { retained++; continue; }
+            try
+            {
+                await ReleaseAsync(new(row.TenantNId, row.OwnerService, session.UploaderUserNId), new(row.ReferenceNId, row.Version.ToString(CultureInfo.InvariantCulture), "DetailPreview expired"), cancellationToken);
+                released++;
+            }
+            catch (SystemDataOperationException) { retained++; }
+        }
+        return new(released, retained);
     }
     private Task Record(TrustedServiceContext context, string action, string reference, CancellationToken ct) => audit.RecordAsync(new(context.TenantNId, context.ActorUserNId, action, "OwnedFileReference", reference, null, null, null, ""), ct);
     private static void Validate(TrustedServiceContext context) { Key(context.TenantNId); Key(context.ActorUserNId); if (context.ServiceKey != "platform-studio") throw Error("FILE_OWNER_FORBIDDEN", 403); }

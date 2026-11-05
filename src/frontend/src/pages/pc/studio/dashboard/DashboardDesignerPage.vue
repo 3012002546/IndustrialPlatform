@@ -1406,21 +1406,19 @@ onBeforeUnmount(() => {
               dashboardT('delete')
             }}</el-button>
           </div>
-          <div
-            class="dashboard-property-categories dashboard-library-categories"
-            role="group"
+          <el-tabs
+            v-model="propertySection"
+            class="dashboard-property-categories"
+            stretch
             :aria-label="dashboardT('propertyCategories')"
           >
-            <button
+            <el-tab-pane
               v-for="section in propertySections"
               :key="section"
-              type="button"
-              :aria-pressed="propertySection === section"
-              @click="propertySection = section"
-            >
-              {{ dashboardT(`propertySection.${section}`) }}
-            </button>
-          </div>
+              :name="section"
+              :label="dashboardT(`propertySection.${section}`)"
+            />
+          </el-tabs>
           <div ref="propertyContent" class="dashboard-property-content">
             <el-form v-if="propertySection === 'basic'" label-position="top"
               ><el-form-item :label="dashboardT('modelName')"
@@ -2112,6 +2110,17 @@ onBeforeUnmount(() => {
 }
 .dashboard-properties > .dashboard-properties-heading h3 {
   margin: 0;
+}
+.dashboard-property-categories {
+  flex: none;
+  min-width: 0;
+}
+.dashboard-property-categories :deep(.el-tabs__header) {
+  margin-bottom: 0;
+}
+.dashboard-property-categories :deep(.el-tabs__item) {
+  padding-inline: 6px;
+  font-size: 13px;
 }
 .dashboard-property-content {
   flex: 1;

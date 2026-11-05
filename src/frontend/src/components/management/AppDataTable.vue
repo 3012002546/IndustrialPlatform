@@ -1874,6 +1874,7 @@ defineExpose({
   preferences,
   currentPage,
   selectedRows,
+  clearSelection,
   request,
   reload,
   switchQueryMode,

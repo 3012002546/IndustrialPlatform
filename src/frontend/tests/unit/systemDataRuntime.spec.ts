@@ -66,6 +66,33 @@ it('preserves distinct page params for owned low-code menu entries', () => {
   ])
 })
 
+it('isolates malformed Studio resource links without losing valid menus or inventing targets', () => {
+  const children = studioRoutes
+    .filter((route) => route.path.includes('/:nId/'))
+    .flatMap((route) =>
+      [undefined, null, {}, { nId: '' }, { nId: '  ' }].map((routeParams, index) =>
+        node({
+          nodeNId: `${String(route.name)}-${index}`,
+          kind: 'Link',
+          routeName: String(route.name),
+          ...(routeParams === undefined ? {} : { routeParams }),
+        }),
+      ),
+    )
+  children.push(node({ nodeNId: 'list', kind: 'Link', routeName: 'studio-trace-models' }))
+  children.push(
+    node({
+      nodeNId: 'valid-owned',
+      kind: 'Link',
+      routeName: 'studio-lowcode-run',
+      routeParams: { nId: 'existing-page' },
+    }),
+  )
+  const items = mapRuntimeNavigation([node({ children })])[0]!.items
+  expect(items.map((item) => item.id)).toEqual(['list', 'valid-owned'])
+  expect(items[1]!.routeParams).toEqual({ nId: 'existing-page' })
+})
+
 type LegacyDeclaration = readonly [
   parentNodeNId: string | null,
   nodeNId: string,
@@ -208,6 +235,7 @@ describe('SystemData runtime navigation adapter', () => {
   })
   it('keeps every shipped Studio route in the native menu route catalog', () => {
     for (const route of studioRoutes) {
+      if (!route.name && route.redirect) continue
       expect(isRegisteredRouteName(String(route.name)), String(route.name)).toBe(true)
     }
   })

@@ -1,0 +1,139 @@
+{
+  "checkedOn": "2026-10-31T14:05:51.983Z",
+  "registry": "https://registry.npmjs.org",
+  "x6": {
+    "version": "3.1.7",
+    "integrity": "sha512-NLKXtbCK51oLbazfFD0XsD93rMmih08UBW4gAuEyLBpwAqHmHe+vP8VhOZDkl5O9jV1LSv85IJghr9CT5tZjWw==",
+    "tarballSha1": "ee3fa46ad9204155f43f5294212ec0616ac782a5",
+    "sourceTag": "https://github.com/antvis/X6/releases/tag/v3.1.7",
+    "sourceCommit": "172e9df9c42591c685434b5fa78dbfb37db901ac",
+    "sourceCommitNote": "Verified by read-only git ls-remote refs/tags/v3.1.7. npm metadata has no gitHead; a reproducible source-to-tarball build is not claimed."
+  },
+  "installScriptsExecuted": false,
+  "plugins": "Selection and Transform from X6 core; no History, Vue renderer, clipboard, minimap or layout plugin",
+  "runtimeDependencyCorrection": "tslib@2.8.1 explicitly pinned because the X6 ESM bundle imports it but package metadata lists it only as devDependency",
+  "noticeArtifact": "src/frontend/public/studio-graph-NOTICES.txt",
+  "packages": [
+    {
+      "name": "@antv/x6",
+      "version": "3.1.7",
+      "license": "MIT",
+      "dependencies": {
+        "dom-align": "^1.12.4",
+        "lodash-es": "^4.17.15",
+        "mousetrap": "^1.6.5",
+        "utility-types": "^3.10.0"
+      },
+      "scripts": {
+        "prestart:examples": "node ./scripts/check-node-version.js",
+        "start:examples": "pnpm run build:esm && cd examples && pnpm run start",
+        "build:esm": "rimraf es && tsc --module esnext --target es6 --outDir ./es",
+        "build:cjs": "rimraf lib && tsc --module commonjs --target es6 --outDir ./lib",
+        "build:umd": "rimraf dist && rollup -c && npm run size",
+        "size": "limit-size",
+        "build": "run-p -s build:*",
+        "pretest:watch": "node ./scripts/check-node-version.js",
+        "test:watch": "vitest",
+        "pretest": "node ./scripts/check-node-version.js",
+        "test": "vitest --watch=false",
+        "pretest:coverage": "node ./scripts/check-node-version.js",
+        "test:coverage": "vitest run --coverage --watch=false",
+        "prestart:site": "node ./scripts/check-node-version.js",
+        "start:site": "cd site && pnpm run start"
+      },
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "d23f100d7fdde91467f13cf7ba97ae25191a2b28584f3961aaeea80f51ed30ab"
+        }
+      ]
+    },
+    {
+      "name": "dom-align",
+      "version": "1.12.4",
+      "license": "MIT",
+      "dependencies": {},
+      "scripts": {},
+      "licenseFiles": [
+        {
+          "file": "LICENSE.md",
+          "sha256": "5d0427088e37071c4b942de990f6365d5c2d195f3e957ce925322d184784e2eb"
+        }
+      ]
+    },
+    {
+      "name": "lodash-es",
+      "version": "4.18.1",
+      "license": "MIT",
+      "dependencies": {},
+      "scripts": {
+        "test": "echo \"See https://travis-ci.org/lodash-archive/lodash-cli for testing details.\""
+      },
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "f71e8ed126b46346494aad5486874cd8f0aafe95092ed67d2e3cb6110f939abc"
+        }
+      ]
+    },
+    {
+      "name": "mousetrap",
+      "version": "1.6.5",
+      "license": "Apache-2.0 WITH LLVM-exception",
+      "dependencies": {},
+      "scripts": {
+        "test": "mocha --reporter=nyan tests/test.mousetrap.js"
+      },
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "58ac1a498cc4ead4f8323c83713659410555b490ce32ff88bfa7d4b36638f593"
+        }
+      ]
+    },
+    {
+      "name": "utility-types",
+      "version": "3.11.0",
+      "license": "MIT",
+      "dependencies": {},
+      "scripts": {
+        "ci-check": "npm run prettier && npm run lint && npm run tsc && npm run test",
+        "reinstall": "rm -rf node_modules/ dist/ && npm install",
+        "prettier": "prettier --list-different 'src/**/*.ts' || (echo '\nPlease fix code formatting by running:\nnpm run prettier:fix\n'; exit 1)",
+        "prettier:fix": "prettier --write src/**/*.ts",
+        "lint": "tslint --project ./tsconfig.json",
+        "tsc": "tsc -p . --noEmit",
+        "tsc:watch": "tsc -p . --noEmit -w",
+        "test": "jest --config jest.config.json && dts-jest-remap ./src/*.spec.ts --rename {{basename}}.snap.{{extname}} --check",
+        "test:update": "jest --config jest.config.json --no-cache -u && dts-jest-remap ./src/*.spec.ts --rename {{basename}}.snap.{{extname}}",
+        "test:watch": "jest --config jest.config.json --watch",
+        "prebuild": "rm -rf dist/",
+        "build": "tsc -p ./tsconfig.build.json --outDir dist/",
+        "prepublishOnly": "npm run reinstall && npm run ci-check && npm run build"
+      },
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "eba0c3a8b90636744cc57e1a90f2d87767a57cccc86578a8168130f96896c9a9"
+        }
+      ]
+    },
+    {
+      "name": "tslib",
+      "version": "2.8.1",
+      "license": "0BSD",
+      "dependencies": {},
+      "scripts": {},
+      "licenseFiles": [
+        {
+          "file": "CopyrightNotice.txt",
+          "sha256": "da16ddb65f8ca390998fb99223d0112498b56b45784d00afd77ff8ce1ac4de8b"
+        },
+        {
+          "file": "LICENSE.txt",
+          "sha256": "210b19e543130388c68654b7497e967119ce17145f66ab7d85688fbd70f08751"
+        }
+      ]
+    }
+  ]
+}

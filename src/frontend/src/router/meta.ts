@@ -26,6 +26,10 @@ export interface AppRouteMeta {
   experience?: PcExperienceMode
   /** 工作区语义:fixed 固定工作台、business 受控业务标签、none 非工作区(PF-01 §7.9)。 */
   workspace?: 'fixed' | 'business' | 'none'
+  /** 未指定时全部 query 参与标签身份；空数组表示 query 仅是页内状态。 */
+  workspaceQueryKeys?: readonly string[]
+  /** 追溯附件独立预览，仍需认证与追溯执行权限，不创建工作区标签。 */
+  traceLinkScreen?: boolean
 }
 
 declare module 'vue-router' {

@@ -14,6 +14,20 @@ namespace IndustrialPlatform.UnifiedHost.Tests;
 public sealed class StudioNativeBootstrapTests
 {
     [Fact]
+    public async Task Trace_has_one_fixed_execution_entry_and_seed_replay_is_idempotent()
+    {
+        var store = new Store();
+        var bootstrap = new StudioNativeNavigationBootstrap(new ConfigurationBuilder().Build(), store, store, new Registry(), new RuntimeSnapshotLoader(store));
+        var profile = new StudioDeploymentProfile { Enabled = true, InstalledModules = ["Traceability"] };
+        await bootstrap.ApplyAsync("t", profile, default);
+        var execution = Assert.Single(store.State.Resources, r => r.NId == "studio.page.trace-run");
+        Assert.Equal("studio-trace-run", execution.RouteName);
+        Assert.Contains(store.State.Snapshots.Last().Nodes, n => n.NodeNId == "studio.page.trace-run");
+        var revision = store.State.Revision;
+        await bootstrap.ApplyAsync("t", profile, default);
+        Assert.Equal(revision, store.State.Revision);
+    }
+    [Fact]
     public async Task Independent_profile_does_not_seed_platform_menus_and_filters_old_native_entries()
     {
         var store = new Store();

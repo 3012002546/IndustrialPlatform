@@ -32,6 +32,7 @@ public static partial class StudioDocuments
         if (kind == "Dashboard") ValidateDashboard(document, errors);
         if (kind == "Playlist") ValidatePlaylist(document, errors);
         if (kind is "Report" or "ReportBundle") ValidateReport(kind, document, errors);
+        if (kind == "TraceModel") ValidateTrace(document, errors);
         return errors;
     }
 

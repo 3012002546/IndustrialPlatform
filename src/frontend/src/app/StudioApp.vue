@@ -36,15 +36,19 @@ const moduleReady = (key: string) =>
   key === 'Core' ||
   !!capabilities.value?.modules.some((m) => m.key === key && m.installed && m.enabled)
 const activeModuleReady = computed(() =>
-  route.path.includes('/dashboards') || route.path.includes('/playlists')
-    ? moduleReady('Dashboard')
-    : route.path.includes('/low-code') || route.path.includes('/ledger-models')
-      ? moduleReady('LowCode')
-      : route.path.includes('/reports') ||
-          route.path.includes('/report-bundles') ||
-          route.path.includes('/workbooks')
-        ? moduleReady('Report')
-        : true,
+  route.path.includes('/trace-models') ||
+  route.path === '/pc/studio/trace' ||
+  route.meta.traceLinkScreen
+    ? moduleReady('Traceability')
+    : route.path.includes('/dashboards') || route.path.includes('/playlists')
+      ? moduleReady('Dashboard')
+      : route.path.includes('/low-code') || route.path.includes('/ledger-models')
+        ? moduleReady('LowCode')
+        : route.path.includes('/reports') ||
+            route.path.includes('/report-bundles') ||
+            route.path.includes('/workbooks')
+          ? moduleReady('Report')
+          : true,
 )
 function defaultStudioPath(): string {
   if (moduleReady('Dashboard') && auth.hasPermission('studio.dashboard.view'))
@@ -52,6 +56,10 @@ function defaultStudioPath(): string {
   if (moduleReady('LowCode') && auth.hasPermission('studio.lowcode.view'))
     return '/pc/studio/low-code'
   if (moduleReady('Report') && auth.hasPermission('studio.report.view')) return '/pc/studio/reports'
+  if (moduleReady('Traceability') && auth.hasPermission('studio.trace.view'))
+    return '/pc/studio/trace-models'
+  if (moduleReady('Traceability') && auth.hasPermission('studio.trace.run'))
+    return '/pc/studio/trace'
   return '/pc/studio/sources'
 }
 function redirectFromUnavailableEntry() {
@@ -63,6 +71,18 @@ function redirectFromUnavailableEntry() {
 }
 const links = computed(() =>
   [
+    {
+      path: '/pc/studio/trace',
+      label: t.value('traceRun'),
+      permission: 'studio.trace.run',
+      module: 'Traceability',
+    },
+    {
+      path: '/pc/studio/trace-models',
+      label: t.value('traceModels'),
+      permission: 'studio.trace.view',
+      module: 'Traceability',
+    },
     {
       path: '/pc/studio/reports',
       label: t.value('reports'),
@@ -210,6 +230,15 @@ onMounted(async () => {
     ><RouterView v-if="route.name === 'studio-dashboard-screen'" />
     <RouterView
       v-else-if="
+        route.meta.traceLinkScreen &&
+        ready &&
+        auth.isAuthenticated &&
+        !auth.user?.mustChangePassword &&
+        activeModuleReady &&
+        auth.hasPermission('studio.trace.run')
+      " />
+    <RouterView
+      v-else-if="
         route.meta.lowcodeScreen &&
         ready &&
         auth.isAuthenticated &&
@@ -307,8 +336,12 @@ onMounted(async () => {
             v-else-if="
               typeof route.meta.permission !== 'string' || auth.hasPermission(route.meta.permission)
             "
-            :key="route.path"
-          /><el-alert v-else :title="t('noPermission')" type="error" :closable="false" /></main
+            v-slot="{ Component }"
+          >
+            <KeepAlive include="TraceRuntimePage" :max="1">
+              <component :is="Component" :key="route.path" />
+            </KeepAlive> </RouterView
+          ><el-alert v-else :title="t('noPermission')" type="error" :closable="false" /></main
       ></template></div
   ></ConfigProvider>
 </template>

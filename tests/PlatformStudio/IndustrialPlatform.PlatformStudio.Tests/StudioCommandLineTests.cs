@@ -72,6 +72,18 @@ public sealed class StudioCommandLineTests
     }
 
     [Fact]
+    public async Task Check_change_accepts_trace_only_without_report_or_office()
+    {
+        using var fixture = new Fixture();
+        await fixture.Initializer.InitializeLocalAsync(CancellationToken.None);
+        var next = StudioInitializationTests.Profile(fixture.Profile.Database!.SqliteFile!);
+        next.ProfileVersion = "2";
+        next.InstalledModules = ["Traceability"];
+        next.EnabledModules = ["Traceability"];
+        await fixture.Command.CheckChangeAsync(next, CancellationToken.None);
+        Assert.Equal(["LowCode"], fixture.Profile.ActiveModules);
+    }
+    [Fact]
     public async Task Command_conflicts_and_invalid_change_files_return_structured_failure_without_initializing()
     {
         using var fixture = new Fixture();

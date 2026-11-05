@@ -107,6 +107,7 @@ public static class StudioEndpoints
             }
         }
         group.MapGet("/deployment/profile",(HttpContext http)=>new { schemaVersion=1,profile.ProfileVersion,profile.DeploymentMode,profile.InstalledModules,enabledModules=profile.ActiveModules,profile.AllowedFrameOrigins,identityProvider=profile.Identity.Provider,filesProvider=profile.Files.Provider,auditProvider=profile.Audit.Provider });
+        if (profile.ActiveModules.Contains("Traceability", StringComparer.Ordinal)) { group.MapStudioTrace(); group.MapStudioTraceLinkContent(); }
         if (profile.ActiveModules.Contains("Report", StringComparer.Ordinal))
         {
             endpoints.MapStudioWopi(profile);

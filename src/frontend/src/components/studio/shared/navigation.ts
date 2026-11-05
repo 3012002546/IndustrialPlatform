@@ -8,6 +8,8 @@ import {
   Files,
   Grid,
   VideoPlay,
+  Share,
+  Search,
 } from '@element-plus/icons-vue'
 
 // Shared by the platform's published-menu adapter and the independent Studio shell.
@@ -31,4 +33,6 @@ export const studioNavigationIcons = [
   { route: 'studio-reports', path: '/pc/studio/reports', key: 'document', icon: Document },
   { route: 'studio-report-bundles', path: '/pc/studio/report-bundles', key: 'files', icon: Files },
   { route: 'studio-workbooks', path: '/pc/studio/workbooks', key: 'grid', icon: Grid },
+  { route: 'studio-trace-models', path: '/pc/studio/trace-models', key: 'share', icon: Share },
+  { route: 'studio-trace-run', path: '/pc/studio/trace', key: 'search', icon: Search },
 ]

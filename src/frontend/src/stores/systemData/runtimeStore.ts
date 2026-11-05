@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, type Ref } from 'vue'
+import { ref, shallowRef, type Ref } from 'vue'
 
 import { getSystemDataRuntimeApi } from '@/api/systemData/runtimeRegistry'
 import type {
@@ -51,7 +51,7 @@ export const useSystemDataRuntimeStore = defineStore(
     const themePolicy = ref<ThemePolicyDto | null>(null)
     const navigationRevision = ref<number | null>(null)
     const permissionNIds = ref<string[]>([])
-    const navigationGroups = ref<NavigationGroup[]>([])
+    const navigationGroups = shallowRef<NavigationGroup[]>([])
     const degraded = ref(false)
     const unavailable = ref(false)
     const lastVerifiedAt = ref<number | null>(null)

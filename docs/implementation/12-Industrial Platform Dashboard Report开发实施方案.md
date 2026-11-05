@@ -1,5 +1,7 @@
 # 12-Industrial Platform Dashboard / Report / Traceability 开发实施方案
 
+2026-10-31追溯011～013已按用户最新授权在当前工作树完成开发和自测：公共X6、起点配置、关系设计、保存发布、有界追溯、当前页明细及受控附件端口均已落地。真实SQLite批次/序列链与浏览器闭环、测试和未测边界见[开发证据](../evidence/PF09-追溯011-013落地-20261031.md)。014完整验收、客户MES/扫描/CSP、标准机性能及生产执行仍开放；不重开G2流程。未提交推送，保留原WIP。
+
 2026-10-29 C4/C5公共能力补充：用户已确认“公共合同 → 双领域复用PoC → 011～014 → 后续生产接入”顺序，详见[Studio公共图形工作台与流程复用架构](details/Studio-公共图形工作台与流程复用架构.md)。011～014共同读取该文§3～9；X6承担可复用图形交互与运行展示，追溯查询和未来生产执行各自拥有领域语义。本轮仅文档整理，未开始图形代码/PoC，原TraceModel合同及A/B/D验收保留；后续生产引擎不纳入本轮完成条件。
 
 版本：V1.4详细设计稿；更新：2026-10-23。阶段PF-09；包含看板、报表/Excel和可配置追溯，仍是一个阶段工作包。
@@ -187,9 +189,9 @@ PF08共用基础C0及低代码C1验收；候选接入前关闭对应G02
 | PF09-008 | 运行规则§2/4；接口规格§6；页面规格B18～B20/B38 | Infrastructure/Report/HtmlReportRenderer.cs、Application/Report/HtmlNormalizer.cs | HtmlPaginationTests.cs |
 | PF09-009 | 数据规格§4.1/4.2/5；接口规格§6/8.1/8.2；页面规格B21/B22/B43 | Application/Report/ReportExecution.cs、RuntimeSupport/Jobs、StudioJobAdapter.cs；消费已交付File/Audit（适配部署§8/11） | ReportExecutionRecoveryTests.cs |
 | PF09-010 | 数据规格§4.3～4.5/5；接口规格§8.3；页面规格B23 | Application/Report/WorkbookService.cs、Infrastructure/Report/WopiOfficeProvider.cs | WorkbookVersionTests.cs |
-| PF09-011 | 接口规格§7；运行规则§5.1；页面规格§6/B24/B41 | Application/Traceability/TraceStartQuery.cs、前端traceability/TraceStartPanel.vue | TraceStartQueryTests.cs |
-| PF09-012 | 接口规格§7；页面规格§6/B25 | 前端traceability/TraceModelDesignerPage.vue、TraceRelationPanel.vue | TraceDesigner.spec.ts |
-| PF09-013 | 接口规格§7；运行规则§5.2/6；页面规格B26～B28/B44/B45 | Application/Traceability/TraceTraversal.cs、前端traceability/TraceRuntimePage.vue | TraceTraversalTests.cs |
+| PF09-011 | 接口规格§7；运行规则§5.1；页面规格§6/B24/B41 | Application/Trace/TraceRuntime.cs、前端trace/TraceStartEditor.vue与TraceSearchForm.vue | TraceRuntimeTests.cs、traceControls.spec.ts |
+| PF09-012 | 接口规格§7；页面规格§6/B25 | 前端trace/TraceDesignerPage.vue、TraceRelationEditor.vue、公共graph/GraphWorkbench.vue | traceDesigner.spec.ts、studioGraph.spec.ts |
+| PF09-013 | 接口规格§7；运行规则§5.2/6；页面规格B26～B28/B44/B45 | Application/Trace/TraceRuntime.cs、前端trace/TraceRuntimePage.vue | TraceRuntimeTests.cs、traceRuntime.spec.ts |
 | PF09-014 | 页面规格§1/2/7/B29；接口规格§1/2/5/7 | 前端shared路由/权限/编辑壳适配；测试按已验收四部分集成 | StudioIntegratedFlow.spec.ts |
 | PF09-015 | 数据规格§6；页面规格§8/9/B30～B32/B34 | 部署/离线物料清单及安装验证；不改平台既有支持范围 | StudioOfflineAcceptanceTests.cs |
 | PF09-016 | 页面规格§1/7/B33；运行规则§5；前期评估PS-01～PS-10 | 授权MES映射配置/交付手册/脱敏证据；生产接入由用户执行 | StudioMesAcceptanceTests.cs |
@@ -398,7 +400,7 @@ PF08共用基础C0及低代码C1验收；候选接入前关闭对应G02
 
 ## TASK-PF09-011 追溯起点与源数据配置
 
-**状态：** 待派遣；设计规格已补齐；对应分部的引擎/环境前置见页面规格§8～9，未实施。
+**状态：** 开发与自测完成，待用户/现场验收；实际结果与未测边界见[2026-10-31证据](../evidence/PF09-追溯011-013落地-20261031.md)。
 
 **目标：** 工程师能从实际库存 / 工单类数据配置可搜索的追溯入口。
 
@@ -414,11 +416,11 @@ PF08共用基础C0及低代码C1验收；候选接入前关闭对应G02
 
 **结果回写：** 本卡、本文§13执行记录及对应设计章节；验收变化回写共享明细§4；主控同步总Todo/CURRENT，开发、自测、现场结果分开。
 
-**提交策略：** 按共用基础及四功能部分依次交付验收，部分内部步骤不逐卡派遣或提交；按当前仓库执行协议处理。本轮仅文档，不提交或推送。
+**提交策略：** 按共用基础及四功能部分依次交付验收，部分内部步骤不逐卡派遣或提交；按当前仓库执行协议处理。本轮保留当前工作树改动，不提交或推送。
 
 ## TASK-PF09-012 追溯节点与关系设计
 
-**状态：** 待派遣；设计规格已补齐；对应分部的引擎/环境前置见页面规格§8～9，未实施。
+**状态：** 开发与自测完成，待用户/现场验收；实际结果与未测边界见[2026-10-31证据](../evidence/PF09-追溯011-013落地-20261031.md)。
 
 **目标：** 拖拽方块和连线配置显示明细与追溯逻辑，能直接试查一条关系。
 
@@ -434,11 +436,11 @@ PF08共用基础C0及低代码C1验收；候选接入前关闭对应G02
 
 **结果回写：** 本卡、本文§13执行记录及对应设计章节；验收变化回写共享明细§4；主控同步总Todo/CURRENT，开发、自测、现场结果分开。
 
-**提交策略：** 按共用基础及四功能部分依次交付验收，部分内部步骤不逐卡派遣或提交；按当前仓库执行协议处理。本轮仅文档，不提交或推送。
+**提交策略：** 按共用基础及四功能部分依次交付验收，部分内部步骤不逐卡派遣或提交；按当前仓库执行协议处理。本轮保留当前工作树改动，不提交或推送。
 
 ## TASK-PF09-013 追溯查询与当前页明细
 
-**状态：** 待派遣；设计规格已补齐；对应分部的引擎/环境前置见页面规格§8～9，未实施。
+**状态：** 开发与自测完成，待用户/现场验收；实际结果与未测边界见[2026-10-31证据](../evidence/PF09-追溯011-013落地-20261031.md)。
 
 **目标：** 从任意可见节点查上游 / 下游 / 双向，并在当前页看明细和证据。
 
@@ -454,7 +456,7 @@ PF08共用基础C0及低代码C1验收；候选接入前关闭对应G02
 
 **结果回写：** 本卡、本文§13执行记录及对应设计章节；验收变化回写共享明细§4；主控同步总Todo/CURRENT，开发、自测、现场结果分开。
 
-**提交策略：** 按共用基础及四功能部分依次交付验收，部分内部步骤不逐卡派遣或提交；按当前仓库执行协议处理。本轮仅文档，不提交或推送。
+**提交策略：** 按共用基础及四功能部分依次交付验收，部分内部步骤不逐卡派遣或提交；按当前仓库执行协议处理。本轮保留当前工作树改动，不提交或推送。
 
 ## TASK-PF09-014 已选模块集成与编辑体验复核
 
@@ -538,9 +540,9 @@ G项闭合依据、初始化/升级、授权、并发/幂等/故障、主题/语
 | TASK-PF09-008 | 连续分页主链自测通过；极端布局/富文本Xlsx开放 | PF-09 C3 主控（稳定交接后单写） | 未提交 | 当前工作树；生产发行门禁单列 | [本轮检查](../evidence/PF-09.md#pf09-c3-second-audit-20261030) |
 | TASK-PF09-009 | 正式任务/产物自测通过；跨部署矩阵未全闭 | PF-09 C3 主控（稳定交接后单写） | 未提交 | 当前工作树；生产发行门禁单列 | [本轮检查](../evidence/PF-09.md#pf09-c3-second-audit-20261030) |
 | TASK-PF09-010 | 真实Office保存/重开/手动留版通过；人工验收暂缓 | PF-09 C3 主控（稳定交接后单写） | 未提交 | 当前工作树；生产发行门禁单列 | [本轮检查](../evidence/PF-09.md#pf09-c3-second-audit-20261030) |
-| TASK-PF09-011 | 待派遣（规格已补齐/前置核验） | - | - | 未实施 | - |
-| TASK-PF09-012 | 待派遣（规格已补齐/前置核验） | - | - | 未实施 | - |
-| TASK-PF09-013 | 待派遣（规格已补齐/前置核验） | - | - | 未实施 | - |
+| TASK-PF09-011 | 开发与自测完成/待现场验收 | PF-09主控 | 当前工作树 | 真实SQL/API/浏览器及测试通过，现场边界单列 | [证据](../evidence/PF09-追溯011-013落地-20261031.md) |
+| TASK-PF09-012 | 开发与自测完成/待现场验收 | PF-09主控 | 当前工作树 | 真实SQL/API/浏览器及测试通过，现场边界单列 | [证据](../evidence/PF09-追溯011-013落地-20261031.md) |
+| TASK-PF09-013 | 开发与自测完成/待现场验收 | PF-09主控 | 当前工作树 | 真实SQL/API/浏览器及测试通过，现场边界单列 | [证据](../evidence/PF09-追溯011-013落地-20261031.md) |
 | TASK-PF09-014 | 待派遣（规格已补齐/前置核验） | - | - | 未实施 | - |
 | TASK-PF09-015 | 待派遣（规格已补齐/前置核验） | - | - | 未实施 | - |
 | TASK-PF09-016 | 待派遣（规格已补齐/前置核验） | - | - | 未实施 | - |

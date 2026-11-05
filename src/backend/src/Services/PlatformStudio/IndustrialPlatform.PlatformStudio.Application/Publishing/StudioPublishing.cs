@@ -17,10 +17,10 @@ public sealed class StudioPublishing(IStudioResourceStore store, IStudioAuthoriz
     {
         if (query.Page < 1 || query.PageSize is < 1 or > 200 || query.Keyword?.Length > 128 || query.SortBy is not ("name" or "createdOn" or "lastUpdatedOn") || query.SortOrder is not ("asc" or "desc")) throw new StudioException("STUDIO_VALIDATION", "分页或排序参数不在允许范围。", path: "query");
     }
-    private void RequireKind(string kind)
+    internal void RequireKind(string kind)
     {
         _ = StudioKinds.PermissionPrefix(kind);
-        if (kind is not ("Dataset" or "LedgerModel" or "LowCodePage" or "Dashboard" or "Playlist" or "Report" or "ReportBundle") || !profile.IsKindEnabled(kind)) throw new StudioException("STUDIO_MODULE_UNAVAILABLE", "该产品未安装、未启用或尚未交付。", 409);
+        if (kind is not ("Dataset" or "LedgerModel" or "LowCodePage" or "Dashboard" or "Playlist" or "Report" or "ReportBundle" or "TraceModel") || !profile.IsKindEnabled(kind)) throw new StudioException("STUDIO_MODULE_UNAVAILABLE", "该产品未安装、未启用或尚未交付。", 409);
     }
     public void ValidateSourceConfiguration(StudioSource source)
     {
@@ -141,6 +141,36 @@ public sealed class StudioPublishing(IStudioResourceStore store, IStudioAuthoriz
                 var source = await store.FindSourceAsync(principal.TenantNId, StudioJson.RequiredString(document, "sourceNId"), cancellationToken) ?? throw Missing();
                 var allowed = (JsonNode.Parse(source.AllowedObjectsJson) as JsonArray ?? []).OfType<JsonObject>().Select(item => StudioJson.RequiredString(item, "qualifiedName", 256)).ToArray();
                 _ = SqlReadOnlyPolicy.Validate(StudioJson.Text(query["statement"]), allowed);
+            }
+        }
+        if (resource.Kind == "TraceModel")
+        {
+            var traceDatasets = new Dictionary<string, JsonObject>(StringComparer.Ordinal);
+            foreach (var revisionNId in Trace.TraceRuntime.DatasetReferences(document))
+            {
+                await AddRevision(revisionNId);
+                var revision = await store.FindRevisionAsync(principal.TenantNId, revisionNId, cancellationToken);
+                var target = revision is null ? null : await store.FindResourceByIdAsync(principal.TenantNId, revision.ResourceId, cancellationToken);
+                if (target?.Kind != "Dataset") diagnostics.Add(new("TYPE_MISMATCH", "dependencies", "追溯来源必须是已发布Dataset修订。"));
+                else
+                {
+                    await authorization.RequireAsync(principal, target, "studio.dataset.run", "Run", cancellationToken);
+                    traceDatasets[revisionNId] = Parse(revision!.DocumentJson);
+                }
+            }
+            Trace.TraceMappingValidation.Validate(document, traceDatasets, diagnostics);
+            foreach (var obj in (document["objects"] as JsonArray ?? []).OfType<JsonObject>())
+            foreach (var link in (obj["detail"]?["links"] as JsonArray ?? []).OfType<JsonObject>())
+            {
+                var path = "objects." + StudioJson.Text(obj["id"]) + ".detail.links." + StudioJson.Text(link["id"]);
+                if (StudioJson.Text(link["kind"]) == "External" && !profile.TraceExternalLinks.ContainsKey(StudioJson.Text(link["allowedOriginKey"]) ?? "")) diagnostics.Add(new("TRACE_MAPPING_INVALID", path + ".allowedOriginKey", "外链来源未登记。"));
+                if (StudioJson.Text(link["kind"]) != "File") continue;
+                if (profile.Files.Provider == "Disabled") diagnostics.Add(new("STUDIO_FILES_UNAVAILABLE", path, "此明细依赖文件能力，当前部署未启用，不能发布。"));
+                if (StudioJson.Text(link["fileSource"]?["mode"]) == "Mes")
+                {
+                    if (!profile.MesFileSources.TryGetValue(StudioJson.Text(link["fileSource"]?["sourceKey"]) ?? "", out var fileSource)) diagnostics.Add(new("TRACE_MAPPING_INVALID", path + ".fileSource.sourceKey", "MES文件来源未登记。"));
+                    else authorization.RequirePermission(principal, fileSource.PermissionAction);
+                }
             }
         }
         if (resource.Kind == "LowCodePage")

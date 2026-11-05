@@ -3,6 +3,8 @@ using IndustrialPlatform.SystemData.Application.ControlPlane;
 using IndustrialPlatform.SystemData.Application.Reliability;
 using IndustrialPlatform.SystemData.Infrastructure.Persistence.Migrations;
 using IndustrialPlatform.SystemData.Infrastructure.Persistence.SystemData;
+using IndustrialPlatform.SystemData.Infrastructure.Persistence.Entities;
+using IndustrialPlatform.SystemData.Domain.ControlPlane;
 using IndustrialPlatform.SystemData.Tests;
 using IndustrialPlatform.SharedKernel.Exceptions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -108,6 +110,61 @@ public sealed class ControlPlanePersistenceTests : IDisposable
 
         Assert.Single(attempts, x => x.Succeeded);
         Assert.Single(attempts, x => x.Error is not null);
+    }
+
+    [Fact]
+    public async Task Unrelated_commit_preserves_published_rows_when_writer_projection_loses_owned_metadata()
+    {
+        var runner = new SchemaMigrationRunner(_db, SystemDataSchemaMigrations.All.Select(x => new SchemaMigrationStep(x.Id, x.Description, x.Apply)), NullLogger<SchemaMigrationRunner>.Instance);
+        await runner.ApplyPendingAsync();
+        const string tenant = "tenant-owned-history";
+        var store = new SqlControlPlaneStore(_db);
+        var node = new PublishedNavigationNode("owned.page", null, NavigationNodeKind.Link, "Page", "editpen", "runtime", "studio-lowcode-run", "studio.lowcode.run", null, 1, [UiTerminal.Pc])
+            { OwnedTarget = new("platform-studio", "page-1") };
+        var published = new PublishedNavigationSnapshot(1, DateTimeOffset.UtcNow, [node], NavigationSnapshotChecksum.Compute([node]));
+        await store.CommitAsync(ControlPlaneSnapshot.Empty(tenant) with { Snapshots = [published], ActiveSnapshotRevision = 1 }, 0, ProbeCommit(tenant), default);
+        var before = await _db.SqlSugar.Queryable<SystemDataNavigationSnapshotTable>().Where(x => x.TenantNId == tenant).SingleAsync();
+
+        // Model an older writer that loaded the record but did not understand OwnedTarget.
+        var loaded = await store.LoadAsync(tenant, default);
+        var olderProjection = published with { Nodes = [node with { OwnedTarget = null }] };
+        await store.CommitAsync(loaded with { Snapshots = [olderProjection] }, loaded.Revision, ProbeCommit(tenant), default);
+
+        var after = await _db.SqlSugar.Queryable<SystemDataNavigationSnapshotTable>().Where(x => x.TenantNId == tenant).SingleAsync();
+        Assert.Equal(before.Id, after.Id);
+        Assert.Equal(before.CreatedOn, after.CreatedOn);
+        Assert.Equal(before.NodesJson, after.NodesJson);
+        Assert.Equal(before.Checksum, after.Checksum);
+        var restored = Assert.Single((await store.LoadAsync(tenant, default)).Snapshots);
+        Assert.Equal("page-1", Assert.Single(restored.Nodes).OwnedTarget?.ResourceNId);
+        Assert.Equal(restored.Checksum, NavigationSnapshotChecksum.Compute(restored.Nodes));
+    }
+
+    [Fact]
+    public async Task Published_revision_cannot_be_replaced_and_new_snapshot_requires_valid_checksum()
+    {
+        var runner = new SchemaMigrationRunner(_db, SystemDataSchemaMigrations.All.Select(x => new SchemaMigrationStep(x.Id, x.Description, x.Apply)), NullLogger<SchemaMigrationRunner>.Instance);
+        await runner.ApplyPendingAsync();
+        const string tenant = "tenant-immutable-history";
+        var store = new SqlControlPlaneStore(_db);
+        var published = new PublishedNavigationSnapshot(1, DateTimeOffset.UtcNow, [], NavigationSnapshotChecksum.Compute([]));
+        await store.CommitAsync(ControlPlaneSnapshot.Empty(tenant) with { Snapshots = [published], ActiveSnapshotRevision = 1 }, 0, ProbeCommit(tenant), default);
+        var loaded = await store.LoadAsync(tenant, default);
+        foreach (var revision in new long[] { 1, 2 })
+        {
+            var invalid = published with { Revision = revision, Checksum = "changed" };
+            await Assert.ThrowsAsync<InvalidOperationException>(() => store.CommitAsync(loaded with { Snapshots = [invalid] }, loaded.Revision, ProbeCommit(tenant), default));
+            var unchanged = await store.LoadAsync(tenant, default);
+            Assert.Equal(loaded.Revision, unchanged.Revision);
+            Assert.Equal(published.Checksum, Assert.Single(unchanged.Snapshots).Checksum);
+        }
+
+        var next = published with { Revision = 2 };
+        await store.CommitAsync(loaded with { Snapshots = [published, next], ActiveSnapshotRevision = 2, PreviousSnapshotRevision = 1 }, loaded.Revision, ProbeCommit(tenant), default);
+        var appended = await store.LoadAsync(tenant, default);
+        Assert.Equal(2, appended.Snapshots.Count);
+        Assert.Equal(2, appended.ActiveSnapshotRevision);
+        Assert.Equal(1, appended.PreviousSnapshotRevision);
     }
 
     private static async Task<(bool Succeeded, Exception? Error)> TryCommitAsync(SqlControlPlaneStore store, string tenant)

@@ -9,7 +9,7 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { ElDropdown, ElMessageBox } from 'element-plus'
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { nextTick, type Component } from 'vue'
+import { defineComponent, nextTick, onMounted, onUnmounted, ref, type Component } from 'vue'
 import { createMemoryHistory, createRouter, type Router, RouterView } from 'vue-router'
 
 import { writeAuthSession } from '@/auth'
@@ -134,6 +134,120 @@ async function mountLayout(
 }
 
 describe('PcLayout', () => {
+  it('只保留未关闭的追溯执行页，切回不重建，刷新和关闭仍释放实例', async () => {
+    const { wrapper, router } = await mountLayout()
+    let mounts = 0
+    let unmounts = 0
+    const probe = defineComponent({
+      name: 'TraceRuntimePage',
+      setup() {
+        const value = ref('')
+        onMounted(() => mounts++)
+        onUnmounted(() => unmounts++)
+        return { value }
+      },
+      template: '<input data-testid="retained-input" v-model="value" />',
+    })
+    router.addRoute({
+      path: '/trace-retained',
+      name: 'studio-trace-run',
+      component: probe,
+      meta: { title: '追溯执行', workspace: 'business', workspaceQueryKeys: [] },
+    })
+    const tabs = useWorkspaceTabsStore()
+    const open = () =>
+      tabs.requestOpen({
+        id: 'studio-trace-run',
+        title: '追溯执行',
+        kind: 'business',
+        identityQueryKeys: [],
+        route: { name: 'studio-trace-run', params: {}, query: { model: 'a' } },
+      })
+    try {
+      open()
+      await router.push('/trace-retained?model=a')
+      await flushPromises()
+      await wrapper.get('[data-testid="retained-input"]').setValue('已加载图谱')
+      tabs.activateTab('pc-home')
+      await router.push('/pc/home')
+      await flushPromises()
+      expect(unmounts).toBe(0)
+      tabs.activateTab('studio-trace-run')
+      await router.push('/trace-retained?model=a')
+      await flushPromises()
+      expect(mounts).toBe(1)
+      expect(
+        (wrapper.get('[data-testid="retained-input"]').element as HTMLInputElement).value,
+      ).toBe('已加载图谱')
+      tabs.reloadCurrent()
+      await flushPromises()
+      expect(mounts).toBe(2)
+      expect(unmounts).toBe(1)
+      tabs.activateTab('pc-home')
+      await router.push('/pc/home')
+      await flushPromises()
+      tabs.closeTab('studio-trace-run')
+      await flushPromises()
+      expect(unmounts).toBe(2)
+      open()
+      await router.push('/trace-retained?model=a')
+      await flushPromises()
+      expect(mounts).toBe(3)
+      expect(
+        (wrapper.get('[data-testid="retained-input"]').element as HTMLInputElement).value,
+      ).toBe('')
+      tabs.activateTab('pc-home')
+      await router.push('/pc/home')
+      await flushPromises()
+      useAuthStore().session = null
+      await flushPromises()
+      expect(unmounts).toBe(3)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+  it('页内查询保持组件实例和输入，仅显式刷新重建', async () => {
+    const { wrapper, router } = await mountLayout()
+    let mounts = 0
+    const probe = defineComponent({
+      setup() {
+        const value = ref('')
+        onMounted(() => mounts++)
+        return { value }
+      },
+      template: '<input data-testid="query-workspace-input" v-model="value" />',
+    })
+    router.addRoute({
+      path: '/query-workspace',
+      name: 'query-workspace',
+      component: probe,
+      meta: { title: '查询工作台', workspace: 'business', workspaceQueryKeys: [] },
+    })
+    const tabs = useWorkspaceTabsStore()
+    tabs.requestOpen({
+      id: 'query-workspace',
+      title: '查询工作台',
+      kind: 'business',
+      identityQueryKeys: [],
+      route: { name: 'query-workspace', params: {}, query: {} },
+    })
+    try {
+      await router.push('/query-workspace')
+      await flushPromises()
+      await wrapper.get('[data-testid="query-workspace-input"]').setValue('保留查询条件')
+      await router.replace('/query-workspace?model=b')
+      await flushPromises()
+      expect(mounts).toBe(1)
+      expect(
+        (wrapper.get('[data-testid="query-workspace-input"]').element as HTMLInputElement).value,
+      ).toBe('保留查询条件')
+      tabs.reloadCurrent()
+      await flushPromises()
+      expect(mounts).toBe(2)
+    } finally {
+      wrapper.unmount()
+    }
+  })
   it('constrains the workspace grid row so routed pages fit the viewport', () => {
     expect(pcLayoutSource).toMatch(
       /\.ip-pc-function-and-workspace\s*\{[\s\S]*?grid-template-rows:\s*minmax\(0,\s*1fr\);/,

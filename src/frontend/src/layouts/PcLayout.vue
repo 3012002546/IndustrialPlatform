@@ -301,12 +301,41 @@ async function handleLogout(): Promise<void> {
   }
 }
 
-/** RouterView 内容 key:路由位置 + 当前激活标签的 reloadVersion,重挂载实现「重新加载」。 */
-const contentKey = computed(() => `${route.fullPath}:${tabsStore.activeTab?.reloadVersion ?? 0}`)
+/** 默认按路由位置重建；显式页内 query 保持实例，reloadVersion 仍触发重新加载。 */
+const contentKey = computed(() => {
+  const identity =
+    route.meta.workspaceQueryKeys === undefined
+      ? route.fullPath
+      : buildTabId(
+          String(route.name ?? ''),
+          route.params,
+          route.query,
+          route.meta.workspaceQueryKeys,
+        )
+  const tab =
+    route.meta.workspaceQueryKeys === undefined
+      ? tabsStore.activeTab
+      : tabsStore.tabs.find((item) => item.id === identity)
+  return `${identity}:${tab?.reloadVersion ?? 0}`
+})
+
+// Keep the trace cache separate from ordinary pages. Closing/reloading its tab
+// or changing identity disposes the retained graph without remounting other pages.
+const tracePageCacheKey = computed(() => {
+  const tab = tabsStore.tabs.find((item) => item.route.name === 'studio-trace-run')
+  return `${JSON.stringify(authStore.user)}:${tab?.reloadVersion ?? 'closed'}`
+})
 
 /** 当前路由是否已展示该标签(按稳定标签 id 比较,容忍 vue-router 的 null 查询值)。 */
 function isCurrentTab(tab: WorkspaceTab): boolean {
-  return buildTabId(String(route.name ?? ''), route.params, route.query) === tab.id
+  return (
+    buildTabId(
+      String(route.name ?? ''),
+      route.params,
+      route.query,
+      route.meta.workspaceQueryKeys,
+    ) === tab.id
+  )
 }
 
 /** 确定性导航到当前激活标签;已展示时不重复导航。 */
@@ -572,7 +601,20 @@ function onLimitResolve(resolution: TabLimitResolution): void {
             @menu-select="onMenuSelect"
           />
           <main id="main-content" class="ip-pc-main" style="padding: 16px" tabindex="-1">
-            <RouterView :key="contentKey" />
+            <RouterView v-slot="{ Component }">
+              <KeepAlive :key="tracePageCacheKey" :max="1">
+                <component
+                  :is="Component"
+                  v-if="route.name === 'studio-trace-run'"
+                  :key="contentKey"
+                />
+              </KeepAlive>
+              <component
+                :is="Component"
+                v-if="route.name !== 'studio-trace-run'"
+                :key="contentKey"
+              />
+            </RouterView>
           </main>
         </div>
       </div>

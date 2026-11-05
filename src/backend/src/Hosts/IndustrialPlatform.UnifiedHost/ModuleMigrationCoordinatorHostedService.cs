@@ -69,7 +69,7 @@ public sealed partial class ModuleMigrationCoordinatorHostedService : IHostedSer
             Activity.Current?.Id ?? "unifiedhost-startup");
 
         LogInitializationStarted();
-        await RunInitializersAsync(_invoker, _initializers, context, cancellationToken);
+        await RunInitializersAsync(_invoker, _initializers, context, cancellationToken, _logger);
         LogInitializationCompleted();
     }
 
@@ -80,7 +80,8 @@ public sealed partial class ModuleMigrationCoordinatorHostedService : IHostedSer
         IndustrialPlatform.SystemData.Application.DatabaseOrchestration.Initialization.IServiceInitializationInvoker invoker,
         IEnumerable<IServiceInitializer> initializers,
         ServiceInitializationContext context,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ILogger? logger = null)
     {
         ArgumentNullException.ThrowIfNull(invoker);
         ArgumentNullException.ThrowIfNull(initializers);
@@ -105,7 +106,25 @@ public sealed partial class ModuleMigrationCoordinatorHostedService : IHostedSer
                     LogicalDatabaseName = $"{serviceKey}_db",
                 },
             };
-            var inspection = await invoker.InspectAsync(serviceContext, cancellationToken);
+            ServiceInitializationState inspection;
+            for (var attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    inspection = await invoker.InspectAsync(serviceContext, cancellationToken);
+                    break;
+                }
+                // SqlSugar wraps connection-open failures without retaining the provider's
+                // exception type. Retry only this observed connectivity failure and only the
+                // read-only inspection; never replay migrations, seeds or authentication errors.
+                catch (SqlSugarException exception) when (attempt < 3
+                    && !cancellationToken.IsCancellationRequested
+                    && exception.Message.Contains("Failed to connect to", StringComparison.Ordinal))
+                {
+                    if (logger is not null) LogConnectionRetry(logger, serviceKey, attempt, attempt * 2);
+                    await Task.Delay(TimeSpan.FromSeconds(attempt * 2), cancellationToken);
+                }
+            }
             var plan = await invoker.PlanAsync(serviceContext, inspection, cancellationToken);
             var executionContext = serviceContext with { DesiredVersion = plan.DesiredVersion };
             if (plan.RequiresApply)
@@ -134,4 +153,7 @@ public sealed partial class ModuleMigrationCoordinatorHostedService : IHostedSer
 
     [LoggerMessage(EventId = 2, Level = LogLevel.Information, Message = "UnifiedHost 服务初始化:全部完成。")]
     private partial void LogInitializationCompleted();
+
+    [LoggerMessage(EventId = 3, Level = LogLevel.Warning, Message = "UnifiedHost {ServiceKey} initialization inspection could not connect to the database; retry {Attempt}/2 in {DelaySeconds}s.")]
+    private static partial void LogConnectionRetry(ILogger logger, string serviceKey, int attempt, int delaySeconds);
 }
