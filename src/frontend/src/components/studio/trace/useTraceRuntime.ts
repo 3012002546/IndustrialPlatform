@@ -242,9 +242,15 @@ export function useTraceRuntime(
       if (valid()) detailBusy.value = false
     }
   }
-  async function openLink(linkId: string) {
+  async function openLink(linkId: string, row?: { sectionId: string; rowToken: string }) {
     const target = selection.value[0]
-    if (target?.kind !== 'node' || !detail.value?.links.some((l) => l.id === linkId)) return
+    if (target?.kind !== 'node') return
+    if (
+      row
+        ? !detail.value?.sections?.some((section) => section.id === row.sectionId)
+        : !detail.value?.links.some((l) => l.id === linkId)
+    )
+      return
     const node = result.value?.nodes.find((n) => n.key === target.id)
     if (!node) return
     linkRequest?.abort()
@@ -265,7 +271,13 @@ export function useTraceRuntime(
     try {
       const value = await api.link(
         captured.nId,
-        { revisionNId: captured.revisionNId, nodeKey: node.key, nodeToken: node.nodeToken, linkId },
+        {
+          revisionNId: captured.revisionNId,
+          nodeKey: node.key,
+          nodeToken: node.nodeToken,
+          linkId,
+          ...row,
+        },
         controller.signal,
       )
       if (valid()) modal.value = value

@@ -92,7 +92,8 @@ export interface TraceSectionResult {
   kind: 'Fields' | 'Table'
   fields: { label: string; value: unknown; format?: string }[]
   columns: TraceColumn[]
-  items: { key: string; values: Record<string, unknown> }[]
+  items: { key: string; values: Record<string, unknown>; rowToken?: string }[]
+  links?: { id: string; label: string; kind: string }[]
   totalCount: string | number
   page: number
   pageSize: number
@@ -105,6 +106,14 @@ export interface TraceModalLink {
   modalUrl: string
   expiresOn: string
   embeddable: boolean
+}
+export interface TraceResourceTarget {
+  kind: 'LowCodePage' | 'Dashboard' | 'Report' | 'ReportBundle'
+  resourceNId: string
+  revisionNId: string
+  name: string
+  revisionNo: string
+  parameters: TraceParameter[]
 }
 export interface TraceLinkSources {
   ownedAvailable: boolean
@@ -144,6 +153,8 @@ export function createTraceApi(client: HttpClient) {
         base + '/trace-models/runnable',
         signal ? { signal } : {},
       ),
+    linkResources: () =>
+      client.get<{ items: TraceResourceTarget[] }>(base + '/trace/link-resources'),
     linkSources: () => client.get<TraceLinkSources>(base + '/trace/link-sources'),
     contract: (nId: string, revisionNId?: string, signal?: AbortSignal) =>
       client.get<TraceContract>(
@@ -209,8 +220,11 @@ export function createTraceApi(client: HttpClient) {
       input: TraceNodeRequest & { sectionId: string; page: number; pageSize: number },
       signal?: AbortSignal,
     ) => post<TraceSectionResult>(`/trace/${id(nId)}/node-section`, input, signal),
-    link: (nId: string, input: TraceNodeRequest & { linkId: string }, signal?: AbortSignal) =>
-      post<TraceModalLink>(`/trace/${id(nId)}/node-link`, input, signal),
+    link: (
+      nId: string,
+      input: TraceNodeRequest & { linkId: string; sectionId?: string; rowToken?: string },
+      signal?: AbortSignal,
+    ) => post<TraceModalLink>(`/trace/${id(nId)}/node-link`, input, signal),
     previewStart: (
       document: TraceDocument,
       parameters: Record<string, unknown>,

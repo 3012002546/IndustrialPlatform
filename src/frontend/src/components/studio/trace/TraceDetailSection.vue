@@ -16,6 +16,7 @@ const props = defineProps<{
     signal?: AbortSignal,
   ) => Promise<TraceSectionResult>
 }>()
+const emit = defineEmits<{ link: [linkId: string, row: { sectionId: string; rowToken: string }] }>()
 const t = useTraceCopy(),
   text = useTracePresentation()
 const value = ref<TraceSectionResult>(),
@@ -37,6 +38,7 @@ const columns = computed(() =>
 const rows = computed(() =>
   (value.value?.items ?? []).map((row) => ({
     key: row.key,
+    rowToken: row.rowToken,
     ...Object.fromEntries(
       (value.value?.columns ?? [])
         .filter((column) => column.visible)
@@ -105,7 +107,20 @@ onBeforeUnmount(() => controller?.abort())
         :page-size="section.pageSize"
         toolbar-profile="compact"
         :quick-search-enabled="false"
-      />
+      >
+        <template v-if="value.links?.length" #actions="{ row }">
+          <el-button
+            v-for="link in value.links"
+            :key="link.id"
+            link
+            :disabled="!row.rowToken"
+            @click="
+              emit('link', link.id, { sectionId: section.id, rowToken: String(row.rowToken) })
+            "
+            >{{ link.label }}</el-button
+          >
+        </template>
+      </AppDataTable>
       <small>{{ value.observedOn || t('unknown') }}</small>
     </template>
   </section>

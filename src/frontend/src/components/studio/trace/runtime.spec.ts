@@ -38,6 +38,7 @@ afterEach(() => {
 })
 function setup() {
   const api = {
+    linkResources: vi.fn<TraceApi['linkResources']>().mockResolvedValue({ items: [] }),
     linkSources: vi.fn<TraceApi['linkSources']>(),
     models: vi.fn<TraceApi['models']>(),
     starts: vi.fn<TraceApi['starts']>().mockResolvedValue({

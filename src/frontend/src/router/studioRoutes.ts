@@ -12,6 +12,18 @@ const playlistRun = () => import('@/pages/pc/studio/dashboard/PlaylistRuntimePag
 // 公开大屏不进入管理布局和工作区标签；访问权由服务端分享密钥决定。
 export const studioScreenRoutes: RouteRecordRaw[] = [
   {
+    path: '/screen/trace-resource',
+    name: 'studio-trace-resource-preview',
+    component: () => import('@/pages/pc/studio/trace/TraceResourcePreviewPage.vue'),
+    meta: {
+      title: '追溯关联资源',
+      requiresAuth: true,
+      permission: 'studio.trace.run',
+      workspace: 'none',
+      traceLinkScreen: true,
+    },
+  },
+  {
     path: '/screen/trace-link',
     name: 'studio-trace-link-preview',
     component: () => import('@/pages/pc/studio/trace/TraceLinkPreviewPage.vue'),

@@ -46,6 +46,39 @@ public static partial class StudioDocuments
         {
             if (node is not JsonArray a || a.Count > 32 || a.Any(x => StudioJson.Text(x) is not { Length: > 0 and <= 128 } s || s is "__proto__" or "constructor" or "prototype")) Error(path, "须声明安全字段路径数组。");
         }
+        void ValidateLinks(JsonNode? entries, string path)
+        {
+            var links = new HashSet<string>();
+            foreach (var link in Objects(entries, path, errors))
+            {
+                if (!links.Add(StudioJson.RequiredString(link, "id"))) Error(path, "链接ID重复。");
+                if (StudioJson.Text(link["kind"]) != "Resource") Binding(link["value"], path + ".value");
+                Maps(link["parameterMap"], path + ".parameterMap");
+                if (StudioJson.Text(link["openMode"]) != "Modal") Error(path + ".openMode", "详情必须在当前页模态框打开。");
+                var kind = StudioJson.Text(link["kind"]);
+                if (kind is not ("File" or "External" or "Resource")) Error(path + ".kind", "链接类型未登记。");
+                if (kind == "Resource")
+                {
+                    if (link["fileSource"] is not null || link["allowedOriginKey"] is not null || link["value"] is not null) Error(path, "平台资源使用固定目标及参数映射，不能混入文件或外链配置。");
+                    if (link["target"] is not JsonObject target) Error(path + ".target", "请选择已发布的平台资源。");
+                    else
+                    {
+                        Allowed(target, ["kind", "resourceNId", "revisionNId"], path + ".target", errors);
+                        if (StudioJson.Text(target["kind"]) is not ("LowCodePage" or "Dashboard" or "Report" or "ReportBundle")) Error(path + ".target.kind", "目标尚无内容宿主。");
+                        foreach (var key in new[] { "resourceNId", "revisionNId" })
+                            if (string.IsNullOrWhiteSpace(StudioJson.Text(target[key]))) Error(path + ".target." + key, "目标必须固定资源及已发布修订。");
+                    }
+                }
+                else if (link["target"] is not null) Error(path + ".target", "该链接类型不使用平台资源目标。");
+                if (kind == "External" && (string.IsNullOrWhiteSpace(StudioJson.Text(link["allowedOriginKey"])) || link["fileSource"] is not null)) Error(path, "外链须登记来源，且不可包含文件来源。");
+                if (kind == "File" && link["fileSource"] is JsonObject file)
+                {
+                    if (StudioJson.Text(file["mode"]) is not ("Owned" or "Mes")) Error(path + ".fileSource.mode", "文件来源未登记。");
+                    if (StudioJson.Text(file["mode"]) == "Mes" && string.IsNullOrWhiteSpace(StudioJson.Text(file["sourceKey"]))) Error(path + ".fileSource.sourceKey", "MES文件须登记来源键。");
+                    if (file["version"] is not null) Binding(file["version"], path + ".fileSource.version");
+                }
+            }
+        }
         var objects = Objects(doc["objects"], "objects", errors);
         var relations = Objects(doc["relations"], "relations", errors);
         var ids = new HashSet<string>(StringComparer.Ordinal);
@@ -73,7 +106,7 @@ public static partial class StudioDocuments
                 {
                     var sectionId = StudioJson.Text(section["id"]);
                     var sectionPath = path + "." + sectionId;
-                    Allowed(section, ["id", "label", "kind", "datasetRevisionNId", "parameterMap", "collectionPath", "fields", "columns", "rowKey", "pageSize"], sectionPath, errors);
+                    Allowed(section, ["id", "label", "kind", "datasetRevisionNId", "parameterMap", "collectionPath", "fields", "columns", "rowKey", "pageSize", "links"], sectionPath, errors);
                     if (string.IsNullOrWhiteSpace(sectionId) || sectionId.Length > 128 || !sectionIds.Add(sectionId)) Error(sectionPath + ".id", "分组ID缺失或重复。");
                     if (string.IsNullOrWhiteSpace(StudioJson.Text(section["label"]))) Error(sectionPath + ".label", "分组须有名称。");
                     var kind = StudioJson.Text(section["kind"]);
@@ -101,27 +134,16 @@ public static partial class StudioDocuments
                         if (string.IsNullOrWhiteSpace(fieldId) || !columnIds.Add(fieldId)) Error(sectionPath + ".columns.fieldId", "列字段缺失或重复。");
                         if (string.IsNullOrWhiteSpace(StudioJson.Text(column["label"]))) Error(sectionPath + ".columns.label", "列须有名称。");
                     }
+                    if (section["links"] is not null)
+                    {
+                        if (kind != "Table") Error(sectionPath + ".links", "逐行链接仅用于表格分组。");
+                        ValidateLinks(section["links"], sectionPath + ".links");
+                    }
                     if (kind == "Table" || section["rowKey"] is not null) Binding(section["rowKey"], sectionPath + ".rowKey");
                     if (kind == "Table" && StudioJson.Text(section["rowKey"]?["from"]) != "Row") Error(sectionPath + ".rowKey", "表格行标识须绑定本分组的结果行字段。");
                 }
             }
-            var links = new HashSet<string>();
-            foreach (var link in Objects(detail["links"], "links", errors))
-            {
-                var path = "objects." + id + ".detail.links";
-                if (!links.Add(StudioJson.RequiredString(link, "id"))) Error(path, "链接ID重复。");
-                Binding(link["value"], path + ".value"); Maps(link["parameterMap"], path + ".parameterMap");
-                if (StudioJson.Text(link["openMode"]) != "Modal") Error(path + ".openMode", "详情必须在当前页模态框打开。");
-                var kind = StudioJson.Text(link["kind"]);
-                if (kind is not ("File" or "External")) Error(path + ".kind", "链接类型未登记。");
-                if (kind == "External" && (string.IsNullOrWhiteSpace(StudioJson.Text(link["allowedOriginKey"])) || link["fileSource"] is not null)) Error(path, "外链须登记来源，且不可包含文件来源。");
-                if (kind == "File" && link["fileSource"] is JsonObject file)
-                {
-                    if (StudioJson.Text(file["mode"]) is not ("Owned" or "Mes")) Error(path + ".fileSource.mode", "文件来源未登记。");
-                    if (StudioJson.Text(file["mode"]) == "Mes" && string.IsNullOrWhiteSpace(StudioJson.Text(file["sourceKey"]))) Error(path + ".fileSource.sourceKey", "MES文件须登记来源键。");
-                    if (file["version"] is not null) Binding(file["version"], path + ".fileSource.version");
-                }
-            }
+            ValidateLinks(detail["links"], "objects." + id + ".detail.links");
         }
         if (doc["start"] is not JsonObject start) Error("start", "须声明授权起点。");
         else

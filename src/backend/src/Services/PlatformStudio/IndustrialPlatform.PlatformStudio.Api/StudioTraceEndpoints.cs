@@ -13,6 +13,12 @@ internal static class StudioTraceEndpoints
     {
         static StudioPrincipal Principal(HttpContext http) => (StudioPrincipal)http.Items["StudioPrincipal"]!;
         group.MapGet("/trace-models/runnable", (HttpContext http, TraceRuntime runtime, CancellationToken ct) => runtime.ModelsAsync(Principal(http), ct));
+        group.MapGet("/trace/link-resources", (HttpContext http, TraceRuntime runtime, CancellationToken ct) => runtime.LinkResourcesAsync(Principal(http), ct));
+        group.MapGet("/trace/{nId}/resource-content", async (string nId, string revisionNId, string ticket, HttpContext http, TraceRuntime runtime, CancellationToken ct) =>
+        {
+            http.Response.Headers.CacheControl = "no-store";
+            return await runtime.ResourceContentAsync(Principal(http), nId, revisionNId, ticket, ct);
+        });
         group.MapGet("/trace/{nId}/contract", (string nId, string? revisionNId, HttpContext http, TraceRuntime runtime, CancellationToken ct) => runtime.ContractAsync(Principal(http), nId, revisionNId, ct));
         group.MapPost("/trace-models/preview-start", (JsonObject input, HttpContext http, TraceRuntime runtime, CancellationToken ct) => runtime.PreviewStartAsync(Principal(http), input, ct));
         group.MapPost("/trace-models/preview-relation", (JsonObject input, HttpContext http, TraceRuntime runtime, CancellationToken ct) => runtime.PreviewRelationAsync(Principal(http), input, ct));

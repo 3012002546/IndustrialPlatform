@@ -6,7 +6,7 @@ namespace IndustrialPlatform.PlatformStudio.Application.Trace;
 /// <summary>发布前核对固定Dataset参数、可读字段与集合路径；保存草稿仍允许待修复诊断。</summary>
 internal static class TraceMappingValidation
 {
-    public static void Validate(JsonObject document, Dictionary<string, JsonObject> datasets, List<StudioDiagnostic> diagnostics)
+    public static void Validate(JsonObject document, Dictionary<string, JsonObject> datasets, List<StudioDiagnostic> diagnostics, Dictionary<string, JsonObject>? resourceTargets = null)
     {
         void Error(string path, string message) => diagnostics.Add(new("TRACE_MAPPING_INVALID", path, message));
         JsonObject? Dataset(JsonNode? revision) => StudioJson.Text(revision) is { } id ? datasets.GetValueOrDefault(id) : null;
@@ -100,6 +100,18 @@ internal static class TraceMappingValidation
                     Error(bindingPath, "绑定来源路径或类型与数据集参数合同不符。");
             }
         }
+        void ResourceLinks(JsonNode? links, JsonObject? row, string path)
+        {
+            foreach (var link in (links as JsonArray ?? []).OfType<JsonObject>())
+            {
+                if (StudioJson.Text(link["kind"]) != "Resource") continue;
+                var revision = StudioJson.Text(link["target"]?["revisionNId"]);
+                if (revision is null || resourceTargets?.GetValueOrDefault(revision) is not { } target) continue;
+                var linkPath = path + "." + StudioJson.Text(link["id"]) + ".parameterMap";
+                Parameters(link["parameterMap"], target, linkPath);
+                SectionParameterTypes(link["parameterMap"], row, target, linkPath);
+            }
+        }
         var start = document["start"] as JsonObject;
         if (start is not null && Dataset(start["datasetRevisionNId"]) is { } startDataset)
         {
@@ -118,6 +130,7 @@ internal static class TraceMappingValidation
             foreach (var member in obj.Where(member => member.Key != "detail")) CheckBindings(member.Value, row, dataset, objectPath + "." + member.Key);
             foreach (var member in obj["detail"]!.AsObject().Where(member => member.Key != "sections")) CheckBindings(member.Value, row, dataset, objectPath + ".detail." + member.Key);
             Parameters(obj["detail"]?["parameterMap"], dataset, objectPath + ".detail.parameterMap");
+            ResourceLinks(obj["detail"]?["links"], row, objectPath + ".detail.links");
             foreach (var section in (obj["detail"]?["sections"] as JsonArray ?? []).OfType<JsonObject>())
             {
                 if (Dataset(section["datasetRevisionNId"]) is not { } sectionDataset) continue;
@@ -135,6 +148,8 @@ internal static class TraceMappingValidation
                     var maxSize = sectionDataset["pagination"]?["maxSize"]?.GetValue<int>() ?? 200;
                     if (section["pageSize"] is JsonValue pageSize && pageSize.TryGetValue<int>(out var size) && size > maxSize) Error(sectionPath + ".pageSize", "分组分页大小超过数据集允许上限。");
                 }
+                CheckBindings(section["links"], sectionRow, sectionDataset, sectionPath + ".links");
+                ResourceLinks(section["links"], sectionRow, sectionPath + ".links");
                 CheckBindings(section["fields"], sectionRow, sectionDataset, sectionPath + ".fields");
                 if (section["rowKey"] is not null) CheckBindings(section["rowKey"], sectionRow, sectionDataset, sectionPath + ".rowKey");
                 var readable = (sectionDataset["readableFieldIds"] as JsonArray ?? []).Select(StudioJson.Text).ToHashSet(StringComparer.Ordinal);

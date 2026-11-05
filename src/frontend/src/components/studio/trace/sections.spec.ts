@@ -101,6 +101,40 @@ describe('configurable node detail sections', () => {
     expect(wrapper.text()).toContain('Page 2')
     expect(wrapper.text()).not.toContain('Page 1')
   })
+  it('opens only the server-issued row context after a real page change', async () => {
+    const load = vi.fn(async (_id: string, number: number) => ({
+      ...page(number),
+      links: [{ id: 'report', label: 'Open report', kind: 'External' }],
+      items: [
+        {
+          key: 'check-' + number,
+          values: { 'result.value': 'Page ' + number },
+          rowToken: 'signed-' + number,
+        },
+      ],
+    }))
+    const wrapper = mount(TraceDetailSection, {
+      attachTo: document.body,
+      props: {
+        section: { id: 'checks', label: 'Measurements', kind: 'Table', pageSize: 20 },
+        tableKey: 'trace-row-link-pager',
+        load,
+      },
+      global: { plugins: plugins() },
+    })
+    wrappers.push(wrapper)
+    await flushPromises()
+    await wrapper.get('.el-pagination .btn-next').trigger('click')
+    await flushPromises()
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Open report')!
+      .trigger('click')
+    expect(wrapper.emitted('link')).toEqual([
+      ['report', { sectionId: 'checks', rowToken: 'signed-2' }],
+    ])
+    expect(wrapper.text()).toContain('Page 2')
+  })
   it('cancels a pending section when it is closed and shows field-only data without a table', async () => {
     let resolve!: (value: TraceSectionResult) => void
     const load = vi

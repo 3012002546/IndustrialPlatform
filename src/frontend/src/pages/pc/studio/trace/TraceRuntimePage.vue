@@ -434,6 +434,7 @@ onBeforeUnmount(() => {
                 :section="section"
                 :table-key="`trace-section:${nId}:${contract?.revisionNId}:${section.id}`"
                 :load="runtime.loadSection"
+                @link="runtime.openLink"
               />
             </el-tab-pane>
           </el-tabs>

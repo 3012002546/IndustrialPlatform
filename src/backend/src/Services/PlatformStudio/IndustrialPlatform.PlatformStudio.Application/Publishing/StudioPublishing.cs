@@ -158,11 +158,22 @@ public sealed class StudioPublishing(IStudioResourceStore store, IStudioAuthoriz
                     traceDatasets[revisionNId] = Parse(revision!.DocumentJson);
                 }
             }
-            Trace.TraceMappingValidation.Validate(document, traceDatasets, diagnostics);
+            var traceTargets = new Dictionary<string, JsonObject>(StringComparer.Ordinal);
             foreach (var obj in (document["objects"] as JsonArray ?? []).OfType<JsonObject>())
-            foreach (var link in (obj["detail"]?["links"] as JsonArray ?? []).OfType<JsonObject>())
+            foreach (var link in (obj["detail"]?["links"] as JsonArray ?? []).OfType<JsonObject>().Concat((obj["detail"]?["sections"] as JsonArray ?? []).OfType<JsonObject>().SelectMany(section => (section["links"] as JsonArray ?? []).OfType<JsonObject>())))
             {
                 var path = "objects." + StudioJson.Text(obj["id"]) + ".detail.links." + StudioJson.Text(link["id"]);
+                if (StudioJson.Text(link["kind"]) == "Resource" && link["target"] is JsonObject linkTarget)
+                {
+                    var targetKind = StudioJson.RequiredString(linkTarget, "kind");
+                    RequireKind(targetKind);
+                    var targetNId = StudioJson.RequiredString(linkTarget, "resourceNId");
+                    var targetRevision = StudioJson.RequiredString(linkTarget, "revisionNId");
+                    await AddRevision(targetRevision, targetNId);
+                    var (target, revision) = await RequireRuntimeAsync(principal, targetNId, targetRevision, cancellationToken);
+                    if (target.Kind != targetKind) diagnostics.Add(new("TYPE_MISMATCH", path + ".target", "平台资源目标类型不匹配。"));
+                    traceTargets[targetRevision] = Parse(revision.DocumentJson);
+                }
                 if (StudioJson.Text(link["kind"]) == "External" && !profile.TraceExternalLinks.ContainsKey(StudioJson.Text(link["allowedOriginKey"]) ?? "")) diagnostics.Add(new("TRACE_MAPPING_INVALID", path + ".allowedOriginKey", "外链来源未登记。"));
                 if (StudioJson.Text(link["kind"]) != "File") continue;
                 if (profile.Files.Provider == "Disabled") diagnostics.Add(new("STUDIO_FILES_UNAVAILABLE", path, "此明细依赖文件能力，当前部署未启用，不能发布。"));
@@ -172,6 +183,7 @@ public sealed class StudioPublishing(IStudioResourceStore store, IStudioAuthoriz
                     else authorization.RequirePermission(principal, fileSource.PermissionAction);
                 }
             }
+            Trace.TraceMappingValidation.Validate(document, traceDatasets, diagnostics, traceTargets);
         }
         if (resource.Kind == "LowCodePage")
         {

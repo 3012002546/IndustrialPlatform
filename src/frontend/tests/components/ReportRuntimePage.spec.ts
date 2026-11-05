@@ -61,8 +61,9 @@ beforeEach(() => {
   state.api.reportRun.mockResolvedValue({ runNId: 'run-a' })
 })
 afterEach(() => page?.unmount())
-function render() {
+function render(props = {}) {
   page = mount(ReportRuntimePage, {
+    props,
     global: {
       plugins: [createPinia(), ElementPlus],
       stubs: {
@@ -137,4 +138,41 @@ it('reuses the formal run key after a lost acknowledgement and changes it when i
   await generate().trigger('click')
   await flushPromises()
   expect(state.api.reportRun.mock.calls[2]![2]).not.toBe(first)
+})
+
+it('uses the pinned resource revision and typed parameters in an embedded content host', async () => {
+  const contract = await state.api.client.get()
+  state.api.client.get.mockResolvedValue({
+    ...contract,
+    revisionNId: 'pinned-revision',
+    resource: { nId: 'linked-report', publishedRevisionNId: 'newer-revision' },
+  })
+  state.api.client.get.mockClear()
+  render({
+    resourceNId: 'linked-report',
+    revisionNId: 'pinned-revision',
+    initialParameters: { title: 'Inspection A' },
+    embedded: true,
+  })
+  await flushPromises()
+  expect(state.api.client.get).toHaveBeenCalledWith(
+    '/api/v1/studio/reports/linked-report/runtime?revisionNId=pinned-revision',
+  )
+  expect((page.get('input[aria-label="title"]').element as HTMLInputElement).value).toBe(
+    'Inspection A',
+  )
+  const loader = page.getComponent(Table).props('loader')
+  await loader({ pageIndex: 1, pageSize: 20 })
+  expect(state.api.reportQuery).toHaveBeenLastCalledWith(
+    'linked-report',
+    expect.objectContaining({
+      revisionNId: 'pinned-revision',
+      parameters: { title: 'Inspection A' },
+    }),
+  )
+  await page.get('input[aria-label="title"]').setValue('Changed')
+  await page.get('.reset').trigger('click')
+  expect((page.get('input[aria-label="title"]').element as HTMLInputElement).value).toBe(
+    'Inspection A',
+  )
 })

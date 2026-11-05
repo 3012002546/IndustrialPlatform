@@ -11,11 +11,18 @@ import { safeTotal } from '@/components/studio/shared/model'
 import { pendingOperation } from '@/components/studio/shared/pendingOperation'
 import { useReportCopy } from '@/components/studio/report/copy'
 import ReportRunsPanel from '@/components/studio/report/ReportRunsPanel.vue'
+const props = defineProps<{
+  resourceNId?: string
+  revisionNId?: string
+  initialParameters?: Json
+  embedded?: boolean
+}>()
 const route = useRoute(),
   router = useRouter(),
   api = getStudioApi(),
   t = useReportCopy(),
-  nId = String(route.params.nId)
+  nId = props.resourceNId ?? String(route.params.nId)
+const fixedRevision = ref(props.revisionNId)
 const resource = ref<StudioResource>(),
   document = ref<Json>(),
   parameters = ref<Json>({}),
@@ -37,7 +44,10 @@ async function loadOptions() {
     )
   )
     return
-  const input = { revisionNId: resource.value.publishedRevisionNId, parameters: parameters.value },
+  const input = {
+      revisionNId: fixedRevision.value ?? resource.value.publishedRevisionNId,
+      parameters: parameters.value,
+    },
     key = JSON.stringify(input)
   optionsLoading.value = true
   try {
@@ -50,7 +60,7 @@ async function loadOptions() {
     if (
       key ===
       JSON.stringify({
-        revisionNId: resource.value.publishedRevisionNId,
+        revisionNId: fixedRevision.value ?? resource.value.publishedRevisionNId,
         parameters: parameters.value,
       })
     )
@@ -59,7 +69,7 @@ async function loadOptions() {
     if (
       key ===
       JSON.stringify({
-        revisionNId: resource.value?.publishedRevisionNId,
+        revisionNId: fixedRevision.value ?? resource.value?.publishedRevisionNId,
         parameters: parameters.value,
       })
     ) {
@@ -114,7 +124,7 @@ async function load(request: AppDataTableRequest) {
       : []
   try {
     const result = await api.reportQuery(nId, {
-      revisionNId: resource.value.publishedRevisionNId,
+      revisionNId: fixedRevision.value ?? resource.value.publishedRevisionNId,
       parameters: parameters.value,
       page: request.pageIndex,
       pageSize: request.pageSize,
@@ -137,6 +147,7 @@ function setDefaultParameters() {
       .filter((p: Json) => p.defaultValue !== undefined)
       .map((p: Json) => [p.name, p.defaultValue]),
   )
+  Object.assign(parameters.value, props.initialParameters ?? {})
 }
 function resetQuery() {
   setDefaultParameters()
@@ -149,7 +160,7 @@ async function generate() {
   error.value = ''
   try {
     const input = {
-      revisionNId: resource.value.publishedRevisionNId,
+      revisionNId: fixedRevision.value ?? resource.value.publishedRevisionNId,
       parameters: parameters.value,
       sort: sort.value,
       format: format.value,
@@ -166,8 +177,9 @@ async function generate() {
 onMounted(async () => {
   try {
     const result = await api.client.get<Json>(
-      `/api/v1/studio/reports/${encodeURIComponent(nId)}/runtime`,
+      `/api/v1/studio/reports/${encodeURIComponent(nId)}/runtime${props.revisionNId ? '?revisionNId=' + encodeURIComponent(props.revisionNId) : ''}`,
     )
+    fixedRevision.value = result.revisionNId
     resource.value = result.resource
     document.value = result.document
     setDefaultParameters()
@@ -215,7 +227,7 @@ onMounted(async () => {
           :aria-label="f.label || f.parameterName" /></label
     ></AppQueryPanel>
     <div class="studio-toolbar">
-      <el-button @click="router.back()">{{ t('back') }}</el-button
+      <el-button v-if="!embedded" @click="router.back()">{{ t('back') }}</el-button
       ><el-select v-model="format" :aria-label="t('output')" style="width: 130px"
         ><el-option label="PDF" value="Pdf" /><el-option label="HTML" value="Html" /><el-option
           label="Excel"

@@ -6,6 +6,7 @@ import { getStudioApi } from '@/api/studio'
 import { ApiError } from '@/api/errors'
 import { useTraceCopy } from './copy'
 import { useTraceLinkCopy } from './linkCopy'
+import TraceResourceContent from './TraceResourceContent.vue'
 const props = defineProps<{ link: TraceModalLink | null }>()
 const emit = defineEmits<{ close: []; denied: [message: string] }>()
 const t = useTraceCopy(),
@@ -107,6 +108,12 @@ const browserUrl = computed(() => {
     )
     if (value.username || value.password) return ''
     if (link.kind === 'External') return value.protocol === 'https:' ? value.href : ''
+    if (link.kind === 'Resource')
+      return value.origin === window.location.origin &&
+        value.pathname.endsWith('/screen/trace-resource') &&
+        value.searchParams.has('ticket')
+        ? value.href
+        : ''
     const content = new URL(link.modalUrl, window.location.origin)
     const match = content.pathname.match(/^(.*)\/api\/v1\/studio\/trace\/([^/]+)\/link-content$/)
     const prefix = match?.[1]
@@ -171,7 +178,8 @@ function openBrowserTab() {
       type="warning"
       :closable="false"
     />
-    <template v-if="url"
+    <TraceResourceContent v-if="link?.kind === 'Resource' && !expired" :link="link" />
+    <template v-else-if="url"
       ><p class="trace-link-hint">{{ linkCopy('fallback') }}</p>
       <iframe
         :src="url"

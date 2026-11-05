@@ -55,6 +55,18 @@ const displayFields = (value: unknown) =>
     const item = fields(entry, ['label'])
     binding(item.value)
   })
+function links(value: unknown) {
+  array(value, (entry) => {
+    const link = fields(entry, ['id', 'label', 'kind', 'openMode'])
+    if (link.kind === 'Resource') fields(link.target, ['kind', 'resourceNId', 'revisionNId'])
+    else binding(link.value)
+    if (link.parameterMap !== undefined) mappings(link.parameterMap)
+    if (link.fileSource !== undefined) {
+      const source = fields(link.fileSource, ['mode'])
+      if (source.version !== undefined) binding(source.version)
+    }
+  })
+}
 function traversal(value: unknown) {
   const item = fields(value, ['datasetRevisionNId'])
   mappings(item.inputMap)
@@ -119,6 +131,10 @@ function checkDocument(value: unknown): TraceDocument {
         })
         if (section.rowKey !== undefined) binding(section.rowKey)
         else if (section.kind === 'Table') invalid()
+        if (section.links !== undefined) {
+          if (section.kind !== 'Table') invalid()
+          links(section.links)
+        }
         number(section.pageSize)
         if (
           !Number.isInteger(section.pageSize) ||
@@ -128,15 +144,7 @@ function checkDocument(value: unknown): TraceDocument {
           invalid()
       })
     }
-    array(detail.links, (entry) => {
-      const link = fields(entry, ['id', 'label', 'kind', 'openMode'])
-      binding(link.value)
-      if (link.parameterMap !== undefined) mappings(link.parameterMap)
-      if (link.fileSource !== undefined) {
-        const source = fields(link.fileSource, ['mode'])
-        if (source.version !== undefined) binding(source.version)
-      }
-    })
+    links(detail.links)
     fields(item.style, ['color', 'iconKey'])
     fields(item.style, ['width', 'height'], number)
   })
