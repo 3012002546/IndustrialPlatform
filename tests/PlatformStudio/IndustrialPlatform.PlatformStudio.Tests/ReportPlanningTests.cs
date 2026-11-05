@@ -14,7 +14,7 @@ public sealed class ReportPlanningTests
     private static JsonObject Parse(string json) => JsonNode.Parse(json)!.AsObject();
     private static JsonObject Paper => Parse("""{"size":"A4","orientation":"Portrait","margin":{"top":15,"right":15,"bottom":15,"left":15},"headerHeightMm":15,"footerHeightMm":10}""");
     private static JsonObject Field(string id, string path) => new() { ["id"] = id, ["type"] = "Field", ["xMm"] = 0, ["yMm"] = 0, ["widthMm"] = 50, ["heightMm"] = 5, ["value"] = Parse("""{"from":"Row","path":[],"nullPolicy":"Error"}""") };
-    private static JsonObject Report(JsonArray rows)
+    internal static JsonObject Report(JsonArray rows)
     {
         var field = Field("value", "id"); field["value"]!["path"] = new JsonArray("id");
         return new() { ["schemaVersion"] = 1, ["mode"] = "Fixed", ["parameters"] = new JsonArray(), ["instances"] = new JsonArray(new JsonObject { ["instanceId"] = "root", ["sourceType"] = "Constant", ["value"] = rows, ["parameters"] = new JsonArray() }), ["paper"] = Paper, ["bands"] = new JsonArray(new JsonObject { ["id"] = "root-band", ["kind"] = "Detail", ["name"] = "Root", ["heightMm"] = 10, ["controls"] = new JsonArray(field), ["data"] = Parse("""{"mode":"RootPath","instanceId":"root","path":[]}""") }), ["styles"] = new JsonArray(), ["assets"] = new JsonArray() };

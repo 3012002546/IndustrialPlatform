@@ -270,16 +270,17 @@ public sealed class TraceRuntimeTests
         Assert.Contains(plan.Diagnostics, d => d.Path.EndsWith("allowedOriginKey", StringComparison.Ordinal));
     }
     [Theory]
-    [InlineData("PlatformNative", false)]
-    [InlineData("ExternalMes", true)]
-    public async Task Resource_links_pin_revision_reauthorize_and_support_row_context(string mode, bool sectionLink)
+    [InlineData("PlatformNative", false, "LowCodePage")]
+    [InlineData("ExternalMes", true, "LowCodePage")]
+    [InlineData("PlatformNative", true, "Report")]
+    public async Task Resource_links_pin_revision_reauthorize_and_support_row_context(string mode, bool sectionLink, string targetKind)
     {
-        await using var f = await Fixture.Create(sections: sectionLink, resourceLink: true);
+        await using var f = await Fixture.Create(sections: sectionLink, resourceLink: true, targetKind: targetKind);
         f.Context.Profile.DeploymentMode = mode;
         var catalog = await f.Runtime.LinkResourcesAsync(f.P, Ct);
         Assert.Single(catalog["items"]!.AsArray());
         Assert.Equal("关联页面", StudioJson.Text(catalog["items"]![0]!["name"]));
-        var result = await f.Query("A", "Downstream");
+        var result = await f.Query("A", "Downstream", new JsonObject { ["filter"] = new string('x', 12000) });
         var input = NodeInput(f.Revision, result["nodes"]![0]!);
         if (sectionLink)
         {
@@ -291,6 +292,7 @@ public sealed class TraceRuntimeTests
         var link = await f.Runtime.NodeLinkAsync(f.P, "trace", input, Ct);
         Assert.Equal("Resource", link.Kind);
         Assert.Equal(link.ModalUrl, link.NewTabUrl);
+        Assert.True(link.ModalUrl.Length < 2048, $"Long trace parameters produced a {link.ModalUrl.Length}-character URL.");
         var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri("https://localhost" + link.ModalUrl).Query);
         var ticket = query["ticket"].ToString();
         var content = await f.Runtime.ResourceContentAsync(f.P, "trace", f.Revision, ticket, Ct);
@@ -299,7 +301,7 @@ public sealed class TraceRuntimeTests
         Assert.Equal(403, (await Assert.ThrowsAsync<StudioException>(() => f.Runtime.ResourceContentAsync(f.P, "trace", f.Revision, ticket + "x", Ct))).StatusCode);
         f.Context.Profile.InstalledModules = ["Traceability"];
         Assert.Equal("STUDIO_MODULE_UNAVAILABLE", (await Assert.ThrowsAsync<StudioException>(() => f.Runtime.ResourceContentAsync(f.P, "trace", f.Revision, ticket, Ct))).Code);
-        f.Context.Profile.InstalledModules = ["LowCode", "Traceability"];
+        f.Context.Profile.InstalledModules = ["LowCode", "Report", "Traceability"];
         var target = (await f.Context.Store.FindResourceAsync(f.P.TenantNId, "target-page", Ct))!;
         await f.Context.Store.ReplaceGrantsAsync(f.P.TenantNId, target.Id, [], Ct);
         Assert.Empty((await f.Runtime.LinkResourcesAsync(f.P, Ct))["items"]!.AsArray());
@@ -424,9 +426,9 @@ public sealed class TraceRuntimeTests
     {
         public required StudioTestContext Context { get; init; } public required TraceRuntime Runtime { get; init; } public required StudioPrincipal P { get; init; }
         public required string Revision { get; init; } public required JsonObject Document { get; init; } public required TestIdentity Identity { get; init; } public required TraceExecutor Executor { get; init; }
-        public static async Task<Fixture> Create(int maxNodes = 1000, int maxDepth = 12, int maxEdges = 3000, bool sections = false, bool rowLinks = false, bool resourceLink = false)
+        public static async Task<Fixture> Create(int maxNodes = 1000, int maxDepth = 12, int maxEdges = 3000, bool sections = false, bool rowLinks = false, bool resourceLink = false, string targetKind = "LowCodePage")
         {
-            var c = await StudioTestContext.CreateAsync(); c.Profile.InstalledModules = ["LowCode", "Traceability"];
+            var c = await StudioTestContext.CreateAsync(); c.Profile.InstalledModules = targetKind == "Report" ? ["LowCode", "Traceability", "Report"] : ["LowCode", "Traceability"];
             var p = Principal(TimeProvider.System); var executor = new TraceExecutor(); var endpoint = new StudioSourceEndpoint { ReadOnlyVerified = true };
             c.Profile.SourceRegistry["trace-source"] = endpoint;
             var source = new StudioSource { TenantNId = p.TenantNId, NId = "trace-source", Name = "fixture", Provider = "RegisteredApi", EndpointKey = "trace-source", EndpointConfigurationHash = executor.ConfigurationHash(endpoint), IsEnabled = true, ConfigurationVersion = 1 };
@@ -481,14 +483,17 @@ public sealed class TraceRuntimeTests
             }
             if (resourceLink)
             {
-                var targetDoc = StudioCustomPageTests.Page();
+                model["parameters"] = new JsonArray(new JsonObject { ["name"] = "filter", ["type"] = "String", ["source"] = "Caller" });
+                var targetDoc = targetKind == "Report"
+                    ? ReportPlanningTests.Report(new JsonArray(new JsonObject { ["id"] = "record" }))
+                    : StudioCustomPageTests.Page();
                 targetDoc["parameters"] = new JsonArray(new JsonObject { ["name"] = "recordKey", ["type"] = "String", ["required"] = true, ["source"] = "Caller" });
-                var target = await c.Publishing.CreateAsync(p, new("target-page", "LowCodePage", "关联页面", null, null, targetDoc), "target-create", Ct);
+                var target = await c.Publishing.CreateAsync(p, new("target-page", targetKind, "关联页面", null, null, targetDoc), "target-create", Ct);
                 var targetPlan = await c.Publishing.ValidateAsync(p, target.NId, targetDoc, Ct);
                 Assert.True(targetPlan.Valid, string.Join(";", targetPlan.Diagnostics.Select(d => d.Message)));
                 var targetRevision = await c.Publishing.PublishAsync(p, target.NId, new(target.OptimisticVersion, target.ConcurrencyVersion, "target", true, targetPlan.DependencyPlanHash), "target-publish", Ct);
                 var link = new JsonObject { ["id"] = "resource", ["label"] = "平台报告", ["kind"] = "Resource", ["openMode"] = "Modal",
-                    ["target"] = new JsonObject { ["kind"] = "LowCodePage", ["resourceNId"] = target.NId, ["revisionNId"] = targetRevision.NId },
+                    ["target"] = new JsonObject { ["kind"] = targetKind, ["resourceNId"] = target.NId, ["revisionNId"] = targetRevision.NId },
                     ["parameterMap"] = new JsonArray(new JsonObject { ["target"] = "recordKey", ["source"] = new JsonObject { ["from"] = "Row", ["path"] = new JsonArray(sections ? "checkId" : "code"), ["nullPolicy"] = "Error" } }) };
                 var detail = model["objects"]![0]!["detail"]!;
                 if (sections) detail["sections"]![0]!["links"] = new JsonArray(link);
@@ -500,9 +505,9 @@ public sealed class TraceRuntimeTests
             var identity = new TestIdentity(p); var datasets = new DatasetExecution(c.Store, c.Publishing, c.Authorization, executor, new(), TimeProvider.System);
             return new() { Context = c, P = p, Revision = trace.NId, Document = model, Identity = identity, Executor = executor, Runtime = new(c.Store, c.Publishing, datasets, c.Authorization, identity, new(TimeProvider.System), new NoLinks(), c.Profile) };
         }
-        public async Task<JsonObject> Query(string key, string direction)
+        public async Task<JsonObject> Query(string key, string direction, JsonObject? parameters = null)
         {
-            var starts = await Runtime.StartsAsync(P, "trace", new() { ["revisionNId"] = Revision }, Ct);
+            var starts = await Runtime.StartsAsync(P, "trace", new() { ["revisionNId"] = Revision, ["parameters"] = parameters }, Ct);
             var row = starts["items"]!.AsArray().First(x => StudioJson.Text(x!["identity"]!["businessKey"]) == key);
             return await Runtime.QueryAsync(P, "trace", new() { ["revisionNId"] = Revision, ["startKeys"] = new JsonArray(row!["startKey"]!.DeepClone()), ["direction"] = direction }, Ct);
         }

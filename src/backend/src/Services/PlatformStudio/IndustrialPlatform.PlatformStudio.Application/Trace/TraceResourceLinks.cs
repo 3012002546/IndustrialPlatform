@@ -56,13 +56,8 @@ public sealed partial class TraceRuntime
         _ = await ResourceTargetAsync(p, resolved, ct);
         var revision = StudioJson.RequiredString(input, "revisionNId");
         await Recheck(p, resource, revision, false, ct);
-        var context = new JsonObject();
-        foreach (var key in new[] { "revisionNId", "nodeKey", "nodeToken", "linkId", "sectionId", "rowToken" })
-            if (input[key] is { } value) context[key] = value.DeepClone();
-        context["bindingHash"] = ResourceBindingHash(resolved);
-        var ticket = credentials.Issue(p, resource, revision, "ResourceLink", context);
-        var expires = DateTimeOffset.UtcNow.AddMinutes(5);
-        if (expires > p.ExpiresOn) expires = p.ExpiresOn;
+        input["bindingHash"] = ResourceBindingHash(resolved);
+        var (ticket, expires) = credentials.IssueResourceLink(p, resource, revision, input);
         var url = (deployment?.PathBase ?? "") + "/screen/trace-resource?nId=" + Uri.EscapeDataString(resource)
             + "&revisionNId=" + Uri.EscapeDataString(revision) + "&ticket=" + Uri.EscapeDataString(ticket)
             + "&expiresOn=" + Uri.EscapeDataString(expires.ToString("O"));
@@ -73,7 +68,7 @@ public sealed partial class TraceRuntime
     public async Task<JsonObject> ResourceContentAsync(StudioPrincipal p, string resource, string revision, string ticket, CancellationToken ct)
     {
         p = await identity.RefreshAsync(p, ct);
-        var context = credentials.Read(p, resource, revision, "ResourceLink", ticket);
+        var context = credentials.ReadResourceLink(p, resource, revision, ticket);
         var resolved = await ResolveNodeLinkInputAsync(p, resource, context, ct);
         if (StudioJson.Text(context["bindingHash"]) != ResourceBindingHash(resolved)) throw new StudioException("STUDIO_TRACE_LINK_CHANGED", "记录的链接参数已变化，请返回追溯重新打开。", 409);
         var target = await ResourceTargetAsync(p, resolved, ct);

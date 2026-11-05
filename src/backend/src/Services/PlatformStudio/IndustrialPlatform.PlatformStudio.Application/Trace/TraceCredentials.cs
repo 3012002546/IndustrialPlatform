@@ -11,6 +11,23 @@ public sealed class TraceCredentials(TimeProvider clock)
     private readonly byte[] _key = RandomNumberGenerator.GetBytes(32);
     private readonly Dictionary<string, (DateTimeOffset Expires, TraceQueryState State)> _queries = new();
     private readonly object _gate = new();
+    private readonly TraceLinkTickets _resourceLinks = new(clock);
+
+    internal (string Ticket, DateTimeOffset Expires) IssueResourceLink(StudioPrincipal principal, string resource, string revision, JsonObject context)
+    {
+        var expires = clock.GetUtcNow().AddMinutes(5);
+        if (principal.ExpiresOn < expires) expires = principal.ExpiresOn;
+        var id = _resourceLinks.Add(context.ToJsonString(), expires);
+        var ticket = Issue(principal, resource, revision, "ResourceLink", new() { ["id"] = id });
+        return (ticket, expires);
+    }
+
+    internal JsonObject ReadResourceLink(StudioPrincipal principal, string resource, string revision, string ticket)
+    {
+        var claim = Read(principal, resource, revision, "ResourceLink", ticket);
+        return JsonNode.Parse(_resourceLinks.Read(StudioJson.RequiredString(claim, "id")))!.AsObject();
+    }
+
     public static string Fingerprint(StudioPrincipal p) => StudioJson.Hash(StudioJson.Canonicalize(new JsonObject
     {
         ["tenant"] = p.TenantNId, ["subject"] = p.SubjectNId, ["issuer"] = p.IssuerKey, ["auth"] = p.AuthVersion, ["policy"] = p.PolicyVersion,

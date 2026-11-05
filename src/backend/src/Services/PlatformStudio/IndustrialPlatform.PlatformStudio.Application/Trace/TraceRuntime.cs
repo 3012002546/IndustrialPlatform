@@ -415,9 +415,13 @@ public sealed partial class TraceRuntime(IStudioResourceStore store, StudioPubli
     public async Task<TraceNodeLinkResult> NodeLinkAsync(StudioPrincipal p, string resource, JsonObject input, CancellationToken ct)
     {
         p = await identity.RefreshAsync(p, ct);
-        var resolved = await ResolveNodeLinkInputAsync(p, resource, input, ct);
-        if (StudioJson.Text(resolved.Link["kind"]) == "Resource") return await ResourceLinkAsync(p, resource, input, resolved, ct);
-        return await links.ResolveAsync(p, resource, resolved.Link, resolved.Value, resolved.Parameters, resolved.Version, input, ct);
+        // Only the signed record selectors participate in reauthorization and attachment retry identity.
+        var context = new JsonObject();
+        foreach (var key in new[] { "revisionNId", "nodeKey", "nodeToken", "linkId", "sectionId", "rowToken" })
+            if (input.ContainsKey(key)) context[key] = input[key]?.DeepClone();
+        var resolved = await ResolveNodeLinkInputAsync(p, resource, context, ct);
+        if (StudioJson.Text(resolved.Link["kind"]) == "Resource") return await ResourceLinkAsync(p, resource, context, resolved, ct);
+        return await links.ResolveAsync(p, resource, resolved.Link, resolved.Value, resolved.Parameters, resolved.Version, context, ct);
     }
     private (JsonObject Node, JsonObject Parameters) ReadNode(StudioPrincipal p, string resource, string revision, JsonObject input)
     {

@@ -19,18 +19,43 @@ let sourceGeneration = 0
 async function loadSources() {
   const current = ++sourceGeneration
   sourceError.value = ''
-  try {
-    const [value, resources] = await Promise.all([
-      getTraceApi().linkSources(),
-      getTraceApi().linkResources(),
-    ])
-    if (current === sourceGeneration) {
-      sources.value = value
-      targets.value = resources.items
+  sources.value = undefined
+  targets.value = []
+  async function load<T>(request: () => Promise<T>, accept: (result: T) => void) {
+    try {
+      const result = await request()
+      if (current === sourceGeneration) accept(result)
+    } catch (e) {
+      if (current !== sourceGeneration) return
+      const message = e instanceof Error ? e.message : String(e)
+      sourceError.value = [sourceError.value, message].filter(Boolean).join(' · ')
     }
-  } catch (e) {
-    if (current === sourceGeneration) sourceError.value = e instanceof Error ? e.message : String(e)
   }
+  await Promise.all([
+    load(
+      () => getTraceApi().linkSources(),
+      (value) => {
+        sources.value = value
+      },
+    ),
+    load(
+      () => getTraceApi().linkResources(),
+      (value) => {
+        targets.value = value.items
+      },
+    ),
+  ])
+}
+function pinnedLabel(target: NonNullable<TraceLink['target']>) {
+  const available = targets.value.find((entry) => entry.resourceNId === target.resourceNId)
+  const revision = target.revisionNId.replace(/^revision-/, '').slice(0, 12)
+  return (
+    (available?.name ?? tr('已配置资源', 'Configured resource')) +
+    ' · ' +
+    tr('固定修订', 'Pinned revision') +
+    ' ' +
+    revision
+  )
 }
 onMounted(loadSources)
 onBeforeUnmount(() => {
@@ -83,7 +108,7 @@ function addLink() {
             }
           }
         "
-        ><el-option value="File" :label="t('links')" /><el-option
+        ><el-option value="File" :label="tr('附件', 'File')" /><el-option
           value="External"
           :label="t('external')" /><el-option
           value="Resource"
@@ -114,6 +139,15 @@ function addLink() {
           "
         >
           <el-option
+            v-if="
+              link.target &&
+              !targets.some((target) => target.revisionNId === link.target?.revisionNId)
+            "
+            :value="link.target.revisionNId"
+            :label="pinnedLabel(link.target)"
+            disabled
+          />
+          <el-option
             v-for="target in targets"
             :key="target.revisionNId"
             :value="target.revisionNId"
@@ -129,7 +163,11 @@ function addLink() {
         <small>{{
           targets
             .find((target) => target.revisionNId === link.target?.revisionNId)
-            ?.parameters.map((p) => p.label || p.name)
+            ?.parameters.filter((p) => p.source !== 'TrustedContext')
+            .map(
+              (p) =>
+                `${p.name}${p.required ? ' *' : ''}${p.label && p.label !== p.name ? ' (' + p.label + ')' : ''}`,
+            )
             .join(', ')
         }}</small>
         <TraceMappings
