@@ -118,7 +118,26 @@ public sealed class SqlControlPlaneStore : IControlPlaneStore, IControlPlaneTena
             await InsertIfAnyAsync(snapshot.DraftNodes.Select(x => ToNavigationTable(x, now)).ToArray(), cancellationToken);
             if (snapshot.DraftNodes.Count > 0 || snapshot.ActiveSnapshotRevision is not null || snapshot.PreviousSnapshotRevision is not null)
                 await sugar.Insertable(ToNavigationSetTable(snapshot, now)).ExecuteCommandAsync(cancellationToken);
-            await InsertIfAnyAsync(snapshot.Snapshots.Select(x => ToSnapshotTable(x, snapshot.TenantNId, now)).ToArray(), cancellationToken);
+            // Published history is immutable. Re-serializing it during an unrelated permission
+            // reconciliation can discard fields unknown to that writer and invalidate checksums.
+            var persistedSnapshots = await sugar.Queryable<SystemDataNavigationSnapshotTable>()
+                .Where(x => x.TenantNId == snapshot.TenantNId)
+                .ToListAsync(cancellationToken);
+            foreach (var published in snapshot.Snapshots)
+            {
+                var existing = persistedSnapshots.SingleOrDefault(x => x.SnapshotRevision == published.Revision);
+                if (existing is not null)
+                {
+                    if (published.Checksum is not null && !string.Equals(existing.Checksum, published.Checksum, StringComparison.Ordinal))
+                        throw new InvalidOperationException("Published navigation history cannot be replaced; append a new revision.");
+                    continue;
+                }
+
+                var checksum = NavigationSnapshotChecksum.Compute(published.Nodes);
+                if (published.Checksum is not null && !string.Equals(published.Checksum, checksum, StringComparison.Ordinal))
+                    throw new InvalidOperationException("New navigation snapshot checksum does not match its nodes.");
+                await sugar.Insertable(ToSnapshotTable(published, snapshot.TenantNId, now)).ExecuteCommandAsync(cancellationToken);
+            }
             await InsertIfAnyAsync(snapshot.Features.Select(x => ToFeatureTable(x, snapshot.TenantNId, now)).ToArray(), cancellationToken);
             await InsertIfAnyAsync(snapshot.Overrides.Select(x => ToOverrideTable(x, snapshot.TenantNId, now)).ToArray(), cancellationToken);
             await InsertIfAnyAsync(snapshot.Catalog.Select(x => ToCatalogTable(x, now)).ToArray(), cancellationToken);
@@ -151,7 +170,6 @@ public sealed class SqlControlPlaneStore : IControlPlaneStore, IControlPlaneTena
         await sugar.Deleteable<SystemDataUiResourceTable>().Where(x => x.TenantNId == tenantNId).ExecuteCommandAsync(cancellationToken);
         await sugar.Deleteable<SystemDataNavigationTable>().Where(x => x.TenantNId == tenantNId).ExecuteCommandAsync(cancellationToken);
         await sugar.Deleteable<SystemDataNavigationSetTable>().Where(x => x.TenantNId == tenantNId).ExecuteCommandAsync(cancellationToken);
-        await sugar.Deleteable<SystemDataNavigationSnapshotTable>().Where(x => x.TenantNId == tenantNId).ExecuteCommandAsync(cancellationToken);
         await sugar.Deleteable<SystemDataFeatureOverrideTable>().Where(x => x.TenantNId == tenantNId).ExecuteCommandAsync(cancellationToken);
         await sugar.Deleteable<SystemDataFeatureTable>().Where(x => x.TenantNId == tenantNId).ExecuteCommandAsync(cancellationToken);
         await sugar.Deleteable<SystemDataServiceCatalogTable>().Where(x => x.TenantNId == tenantNId).ExecuteCommandAsync(cancellationToken);

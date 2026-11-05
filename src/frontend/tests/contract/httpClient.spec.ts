@@ -1,7 +1,9 @@
 import { delay, http, HttpResponse } from 'msw'
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import axios from 'axios'
 
 import { ApiError } from '@/api/errors'
+import { createTraceApi } from '@/api/studioTrace'
 import {
   createHttpClient,
   type HttpClient,
@@ -40,6 +42,48 @@ afterEach(() => server.resetHandlers())
 afterAll(() => server.close())
 
 describe('HttpClient — 成功信封', () => {
+  it('passes a longer trace budget to transport without changing other requests or cancellation', async () => {
+    const budgets: number[] = []
+    const transport = axios.create({ timeout: 30 })
+    transport.defaults.adapter = async (config) => {
+      budgets.push(config.timeout!)
+      return {
+        config,
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        data: { success: true, code: '200', message: 'success', data: { status: 'Complete' } },
+      }
+    }
+    const create = vi.spyOn(axios, 'create').mockReturnValueOnce(transport)
+    const sharedClient = client({ timeoutMs: 30 })
+    create.mockRestore()
+    const trace = createTraceApi(sharedClient)
+    expect(
+      await trace.query('model', { revisionNId: 'r1', startKeys: ['key'], direction: 'Both' }),
+    ).toEqual({ status: 'Complete' })
+    expect(
+      await trace.expand('model', {
+        revisionNId: 'r1',
+        nodeKey: 'node',
+        nodeToken: 'token',
+        direction: 'Both',
+      }),
+    ).toEqual({ status: 'Complete' })
+    await trace.starts('model', { revisionNId: 'r1', parameters: {}, page: 1, pageSize: 20 })
+    expect(budgets).toEqual([60000, 60000, 30])
+    const controller = new AbortController()
+    controller.abort()
+    const cancelled = failureKind(
+      trace.query(
+        'model',
+        { revisionNId: 'r1', startKeys: ['key'], direction: 'Both' },
+        controller.signal,
+      ),
+    )
+    expect(await cancelled).toBe('cancelled')
+  })
+
   it('unwraps data from a success envelope', async () => {
     server.use(http.get(`${BASE}/api/users`, () => okResult([{ id: 1, name: 'alice' }])))
     const data = await client().get<{ id: number; name: string }[]>('/api/users')

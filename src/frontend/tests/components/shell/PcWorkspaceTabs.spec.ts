@@ -45,6 +45,47 @@ describe('PcWorkspaceTabs', () => {
     return mount(PcWorkspaceTabs, { global: { plugins: [pinia] } })
   }
 
+  it('distinguishes titles and icons for two pages sharing the low-code runtime route', () => {
+    const tabsStore = useWorkspaceTabsStore()
+    tabsStore.bindUser({ tenantId: 't1', userId: 'u1' })
+    replacePcNavigationGroups([
+      {
+        id: 'business',
+        label: '业务',
+        icon: Connection,
+        items: [
+          {
+            id: 'entry-a',
+            label: '批次交接',
+            routeName: 'studio-lowcode-run',
+            routeParams: { nId: 'page-a' },
+            icon: Monitor,
+          },
+          {
+            id: 'entry-b',
+            label: '质量登记',
+            routeName: 'studio-lowcode-run',
+            routeParams: { nId: 'page-b' },
+            icon: VideoPlay,
+          },
+        ],
+      },
+    ])
+    for (const nId of ['page-a', 'page-b'])
+      tabsStore.requestOpen({
+        id: nId,
+        title: '运行页面',
+        kind: 'business',
+        route: { name: 'studio-lowcode-run', params: { nId }, query: {} },
+      })
+    const wrapper = mount(PcWorkspaceTabs, { global: { plugins: [pinia] } })
+    expect(wrapper.text()).toContain('批次交接')
+    expect(wrapper.text()).toContain('质量登记')
+    expect(wrapper.findAllComponents(Monitor)).toHaveLength(1)
+    expect(wrapper.findAllComponents(VideoPlay)).toHaveLength(1)
+    wrapper.unmount()
+  })
+
   it('uses sidebar icons for existing tabs and follows published nested-menu icon changes', async () => {
     const tabsStore = useWorkspaceTabsStore()
     tabsStore.bindUser({ tenantId: 't1', userId: 'u1' })

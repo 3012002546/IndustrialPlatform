@@ -55,7 +55,9 @@ public static class DependencyInjection
         services.AddSingleton<IAdministrativeOrganizationService, AdministrativeOrganizationService>();
         services.AddSingleton<IPositionService, PositionService>();
         services.AddSingleton<IUserAssignmentService, UserAssignmentService>();
-        services.AddSingleton<IResourceNavigationService, ResourceNavigationService>();
+        services.AddSingleton<ResourceNavigationService>();
+        services.AddSingleton<IResourceNavigationService>(sp => sp.GetRequiredService<ResourceNavigationService>());
+        services.AddSingleton<IOwnedNavigationService>(sp => sp.GetRequiredService<ResourceNavigationService>());
         services.AddSingleton<IFeatureControlService, FeatureControlService>();
         services.AddSingleton<IServiceCatalogControlService, ServiceCatalogControlService>();
         services.AddSingleton<IThemePolicyControlService, ThemePolicyControlService>();

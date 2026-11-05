@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
+import { returnFromWorkspace } from '@/workspace/returnFromWorkspace'
 import { ElMessageBox } from 'element-plus'
 import AppPage from '@/components/base/AppPage.vue'
 import AppFormDrawer from '@/components/management/AppFormDrawer.vue'
@@ -248,7 +249,9 @@ onBeforeUnmount(() => {
 <template>
   <AppPage :title="resource?.name ?? dashboardT('playlistDesign')" class="studio-page"
     ><template #actions
-      ><el-button @click="router.push('/pc/studio/playlists')">{{ dashboardT('back') }}</el-button
+      ><el-button @click="returnFromWorkspace(router, '/pc/studio/playlists')">{{
+        dashboardT('back')
+      }}</el-button
       ><el-button :disabled="busy" @click="save">{{ dashboardT('save') }}</el-button
       ><el-button type="primary" :disabled="busy" @click="publish">{{
         dashboardT('publish')

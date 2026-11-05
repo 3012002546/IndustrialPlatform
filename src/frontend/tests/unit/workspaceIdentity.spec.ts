@@ -32,6 +32,16 @@ describe('workspace identity — serializeLocationParts', () => {
 })
 
 describe('workspace identity — buildTabId', () => {
+  it('显式页内查询不改变标签身份，默认路由仍按全部查询参数区分', () => {
+    expect(buildTabId('trace', {}, { model: 'a' }, [])).toBe('trace')
+    expect(buildTabId('trace', {}, { model: 'b', revisionNId: 'v2' }, [])).toBe('trace')
+    expect(buildTabId('report', { nId: 'a' }, { version: '1' })).not.toBe(
+      buildTabId('report', { nId: 'a' }, { version: '2' }),
+    )
+    expect(buildTabId('trace', { nId: 'a' }, {}, [])).not.toBe(
+      buildTabId('trace', { nId: 'b' }, {}, []),
+    )
+  })
   it('无参数时退化为路由名', () => {
     expect(buildTabId('identity-users')).toBe('identity-users')
     expect(buildTabId('identity-users', {}, {})).toBe('identity-users')

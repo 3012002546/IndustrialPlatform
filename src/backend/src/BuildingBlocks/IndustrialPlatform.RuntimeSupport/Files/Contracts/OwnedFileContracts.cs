@@ -11,6 +11,12 @@ public sealed record OwnedFileReadTicketV1(string AuthorizationTicket, DateTimeO
 public sealed record OwnedFileReleaseV1(string ReferenceNId, string ExpectedVersion, string Reason);
 public sealed record OwnedFileRetentionV1(string ReferenceNId, string ExpectedVersion, DateTimeOffset? RetentionUntil, bool LegalHold, string? HoldReason);
 public sealed record OwnedFileListV1(IReadOnlyList<OwnedFileStatusV1> Items, string? NextCursor);
+public sealed record OwnedFilePreviewCleanupResult(int Released, int Retained);
+/// <summary>Maintenance only; expired previews are released through the same CAS/scan/hold checks.</summary>
+public interface IOwnedFilePreviewCleanup
+{
+    Task<OwnedFilePreviewCleanupResult> CleanupExpiredPreviewsAsync(CancellationToken cancellationToken);
+}
 public interface IOwnedFileService
 {
     Task<OwnedFilePreparedV1> PrepareAsync(TrustedServiceContext context, OwnedFilePrepareV1 request, CancellationToken cancellationToken);

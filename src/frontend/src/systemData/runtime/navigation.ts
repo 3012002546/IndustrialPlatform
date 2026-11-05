@@ -29,6 +29,16 @@ import type { PcDensity, ThemeMode, ThemePalette, UiPreferencesV1 } from '@/them
 import { isRegisteredRouteName, ROUTE_NAMES } from '@/router/routeNames'
 import { getDefaultPcNavigationGroups } from '@/components/navigation/navigation'
 import { studioNavigationIcons } from '@/components/studio/shared/navigation'
+import { studioRoutes } from '@/router/studioRoutes'
+
+// Studio resource routes require explicit targets. A damaged/older published
+// link must not reach RouterLink and abort the entire shell's render.
+const studioRequiredParams = new Map(
+  studioRoutes.map((route) => [
+    String(route.name),
+    Array.from(route.path.matchAll(/:([A-Za-z]\w*)/g), (match) => match[1]!),
+  ]),
+)
 
 const ICONS = new Map<string, Component>([
   ...studioNavigationIcons.map((item): [string, Component] => [item.key, item.icon]),
@@ -140,6 +150,8 @@ function builtinNavigationText(): Map<string, { labelKey: string; fallbackLabel:
   add('route:studio-reports', 'studio.reports', '单报表')
   add('route:studio-report-bundles', 'studio.reportBundles', '组合报表')
   add('route:studio-workbooks', 'studio.workbooks', '在线 Excel')
+  add(`route:${ROUTE_NAMES.studioTraceModels}`, 'studio.traceModels', '追溯模型')
+  add(`route:${ROUTE_NAMES.studioTraceRun}`, 'studio.traceRun', '追溯执行')
   return result
 }
 
@@ -162,6 +174,10 @@ function runtimeText(node: NavigationRuntimeNodeDto): {
 
 function iconFor(node: NavigationRuntimeNodeDto): Component {
   const key = node.iconKey?.trim().replace(/[-_]/g, '').toLowerCase()
+  // Existing trace execution seeds used the model's share icon. Update that default
+  // presentation without rewriting published menus; explicit custom icons stay intact.
+  if (node.routeName === ROUTE_NAMES.studioTraceRun && key === 'share')
+    return BUILTIN_ROUTE_ICONS.get(ROUTE_NAMES.studioTraceRun) ?? Menu
   // 兼容已发布菜单的旧setting占位；其它自定义图标仍按配置显示。
   if (node.kind.toLowerCase() === 'group' && (!key || key === 'setting')) {
     const builtIn = BUILTIN_GROUP_ICONS.get(node.nodeNId)
@@ -184,11 +200,14 @@ function mapItem(node: NavigationRuntimeNodeDto, sectionId?: string): Navigation
   if (node.kind.toLowerCase() === 'group') return null
   if (node.routeName === null || node.routeName.trim() === '') return null
   if (!isRegisteredRouteName(node.routeName)) return null
+  if (studioRequiredParams.get(node.routeName)?.some((key) => !node.routeParams?.[key]?.trim()))
+    return null
   const text = runtimeText(node)
   return {
     id: node.nodeNId,
     ...text,
     routeName: node.routeName,
+    ...(node.routeParams ? { routeParams: node.routeParams } : {}),
     icon: iconFor(node),
     ...(node.requiredPermissionNId === null ? {} : { permission: node.requiredPermissionNId }),
     ...(node.featureNId === null ? {} : { featureNId: node.featureNId }),

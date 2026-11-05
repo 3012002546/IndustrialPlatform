@@ -1,5 +1,6 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { isReactive } from 'vue'
 
 import { registerSystemDataRuntimeApi } from '@/api/systemData/runtimeRegistry'
 import type { SystemDataRuntimeApi } from '@/api/systemData/runtimeApi'
@@ -76,6 +77,8 @@ describe('SystemData runtime store', () => {
 
     expect(store.navigationGroups).toHaveLength(1)
     expect(store.navigationGroups[0]?.items[0]?.routeName).toBe('systemdata-services')
+    expect(isReactive(store.navigationGroups[0]?.icon)).toBe(false)
+    expect(isReactive(store.navigationGroups[0]?.items[0]?.icon)).toBe(false)
     expect(store.degraded).toBe(false)
   })
 

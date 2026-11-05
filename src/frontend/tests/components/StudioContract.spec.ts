@@ -91,6 +91,148 @@ beforeEach(() => {
 })
 afterEach(() => vi.unstubAllGlobals())
 describe('Studio real endpoint and document contracts', () => {
+  it('blocks edits and every submit path until the record loads, then writes the loaded record', async () => {
+    let resolve!: (value: unknown) => void
+    const pending = new Promise((done) => {
+      resolve = done
+    })
+    const http = httpClient(() => pending)
+    registerStudioApi(createStudioApi(http))
+    const runtime = page({ mode: 'Crud', fields: [], actions: [] })
+    runtime.ledgerModel = {
+      nId: 'model',
+      revisionNId: 'model-rev',
+      document: {
+        fields: [{ id: 'code', name: 'code', label: '批次号', type: 'String', required: true }],
+      },
+    }
+    const wrapper = mount(StudioRuntimeView, {
+      props: { runtime, recordMode: 'edit', recordNId: 'record-a' },
+      global: await environment(),
+    })
+    const save = () => wrapper.findAll('button').find((button) => button.text() === '保存')!
+    expect(save().attributes('disabled')).toBeDefined()
+    expect(wrapper.get('input[aria-label="批次号"]').attributes('disabled')).toBeDefined()
+    await wrapper.get('form').trigger('submit')
+    ;(wrapper.vm as unknown as { save: () => void }).save()
+    await flushPromises()
+    expect(http.put).not.toHaveBeenCalled()
+    expect(http.post).not.toHaveBeenCalled()
+    resolve({
+      nId: 'record-a',
+      values: { code: 'CMP-001' },
+      optimisticVersion: '7',
+      concurrencyVersion: 'token-a',
+    })
+    await flushPromises()
+    expect(save().attributes('disabled')).toBeUndefined()
+    expect((wrapper.get('input[aria-label="批次号"]').element as HTMLInputElement).value).toBe(
+      'CMP-001',
+    )
+    await wrapper.get('input[aria-label="批次号"]').setValue('CMP-002')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(http.put).toHaveBeenCalledWith(
+      '/api/v1/studio/ledger/model/records/record-a?pageNId=page&pageRevisionNId=page-rev',
+      {
+        optimisticVersion: '7',
+        concurrencyVersion: 'token-a',
+        revisionNId: 'model-rev',
+        values: { code: 'CMP-002' },
+      },
+      expect.anything(),
+    )
+    wrapper.unmount()
+  })
+
+  it('ignores stale record results and keeps a failed record load read-only', async () => {
+    const requests = new Map<
+      string,
+      { resolve: (value: unknown) => void; reject: (error: Error) => void }
+    >()
+    const http = httpClient(
+      (path) =>
+        new Promise((resolve, reject) =>
+          requests.set(path.includes('record-a') ? 'a' : 'b', { resolve, reject }),
+        ),
+    )
+    registerStudioApi(createStudioApi(http))
+    const runtime = page({
+      mode: 'Crud',
+      fields: [],
+      actions: [{ id: 'save', event: 'Submit', label: '登记', actionKey: 'registered.save' }],
+    })
+    runtime.ledgerModel = {
+      nId: 'model',
+      revisionNId: 'model-rev',
+      document: { fields: [{ id: 'code', name: 'code', label: '批次号', type: 'String' }] },
+    }
+    const wrapper = mount(StudioRuntimeView, {
+      props: { runtime, recordMode: 'edit', recordNId: 'record-a' },
+      global: await environment(),
+    })
+    await wrapper.setProps({ recordNId: 'record-b' })
+    requests.get('a')!.resolve({ nId: 'record-a', values: { code: 'STALE' } })
+    await flushPromises()
+    expect((wrapper.get('input[aria-label="批次号"]').element as HTMLInputElement).value).toBe('')
+    requests.get('b')!.reject(new Error('记录加载失败'))
+    await flushPromises()
+    expect(wrapper.text()).toContain('记录加载失败')
+    expect(wrapper.get('input[aria-label="批次号"]').attributes('disabled')).toBeDefined()
+    await wrapper.get('form').trigger('submit')
+    expect(http.post).not.toHaveBeenCalled()
+    expect(http.put).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('renders custom HTML with optional action success omitted and hides native menu tools in an independent deployment', async () => {
+    const document = initialDocument('LowCodePage')
+    document.mode = 'Html'
+    document.customHtml = { html: '<h1>Example</h1>', css: '', js: '', formFields: [] }
+    document.actions = [
+      {
+        id: 'save',
+        label: 'Save',
+        event: 'Submit',
+        actionKey: 'example',
+        executorVersion: '1',
+        inputMap: [],
+      },
+    ]
+    const http = httpClient((path) =>
+      path.endsWith('/draft')
+        ? { ...resource, draftDocument: document, diagnostics: [] }
+        : path.endsWith('/publication-capabilities')
+          ? {
+              deploymentMode: 'ExternalMes',
+              canMountMenu: false,
+              canOpenScreen: true,
+              reasonCode: 'STUDIO_MENU_UNSUPPORTED',
+            }
+          : path.endsWith('/deployment/profile')
+            ? {
+                deploymentMode: 'ExternalMes',
+                installedModules: ['LowCode'],
+                enabledModules: ['LowCode'],
+                allowedFrameOrigins: [],
+              }
+            : path.endsWith('/registry/catalog')
+              ? { components: [], actions: [], codePages: [] }
+              : { items: [], totalCount: '0', page: 1, pageSize: 200 },
+    )
+    registerStudioApi(createStudioApi(http))
+    const global = await environment('/pc/studio/low-code/page/design')
+    const router = global.plugins[1] as ReturnType<typeof createRouter>
+    router.addRoute({ path: '/pc/studio/low-code/:nId/design', component: StudioDesignerPage })
+    await router.replace('/pc/studio/low-code/page/design')
+    const wrapper = mount(StudioDesignerPage, { global })
+    await flushPromises()
+    expect(wrapper.find('.studio-custom-editor textarea').exists()).toBe(true)
+    expect(wrapper.find('.studio-canvas').exists()).toBe(false)
+    expect(wrapper.text()).toContain('保存并试运行')
+    expect(wrapper.text()).not.toContain('菜单关联')
+    wrapper.unmount()
+  })
   it('opens revision summaries returned as a bare array and makes rollback available', async () => {
     const http = httpClient((path) =>
       path.endsWith('/deployment/profile')
@@ -118,6 +260,60 @@ describe('Studio real endpoint and document contracts', () => {
     expect(document.body.textContent).toContain('Actual release summary')
     expect(document.body.textContent).toContain('9007199254740993')
     expect(document.body.textContent).toContain('回退到此修订')
+    wrapper.unmount()
+  })
+  it('keeps component filtering and canvas sizing within the existing undo contract', async () => {
+    const document = initialDocument('LowCodePage')
+    document.layout.grid.canvasWidth = 1200
+    document.layout.grid.canvasHeight = 800
+    const http = httpClient((path) =>
+      path.endsWith('/draft')
+        ? { ...resource, draftDocument: document, diagnostics: [] }
+        : path.endsWith('/registry/catalog')
+          ? { components: [], actions: [], codePages: [] }
+          : { items: [], totalCount: '0', page: 1, pageSize: 200 },
+    )
+    registerStudioApi(createStudioApi(http))
+    const global = await environment('/pc/studio/low-code/page/design')
+    const router = global.plugins[1] as ReturnType<typeof createRouter>
+    router.addRoute({ path: '/pc/studio/low-code/:nId/design', component: StudioDesignerPage })
+    await router.replace('/pc/studio/low-code/page/design')
+    const wrapper = mount(StudioDesignerPage, { global })
+    await flushPromises()
+    expect(wrapper.get('.app-page__description').text()).toContain('CRUD · 台账管理')
+    const search = wrapper.get('input[aria-label="搜索组件"]')
+    await search.setValue('FormField')
+    expect(wrapper.findAll('.studio-palette button')).toHaveLength(1)
+    await wrapper.get('.studio-palette button').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('.studio-design-node input').exists()).toBe(true)
+    const undo = () => wrapper.findAll('button').find((button) => button.text() === '撤销')!
+    const remove = wrapper
+      .findAll('.lowcode-panel-heading button')
+      .find((button) => button.text() === '删除')!
+    expect(remove).toBeDefined()
+    await remove.trigger('click')
+    await flushPromises()
+    expect(wrapper.findAll('.studio-design-node')).toHaveLength(0)
+    await undo().trigger('click')
+    await flushPromises()
+    expect(wrapper.findAll('.studio-design-node')).toHaveLength(1)
+    await undo().trigger('click')
+    await flushPromises()
+    expect(wrapper.findAll('.studio-design-node')).toHaveLength(0)
+    await search.setValue('no-such-component')
+    expect(wrapper.findAll('.studio-palette button')).toHaveLength(0)
+    expect(wrapper.text()).toContain('没有匹配的组件')
+    const width = wrapper.get('.lowcode-canvas-toolbar input[aria-label="宽度"]')
+    await width.setValue('1400')
+    await width.trigger('change')
+    await flushPromises()
+    expect(wrapper.get('.studio-canvas').attributes('style')).toContain('width: 1400px')
+    await undo().trigger('click')
+    await flushPromises()
+    expect(wrapper.get('.studio-canvas').attributes('style')).toContain('width: 1200px')
+    expect(http.put).not.toHaveBeenCalled()
+    expect(http.post).not.toHaveBeenCalled()
     wrapper.unmount()
   })
   it('edits and saves instance parameters using the actual published document property', async () => {
@@ -283,7 +479,7 @@ describe('Studio real endpoint and document contracts', () => {
     await wrapper.get('form').trigger('submit')
     await flushPromises()
     expect(http.post).toHaveBeenCalledWith(
-      '/api/v1/studio/ledger/model/records',
+      '/api/v1/studio/ledger/model/records?pageNId=page&pageRevisionNId=page-rev',
       expect.objectContaining({ values: { amount: '9007199254740993.000001' } }),
       expect.anything(),
     )

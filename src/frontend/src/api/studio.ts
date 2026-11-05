@@ -10,6 +10,7 @@ export interface Version {
 export interface StudioResource extends Version {
   nId: string
   kind: string
+  pageMode?: string | null
   name: string
   description?: string
   folder?: string
@@ -84,7 +85,33 @@ export interface DashboardRuntime {
   transport?: string
   sourceFreshness?: Json
 }
+export interface StudioPublicationCapabilities {
+  deploymentMode: string
+  canMountMenu: boolean
+  canOpenScreen: boolean
+  reasonCode: string | null
+}
+export interface StudioMenuLink {
+  nodeNId: string
+  parentNodeNId: string
+  label: string
+  iconKey: string | null
+  displayOrder: number
+  path: string
+  detached: boolean
+}
+export interface StudioMenuOptions {
+  revision: string
+  links: StudioMenuLink[]
+  groups: Record<string, string>
+}
+export interface StudioPageOrigin {
+  pageNId: string
+  pageRevisionNId: string
+}
 export interface StudioCapabilities {
+  deploymentMode?: string
+  allowedFrameOrigins?: string[]
   coreReady: boolean
   modules: {
     key: string
@@ -113,6 +140,15 @@ export const versionOf = (v: Version): Version => ({
   optimisticVersion: v.optimisticVersion,
   concurrencyVersion: v.concurrencyVersion,
 })
+function originQuery(origin?: StudioPageOrigin, separator = '?') {
+  return origin
+    ? separator +
+        new URLSearchParams({
+          pageNId: origin.pageNId,
+          pageRevisionNId: origin.pageRevisionNId,
+        }).toString()
+    : ''
+}
 export function createStudioApi(client: HttpClient) {
   const get = <T>(path: string) =>
     client.get<T>(BASE + path, {
@@ -175,11 +211,16 @@ export function createStudioApi(client: HttpClient) {
     archiveWorkbook: (nId: string, input: Json) =>
       post<Json>(`/workbooks/${id(nId)}/archive`, input),
     capabilities: async (): Promise<StudioCapabilities> => {
-      const profile = await get<{ installedModules: string[]; enabledModules: string[] }>(
-        '/deployment/profile',
-      )
+      const profile = await get<{
+        deploymentMode: string
+        allowedFrameOrigins: string[]
+        installedModules: string[]
+        enabledModules: string[]
+      }>('/deployment/profile')
       return {
         coreReady: true,
+        deploymentMode: profile.deploymentMode,
+        allowedFrameOrigins: profile.allowedFrameOrigins,
         modules: [...new Set([...profile.installedModules, ...profile.enabledModules])].map(
           (key) => ({
             key,
@@ -191,6 +232,19 @@ export function createStudioApi(client: HttpClient) {
         ),
       }
     },
+    publicationCapabilities: () =>
+      get<StudioPublicationCapabilities>('/pages/publication-capabilities'),
+    pageMenus: (nId: string) => get<StudioMenuOptions>(`/pages/${id(nId)}/menus`),
+    mountPageMenu: (nId: string, input: Json) =>
+      post<StudioMenuOptions>(`/pages/${id(nId)}/menus`, input),
+    detachPageMenu: (nId: string, nodeNId: string, revision: string) =>
+      client.delete<StudioMenuOptions>(
+        `${BASE}/pages/${id(nId)}/menus/${id(nodeNId)}?expectedRevision=${id(revision)}`,
+      ),
+    customContent: (nId: string, input: Json) =>
+      post<Json>(`/pages/${id(nId)}/custom-content`, input),
+    pageAvailability: (nId: string) =>
+      get<{ available: boolean; revisionNId: string }>(`/pages/${id(nId)}/availability`),
     pageContract: (nId: string, revisionNId?: string) =>
       get<StudioRuntime>(
         `/pages/${id(nId)}/contract${revisionNId ? '?revisionNId=' + id(revisionNId) : ''}`,
@@ -322,14 +376,14 @@ export function createStudioApi(client: HttpClient) {
         key,
       ),
     operation: (key: string) => get<Json>(`/operations/${id(key)}`),
-    ledgerQuery: (modelNId: string, revisionNId: string, body: Json) =>
+    ledgerQuery: (modelNId: string, revisionNId: string, body: Json, origin?: StudioPageOrigin) =>
       post<StudioPage<LedgerRecord>>(
-        `/ledger/${id(modelNId)}/records/query?revisionNId=${id(revisionNId)}`,
+        `/ledger/${id(modelNId)}/records/query?revisionNId=${id(revisionNId)}${originQuery(origin, '&')}`,
         body,
       ),
-    ledgerGet: (modelNId: string, nId: string, revisionNId?: string) =>
+    ledgerGet: (modelNId: string, nId: string, revisionNId?: string, origin?: StudioPageOrigin) =>
       get<LedgerRecord>(
-        `/ledger/${id(modelNId)}/records/${id(nId)}${revisionNId ? '?revisionNId=' + id(revisionNId) : ''}`,
+        `/ledger/${id(modelNId)}/records/${id(nId)}${revisionNId ? '?revisionNId=' + id(revisionNId) : ''}${originQuery(origin, revisionNId ? '&' : '?')}`,
       ),
     ledgerWrite: (
       modelNId: string,
@@ -338,10 +392,11 @@ export function createStudioApi(client: HttpClient) {
       record?: LedgerRecord,
       key?: string,
       nId?: string,
+      origin?: StudioPageOrigin,
     ) =>
       record
         ? put<LedgerRecord>(
-            `/ledger/${id(modelNId)}/records/${id(record.nId)}`,
+            `/ledger/${id(modelNId)}/records/${id(record.nId)}${originQuery(origin)}`,
             {
               ...versionOf(record),
               values,
@@ -349,10 +404,19 @@ export function createStudioApi(client: HttpClient) {
             },
             key,
           )
-        : post<LedgerRecord>(`/ledger/${id(modelNId)}/records`, { values, revisionNId, nId }, key),
-    ledgerAction: (modelNId: string, record: LedgerRecord, action: string) =>
+        : post<LedgerRecord>(
+            `/ledger/${id(modelNId)}/records${originQuery(origin)}`,
+            { values, revisionNId, nId },
+            key,
+          ),
+    ledgerAction: (
+      modelNId: string,
+      record: LedgerRecord,
+      action: string,
+      origin?: StudioPageOrigin,
+    ) =>
       post<LedgerRecord>(
-        `/ledger/${id(modelNId)}/records/${id(record.nId)}/${action}`,
+        `/ledger/${id(modelNId)}/records/${id(record.nId)}/${action}${originQuery(origin)}`,
         versionOf(record),
       ),
     upgrade: (nId: string, target: Version) =>

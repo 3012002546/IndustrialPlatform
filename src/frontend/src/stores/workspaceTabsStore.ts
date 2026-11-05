@@ -11,12 +11,18 @@ import { computed, ref } from 'vue'
 
 import type { UserUiScope } from '@/theme/types'
 import {
+  buildTabId,
   createFixedWorkbench,
   MAX_BUSINESS_TABS,
   normalizeWorkspaceTabTitle,
 } from '@/workspace/identity'
 import { clearPageState } from '@/workspace/pageState'
-import { buildUserTabsKey, readTabsSnapshot, writeTabsSnapshot, type WorkspaceStorage } from '@/workspace/persistence'
+import {
+  buildUserTabsKey,
+  readTabsSnapshot,
+  writeTabsSnapshot,
+  type WorkspaceStorage,
+} from '@/workspace/persistence'
 import type {
   OpenTabResult,
   PersistedRouteLocation,
@@ -118,9 +124,29 @@ export const useWorkspaceTabsStore = defineStore('workspaceTabs', () => {
     }
     if (candidate.kind !== 'business') return { kind: 'ignored' }
 
-    const existing = tabs.value.find((t) => t.kind === 'business' && t.id === candidate.id)
+    // Only opted-in pages reconcile query-based legacy tabs; other pages retain their identities.
+    const matches = tabs.value.filter(
+      (t) =>
+        t.kind === 'business' &&
+        (candidate.identityQueryKeys === undefined
+          ? t.id === candidate.id
+          : buildTabId(t.route.name, t.route.params, t.route.query, candidate.identityQueryKeys) ===
+            candidate.id),
+    )
+    const existing = matches.find((t) => t.id === candidate.id) ?? matches[0]
     if (existing !== undefined) {
+      if (candidate.identityQueryKeys !== undefined) {
+        const obsolete = matches.filter((t) => t !== existing)
+        if (matches.some((t) => t.pinned)) existing.pinned = true
+        const previousId = existing.id
+        existing.id = candidate.id
+        existing.route = candidate.route
+        tabs.value = tabs.value.filter((t) => !obsolete.includes(t))
+        for (const t of obsolete) clearStoredPageState(scope.value, t.id)
+        if (previousId !== existing.id) clearStoredPageState(scope.value, previousId)
+      }
       activeTabId.value = existing.id
+      if (candidate.identityQueryKeys !== undefined) persist()
       return { kind: 'activated', tab: existing }
     }
     if (businessTabs.value.length >= MAX_BUSINESS_TABS) {
@@ -149,7 +175,8 @@ export const useWorkspaceTabsStore = defineStore('workspaceTabs', () => {
    */
   function closeTab(tabId: string): WorkspaceTab {
     const target = tabs.value.find((t) => t.id === tabId)
-    if (target === undefined || target.kind === 'fixed' || target.pinned === true) return fixedTab.value
+    if (target === undefined || target.kind === 'fixed' || target.pinned === true)
+      return fixedTab.value
     const wasActive = activeTabId.value === tabId
     const index = tabs.value.indexOf(target)
     tabs.value = tabs.value.filter((t) => t.id !== tabId)
@@ -163,7 +190,9 @@ export const useWorkspaceTabsStore = defineStore('workspaceTabs', () => {
   /** 关闭其他业务标签(保留固定工作台与目标标签);激活标签被移除时才改 activeTabId。 */
   function closeOthers(tabId: string): void {
     if (!tabs.value.some((t) => t.id === tabId)) return
-    const removed = tabs.value.filter((t) => t.kind === 'business' && t.id !== tabId && t.pinned !== true)
+    const removed = tabs.value.filter(
+      (t) => t.kind === 'business' && t.id !== tabId && t.pinned !== true,
+    )
     tabs.value = tabs.value.filter((t) => t.kind === 'fixed' || t.pinned === true || t.id === tabId)
     removed.forEach((tab) => clearStoredPageState(scope.value, tab.id))
     if (!tabs.value.some((t) => t.id === activeTabId.value)) {

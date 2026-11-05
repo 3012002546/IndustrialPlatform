@@ -18,7 +18,7 @@ const props = withDefaults(
   defineProps<{
     modelValue: boolean
     title: string
-    size?: 'narrow' | 'medium' | 'wide' | 'extra-wide' | 'chat' | 'fullscreen'
+    size?: 'narrow' | 'medium' | 'wide' | 'extra-wide' | 'chat' | 'fullscreen' | 'near-fullscreen'
     busy?: boolean
     hideFooter?: boolean
     mode?: 'drawer' | 'modal'
@@ -50,7 +50,9 @@ const surfaceMode = ref<'drawer' | 'modal'>(props.mode)
 
 const open = computed(() => props.modelValue)
 const handheld = computed(() => deviceStore.terminal !== 'pc')
-const effectiveMode = computed(() => (handheld.value ? 'drawer' : surfaceMode.value))
+const effectiveMode = computed(() =>
+  handheld.value ? 'drawer' : props.allowModeSwitch ? surfaceMode.value : props.mode,
+)
 const canSwitchMode = computed(
   () => !handheld.value && props.allowModeSwitch && props.size !== 'fullscreen',
 )
@@ -77,7 +79,7 @@ watch(
 )
 
 onMounted(() => {
-  if (handheld.value) return
+  if (handheld.value || !props.allowModeSwitch) return
   try {
     const stored = window.localStorage.getItem(props.storageKey)
     if (stored === 'drawer' || stored === 'modal') surfaceMode.value = stored
@@ -140,6 +142,7 @@ function onSubmit(): void {
           <header class="app-form-drawer__header">
             <h2 :id="titleId" class="app-form-drawer__title">{{ title }}</h2>
             <div class="app-form-drawer__header-actions">
+              <slot name="header-actions" />
               <button
                 v-if="canSwitchMode"
                 type="button"
@@ -276,6 +279,22 @@ function onSubmit(): void {
   flex-direction: column;
   overflow: hidden;
   padding: 0;
+}
+
+.app-form-drawer--near-fullscreen .app-form-drawer__panel {
+  width: 96vw;
+  height: 92dvh;
+  max-height: 92dvh;
+}
+
+.app-form-drawer--near-fullscreen .app-form-drawer__body {
+  display: flex;
+  flex-direction: column;
+}
+
+.app-form-drawer--near-fullscreen .app-form-drawer__panel--handheld {
+  height: 100dvh;
+  max-height: 100dvh;
 }
 
 .app-form-drawer__panel--handheld {

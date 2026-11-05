@@ -34,6 +34,7 @@
     "tests/components/**/*.ts",
     "tests/contract/**/*.ts",
     "tests/e2e/**/*.ts",
-    "tests/fixtures/**/*.ts"
+    "tests/fixtures/**/*.ts",
+    "tests/fixtures/**/*.vue"
   ]
 }

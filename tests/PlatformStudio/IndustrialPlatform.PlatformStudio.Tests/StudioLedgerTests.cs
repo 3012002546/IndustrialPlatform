@@ -4,6 +4,7 @@ using IndustrialPlatform.PlatformStudio.Application.Ledger;
 using IndustrialPlatform.PlatformStudio.Application.Publishing;
 using IndustrialPlatform.PlatformStudio.Contracts;
 using IndustrialPlatform.PlatformStudio.Domain;
+using IndustrialPlatform.PlatformStudio.Infrastructure.Initialization;
 
 namespace IndustrialPlatform.PlatformStudio.Tests;
 
@@ -32,6 +33,49 @@ public sealed class StudioLedgerTests
         Assert.Equal(TimeSpan.Zero,page.Items[0].CreatedOn.Offset);
         Assert.InRange(DateTimeOffset.UtcNow-page.Items[0].CreatedOn,TimeSpan.Zero,TimeSpan.FromMinutes(1));
     }
+    [Fact]
+    public async Task Deleted_records_keep_typed_filters_sorting_and_release_only_unique_occupancy()
+    {
+        await using var f=await StudioTestContext.CreateAsync();var (ledger,revision)=await Setup(f);
+        foreach(var (id,quantity) in new[] {("R1","1.000001"),("R2","999999999999.999999")})
+        {
+            var row=await ledger.WriteAsync(f.Principal,"ledger-a",null,new(new(){["code"]=id,["quantity"]=quantity,["enabled"]=true},revision,NId:id),"create-"+id,default);
+            await ledger.SetStateAsync(f.Principal,"ledger-a",id,"delete",new(row.OptimisticVersion,row.ConcurrencyVersion),"delete-"+id,default);
+        }
+        var filtered=await ledger.QueryAsync(f.Principal,"ledger-a",revision,new(Deleted:true,Filters:[new("code","eq",JsonValue.Create("R1"))]),default);
+        Assert.Equal("R1",Assert.Single(filtered.Items).NId);
+        var sorted=await ledger.QueryAsync(f.Principal,"ledger-a",revision,new(1,1,"quantity","desc",Deleted:true,Condition:new("And",Items:[new("Eq","enabled",JsonValue.Create(true)),new("Gt","quantity",JsonValue.Create("1.000000"))])),default);
+        Assert.Equal("2",sorted.TotalCount);Assert.Equal("R2",Assert.Single(sorted.Items).NId);
+        Assert.Equal("0",(await ledger.QueryAsync(f.Principal,"ledger-a",revision,new(),default)).TotalCount);
+        await ledger.WriteAsync(f.Principal,"ledger-a",null,new(new(){["code"]="R1"},revision,NId:"replacement"),"replacement",default);
+        var tombstone=filtered.Items.Single();
+        Assert.Equal(409,(await Assert.ThrowsAsync<StudioException>(()=>ledger.SetStateAsync(f.Principal,"ledger-a",tombstone.NId,"restore",new(tombstone.OptimisticVersion,tombstone.ConcurrencyVersion),"restore",default))).StatusCode);
+    }
+
+    [Fact]
+    public async Task Upgrade_backfills_historical_deleted_indexes_without_changing_records_or_old_migrations()
+    {
+        await using var f=await StudioTestContext.CreateAsync();var (ledger,revision)=await Setup(f);
+        var row=await ledger.WriteAsync(f.Principal,"ledger-a",null,new(new(){["code"]="OLD"},revision,NId:"old"),"create",default);
+        var deleted=await ledger.SetStateAsync(f.Principal,"ledger-a","old","delete",new(row.OptimisticVersion,row.ConcurrencyVersion),"delete",default);
+        var resource=(await f.Store.FindResourceAsync(f.Principal.TenantNId,"ledger-a",default))!;
+        var record=(await f.Store.FindLedgerRecordAsync(f.Principal.TenantNId,resource.Id,"old",default))!;
+        await f.Store.ReplaceLedgerIndexesAsync(record.Id,[],default);
+        var oldChecksum=await f.Database.Client.Ado.GetStringAsync("SELECT checksum FROM studio_schema_migrations WHERE migration_id='STU-002-Ledger'");
+        await f.Database.Client.Ado.ExecuteCommandAsync("DELETE FROM studio_schema_migrations WHERE migration_id=@id",new {id=StudioDeletedLedgerIndexes.Step});
+        var initializer=new StudioServiceInitializer(f.Database,f.Profile,TimeProvider.System);
+        await initializer.InitializeLocalAsync(default);
+        await initializer.InitializeLocalAsync(default);
+        var found=Assert.Single((await ledger.QueryAsync(f.Principal,"ledger-a",revision,new(Deleted:true,Filters:[new("code","eq",JsonValue.Create("OLD"))]),default)).Items);
+        Assert.Equal(deleted.OptimisticVersion,found.OptimisticVersion);
+        Assert.Equal(deleted.ConcurrencyVersion,found.ConcurrencyVersion);
+        Assert.Equal(deleted.LastUpdatedOn,found.LastUpdatedOn);
+        Assert.Equal(deleted.LastUpdatedBy,found.LastUpdatedBy);
+        Assert.Equal(deleted.Values.ToJsonString(),found.Values.ToJsonString());
+        Assert.Equal(oldChecksum,await f.Database.Client.Ado.GetStringAsync("SELECT checksum FROM studio_schema_migrations WHERE migration_id='STU-002-Ledger'"));
+        await ledger.WriteAsync(f.Principal,"ledger-a",null,new(new(){["code"]="OLD"},revision,NId:"replacement"),"replacement",default);
+    }
+
     [Fact]
     public async Task Stale_write_rolls_back_values_indexes_and_audit()
     {

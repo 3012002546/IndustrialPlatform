@@ -4,6 +4,9 @@
  * lazy route record in routes.ts; menu configuration never loads code itself.
  */
 export const ROUTE_NAMES = {
+  studioTraceModels: 'studio-trace-models',
+  studioTraceDesign: 'studio-trace-design',
+  studioTraceRun: 'studio-trace-run',
   studioLowcode: 'studio-lowcode',
   studioSources: 'studio-sources',
   studioDatasets: 'studio-datasets',

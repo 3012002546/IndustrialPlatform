@@ -1,0 +1,3193 @@
+{
+  "layout": {
+    "edges": [
+      {
+        "relationId": "template-raw-premix",
+        "sourcePort": "out",
+        "targetPort": "in",
+        "vertices": []
+      },
+      {
+        "relationId": "template-premix-mix",
+        "sourcePort": "out",
+        "targetPort": "in",
+        "vertices": []
+      },
+      {
+        "relationId": "template-raw-mix",
+        "sourcePort": "out",
+        "targetPort": "in",
+        "vertices": [
+          {
+            "x": 300,
+            "y": 460
+          },
+          {
+            "x": 650,
+            "y": 460
+          },
+          {
+            "x": 650,
+            "y": 325
+          }
+        ]
+      },
+      {
+        "relationId": "template-mix-fill",
+        "sourcePort": "out",
+        "targetPort": "in",
+        "vertices": []
+      },
+      {
+        "relationId": "template-supplies-fill",
+        "sourcePort": "out",
+        "targetPort": "in",
+        "vertices": [
+          {
+            "x": 980,
+            "y": 565
+          },
+          {
+            "x": 980,
+            "y": 325
+          }
+        ]
+      },
+      {
+        "relationId": "template-fill-remaining",
+        "sourcePort": "out",
+        "targetPort": "in",
+        "vertices": [
+          {
+            "x": 1270,
+            "y": 325
+          },
+          {
+            "x": 1270,
+            "y": 105
+          }
+        ]
+      },
+      {
+        "relationId": "template-fill-clean",
+        "sourcePort": "out",
+        "targetPort": "in",
+        "vertices": [
+          {
+            "x": 1270,
+            "y": 325
+          },
+          {
+            "x": 1270,
+            "y": 565
+          }
+        ]
+      },
+      {
+        "relationId": "template-fill-ship",
+        "sourcePort": "out",
+        "targetPort": "in",
+        "vertices": []
+      }
+    ],
+    "nodes": [
+      {
+        "height": 90,
+        "objectTypeId": "8f5a3967-2619-40ab-b68f-cdb42efe9802",
+        "width": 200,
+        "x": 80,
+        "y": 280
+      },
+      {
+        "height": 90,
+        "objectTypeId": "template-premix",
+        "width": 200,
+        "x": 380,
+        "y": 280
+      },
+      {
+        "height": 90,
+        "objectTypeId": "70871965-eec2-4b32-8815-d286c1dc136c",
+        "width": 200,
+        "x": 680,
+        "y": 280
+      },
+      {
+        "height": 90,
+        "objectTypeId": "39abc6d1-8b58-4078-bc76-180ecddb0f5a",
+        "width": 200,
+        "x": 1020,
+        "y": 280
+      },
+      {
+        "height": 90,
+        "objectTypeId": "template-supplies",
+        "width": 200,
+        "x": 680,
+        "y": 520
+      },
+      {
+        "height": 90,
+        "objectTypeId": "template-remaining",
+        "width": 200,
+        "x": 1320,
+        "y": 60
+      },
+      {
+        "height": 90,
+        "objectTypeId": "template-clean",
+        "width": 200,
+        "x": 1320,
+        "y": 520
+      },
+      {
+        "height": 90,
+        "objectTypeId": "template-ship",
+        "width": 200,
+        "x": 1640,
+        "y": 280
+      }
+    ]
+  },
+  "limits": {
+    "maxDepth": 12,
+    "maxEdges": 3000,
+    "maxNodes": 1000,
+    "timeoutSeconds": 30
+  },
+  "objects": [
+    {
+      "detail": {
+        "datasetRevisionNId": "{{publishedDataset.detailRevisionNId}}",
+        "fields": [
+          {
+            "format": "Text",
+            "label": "批次或记录编号",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "code"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "对象名称",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "material"
+              ]
+            }
+          },
+          {
+            "format": "Decimal",
+            "label": "数量",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "quantity"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "单位",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "unit"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "生产或业务状态",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "status"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "记录时间",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "occurredOn"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "工厂",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "factory"
+              ]
+            }
+          }
+        ],
+        "links": [],
+        "parameterMap": [
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "factory"
+              ]
+            },
+            "target": "factory"
+          },
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "businessKey"
+              ]
+            },
+            "target": "id"
+          }
+        ]
+      },
+      "id": "8f5a3967-2619-40ab-b68f-cdb42efe9802",
+      "identity": {
+        "businessKey": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "businessKey"
+          ]
+        },
+        "factory": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "factory"
+          ]
+        },
+        "grain": "Batch",
+        "sourceSystem": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "sourceSystem"
+          ]
+        }
+      },
+      "name": "原料",
+      "style": {
+        "color": "",
+        "height": 90,
+        "iconKey": "box",
+        "width": 200
+      },
+      "summary": [
+        {
+          "label": "编号",
+          "value": {
+            "from": "Row",
+            "nullPolicy": "Error",
+            "path": [
+              "code"
+            ]
+          }
+        },
+        {
+          "label": "对象名称",
+          "value": {
+            "from": "Row",
+            "nullPolicy": "Error",
+            "path": [
+              "material"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "detail": {
+        "datasetRevisionNId": "{{publishedDataset.detailRevisionNId}}",
+        "fields": [
+          {
+            "format": "Text",
+            "label": "批次或记录编号",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "code"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "对象名称",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "material"
+              ]
+            }
+          },
+          {
+            "format": "Decimal",
+            "label": "数量",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "quantity"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "单位",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "unit"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "生产或业务状态",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "status"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "记录时间",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "occurredOn"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "工厂",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "factory"
+              ]
+            }
+          }
+        ],
+        "links": [],
+        "parameterMap": [
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "factory"
+              ]
+            },
+            "target": "factory"
+          },
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "businessKey"
+              ]
+            },
+            "target": "id"
+          }
+        ]
+      },
+      "id": "template-premix",
+      "identity": {
+        "businessKey": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "businessKey"
+          ]
+        },
+        "factory": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "factory"
+          ]
+        },
+        "grain": "Batch",
+        "sourceSystem": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "sourceSystem"
+          ]
+        }
+      },
+      "name": "母液预混生产情况",
+      "style": {
+        "color": "",
+        "height": 90,
+        "iconKey": "box",
+        "width": 200
+      },
+      "summary": [
+        {
+          "label": "编号",
+          "value": {
+            "from": "Row",
+            "nullPolicy": "Error",
+            "path": [
+              "code"
+            ]
+          }
+        },
+        {
+          "label": "对象名称",
+          "value": {
+            "from": "Row",
+            "nullPolicy": "Error",
+            "path": [
+              "material"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "detail": {
+        "datasetRevisionNId": "{{publishedDataset.detailRevisionNId}}",
+        "fields": [
+          {
+            "format": "Text",
+            "label": "批次或记录编号",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "code"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "对象名称",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "material"
+              ]
+            }
+          },
+          {
+            "format": "Decimal",
+            "label": "数量",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "quantity"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "单位",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "unit"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "生产或业务状态",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "status"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "记录时间",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "occurredOn"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "工厂",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "factory"
+              ]
+            }
+          }
+        ],
+        "links": [],
+        "parameterMap": [
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "factory"
+              ]
+            },
+            "target": "factory"
+          },
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "businessKey"
+              ]
+            },
+            "target": "id"
+          }
+        ]
+      },
+      "id": "70871965-eec2-4b32-8815-d286c1dc136c",
+      "identity": {
+        "businessKey": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "businessKey"
+          ]
+        },
+        "factory": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "factory"
+          ]
+        },
+        "grain": "Batch",
+        "sourceSystem": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "sourceSystem"
+          ]
+        }
+      },
+      "name": "半成品混配生产情况",
+      "style": {
+        "color": "",
+        "height": 90,
+        "iconKey": "box",
+        "width": 200
+      },
+      "summary": [
+        {
+          "label": "编号",
+          "value": {
+            "from": "Row",
+            "nullPolicy": "Error",
+            "path": [
+              "code"
+            ]
+          }
+        },
+        {
+          "label": "对象名称",
+          "value": {
+            "from": "Row",
+            "nullPolicy": "Error",
+            "path": [
+              "material"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "detail": {
+        "datasetRevisionNId": "{{publishedDataset.detailRevisionNId}}",
+        "fields": [
+          {
+            "format": "Text",
+            "label": "批次或记录编号",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "code"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "对象名称",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "material"
+              ]
+            }
+          },
+          {
+            "format": "Decimal",
+            "label": "数量",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "quantity"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "单位",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "unit"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "生产或业务状态",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "status"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "记录时间",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "occurredOn"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "工厂",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "factory"
+              ]
+            }
+          }
+        ],
+        "links": [],
+        "parameterMap": [
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "factory"
+              ]
+            },
+            "target": "factory"
+          },
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "businessKey"
+              ]
+            },
+            "target": "id"
+          }
+        ]
+      },
+      "id": "39abc6d1-8b58-4078-bc76-180ecddb0f5a",
+      "identity": {
+        "businessKey": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "businessKey"
+          ]
+        },
+        "factory": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "factory"
+          ]
+        },
+        "grain": "Batch",
+        "sourceSystem": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "sourceSystem"
+          ]
+        }
+      },
+      "name": "罐装生产情况",
+      "style": {
+        "color": "",
+        "height": 90,
+        "iconKey": "box",
+        "width": 200
+      },
+      "summary": [
+        {
+          "label": "编号",
+          "value": {
+            "from": "Row",
+            "nullPolicy": "Error",
+            "path": [
+              "code"
+            ]
+          }
+        },
+        {
+          "label": "对象名称",
+          "value": {
+            "from": "Row",
+            "nullPolicy": "Error",
+            "path": [
+              "material"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "detail": {
+        "datasetRevisionNId": "{{publishedDataset.detailRevisionNId}}",
+        "fields": [
+          {
+            "format": "Text",
+            "label": "批次或记录编号",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "code"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "对象名称",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "material"
+              ]
+            }
+          },
+          {
+            "format": "Decimal",
+            "label": "数量",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "quantity"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "单位",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "unit"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "生产或业务状态",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "status"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "记录时间",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "occurredOn"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "工厂",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "factory"
+              ]
+            }
+          }
+        ],
+        "links": [],
+        "parameterMap": [
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "factory"
+              ]
+            },
+            "target": "factory"
+          },
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "businessKey"
+              ]
+            },
+            "target": "id"
+          }
+        ]
+      },
+      "id": "template-supplies",
+      "identity": {
+        "businessKey": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "businessKey"
+          ]
+        },
+        "factory": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "factory"
+          ]
+        },
+        "grain": "Batch",
+        "sourceSystem": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "sourceSystem"
+          ]
+        }
+      },
+      "name": "耗材",
+      "style": {
+        "color": "",
+        "height": 90,
+        "iconKey": "box",
+        "width": 200
+      },
+      "summary": [
+        {
+          "label": "编号",
+          "value": {
+            "from": "Row",
+            "nullPolicy": "Error",
+            "path": [
+              "code"
+            ]
+          }
+        },
+        {
+          "label": "对象名称",
+          "value": {
+            "from": "Row",
+            "nullPolicy": "Error",
+            "path": [
+              "material"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "detail": {
+        "datasetRevisionNId": "{{publishedDataset.detailRevisionNId}}",
+        "fields": [
+          {
+            "format": "Text",
+            "label": "批次或记录编号",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "code"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "对象名称",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "material"
+              ]
+            }
+          },
+          {
+            "format": "Decimal",
+            "label": "数量",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "quantity"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "单位",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "unit"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "生产或业务状态",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "status"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "记录时间",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "occurredOn"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "工厂",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "factory"
+              ]
+            }
+          }
+        ],
+        "links": [],
+        "parameterMap": [
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "factory"
+              ]
+            },
+            "target": "factory"
+          },
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "businessKey"
+              ]
+            },
+            "target": "id"
+          }
+        ]
+      },
+      "id": "template-remaining",
+      "identity": {
+        "businessKey": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "businessKey"
+          ]
+        },
+        "factory": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "factory"
+          ]
+        },
+        "grain": "Batch",
+        "sourceSystem": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "sourceSystem"
+          ]
+        }
+      },
+      "name": "剩余量",
+      "style": {
+        "color": "",
+        "height": 90,
+        "iconKey": "box",
+        "width": 200
+      },
+      "summary": [
+        {
+          "label": "编号",
+          "value": {
+            "from": "Row",
+            "nullPolicy": "Error",
+            "path": [
+              "code"
+            ]
+          }
+        },
+        {
+          "label": "对象名称",
+          "value": {
+            "from": "Row",
+            "nullPolicy": "Error",
+            "path": [
+              "material"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "detail": {
+        "datasetRevisionNId": "{{publishedDataset.detailRevisionNId}}",
+        "fields": [
+          {
+            "format": "Text",
+            "label": "批次或记录编号",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "code"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "对象名称",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "material"
+              ]
+            }
+          },
+          {
+            "format": "Decimal",
+            "label": "数量",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "quantity"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "单位",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "unit"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "生产或业务状态",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "status"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "记录时间",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "occurredOn"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "工厂",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "factory"
+              ]
+            }
+          }
+        ],
+        "links": [],
+        "parameterMap": [
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "factory"
+              ]
+            },
+            "target": "factory"
+          },
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "businessKey"
+              ]
+            },
+            "target": "id"
+          }
+        ]
+      },
+      "id": "template-clean",
+      "identity": {
+        "businessKey": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "businessKey"
+          ]
+        },
+        "factory": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "factory"
+          ]
+        },
+        "grain": "Operation",
+        "sourceSystem": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "sourceSystem"
+          ]
+        }
+      },
+      "name": "清洗生产情况",
+      "style": {
+        "color": "",
+        "height": 90,
+        "iconKey": "box",
+        "width": 200
+      },
+      "summary": [
+        {
+          "label": "编号",
+          "value": {
+            "from": "Row",
+            "nullPolicy": "Error",
+            "path": [
+              "code"
+            ]
+          }
+        },
+        {
+          "label": "对象名称",
+          "value": {
+            "from": "Row",
+            "nullPolicy": "Error",
+            "path": [
+              "material"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "detail": {
+        "datasetRevisionNId": "{{publishedDataset.detailRevisionNId}}",
+        "fields": [
+          {
+            "format": "Text",
+            "label": "批次或记录编号",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "code"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "对象名称",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "material"
+              ]
+            }
+          },
+          {
+            "format": "Decimal",
+            "label": "数量",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "quantity"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "单位",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "unit"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "生产或业务状态",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "status"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "记录时间",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "occurredOn"
+              ]
+            }
+          },
+          {
+            "format": "Text",
+            "label": "工厂",
+            "value": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "factory"
+              ]
+            }
+          }
+        ],
+        "links": [],
+        "parameterMap": [
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "factory"
+              ]
+            },
+            "target": "factory"
+          },
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "businessKey"
+              ]
+            },
+            "target": "id"
+          }
+        ]
+      },
+      "id": "template-ship",
+      "identity": {
+        "businessKey": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "businessKey"
+          ]
+        },
+        "factory": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "factory"
+          ]
+        },
+        "grain": "Batch",
+        "sourceSystem": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "sourceSystem"
+          ]
+        }
+      },
+      "name": "销售出库",
+      "style": {
+        "color": "",
+        "height": 90,
+        "iconKey": "box",
+        "width": 200
+      },
+      "summary": [
+        {
+          "label": "编号",
+          "value": {
+            "from": "Row",
+            "nullPolicy": "Error",
+            "path": [
+              "code"
+            ]
+          }
+        },
+        {
+          "label": "对象名称",
+          "value": {
+            "from": "Row",
+            "nullPolicy": "Error",
+            "path": [
+              "material"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "parameters": [
+    {
+      "defaultValue": "TPL-FILL-001",
+      "label": "批次或记录编号",
+      "maxLength": 128,
+      "name": "keyword",
+      "nullable": false,
+      "required": false,
+      "source": "Caller",
+      "type": "String"
+    }
+  ],
+  "relations": [
+    {
+      "evidence": {
+        "occurredOn": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "occurredOn"
+          ]
+        },
+        "quantity": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "quantity"
+          ]
+        },
+        "recordKey": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "recordKey"
+          ]
+        },
+        "unit": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "unit"
+          ]
+        }
+      },
+      "forward": {
+        "datasetRevisionNId": "{{publishedDataset.forwardRevisionNId}}",
+        "inputMap": [
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "factory"
+              ]
+            },
+            "target": "factory"
+          },
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "businessKey"
+              ]
+            },
+            "target": "id"
+          },
+          {
+            "source": {
+              "from": "Constant",
+              "nullPolicy": "Error",
+              "value": "raw-premix"
+            },
+            "target": "relation"
+          }
+        ],
+        "result": {
+          "collectionPath": [],
+          "summaryMap": [
+            {
+              "label": "编号",
+              "value": {
+                "from": "Row",
+                "nullPolicy": "Error",
+                "path": [
+                  "code"
+                ]
+              }
+            }
+          ],
+          "targetIdentity": {
+            "businessKey": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "businessKey"
+              ]
+            },
+            "factory": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "factory"
+              ]
+            },
+            "sourceSystem": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "sourceSystem"
+              ]
+            }
+          },
+          "targetObjectTypeId": "template-premix"
+        }
+      },
+      "fromTypeId": "8f5a3967-2619-40ab-b68f-cdb42efe9802",
+      "id": "template-raw-premix",
+      "identity": {
+        "from": "Row",
+        "nullPolicy": "Error",
+        "path": [
+          "recordKey"
+        ]
+      },
+      "kind": "Genealogy",
+      "label": {
+        "from": "Row",
+        "nullPolicy": "Error",
+        "path": [
+          "recordKey"
+        ]
+      },
+      "name": "原料投入预混",
+      "reverse": {
+        "datasetRevisionNId": "{{publishedDataset.reverseRevisionNId}}",
+        "inputMap": [
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "factory"
+              ]
+            },
+            "target": "factory"
+          },
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "businessKey"
+              ]
+            },
+            "target": "id"
+          },
+          {
+            "source": {
+              "from": "Constant",
+              "nullPolicy": "Error",
+              "value": "raw-premix"
+            },
+            "target": "relation"
+          }
+        ],
+        "result": {
+          "collectionPath": [],
+          "summaryMap": [
+            {
+              "label": "编号",
+              "value": {
+                "from": "Row",
+                "nullPolicy": "Error",
+                "path": [
+                  "code"
+                ]
+              }
+            }
+          ],
+          "targetIdentity": {
+            "businessKey": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "businessKey"
+              ]
+            },
+            "factory": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "factory"
+              ]
+            },
+            "sourceSystem": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "sourceSystem"
+              ]
+            }
+          },
+          "targetObjectTypeId": "8f5a3967-2619-40ab-b68f-cdb42efe9802"
+        }
+      },
+      "semantic": "Consume",
+      "toTypeId": "template-premix"
+    },
+    {
+      "evidence": {
+        "occurredOn": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "occurredOn"
+          ]
+        },
+        "quantity": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "quantity"
+          ]
+        },
+        "recordKey": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "recordKey"
+          ]
+        },
+        "unit": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "unit"
+          ]
+        }
+      },
+      "forward": {
+        "datasetRevisionNId": "{{publishedDataset.forwardRevisionNId}}",
+        "inputMap": [
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "factory"
+              ]
+            },
+            "target": "factory"
+          },
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "businessKey"
+              ]
+            },
+            "target": "id"
+          },
+          {
+            "source": {
+              "from": "Constant",
+              "nullPolicy": "Error",
+              "value": "premix-mix"
+            },
+            "target": "relation"
+          }
+        ],
+        "result": {
+          "collectionPath": [],
+          "summaryMap": [
+            {
+              "label": "编号",
+              "value": {
+                "from": "Row",
+                "nullPolicy": "Error",
+                "path": [
+                  "code"
+                ]
+              }
+            }
+          ],
+          "targetIdentity": {
+            "businessKey": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "businessKey"
+              ]
+            },
+            "factory": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "factory"
+              ]
+            },
+            "sourceSystem": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "sourceSystem"
+              ]
+            }
+          },
+          "targetObjectTypeId": "70871965-eec2-4b32-8815-d286c1dc136c"
+        }
+      },
+      "fromTypeId": "template-premix",
+      "id": "template-premix-mix",
+      "identity": {
+        "from": "Row",
+        "nullPolicy": "Error",
+        "path": [
+          "recordKey"
+        ]
+      },
+      "kind": "Genealogy",
+      "label": {
+        "from": "Row",
+        "nullPolicy": "Error",
+        "path": [
+          "recordKey"
+        ]
+      },
+      "name": "母液转入混配",
+      "reverse": {
+        "datasetRevisionNId": "{{publishedDataset.reverseRevisionNId}}",
+        "inputMap": [
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "factory"
+              ]
+            },
+            "target": "factory"
+          },
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "businessKey"
+              ]
+            },
+            "target": "id"
+          },
+          {
+            "source": {
+              "from": "Constant",
+              "nullPolicy": "Error",
+              "value": "premix-mix"
+            },
+            "target": "relation"
+          }
+        ],
+        "result": {
+          "collectionPath": [],
+          "summaryMap": [
+            {
+              "label": "编号",
+              "value": {
+                "from": "Row",
+                "nullPolicy": "Error",
+                "path": [
+                  "code"
+                ]
+              }
+            }
+          ],
+          "targetIdentity": {
+            "businessKey": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "businessKey"
+              ]
+            },
+            "factory": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "factory"
+              ]
+            },
+            "sourceSystem": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "sourceSystem"
+              ]
+            }
+          },
+          "targetObjectTypeId": "template-premix"
+        }
+      },
+      "semantic": "Consume",
+      "toTypeId": "70871965-eec2-4b32-8815-d286c1dc136c"
+    },
+    {
+      "evidence": {
+        "occurredOn": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "occurredOn"
+          ]
+        },
+        "quantity": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "quantity"
+          ]
+        },
+        "recordKey": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "recordKey"
+          ]
+        },
+        "unit": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "unit"
+          ]
+        }
+      },
+      "forward": {
+        "datasetRevisionNId": "{{publishedDataset.forwardRevisionNId}}",
+        "inputMap": [
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "factory"
+              ]
+            },
+            "target": "factory"
+          },
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "businessKey"
+              ]
+            },
+            "target": "id"
+          },
+          {
+            "source": {
+              "from": "Constant",
+              "nullPolicy": "Error",
+              "value": "raw-mix"
+            },
+            "target": "relation"
+          }
+        ],
+        "result": {
+          "collectionPath": [],
+          "summaryMap": [
+            {
+              "label": "编号",
+              "value": {
+                "from": "Row",
+                "nullPolicy": "Error",
+                "path": [
+                  "code"
+                ]
+              }
+            }
+          ],
+          "targetIdentity": {
+            "businessKey": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "businessKey"
+              ]
+            },
+            "factory": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "factory"
+              ]
+            },
+            "sourceSystem": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "sourceSystem"
+              ]
+            }
+          },
+          "targetObjectTypeId": "70871965-eec2-4b32-8815-d286c1dc136c"
+        }
+      },
+      "fromTypeId": "8f5a3967-2619-40ab-b68f-cdb42efe9802",
+      "id": "template-raw-mix",
+      "identity": {
+        "from": "Row",
+        "nullPolicy": "Error",
+        "path": [
+          "recordKey"
+        ]
+      },
+      "kind": "Genealogy",
+      "label": {
+        "from": "Row",
+        "nullPolicy": "Error",
+        "path": [
+          "recordKey"
+        ]
+      },
+      "name": "原料直接补加",
+      "reverse": {
+        "datasetRevisionNId": "{{publishedDataset.reverseRevisionNId}}",
+        "inputMap": [
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "factory"
+              ]
+            },
+            "target": "factory"
+          },
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "businessKey"
+              ]
+            },
+            "target": "id"
+          },
+          {
+            "source": {
+              "from": "Constant",
+              "nullPolicy": "Error",
+              "value": "raw-mix"
+            },
+            "target": "relation"
+          }
+        ],
+        "result": {
+          "collectionPath": [],
+          "summaryMap": [
+            {
+              "label": "编号",
+              "value": {
+                "from": "Row",
+                "nullPolicy": "Error",
+                "path": [
+                  "code"
+                ]
+              }
+            }
+          ],
+          "targetIdentity": {
+            "businessKey": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "businessKey"
+              ]
+            },
+            "factory": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "factory"
+              ]
+            },
+            "sourceSystem": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "sourceSystem"
+              ]
+            }
+          },
+          "targetObjectTypeId": "8f5a3967-2619-40ab-b68f-cdb42efe9802"
+        }
+      },
+      "semantic": "Consume",
+      "toTypeId": "70871965-eec2-4b32-8815-d286c1dc136c"
+    },
+    {
+      "evidence": {
+        "occurredOn": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "occurredOn"
+          ]
+        },
+        "quantity": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "quantity"
+          ]
+        },
+        "recordKey": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "recordKey"
+          ]
+        },
+        "unit": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "unit"
+          ]
+        }
+      },
+      "forward": {
+        "datasetRevisionNId": "{{publishedDataset.forwardRevisionNId}}",
+        "inputMap": [
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "factory"
+              ]
+            },
+            "target": "factory"
+          },
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "businessKey"
+              ]
+            },
+            "target": "id"
+          },
+          {
+            "source": {
+              "from": "Constant",
+              "nullPolicy": "Error",
+              "value": "mix-fill"
+            },
+            "target": "relation"
+          }
+        ],
+        "result": {
+          "collectionPath": [],
+          "summaryMap": [
+            {
+              "label": "编号",
+              "value": {
+                "from": "Row",
+                "nullPolicy": "Error",
+                "path": [
+                  "code"
+                ]
+              }
+            }
+          ],
+          "targetIdentity": {
+            "businessKey": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "businessKey"
+              ]
+            },
+            "factory": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "factory"
+              ]
+            },
+            "sourceSystem": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "sourceSystem"
+              ]
+            }
+          },
+          "targetObjectTypeId": "39abc6d1-8b58-4078-bc76-180ecddb0f5a"
+        }
+      },
+      "fromTypeId": "70871965-eec2-4b32-8815-d286c1dc136c",
+      "id": "template-mix-fill",
+      "identity": {
+        "from": "Row",
+        "nullPolicy": "Error",
+        "path": [
+          "recordKey"
+        ]
+      },
+      "kind": "Genealogy",
+      "label": {
+        "from": "Row",
+        "nullPolicy": "Error",
+        "path": [
+          "recordKey"
+        ]
+      },
+      "name": "半成品转入罐装",
+      "reverse": {
+        "datasetRevisionNId": "{{publishedDataset.reverseRevisionNId}}",
+        "inputMap": [
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "factory"
+              ]
+            },
+            "target": "factory"
+          },
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "businessKey"
+              ]
+            },
+            "target": "id"
+          },
+          {
+            "source": {
+              "from": "Constant",
+              "nullPolicy": "Error",
+              "value": "mix-fill"
+            },
+            "target": "relation"
+          }
+        ],
+        "result": {
+          "collectionPath": [],
+          "summaryMap": [
+            {
+              "label": "编号",
+              "value": {
+                "from": "Row",
+                "nullPolicy": "Error",
+                "path": [
+                  "code"
+                ]
+              }
+            }
+          ],
+          "targetIdentity": {
+            "businessKey": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "businessKey"
+              ]
+            },
+            "factory": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "factory"
+              ]
+            },
+            "sourceSystem": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "sourceSystem"
+              ]
+            }
+          },
+          "targetObjectTypeId": "70871965-eec2-4b32-8815-d286c1dc136c"
+        }
+      },
+      "semantic": "Produce",
+      "toTypeId": "39abc6d1-8b58-4078-bc76-180ecddb0f5a"
+    },
+    {
+      "evidence": {
+        "occurredOn": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "occurredOn"
+          ]
+        },
+        "quantity": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "quantity"
+          ]
+        },
+        "recordKey": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "recordKey"
+          ]
+        },
+        "unit": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "unit"
+          ]
+        }
+      },
+      "forward": {
+        "datasetRevisionNId": "{{publishedDataset.forwardRevisionNId}}",
+        "inputMap": [
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "factory"
+              ]
+            },
+            "target": "factory"
+          },
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "businessKey"
+              ]
+            },
+            "target": "id"
+          },
+          {
+            "source": {
+              "from": "Constant",
+              "nullPolicy": "Error",
+              "value": "supplies-fill"
+            },
+            "target": "relation"
+          }
+        ],
+        "result": {
+          "collectionPath": [],
+          "summaryMap": [
+            {
+              "label": "编号",
+              "value": {
+                "from": "Row",
+                "nullPolicy": "Error",
+                "path": [
+                  "code"
+                ]
+              }
+            }
+          ],
+          "targetIdentity": {
+            "businessKey": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "businessKey"
+              ]
+            },
+            "factory": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "factory"
+              ]
+            },
+            "sourceSystem": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "sourceSystem"
+              ]
+            }
+          },
+          "targetObjectTypeId": "39abc6d1-8b58-4078-bc76-180ecddb0f5a"
+        }
+      },
+      "fromTypeId": "template-supplies",
+      "id": "template-supplies-fill",
+      "identity": {
+        "from": "Row",
+        "nullPolicy": "Error",
+        "path": [
+          "recordKey"
+        ]
+      },
+      "kind": "Genealogy",
+      "label": {
+        "from": "Row",
+        "nullPolicy": "Error",
+        "path": [
+          "recordKey"
+        ]
+      },
+      "name": "罐装耗材领用",
+      "reverse": {
+        "datasetRevisionNId": "{{publishedDataset.reverseRevisionNId}}",
+        "inputMap": [
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "factory"
+              ]
+            },
+            "target": "factory"
+          },
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "businessKey"
+              ]
+            },
+            "target": "id"
+          },
+          {
+            "source": {
+              "from": "Constant",
+              "nullPolicy": "Error",
+              "value": "supplies-fill"
+            },
+            "target": "relation"
+          }
+        ],
+        "result": {
+          "collectionPath": [],
+          "summaryMap": [
+            {
+              "label": "编号",
+              "value": {
+                "from": "Row",
+                "nullPolicy": "Error",
+                "path": [
+                  "code"
+                ]
+              }
+            }
+          ],
+          "targetIdentity": {
+            "businessKey": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "businessKey"
+              ]
+            },
+            "factory": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "factory"
+              ]
+            },
+            "sourceSystem": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "sourceSystem"
+              ]
+            }
+          },
+          "targetObjectTypeId": "template-supplies"
+        }
+      },
+      "semantic": "Use",
+      "toTypeId": "39abc6d1-8b58-4078-bc76-180ecddb0f5a"
+    },
+    {
+      "evidence": {
+        "occurredOn": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "occurredOn"
+          ]
+        },
+        "quantity": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "quantity"
+          ]
+        },
+        "recordKey": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "recordKey"
+          ]
+        },
+        "unit": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "unit"
+          ]
+        }
+      },
+      "forward": {
+        "datasetRevisionNId": "{{publishedDataset.forwardRevisionNId}}",
+        "inputMap": [
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "factory"
+              ]
+            },
+            "target": "factory"
+          },
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "businessKey"
+              ]
+            },
+            "target": "id"
+          },
+          {
+            "source": {
+              "from": "Constant",
+              "nullPolicy": "Error",
+              "value": "fill-remaining"
+            },
+            "target": "relation"
+          }
+        ],
+        "result": {
+          "collectionPath": [],
+          "summaryMap": [
+            {
+              "label": "编号",
+              "value": {
+                "from": "Row",
+                "nullPolicy": "Error",
+                "path": [
+                  "code"
+                ]
+              }
+            }
+          ],
+          "targetIdentity": {
+            "businessKey": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "businessKey"
+              ]
+            },
+            "factory": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "factory"
+              ]
+            },
+            "sourceSystem": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "sourceSystem"
+              ]
+            }
+          },
+          "targetObjectTypeId": "template-remaining"
+        }
+      },
+      "fromTypeId": "39abc6d1-8b58-4078-bc76-180ecddb0f5a",
+      "id": "template-fill-remaining",
+      "identity": {
+        "from": "Row",
+        "nullPolicy": "Error",
+        "path": [
+          "recordKey"
+        ]
+      },
+      "kind": "Genealogy",
+      "label": {
+        "from": "Row",
+        "nullPolicy": "Error",
+        "path": [
+          "recordKey"
+        ]
+      },
+      "name": "余料留存",
+      "reverse": {
+        "datasetRevisionNId": "{{publishedDataset.reverseRevisionNId}}",
+        "inputMap": [
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "factory"
+              ]
+            },
+            "target": "factory"
+          },
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "businessKey"
+              ]
+            },
+            "target": "id"
+          },
+          {
+            "source": {
+              "from": "Constant",
+              "nullPolicy": "Error",
+              "value": "fill-remaining"
+            },
+            "target": "relation"
+          }
+        ],
+        "result": {
+          "collectionPath": [],
+          "summaryMap": [
+            {
+              "label": "编号",
+              "value": {
+                "from": "Row",
+                "nullPolicy": "Error",
+                "path": [
+                  "code"
+                ]
+              }
+            }
+          ],
+          "targetIdentity": {
+            "businessKey": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "businessKey"
+              ]
+            },
+            "factory": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "factory"
+              ]
+            },
+            "sourceSystem": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "sourceSystem"
+              ]
+            }
+          },
+          "targetObjectTypeId": "39abc6d1-8b58-4078-bc76-180ecddb0f5a"
+        }
+      },
+      "semantic": "Split",
+      "toTypeId": "template-remaining"
+    },
+    {
+      "evidence": {
+        "occurredOn": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "occurredOn"
+          ]
+        },
+        "quantity": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "quantity"
+          ]
+        },
+        "recordKey": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "recordKey"
+          ]
+        },
+        "unit": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "unit"
+          ]
+        }
+      },
+      "forward": {
+        "datasetRevisionNId": "{{publishedDataset.forwardRevisionNId}}",
+        "inputMap": [
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "factory"
+              ]
+            },
+            "target": "factory"
+          },
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "businessKey"
+              ]
+            },
+            "target": "id"
+          },
+          {
+            "source": {
+              "from": "Constant",
+              "nullPolicy": "Error",
+              "value": "fill-clean"
+            },
+            "target": "relation"
+          }
+        ],
+        "result": {
+          "collectionPath": [],
+          "summaryMap": [
+            {
+              "label": "编号",
+              "value": {
+                "from": "Row",
+                "nullPolicy": "Error",
+                "path": [
+                  "code"
+                ]
+              }
+            }
+          ],
+          "targetIdentity": {
+            "businessKey": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "businessKey"
+              ]
+            },
+            "factory": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "factory"
+              ]
+            },
+            "sourceSystem": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "sourceSystem"
+              ]
+            }
+          },
+          "targetObjectTypeId": "template-clean"
+        }
+      },
+      "fromTypeId": "39abc6d1-8b58-4078-bc76-180ecddb0f5a",
+      "id": "template-fill-clean",
+      "identity": {
+        "from": "Row",
+        "nullPolicy": "Error",
+        "path": [
+          "recordKey"
+        ]
+      },
+      "kind": "Context",
+      "label": {
+        "from": "Row",
+        "nullPolicy": "Error",
+        "path": [
+          "recordKey"
+        ]
+      },
+      "name": "清洗记录关联",
+      "reverse": {
+        "datasetRevisionNId": "{{publishedDataset.reverseRevisionNId}}",
+        "inputMap": [
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "factory"
+              ]
+            },
+            "target": "factory"
+          },
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "businessKey"
+              ]
+            },
+            "target": "id"
+          },
+          {
+            "source": {
+              "from": "Constant",
+              "nullPolicy": "Error",
+              "value": "fill-clean"
+            },
+            "target": "relation"
+          }
+        ],
+        "result": {
+          "collectionPath": [],
+          "summaryMap": [
+            {
+              "label": "编号",
+              "value": {
+                "from": "Row",
+                "nullPolicy": "Error",
+                "path": [
+                  "code"
+                ]
+              }
+            }
+          ],
+          "targetIdentity": {
+            "businessKey": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "businessKey"
+              ]
+            },
+            "factory": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "factory"
+              ]
+            },
+            "sourceSystem": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "sourceSystem"
+              ]
+            }
+          },
+          "targetObjectTypeId": "39abc6d1-8b58-4078-bc76-180ecddb0f5a"
+        }
+      },
+      "semantic": "Custom",
+      "toTypeId": "template-clean"
+    },
+    {
+      "evidence": {
+        "occurredOn": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "occurredOn"
+          ]
+        },
+        "quantity": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "quantity"
+          ]
+        },
+        "recordKey": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "recordKey"
+          ]
+        },
+        "unit": {
+          "from": "Row",
+          "nullPolicy": "Error",
+          "path": [
+            "unit"
+          ]
+        }
+      },
+      "forward": {
+        "datasetRevisionNId": "{{publishedDataset.forwardRevisionNId}}",
+        "inputMap": [
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "factory"
+              ]
+            },
+            "target": "factory"
+          },
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "businessKey"
+              ]
+            },
+            "target": "id"
+          },
+          {
+            "source": {
+              "from": "Constant",
+              "nullPolicy": "Error",
+              "value": "fill-ship"
+            },
+            "target": "relation"
+          }
+        ],
+        "result": {
+          "collectionPath": [],
+          "summaryMap": [
+            {
+              "label": "编号",
+              "value": {
+                "from": "Row",
+                "nullPolicy": "Error",
+                "path": [
+                  "code"
+                ]
+              }
+            }
+          ],
+          "targetIdentity": {
+            "businessKey": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "businessKey"
+              ]
+            },
+            "factory": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "factory"
+              ]
+            },
+            "sourceSystem": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "sourceSystem"
+              ]
+            }
+          },
+          "targetObjectTypeId": "template-ship"
+        }
+      },
+      "fromTypeId": "39abc6d1-8b58-4078-bc76-180ecddb0f5a",
+      "id": "template-fill-ship",
+      "identity": {
+        "from": "Row",
+        "nullPolicy": "Error",
+        "path": [
+          "recordKey"
+        ]
+      },
+      "kind": "Genealogy",
+      "label": {
+        "from": "Row",
+        "nullPolicy": "Error",
+        "path": [
+          "recordKey"
+        ]
+      },
+      "name": "成品销售出库",
+      "reverse": {
+        "datasetRevisionNId": "{{publishedDataset.reverseRevisionNId}}",
+        "inputMap": [
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "factory"
+              ]
+            },
+            "target": "factory"
+          },
+          {
+            "source": {
+              "from": "Node",
+              "nullPolicy": "Error",
+              "path": [
+                "identity",
+                "businessKey"
+              ]
+            },
+            "target": "id"
+          },
+          {
+            "source": {
+              "from": "Constant",
+              "nullPolicy": "Error",
+              "value": "fill-ship"
+            },
+            "target": "relation"
+          }
+        ],
+        "result": {
+          "collectionPath": [],
+          "summaryMap": [
+            {
+              "label": "编号",
+              "value": {
+                "from": "Row",
+                "nullPolicy": "Error",
+                "path": [
+                  "code"
+                ]
+              }
+            }
+          ],
+          "targetIdentity": {
+            "businessKey": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "businessKey"
+              ]
+            },
+            "factory": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "factory"
+              ]
+            },
+            "sourceSystem": {
+              "from": "Row",
+              "nullPolicy": "Error",
+              "path": [
+                "sourceSystem"
+              ]
+            }
+          },
+          "targetObjectTypeId": "39abc6d1-8b58-4078-bc76-180ecddb0f5a"
+        }
+      },
+      "semantic": "Ship",
+      "toTypeId": "template-ship"
+    }
+  ],
+  "schemaVersion": 1,
+  "scope": {
+    "factoryIds": [
+      "TRACE-DEMO-CMP"
+    ],
+    "industryTags": [
+      "通用生产模板",
+      "批次追溯",
+      "合成示例"
+    ]
+  },
+  "start": {
+    "collectionPath": [],
+    "columns": [
+      {
+        "fieldId": "code",
+        "label": "批次或记录编号",
+        "visible": true,
+        "width": 180
+      },
+      {
+        "fieldId": "material",
+        "label": "对象名称",
+        "visible": true,
+        "width": 220
+      },
+      {
+        "fieldId": "quantity",
+        "label": "数量",
+        "visible": true,
+        "width": 110
+      },
+      {
+        "fieldId": "unit",
+        "label": "单位",
+        "visible": true,
+        "width": 80
+      },
+      {
+        "fieldId": "status",
+        "label": "状态",
+        "visible": true,
+        "width": 260
+      }
+    ],
+    "datasetRevisionNId": "{{publishedDataset.startRevisionNId}}",
+    "identityMap": {
+      "businessKey": {
+        "from": "Row",
+        "nullPolicy": "Error",
+        "path": [
+          "businessKey"
+        ]
+      },
+      "factory": {
+        "from": "Row",
+        "nullPolicy": "Error",
+        "path": [
+          "factory"
+        ]
+      },
+      "sourceSystem": {
+        "from": "Row",
+        "nullPolicy": "Error",
+        "path": [
+          "sourceSystem"
+        ]
+      }
+    },
+    "objectType": {
+      "from": "Row",
+      "nullPolicy": "Error",
+      "path": [
+        "objectType"
+      ]
+    },
+    "objectTypeIds": [
+      "8f5a3967-2619-40ab-b68f-cdb42efe9802",
+      "template-premix",
+      "70871965-eec2-4b32-8815-d286c1dc136c",
+      "39abc6d1-8b58-4078-bc76-180ecddb0f5a",
+      "template-supplies",
+      "template-remaining",
+      "template-clean",
+      "template-ship"
+    ],
+    "parameterMap": [
+      {
+        "source": {
+          "defaultValue": "",
+          "from": "PageParam",
+          "nullPolicy": "Default",
+          "path": [
+            "keyword"
+          ]
+        },
+        "target": "keyword"
+      }
+    ],
+    "rowKey": {
+      "from": "Row",
+      "nullPolicy": "Error",
+      "path": [
+        "businessKey"
+      ]
+    },
+    "searchFields": [
+      {
+        "control": "Text",
+        "label": "批次或记录编号",
+        "parameterName": "keyword",
+        "required": false
+      }
+    ]
+  }
+}

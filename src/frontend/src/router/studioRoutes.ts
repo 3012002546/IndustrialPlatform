@@ -12,6 +12,30 @@ const playlistRun = () => import('@/pages/pc/studio/dashboard/PlaylistRuntimePag
 // 公开大屏不进入管理布局和工作区标签；访问权由服务端分享密钥决定。
 export const studioScreenRoutes: RouteRecordRaw[] = [
   {
+    path: '/screen/trace-link',
+    name: 'studio-trace-link-preview',
+    component: () => import('@/pages/pc/studio/trace/TraceLinkPreviewPage.vue'),
+    meta: {
+      title: '附件预览',
+      requiresAuth: true,
+      permission: 'studio.trace.run',
+      workspace: 'none',
+      traceLinkScreen: true,
+    },
+  },
+  {
+    path: '/screen/low-code/:nId',
+    name: 'studio-lowcode-screen',
+    component: run,
+    meta: {
+      title: '低代码全屏展示',
+      requiresAuth: true,
+      permission: 'studio.lowcode.run',
+      workspace: 'none',
+      lowcodeScreen: true,
+    },
+  },
+  {
     path: '/screen/playlists/:screenId',
     name: ROUTE_NAMES.studioPlaylistScreen,
     component: playlistRun,
@@ -25,6 +49,42 @@ export const studioScreenRoutes: RouteRecordRaw[] = [
   },
 ]
 export const studioRoutes: RouteRecordRaw[] = [
+  {
+    path: 'studio/trace-models/:nId/design',
+    name: ROUTE_NAMES.studioTraceDesign,
+    component: () => import('@/pages/pc/studio/trace/TraceDesignerPage.vue'),
+    meta: {
+      title: '追溯设计',
+      titleKey: 'studio.traceDesign',
+      requiresAuth: true,
+      permission: 'studio.trace.design',
+      terminal: 'pc',
+      workspace: 'business',
+      pageId: ROUTE_NAMES.studioTraceDesign,
+    },
+  },
+  {
+    path: 'studio/trace',
+    name: ROUTE_NAMES.studioTraceRun,
+    component: () => import('@/pages/pc/studio/trace/TraceRuntimePage.vue'),
+    meta: {
+      title: '追溯执行',
+      titleKey: 'studio.traceRun',
+      workspaceQueryKeys: [],
+      requiresAuth: true,
+      permission: 'studio.trace.run',
+      terminal: 'pc',
+      workspace: 'business',
+      pageId: ROUTE_NAMES.studioTraceRun,
+    },
+  },
+  {
+    path: 'studio/trace-models/:nId/run',
+    redirect: (to) => ({
+      name: ROUTE_NAMES.studioTraceRun,
+      query: { ...to.query, model: String(to.params.nId) },
+    }),
+  },
   ...['reports', 'report-bundles'].flatMap(
     (section) =>
       [
@@ -81,6 +141,7 @@ export const studioRoutes: RouteRecordRaw[] = [
     ['playlists', ROUTE_NAMES.studioPlaylists, '轮播', 'playlists', 'studio.dashboard.view'],
     ['reports', 'studio-reports', '单报表', 'reports', 'studio.report.view'],
     ['report-bundles', 'studio-report-bundles', '组合报表', 'reportBundles', 'studio.report.view'],
+    ['trace-models', ROUTE_NAMES.studioTraceModels, '追溯模型', 'traceModels', 'studio.trace.view'],
   ].map(
     ([path, name, title, key, permission]) =>
       ({

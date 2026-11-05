@@ -27,7 +27,7 @@ public sealed class StudioResourceStore(StudioDatabase database, TimeProvider cl
     public async Task<StudioResource?> FindResourceAsync(string tenantNId, string nId, CancellationToken cancellationToken) =>
         await Db.Queryable<StudioResource>().Where(row => row.TenantNId == tenantNId && row.NId == nId).FirstUtcAsync(database.Provider,cancellationToken)!;
 
-    private ISugarQueryable<StudioResource> ResourceQuery(StudioPrincipal principal, string kind, StudioQuery query)
+    private ISugarQueryable<StudioResource> ResourceQuery(StudioPrincipal principal, string kind, StudioQuery query, string capability = "View")
     {
         var roles = principal.Roles.ToArray();
         var tenant = principal.TenantNId;
@@ -37,7 +37,16 @@ public sealed class StudioResourceStore(StudioDatabase database, TimeProvider cl
             .WhereIF(!string.IsNullOrWhiteSpace(query.Keyword), row => row.Name.Contains(query.Keyword!) || row.NId.Contains(query.Keyword!))
             .WhereIF(query.Status == "Enabled", row => row.IsEnabled)
             .WhereIF(query.Status == "Disabled", row => !row.IsEnabled)
-            .Where(row => SqlFunc.Subqueryable<StudioGrant>().Where(grant => grant.TenantNId == tenant && grant.ResourceId == row.Id && grant.Capability == "View" && grant.RevokedOn == null && (grant.SubjectKind == "User" && grant.SubjectNId == subject || grant.SubjectKind == "Role" && roles.Contains(grant.SubjectNId))).Any());
+            .Where(row => SqlFunc.Subqueryable<StudioGrant>().Where(grant => grant.TenantNId == tenant && grant.ResourceId == row.Id && grant.Capability == capability && grant.RevokedOn == null && (grant.SubjectKind == "User" && grant.SubjectNId == subject || grant.SubjectKind == "Role" && roles.Contains(grant.SubjectNId))).Any());
+    }
+
+    public async Task<IReadOnlyList<StudioResource>> ListRunnableResourcesAsync(StudioPrincipal principal, string kind, StudioQuery query, CancellationToken cancellationToken)
+    {
+        var rows = await ResourceQuery(principal, kind, query with { Status = "Enabled" }, "Run")
+            .Where(row => row.PublishedRevisionId != null).OrderBy(row => row.Name).OrderBy(row => row.Id)
+            .ToPageListAsync(query.Page, query.PageSize, cancellationToken);
+        foreach (var row in rows) StudioSqliteUtc.Normalize(row, database.Provider);
+        return rows;
     }
 
     public async Task<IReadOnlyList<StudioResource>> ListResourcesAsync(StudioPrincipal principal, string kind, StudioQuery query, CancellationToken cancellationToken)

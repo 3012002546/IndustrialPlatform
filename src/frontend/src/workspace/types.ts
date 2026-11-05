@@ -37,6 +37,7 @@ export type TabLimitResolution =
 
 /** 守卫把 RouteLocationNormalized 归一化为候选;Store 不持有 Router 实例。 */
 export interface WorkspaceRouteCandidate {
+  identityQueryKeys?: readonly string[]
   id: string
   title: string
   titleKey?: string

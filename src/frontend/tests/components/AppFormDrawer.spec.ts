@@ -187,6 +187,28 @@ describe('AppFormDrawer', () => {
     expect(wrapper.get('[data-testid="form-drawer-close"]').attributes('aria-label')).toBe('Close')
   })
 
+  it('fixed modal ignores a saved drawer preference and exposes header actions', async () => {
+    localStorage.setItem('industrial-platform:form-surface-mode', 'drawer')
+    const wrapper = mountDrawer(
+      {
+        modelValue: true,
+        title: 'Preview',
+        mode: 'modal',
+        allowModeSwitch: false,
+        size: 'near-fullscreen',
+      },
+      { 'header-actions': '<button data-testid="open-tab">Open in browser tab</button>' },
+    )
+    await wrapper.vm.$nextTick()
+    expect(wrapper.get('.app-form-drawer').classes()).toContain('app-form-drawer--modal')
+    expect(wrapper.get('.app-form-drawer').classes()).toContain('app-form-drawer--near-fullscreen')
+    expect(wrapper.find('[data-testid="form-surface-mode-toggle"]').exists()).toBe(false)
+    expect(wrapper.get('.app-form-drawer__header').text()).toContain('Open in browser tab')
+    await wrapper.get('[data-testid="form-drawer-close"]').trigger('click')
+    expect(wrapper.emitted('update:modelValue')).toEqual([[false]])
+    expect(localStorage.getItem('industrial-platform:form-surface-mode')).toBe('drawer')
+  })
+
   it('PDA/Mobile 抽屉全宽(手持修饰类)', async () => {
     for (const terminal of ['pda', 'mobile'] as const) {
       const pinia = createPinia()

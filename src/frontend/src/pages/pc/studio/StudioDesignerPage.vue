@@ -1,7 +1,22 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import StudioPageMenu from '@/components/studio/shared/StudioPageMenu.vue'
+import StudioCustomEditor from '@/components/studio/shared/StudioCustomEditor.vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
+import { returnFromWorkspace } from '@/workspace/returnFromWorkspace'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  Document,
+  EditPen,
+  Grid,
+  Connection,
+  FolderOpened,
+  Paperclip,
+  TrendCharts,
+  Box,
+  Menu,
+  Monitor,
+} from '@element-plus/icons-vue'
 import { ApiError } from '@/api/errors'
 import {
   getStudioApi,
@@ -19,6 +34,7 @@ import StudioEditorShell from '@/components/studio/shared/StudioEditorShell.vue'
 import StudioSchemaEditor from '@/components/studio/shared/StudioSchemaEditor.vue'
 import BindingEditor from '@/components/studio/shared/BindingEditor.vue'
 import StudioRuntimeView from '@/components/studio/shared/StudioRuntimeView.vue'
+import StudioLayoutRenderer from '@/components/studio/shared/StudioLayoutRenderer.vue'
 import { useStudioCopy } from '@/components/studio/shared/copy'
 import {
   clone,
@@ -30,6 +46,8 @@ import {
 } from '@/components/studio/shared/model'
 import '@/components/studio/shared/studio.css'
 
+const allowedOrigins = ref<string[]>([])
+const customMode = computed(() => ['Html', 'Link'].includes(document.value.mode))
 const newId = () => crypto.randomUUID()
 const route = useRoute(),
   router = useRouter(),
@@ -60,7 +78,48 @@ const preview = ref<StudioRuntime | null>(null),
   actionContextText = ref('{"form":{},"pageParameters":{}}'),
   parsedInput = ref<Json>({})
 const sourceCatalog = ref<Json | null>(null)
+const libraryTab = ref('components'),
+  componentSearch = ref('')
+const componentEntries = [
+  { type: 'Text', label: 'text', icon: Document },
+  { type: 'FormField', label: 'field', icon: EditPen },
+  { type: 'Table', label: 'table', icon: Grid },
+  { type: 'Tree', label: 'tree', icon: Connection },
+  { type: 'Tabs', label: 'tabs', icon: FolderOpened },
+  { type: 'File', label: 'file', icon: Paperclip },
+  { type: 'Chart', label: 'chart', icon: TrendCharts },
+  { type: 'Container', label: 'container', icon: Box },
+  { type: 'Grid', label: 'grid', icon: Menu },
+  { type: 'RegisteredComponent', label: 'registeredComponent', icon: Monitor },
+]
+const palette = computed(() => {
+  const query = componentSearch.value.trim().toLocaleLowerCase()
+  return componentEntries.filter((entry) =>
+    `${entry.type} ${t.value(entry.label)}`.toLocaleLowerCase().includes(query),
+  )
+})
+const componentLabel = (type: string) =>
+  t.value(componentEntries.find((entry) => entry.type === type)?.label ?? type)
+const designerRuntime = computed<StudioRuntime>(() => ({
+  resource: resource.value!,
+  revisionNId: 'draft',
+  document: {
+    ...document.value,
+    fields: fields.value.filter((field) => field.source?.from === 'Constant'),
+  },
+  instances: {},
+  diagnostics: [],
+  ledgerModel: {
+    nId: '',
+    revisionNId: String(document.value.ledgerModelRevisionNId ?? ''),
+    document: { fields: modelFields.value },
+  },
+}))
 const modelFields = ref<Json[]>([])
+function showPageData() {
+  tab.value = 'instances'
+  editor.value?.showProperties()
+}
 let modelGeneration = 0
 async function loadModelFields() {
   const generation = ++modelGeneration
@@ -259,7 +318,10 @@ function validate() {
     ElMessage.success(t.value('saved'))
   })
 }
+const pageMenu = ref<InstanceType<typeof StudioPageMenu> | null>(null)
+const mountAfterPublish = ref(false)
 function publish() {
+  mountAfterPublish.value = false
   note.value = ''
   drawer.value = 'publish'
 }
@@ -275,6 +337,7 @@ function commitPublish() {
     resource.value = draft.resource
     drawer.value = ''
     ElMessage.success(t.value('publishSuccess'))
+    if (mountAfterPublish.value) await pageMenu.value?.open()
   })
 }
 function showJson() {
@@ -292,6 +355,22 @@ function applyJson() {
     error.value = e instanceof Error ? e.message : t.value('invalidJson')
   }
 }
+watch(
+  () => document.value.mode,
+  (mode) => {
+    if (['Html', 'Link'].includes(mode) && tab.value === 'properties') tab.value = 'instances'
+    if (mode === 'Html' && !document.value.customHtml)
+      document.value.customHtml = {
+        html: '<h1>自定义页面</h1><button id="run">点击示例</button><p id="result"></p>',
+        css: 'body { font-family: system-ui; padding: 24px; color: #303133; } button { padding: 8px 16px; }',
+        js: "document.querySelector('#run').onclick = async () => { await studio.ready; document.querySelector('#result').textContent = 'JavaScript 已运行 · ' + new Date().toLocaleTimeString(); };",
+        formFields: [],
+      }
+    if (mode === 'Link' && !document.value.embeddedPage)
+      document.value.embeddedPage = { url: '', parameterMap: [] }
+  },
+  { immediate: true },
+)
 function tryRun() {
   void guard(async () => {
     parsedInput.value = JSON.parse(parametersText.value) as Json
@@ -300,11 +379,13 @@ function tryRun() {
     else if (kind.value === 'LedgerModel') {
       if (dirty.value) await saveDraft()
       sample.value = await getStudioApi().upgrade(nId, resource.value!)
-    } else
+    } else {
+      if (customMode.value && dirty.value) await saveDraft()
       preview.value = {
         ...(await getStudioApi().preview(nId, document.value, parsedInput.value)),
         resource: resource.value!,
       }
+    }
     drawer.value = 'preview'
   })
 }
@@ -546,6 +627,13 @@ onBeforeRouteLeave(async () => {
   }
 })
 onMounted(load)
+onMounted(async () => {
+  try {
+    allowedOrigins.value = (await getStudioApi().capabilities()).allowedFrameOrigins ?? []
+  } catch {
+    /* API still enforces deployment policy */
+  }
+})
 </script>
 
 <template>
@@ -553,16 +641,24 @@ onMounted(load)
     :title="resource?.name ?? t('design')"
     :description="
       resource
-        ? `${t('version')} ${resource.publishedRevisionNo ?? '—'} · ${t('draftVersion')} ${resource.optimisticVersion}`
+        ? [
+            kind === 'LowCodePage' ? `${t('mode')}：${t('mode' + document.mode)}` : '',
+            `${t('version')} ${resource.publishedRevisionNo ?? '—'}`,
+            `${t('draftVersion')} ${resource.optimisticVersion}`,
+          ]
+            .filter(Boolean)
+            .join(' · ')
         : ''
     "
     class="studio-page"
+    :class="{ 'lowcode-designer': kind === 'LowCodePage' }"
     v-loading="loading"
   >
     <template #actions
       ><el-button
         @click="
-          router.push(
+          returnFromWorkspace(
+            router,
             '/pc/studio/' +
               (kind === 'Dataset'
                 ? 'datasets'
@@ -572,13 +668,22 @@ onMounted(load)
           )
         "
         >{{ t('back') }}</el-button
+      ><template v-if="kind === 'LowCodePage'">
+        <el-button :disabled="!editor?.canUndo" @click="editor?.undo()">{{ t('undo') }}</el-button>
+        <el-button :disabled="!editor?.canRedo" @click="editor?.redo()">{{
+          t('redo')
+        }}</el-button> </template
       ><el-button :disabled="busy || !resource" @click="showJson">{{ t('advanced') }}</el-button
       ><el-button :disabled="busy || !resource" @click="validate">{{ t('validate') }}</el-button
       ><el-button :loading="busy" :disabled="!resource" @click="save">{{ t('save') }}</el-button
       ><el-button :disabled="busy || !resource" @click="tryRun">{{
-        t(kind === 'LedgerModel' ? 'upgrade' : 'preview')
+        t(kind === 'LedgerModel' ? 'upgrade' : customMode ? 'saveAndPreview' : 'preview')
       }}</el-button
-      ><PermissionGate :permission-n-id="publishPermission"
+      ><StudioPageMenu
+        v-if="kind === 'LowCodePage'"
+        ref="pageMenu"
+        :resource="resource"
+      /><PermissionGate :permission-n-id="publishPermission"
         ><el-button type="primary" :disabled="busy || !resource" @click="publish">{{
           t('publish')
         }}</el-button></PermissionGate
@@ -592,7 +697,7 @@ onMounted(load)
       ><el-button @click="saveAs">{{ t('saveAs') }}</el-button>
     </div>
     <template v-if="resource">
-      <div v-if="kind !== 'LedgerModel'" class="studio-tools">
+      <div v-if="kind === 'Dataset'" class="studio-tools">
         <label>{{ t('parametersInput') }}</label
         ><el-input
           v-model="parametersText"
@@ -884,79 +989,185 @@ onMounted(load)
         ></el-tabs>
       </template>
       <template v-else>
-        <div class="studio-tools">
-          <el-select v-model="document.mode" :aria-label="t('mode')"
-            ><el-option
-              v-for="v in ['Crud', 'Compose', 'Code']"
-              :key="v"
-              :label="v"
-              :value="v" /></el-select
-          ><el-select
-            v-model="document.ledgerModelRevisionNId"
-            :placeholder="t('selectLedger')"
-            :aria-label="t('ledgerModel')"
-            filterable
-            clearable
-            @update:model-value="loadModelFields"
-            ><el-option
-              v-for="m in models.filter((x) => x.publishedRevisionNId)"
-              :key="m.nId"
-              :label="m.name + ' · v' + m.publishedRevisionNo"
-              :value="m.publishedRevisionNId" /></el-select
-          ><el-select
-            v-if="document.mode === 'Code'"
-            v-model="document.codeComponentKey"
-            :placeholder="t('registeredKey')"
-            ><el-option
-              v-for="code in registry.codeComponents ?? []"
-              :key="code.key"
-              :label="code.label ?? code.key"
-              :value="code.key"
-          /></el-select>
-        </div>
         <StudioEditorShell
           ref="editor"
+          class="lowcode-editor"
+          :free-canvas="customMode"
+          center-canvas
+          :properties-open="true"
+          :sidebar-widths="[250, 300]"
           v-model="document"
           @select="(v: Json[string]) => (selected = v)"
         >
-          <template #structure="slot"
-            ><h3>{{ t('component') }}</h3>
-            <div class="studio-palette">
+          <template
+            #toolbar="{
+              zoom,
+              setZoom,
+              fit,
+              leftOpen,
+              rightOpen,
+              toggleLeft,
+              toggleRight,
+              canvasWidth,
+              canvasHeight,
+              setCanvasSize,
+              panMode,
+              setPanMode,
+            }"
+          >
+            <div class="lowcode-canvas-toolbar">
+              <span v-if="customMode">{{ t('mode' + document.mode) }}</span>
+              <template v-else>
+                <span>{{ t('dimensions') }}</span>
+                <el-input-number
+                  :model-value="canvasWidth"
+                  :min="320"
+                  :max="16384"
+                  :aria-label="t('width')"
+                  @change="(value: number | undefined) => setCanvasSize(value, canvasHeight)"
+                />
+                <span>×</span>
+                <el-input-number
+                  :model-value="canvasHeight"
+                  :min="320"
+                  :max="16384"
+                  :aria-label="t('height')"
+                  @change="(value: number | undefined) => setCanvasSize(canvasWidth, value)"
+                />
+                <el-slider
+                  :model-value="Math.round(zoom * 100)"
+                  :min="10"
+                  :max="200"
+                  :aria-label="t('canvasZoom')"
+                  @update:model-value="(value: number | number[]) => setZoom(Number(value) / 100)"
+                />
+                <el-button @click="fit">{{ t('fitCanvas') }}</el-button>
+                <el-button @click="setZoom(1)">100%</el-button>
+                <span class="lowcode-zoom-value">{{ Math.round(zoom * 100) }}%</span>
+                <el-checkbox
+                  :model-value="panMode"
+                  @update:model-value="(value: unknown) => setPanMode(Boolean(value))"
+                  >{{ t('pan') }}</el-checkbox
+                >
+              </template>
+              <el-input
+                v-model="parametersText"
+                class="lowcode-preview-parameters"
+                :aria-label="t('parametersInput')"
+                :title="t('parametersInput')"
+                :placeholder="t('parametersInput')"
+              />
+              <el-button @click="drawer = 'pageSettings'">{{ t('pageSettings') }}</el-button>
+              <el-button @click="showPageData">{{ t('instances') }}</el-button>
+              <el-button @click="toggleLeft">{{
+                t(leftOpen ? 'collapseLibrary' : 'expandLibrary')
+              }}</el-button>
+              <el-button @click="toggleRight">{{
+                t(rightOpen ? 'collapseProperties' : 'expandProperties')
+              }}</el-button>
+            </div>
+          </template>
+          <template v-if="customMode" #workspace
+            ><StudioCustomEditor v-model:document="document" :allowed-origins="allowedOrigins"
+          /></template>
+          <template #structure="slot">
+            <el-alert
+              v-if="customMode"
+              :title="t('customCodeHelp')"
+              type="info"
+              :closable="false"
+            />
+            <template v-else>
+              <div class="lowcode-panel-heading">
+                <h3>{{ t('library') }}</h3>
+                <el-tag size="small">{{ componentEntries.length }}</el-tag>
+              </div>
+              <el-tabs v-model="libraryTab" stretch>
+                <el-tab-pane :label="t('component')" name="components" />
+                <el-tab-pane :label="t('structure')" name="structure" />
+              </el-tabs>
+              <template v-if="libraryTab === 'components'">
+                <el-input
+                  v-model="componentSearch"
+                  :placeholder="t('searchComponents')"
+                  :aria-label="t('searchComponents')"
+                  clearable
+                />
+                <div class="studio-palette">
+                  <button
+                    v-for="item in palette"
+                    :key="item.type"
+                    type="button"
+                    :title="item.type"
+                    @click="addComponent(item.type)"
+                  >
+                    <el-icon><component :is="item.icon" /></el-icon><span>{{ t(item.label) }}</span>
+                  </button>
+                </div>
+                <el-empty
+                  v-if="!palette.length"
+                  :description="t('noComponents')"
+                  :image-size="56"
+                />
+                <p class="lowcode-help">{{ t('lowcodeDesignHint') }}</p>
+              </template>
+              <template v-else>
+                <button
+                  v-for="n in slot.nodes"
+                  :key="n.id"
+                  type="button"
+                  class="studio-node-item"
+                  :class="{ active: slot.selected === n.id }"
+                  @click="slot.select(n.id)"
+                >
+                  <span>{{ componentLabel(n.type) }}</span
+                  ><small>{{ n.id.slice(0, 8) }}</small>
+                </button>
+              </template>
+            </template>
+          </template>
+          <template #node="{ node: designNode }">
+            <div class="lowcode-node-preview" inert>
+              <el-form
+                v-if="['Text', 'FormField', 'File'].includes(designNode.type)"
+                label-position="top"
+                ><StudioLayoutRenderer
+                  :node="designNode"
+                  :runtime="designerRuntime"
+                  :form="{}"
+                  :parameters="{}"
+                  preview
+                  read-only
+              /></el-form>
+              <div v-else class="lowcode-node-placeholder">
+                <el-icon
+                  ><component
+                    :is="
+                      componentEntries.find((entry) => entry.type === designNode.type)?.icon ?? Box
+                    " /></el-icon
+                ><span>{{ componentLabel(designNode.type) }}</span>
+              </div>
+            </div>
+          </template>
+          <template #properties
+            ><div class="lowcode-panel-heading">
+              <h3>{{ t('properties') }}</h3>
               <el-button
-                v-for="type in [
-                  'Text',
-                  'FormField',
-                  'Table',
-                  'Tree',
-                  'Tabs',
-                  'File',
-                  'Chart',
-                  'Container',
-                  'Grid',
-                  'RegisteredComponent',
-                ]"
-                :key="type"
-                @click="addComponent(type)"
-                >{{ type }}</el-button
+                v-if="node"
+                link
+                type="danger"
+                :disabled="node.id === layout.id"
+                @click="removeNode"
+                >{{ t('delete') }}</el-button
               >
             </div>
-            <h3>{{ t('structure') }}</h3>
-            <button
-              v-for="n in slot.nodes"
-              :key="n.id"
-              class="studio-node-item"
-              :class="{ active: slot.selected === n.id }"
-              @click="slot.select(n.id)"
-            >
-              {{ n.type }} · {{ n.id.slice(0, 8) }}
-            </button></template
-          >
-          <template #properties
-            ><el-tabs v-model="tab"
-              ><el-tab-pane :label="t('properties')" name="properties"
+            <div v-if="!customMode && node" class="lowcode-selection-title">
+              {{ componentLabel(node.type) }} · {{ node.id.slice(0, 8) }}
+            </div>
+            <el-tabs v-model="tab" stretch
+              ><el-tab-pane v-if="!customMode" :label="t('properties')" name="properties"
                 ><template v-if="node"
-                  ><h3>{{ node.type }}</h3>
-                  <el-form label-position="top"
+                  ><el-form label-position="top"
                     ><div class="studio-prop-row">
                       <el-form-item :label="t('span')"
                         ><el-input-number
@@ -1202,13 +1413,7 @@ onMounted(load)
                   </el-form>
                   <div class="studio-tools">
                     <el-button @click="moveNode(-1)">↑</el-button
-                    ><el-button @click="moveNode(1)">↓</el-button
-                    ><el-button
-                      type="danger"
-                      :disabled="node.id === layout.id"
-                      @click="removeNode"
-                      >{{ t('remove') }}</el-button
-                    >
+                    ><el-button @click="moveNode(1)">↓</el-button>
                   </div></template
                 ><el-empty v-else :description="t('noSelection')"
               /></el-tab-pane>
@@ -1337,16 +1542,26 @@ onMounted(load)
                     >{{ t('add') }} {{ t('mappings') }}</el-button
                   ><el-input
                     :model-value="
-                      ((action.success as Json).refreshInstanceIds as string[]).join(',')
+                      (
+                        ((action.success as Json | undefined)?.refreshInstanceIds as
+                          string[] | undefined) ?? []
+                      ).join(',')
                     "
                     :placeholder="t('successRefresh')"
                     @update:model-value="
                       (v: Json[string]) =>
-                        ((action.success as Json).refreshInstanceIds = v.split(',').filter(Boolean))
+                        (action.success = {
+                          ...(action.success ?? {}),
+                          refreshInstanceIds: v.split(',').filter(Boolean),
+                        })
                     "
-                  /><el-checkbox v-model="(action.success as Json).closeForm">{{
-                    t('closeForm')
-                  }}</el-checkbox
+                  /><el-checkbox
+                    :model-value="!!action.success?.closeForm"
+                    @update:model-value="
+                      (value: unknown) =>
+                        (action.success = { ...(action.success ?? {}), closeForm: Boolean(value) })
+                    "
+                    >{{ t('closeForm') }}</el-checkbox
                   ><el-button @click="simulateAction(action)">{{ t('simulate') }}</el-button
                   ><el-button link type="danger" @click="actions.splice(i, 1)">{{
                     t('remove')
@@ -1458,7 +1673,7 @@ onMounted(load)
       :title="t(drawer === 'json' ? 'advanced' : drawer === 'sample' ? 'simulate' : drawer)"
       size="wide"
       :busy="busy"
-      :hide-footer="drawer === 'preview' || drawer === 'sample' || drawer === 'compare'"
+      :hide-footer="['preview', 'sample', 'compare', 'pageSettings'].includes(drawer)"
       @update:model-value="(v: Json[string]) => !v && (drawer = '')"
       @submit="drawer === 'json' ? applyJson() : commitPublish()"
     >
@@ -1474,6 +1689,46 @@ onMounted(load)
         type="textarea"
         :rows="4"
       />
+      <el-checkbox
+        v-if="drawer === 'publish' && kind === 'LowCodePage' && pageMenu?.canMount"
+        v-model="mountAfterPublish"
+        >{{ t('publishAndMount') }}</el-checkbox
+      >
+      <template v-if="drawer === 'pageSettings'">
+        <el-form label-position="top" class="lowcode-page-settings">
+          <el-form-item :label="t('mode')"
+            ><el-select v-model="document.mode" :aria-label="t('mode')"
+              ><el-option
+                v-for="v in ['Crud', 'Compose', 'Code', 'Html', 'Link']"
+                :key="v"
+                :label="t('mode' + v)"
+                :value="v" /></el-select></el-form-item
+          ><el-form-item :label="t('ledgerModel')"
+            ><el-select
+              v-model="document.ledgerModelRevisionNId"
+              :placeholder="t('selectLedger')"
+              :aria-label="t('ledgerModel')"
+              filterable
+              clearable
+              @update:model-value="loadModelFields"
+              ><el-option
+                v-for="m in models.filter((x) => x.publishedRevisionNId)"
+                :key="m.nId"
+                :label="m.name + ' · v' + m.publishedRevisionNo"
+                :value="m.publishedRevisionNId" /></el-select></el-form-item
+          ><el-form-item v-if="document.mode === 'Code'" :label="t('registeredKey')"
+            ><el-select
+              v-model="document.codeComponentKey"
+              :placeholder="t('registeredKey')"
+              :aria-label="t('registeredKey')"
+              ><el-option
+                v-for="code in registry.codeComponents ?? []"
+                :key="code.key"
+                :label="code.label ?? code.key"
+                :value="code.key" /></el-select
+          ></el-form-item>
+        </el-form>
+      </template>
       <template v-if="drawer === 'preview'"
         ><el-alert
           v-if="kind === 'LowCodePage'"
@@ -1500,3 +1755,141 @@ onMounted(load)
     </AppFormDrawer>
   </AppPage>
 </template>
+<style scoped>
+.lowcode-canvas-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  margin-bottom: 10px;
+  border: 1px solid var(--el-border-color);
+  background: var(--el-bg-color);
+}
+.lowcode-canvas-toolbar :deep(.el-input-number) {
+  width: 120px;
+}
+.lowcode-canvas-toolbar :deep(.el-slider) {
+  width: 140px;
+  margin-inline: 8px;
+}
+.lowcode-canvas-toolbar :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
+.lowcode-preview-parameters {
+  width: 150px;
+}
+.lowcode-page-settings :deep(.el-select) {
+  width: 100%;
+}
+.lowcode-zoom-value {
+  min-width: 38px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+.lowcode-designer :deep(.studio-editor) {
+  gap: 10px;
+  height: clamp(560px, calc(100dvh - 260px), 1050px);
+  min-height: 0;
+  border: 0;
+  background: transparent;
+}
+.lowcode-designer :deep(.studio-sidebar) {
+  border: 1px solid var(--el-border-color);
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
+}
+.lowcode-designer :deep(.studio-viewport) {
+  border: 1px solid var(--el-border-color);
+  background: var(--el-fill-color-light);
+}
+.lowcode-panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.lowcode-panel-heading h3 {
+  margin: 0;
+  font-size: 16px;
+}
+.lowcode-panel-heading small,
+.studio-node-item small {
+  color: var(--el-text-color-secondary);
+}
+.studio-node-item {
+  justify-content: space-between;
+  border-radius: 4px;
+}
+.lowcode-selection-title {
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: var(--el-border-radius-base);
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+.studio-palette {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-block: 12px;
+}
+.studio-palette button {
+  display: flex;
+  min-height: 76px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: var(--el-border-radius-base);
+  color: var(--el-text-color-primary);
+  background: var(--el-fill-color-lighter);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.studio-palette button:hover,
+.studio-palette button:focus-visible {
+  border-color: var(--el-color-primary);
+  color: var(--el-color-primary);
+}
+.studio-palette .el-icon {
+  font-size: 22px;
+}
+.lowcode-help {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.7;
+}
+.lowcode-designer :deep(.studio-sidebar .el-tabs__item) {
+  padding-inline: 10px;
+  font-size: 13px;
+}
+.lowcode-designer :deep(.studio-design-label) {
+  display: none;
+}
+.lowcode-designer :deep(.studio-design-node) {
+  border-color: transparent;
+}
+.lowcode-designer :deep(.studio-design-node:hover) {
+  border-color: var(--el-color-primary-light-5);
+}
+.lowcode-node-preview {
+  pointer-events: none;
+}
+.lowcode-node-preview :deep(.studio-runtime-node) {
+  min-height: 0 !important;
+}
+.lowcode-node-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--el-text-color-secondary);
+}
+</style>

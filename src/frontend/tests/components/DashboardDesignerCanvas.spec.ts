@@ -71,7 +71,7 @@ async function open() {
   return page
 }
 async function click(view: VueWrapper, label: string) {
-  const button = view.findAll('button').find((button) => button.text().trim() === label)!
+  const button = view.findAll('button, [role="tab"]').find((button) => button.text().trim() === label)!
   expect(button, label).toBeDefined()
   await button.trigger('click')
   await flushPromises()
@@ -232,7 +232,7 @@ describe('dashboard designer live canvas', () => {
       ],
     })
     const view = await open()
-    await view.get('.dashboard-property-categories button:nth-child(3)').trigger('click')
+    await view.findAll('.dashboard-property-categories [role="tab"]')[2]!.trigger('click')
     const editor = view.get('.dashboard-appearance-editor')
     expect(editor.find('textarea').exists()).toBe(false)
     await editor.get('input[role="spinbutton"]').setValue('36')
@@ -300,12 +300,12 @@ describe('dashboard designer live canvas', () => {
     const panel = view.get('.dashboard-properties')
     const section = async (name: string) => {
       const button = panel
-        .findAll('.dashboard-property-categories button')
+        .findAll('.dashboard-property-categories [role="tab"]')
         .find((item) => item.text() === name)!
       await button.trigger('click')
       await flushPromises()
     }
-    expect(panel.findAll('.dashboard-property-categories button')).toHaveLength(5)
+    expect(panel.findAll('.dashboard-property-categories [role="tab"]')).toHaveLength(5)
     expect(panel.text()).toContain('位置 / 尺寸')
     expect(panel.find('textarea').exists()).toBe(false)
     expect(panel.text()).not.toContain('属性绑定')
@@ -338,7 +338,7 @@ describe('dashboard designer live canvas', () => {
     useLocalizationStore().setLocale('en-US', null)
     await flushPromises()
     expect(
-      panel.findAll('.dashboard-property-categories button').map((item) => item.text()),
+      panel.findAll('.dashboard-property-categories [role="tab"]').map((item) => item.text()),
     ).toEqual(['Basic', 'Content', 'Appearance', 'Data binding', 'Interaction'])
   })
   it('offers 32 visual components, hides the data category and keeps insertion undoable', async () => {

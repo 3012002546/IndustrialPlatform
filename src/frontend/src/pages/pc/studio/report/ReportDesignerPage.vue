@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
+import { returnFromWorkspace } from '@/workspace/returnFromWorkspace'
 import { ElMessageBox } from 'element-plus'
 import AppPage from '@/components/base/AppPage.vue'
 import AppFormDrawer from '@/components/management/AppFormDrawer.vue'
@@ -1247,12 +1248,17 @@ onBeforeRouteLeave(async () => {
     <template #actions>
       <el-button
         @click="
-          route.query.returnTo
-            ? router.push({
-                name: 'studio-report-bundles-design',
-                params: { nId: String(route.query.returnTo) },
-              })
-            : router.back()
+          returnFromWorkspace(
+            router,
+            route.query.returnTo
+              ? {
+                  name: 'studio-report-bundles-design',
+                  params: { nId: String(route.query.returnTo) },
+                }
+              : bundle
+                ? '/pc/studio/report-bundles'
+                : '/pc/studio/reports',
+          )
         "
         >{{ t('back') }}</el-button
       ><el-button :disabled="!shell?.canUndo" @click="shell?.undo()">{{

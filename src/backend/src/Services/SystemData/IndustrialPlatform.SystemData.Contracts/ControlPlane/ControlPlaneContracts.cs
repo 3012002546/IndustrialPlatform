@@ -184,6 +184,9 @@ public sealed record NavigationRuntimeResponse
 
 public sealed record NavigationRuntimeNodeResponse
 {
+    public string? OwnerModuleNId { get; init; }
+    public string? OwnerResourceNId { get; init; }
+    public IReadOnlyDictionary<string, string>? RouteParams { get; init; }
     public string NodeNId { get; init; } = string.Empty;
     public string Kind { get; init; } = string.Empty;
     public string Label { get; init; } = string.Empty;

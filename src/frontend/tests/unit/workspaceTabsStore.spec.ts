@@ -121,11 +121,7 @@ describe('workspaceTabsStore — bindUser', () => {
       fallbackTitle: '用户管理',
     })
     expect(
-      resolveLocaleMessage(
-        'en-US',
-        restored.titleKey,
-        restored.fallbackTitle ?? restored.title,
-      ),
+      resolveLocaleMessage('en-US', restored.titleKey, restored.fallbackTitle ?? restored.title),
     ).toBe('User management')
   })
 
@@ -147,6 +143,35 @@ describe('workspaceTabsStore — requestOpen', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     localStorage.clear()
+  })
+
+  it('页内查询复用标签并更新恢复地址，合并旧重复标签时保留固定状态和其他页面', () => {
+    const store = useWorkspaceTabsStore()
+    store.bindUser(SCOPE)
+    store.requestOpen(sandboxCandidate(0))
+    const trace = (id: string, query: Record<string, string>): WorkspaceRouteCandidate => ({
+      id,
+      title: '追溯执行',
+      kind: 'business',
+      route: { name: 'trace', params: {}, query },
+    })
+    store.requestOpen(trace('trace', {}))
+    store.requestOpen(trace('trace&q=model=a', { model: 'a' }))
+    store.setTabPinned('trace&q=model=a', true)
+    const result = store.requestOpen({ ...trace('trace', { model: 'b' }), identityQueryKeys: [] })
+    expect(result.kind).toBe('activated')
+    expect(store.businessTabs.map((t) => t.id)).toEqual(['sandbox:0', 'trace'])
+    expect(store.activeTab).toMatchObject({
+      id: 'trace',
+      pinned: true,
+      route: { query: { model: 'b' } },
+    })
+    const reload = store.activeTab!.reloadVersion
+    store.requestOpen({ ...trace('trace', { model: 'c' }), identityQueryKeys: [] })
+    expect(store.activeTab!.reloadVersion).toBe(reload)
+    expect(store.activeTab!.route.query).toEqual({ model: 'c' })
+    expect(localStorage.getItem(TABS_KEY)).toContain('model')
+    expect(localStorage.getItem(TABS_KEY)).not.toContain('trace&q=model=a')
   })
 
   it('固定候选激活固定工作台且不新增', () => {
@@ -340,9 +365,7 @@ describe('workspaceTabsStore — reloadCurrent / resolvePending / prune', () => 
 
     expect(store.activeTabId).toBe('sandbox:0')
     expect(store.tabs.find((tab) => tab.id === 'sandbox:0')?.reloadVersion).toBe(version + 1)
-    expect(localStorage.getItem(TABS_KEY)).toContain(
-      '"activeTabId":"sandbox:0"',
-    )
+    expect(localStorage.getItem(TABS_KEY)).toContain('"activeTabId":"sandbox:0"')
   })
 
   it('resolvePending cancel → null 且清空 pending', () => {

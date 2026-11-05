@@ -123,7 +123,7 @@ public sealed class StudioInitializationTests
             var before = await db.Client.Ado.GetIntAsync("SELECT COUNT(*) FROM studio_schema_migrations");
             await initializer.InitializeLocalAsync(CancellationToken.None);
             Assert.Equal(before, await db.Client.Ado.GetIntAsync("SELECT COUNT(*) FROM studio_schema_migrations"));
-            Assert.Equal(10, before);
+            Assert.Equal(11, before);
             Assert.True(await db.TableExistsAsync("studio_workbook_retired_file", CancellationToken.None));
         }
         finally { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); if (Directory.Exists(folder)) Directory.Delete(folder, true); }

@@ -14,7 +14,12 @@ using Microsoft.Extensions.Options;
 namespace IndustrialPlatform.SystemData.Application.ControlPlane;
 
 public sealed record PublishedNavigationSnapshot(long Revision, DateTimeOffset PublishedOn, IReadOnlyCollection<PublishedNavigationNode> Nodes, string? Checksum = null);
-public sealed record PublishedNavigationNode(string NodeNId, string? ParentNodeNId, NavigationNodeKind Kind, string Label, string? IconKey, string? ResourceNId, string? RouteName, string? RequiredPermissionNId, string? FeatureNId, int DisplayOrder, IReadOnlyCollection<UiTerminal> VisibleTerminals, IReadOnlyCollection<string>? ActionResourceNIds = null);
+public sealed record PublishedNavigationNode(string NodeNId, string? ParentNodeNId, NavigationNodeKind Kind, string Label, string? IconKey, string? ResourceNId, string? RouteName, string? RequiredPermissionNId, string? FeatureNId, int DisplayOrder, IReadOnlyCollection<UiTerminal> VisibleTerminals, IReadOnlyCollection<string>? ActionResourceNIds = null)
+{
+    // Optional metadata lives with the navigation snapshot; old snapshots keep their checksum.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public OwnedNavigationTarget? OwnedTarget { get; init; }
+}
 
 public sealed class ControlPlaneOptions
 {
@@ -41,7 +46,7 @@ public interface IResourceNavigationService
     Task<NavigationRuntimeResponse> RuntimeAsync(string tenantNId, UiTerminal terminal, CancellationToken cancellationToken);
 }
 
-public sealed class ResourceNavigationService : IResourceNavigationService
+public sealed partial class ResourceNavigationService : IResourceNavigationService
 {
     private sealed record DefaultNavigationDeclaration(string NodeNId, NavigationNodeKind Kind, string Label, string? ParentNodeNId, string? RouteName, string? RequiredPermissionNId, int DisplayOrder);
     private static readonly DefaultNavigationDeclaration[] DefaultNavigation = [
@@ -328,6 +333,8 @@ public sealed class ResourceNavigationService : IResourceNavigationService
         var state = await _store.LoadAsync(tenantNId, cancellationToken);
         EnsureExpectedRevision(state, request.ExpectedDraftRevision);
         var node = state.DraftNodes.FirstOrDefault(x => x.NId.Equals(nodeNId, StringComparison.OrdinalIgnoreCase)) ?? throw new ValidationException("Navigation node was not found.");
+        var owner = ActiveNodes(state).FirstOrDefault(n => n.NodeNId == node.NId && n.OwnedTarget is not null);
+        if (owner is not null && request.ResourceNId != owner.ResourceNId) throw new ValidationException("Detach the module-owned link before changing its runtime resource.");
         node.UpdateLabel(Required(request.Label));
         node.UpdateConfiguration(
             request.ParentNodeNId,
@@ -365,6 +372,12 @@ public sealed class ResourceNavigationService : IResourceNavigationService
         var node = state.DraftNodes.FirstOrDefault(x => x.NId.Equals(nodeNId, StringComparison.OrdinalIgnoreCase)) ?? throw new ValidationException("Navigation node was not found.");
         if (state.DraftNodes.Any(x => x.ParentNodeNId?.Equals(nodeNId, StringComparison.OrdinalIgnoreCase) == true && x.Status == NavigationNodeStatus.Active)) throw new ValidationException("Navigation node with active children cannot be deleted.");
         node.Retire();
+        var ownedNode = ActiveNodes(state).FirstOrDefault(n => n.NodeNId == node.NId && n.OwnedTarget is not null);
+        if (ownedNode?.OwnedTarget is { } owner)
+        {
+            await CommitOwnedAsync(state, ActiveNodes(state).Select(n => n.NodeNId == node.NId ? n with { OwnedTarget = owner with { Detached = true } } : n).ToArray(), "system", node.NId, "navigation.owned.detach", cancellationToken);
+            return;
+        }
         await _store.CommitAsync(state, state.Revision,
             Commit("SystemData.NavigationDraftChanged.v1", tenantNId, $"{{\"nodeNId\":\"{Json(node.NId)}\"}}", "navigation.node.delete", "NavigationNode", node.NId), cancellationToken);
         await InvalidateNavigationAsync(tenantNId, cancellationToken);
@@ -383,7 +396,7 @@ public sealed class ResourceNavigationService : IResourceNavigationService
         var validation = ValidateState(state);
         if (!validation.IsValid) throw new ValidationException(string.Join("; ", validation.Errors.Select(x => x.Code)));
         var revision = state.Revision + 1;
-        var publishedNodes = BuildPublishedNodes(state);
+        var publishedNodes = PreserveOwnedTargets(state, BuildPublishedNodes(state));
         var snapshot = new PublishedNavigationSnapshot(revision, DateTimeOffset.UtcNow, publishedNodes, NavigationSnapshotChecksum.Compute(publishedNodes));
         var snapshots = state.Snapshots.Append(snapshot).ToArray();
         var next = state with { Revision = revision, Snapshots = snapshots, ActiveSnapshotRevision = revision, PreviousSnapshotRevision = state.ActiveSnapshotRevision };
@@ -405,7 +418,7 @@ public sealed class ResourceNavigationService : IResourceNavigationService
         var previousRevision = state.PreviousSnapshotRevision ?? throw new ValidationException("No previous navigation snapshot is available.");
         var previous = state.Snapshots.FirstOrDefault(x => x.Revision == previousRevision) ?? throw new ValidationException("Previous navigation snapshot is missing.");
         var revision = state.Revision + 1;
-        var rollbackNodes = previous.Nodes.ToArray();
+        var rollbackNodes = PreserveOwnedTargets(state, previous.Nodes, rollback: true);
         var rollback = previous with { Revision = revision, PublishedOn = DateTimeOffset.UtcNow, Nodes = rollbackNodes, Checksum = NavigationSnapshotChecksum.Compute(rollbackNodes) };
         var next = state with { Revision = revision, Snapshots = state.Snapshots.Append(rollback).ToArray(), ActiveSnapshotRevision = revision, PreviousSnapshotRevision = state.ActiveSnapshotRevision };
         await _store.CommitAsync(next, state.Revision, Commit("SystemData.NavigationRolledBack.v1", tenantNId, $"{{\"revision\":{revision},\"fromRevision\":{previousRevision}}}", "navigation.rollback", "NavigationSnapshot", revision.ToString(CultureInfo.InvariantCulture), actorUserNId), cancellationToken);
@@ -435,7 +448,7 @@ public sealed class ResourceNavigationService : IResourceNavigationService
             }
             if (snapshot is null) throw new ValidationException("Published navigation snapshot is missing.");
             var resources = state.Resources.ToDictionary(x => x.NId, StringComparer.OrdinalIgnoreCase);
-            var nodes = snapshot.Nodes.Where(x => x.VisibleTerminals.Contains(terminal)).Where(x => x.ResourceNId is null || (resources.TryGetValue(x.ResourceNId, out var r) && r.Status == UiResourceStatus.Active)).ToArray();
+            var nodes = snapshot.Nodes.Where(x => x.OwnedTarget?.Detached != true && x.VisibleTerminals.Contains(terminal)).Where(x => x.ResourceNId is null || (resources.TryGetValue(x.ResourceNId, out var r) && r.Status == UiResourceStatus.Active)).ToArray();
             return new NavigationRuntimeResponse { Revision = snapshot.Revision, Configured = true, Nodes = BuildRuntime(nodes, null), Degraded = false };
         }, cancellationToken);
         return result.Value with { Degraded = result.Degraded };
@@ -542,7 +555,7 @@ public sealed class ResourceNavigationService : IResourceNavigationService
     }
 
     private static NavigationNodeResponse[] BuildDraft(IReadOnlyCollection<NavigationNode> nodes) => nodes.Where(x => x.ParentNodeNId is null).OrderBy(x => x.DisplayOrder).ThenBy(x => x.NId).Select(x => ToNode(x, nodes)).ToArray();
-    private static NavigationRuntimeNodeResponse[] BuildRuntime(IReadOnlyCollection<PublishedNavigationNode> nodes, string? parent) => nodes.Where(x => string.Equals(x.ParentNodeNId, parent, StringComparison.OrdinalIgnoreCase)).OrderBy(x => x.DisplayOrder).ThenBy(x => x.NodeNId).Select(x => new NavigationRuntimeNodeResponse { NodeNId = x.NodeNId, Kind = x.Kind.ToString(), Label = x.Label, IconKey = x.IconKey, ResourceNId = x.ResourceNId, RouteName = x.RouteName, RequiredPermissionNId = x.RequiredPermissionNId, FeatureNId = x.FeatureNId, DisplayOrder = x.DisplayOrder, Children = BuildRuntime(nodes, x.NodeNId) }).ToArray();
+    private static NavigationRuntimeNodeResponse[] BuildRuntime(IReadOnlyCollection<PublishedNavigationNode> nodes, string? parent) => nodes.Where(x => string.Equals(x.ParentNodeNId, parent, StringComparison.OrdinalIgnoreCase)).OrderBy(x => x.DisplayOrder).ThenBy(x => x.NodeNId).Select(x => new NavigationRuntimeNodeResponse { NodeNId = x.NodeNId, Kind = x.Kind.ToString(), Label = x.Label, IconKey = x.IconKey, ResourceNId = x.ResourceNId, RouteName = x.RouteName, RequiredPermissionNId = x.RequiredPermissionNId, FeatureNId = x.FeatureNId, DisplayOrder = x.DisplayOrder, OwnerModuleNId = x.OwnedTarget?.ModuleNId, OwnerResourceNId = x.OwnedTarget?.ResourceNId, RouteParams = x.OwnedTarget is { } owned ? new Dictionary<string, string> { ["nId"] = owned.ResourceNId } : null, Children = BuildRuntime(nodes, x.NodeNId) }).ToArray();
     private static NavigationNodeResponse ToNode(NavigationNode node, IReadOnlyCollection<NavigationNode>? all) => new() { NodeNId = node.NId, Kind = node.Kind.ToString(), Label = node.Label, IconKey = node.IconKey, ParentNodeNId = node.ParentNodeNId, ResourceNId = node.ResourceNId, FeatureNId = node.FeatureNId, DisplayOrder = node.DisplayOrder, VisibleTerminals = node.VisibleTerminals.Select(x => x.ToString()).ToArray(), Status = node.Status.ToString(), ActionResourceNIds = node.ActionResourceNIds, Children = all?.Where(x => x.ParentNodeNId?.Equals(node.NId, StringComparison.OrdinalIgnoreCase) == true).OrderBy(x => x.DisplayOrder).ThenBy(x => x.NId).Select(x => ToNode(x, all)).ToArray() ?? [] };
     private static UiResourceResponse ToResource(UiResource resource) => new() { ResourceNId = resource.NId, OwnerModuleNId = resource.OwnerModuleNId, ManifestVersion = resource.ManifestVersion, Type = resource.Type.ToString(), Name = resource.Name, RouteName = resource.RouteName, RequiredPermissionNId = resource.RequiredPermissionNId, SupportedTerminals = resource.SupportedTerminals.Select(x => x.ToString()).ToArray(), Status = resource.Status.ToString() };
     private static ModuleManifestResponse ToManifest(ModuleManifestState manifest) => new() { ModuleNId = manifest.ModuleNId, ManifestVersion = manifest.ManifestVersion, Checksum = manifest.Checksum, PermissionNIds = manifest.PermissionNIds, Permissions = manifest.PermissionDeclarations().Select(x => new PermissionDeclarationRequest { PermissionNId = x.PermissionNId, Name = x.Name, ResourceType = x.ResourceType, ParentPermissionNId = x.ParentPermissionNId }).ToArray(), PermissionVerified = manifest.PermissionReceiptVersion is not null, PermissionVerifiedOn = manifest.PermissionVerifiedOn };

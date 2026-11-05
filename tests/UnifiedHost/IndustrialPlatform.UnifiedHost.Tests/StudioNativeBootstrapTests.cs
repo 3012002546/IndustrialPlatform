@@ -13,6 +13,35 @@ namespace IndustrialPlatform.UnifiedHost.Tests;
 
 public sealed class StudioNativeBootstrapTests
 {
+    [Fact]
+    public async Task Trace_has_one_fixed_execution_entry_and_seed_replay_is_idempotent()
+    {
+        var store = new Store();
+        var bootstrap = new StudioNativeNavigationBootstrap(new ConfigurationBuilder().Build(), store, store, new Registry(), new RuntimeSnapshotLoader(store));
+        var profile = new StudioDeploymentProfile { Enabled = true, InstalledModules = ["Traceability"] };
+        await bootstrap.ApplyAsync("t", profile, default);
+        var execution = Assert.Single(store.State.Resources, r => r.NId == "studio.page.trace-run");
+        Assert.Equal("studio-trace-run", execution.RouteName);
+        Assert.Contains(store.State.Snapshots.Last().Nodes, n => n.NodeNId == "studio.page.trace-run");
+        var revision = store.State.Revision;
+        await bootstrap.ApplyAsync("t", profile, default);
+        Assert.Equal(revision, store.State.Revision);
+    }
+    [Fact]
+    public async Task Independent_profile_does_not_seed_platform_menus_and_filters_old_native_entries()
+    {
+        var store = new Store();
+        var profile = new StudioDeploymentProfile { Enabled = true, InstalledModules = ["LowCode"], DeploymentMode = "ExternalMes" };
+        await new StudioNativeNavigationBootstrap(new ConfigurationBuilder().Build(), store, store, new Registry(), new RuntimeSnapshotLoader(store)).ApplyAsync("t", profile, default);
+        Assert.Empty(store.State.Resources); Assert.Equal(0, store.State.Revision);
+        var runtime = new IndustrialPlatform.SystemData.Contracts.ControlPlane.NavigationRuntimeResponse { Nodes = [
+            new() { NodeNId = "studio", ResourceNId = "studio.page.lowcode" },
+            new() { NodeNId = "owned", OwnerModuleNId = "platform-studio", OwnerResourceNId = "page" },
+            new() { NodeNId = "customer", ResourceNId = "customer.page" },
+        ] };
+        var filtered = await new PlatformStudioDeploymentNavigationPolicy(profile).ApplyAsync("t", runtime, default);
+        Assert.Equal("customer", Assert.Single(filtered.Nodes).NodeNId);
+    }
     private static readonly string[] BothFactories = ["F1","F2"];
     private static readonly string[] FirstFactory = ["F1"];
     private sealed class Revocations : IndustrialPlatform.Identity.Application.Authentication.ISessionRevocationStore
@@ -104,11 +133,11 @@ public sealed class StudioNativeBootstrapTests
         var profile=new StudioDeploymentProfile {Enabled=true,InstalledModules=["LowCode"]};
         await bootstrap.ApplyAsync("t",profile,CancellationToken.None);
         Assert.Contains(store.State.Snapshots.Last().Nodes,n=>n==custom);
-        Assert.Equal(4,store.State.Resources.Count);Assert.Equal(5,store.State.DraftNodes.Count);
+        Assert.Equal(5,store.State.Resources.Count);Assert.Equal(5,store.State.DraftNodes.Count);
         Assert.Single(store.State.Manifests);Assert.True(store.State.PermissionReceipts.Single().Verified);
         var revision=store.State.Revision;await bootstrap.ApplyAsync("t",profile,CancellationToken.None);Assert.Equal(revision,store.State.Revision);
         profile.Enabled=false;profile.ProfileVersion="2";await bootstrap.ApplyAsync("t",profile,CancellationToken.None);
-        Assert.Equal(custom,Assert.Single(store.State.Snapshots.Last().Nodes));Assert.Equal(4,store.State.Resources.Count);Assert.Equal(5,store.State.DraftNodes.Count);
+        Assert.Equal(custom,Assert.Single(store.State.Snapshots.Last().Nodes));Assert.Equal(5,store.State.Resources.Count);Assert.Equal(5,store.State.DraftNodes.Count);
         profile.Enabled=true;profile.ProfileVersion="3";await bootstrap.ApplyAsync("t",profile,CancellationToken.None);
         Assert.Equal(6,store.State.Snapshots.Last().Nodes.Count);
     }
@@ -178,7 +207,7 @@ public sealed class StudioNativeBootstrapTests
         var bootstrap = new StudioNativeNavigationBootstrap(new ConfigurationBuilder().Build(), store, store, new Registry(), new RuntimeSnapshotLoader(store));
         var profile = new StudioDeploymentProfile { Enabled = true, InstalledModules = ["LowCode", "Dashboard"] };
         await bootstrap.ApplyAsync("t", profile, CancellationToken.None);
-        Assert.Equal(6, store.State.Resources.Count);
+        Assert.Equal(7, store.State.Resources.Count);
 
         profile.EnabledModules = ["LowCode"];
         profile.ProfileVersion = "2";
@@ -189,7 +218,7 @@ public sealed class StudioNativeBootstrapTests
         Assert.Contains(nodes, node => node.NodeNId == "studio.page.lowcode");
         Assert.DoesNotContain(nodes, node => node.NodeNId is "studio.page.dashboards" or "studio.page.playlists");
         Assert.DoesNotContain(Assert.Single(store.State.Manifests).PermissionDeclarationItems, item => item.PermissionNId.StartsWith("studio.dashboard.", StringComparison.Ordinal));
-        Assert.Equal(6, store.State.Resources.Count);
+        Assert.Equal(7, store.State.Resources.Count);
         Assert.Contains(store.State.DraftNodes, node => node.NId == "studio.page.dashboards");
 
         profile.EnabledModules = ["LowCode", "Dashboard"];
@@ -197,7 +226,7 @@ public sealed class StudioNativeBootstrapTests
         await bootstrap.ApplyAsync("t", profile, CancellationToken.None);
         Assert.Contains(store.State.Snapshots.Last().Nodes, node => node.NodeNId == "studio.page.dashboards");
         Assert.Contains(store.State.Snapshots.Last().Nodes, node => node == custom);
-        Assert.Equal(6, store.State.Resources.Count);
+        Assert.Equal(7, store.State.Resources.Count);
     }
     public class DirectoryProxy : DispatchProxy
     {

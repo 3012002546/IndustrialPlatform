@@ -20,7 +20,7 @@ public sealed class StudioCommandLineTests
         using var before = JsonDocument.Parse(output.ToString());
         Assert.False(before.RootElement.GetProperty("ok").GetBoolean());
         var plan = before.RootElement.GetProperty("migrationPlan");
-        Assert.Equal(10, plan.GetArrayLength());
+        Assert.Equal(11, plan.GetArrayLength());
         Assert.Contains(plan.EnumerateArray(), step => step.GetRawText().Contains("STU-009-WorkbookWorkingCopy", StringComparison.Ordinal));
         output.GetStringBuilder().Clear();
         Assert.Equal(0, await fixture.Command.ExecuteAsync(["--studio-initialize"], output, CancellationToken.None));
@@ -71,6 +71,18 @@ public sealed class StudioCommandLineTests
         Assert.Equal("STUDIO_MODULE_BUSY", (await Assert.ThrowsAsync<StudioException>(() => fixture.Command.CheckChangeAsync(next, CancellationToken.None))).Code);
     }
 
+    [Fact]
+    public async Task Check_change_accepts_trace_only_without_report_or_office()
+    {
+        using var fixture = new Fixture();
+        await fixture.Initializer.InitializeLocalAsync(CancellationToken.None);
+        var next = StudioInitializationTests.Profile(fixture.Profile.Database!.SqliteFile!);
+        next.ProfileVersion = "2";
+        next.InstalledModules = ["Traceability"];
+        next.EnabledModules = ["Traceability"];
+        await fixture.Command.CheckChangeAsync(next, CancellationToken.None);
+        Assert.Equal(["LowCode"], fixture.Profile.ActiveModules);
+    }
     [Fact]
     public async Task Command_conflicts_and_invalid_change_files_return_structured_failure_without_initializing()
     {

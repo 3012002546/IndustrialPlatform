@@ -122,15 +122,14 @@ function toggle(): void {
   themeStore.setPcFunctionTreeCollapsed(!collapsed.value)
 }
 
-/** 路由高亮(§14.2):当前路由名与菜单项 routeName 一致即为激活态。 */
-function isActive(routeName: string): boolean {
-  return route.name === routeName
-}
-
-function isItemActive(item: NavigationItem): boolean {
+function matchesItem(item: NavigationItem): boolean {
   return (
-    isActive(item.routeName) || (item.children?.some((child) => isActive(child.routeName)) ?? false)
+    route.name === item.routeName &&
+    Object.entries(item.routeParams ?? {}).every(([key, value]) => route.params[key] === value)
   )
+}
+function isItemActive(item: NavigationItem): boolean {
+  return matchesItem(item) || (item.children?.some(matchesItem) ?? false)
 }
 
 function visibleChildren(item: NavigationItem): readonly NavigationItem[] {
@@ -250,11 +249,12 @@ watch(
                     :key="child.id"
                     :to="{
                       name: child.routeName,
+                      ...(child.routeParams === undefined ? {} : { params: child.routeParams }),
                       ...(child.routeQuery === undefined ? {} : { query: child.routeQuery }),
                     }"
                     class="ip-function-tree__popover-link"
                     role="menuitem"
-                    :aria-current="isActive(child.routeName) ? 'page' : undefined"
+                    :aria-current="isItemActive(child) ? 'page' : undefined"
                     @click="closeSubmenu"
                   >
                     <span v-if="child.icon" class="ip-function-tree__icon" aria-hidden="true">
@@ -268,11 +268,12 @@ watch(
                 <RouterLink
                   :to="{
                     name: item.routeName,
+                    ...(item.routeParams === undefined ? {} : { params: item.routeParams }),
                     ...(item.routeQuery === undefined ? {} : { query: item.routeQuery }),
                   }"
                   class="ip-function-tree__link"
-                  :class="{ 'ip-function-tree__link--active': isActive(item.routeName) }"
-                  :aria-current="isActive(item.routeName) ? 'page' : undefined"
+                  :class="{ 'ip-function-tree__link--active': matchesItem(item) }"
+                  :aria-current="matchesItem(item) ? 'page' : undefined"
                   :aria-label="collapsed ? itemLabel(item) : undefined"
                   :title="collapsed ? itemLabel(item) : undefined"
                 >
@@ -297,11 +298,12 @@ watch(
                       <RouterLink
                         :to="{
                           name: child.routeName,
+                          ...(child.routeParams === undefined ? {} : { params: child.routeParams }),
                           ...(child.routeQuery === undefined ? {} : { query: child.routeQuery }),
                         }"
                         class="ip-function-tree__link ip-function-tree__link--child"
-                        :class="{ 'ip-function-tree__link--active': isActive(child.routeName) }"
-                        :aria-current="isActive(child.routeName) ? 'page' : undefined"
+                        :class="{ 'ip-function-tree__link--active': isItemActive(child) }"
+                        :aria-current="isItemActive(child) ? 'page' : undefined"
                       >
                         <span v-if="child.icon" class="ip-function-tree__icon" aria-hidden="true">
                           <component :is="child.icon" />

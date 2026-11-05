@@ -1,7 +1,8 @@
 /**
  * 稳定页面身份与可持久化路由(PF-01 §7.9)。
  * 纯模块:params/query 排序必须确定,非法值不得抛出。
- * 业务标签 ID = route.name + 排序后的 params + 排序后的 query。
+ * 默认业务标签 ID = route.name + 排序后的 params + 排序后的 query。
+ * 显式声明 queryKeys 的页面仅让所选查询参数参与身份，其余是页内状态。
  */
 
 import type { PersistedRouteLocation, WorkspaceTab } from './types'
@@ -53,14 +54,19 @@ export function serializeLocationParts(parts: Readonly<Record<string, unknown>>)
     .join('&')
 }
 
-/** 业务标签稳定 ID:name + 排序后的 params + 排序后的 query;无参数时退化为 name。 */
+/** 业务标签稳定 ID；未传 queryKeys 时保留全部 query，空数组表示查询条件不拆标签。 */
 export function buildTabId(
   name: string,
   params: Readonly<Record<string, unknown>> = {},
   query: Readonly<Record<string, unknown>> = {},
+  queryKeys?: readonly string[],
 ): string {
   const p = serializeLocationParts(params)
-  const q = serializeLocationParts(query)
+  const q = serializeLocationParts(
+    queryKeys === undefined
+      ? query
+      : Object.fromEntries(Object.entries(query).filter(([key]) => queryKeys.includes(key))),
+  )
   const suffix = [p.length > 0 ? `p=${p}` : '', q.length > 0 ? `q=${q}` : '']
     .filter((s) => s.length > 0)
     .join('&')

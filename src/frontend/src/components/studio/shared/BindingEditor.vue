@@ -76,13 +76,17 @@ function drop(event: DragEvent) {
         ><el-option
           v-for="v in contexts ?? ['Instance', 'Form', 'Row', 'PageParam', 'Context', 'Constant']"
           :key="v"
-          :label="v"
+          :label="t('binding' + v)"
           :value="v" /></el-select
       ><el-select
         :model-value="modelValue.nullPolicy ?? 'Error'"
         :aria-label="t('nullPolicy')"
         @update:model-value="(v: Json[string]) => update({ nullPolicy: v })"
-        ><el-option v-for="v in ['Error', 'Null', 'Default']" :key="v" :label="v" :value="v"
+        ><el-option
+          v-for="v in ['Error', 'Null', 'Default']"
+          :key="v"
+          :label="t('binding' + v)"
+          :value="v"
       /></el-select>
     </div>
     <el-select

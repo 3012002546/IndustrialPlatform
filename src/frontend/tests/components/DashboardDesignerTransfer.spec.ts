@@ -31,7 +31,7 @@ const resource = {
   concurrencyVersion: '1',
 }
 async function click(text: string) {
-  const button = [...document.querySelectorAll('button')].find(
+  const button = [...document.querySelectorAll<HTMLElement>('button, [role="tab"]')].find(
     (button) => button.textContent?.trim() === text,
   )
   expect(button, text).toBeDefined()

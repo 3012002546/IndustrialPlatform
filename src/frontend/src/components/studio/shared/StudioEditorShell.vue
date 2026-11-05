@@ -12,6 +12,8 @@ import {
 import type { Json } from '@/api/studio'
 
 const props = defineProps<{
+  graphMode?: boolean
+  freeCanvas?: boolean
   modelValue: Json
   canvasWidth?: number
   canvasHeight?: number
@@ -52,7 +54,9 @@ const leftWidth = ref(props.sidebarWidths?.[0] ?? 240),
   viewport = ref<HTMLElement | null>(null)
 const revision = ref(0),
   history = createHistory({ document: props.modelValue, selected: '' })
-const root = computed(() => props.modelValue.layout as unknown as LayoutNode)
+const root = computed(() =>
+  props.graphMode ? undefined : (props.modelValue.layout as unknown as LayoutNode),
+)
 const flat = computed(() => (root.value ? nodes(root.value) : []))
 const focused = computed(() => flat.value.find((n) => n.id === selected.value))
 const canUndo = computed(() => {
@@ -86,6 +90,11 @@ function sizeChanged() {
   })
   fit()
 }
+function setCanvasSize(nextWidth: number | undefined, nextHeight: number | undefined) {
+  if (nextWidth !== undefined) width.value = nextWidth
+  if (nextHeight !== undefined) height.value = nextHeight
+  sizeChanged()
+}
 function toggleLeft() {
   leftOpen.value = !leftOpen.value
   if (leftOpen.value && narrow()) rightOpen.value = false
@@ -103,7 +112,7 @@ let ownChange = false
 function update(value: Json, commit = true) {
   ownChange = true
   emit('update:modelValue', value)
-  if (commit) {
+  if (commit && !props.graphMode) {
     history.commit({ document: value, selected: selected.value })
     revision.value++
   }
@@ -134,6 +143,7 @@ function redo() {
   revision.value++
 }
 function fit() {
+  if (props.graphMode) return
   const view = viewport.value
   if (!view) return
   fitMode.value = true
@@ -146,6 +156,7 @@ function fit() {
   view.scrollTo(0, 0)
 }
 function keydown(event: KeyboardEvent) {
+  if (props.graphMode) return
   const target = event.target as HTMLElement
   if (
     event.isComposing ||
@@ -174,6 +185,7 @@ function geometry(node: LayoutNode) {
   }
 }
 function pointer(event: PointerEvent, node?: LayoutNode, resizing = false) {
+  if (props.graphMode) return
   if (event.button !== 0) return
   const element = event.currentTarget as HTMLElement
   element.setPointerCapture(event.pointerId)
@@ -244,6 +256,7 @@ function resizeSidebar(event: PointerEvent, side: 'left' | 'right') {
 watch(
   () => props.modelValue,
   (value) => {
+    if (props.graphMode) return
     if (ownChange) {
       ownChange = false
       return
@@ -266,6 +279,7 @@ watch(
 onMounted(() => {
   leftOpen.value = true
   rightOpen.value = window.innerWidth > (props.propertiesOpen ? 1024 : 1280)
+  if (props.graphMode) return
   observer = new ResizeObserver(() => {
     if (fitMode.value && !props.interactionActive) fit()
   })
@@ -304,6 +318,11 @@ defineExpose({
       :right-open="rightOpen"
       :toggle-left="toggleLeft"
       :toggle-right="toggleRight"
+      :canvas-width="width"
+      :canvas-height="height"
+      :set-canvas-size="setCanvasSize"
+      :pan-mode="panMode"
+      :set-pan-mode="(value: boolean) => (panMode = value)"
     >
       <div class="studio-tools">
         <el-button :disabled="!canUndo" @click="undo">{{ t('undo') }}</el-button
@@ -351,10 +370,12 @@ defineExpose({
       <main
         ref="viewport"
         class="studio-viewport"
-        :style="{ overflow: fitMode ? 'hidden' : 'auto', gridColumn: 2, gridRow: 1 }"
+        :style="{ overflow: graphMode || fitMode ? 'hidden' : 'auto', gridColumn: 2, gridRow: 1 }"
         @pointerdown.self="pointer($event)"
       >
+        <slot v-if="freeCanvas" name="workspace" />
         <div
+          v-else
           :style="{
             width: width * zoom + 'px',
             height: height * zoom + 'px',

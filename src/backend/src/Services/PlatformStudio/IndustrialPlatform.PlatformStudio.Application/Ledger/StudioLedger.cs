@@ -170,7 +170,7 @@ public sealed class StudioLedger(IStudioResourceStore store, StudioPublishing pu
             {
                 row.LastUpdatedBy=principal.SubjectNId;
                 if(!await store.UpdateLedgerRecordAsync(row,old,token,ct)) throw new StudioException("STUDIO_VERSION_CONFLICT","记录已被修改。",409);
-                await store.ReplaceLedgerIndexesAsync(row.Id,row.IsDeleted?[]:Indexes(row,model),ct);
+                await store.ReplaceLedgerIndexesAsync(row.Id,Indexes(row,model),ct);
                 await store.AppendAuditAsync(principal,"studio.ledger."+state,row.NId,new() { ["modelNId"]=modelNId },ct);
             }
             return Dto(modelNId,(row.SchemaRevisionId==revision.Id?revision:await store.FindRevisionByIdAsync(principal.TenantNId,row.SchemaRevisionId,ct)??throw new StudioException("DEPENDENCY_CHANGED","记录结构修订不存在。",409)).NId,row,model);
@@ -181,7 +181,8 @@ public sealed class StudioLedger(IStudioResourceStore store, StudioPublishing pu
     {
         "String" or "Enum"=>"text_value","Decimal" or "Int32"=>"number_scaled","Boolean"=>"bool_value","Date" or "DateTime"=>"time_value",_=>throw new StudioException("STUDIO_VALIDATION","该字段类型不支持索引。")
     };
-    private static List<StudioLedgerValue> Indexes(StudioLedgerRecord row,JsonObject model)
+    /// <summary>从业务真值构建类型索引；删除记录保留过滤/排序值，只释放唯一占用。也供历史索引修复复用。</summary>
+    public static List<StudioLedgerValue> Indexes(StudioLedgerRecord row,JsonObject model)
     {
         var values=JsonNode.Parse(row.ValuesJson)!.AsObject();var result=new List<StudioLedgerValue>();
         foreach(var (id,field) in Fields(model))
@@ -203,7 +204,7 @@ public sealed class StudioLedger(IStudioResourceStore store, StudioPublishing pu
                     index.ValueKind="Time";index.TimeValue=type=="Date"?DateTimeOffset.ParseExact(StudioJson.Text(value)!,"yyyy-MM-dd",CultureInfo.InvariantCulture,DateTimeStyles.AssumeUniversal):DateTimeOffset.Parse(StudioJson.Text(value)!,CultureInfo.InvariantCulture).ToUniversalTime();
                     normalized=index.TimeValue.Value.ToUniversalTime().ToString("O",CultureInfo.InvariantCulture);break;
             }
-            if(field["unique"]?.GetValue<bool>()==true) index.UniqueKey=StudioJson.Hash(type+"|"+(type is "String" or "Enum"?normalized.Trim():normalized));
+            if(!row.IsDeleted&&field["unique"]?.GetValue<bool>()==true) index.UniqueKey=StudioJson.Hash(type+"|"+(type is "String" or "Enum"?normalized.Trim():normalized));
             result.Add(index);
         }
         return result;
