@@ -176,3 +176,31 @@ it('uses the pinned resource revision and typed parameters in an embedded conten
     'Inspection A',
   )
 })
+
+it('submits every registered export format without changing the fixed revision or parameters', async () => {
+  render()
+  await flushPromises()
+  const selector = page.findAllComponents({ name: 'ElSelect' }).at(-1)!
+  const formats = ['Pdf', 'Html', 'Xlsx', 'Xls', 'Docx', 'Rtf', 'Mht', 'Text', 'Csv', 'Png', 'Jpeg']
+  expect(
+    selector
+      .findAllComponents({ name: 'ElOption' })
+      .map((option) => option.props('value'))
+      .sort(),
+  ).toEqual([...formats].sort())
+  for (const format of formats) {
+    selector.vm.$emit('update:modelValue', format)
+    await flushPromises()
+    await page
+      .findAll('button')
+      .find((button) => button.text() === '生成当前查询全部结果')!
+      .trigger('click')
+    await flushPromises()
+    expect(state.api.reportRun.mock.lastCall![1]).toMatchObject({
+      format,
+      revisionNId: 'revision-a',
+      parameters: { title: 'Default title' },
+    })
+  }
+  expect(new Set(state.api.reportRun.mock.calls.map((call) => call[2])).size).toBe(formats.length)
+})

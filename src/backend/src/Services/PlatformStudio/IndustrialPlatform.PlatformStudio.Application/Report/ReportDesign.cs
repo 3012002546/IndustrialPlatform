@@ -24,6 +24,7 @@ public sealed class ReportDesign(IStudioResourceStore store, IStudioAuthorizatio
         if (input.Orientation is { } orientation && document["paper"] is JsonObject paper) paper["orientation"] = orientation;
         var resource = input.ResourceNId is { } rootNId ? await publishing.RequireResourceAsync(principal, rootNId, "design", "Design", token) : new StudioResource { Kind = input.Kind, NId = "unsaved", TenantNId = principal.TenantNId };
         if (resource.Kind != input.Kind) throw new StudioException("TYPE_MISMATCH", "资源类型不匹配。");
+        if (input.Kind == "Report" && input.DraftDependencies?.Length > 0) throw new StudioException("STUDIO_VALIDATION", "内嵌子报表只使用已发布固定修订。", 422);
         var explicitDrafts = new Dictionary<string, (StudioResource Resource, JsonObject Document)>();
         foreach (var requested in input.DraftDependencies ?? [])
         {
@@ -35,7 +36,7 @@ public sealed class ReportDesign(IStudioResourceStore store, IStudioAuthorizatio
         }
         // Bind explicit saved child drafts to temporary immutable keys within this snapshot, never publish them.
         var draftKeys = new Dictionary<string, string>();
-        var childItems = input.Kind == "ReportBundle" ? (StudioJson.Text(document["mode"]) == "Simple" ? document["items"] as JsonArray : document["assembly"]?["rules"] as JsonArray) ?? [] : new JsonArray();
+        var childItems = StudioDocuments.ReportReferences(input.Kind, document);
         var draftSnapshots = new JsonArray();
         foreach (var item in childItems.OfType<JsonObject>())
         {
@@ -58,13 +59,13 @@ public sealed class ReportDesign(IStudioResourceStore store, IStudioAuthorizatio
             var validation = StudioDocuments.Validate(input.Kind, document);
             if (validation.FirstOrDefault(d => d.Severity == "Error") is { } d) throw new StudioException(d.Code, d.Message, 422, d.Path);
             var safeRoot = document.DeepClone().AsObject();
-            var safeItems = StudioJson.Text(safeRoot["mode"]) == "Simple" ? safeRoot["items"]!.AsArray() : safeRoot["assembly"]!["rules"]!.AsArray();
+            var safeItems = StudioDocuments.BundleEntries(safeRoot)!;
             foreach (var item in safeItems.OfType<JsonObject>().Where(i => draftKeys.ContainsKey(StudioJson.RequiredString(i, "reportNId"))).ToArray()) safeItems.Remove(item);
             // Validate the remaining references through the same publisher; empty list diagnostic belongs only to this reduced planning projection.
             rootPlan = await publishing.PlanAsync(principal, resource, safeRoot, token);
-            var errors = rootPlan.Diagnostics.Where(d => d.Severity == "Error" && d.Path is not ("items" or "assembly.rules")).ToArray();
+            var errors = rootPlan.Diagnostics.Where(d => d.Severity == "Error" && d.Path is not ("items" or "assembly.rules" or "assembly.templates")).ToArray();
             if (errors.FirstOrDefault() is { } e) throw new StudioException(e.Code, e.Message, 422, e.Path);
-            var resolvedItems = StudioJson.Text(safeRoot["mode"]) == "Simple" ? safeRoot["items"]!.AsArray() : safeRoot["assembly"]!["rules"]!.AsArray();
+            var resolvedItems = StudioDocuments.BundleEntries(safeRoot)!;
             foreach (var original in childItems.OfType<JsonObject>()) if (!draftKeys.ContainsKey(StudioJson.RequiredString(original, "reportNId"))) original["revisionNId"] = resolvedItems.OfType<JsonObject>().Single(i => StudioJson.Text(i["id"]) == StudioJson.Text(original["id"]))["revisionNId"]?.DeepClone();
         }
         var dependencies = new Dictionary<string, ReportDefinitionSnapshot>(StringComparer.Ordinal); var frozenDependencies = new JsonArray();

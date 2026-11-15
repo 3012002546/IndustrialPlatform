@@ -64,6 +64,11 @@ public sealed class StudioResourceStore(StudioDatabase database, TimeProvider cl
         await Db.Updateable(resource).Where(row => row.Id == resource.Id && row.TenantNId == resource.TenantNId && row.OptimisticVersion == expectedVersion && row.ConcurrencyVersion == expectedConcurrencyVersion).ExecuteCommandAsync(cancellationToken) == 1;
 
     public async Task<StudioRevision?> FindRevisionAsync(string tenantNId, string nId, CancellationToken cancellationToken) => await Db.Queryable<StudioRevision>().Where(row => row.TenantNId == tenantNId && row.NId == nId).FirstUtcAsync(database.Provider,cancellationToken)!;
+    public async Task<IReadOnlyList<StudioRevision>> FindRevisionsByIdsAsync(string tenantNId, Guid[] ids, CancellationToken cancellationToken)
+    {
+        if (ids.Length == 0) return [];
+        return await Db.Queryable<StudioRevision>().Where(row => row.TenantNId == tenantNId && ids.Contains(row.Id)).ToUtcListAsync(database.Provider, cancellationToken);
+    }
     public async Task<StudioRevision?> FindRevisionByIdAsync(string tenantNId, Guid id, CancellationToken cancellationToken) => await Db.Queryable<StudioRevision>().Where(row => row.TenantNId == tenantNId && row.Id == id).FirstUtcAsync(database.Provider,cancellationToken)!;
     public async Task<IReadOnlyList<StudioRevision>> ListRevisionsAsync(string tenantNId, Guid resourceId, CancellationToken cancellationToken) => await Db.Queryable<StudioRevision>().Where(row => row.TenantNId == tenantNId && row.ResourceId == resourceId).OrderBy(row => row.RevisionNo, OrderByType.Desc).ToUtcListAsync(database.Provider,cancellationToken);
     public async Task InsertRevisionAsync(StudioRevision revision, CancellationToken cancellationToken) => await Db.Insertable(revision).ExecuteCommandAsync(cancellationToken);

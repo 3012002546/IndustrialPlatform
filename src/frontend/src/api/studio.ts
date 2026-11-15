@@ -161,15 +161,31 @@ export function createStudioApi(client: HttpClient) {
         'offset',
       ],
     })
-  const post = <T>(path: string, body: unknown, key: string = crypto.randomUUID()) =>
-    client.post<T>(BASE + path, body, { headers: { 'Idempotency-Key': key } })
+  const post = <T>(
+    path: string,
+    body: unknown,
+    key: string = crypto.randomUUID(),
+    signal?: AbortSignal,
+  ) =>
+    client.post<T>(BASE + path, body, {
+      headers: { 'Idempotency-Key': key },
+      ...(signal ? { signal } : {}),
+    })
   const put = <T>(path: string, body: unknown, key: string = crypto.randomUUID()) =>
     client.put<T>(BASE + path, body, { headers: { 'Idempotency-Key': key } })
   return {
     client,
     reportPlan: (input: Json) => post<Json>('/reports/plan', input),
     reportDraftContract: (input: Json) => post<Json>('/reports/binding-contract', input),
-    reportPreview: (input: Json) => post<Json>('/reports/preview', input),
+    reportPreview: (input: Json, signal?: AbortSignal) =>
+      post<Json>('/reports/preview', input, undefined, signal),
+    reportPreviewExport: (input: Json, format: string, signal?: AbortSignal) => {
+      if (!client.postBlob) throw new Error('Binary export is unavailable.')
+      return client.postBlob(BASE + '/reports/preview/export/' + id(format), input, {
+        ...(signal ? { signal } : {}),
+        timeoutMs: 120000,
+      })
+    },
     reportPreviewState: (nId: string) => get<Json>(`/reports/previews/${id(nId)}`),
     reportQuery: (nId: string | null, input: Json) =>
       post<Json>(nId ? `/reports/${id(nId)}/query` : '/reports/query-preview', input),

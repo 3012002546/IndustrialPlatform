@@ -10,6 +10,8 @@ namespace IndustrialPlatform.PlatformStudio.Tests;
 public sealed class ReportPlanningTests
 {
     private static readonly string[] TreeExpected = ["A", "B", "C", "D", "E", "F"];
+    private static readonly string[] DetailSuffixes = ["first", "last"];
+    private static readonly string[] SnapshotExpected = ["HEAD-A", "BOM-A", "BASIC-A1", "ROW-A1", "BASIC-A2", "HEAD-B", "BASIC-B1", "ROW-B1", "HEAD-C"];
     private static readonly string[] RunsExpected = ["R1", "R2"];
     private static JsonObject Parse(string json) => JsonNode.Parse(json)!.AsObject();
     private static JsonObject Paper => Parse("""{"size":"A4","orientation":"Portrait","margin":{"top":15,"right":15,"bottom":15,"left":15},"headerHeightMm":15,"footerHeightMm":10}""");
@@ -19,7 +21,112 @@ public sealed class ReportPlanningTests
         var field = Field("value", "id"); field["value"]!["path"] = new JsonArray("id");
         return new() { ["schemaVersion"] = 1, ["mode"] = "Fixed", ["parameters"] = new JsonArray(), ["instances"] = new JsonArray(new JsonObject { ["instanceId"] = "root", ["sourceType"] = "Constant", ["value"] = rows, ["parameters"] = new JsonArray() }), ["paper"] = Paper, ["bands"] = new JsonArray(new JsonObject { ["id"] = "root-band", ["kind"] = "Detail", ["name"] = "Root", ["heightMm"] = 10, ["controls"] = new JsonArray(field), ["data"] = Parse("""{"mode":"RootPath","instanceId":"root","path":[]}""") }), ["styles"] = new JsonArray(), ["assets"] = new JsonArray() };
     }
+    [Fact]
+    public async Task Data_driven_assembly_uses_each_templates_own_operation_rows_once()
+    {
+        string[] available = ["AC", "B", "ACE", "", "ABCDE", "DE", "ABCD", "", "E", "BCD"];
+        var doc = Parse("""{"schemaVersion":1,"mode":"ElectronicRecord","parameters":[],"instances":[{"instanceId":"orders","sourceType":"Constant","parameters":[],"value":[{"id":"WO","ops":[]}]}],"assembly":{"stitchMode":"DataDriven","root":{"mode":"RootPath","instanceId":"orders","path":[]},"operation":{"collection":{"mode":"ParentPath","path":["ops"]}},"templates":[],"rules":[]}}""");
+        doc["paper"] = Paper;
+        var ops = doc["instances"]![0]!["value"]![0]!["ops"]!.AsArray();
+        for (var i = 0; i < available.Length; i++) ops.Add(new JsonObject { ["id"] = i });
+        var dependencies = new Dictionary<string, ReportDefinitionSnapshot>();
+        foreach (var template in "ABCDE")
+        {
+            var id = template.ToString();
+            var report = Report([]);
+            report["instances"]![0] = Parse("""{"instanceId":"root","sourceType":"Dataset","parameters":[{"target":"op","source":{"from":"PageParam","path":["op"],"nullPolicy":"Error"}}]}""");
+            report["instances"]![0]!["revisionNId"] = id;
+            dependencies[id + "/v1"] = Definition(report);
+            var candidate = Parse("""{"revisionNId":"v1","parameterMap":[{"target":"op","source":{"from":"Row","path":["id"],"nullPolicy":"Error"}}]}""");
+            candidate["id"] = id; candidate["reportNId"] = id;
+            doc["assembly"]!["templates"]!.AsArray().Add(candidate);
+        }
+        var calls = 0;
+        var resolver = new ReportDataResolver((type, parameters, _) =>
+        {
+            calls++;
+            var op = parameters["op"]!.GetValue<int>();
+            var rows = new JsonArray();
+            if (available[op].Contains(type, StringComparison.Ordinal))
+                foreach (var suffix in DetailSuffixes) rows.Add(new JsonObject { ["id"] = $"ROW-{op}-{type}-{suffix}" });
+            return Task.FromResult(new JsonObject { ["data"] = rows });
+        });
+        var definition = new ReportDefinitionSnapshot("ReportBundle", doc, dependencies, "test");
+        var plan = await new ReportPlanner(resolver, new()).PlanAsync(definition, new(), default);
+        Assert.Equal(50, calls);
+        Assert.Equal(50, plan.Instances.Count);
+        var included = plan.Instances.Where(i => i.Decision == "Include").ToArray();
+        var expected = available.SelectMany((types, op) => types.Select(type => $"{op}-{type}")).ToArray();
+        Assert.Equal(expected, included.Select(i => $"{i.ResolvedMappings["parameters"]!["op"]}-{i.ReportNId}"));
+        Assert.All(included, i => Assert.Equal(2, i.RowCount));
+        Assert.All(plan.Instances.Where(i => i.Decision == "Skip"), i => { Assert.Equal("SkippedEmpty", i.Reason); Assert.Empty(i.Blocks); });
+        var html = ReportHtmlComposer.Compose(ReportExpander.Expand(plan), false);
+        Assert.Equal(expected.SelectMany(key => new[] { $"ROW-{key}-first", $"ROW-{key}-last" }),
+            System.Text.RegularExpressions.Regex.Matches(html, @"ROW-\d+-[A-E]-(?:first|last)").Select(m => m.Value));
+        var failed = new ReportDataResolver((_, _, _) => throw new StudioException("SOURCE_TIMEOUT", "timeout", 504));
+        Assert.Equal("SOURCE_TIMEOUT", (await Assert.ThrowsAsync<StudioException>(() => new ReportPlanner(failed, new()).PlanAsync(definition, new(), default))).Code);
+    }
     private static ReportDataResolver Resolver => new((_, _, _) => throw new InvalidOperationException("No sources expected"));
+    [Fact]
+    public async Task Data_driven_snapshot_is_collected_once_with_order_headers_and_required_operation_basics()
+    {
+        var orders = JsonNode.Parse("""[{"id":"WO-A","header":[{"id":"HEAD-A"}],"bom":[{"id":"BOM-A"}],"ops":[{"id":"OP-A1","basic":[{"id":"BASIC-A1"}],"details":[{"id":"ROW-A1"}]},{"id":"OP-A2","basic":[{"id":"BASIC-A2"}],"details":[]}]},{"id":"WO-B","header":[{"id":"HEAD-B"}],"bom":[],"ops":[{"id":"OP-B1","basic":[{"id":"BASIC-B1"}],"details":[{"id":"ROW-B1"}]}]},{"id":"WO-C","header":[{"id":"HEAD-C"}],"bom":[],"ops":[]}]""")!.AsArray();
+        var doc = Parse("""{"schemaVersion":1,"mode":"ElectronicRecord","parameters":[],"instances":[{"instanceId":"orders","sourceType":"Dataset","revisionNId":"snapshot","parameters":[]}],"assembly":{"stitchMode":"DataDriven","root":{"mode":"RootPath","instanceId":"orders","path":[]},"operation":{"collection":{"mode":"ParentPath","path":["ops"]}},"templates":[],"rules":[]}}""");
+        doc["instances"]![0]!["datasetNId"] = "snapshot-source";
+        doc["paper"] = Paper;
+        var dependencies = new Dictionary<string, ReportDefinitionSnapshot>();
+        foreach (var (id, scope, required, priority) in new[] { ("header", "WorkOrder", false, 1), ("bom", "WorkOrder", false, 2), ("basic", "Operation", true, 1), ("details", "Operation", false, 2) })
+        {
+            var child = Report([]);
+            child["instances"]![0] = Parse("""{"instanceId":"root","sourceType":"Dataset","revisionNId":"must-not-query","parameters":[]}""");
+            dependencies[id + "/v1"] = Definition(child);
+            doc["assembly"]!["templates"]!.AsArray().Add(new JsonObject
+            {
+                ["id"] = id, ["reportNId"] = id, ["revisionNId"] = "v1", ["priority"] = priority, ["scope"] = scope, ["required"] = required, ["parameterMap"] = new JsonArray(),
+                ["instanceMap"] = new JsonArray(new JsonObject { ["target"] = "root", ["source"] = new JsonObject { ["from"] = scope == "WorkOrder" ? "Root" : "Row", ["path"] = new JsonArray(id), ["nullPolicy"] = "Error" } })
+            });
+        }
+        var calls = 0;
+        ReportDataResolver Snapshot() => new((revision, _, _) =>
+        {
+            Assert.Equal("snapshot", revision); calls++;
+            return Task.FromResult(new JsonObject { ["data"] = orders.DeepClone() });
+        });
+        doc["assembly"]!["templates"]![2]!["breakBefore"] = "Page";
+        var definition = new ReportDefinitionSnapshot("ReportBundle", doc, dependencies, "test");
+        var captured = Snapshot();
+        var plan = await new ReportPlanner(captured, new()).PlanAsync(definition, new(), default);
+        Assert.Equal(1, calls);
+        Assert.Equal(SnapshotExpected, ReportExpander.Expand(plan).Blocks.Select(b => StudioJson.Text(b.Value)));
+        Assert.All(plan.Instances.Where(i => i.ReportNId is "header" or "bom"), i => Assert.Null(i.OperationKey));
+        Assert.All(plan.Instances.Where(i => i.ReportNId == "basic"), i => Assert.Equal("Page", StudioJson.Text(i.Blocks[0].Definition["bandBreakBefore"])));
+        Assert.All(plan.Instances.Where(i => i.Decision == "Skip"), i => Assert.Empty(i.Blocks));
+        Assert.Equal(3, plan.Instances.Count(i => i.ReportNId == "basic" && i.Decision == "Include"));
+        Assert.Equal(3, plan.Instances.Count(i => i.Decision == "Skip"));
+        Assert.Single(captured.SnapshotDocument);
+        var restored = new ReportDataResolver((_, _, _) => throw new InvalidOperationException("Archived snapshot must not query any source."));
+        restored.RestoreSnapshot(JsonNode.Parse(captured.SnapshotDocument.ToJsonString())!.AsArray());
+        var replay = await new ReportPlanner(restored, new()).PlanAsync(definition, new(), default);
+        Assert.Equal(ReportHtmlComposer.Compose(ReportExpander.Expand(plan), false), ReportHtmlComposer.Compose(ReportExpander.Expand(replay), false));
+        Assert.Equal(captured.Manifest.ToJsonString(), restored.Manifest.ToJsonString());
+        Assert.Equal(1, calls);
+        // Missing/null collections and failed or truncated acquisition must not masquerade as empty data.
+        var details = orders[0]!["ops"]![0]!["details"]!.DeepClone();
+        orders[0]!["ops"]![0]!.AsObject().Remove("details");
+        Assert.Equal("PATH_INVALID", (await Assert.ThrowsAsync<StudioException>(() => new ReportPlanner(Snapshot(), new()).PlanAsync(definition, new(), default))).Code);
+        orders[0]!["ops"]![0]!["details"] = null;
+        await Assert.ThrowsAsync<StudioException>(() => new ReportPlanner(Snapshot(), new()).PlanAsync(definition, new(), default));
+        orders[0]!["ops"]![0]!["details"] = details;
+        var failed = new ReportDataResolver((_, _, _) => throw new StudioException("SOURCE_TIMEOUT", "timeout", 504));
+        Assert.Equal("SOURCE_TIMEOUT", (await Assert.ThrowsAsync<StudioException>(() => new ReportPlanner(failed, new()).PlanAsync(definition, new(), default))).Code);
+        var truncated = new ReportDataResolver((_, _, _) => Task.FromResult(new JsonObject { ["data"] = orders.DeepClone(), ["truncated"] = true }));
+        Assert.Equal("STUDIO_LIMIT", (await Assert.ThrowsAsync<StudioException>(() => new ReportPlanner(truncated, new()).PlanAsync(definition, new(), default))).Code);
+        orders[0]!["ops"]![0]!["basic"] = new JsonArray();
+        Assert.Equal("DATA_REQUIRED", (await Assert.ThrowsAsync<StudioException>(() => new ReportPlanner(Snapshot(), new()).PlanAsync(definition, new(), default))).Code);
+        orders[0]!["ops"]![0]!["basic"] = new JsonArray(new JsonObject { ["id"] = "BASIC-A1" });
+        doc["assembly"]!["templates"]![0]!["instanceMap"]![0]!["target"] = "missing";
+        Assert.Equal("PATH_INVALID", (await Assert.ThrowsAsync<StudioException>(() => new ReportPlanner(Snapshot(), new()).PlanAsync(definition, new(), default))).Code);
+    }
     private static ReportDefinitionSnapshot Definition(JsonObject doc) => new("Report", doc, new Dictionary<string, ReportDefinitionSnapshot>(), "fixture");
 
     [Fact]
@@ -371,6 +478,31 @@ public sealed class ReportPlanningTests
         var plan = await new ReportPlanner(Resolver, new()).PlanAsync(frozen.Definition, frozen.Parameters, default);
         Assert.Equal(10, plan.Instances.Count(instance => instance.Decision == "Include"));
         Assert.All(ReportExpander.Expand(plan).Blocks, block => Assert.Equal("REUSED", StudioJson.Text(block.Value)));
+    }
+    [Fact]
+    public async Task Data_driven_bundle_freezes_only_its_active_templates_for_preview_and_publication()
+    {
+        await using var fixture = await StudioTestContext.CreateAsync(); fixture.Profile.InstalledModules = ["LowCode", "Report"];
+        var publishing = fixture.Publishing; var principal = fixture.Principal;
+        var child = Report(new JsonArray(new JsonObject { ["id"] = "DETAIL" }));
+        var resource = await publishing.CreateAsync(principal, new("source-child", "Report", "Child", null, null, child), "create-child", default);
+        var validation = await publishing.ValidateAsync(principal, resource.NId, child, default);
+        var revision = await publishing.PublishAsync(principal, resource.NId, new(resource.OptimisticVersion, resource.ConcurrencyVersion, "test", true, validation.DependencyPlanHash), "publish-child", default);
+        var bundle = Parse("""{"schemaVersion":1,"mode":"ElectronicRecord","parameters":[],"instances":[{"instanceId":"orders","sourceType":"Constant","parameters":[],"value":[{"ops":[{}]}]}],"assembly":{"stitchMode":"DataDriven","root":{"mode":"RootPath","instanceId":"orders","path":[]},"operation":{"collection":{"mode":"ParentPath","path":["ops"]}},"templates":[{"id":"one","parameterMap":[]}],"rules":[{"id":"inactive","reportNId":"inactive-template","presence":{"mode":"Dataset","datasetRevisionNId":"inactive-query"}}]}}""");
+        bundle["paper"] = Paper;
+        bundle["assembly"]!["templates"]![0]!["reportNId"] = resource.NId;
+        var bundleResource = await publishing.CreateAsync(principal, new("bundle", "ReportBundle", "Bundle", null, null, bundle), "create-bundle", default);
+        var datasets = new DatasetExecution(fixture.Store, publishing, fixture.Authorization, fixture.SourceExecutor, new(), TimeProvider.System);
+        var design = new ReportDesign(fixture.Store, fixture.Authorization, publishing, datasets);
+        var frozen = await design.FreezeAsync(principal, new("ReportBundle", bundleResource.NId, bundle, new()), default);
+        Assert.Single(frozen.Definition.Dependencies);
+        Assert.Equal(revision.NId, StudioJson.Text(frozen.Definition.Document["assembly"]!["templates"]![0]!["revisionNId"]));
+        var plan = await new ReportPlanner(Resolver, new()).PlanAsync(frozen.Definition, new(), default);
+        Assert.Equal("DETAIL", StudioJson.Text(Assert.Single(ReportExpander.Expand(plan).Blocks).Value));
+        validation = await publishing.ValidateAsync(principal, bundleResource.NId, bundle, default);
+        var published = await publishing.PublishAsync(principal, bundleResource.NId, new(bundleResource.OptimisticVersion, bundleResource.ConcurrencyVersion, "test", true, validation.DependencyPlanHash), "publish-bundle", default);
+        var stored = await fixture.Store.FindRevisionAsync(principal.TenantNId, published.NId, default);
+        Assert.Equal(revision.NId, StudioJson.Text(Parse(stored!.DocumentJson)["assembly"]!["templates"]![0]!["revisionNId"]));
     }
     [Fact]
     public async Task Shared_xlsx_writer_produces_real_xml_preserves_spaces_and_never_executes_formula_text()

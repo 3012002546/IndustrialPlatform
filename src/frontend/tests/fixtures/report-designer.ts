@@ -11,9 +11,10 @@ import { registerStudioApi, type StudioApi, type Json } from '@/api/studio'
 import { useAuthStore } from '@/stores/authStore'
 import { useLocalizationStore } from '@/stores/localizationStore'
 import { initialReportDocument } from '@/components/studio/report/model'
-import { cmpSampleReport } from '@/components/studio/report/samples'
+import photoresist from '@/components/studio/report/samples/photoresist-example.json'
+import { cmpSampleBundle, cmpSampleReport } from '@/components/studio/report/samples'
 
-const doc = initialReportDocument()
+let doc = initialReportDocument()
 const row = {
   type: 'Object',
   children: Array.from(
@@ -75,9 +76,48 @@ const resource = {
   optimisticVersion: '1',
   concurrencyVersion: '1',
 }
+const bundleMode = new URLSearchParams(location.search).get('bundle')
+const childId = 'c03e1b2d-a4df-44a5-973d-9df697517e3e'
+if (bundleMode) {
+  resource.kind = 'ReportBundle'
+  doc = cmpSampleBundle(bundleMode, childId, 'revision-child')
+  if (bundleMode === 'Simple') delete doc.items[0].name
+  if (new URLSearchParams(location.search).has('driven')) {
+    doc.assembly.stitchMode = 'DataDriven'
+    doc.assembly.templates = [
+      {
+        id: 'candidate',
+        reportNId: childId,
+        revisionNId: 'revision-child',
+        parameterMap: [],
+        instanceMap: [],
+        scope: 'Operation',
+        required: true,
+      },
+    ]
+  }
+}
+if (bundleMode && new URLSearchParams(location.search).has('many-templates')) {
+  doc.assembly.templates = Array.from({ length: 100 }, (_, i) => ({
+    ...structuredClone(doc.assembly.templates[0]),
+    id: 'candidate-' + i,
+    name: '工序模板 ' + (i + 1),
+  }))
+}
+if (new URLSearchParams(location.search).has('photoresist')) {
+  doc = structuredClone(photoresist.bundle.document)
+  resource.kind = 'ReportBundle'
+}
+if (new URLSearchParams(location.search).has('json-data') && !doc.instances.length)
+  doc.instances = [
+    { instanceId: 'snapshot', sourceType: 'Constant', value: [], parameters: [], dependsOn: [] },
+  ]
 const fixture = {
   calls: [] as string[],
+  loadEvents: [] as string[],
   saved: null as Json | null,
+  previewInput: null as Json | null,
+  exportInput: null as Json | null,
   original: structuredClone(doc),
 }
 if (new URLSearchParams(location.search).has('sample')) {
@@ -86,11 +126,47 @@ if (new URLSearchParams(location.search).has('sample')) {
 }
 Object.assign(window, { reportFixture: fixture })
 registerStudioApi({
-  draft: async () => ({ resource, draftDocument: structuredClone(doc) }),
-  list: async () =>
-    new URLSearchParams(location.search).has('slow-options')
+  draft: async () => {
+    fixture.loadEvents.push('draft-start')
+    if (new URLSearchParams(location.search).has('slow-draft'))
+      await new Promise((resolve) => setTimeout(resolve, 600))
+    fixture.loadEvents.push('draft-end')
+    return { resource, draftDocument: structuredClone(doc) }
+  },
+  list: async (kind: string, params: Json = {}) => {
+    fixture.loadEvents.push('list:' + kind)
+    if (kind === 'Report' && new URLSearchParams(location.search).has('late-child')) {
+      fixture.loadEvents.push('report-page:' + (params.page ?? 1))
+      if ((params.page ?? 1) === 1)
+        return {
+          items: Array.from({ length: 200 }, (_, i) => ({
+            nId: 'other-' + i,
+            name: '其他模板 ' + i,
+          })),
+          totalCount: 201,
+        }
+    }
+    return new URLSearchParams(location.search).has('slow-options') ||
+      (kind === 'Dataset' && new URLSearchParams(location.search).has('slow-datasets'))
       ? new Promise(() => {})
-      : { items: [] },
+      : {
+          items:
+            kind === 'Report'
+              ? [
+                  {
+                    nId: childId,
+                    name: '工序检验记录',
+                    publishedRevisionNo: 3,
+                    publishedRevisionNId: 'revision-child',
+                  },
+                ]
+              : [],
+        }
+  },
+  reportContract: async () => {
+    fixture.calls.push('child-contract')
+    return { entryBands: [{ id: 'detail', name: '明细' }] }
+  },
   reportDraftContract: async () => {
     fixture.calls.push('contract')
     return { bandSchemas: { detail: row }, instanceSchemas: { rows: { type: 'Array', item: row } } }
@@ -100,7 +176,35 @@ registerStudioApi({
     return { resource, draftDocument: fixture.saved }
   },
   reportPlan: async () => ({ instances: [] }),
-  reportPreview: async () => ({ previewNId: 'fixture-preview' }),
+  reportPreview: async (_input: Json, signal: AbortSignal) => {
+    if (
+      new URLSearchParams(location.search).has('slow-preview') &&
+      !fixture.calls.includes('abort-preview')
+    ) {
+      return new Promise((_, reject) => {
+        signal.addEventListener(
+          'abort',
+          () => {
+            fixture.calls.push('abort-preview')
+            reject(new DOMException('Preview cancelled', 'AbortError'))
+          },
+          { once: true },
+        )
+      })
+    }
+    fixture.previewInput = structuredClone(_input)
+    return {
+      status: 'Succeeded',
+      pages: [
+        { pageNo: 1, html: '<!doctype html><html><body><p>Engine page fixture</p></body></html>' },
+      ],
+    }
+  },
+  reportPreviewExport: async (input: Json, format: string) => {
+    fixture.exportInput = JSON.parse(JSON.stringify(input))
+    fixture.calls.push('export:' + format)
+    return new Blob(['Preview export fixture ' + format], { type: 'application/octet-stream' })
+  },
   reportPreviewState: async () => ({
     status: 'Succeeded',
     expiresOn: new Date(Date.now() + 3600000).toISOString(),

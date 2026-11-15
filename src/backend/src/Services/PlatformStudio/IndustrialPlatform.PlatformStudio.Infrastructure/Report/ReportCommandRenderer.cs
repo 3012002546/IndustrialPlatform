@@ -22,7 +22,7 @@ public sealed class ReportCommandRenderer(StudioDeploymentProfile profile)
         var directory = Path.Combine(profile.Renderer.WorkingRoot!, "report-" + StudioJson.Hash(runNId)[..24] + "-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory); return directory;
     }
-    public async Task<ReportRenderedOutput> RenderAsync(string runNId, ReportContentFlow flow, JsonObject paper, bool preview, CancellationToken token, string format = "Pdf", string? workspace = null, Func<JsonObject, Task>? evidence = null, Action? confirmedStopped = null)
+    public async Task<ReportRenderedOutput> RenderAsync(string runNId, ReportContentFlow flow, JsonObject paper, bool preview, CancellationToken token, string format = "Pdf", string? workspace = null, Func<JsonObject, Task>? evidence = null, Action? confirmedStopped = null, Action? started = null)
     {
         var options = profile.Renderer;
         if (!options.Admitted) throw new StudioException("STUDIO_RENDERER_UNAVAILABLE", "服务端分页引擎尚未准入。", 503);
@@ -47,6 +47,7 @@ public sealed class ReportCommandRenderer(StudioDeploymentProfile profile)
         var inputHash = Convert.ToHexStringLower(SHA256.HashData(await File.ReadAllBytesAsync(input, token)));
         if (evidence is not null) await evidence(new JsonObject { ["directory"] = directory, ["inputSha256"] = inputHash, ["engineManifestHash"] = options.EngineManifestHash });
         if (!process.Start()) throw new StudioException("RENDERER_UNAVAILABLE", "无法启动Renderer进程。", 503);
+        started?.Invoke();
         // Drain without retaining arbitrary engine output (which may include source data).
         var stdout = process.StandardOutput.BaseStream.CopyToAsync(Stream.Null, CancellationToken.None); var stderr = process.StandardError.BaseStream.CopyToAsync(Stream.Null, CancellationToken.None);
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token); deadline.CancelAfter(TimeSpan.FromSeconds(options.TimeoutSeconds));
@@ -125,8 +126,8 @@ public sealed class ReportCommandRenderer(StudioDeploymentProfile profile)
         var registeredBytes = await File.ReadAllBytesAsync(options.EngineManifestPath!, token);
         if (!string.Equals(Convert.ToHexStringLower(SHA256.HashData(registeredBytes)), options.EngineManifestHash, StringComparison.OrdinalIgnoreCase)) throw new StudioException("RENDERER_UNAVAILABLE", "归档前引擎清单已变化。", 503);
         var registered = JsonNode.Parse(registeredBytes)!.AsObject();
-        var engineEvidence = new JsonObject { ["manifestHash"] = options.EngineManifestHash, ["commandSha256"] = options.CommandSha256, ["scriptSha256"] = options.ScriptSha256, ["inputSha256"] = inputHash, ["normalizationVersion"] = "pf09-inert-v1", ["pages"] = result["pages"]?.DeepClone(), ["sourceCells"] = result["sourceCells"]?.DeepClone(), ["cellFragmentLedger"] = result["cellFragmentLedger"]?.DeepClone(), ["diagnostics"] = result["diagnostics"]?.DeepClone() };
-        foreach (var key in new[] { "bundleSha256", "browserSha256", "rowFragmentSha256", "layoutSha256" }) engineEvidence[key] = registered[key]?.DeepClone();
+        var engineEvidence = new JsonObject { ["manifestHash"] = options.EngineManifestHash, ["commandSha256"] = options.CommandSha256, ["scriptSha256"] = options.ScriptSha256, ["inputSha256"] = inputHash, ["normalizationVersion"] = "pf09-inert-v1", ["exportContract"] = result["exportContract"]?.DeepClone(), ["exportSha256"] = result["exportSha256"]?.DeepClone(), ["rasterPages"] = result["rasterPages"]?.DeepClone(), ["pages"] = result["pages"]?.DeepClone(), ["sourceCells"] = result["sourceCells"]?.DeepClone(), ["cellFragmentLedger"] = result["cellFragmentLedger"]?.DeepClone(), ["diagnostics"] = result["diagnostics"]?.DeepClone() };
+        foreach (var key in new[] { "bundleSha256", "browserSha256", "rowFragmentSha256", "layoutSha256", "advancedSha256", "documentsSha256", "pdfBrowserSha256", "pdfNativeSha256", "pdfFontsSha256", "pdfVersion" }) engineEvidence[key] = registered[key]?.DeepClone();
         return new(directory, pdfPath, pages, result, engineEvidence);
     }
 

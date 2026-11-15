@@ -1,0 +1,9 @@
+// Build optional PDF engine assets from exact operator-installed packages; output stays outside source control.
+import {createRequire} from 'node:module';import {readFile,writeFile,mkdir,readdir} from 'node:fs/promises';import {resolve,join} from 'node:path';import {createHash} from 'node:crypto';
+const deps=resolve(process.argv[2]),out=resolve(process.argv[3]);const require=createRequire(join(deps,'package.json'));const {build}=require('esbuild');
+for(const [name,version] of [['pdf-lib','1.17.1'],['pdfjs-dist','6.5.438'],['esbuild','0.25.12']])if(require(name+'/package.json').version!==version)throw Error('PDF_ENGINE_VERSION_MISMATCH:'+name);
+await mkdir(out,{recursive:true});
+await build({entryPoints:['tools/pf09-pdf-browser.mjs'],bundle:true,platform:'browser',format:'iife',globalName:'ReportPdf',outfile:join(out,'pdf-browser.js'),nodePaths:[join(deps,'node_modules')]});
+await build({stdin:{contents:"export * from 'pdf-lib/es/index.js'",resolveDir:deps},bundle:true,platform:'node',format:'esm',outfile:join(out,'pdf-native.mjs'),nodePaths:[join(deps,'node_modules')]});
+const assets={cmaps:{},fonts:{}};for(const [key,dir,extension] of [['cmaps','cmaps','.bcmap'],['fonts','standard_fonts',null]])for(const file of await readdir(join(deps,'node_modules/pdfjs-dist',dir)))if(extension?file.endsWith(extension):/\.(pfb|ttf)$/.test(file))assets[key][file]=(await readFile(join(deps,'node_modules/pdfjs-dist',dir,file))).toString('base64');
+await writeFile(join(out,'pdf-fonts.json'),JSON.stringify(assets));const result={pdfVersion:'pdf-lib@1.17.1+pdfjs-dist@6.5.438'};for(const [key,file] of [['pdfBrowser','pdf-browser.js'],['pdfNative','pdf-native.mjs'],['pdfFonts','pdf-fonts.json']]){result[key+'Path']=join(out,file);result[key+'Sha256']=createHash('sha256').update(await readFile(join(out,file))).digest('hex');}await writeFile(join(out,'registration.json'),JSON.stringify(result,null,2));console.log('Built optional pinned PDF assets');

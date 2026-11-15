@@ -42,7 +42,7 @@ public sealed class ReportOutputs(ReportRuns runs, ReportOwnedFiles authorizatio
     {
         var (context, run) = await authorization.AuthorizeAsync(principal, runNId, token);
         var artifact = await database.Client.Queryable<StudioReportArtifact>().Where(a => a.TenantNId == principal.TenantNId && a.RunId == run.Id && a.NId == artifactNId).FirstUtcAsync(database.Provider, token) ?? throw new StudioException("STUDIO_NOT_FOUND", "产物不存在。", 404);
-        return (await authorization.ReadAuthorizedAsync(context, run, artifact.FileReferenceNId, token), artifact.Format switch { "Pdf" => "application/pdf", "Html" => "text/html", "Xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", _ => "application/json" });
+        return (await authorization.ReadAuthorizedAsync(context, run, artifact.FileReferenceNId, token), ReportFormats.ContentType(artifact.Format));
     }
     public async Task<Stream> OpenWorkbookSourceAsync(StudioPrincipal principal, string artifactNId, CancellationToken token)
     {

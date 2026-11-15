@@ -134,7 +134,7 @@ public static class StudioEndpoints
             group.MapPost("/workbooks/{nId}/sessions/{sessionNId}/renew", (string nId, string sessionNId, HttpContext http, StudioWorkbooks books, CancellationToken ct) => books.RenewAsync(Principal(http), nId, sessionNId, ct));
             group.MapGet("/report-runs/{runNId}", (string runNId, HttpContext http, ReportOutputs outputs, CancellationToken ct) => outputs.DetailAsync(Principal(http), runNId, ct));
             group.MapGet("/report-runs", (int? page, int? pageSize, string? resourceNId, HttpContext http, ReportOutputs outputs, CancellationToken ct) => outputs.ListAsync(Principal(http), page ?? 1, pageSize ?? 20, ct, resourceNId));
-            group.MapGet("/report-runs/{runNId}/artifacts/{artifactNId}/content", async (string runNId, string artifactNId, HttpContext http, ReportOutputs outputs, CancellationToken ct) => { var result = await outputs.ArtifactAsync(Principal(http), runNId, artifactNId, ct); var extension = result.ContentType switch { "application/pdf" => ".pdf", "text/html" => ".html", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" => ".xlsx", _ => ".json" }; http.Response.Headers.ContentSecurityPolicy = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox"; return Results.Stream(result.Content, result.ContentType, artifactNId + extension); });
+            group.MapGet("/report-runs/{runNId}/artifacts/{artifactNId}/content", async (string runNId, string artifactNId, HttpContext http, ReportOutputs outputs, CancellationToken ct) => { var result = await outputs.ArtifactAsync(Principal(http), runNId, artifactNId, ct); var extension = ReportFormats.Extension(result.ContentType); http.Response.Headers.ContentSecurityPolicy = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox"; return Results.Stream(result.Content, result.ContentType, artifactNId + extension); });
             group.MapPost("/report-runs/{runNId}/cancel", (string runNId, ReportCancelInput input, HttpContext http, IndustrialPlatform.PlatformStudio.Application.Report.ReportRuns runs, CancellationToken ct) => runs.CancelAsync(Principal(http), runNId, input.StateVersion, ct));
             group.MapPost("/report-runs/{runNId}/retry", async (string runNId, ReportRetryInput input, HttpContext http, ReportRetries retries, CancellationToken ct) => { if (!profile.Renderer.Admitted) throw new StudioException("STUDIO_RENDERER_UNAVAILABLE", "报告分页引擎尚未准入。", 503); return Results.Json(ApiResult.Ok(await retries.RetryAsync(Principal(http), runNId, input.StateVersion, input.Mode, Key(http), http.TraceIdentifier, ct)), statusCode: 202); });
             group.MapPost("/reports/preview", async (ReportPreviewInput input, HttpContext http, ReportPreview preview, CancellationToken ct) =>
@@ -142,6 +142,15 @@ public static class StudioEndpoints
                 if (!profile.Renderer.Admitted) throw new StudioException("STUDIO_RENDERER_UNAVAILABLE", "报告分页引擎尚未准入。", 503);
                 http.Response.Headers.CacheControl = "no-store";
                 return Results.Json(ApiResult.Ok(await preview.RenderAsync(Principal(http), input, ct)));
+            });
+            group.MapPost("/reports/preview/export/{format}", async (string format, ReportPreviewInput input, HttpContext http, ReportPreview preview, CancellationToken ct) =>
+            {
+                if (!profile.Renderer.Admitted) throw new StudioException("STUDIO_RENDERER_UNAVAILABLE", "报告分页引擎尚未准入。", 503);
+                var file = await preview.ExportAsync(Principal(http), input, format, ct);
+                http.Response.Headers.CacheControl = "no-store";
+                http.Response.Headers.ContentSecurityPolicy = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; sandbox";
+                http.Response.Headers["X-Content-Type-Options"] = "nosniff";
+                return Results.File(file.Content, file.ContentType, file.FileName);
             });
             group.MapGet("/reports/previews/{previewNId}", (string previewNId, HttpContext http, ReportOutputs outputs, CancellationToken ct) => outputs.PreviewAsync(Principal(http), previewNId, ct));
             group.MapPost("/reports/previews/{previewNId}/cancel", (string previewNId, ReportCancelInput input, HttpContext http, ReportRuns runs, CancellationToken ct) => runs.CancelAsync(Principal(http), previewNId, input.StateVersion, ct));
@@ -151,7 +160,7 @@ public static class StudioEndpoints
                 if (!profile.Renderer.Admitted) throw new StudioException("STUDIO_RENDERER_UNAVAILABLE", "报告分页引擎尚未准入。", 503);
                 var (resource, revision) = await publishing.RequireRuntimeAsync(Principal(http), nId, input.RevisionNId, ct);
                 if (resource.Kind is not ("Report" or "ReportBundle")) throw new StudioException("STUDIO_NOT_FOUND", "报告不存在。", 404);
-                if (input.Format is not ("Pdf" or "Html" or "Xlsx")) throw new StudioException("REPORT_FORMAT_UNSUPPORTED", "输出格式未登记。", 422);
+                if (!ReportFormats.Supports(input.Format)) throw new StudioException("REPORT_FORMAT_UNSUPPORTED", "输出格式未登记。", 422);
                 await authorization.RequireAsync(Principal(http), resource, "studio.report.export", "Export", ct);
                 var document = StudioPublishing.Parse(revision.DocumentJson);
                 var parameters = DatasetValues.Parameters(Principal(http), document, input.Parameters ?? new());

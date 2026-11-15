@@ -124,21 +124,74 @@ public sealed class ReportExecutionBoundaryTests
         var original = document.ToJsonString();
         using (var command = new CommandFixture("Completed"))
         {
-            var preview = new ReportPreview(design, identity, command.Renderer, resources);
+            var preview = new ReportPreview(design, identity, command.Renderer, resources, fixture.Authorization);
             var result = await preview.RenderAsync(fixture.Principal, new("Report", null, document, new()), default);
             var html = Assert.Single(result.Pages).Html;
             Assert.Contains("FIRST-ROW", html, StringComparison.Ordinal); Assert.Contains("SECOND-ROW", html, StringComparison.Ordinal);
             Assert.True(html.IndexOf("SECOND-ROW", StringComparison.Ordinal) < html.IndexOf("FIRST-ROW", StringComparison.Ordinal));
             Assert.Equal(original, document.ToJsonString()); Assert.Empty(Directory.GetDirectories(command.WorkingRoot));
+            var diagnostic = Assert.Single(result.Diagnostics);
+            Assert.Equal("REPORT_FONT_SUBSTITUTED", diagnostic!["code"]!.GetValue<string>());
+            Assert.Equal("sans-serif", diagnostic["fallback"]!.GetValue<string>());
+        }
+        using (var command = new CommandFixture("Completed"))
+        {
+            command.InvalidateScript();
+            var preview = new ReportPreview(design, identity, command.Renderer, resources, fixture.Authorization);
+            var error = await Assert.ThrowsAsync<StudioException>(() => preview.RenderAsync(fixture.Principal, new("Report", null, Document(), new()), default));
+            Assert.Equal("RENDERER_UNAVAILABLE", error.Code);
+            Assert.Empty(Directory.GetDirectories(command.WorkingRoot));
         }
         foreach (var reason in new[] { "Failed", "TimedOut", "Cancelled" })
         {
             using var command = new CommandFixture(reason);
-            var preview = new ReportPreview(design, identity, command.Renderer, resources);
+            var preview = new ReportPreview(design, identity, command.Renderer, resources, fixture.Authorization);
             if (reason == "Cancelled") await Assert.ThrowsAnyAsync<OperationCanceledException>(() => preview.RenderAsync(fixture.Principal, new("Report", null, Document(), new()), default));
             else Assert.Equal(reason == "TimedOut" ? "REPORT_RENDER_TIMEOUT" : "REPORT_LAYOUT_UNSUPPORTED", (await Assert.ThrowsAsync<StudioException>(() => preview.RenderAsync(fixture.Principal, new("Report", null, Document(), new()), default))).Code);
             Assert.Empty(Directory.GetDirectories(command.WorkingRoot));
         }
+    }
+
+    [ReportEngineFact]
+    public async Task Draft_download_reuses_design_authorization_without_archives_and_cleans_on_revoke_or_failure()
+    {
+        await using var fixture = await StudioTestContext.CreateAsync(); fixture.Profile.InstalledModules = ["Report"];
+        var identity = new Identity(fixture.Principal); var design = Design(fixture);
+        var resources = new ReportResources(identity, fixture.Publishing, null!, null!, null!, null!);
+        var document = Document(); var original = document.ToJsonString();
+        using (var command = new CommandFixture("Completed"))
+        {
+            var preview = new ReportPreview(design, identity, command.Renderer, resources, fixture.Authorization);
+            var output = await preview.ExportAsync(fixture.Principal, new("Report", null, document, new()), "Html", default);
+            Assert.Equal("text/html", output.ContentType); Assert.Equal("preview-html.html", output.FileName);
+            var html = System.Text.Encoding.UTF8.GetString(output.Content);
+            Assert.Contains("FIRST-ROW", html); Assert.Contains("SECOND-ROW", html); Assert.Contains("PREVIEW", html);
+            Assert.Empty(Directory.GetDirectories(command.WorkingRoot)); Assert.Equal(original, document.ToJsonString());
+            identity.RevokeAfter = identity.ExecutionRefreshes;
+            Assert.Equal("STUDIO_FORBIDDEN", (await Assert.ThrowsAsync<StudioException>(() => preview.ExportAsync(fixture.Principal, new("Report", null, document, new()), "Html", default))).Code);
+            Assert.Empty(Directory.GetDirectories(command.WorkingRoot));
+            Assert.Equal("REPORT_FORMAT_UNSUPPORTED", (await Assert.ThrowsAsync<StudioException>(() => preview.ExportAsync(fixture.Principal, new("Report", null, document, new()), "Exe", default))).Code);
+        }
+        foreach (var permission in new[] { "studio.report.export", "studio.report.design" })
+        {
+            using var command = new CommandFixture("Completed");
+            var restricted = fixture.Principal with { Permissions = fixture.Principal.Permissions.Where(p => p != permission).ToArray() };
+            var restrictedIdentity = new Identity(restricted);
+            var preview = new ReportPreview(design, restrictedIdentity, command.Renderer, resources, fixture.Authorization);
+            Assert.Equal("STUDIO_FORBIDDEN", (await Assert.ThrowsAsync<StudioException>(() => preview.ExportAsync(restricted, new("Report", null, document, new()), "Html", default))).Code);
+            Assert.False(Directory.Exists(command.WorkingRoot));
+        }
+        identity.RevokeAfter = int.MaxValue;
+        foreach (var reason in new[] { "Failed", "TimedOut", "Cancelled" })
+        {
+            using var command = new CommandFixture(reason);
+            var preview = new ReportPreview(design, identity, command.Renderer, resources, fixture.Authorization);
+            if (reason == "Cancelled") await Assert.ThrowsAnyAsync<OperationCanceledException>(() => preview.ExportAsync(fixture.Principal, new("Report", null, document, new()), "Html", default));
+            else await Assert.ThrowsAsync<StudioException>(() => preview.ExportAsync(fixture.Principal, new("Report", null, document, new()), "Html", default));
+            Assert.Empty(Directory.GetDirectories(command.WorkingRoot));
+        }
+        Assert.Equal(0, await fixture.Database.Client.Queryable<StudioReportRun>().CountAsync());
+        Assert.Equal(0, await fixture.Database.Client.Queryable<StudioReportArtifact>().CountAsync());
     }
 
     [ReportEngineFact]
@@ -192,7 +245,8 @@ public sealed class ReportExecutionBoundaryTests
                 }
                 if (reason === 'Completed') {
                   await writeFile(join(output, 'page.html'), input.html);
-                  await writeFile(join(output, 'result.json'), JSON.stringify({engineManifestHash: input.engineManifestHash, pages: [{pageNo: 1, htmlFile: 'page.html'}], markerLedger: input.expectedMarkers.map(marker => ({marker, fragmentIndex: 0})), diagnostics: []}));
+                  await writeFile(join(output, 'result.html'), input.html);
+                  await writeFile(join(output, 'result.json'), JSON.stringify({engineManifestHash: input.engineManifestHash, pages: [{pageNo: 1, htmlFile: 'page.html'}], markerLedger: input.expectedMarkers.map(marker => ({marker, fragmentIndex: 0})), diagnostics: [{code: 'REPORT_FONT_SUBSTITUTED', requested: 'Missing test font', fallback: 'sans-serif'}]}));
                 }
                 if (reason !== 'Missing') await writeFile(join(output, 'renderer-stopped.json'), JSON.stringify({engineManifestHash: input.engineManifestHash, inputSha256: reason === 'Mismatch' ? 'wrong' : createHash('sha256').update(inputBytes).digest('hex'), processId: process.pid, reason: reason === 'Mismatch' ? 'Completed' : reason, errorCode: 'REPORT_LAYOUT_UNSUPPORTED'}));
                 process.exitCode = reason === 'Cancelled' ? 2 : reason === 'Completed' ? 0 : 1;
@@ -202,6 +256,7 @@ public sealed class ReportExecutionBoundaryTests
             profile.Renderer = new() { Admitted = true, Command = node, CommandSha256 = Hash(node), Script = script, ScriptSha256 = Hash(script), EngineManifestPath = manifest, EngineManifestHash = Hash(manifest), WorkingRoot = WorkingRoot, TimeoutSeconds = 15 };
             Renderer = new(profile);
         }
+        public void InvalidateScript() => File.AppendAllText(Path.Combine(root, "renderer.mjs"), "// changed after registration");
         public void Dispose() => Directory.Delete(root, recursive: true);
     }
 }

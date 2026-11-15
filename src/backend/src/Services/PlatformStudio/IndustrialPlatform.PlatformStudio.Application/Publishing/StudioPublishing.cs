@@ -39,8 +39,9 @@ public sealed class StudioPublishing(IStudioResourceStore store, IStudioAuthoriz
         RequireKind(kind); ValidateQuery(query);
         authorization.RequirePermission(principal, StudioKinds.PermissionPrefix(kind) + ".view");
         var resources = await store.ListResourcesAsync(principal, kind, query, cancellationToken);
-        var result = new List<ResourceDto>();
-        foreach (var resource in resources) result.Add(await ToDtoAsync(resource, cancellationToken));
+        var revisionIds = resources.Where(resource => resource.PublishedRevisionId.HasValue).Select(resource => resource.PublishedRevisionId!.Value).Distinct().ToArray();
+        var revisions = (await store.FindRevisionsByIdsAsync(principal.TenantNId, revisionIds, cancellationToken)).ToDictionary(revision => revision.Id);
+        var result = resources.Select(resource => ResourceDto(resource, resource.PublishedRevisionId is { } id ? revisions.GetValueOrDefault(id) : null)).ToArray();
         return new(result, query.Page, query.PageSize, (await store.CountResourcesAsync(principal, kind, query, cancellationToken)).ToString(CultureInfo.InvariantCulture));
     }
     public async Task<ResourceDto> CreateAsync(StudioPrincipal principal, ResourceCreate request, string operationKey, CancellationToken cancellationToken)
@@ -292,6 +293,7 @@ public sealed class StudioPublishing(IStudioResourceStore store, IStudioAuthoriz
                 if (StudioJson.Text(instance["sourceType"]) != "Constant" && StudioJson.Text(instance["revisionNId"]) is { } revision) await ReportDataset(revision, StudioJson.Text(instance["datasetNId"]));
             IEnumerable<JsonObject> Collections(JsonNode? node)
             {
+                if (document["assembly"] is JsonObject assembly && ReferenceEquals(node, assembly[StudioDocuments.IsDataDriven(assembly) ? "rules" : "templates"])) yield break;
                 if (node is JsonArray array) { foreach (var item in array) foreach (var match in Collections(item)) yield return match; }
                 if (node is not JsonObject obj || StudioJson.Text(obj["from"]) == "Constant") yield break;
                 if (StudioJson.Text(obj["mode"]) == "Dataset" && StudioJson.Text(obj["datasetRevisionNId"]) is not null) yield return obj;
@@ -301,7 +303,7 @@ public sealed class StudioPublishing(IStudioResourceStore store, IStudioAuthoriz
             foreach (var filter in (document["query"]?["filters"] as JsonArray ?? []).OfType<JsonObject>())
                 if (StudioJson.Text(filter["optionsDatasetRevisionNId"]) is { } revision) await ReportDataset(revision);
             if (resource.Kind == "Report" && !diagnostics.Any(d => d.Severity == "Error")) StudioReportContracts.ValidateBindings(document, datasetSchemas, diagnostics);
-            var children = resource.Kind == "ReportBundle" ? (StudioJson.Text(document["mode"]) == "Simple" ? document["items"] as JsonArray : document["assembly"]?["rules"] as JsonArray) ?? [] : new JsonArray();
+            var children = StudioDocuments.ReportReferences(resource.Kind, document);
             foreach (var child in children.OfType<JsonObject>())
             {
                 var nId = StudioJson.RequiredString(child, "reportNId");

@@ -10,6 +10,7 @@ import { getStudioApi, type Json, type StudioResource } from '@/api/studio'
 import { safeTotal } from '@/components/studio/shared/model'
 import { pendingOperation } from '@/components/studio/shared/pendingOperation'
 import { useReportCopy } from '@/components/studio/report/copy'
+import ReportFormatSelect from '@/components/studio/report/ReportFormatSelect.vue'
 import ReportRunsPanel from '@/components/studio/report/ReportRunsPanel.vue'
 const props = defineProps<{
   resourceNId?: string
@@ -228,16 +229,13 @@ onMounted(async () => {
     ></AppQueryPanel>
     <div class="studio-toolbar">
       <el-button v-if="!embedded" @click="router.back()">{{ t('back') }}</el-button
-      ><el-select v-model="format" :aria-label="t('output')" style="width: 130px"
-        ><el-option label="PDF" value="Pdf" /><el-option label="HTML" value="Html" /><el-option
-          label="Excel"
-          value="Xlsx" /></el-select
-      ><PermissionGate permission-n-id="studio.report.export"
+      ><ReportFormatSelect v-model="format" /><PermissionGate permission-n-id="studio.report.export"
         ><el-button :loading="busy" @click="generate">{{
           t('queryAll')
         }}</el-button></PermissionGate
       >
     </div>
+    <p class="studio-export-hint">{{ t('exportHint') }}</p>
     <AppDataTable
       v-if="document?.mode === 'Query'"
       ref="table"

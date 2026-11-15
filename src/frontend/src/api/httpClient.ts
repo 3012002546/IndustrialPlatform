@@ -36,6 +36,8 @@ export interface HttpClient {
   get<T>(path: string, options?: RequestOptions): Promise<T>
   /** 二进制下载，不解包 ApiResult 信封；用于服务端流式文件。 */
   getBlob?(path: string, options?: RequestOptions): Promise<Blob>
+  /** 带 JSON 请求体的二进制导出，复用认证刷新、取消和错误处理。 */
+  postBlob?(path: string, body?: unknown, options?: RequestOptions): Promise<Blob>
   getWithMeta<T>(path: string, options?: RequestOptions): Promise<HttpResponseMeta<T>>
   post<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T>
   patch?<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T>
@@ -94,6 +96,7 @@ export function createHttpClient(deps: HttpClientDeps): HttpClient {
     body: unknown,
     options: RequestOptions,
     withMeta = false,
+    binary = false,
   ): Promise<T | HttpResponseMeta<T>> {
     const correlationId =
       options.headers?.['X-Correlation-Id'] ?? deps.getCorrelationId?.() ?? createCorrelationId()
@@ -124,6 +127,7 @@ export function createHttpClient(deps: HttpClientDeps): HttpClient {
           method,
           url: path,
           data: body,
+          ...(binary ? { responseType: 'blob' as const } : {}),
           headers,
           ...(options.timeoutMs === undefined ? {} : { timeout: options.timeoutMs }),
           validateStatus: (status) =>
@@ -143,6 +147,10 @@ export function createHttpClient(deps: HttpClientDeps): HttpClient {
                 ],
               }),
         })
+        if (binary && response.data instanceof Blob) {
+          if (!response.data.type.includes('json')) return response.data as T
+          response.data = JSON.parse(await response.data.text()) as unknown
+        }
         const responseHeaders = toHeaderRecord(response.headers)
         const data =
           response.status === 304
@@ -158,6 +166,13 @@ export function createHttpClient(deps: HttpClientDeps): HttpClient {
             data: undefined as T,
             status: 304,
             headers: toHeaderRecord(error.response.headers),
+          }
+        }
+        if (binary && isAxiosError(error) && error.response?.data instanceof Blob) {
+          try {
+            error.response.data = JSON.parse(await error.response.data.text()) as unknown
+          } catch {
+            /* Keep normal HTTP classification for non-JSON errors. */
           }
         }
         const apiError = normalizeError(error, correlationId)
@@ -274,6 +289,8 @@ export function createHttpClient(deps: HttpClientDeps): HttpClient {
       })
       return response.data
     },
+    postBlob: (path: string, body?: unknown, options: RequestOptions = {}) =>
+      request<Blob>('POST', path, body, options, false, true) as Promise<Blob>,
     getWithMeta: <T>(path: string, options: RequestOptions = {}) =>
       request<T>('GET', path, undefined, options, true) as Promise<HttpResponseMeta<T>>,
     post: <T>(path: string, body?: unknown, options: RequestOptions = {}) =>

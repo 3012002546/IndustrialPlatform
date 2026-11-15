@@ -16,6 +16,7 @@ public interface IStudioResourceStore
     Task InsertResourceAsync(StudioResource resource, CancellationToken cancellationToken);
     Task<bool> UpdateResourceAsync(StudioResource resource, long expectedVersion, Guid expectedConcurrencyVersion, CancellationToken cancellationToken);
     Task<StudioRevision?> FindRevisionAsync(string tenantNId, string nId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<StudioRevision>> FindRevisionsByIdsAsync(string tenantNId, Guid[] ids, CancellationToken cancellationToken);
     Task<StudioRevision?> FindRevisionByIdAsync(string tenantNId, Guid id, CancellationToken cancellationToken);
     Task<IReadOnlyList<StudioRevision>> ListRevisionsAsync(string tenantNId, Guid resourceId, CancellationToken cancellationToken);
     Task InsertRevisionAsync(StudioRevision revision, CancellationToken cancellationToken);

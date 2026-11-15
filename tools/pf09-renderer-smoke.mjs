@@ -13,7 +13,16 @@ const control = (id, y, content, after = []) => `<div data-report-marker="${id}"
 const band = (content) => `<section data-report-band="{&quot;heightMm&quot;:20}">${content}</section>`
 const fixedImage = (display) => band(`<div data-report-marker="m1" data-report-control="${JSON.stringify({ id: 'image', type: 'Image', xMm: 0, yMm: 0, widthMm: 20, heightMm: 10, canGrow: false }).replaceAll('"', '&quot;')}"><img style="display:${display};width:100%;height:10mm;object-fit:contain" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg=="></div>`)
 const simpleHtml = '<section data-report-part="first"><div data-report-marker="m1">' + Array.from({ length: 45 }, (_, i) => `<p>FIRST${i} 首份报告</p>`).join('') + '</div></section><section data-report-part="second"><div data-report-marker="m2">' + Array.from({ length: 45 }, (_, i) => `<p>SECOND${i} 第二份报告</p>`).join('') + '</div></section>'
+const nestedRows = Array.from({ length: 100 }, (_, index) =>
+  `<tr>${index === 0 ? '<td rowspan="100">GROUP-ONCE</td>' : ''}<td>LINE-${String(index + 1).padStart(3, '0')}</td></tr>`
+).join('')
 const cases = [
+  { name: 'missing-font-diagnostic', ok: true, html: '<p data-report-marker="m1" style="font-family:PF09MissingFont20261115,sans-serif">光刻胶称量合计 123.45</p>', expectedMarkers: ['m1'], missingFont: true },
+  { name: 'generic-font-no-warning', ok: true, html: '<p data-report-marker="m1" style="font-family:serif">光刻胶称量合计 123.45</p>', expectedMarkers: ['m1'], missingFont: false },
+  ...[true, false].map((repeat) => ({
+    name: `nested-total-${repeat}`, ok: true, expectedMarkers: ['m1'],
+    html: `<div data-report-marker="m1"><table><thead><tr><th>OUTER-HEADER</th></tr></thead><tbody><tr><td><table data-report-repeat-header="${repeat}"><thead><tr><th colspan="2">INNER-HEADER</th></tr></thead><tbody>${nestedRows}</tbody><tfoot><tr><td colspan="2">INNER-TOTAL-100</td></tr></tfoot></table></td></tr></tbody></table></div>`
+  })),
   { name: 'static-checkbox-states', ok: true, html: '<p data-report-marker="m1"><span role="checkbox" aria-checked="true">✓</span><span role="checkbox" aria-checked="false"></span><span role="checkbox" aria-checked="mixed">−</span></p>', expectedMarkers: ['m1'] },
   { name: 'invalid-checkbox-state', ok: false, html: '<span role="checkbox" aria-checked="unknown">bad</span>', errorCode: 'REPORT_HTML_ATTRIBUTE_DENIED' },
   { name: 'interactive-role-denied', ok: false, html: '<span role="button">bad</span>', errorCode: 'REPORT_HTML_ATTRIBUTE_DENIED' },
@@ -58,10 +67,21 @@ for (const item of cases) {
   if (item.ok && processResult.status === 0) {
     const output = JSON.parse(await readFile(join(directory, 'result.json')))
     const ledger = output.pages.flatMap((page) => page.markers)
-    validOutput = item.expectedMarkers.every((marker) => ledger.filter((entry) => entry.marker === marker).every((entry, index) => entry.fragmentIndex === index))
+    if (item.missingFont !== undefined) validOutput &&= output.diagnostics.some(d => d.code === 'REPORT_FONT_SUBSTITUTED') === item.missingFont
+    if (item.missingFont) validOutput &&= output.fontResolution.some(f => f.unavailable.includes('PF09MissingFont20261115') && f.selected === 'sans-serif')
+    validOutput &&= item.expectedMarkers.every((marker) => ledger.filter((entry) => entry.marker === marker).every((entry, index) => entry.fragmentIndex === index))
     if (item.name === 'filled-record-scopes') {
       const html = await readFile(join(directory, 'page-1.html'), 'utf8')
       validOutput &&= html.includes('FILLED-ONE') && html.includes('FILLED-TWO') && !html.includes('<input')
+    }
+    if (item.name.startsWith('nested-total-')) {
+      const htmlPages = await Promise.all(output.pages.map((p) => readFile(join(directory, p.htmlFile), 'utf8')))
+      validOutput &&= htmlPages.length > 1 && htmlPages.every((html, index) =>
+        (html.match(/INNER-HEADER/g) || []).length === (index === 0 || item.name === 'nested-total-true' ? 1 : 0) &&
+        (html.match(/OUTER-HEADER/g) || []).length === 1 &&
+        (html.match(/INNER-TOTAL-100/g) || []).length === Number(index === htmlPages.length - 1))
+      validOutput &&= (htmlPages.join('').match(/LINE-\d{3}/g) || []).join() === nestedRows.match(/LINE-\d{3}/g).join() &&
+        (htmlPages.join('').match(/GROUP-ONCE/g) || []).length === 1
     }
     if (item.name === 'xlsx-normalized-rows') validOutput &&= output.workbookRows?.[0]?.[0] === '已填写 123.450'
     if (item.name === 'static-checkbox-states') { const html = await readFile(join(directory, 'page-1.html'), 'utf8'); validOutput &&= ['true', 'false', 'mixed'].every(state => html.includes(`aria-checked="${state}"`)) }

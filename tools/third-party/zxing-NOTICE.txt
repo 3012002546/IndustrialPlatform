@@ -1,0 +1,6 @@
+Code 39 encoding table
+Copyright 2007 ZXing authors
+Source: https://github.com/zxing/zxing/blob/master/core/src/main/java/com/google/zxing/oned/Code39Reader.java
+Licensed under Apache License 2.0; see zxing-LICENSE.txt.
+The encoding table was transcribed into pf09-report-advanced.mjs. Rendering and report integration were written for IndustrialPlatform.
+No ZXing reader, writer, or jai-imageio implementation is included in the product.

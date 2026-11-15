@@ -1,0 +1,14 @@
+{
+  "extends": "../../src/frontend/tsconfig.app.json",
+  "compilerOptions": {
+    "composite": false,
+    "types": [],
+    "paths": {
+      "@/*": ["src/*"],
+      "vue": ["node_modules/vue"],
+      "vue-i18n": ["node_modules/vue-i18n"],
+      "element-plus": ["node_modules/element-plus"]
+    }
+  },
+  "include": ["*.ts", "*.vue", "../../src/frontend/src/vite-env.d.ts"]
+}
