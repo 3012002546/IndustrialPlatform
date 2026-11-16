@@ -8,9 +8,9 @@ using IndustrialPlatform.PlatformStudio.Domain;
 namespace IndustrialPlatform.PlatformStudio.Application.Trace;
 
 /// <summary>授权Dataset上的只读有界追溯，不存储物料事实；所有身份来自重查的源端数据。</summary>
-public sealed class TraceRuntime(IStudioResourceStore store, StudioPublishing publishing, DatasetExecution datasets,
+public sealed partial class TraceRuntime(IStudioResourceStore store, StudioPublishing publishing, DatasetExecution datasets,
     IStudioAuthorization authorization, IStudioIdentity identity, TraceCredentials credentials,
-    ITraceNodeLinks links)
+    ITraceNodeLinks links, StudioDeploymentProfile? deployment = null)
 {
     public async Task<JsonObject> ModelsAsync(StudioPrincipal p, CancellationToken ct)
     {
@@ -305,6 +305,9 @@ public sealed class TraceRuntime(IStudioResourceStore store, StudioPublishing pu
     }
     /// <summary>按固定模型分组重取已授权节点上下文，再执行关联查询；调用方不能传入数据集或关联值。</summary>
     public async Task<JsonObject> NodeSectionAsync(StudioPrincipal p, string resource, JsonObject input, CancellationToken ct)
+        => (await ReadSectionAsync(p, resource, input, ct)).Result;
+
+    private async Task<(JsonObject Result, JsonObject? SelectedRow)> ReadSectionAsync(StudioPrincipal p, string resource, JsonObject input, CancellationToken ct, JsonObject? selection = null)
     {
         var c = await Runtime(p, resource, StudioJson.Text(input["revisionNId"]), ct); p = c.Principal;
         var (node, parameters) = ReadNode(p, resource, c.Revision.NId, input);
@@ -340,7 +343,11 @@ public sealed class TraceRuntime(IStudioResourceStore store, StudioPublishing pu
             else value = Resolve(binding, context);
             mapped[StudioJson.RequiredString(map, "target")] = value;
         }
+        var queryHash = StudioJson.Hash(StudioJson.Canonicalize(mapped));
+        if (selection is not null && StudioJson.Text(selection["queryHash"]) != queryHash) throw Forbidden();
         var output = await Execute(p, revision, mapped, ct, kind == "Table" ? page : null, kind == "Table" ? size : null);
+        JsonObject? selectedRow = null;
+        var rowLinks = Objects(section["links"]);
         var fields = new JsonArray(); var columns = new JsonArray(); var items = new JsonArray(); string total;
         if (kind == "Table")
         {
@@ -357,7 +364,15 @@ public sealed class TraceRuntime(IStudioResourceStore store, StudioPublishing pu
                 var key = keyValue is JsonValue scalarKey && scalarKey.GetValueKind() is System.Text.Json.JsonValueKind.Number or System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False ? scalarKey.ToJsonString() : Scalar(keyValue, "section.rowKey");
                 if (!keys.Add(key)) throw new StudioException("STUDIO_ROW_KEY_AMBIGUOUS", "明细分组行标识重复。", 409);
                 var values = new JsonObject(); foreach (var column in columnFields) values[column.Id] = row[column.Name]?.DeepClone();
-                items.Add(new JsonObject { ["key"] = key, ["values"] = values });
+                var item = new JsonObject { ["key"] = key, ["values"] = values };
+                if (selection is not null && StudioJson.Text(selection["rowKey"]) == key) selectedRow = row;
+                if (rowLinks.Length > 0 && selection is null)
+                    item["rowToken"] = credentials.Issue(p, resource, c.Revision.NId, "SectionRow", new JsonObject
+                    {
+                        ["nodeKey"] = node["key"]!.DeepClone(), ["sectionId"] = section["id"]!.DeepClone(),
+                        ["rowKey"] = key, ["page"] = page, ["pageSize"] = size, ["queryHash"] = queryHash
+                    });
+                items.Add(item);
             }
         }
         else
@@ -371,15 +386,28 @@ public sealed class TraceRuntime(IStudioResourceStore store, StudioPublishing pu
         }
         await Recheck(p, resource, c.Revision.NId, false, ct);
         await Dataset(p, revision, ct);
-        return new() { ["sectionId"] = section["id"]!.DeepClone(), ["kind"] = kind, ["fields"] = fields, ["columns"] = columns, ["items"] = items, ["totalCount"] = total, ["page"] = page, ["pageSize"] = size, ["observedOn"] = output["quality"]?["sourceObservedOn"]?.DeepClone() };
+        if (selection is not null && selectedRow is null) throw new StudioException("TRACE_SECTION_ROW_CHANGED", "该记录已变化或不在当前授权页，请刷新明细后重新打开。", 409);
+        return (new() { ["sectionId"] = section["id"]!.DeepClone(), ["kind"] = kind, ["fields"] = fields, ["columns"] = columns, ["items"] = items, ["links"] = new JsonArray(rowLinks.Select(link => (JsonNode)new JsonObject { ["id"] = link["id"]?.DeepClone(), ["label"] = link["label"]?.DeepClone(), ["kind"] = link["kind"]?.DeepClone() }).ToArray()), ["totalCount"] = total, ["page"] = page, ["pageSize"] = size, ["observedOn"] = output["quality"]?["sourceObservedOn"]?.DeepClone() }, selectedRow);
     }
     public async Task<TraceLinkInput> ResolveNodeLinkInputAsync(StudioPrincipal p, string resource, JsonObject input, CancellationToken ct)
     {
         var c = await Runtime(p, resource, StudioJson.Text(input["revisionNId"]), ct); p = c.Principal;
         var (node, parameters) = ReadNode(p, resource, c.Revision.NId, input);
         var (definition, row, _) = await Detail(p, c.Document, node, parameters, ct);
-        var link = Objects(definition["detail"]?["links"]).SingleOrDefault(x => StudioJson.Text(x["id"]) == StudioJson.Text(input["linkId"])) ?? throw Missing();
-        var context = Contexts(p, parameters, node, row); var value = Resolve(link["value"], context);
+        var configuredLinks = definition["detail"]?["links"];
+        if (input.ContainsKey("sectionId") || input.ContainsKey("rowToken"))
+        {
+            var selection = credentials.Read(p, resource, c.Revision.NId, "SectionRow", StudioJson.Text(input["rowToken"]));
+            if (StudioJson.Text(selection["nodeKey"]) != StudioJson.Text(node["key"]) || StudioJson.Text(selection["sectionId"]) != StudioJson.Text(input["sectionId"])) throw Forbidden();
+            var section = Objects(definition["detail"]?["sections"]).SingleOrDefault(s => StudioJson.Text(s["id"]) == StudioJson.Text(selection["sectionId"])) ?? throw Missing();
+            if (StudioJson.Text(section["kind"]) != "Table") throw Forbidden();
+            configuredLinks = section["links"];
+            var pageInput = input.DeepClone().AsObject();
+            pageInput["page"] = selection["page"]!.DeepClone(); pageInput["pageSize"] = selection["pageSize"]!.DeepClone();
+            row = (await ReadSectionAsync(p, resource, pageInput, ct, selection)).SelectedRow!;
+        }
+        var link = Objects(configuredLinks).SingleOrDefault(x => StudioJson.Text(x["id"]) == StudioJson.Text(input["linkId"])) ?? throw Missing();
+        var context = Contexts(p, parameters, node, row); var value = StudioJson.Text(link["kind"]) == "Resource" ? null : Resolve(link["value"], context);
         var version = link["fileSource"]?["version"] is { } v ? Scalar(Resolve(v, context), "fileSource.version") : null;
         await Recheck(p, resource, c.Revision.NId, false, ct);
         return new(link.DeepClone().AsObject(), value, Map(p, link["parameterMap"], parameters, node, row), version);
@@ -387,8 +415,13 @@ public sealed class TraceRuntime(IStudioResourceStore store, StudioPublishing pu
     public async Task<TraceNodeLinkResult> NodeLinkAsync(StudioPrincipal p, string resource, JsonObject input, CancellationToken ct)
     {
         p = await identity.RefreshAsync(p, ct);
-        var resolved = await ResolveNodeLinkInputAsync(p, resource, input, ct);
-        return await links.ResolveAsync(p, resource, resolved.Link, resolved.Value, resolved.Parameters, resolved.Version, input, ct);
+        // Only the signed record selectors participate in reauthorization and attachment retry identity.
+        var context = new JsonObject();
+        foreach (var key in new[] { "revisionNId", "nodeKey", "nodeToken", "linkId", "sectionId", "rowToken" })
+            if (input.ContainsKey(key)) context[key] = input[key]?.DeepClone();
+        var resolved = await ResolveNodeLinkInputAsync(p, resource, context, ct);
+        if (StudioJson.Text(resolved.Link["kind"]) == "Resource") return await ResourceLinkAsync(p, resource, context, resolved, ct);
+        return await links.ResolveAsync(p, resource, resolved.Link, resolved.Value, resolved.Parameters, resolved.Version, context, ct);
     }
     private (JsonObject Node, JsonObject Parameters) ReadNode(StudioPrincipal p, string resource, string revision, JsonObject input)
     {

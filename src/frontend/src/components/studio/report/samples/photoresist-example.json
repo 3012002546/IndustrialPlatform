@@ -1,0 +1,3429 @@
+{
+  "format": "IndustrialPlatform.PhotoresistExample",
+  "version": 1,
+  "description": "合成示例数据；用于演示完整工单快照驱动报表，不含真实配方或生产判定标准。",
+  "resources": [
+    {
+      "key": "orderInfo",
+      "nId": "demo-photoresist-20261114-orderinfo",
+      "kind": "Report",
+      "name": "示例·光刻胶·01 工单基本信息",
+      "folder": "示例/光刻胶批生产记录",
+      "description": "合成示例数据；用于演示完整工单快照驱动报表，不含真实配方或生产判定标准。",
+      "document": {
+        "schemaVersion": 1,
+        "mode": "Fixed",
+        "paper": {
+          "size": "A4",
+          "orientation": "Portrait",
+          "margin": {
+            "top": 15,
+            "right": 15,
+            "bottom": 15,
+            "left": 15
+          },
+          "headerHeightMm": 8,
+          "footerHeightMm": 8
+        },
+        "parameters": [
+          {
+            "name": "context",
+            "label": "工单与工序",
+            "type": "String",
+            "required": false,
+            "nullable": false,
+            "defaultValue": "工单：DEMO-PR-20261114-001　批次：DEMO-PR-B001"
+          }
+        ],
+        "instances": [
+          {
+            "instanceId": "模板明细",
+            "sourceType": "Constant",
+            "value": [
+              {
+                "label": "工单编号",
+                "value": "DEMO-PR-20261114-001"
+              },
+              {
+                "label": "产品名称",
+                "value": "光刻胶演示产品 PR-DEMO"
+              },
+              {
+                "label": "产品批号",
+                "value": "DEMO-PR-B001"
+              },
+              {
+                "label": "计划数量",
+                "value": "100.00 kg（示例）"
+              },
+              {
+                "label": "生产线 / 车间",
+                "value": "光刻胶示例线 / 洁净配制车间"
+              },
+              {
+                "label": "工艺路线 / 执行BOM版本",
+                "value": "PR-DEMO-R01 / BOM-DEMO-V1"
+              },
+              {
+                "label": "计划日期 / 工单状态",
+                "value": "2026-11-14 / 示例完工待复核"
+              },
+              {
+                "label": "记录说明",
+                "value": "全份数据为合成示例，所有工序和明细一次采集后组装。"
+              }
+            ],
+            "parameters": [],
+            "dependsOn": []
+          }
+        ],
+        "styles": [
+          {
+            "id": "body",
+            "fontFamily": "MicrosoftYaHei",
+            "fontSizePt": 9,
+            "fontWeight": 400,
+            "color": "#202830",
+            "textAlign": "Left",
+            "lineHeight": 1.35,
+            "paddingMm": 1.5
+          },
+          {
+            "id": "title",
+            "fontFamily": "MicrosoftYaHei",
+            "fontSizePt": 16,
+            "fontWeight": 700,
+            "color": "#163E50",
+            "textAlign": "Left",
+            "lineHeight": 1.35,
+            "paddingMm": 0
+          },
+          {
+            "id": "caption",
+            "fontFamily": "MicrosoftYaHei",
+            "fontSizePt": 8,
+            "fontWeight": 400,
+            "color": "#56616A",
+            "textAlign": "Left",
+            "lineHeight": 1.35,
+            "paddingMm": 0
+          }
+        ],
+        "assets": [],
+        "bands": [
+          {
+            "id": "section-title",
+            "kind": "ReportHeader",
+            "name": "工单基本信息标题",
+            "heightMm": 12,
+            "keepWithNext": true,
+            "controls": [
+              {
+                "id": "title",
+                "type": "Text",
+                "xMm": 0,
+                "yMm": 2,
+                "widthMm": 60,
+                "heightMm": 7,
+                "styleId": "title",
+                "canGrow": true,
+                "value": {
+                  "from": "Constant",
+                  "value": "工单基本信息",
+                  "nullPolicy": "Error"
+                }
+              },
+              {
+                "id": "context",
+                "type": "Field",
+                "xMm": 62,
+                "yMm": 2,
+                "widthMm": 118,
+                "heightMm": 7,
+                "styleId": "caption",
+                "canGrow": true,
+                "value": {
+                  "from": "PageParam",
+                  "path": [
+                    "context"
+                  ],
+                  "nullPolicy": "Error"
+                }
+              }
+            ]
+          },
+          {
+            "id": "records",
+            "kind": "Detail",
+            "name": "工单基本信息明细",
+            "heightMm": 7,
+            "grow": true,
+            "emptyBehavior": "Skip",
+            "data": {
+              "mode": "RootPath",
+              "instanceId": "模板明细",
+              "path": []
+            },
+            "controls": [
+              {
+                "id": "record-table",
+                "type": "Table",
+                "xMm": 0,
+                "yMm": 0,
+                "widthMm": 180,
+                "heightMm": 7,
+                "styleId": "body",
+                "canGrow": true,
+                "table": {
+                  "rowMode": "BandRow",
+                  "headerMode": "OncePerParent",
+                  "repeatHeader": true,
+                  "columns": [
+                    {
+                      "id": "label",
+                      "label": "项目",
+                      "widthMm": 43,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "label"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    },
+                    {
+                      "id": "value",
+                      "label": "内容",
+                      "widthMm": 137,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "value"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "page-footer",
+            "kind": "PageFooter",
+            "name": "示例页脚",
+            "heightMm": 7,
+            "controls": [
+              {
+                "id": "footer",
+                "type": "Text",
+                "xMm": 0,
+                "yMm": 0,
+                "widthMm": 150,
+                "heightMm": 7,
+                "styleId": "caption",
+                "canGrow": true,
+                "value": {
+                  "from": "Constant",
+                  "value": "合成示例数据 · 光刻胶批生产记录",
+                  "nullPolicy": "Error"
+                }
+              },
+              {
+                "id": "page-number",
+                "type": "PageNumber",
+                "xMm": 160,
+                "yMm": 0,
+                "widthMm": 20,
+                "heightMm": 6,
+                "styleId": "caption"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "key": "bom",
+      "nId": "demo-photoresist-20261114-bom",
+      "kind": "Report",
+      "name": "示例·光刻胶·02 执行BOM信息",
+      "folder": "示例/光刻胶批生产记录",
+      "description": "合成示例数据；用于演示完整工单快照驱动报表，不含真实配方或生产判定标准。",
+      "document": {
+        "schemaVersion": 1,
+        "mode": "Fixed",
+        "paper": {
+          "size": "A4",
+          "orientation": "Portrait",
+          "margin": {
+            "top": 15,
+            "right": 15,
+            "bottom": 15,
+            "left": 15
+          },
+          "headerHeightMm": 8,
+          "footerHeightMm": 8
+        },
+        "parameters": [
+          {
+            "name": "context",
+            "label": "工单与工序",
+            "type": "String",
+            "required": false,
+            "nullable": false,
+            "defaultValue": "工单：DEMO-PR-20261114-001　批次：DEMO-PR-B001"
+          }
+        ],
+        "instances": [
+          {
+            "instanceId": "模板明细",
+            "sourceType": "Constant",
+            "value": [
+              {
+                "code": "DEMO-R01",
+                "name": "树脂溶液（示例）",
+                "lot": "DEMO-R-001",
+                "quantity": "30.00",
+                "unit": "kg",
+                "role": "主料"
+              },
+              {
+                "code": "DEMO-S01",
+                "name": "配制溶剂（示例）",
+                "lot": "DEMO-S-001",
+                "quantity": "65.00",
+                "unit": "kg",
+                "role": "溶剂"
+              },
+              {
+                "code": "DEMO-A01",
+                "name": "功能组分（示例）",
+                "lot": "DEMO-A-001",
+                "quantity": "5.00",
+                "unit": "kg",
+                "role": "辅料"
+              },
+              {
+                "code": "DEMO-F01",
+                "name": "过滤组件（示例）",
+                "lot": "DEMO-F-001",
+                "quantity": "2",
+                "unit": "套",
+                "role": "耗材"
+              },
+              {
+                "code": "DEMO-P01",
+                "name": "洁净包装瓶（示例）",
+                "lot": "DEMO-P-001",
+                "quantity": "20",
+                "unit": "个",
+                "role": "包装"
+              }
+            ],
+            "parameters": [],
+            "dependsOn": []
+          }
+        ],
+        "styles": [
+          {
+            "id": "body",
+            "fontFamily": "MicrosoftYaHei",
+            "fontSizePt": 9,
+            "fontWeight": 400,
+            "color": "#202830",
+            "textAlign": "Left",
+            "lineHeight": 1.35,
+            "paddingMm": 1.5
+          },
+          {
+            "id": "title",
+            "fontFamily": "MicrosoftYaHei",
+            "fontSizePt": 16,
+            "fontWeight": 700,
+            "color": "#163E50",
+            "textAlign": "Left",
+            "lineHeight": 1.35,
+            "paddingMm": 0
+          },
+          {
+            "id": "caption",
+            "fontFamily": "MicrosoftYaHei",
+            "fontSizePt": 8,
+            "fontWeight": 400,
+            "color": "#56616A",
+            "textAlign": "Left",
+            "lineHeight": 1.35,
+            "paddingMm": 0
+          }
+        ],
+        "assets": [],
+        "bands": [
+          {
+            "id": "section-title",
+            "kind": "ReportHeader",
+            "name": "执行BOM信息标题",
+            "heightMm": 12,
+            "keepWithNext": true,
+            "controls": [
+              {
+                "id": "title",
+                "type": "Text",
+                "xMm": 0,
+                "yMm": 2,
+                "widthMm": 60,
+                "heightMm": 7,
+                "styleId": "title",
+                "canGrow": true,
+                "value": {
+                  "from": "Constant",
+                  "value": "执行BOM信息",
+                  "nullPolicy": "Error"
+                }
+              },
+              {
+                "id": "context",
+                "type": "Field",
+                "xMm": 62,
+                "yMm": 2,
+                "widthMm": 118,
+                "heightMm": 7,
+                "styleId": "caption",
+                "canGrow": true,
+                "value": {
+                  "from": "PageParam",
+                  "path": [
+                    "context"
+                  ],
+                  "nullPolicy": "Error"
+                }
+              }
+            ]
+          },
+          {
+            "id": "records",
+            "kind": "Detail",
+            "name": "执行BOM信息明细",
+            "heightMm": 7,
+            "grow": true,
+            "emptyBehavior": "Skip",
+            "data": {
+              "mode": "RootPath",
+              "instanceId": "模板明细",
+              "path": []
+            },
+            "controls": [
+              {
+                "id": "record-table",
+                "type": "Table",
+                "xMm": 0,
+                "yMm": 0,
+                "widthMm": 180,
+                "heightMm": 7,
+                "styleId": "body",
+                "canGrow": true,
+                "table": {
+                  "rowMode": "BandRow",
+                  "headerMode": "OncePerParent",
+                  "repeatHeader": true,
+                  "columns": [
+                    {
+                      "id": "code",
+                      "label": "物料编码",
+                      "widthMm": 30,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "code"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    },
+                    {
+                      "id": "name",
+                      "label": "物料名称",
+                      "widthMm": 48,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "name"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    },
+                    {
+                      "id": "lot",
+                      "label": "批次",
+                      "widthMm": 38,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "lot"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    },
+                    {
+                      "id": "quantity",
+                      "label": "执行量",
+                      "widthMm": 24,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "quantity"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    },
+                    {
+                      "id": "unit",
+                      "label": "单位",
+                      "widthMm": 16,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "unit"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    },
+                    {
+                      "id": "role",
+                      "label": "用途",
+                      "widthMm": 24,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "role"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "page-footer",
+            "kind": "PageFooter",
+            "name": "示例页脚",
+            "heightMm": 7,
+            "controls": [
+              {
+                "id": "footer",
+                "type": "Text",
+                "xMm": 0,
+                "yMm": 0,
+                "widthMm": 150,
+                "heightMm": 7,
+                "styleId": "caption",
+                "canGrow": true,
+                "value": {
+                  "from": "Constant",
+                  "value": "合成示例数据 · 光刻胶批生产记录",
+                  "nullPolicy": "Error"
+                }
+              },
+              {
+                "id": "page-number",
+                "type": "PageNumber",
+                "xMm": 160,
+                "yMm": 0,
+                "widthMm": 20,
+                "heightMm": 6,
+                "styleId": "caption"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "key": "basic",
+      "nId": "demo-photoresist-20261114-basic",
+      "kind": "Report",
+      "name": "示例·光刻胶·03 工序基本信息",
+      "folder": "示例/光刻胶批生产记录",
+      "description": "合成示例数据；用于演示完整工单快照驱动报表，不含真实配方或生产判定标准。",
+      "document": {
+        "schemaVersion": 1,
+        "mode": "Fixed",
+        "paper": {
+          "size": "A4",
+          "orientation": "Portrait",
+          "margin": {
+            "top": 15,
+            "right": 15,
+            "bottom": 15,
+            "left": 15
+          },
+          "headerHeightMm": 8,
+          "footerHeightMm": 8
+        },
+        "parameters": [
+          {
+            "name": "context",
+            "label": "工单与工序",
+            "type": "String",
+            "required": false,
+            "nullable": false,
+            "defaultValue": "DEMO-PR-20261114-001　010 开工确认"
+          }
+        ],
+        "instances": [
+          {
+            "instanceId": "模板明细",
+            "sourceType": "Constant",
+            "value": [
+              {
+                "label": "工序编号 / 名称",
+                "value": "010 / 开工确认"
+              },
+              {
+                "label": "执行状态 / 设备",
+                "value": "已完成（示例） / CHK-DEMO"
+              },
+              {
+                "label": "执行人员 / 复核人员",
+                "value": "示例操作员 / 示例复核员"
+              },
+              {
+                "label": "开始 / 完成时间",
+                "value": "2026-11-14 08:00 / 08:30"
+              }
+            ],
+            "parameters": [],
+            "dependsOn": []
+          }
+        ],
+        "styles": [
+          {
+            "id": "body",
+            "fontFamily": "MicrosoftYaHei",
+            "fontSizePt": 9,
+            "fontWeight": 400,
+            "color": "#202830",
+            "textAlign": "Left",
+            "lineHeight": 1.35,
+            "paddingMm": 1.5
+          },
+          {
+            "id": "title",
+            "fontFamily": "MicrosoftYaHei",
+            "fontSizePt": 16,
+            "fontWeight": 700,
+            "color": "#163E50",
+            "textAlign": "Left",
+            "lineHeight": 1.35,
+            "paddingMm": 0
+          },
+          {
+            "id": "caption",
+            "fontFamily": "MicrosoftYaHei",
+            "fontSizePt": 8,
+            "fontWeight": 400,
+            "color": "#56616A",
+            "textAlign": "Left",
+            "lineHeight": 1.35,
+            "paddingMm": 0
+          }
+        ],
+        "assets": [],
+        "bands": [
+          {
+            "id": "section-title",
+            "kind": "ReportHeader",
+            "name": "工序基本信息标题",
+            "heightMm": 12,
+            "keepWithNext": true,
+            "controls": [
+              {
+                "id": "title",
+                "type": "Text",
+                "xMm": 0,
+                "yMm": 2,
+                "widthMm": 60,
+                "heightMm": 7,
+                "styleId": "title",
+                "canGrow": true,
+                "value": {
+                  "from": "Constant",
+                  "value": "工序基本信息",
+                  "nullPolicy": "Error"
+                }
+              },
+              {
+                "id": "context",
+                "type": "Field",
+                "xMm": 62,
+                "yMm": 2,
+                "widthMm": 118,
+                "heightMm": 7,
+                "styleId": "caption",
+                "canGrow": true,
+                "value": {
+                  "from": "PageParam",
+                  "path": [
+                    "context"
+                  ],
+                  "nullPolicy": "Error"
+                }
+              }
+            ]
+          },
+          {
+            "id": "records",
+            "kind": "Detail",
+            "name": "工序基本信息明细",
+            "heightMm": 7,
+            "grow": true,
+            "emptyBehavior": "Skip",
+            "data": {
+              "mode": "RootPath",
+              "instanceId": "模板明细",
+              "path": []
+            },
+            "controls": [
+              {
+                "id": "record-table",
+                "type": "Table",
+                "xMm": 0,
+                "yMm": 0,
+                "widthMm": 180,
+                "heightMm": 7,
+                "styleId": "body",
+                "canGrow": true,
+                "table": {
+                  "rowMode": "BandRow",
+                  "headerMode": "OncePerParent",
+                  "repeatHeader": true,
+                  "columns": [
+                    {
+                      "id": "label",
+                      "label": "项目",
+                      "widthMm": 43,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "label"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    },
+                    {
+                      "id": "value",
+                      "label": "内容",
+                      "widthMm": 137,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "value"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "page-footer",
+            "kind": "PageFooter",
+            "name": "示例页脚",
+            "heightMm": 7,
+            "controls": [
+              {
+                "id": "footer",
+                "type": "Text",
+                "xMm": 0,
+                "yMm": 0,
+                "widthMm": 150,
+                "heightMm": 7,
+                "styleId": "caption",
+                "canGrow": true,
+                "value": {
+                  "from": "Constant",
+                  "value": "合成示例数据 · 光刻胶批生产记录",
+                  "nullPolicy": "Error"
+                }
+              },
+              {
+                "id": "page-number",
+                "type": "PageNumber",
+                "xMm": 160,
+                "yMm": 0,
+                "widthMm": 20,
+                "heightMm": 6,
+                "styleId": "caption"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "key": "tips",
+      "nId": "demo-photoresist-20261114-tips",
+      "kind": "Report",
+      "name": "示例·光刻胶·04 操作提示",
+      "folder": "示例/光刻胶批生产记录",
+      "description": "合成示例数据；用于演示完整工单快照驱动报表，不含真实配方或生产判定标准。",
+      "document": {
+        "schemaVersion": 1,
+        "mode": "Fixed",
+        "paper": {
+          "size": "A4",
+          "orientation": "Portrait",
+          "margin": {
+            "top": 15,
+            "right": 15,
+            "bottom": 15,
+            "left": 15
+          },
+          "headerHeightMm": 8,
+          "footerHeightMm": 8
+        },
+        "parameters": [
+          {
+            "name": "context",
+            "label": "工单与工序",
+            "type": "String",
+            "required": false,
+            "nullable": false,
+            "defaultValue": "DEMO-PR-20261114-001　010 开工确认"
+          }
+        ],
+        "instances": [
+          {
+            "instanceId": "模板明细",
+            "sourceType": "Constant",
+            "value": [
+              {
+                "sequence": "1",
+                "instruction": "执行开工确认前核对工单、设备及上一工序交接状态。",
+                "confirmation": "示例：已确认"
+              },
+              {
+                "sequence": "2",
+                "instruction": "本页仅展示操作提示与确认记录的报表结构。",
+                "confirmation": "示例：已复核"
+              }
+            ],
+            "parameters": [],
+            "dependsOn": []
+          }
+        ],
+        "styles": [
+          {
+            "id": "body",
+            "fontFamily": "MicrosoftYaHei",
+            "fontSizePt": 9,
+            "fontWeight": 400,
+            "color": "#202830",
+            "textAlign": "Left",
+            "lineHeight": 1.35,
+            "paddingMm": 1.5
+          },
+          {
+            "id": "title",
+            "fontFamily": "MicrosoftYaHei",
+            "fontSizePt": 16,
+            "fontWeight": 700,
+            "color": "#163E50",
+            "textAlign": "Left",
+            "lineHeight": 1.35,
+            "paddingMm": 0
+          },
+          {
+            "id": "caption",
+            "fontFamily": "MicrosoftYaHei",
+            "fontSizePt": 8,
+            "fontWeight": 400,
+            "color": "#56616A",
+            "textAlign": "Left",
+            "lineHeight": 1.35,
+            "paddingMm": 0
+          }
+        ],
+        "assets": [],
+        "bands": [
+          {
+            "id": "section-title",
+            "kind": "ReportHeader",
+            "name": "操作提示标题",
+            "heightMm": 12,
+            "keepWithNext": true,
+            "controls": [
+              {
+                "id": "title",
+                "type": "Text",
+                "xMm": 0,
+                "yMm": 2,
+                "widthMm": 60,
+                "heightMm": 7,
+                "styleId": "title",
+                "canGrow": true,
+                "value": {
+                  "from": "Constant",
+                  "value": "操作提示",
+                  "nullPolicy": "Error"
+                }
+              },
+              {
+                "id": "context",
+                "type": "Field",
+                "xMm": 62,
+                "yMm": 2,
+                "widthMm": 118,
+                "heightMm": 7,
+                "styleId": "caption",
+                "canGrow": true,
+                "value": {
+                  "from": "PageParam",
+                  "path": [
+                    "context"
+                  ],
+                  "nullPolicy": "Error"
+                }
+              }
+            ]
+          },
+          {
+            "id": "records",
+            "kind": "Detail",
+            "name": "操作提示明细",
+            "heightMm": 7,
+            "grow": true,
+            "emptyBehavior": "Skip",
+            "data": {
+              "mode": "RootPath",
+              "instanceId": "模板明细",
+              "path": []
+            },
+            "controls": [
+              {
+                "id": "record-table",
+                "type": "Table",
+                "xMm": 0,
+                "yMm": 0,
+                "widthMm": 180,
+                "heightMm": 7,
+                "styleId": "body",
+                "canGrow": true,
+                "table": {
+                  "rowMode": "BandRow",
+                  "headerMode": "OncePerParent",
+                  "repeatHeader": true,
+                  "columns": [
+                    {
+                      "id": "sequence",
+                      "label": "序号",
+                      "widthMm": 15,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "sequence"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    },
+                    {
+                      "id": "instruction",
+                      "label": "提示内容",
+                      "widthMm": 125,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "instruction"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    },
+                    {
+                      "id": "confirmation",
+                      "label": "确认记录",
+                      "widthMm": 40,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "confirmation"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "page-footer",
+            "kind": "PageFooter",
+            "name": "示例页脚",
+            "heightMm": 7,
+            "controls": [
+              {
+                "id": "footer",
+                "type": "Text",
+                "xMm": 0,
+                "yMm": 0,
+                "widthMm": 150,
+                "heightMm": 7,
+                "styleId": "caption",
+                "canGrow": true,
+                "value": {
+                  "from": "Constant",
+                  "value": "合成示例数据 · 光刻胶批生产记录",
+                  "nullPolicy": "Error"
+                }
+              },
+              {
+                "id": "page-number",
+                "type": "PageNumber",
+                "xMm": 160,
+                "yMm": 0,
+                "widthMm": 20,
+                "heightMm": 6,
+                "styleId": "caption"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "key": "materials",
+      "nId": "demo-photoresist-20261114-materials",
+      "kind": "Report",
+      "name": "示例·光刻胶·05 物料需求",
+      "folder": "示例/光刻胶批生产记录",
+      "description": "合成示例数据；用于演示完整工单快照驱动报表，不含真实配方或生产判定标准。",
+      "document": {
+        "schemaVersion": 1,
+        "mode": "Fixed",
+        "paper": {
+          "size": "A4",
+          "orientation": "Portrait",
+          "margin": {
+            "top": 15,
+            "right": 15,
+            "bottom": 15,
+            "left": 15
+          },
+          "headerHeightMm": 8,
+          "footerHeightMm": 8
+        },
+        "parameters": [
+          {
+            "name": "context",
+            "label": "工单与工序",
+            "type": "String",
+            "required": false,
+            "nullable": false,
+            "defaultValue": "DEMO-PR-20261114-001　020 原料核对"
+          }
+        ],
+        "instances": [
+          {
+            "instanceId": "模板明细",
+            "sourceType": "Constant",
+            "value": [
+              {
+                "code": "DEMO-R01",
+                "name": "树脂溶液（示例）",
+                "required": "30.00",
+                "issued": "30.00",
+                "unit": "kg",
+                "status": "示例：已领用"
+              },
+              {
+                "code": "DEMO-S01",
+                "name": "配制溶剂（示例）",
+                "required": "65.00",
+                "issued": "65.00",
+                "unit": "kg",
+                "status": "示例：已领用"
+              }
+            ],
+            "parameters": [],
+            "dependsOn": []
+          }
+        ],
+        "styles": [
+          {
+            "id": "body",
+            "fontFamily": "MicrosoftYaHei",
+            "fontSizePt": 9,
+            "fontWeight": 400,
+            "color": "#202830",
+            "textAlign": "Left",
+            "lineHeight": 1.35,
+            "paddingMm": 1.5
+          },
+          {
+            "id": "title",
+            "fontFamily": "MicrosoftYaHei",
+            "fontSizePt": 16,
+            "fontWeight": 700,
+            "color": "#163E50",
+            "textAlign": "Left",
+            "lineHeight": 1.35,
+            "paddingMm": 0
+          },
+          {
+            "id": "caption",
+            "fontFamily": "MicrosoftYaHei",
+            "fontSizePt": 8,
+            "fontWeight": 400,
+            "color": "#56616A",
+            "textAlign": "Left",
+            "lineHeight": 1.35,
+            "paddingMm": 0
+          }
+        ],
+        "assets": [],
+        "bands": [
+          {
+            "id": "section-title",
+            "kind": "ReportHeader",
+            "name": "物料需求标题",
+            "heightMm": 12,
+            "keepWithNext": true,
+            "controls": [
+              {
+                "id": "title",
+                "type": "Text",
+                "xMm": 0,
+                "yMm": 2,
+                "widthMm": 60,
+                "heightMm": 7,
+                "styleId": "title",
+                "canGrow": true,
+                "value": {
+                  "from": "Constant",
+                  "value": "物料需求",
+                  "nullPolicy": "Error"
+                }
+              },
+              {
+                "id": "context",
+                "type": "Field",
+                "xMm": 62,
+                "yMm": 2,
+                "widthMm": 118,
+                "heightMm": 7,
+                "styleId": "caption",
+                "canGrow": true,
+                "value": {
+                  "from": "PageParam",
+                  "path": [
+                    "context"
+                  ],
+                  "nullPolicy": "Error"
+                }
+              }
+            ]
+          },
+          {
+            "id": "records",
+            "kind": "Detail",
+            "name": "物料需求明细",
+            "heightMm": 7,
+            "grow": true,
+            "emptyBehavior": "Skip",
+            "data": {
+              "mode": "RootPath",
+              "instanceId": "模板明细",
+              "path": []
+            },
+            "controls": [
+              {
+                "id": "record-table",
+                "type": "Table",
+                "xMm": 0,
+                "yMm": 0,
+                "widthMm": 180,
+                "heightMm": 7,
+                "styleId": "body",
+                "canGrow": true,
+                "table": {
+                  "rowMode": "BandRow",
+                  "headerMode": "OncePerParent",
+                  "repeatHeader": true,
+                  "columns": [
+                    {
+                      "id": "code",
+                      "label": "物料编码",
+                      "widthMm": 32,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "code"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    },
+                    {
+                      "id": "name",
+                      "label": "物料名称",
+                      "widthMm": 50,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "name"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    },
+                    {
+                      "id": "required",
+                      "label": "需求量",
+                      "widthMm": 25,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "required"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    },
+                    {
+                      "id": "issued",
+                      "label": "领用量",
+                      "widthMm": 25,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "issued"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    },
+                    {
+                      "id": "unit",
+                      "label": "单位",
+                      "widthMm": 16,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "unit"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    },
+                    {
+                      "id": "status",
+                      "label": "状态",
+                      "widthMm": 32,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "status"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "page-footer",
+            "kind": "PageFooter",
+            "name": "示例页脚",
+            "heightMm": 7,
+            "controls": [
+              {
+                "id": "footer",
+                "type": "Text",
+                "xMm": 0,
+                "yMm": 0,
+                "widthMm": 150,
+                "heightMm": 7,
+                "styleId": "caption",
+                "canGrow": true,
+                "value": {
+                  "from": "Constant",
+                  "value": "合成示例数据 · 光刻胶批生产记录",
+                  "nullPolicy": "Error"
+                }
+              },
+              {
+                "id": "page-number",
+                "type": "PageNumber",
+                "xMm": 160,
+                "yMm": 0,
+                "widthMm": 20,
+                "heightMm": 6,
+                "styleId": "caption"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "key": "weighings",
+      "nId": "demo-photoresist-20261114-weighings",
+      "kind": "Report",
+      "name": "示例·光刻胶·06 称量记录",
+      "folder": "示例/光刻胶批生产记录",
+      "description": "合成示例数据；用于演示完整工单快照驱动报表，不含真实配方或生产判定标准。",
+      "document": {
+        "schemaVersion": 1,
+        "mode": "Fixed",
+        "paper": {
+          "size": "A4",
+          "orientation": "Portrait",
+          "margin": {
+            "top": 15,
+            "right": 15,
+            "bottom": 15,
+            "left": 15
+          },
+          "headerHeightMm": 8,
+          "footerHeightMm": 8
+        },
+        "parameters": [
+          {
+            "name": "context",
+            "label": "工单与工序",
+            "type": "String",
+            "required": false,
+            "nullable": false,
+            "defaultValue": "DEMO-PR-20261114-001　030 称量备料"
+          }
+        ],
+        "instances": [
+          {
+            "instanceId": "模板明细",
+            "sourceType": "Constant",
+            "value": [
+              {
+                "record": "W-030-01",
+                "material": "树脂溶液（示例）",
+                "lot": "DEMO-PR-B001",
+                "tare": "1.20",
+                "net": "10.00",
+                "operator": "示例甲 / 示例乙"
+              },
+              {
+                "record": "W-030-02",
+                "material": "配制溶剂（示例）",
+                "lot": "DEMO-PR-B001",
+                "tare": "1.21",
+                "net": "11.00",
+                "operator": "示例甲 / 示例乙"
+              },
+              {
+                "record": "W-030-03",
+                "material": "树脂溶液（示例）",
+                "lot": "DEMO-PR-B001",
+                "tare": "1.22",
+                "net": "12.00",
+                "operator": "示例甲 / 示例乙"
+              },
+              {
+                "record": "W-030-04",
+                "material": "配制溶剂（示例）",
+                "lot": "DEMO-PR-B001",
+                "tare": "1.23",
+                "net": "13.00",
+                "operator": "示例甲 / 示例乙"
+              },
+              {
+                "record": "W-030-05",
+                "material": "树脂溶液（示例）",
+                "lot": "DEMO-PR-B001",
+                "tare": "1.24",
+                "net": "14.00",
+                "operator": "示例甲 / 示例乙"
+              },
+              {
+                "record": "W-030-06",
+                "material": "配制溶剂（示例）",
+                "lot": "DEMO-PR-B001",
+                "tare": "1.25",
+                "net": "15.00",
+                "operator": "示例甲 / 示例乙"
+              }
+            ],
+            "parameters": [],
+            "dependsOn": []
+          }
+        ],
+        "styles": [
+          {
+            "id": "body",
+            "fontFamily": "MicrosoftYaHei",
+            "fontSizePt": 9,
+            "fontWeight": 400,
+            "color": "#202830",
+            "textAlign": "Left",
+            "lineHeight": 1.35,
+            "paddingMm": 1.5
+          },
+          {
+            "id": "title",
+            "fontFamily": "MicrosoftYaHei",
+            "fontSizePt": 16,
+            "fontWeight": 700,
+            "color": "#163E50",
+            "textAlign": "Left",
+            "lineHeight": 1.35,
+            "paddingMm": 0
+          },
+          {
+            "id": "caption",
+            "fontFamily": "MicrosoftYaHei",
+            "fontSizePt": 8,
+            "fontWeight": 400,
+            "color": "#56616A",
+            "textAlign": "Left",
+            "lineHeight": 1.35,
+            "paddingMm": 0
+          }
+        ],
+        "assets": [],
+        "bands": [
+          {
+            "id": "section-title",
+            "kind": "ReportHeader",
+            "name": "称量记录标题",
+            "heightMm": 12,
+            "keepWithNext": true,
+            "controls": [
+              {
+                "id": "title",
+                "type": "Text",
+                "xMm": 0,
+                "yMm": 2,
+                "widthMm": 60,
+                "heightMm": 7,
+                "styleId": "title",
+                "canGrow": true,
+                "value": {
+                  "from": "Constant",
+                  "value": "称量记录",
+                  "nullPolicy": "Error"
+                }
+              },
+              {
+                "id": "context",
+                "type": "Field",
+                "xMm": 62,
+                "yMm": 2,
+                "widthMm": 118,
+                "heightMm": 7,
+                "styleId": "caption",
+                "canGrow": true,
+                "value": {
+                  "from": "PageParam",
+                  "path": [
+                    "context"
+                  ],
+                  "nullPolicy": "Error"
+                }
+              }
+            ]
+          },
+          {
+            "id": "records",
+            "kind": "Detail",
+            "name": "称量记录明细",
+            "heightMm": 7,
+            "grow": true,
+            "emptyBehavior": "Skip",
+            "data": {
+              "mode": "RootPath",
+              "instanceId": "模板明细",
+              "path": []
+            },
+            "controls": [
+              {
+                "id": "record-table",
+                "type": "Table",
+                "xMm": 0,
+                "yMm": 0,
+                "widthMm": 180,
+                "heightMm": 7,
+                "styleId": "body",
+                "canGrow": true,
+                "table": {
+                  "rowMode": "BandRow",
+                  "headerMode": "OncePerParent",
+                  "repeatHeader": true,
+                  "columns": [
+                    {
+                      "id": "record",
+                      "label": "记录号",
+                      "widthMm": 32,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "record"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    },
+                    {
+                      "id": "material",
+                      "label": "物料",
+                      "widthMm": 38,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "material"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    },
+                    {
+                      "id": "lot",
+                      "label": "批次",
+                      "widthMm": 32,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "lot"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    },
+                    {
+                      "id": "tare",
+                      "label": "皮重/kg",
+                      "widthMm": 22,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "tare"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    },
+                    {
+                      "id": "net",
+                      "label": "净重/kg",
+                      "widthMm": 22,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "net"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    },
+                    {
+                      "id": "operator",
+                      "label": "称量/复核",
+                      "widthMm": 34,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "operator"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "page-footer",
+            "kind": "PageFooter",
+            "name": "示例页脚",
+            "heightMm": 7,
+            "controls": [
+              {
+                "id": "footer",
+                "type": "Text",
+                "xMm": 0,
+                "yMm": 0,
+                "widthMm": 150,
+                "heightMm": 7,
+                "styleId": "caption",
+                "canGrow": true,
+                "value": {
+                  "from": "Constant",
+                  "value": "合成示例数据 · 光刻胶批生产记录",
+                  "nullPolicy": "Error"
+                }
+              },
+              {
+                "id": "page-number",
+                "type": "PageNumber",
+                "xMm": 160,
+                "yMm": 0,
+                "widthMm": 20,
+                "heightMm": 6,
+                "styleId": "caption"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "key": "inspections",
+      "nId": "demo-photoresist-20261114-inspections",
+      "kind": "Report",
+      "name": "示例·光刻胶·07 过程报检",
+      "folder": "示例/光刻胶批生产记录",
+      "description": "合成示例数据；用于演示完整工单快照驱动报表，不含真实配方或生产判定标准。",
+      "document": {
+        "schemaVersion": 1,
+        "mode": "Fixed",
+        "paper": {
+          "size": "A4",
+          "orientation": "Portrait",
+          "margin": {
+            "top": 15,
+            "right": 15,
+            "bottom": 15,
+            "left": 15
+          },
+          "headerHeightMm": 8,
+          "footerHeightMm": 8
+        },
+        "parameters": [
+          {
+            "name": "context",
+            "label": "工单与工序",
+            "type": "String",
+            "required": false,
+            "nullable": false,
+            "defaultValue": "DEMO-PR-20261114-001　040 投料配制"
+          }
+        ],
+        "instances": [
+          {
+            "instanceId": "模板明细",
+            "sourceType": "Constant",
+            "value": [
+              {
+                "request": "QC-040-01",
+                "item": "外观记录",
+                "result": "示例：均匀",
+                "unit": "—",
+                "status": "已记录",
+                "reviewer": "示例检验员"
+              },
+              {
+                "request": "QC-040-02",
+                "item": "黏度记录",
+                "result": "4.85（示例）",
+                "unit": "mPa·s",
+                "status": "待复核",
+                "reviewer": "示例检验员"
+              },
+              {
+                "request": "QC-040-03",
+                "item": "颗粒记录",
+                "result": "12（示例）",
+                "unit": "个/mL",
+                "status": "待复核",
+                "reviewer": "示例检验员"
+              }
+            ],
+            "parameters": [],
+            "dependsOn": []
+          }
+        ],
+        "styles": [
+          {
+            "id": "body",
+            "fontFamily": "MicrosoftYaHei",
+            "fontSizePt": 9,
+            "fontWeight": 400,
+            "color": "#202830",
+            "textAlign": "Left",
+            "lineHeight": 1.35,
+            "paddingMm": 1.5
+          },
+          {
+            "id": "title",
+            "fontFamily": "MicrosoftYaHei",
+            "fontSizePt": 16,
+            "fontWeight": 700,
+            "color": "#163E50",
+            "textAlign": "Left",
+            "lineHeight": 1.35,
+            "paddingMm": 0
+          },
+          {
+            "id": "caption",
+            "fontFamily": "MicrosoftYaHei",
+            "fontSizePt": 8,
+            "fontWeight": 400,
+            "color": "#56616A",
+            "textAlign": "Left",
+            "lineHeight": 1.35,
+            "paddingMm": 0
+          }
+        ],
+        "assets": [],
+        "bands": [
+          {
+            "id": "section-title",
+            "kind": "ReportHeader",
+            "name": "过程报检标题",
+            "heightMm": 12,
+            "keepWithNext": true,
+            "controls": [
+              {
+                "id": "title",
+                "type": "Text",
+                "xMm": 0,
+                "yMm": 2,
+                "widthMm": 60,
+                "heightMm": 7,
+                "styleId": "title",
+                "canGrow": true,
+                "value": {
+                  "from": "Constant",
+                  "value": "过程报检",
+                  "nullPolicy": "Error"
+                }
+              },
+              {
+                "id": "context",
+                "type": "Field",
+                "xMm": 62,
+                "yMm": 2,
+                "widthMm": 118,
+                "heightMm": 7,
+                "styleId": "caption",
+                "canGrow": true,
+                "value": {
+                  "from": "PageParam",
+                  "path": [
+                    "context"
+                  ],
+                  "nullPolicy": "Error"
+                }
+              }
+            ]
+          },
+          {
+            "id": "records",
+            "kind": "Detail",
+            "name": "过程报检明细",
+            "heightMm": 7,
+            "grow": true,
+            "emptyBehavior": "Skip",
+            "data": {
+              "mode": "RootPath",
+              "instanceId": "模板明细",
+              "path": []
+            },
+            "controls": [
+              {
+                "id": "record-table",
+                "type": "Table",
+                "xMm": 0,
+                "yMm": 0,
+                "widthMm": 180,
+                "heightMm": 7,
+                "styleId": "body",
+                "canGrow": true,
+                "table": {
+                  "rowMode": "BandRow",
+                  "headerMode": "OncePerParent",
+                  "repeatHeader": true,
+                  "columns": [
+                    {
+                      "id": "request",
+                      "label": "报检单号",
+                      "widthMm": 34,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "request"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    },
+                    {
+                      "id": "item",
+                      "label": "检验项目",
+                      "widthMm": 40,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "item"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    },
+                    {
+                      "id": "result",
+                      "label": "记录值",
+                      "widthMm": 26,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "result"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    },
+                    {
+                      "id": "unit",
+                      "label": "单位",
+                      "widthMm": 18,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "unit"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    },
+                    {
+                      "id": "status",
+                      "label": "状态",
+                      "widthMm": 25,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "status"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    },
+                    {
+                      "id": "reviewer",
+                      "label": "检验/复核",
+                      "widthMm": 37,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "reviewer"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "page-footer",
+            "kind": "PageFooter",
+            "name": "示例页脚",
+            "heightMm": 7,
+            "controls": [
+              {
+                "id": "footer",
+                "type": "Text",
+                "xMm": 0,
+                "yMm": 0,
+                "widthMm": 150,
+                "heightMm": 7,
+                "styleId": "caption",
+                "canGrow": true,
+                "value": {
+                  "from": "Constant",
+                  "value": "合成示例数据 · 光刻胶批生产记录",
+                  "nullPolicy": "Error"
+                }
+              },
+              {
+                "id": "page-number",
+                "type": "PageNumber",
+                "xMm": 160,
+                "yMm": 0,
+                "widthMm": 20,
+                "heightMm": 6,
+                "styleId": "caption"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "key": "parameters",
+      "nId": "demo-photoresist-20261114-parameters",
+      "kind": "Report",
+      "name": "示例·光刻胶·08 工艺参数",
+      "folder": "示例/光刻胶批生产记录",
+      "description": "合成示例数据；用于演示完整工单快照驱动报表，不含真实配方或生产判定标准。",
+      "document": {
+        "schemaVersion": 1,
+        "mode": "Fixed",
+        "paper": {
+          "size": "A4",
+          "orientation": "Portrait",
+          "margin": {
+            "top": 15,
+            "right": 15,
+            "bottom": 15,
+            "left": 15
+          },
+          "headerHeightMm": 8,
+          "footerHeightMm": 8
+        },
+        "parameters": [
+          {
+            "name": "context",
+            "label": "工单与工序",
+            "type": "String",
+            "required": false,
+            "nullable": false,
+            "defaultValue": "DEMO-PR-20261114-001　010 开工确认"
+          }
+        ],
+        "instances": [
+          {
+            "instanceId": "模板明细",
+            "sourceType": "Constant",
+            "value": [
+              {
+                "name": "环境温度（示例）",
+                "recorded": "22.0",
+                "unit": "℃",
+                "equipment": "CHK-DEMO",
+                "operator": "示例操作员"
+              },
+              {
+                "name": "执行时长（示例）",
+                "recorded": "30",
+                "unit": "min",
+                "equipment": "CHK-DEMO",
+                "operator": "示例操作员"
+              }
+            ],
+            "parameters": [],
+            "dependsOn": []
+          }
+        ],
+        "styles": [
+          {
+            "id": "body",
+            "fontFamily": "MicrosoftYaHei",
+            "fontSizePt": 9,
+            "fontWeight": 400,
+            "color": "#202830",
+            "textAlign": "Left",
+            "lineHeight": 1.35,
+            "paddingMm": 1.5
+          },
+          {
+            "id": "title",
+            "fontFamily": "MicrosoftYaHei",
+            "fontSizePt": 16,
+            "fontWeight": 700,
+            "color": "#163E50",
+            "textAlign": "Left",
+            "lineHeight": 1.35,
+            "paddingMm": 0
+          },
+          {
+            "id": "caption",
+            "fontFamily": "MicrosoftYaHei",
+            "fontSizePt": 8,
+            "fontWeight": 400,
+            "color": "#56616A",
+            "textAlign": "Left",
+            "lineHeight": 1.35,
+            "paddingMm": 0
+          }
+        ],
+        "assets": [],
+        "bands": [
+          {
+            "id": "section-title",
+            "kind": "ReportHeader",
+            "name": "工艺参数标题",
+            "heightMm": 12,
+            "keepWithNext": true,
+            "controls": [
+              {
+                "id": "title",
+                "type": "Text",
+                "xMm": 0,
+                "yMm": 2,
+                "widthMm": 60,
+                "heightMm": 7,
+                "styleId": "title",
+                "canGrow": true,
+                "value": {
+                  "from": "Constant",
+                  "value": "工艺参数",
+                  "nullPolicy": "Error"
+                }
+              },
+              {
+                "id": "context",
+                "type": "Field",
+                "xMm": 62,
+                "yMm": 2,
+                "widthMm": 118,
+                "heightMm": 7,
+                "styleId": "caption",
+                "canGrow": true,
+                "value": {
+                  "from": "PageParam",
+                  "path": [
+                    "context"
+                  ],
+                  "nullPolicy": "Error"
+                }
+              }
+            ]
+          },
+          {
+            "id": "records",
+            "kind": "Detail",
+            "name": "工艺参数明细",
+            "heightMm": 7,
+            "grow": true,
+            "emptyBehavior": "Skip",
+            "data": {
+              "mode": "RootPath",
+              "instanceId": "模板明细",
+              "path": []
+            },
+            "controls": [
+              {
+                "id": "record-table",
+                "type": "Table",
+                "xMm": 0,
+                "yMm": 0,
+                "widthMm": 180,
+                "heightMm": 7,
+                "styleId": "body",
+                "canGrow": true,
+                "table": {
+                  "rowMode": "BandRow",
+                  "headerMode": "OncePerParent",
+                  "repeatHeader": true,
+                  "columns": [
+                    {
+                      "id": "name",
+                      "label": "参数名称",
+                      "widthMm": 48,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "name"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    },
+                    {
+                      "id": "recorded",
+                      "label": "记录值",
+                      "widthMm": 38,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "recorded"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    },
+                    {
+                      "id": "unit",
+                      "label": "单位",
+                      "widthMm": 24,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "unit"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    },
+                    {
+                      "id": "equipment",
+                      "label": "设备",
+                      "widthMm": 34,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "equipment"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    },
+                    {
+                      "id": "operator",
+                      "label": "记录人",
+                      "widthMm": 36,
+                      "styleId": "body",
+                      "value": {
+                        "from": "Row",
+                        "path": [
+                          "operator"
+                        ],
+                        "nullPolicy": "Error"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "page-footer",
+            "kind": "PageFooter",
+            "name": "示例页脚",
+            "heightMm": 7,
+            "controls": [
+              {
+                "id": "footer",
+                "type": "Text",
+                "xMm": 0,
+                "yMm": 0,
+                "widthMm": 150,
+                "heightMm": 7,
+                "styleId": "caption",
+                "canGrow": true,
+                "value": {
+                  "from": "Constant",
+                  "value": "合成示例数据 · 光刻胶批生产记录",
+                  "nullPolicy": "Error"
+                }
+              },
+              {
+                "id": "page-number",
+                "type": "PageNumber",
+                "xMm": 160,
+                "yMm": 0,
+                "widthMm": 20,
+                "heightMm": 6,
+                "styleId": "caption"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "bundle": {
+    "nId": "demo-photoresist-20261114-bundle",
+    "kind": "ReportBundle",
+    "name": "示例·光刻胶·完整工单批生产记录（数据驱动）",
+    "folder": "示例/光刻胶批生产记录",
+    "description": "合成示例数据；用于演示完整工单快照驱动报表，不含真实配方或生产判定标准。",
+    "document": {
+      "schemaVersion": 1,
+      "mode": "ElectronicRecord",
+      "parameters": [],
+      "paper": {
+        "size": "A4",
+        "orientation": "Portrait",
+        "margin": {
+          "top": 15,
+          "right": 15,
+          "bottom": 15,
+          "left": 15
+        },
+        "headerHeightMm": 8,
+        "footerHeightMm": 8
+      },
+      "instances": [
+        {
+          "instanceId": "工单快照",
+          "sourceType": "Constant",
+          "value": [
+            {
+              "id": "DEMO-PR-20261114-001",
+              "display": "工单：DEMO-PR-20261114-001　批次：DEMO-PR-B001",
+              "orderInfo": [
+                {
+                  "label": "工单编号",
+                  "value": "DEMO-PR-20261114-001"
+                },
+                {
+                  "label": "产品名称",
+                  "value": "光刻胶演示产品 PR-DEMO"
+                },
+                {
+                  "label": "产品批号",
+                  "value": "DEMO-PR-B001"
+                },
+                {
+                  "label": "计划数量",
+                  "value": "100.00 kg（示例）"
+                },
+                {
+                  "label": "生产线 / 车间",
+                  "value": "光刻胶示例线 / 洁净配制车间"
+                },
+                {
+                  "label": "工艺路线 / 执行BOM版本",
+                  "value": "PR-DEMO-R01 / BOM-DEMO-V1"
+                },
+                {
+                  "label": "计划日期 / 工单状态",
+                  "value": "2026-11-14 / 示例完工待复核"
+                },
+                {
+                  "label": "记录说明",
+                  "value": "全份数据为合成示例，所有工序和明细一次采集后组装。"
+                }
+              ],
+              "bom": [
+                {
+                  "code": "DEMO-R01",
+                  "name": "树脂溶液（示例）",
+                  "lot": "DEMO-R-001",
+                  "quantity": "30.00",
+                  "unit": "kg",
+                  "role": "主料"
+                },
+                {
+                  "code": "DEMO-S01",
+                  "name": "配制溶剂（示例）",
+                  "lot": "DEMO-S-001",
+                  "quantity": "65.00",
+                  "unit": "kg",
+                  "role": "溶剂"
+                },
+                {
+                  "code": "DEMO-A01",
+                  "name": "功能组分（示例）",
+                  "lot": "DEMO-A-001",
+                  "quantity": "5.00",
+                  "unit": "kg",
+                  "role": "辅料"
+                },
+                {
+                  "code": "DEMO-F01",
+                  "name": "过滤组件（示例）",
+                  "lot": "DEMO-F-001",
+                  "quantity": "2",
+                  "unit": "套",
+                  "role": "耗材"
+                },
+                {
+                  "code": "DEMO-P01",
+                  "name": "洁净包装瓶（示例）",
+                  "lot": "DEMO-P-001",
+                  "quantity": "20",
+                  "unit": "个",
+                  "role": "包装"
+                }
+              ],
+              "operations": [
+                {
+                  "id": "OP-010",
+                  "sequence": 1,
+                  "name": "开工确认",
+                  "display": "DEMO-PR-20261114-001　010 开工确认",
+                  "basic": [
+                    {
+                      "label": "工序编号 / 名称",
+                      "value": "010 / 开工确认"
+                    },
+                    {
+                      "label": "执行状态 / 设备",
+                      "value": "已完成（示例） / CHK-DEMO"
+                    },
+                    {
+                      "label": "执行人员 / 复核人员",
+                      "value": "示例操作员 / 示例复核员"
+                    },
+                    {
+                      "label": "开始 / 完成时间",
+                      "value": "2026-11-14 08:00 / 08:30"
+                    }
+                  ],
+                  "tips": [
+                    {
+                      "sequence": "1",
+                      "instruction": "执行开工确认前核对工单、设备及上一工序交接状态。",
+                      "confirmation": "示例：已确认"
+                    },
+                    {
+                      "sequence": "2",
+                      "instruction": "本页仅展示操作提示与确认记录的报表结构。",
+                      "confirmation": "示例：已复核"
+                    }
+                  ],
+                  "materials": [],
+                  "weighings": [],
+                  "inspections": [],
+                  "parameters": [
+                    {
+                      "name": "环境温度（示例）",
+                      "recorded": "22.0",
+                      "unit": "℃",
+                      "equipment": "CHK-DEMO",
+                      "operator": "示例操作员"
+                    },
+                    {
+                      "name": "执行时长（示例）",
+                      "recorded": "30",
+                      "unit": "min",
+                      "equipment": "CHK-DEMO",
+                      "operator": "示例操作员"
+                    }
+                  ]
+                },
+                {
+                  "id": "OP-020",
+                  "sequence": 2,
+                  "name": "原料核对",
+                  "display": "DEMO-PR-20261114-001　020 原料核对",
+                  "basic": [
+                    {
+                      "label": "工序编号 / 名称",
+                      "value": "020 / 原料核对"
+                    },
+                    {
+                      "label": "执行状态 / 设备",
+                      "value": "已完成（示例） / MAT-DEMO"
+                    },
+                    {
+                      "label": "执行人员 / 复核人员",
+                      "value": "示例操作员 / 示例复核员"
+                    },
+                    {
+                      "label": "开始 / 完成时间",
+                      "value": "2026-11-14 09:00 / 09:30"
+                    }
+                  ],
+                  "tips": [],
+                  "materials": [
+                    {
+                      "code": "DEMO-R01",
+                      "name": "树脂溶液（示例）",
+                      "required": "30.00",
+                      "issued": "30.00",
+                      "unit": "kg",
+                      "status": "示例：已领用"
+                    },
+                    {
+                      "code": "DEMO-S01",
+                      "name": "配制溶剂（示例）",
+                      "required": "65.00",
+                      "issued": "65.00",
+                      "unit": "kg",
+                      "status": "示例：已领用"
+                    }
+                  ],
+                  "weighings": [],
+                  "inspections": [],
+                  "parameters": []
+                },
+                {
+                  "id": "OP-030",
+                  "sequence": 3,
+                  "name": "称量备料",
+                  "display": "DEMO-PR-20261114-001　030 称量备料",
+                  "basic": [
+                    {
+                      "label": "工序编号 / 名称",
+                      "value": "030 / 称量备料"
+                    },
+                    {
+                      "label": "执行状态 / 设备",
+                      "value": "已完成（示例） / BAL-DEMO"
+                    },
+                    {
+                      "label": "执行人员 / 复核人员",
+                      "value": "示例操作员 / 示例复核员"
+                    },
+                    {
+                      "label": "开始 / 完成时间",
+                      "value": "2026-11-14 10:00 / 10:30"
+                    }
+                  ],
+                  "tips": [
+                    {
+                      "sequence": "1",
+                      "instruction": "执行称量备料前核对工单、设备及上一工序交接状态。",
+                      "confirmation": "示例：已确认"
+                    },
+                    {
+                      "sequence": "2",
+                      "instruction": "本页仅展示操作提示与确认记录的报表结构。",
+                      "confirmation": "示例：已复核"
+                    }
+                  ],
+                  "materials": [
+                    {
+                      "code": "DEMO-R01",
+                      "name": "树脂溶液（示例）",
+                      "required": "30.00",
+                      "issued": "30.00",
+                      "unit": "kg",
+                      "status": "示例：已领用"
+                    },
+                    {
+                      "code": "DEMO-S01",
+                      "name": "配制溶剂（示例）",
+                      "required": "65.00",
+                      "issued": "65.00",
+                      "unit": "kg",
+                      "status": "示例：已领用"
+                    }
+                  ],
+                  "weighings": [
+                    {
+                      "record": "W-030-01",
+                      "material": "树脂溶液（示例）",
+                      "lot": "DEMO-PR-B001",
+                      "tare": "1.20",
+                      "net": "10.00",
+                      "operator": "示例甲 / 示例乙"
+                    },
+                    {
+                      "record": "W-030-02",
+                      "material": "配制溶剂（示例）",
+                      "lot": "DEMO-PR-B001",
+                      "tare": "1.21",
+                      "net": "11.00",
+                      "operator": "示例甲 / 示例乙"
+                    },
+                    {
+                      "record": "W-030-03",
+                      "material": "树脂溶液（示例）",
+                      "lot": "DEMO-PR-B001",
+                      "tare": "1.22",
+                      "net": "12.00",
+                      "operator": "示例甲 / 示例乙"
+                    },
+                    {
+                      "record": "W-030-04",
+                      "material": "配制溶剂（示例）",
+                      "lot": "DEMO-PR-B001",
+                      "tare": "1.23",
+                      "net": "13.00",
+                      "operator": "示例甲 / 示例乙"
+                    },
+                    {
+                      "record": "W-030-05",
+                      "material": "树脂溶液（示例）",
+                      "lot": "DEMO-PR-B001",
+                      "tare": "1.24",
+                      "net": "14.00",
+                      "operator": "示例甲 / 示例乙"
+                    },
+                    {
+                      "record": "W-030-06",
+                      "material": "配制溶剂（示例）",
+                      "lot": "DEMO-PR-B001",
+                      "tare": "1.25",
+                      "net": "15.00",
+                      "operator": "示例甲 / 示例乙"
+                    }
+                  ],
+                  "inspections": [],
+                  "parameters": []
+                },
+                {
+                  "id": "OP-040",
+                  "sequence": 4,
+                  "name": "投料配制",
+                  "display": "DEMO-PR-20261114-001　040 投料配制",
+                  "basic": [
+                    {
+                      "label": "工序编号 / 名称",
+                      "value": "040 / 投料配制"
+                    },
+                    {
+                      "label": "执行状态 / 设备",
+                      "value": "已完成（示例） / MIX-DEMO"
+                    },
+                    {
+                      "label": "执行人员 / 复核人员",
+                      "value": "示例操作员 / 示例复核员"
+                    },
+                    {
+                      "label": "开始 / 完成时间",
+                      "value": "2026-11-14 11:00 / 11:30"
+                    }
+                  ],
+                  "tips": [
+                    {
+                      "sequence": "1",
+                      "instruction": "执行投料配制前核对工单、设备及上一工序交接状态。",
+                      "confirmation": "示例：已确认"
+                    },
+                    {
+                      "sequence": "2",
+                      "instruction": "本页仅展示操作提示与确认记录的报表结构。",
+                      "confirmation": "示例：已复核"
+                    }
+                  ],
+                  "materials": [
+                    {
+                      "code": "DEMO-R01",
+                      "name": "树脂溶液（示例）",
+                      "required": "30.00",
+                      "issued": "30.00",
+                      "unit": "kg",
+                      "status": "示例：已领用"
+                    },
+                    {
+                      "code": "DEMO-S01",
+                      "name": "配制溶剂（示例）",
+                      "required": "65.00",
+                      "issued": "65.00",
+                      "unit": "kg",
+                      "status": "示例：已领用"
+                    }
+                  ],
+                  "weighings": [
+                    {
+                      "record": "W-040-01",
+                      "material": "树脂溶液（示例）",
+                      "lot": "DEMO-PR-B001",
+                      "tare": "1.20",
+                      "net": "10.00",
+                      "operator": "示例甲 / 示例乙"
+                    },
+                    {
+                      "record": "W-040-02",
+                      "material": "配制溶剂（示例）",
+                      "lot": "DEMO-PR-B001",
+                      "tare": "1.21",
+                      "net": "11.00",
+                      "operator": "示例甲 / 示例乙"
+                    }
+                  ],
+                  "inspections": [
+                    {
+                      "request": "QC-040-01",
+                      "item": "外观记录",
+                      "result": "示例：均匀",
+                      "unit": "—",
+                      "status": "已记录",
+                      "reviewer": "示例检验员"
+                    },
+                    {
+                      "request": "QC-040-02",
+                      "item": "黏度记录",
+                      "result": "4.85（示例）",
+                      "unit": "mPa·s",
+                      "status": "待复核",
+                      "reviewer": "示例检验员"
+                    },
+                    {
+                      "request": "QC-040-03",
+                      "item": "颗粒记录",
+                      "result": "12（示例）",
+                      "unit": "个/mL",
+                      "status": "待复核",
+                      "reviewer": "示例检验员"
+                    }
+                  ],
+                  "parameters": [
+                    {
+                      "name": "环境温度（示例）",
+                      "recorded": "22.0",
+                      "unit": "℃",
+                      "equipment": "MIX-DEMO",
+                      "operator": "示例操作员"
+                    },
+                    {
+                      "name": "执行时长（示例）",
+                      "recorded": "30",
+                      "unit": "min",
+                      "equipment": "MIX-DEMO",
+                      "operator": "示例操作员"
+                    }
+                  ]
+                },
+                {
+                  "id": "OP-050",
+                  "sequence": 5,
+                  "name": "混合熟化",
+                  "display": "DEMO-PR-20261114-001　050 混合熟化",
+                  "basic": [
+                    {
+                      "label": "工序编号 / 名称",
+                      "value": "050 / 混合熟化"
+                    },
+                    {
+                      "label": "执行状态 / 设备",
+                      "value": "已完成（示例） / MIX-DEMO"
+                    },
+                    {
+                      "label": "执行人员 / 复核人员",
+                      "value": "示例操作员 / 示例复核员"
+                    },
+                    {
+                      "label": "开始 / 完成时间",
+                      "value": "2026-11-14 12:00 / 12:30"
+                    }
+                  ],
+                  "tips": [
+                    {
+                      "sequence": "1",
+                      "instruction": "执行混合熟化前核对工单、设备及上一工序交接状态。",
+                      "confirmation": "示例：已确认"
+                    },
+                    {
+                      "sequence": "2",
+                      "instruction": "本页仅展示操作提示与确认记录的报表结构。",
+                      "confirmation": "示例：已复核"
+                    }
+                  ],
+                  "materials": [],
+                  "weighings": [],
+                  "inspections": [],
+                  "parameters": [
+                    {
+                      "name": "环境温度（示例）",
+                      "recorded": "22.0",
+                      "unit": "℃",
+                      "equipment": "MIX-DEMO",
+                      "operator": "示例操作员"
+                    },
+                    {
+                      "name": "执行时长（示例）",
+                      "recorded": "30",
+                      "unit": "min",
+                      "equipment": "MIX-DEMO",
+                      "operator": "示例操作员"
+                    }
+                  ]
+                },
+                {
+                  "id": "OP-060",
+                  "sequence": 6,
+                  "name": "预过滤",
+                  "display": "DEMO-PR-20261114-001　060 预过滤",
+                  "basic": [
+                    {
+                      "label": "工序编号 / 名称",
+                      "value": "060 / 预过滤"
+                    },
+                    {
+                      "label": "执行状态 / 设备",
+                      "value": "已完成（示例） / FLT-DEMO-1"
+                    },
+                    {
+                      "label": "执行人员 / 复核人员",
+                      "value": "示例操作员 / 示例复核员"
+                    },
+                    {
+                      "label": "开始 / 完成时间",
+                      "value": "2026-11-14 13:00 / 13:30"
+                    }
+                  ],
+                  "tips": [],
+                  "materials": [],
+                  "weighings": [],
+                  "inspections": [],
+                  "parameters": [
+                    {
+                      "name": "环境温度（示例）",
+                      "recorded": "22.0",
+                      "unit": "℃",
+                      "equipment": "FLT-DEMO-1",
+                      "operator": "示例操作员"
+                    },
+                    {
+                      "name": "执行时长（示例）",
+                      "recorded": "30",
+                      "unit": "min",
+                      "equipment": "FLT-DEMO-1",
+                      "operator": "示例操作员"
+                    }
+                  ]
+                },
+                {
+                  "id": "OP-070",
+                  "sequence": 7,
+                  "name": "精密过滤",
+                  "display": "DEMO-PR-20261114-001　070 精密过滤",
+                  "basic": [
+                    {
+                      "label": "工序编号 / 名称",
+                      "value": "070 / 精密过滤"
+                    },
+                    {
+                      "label": "执行状态 / 设备",
+                      "value": "已完成（示例） / FLT-DEMO-2"
+                    },
+                    {
+                      "label": "执行人员 / 复核人员",
+                      "value": "示例操作员 / 示例复核员"
+                    },
+                    {
+                      "label": "开始 / 完成时间",
+                      "value": "2026-11-14 14:00 / 14:30"
+                    }
+                  ],
+                  "tips": [
+                    {
+                      "sequence": "1",
+                      "instruction": "执行精密过滤前核对工单、设备及上一工序交接状态。",
+                      "confirmation": "示例：已确认"
+                    },
+                    {
+                      "sequence": "2",
+                      "instruction": "本页仅展示操作提示与确认记录的报表结构。",
+                      "confirmation": "示例：已复核"
+                    }
+                  ],
+                  "materials": [],
+                  "weighings": [],
+                  "inspections": [
+                    {
+                      "request": "QC-070-01",
+                      "item": "外观记录",
+                      "result": "示例：均匀",
+                      "unit": "—",
+                      "status": "已记录",
+                      "reviewer": "示例检验员"
+                    },
+                    {
+                      "request": "QC-070-02",
+                      "item": "黏度记录",
+                      "result": "4.85（示例）",
+                      "unit": "mPa·s",
+                      "status": "待复核",
+                      "reviewer": "示例检验员"
+                    },
+                    {
+                      "request": "QC-070-03",
+                      "item": "颗粒记录",
+                      "result": "12（示例）",
+                      "unit": "个/mL",
+                      "status": "待复核",
+                      "reviewer": "示例检验员"
+                    }
+                  ],
+                  "parameters": [
+                    {
+                      "name": "环境温度（示例）",
+                      "recorded": "22.0",
+                      "unit": "℃",
+                      "equipment": "FLT-DEMO-2",
+                      "operator": "示例操作员"
+                    },
+                    {
+                      "name": "执行时长（示例）",
+                      "recorded": "30",
+                      "unit": "min",
+                      "equipment": "FLT-DEMO-2",
+                      "operator": "示例操作员"
+                    }
+                  ]
+                },
+                {
+                  "id": "OP-080",
+                  "sequence": 8,
+                  "name": "过程取样",
+                  "display": "DEMO-PR-20261114-001　080 过程取样",
+                  "basic": [
+                    {
+                      "label": "工序编号 / 名称",
+                      "value": "080 / 过程取样"
+                    },
+                    {
+                      "label": "执行状态 / 设备",
+                      "value": "已完成（示例） / LAB-DEMO"
+                    },
+                    {
+                      "label": "执行人员 / 复核人员",
+                      "value": "示例操作员 / 示例复核员"
+                    },
+                    {
+                      "label": "开始 / 完成时间",
+                      "value": "2026-11-14 15:00 / 15:30"
+                    }
+                  ],
+                  "tips": [
+                    {
+                      "sequence": "1",
+                      "instruction": "执行过程取样前核对工单、设备及上一工序交接状态。",
+                      "confirmation": "示例：已确认"
+                    },
+                    {
+                      "sequence": "2",
+                      "instruction": "本页仅展示操作提示与确认记录的报表结构。",
+                      "confirmation": "示例：已复核"
+                    }
+                  ],
+                  "materials": [],
+                  "weighings": [],
+                  "inspections": [
+                    {
+                      "request": "QC-080-01",
+                      "item": "外观记录",
+                      "result": "示例：均匀",
+                      "unit": "—",
+                      "status": "已记录",
+                      "reviewer": "示例检验员"
+                    },
+                    {
+                      "request": "QC-080-02",
+                      "item": "黏度记录",
+                      "result": "4.85（示例）",
+                      "unit": "mPa·s",
+                      "status": "待复核",
+                      "reviewer": "示例检验员"
+                    },
+                    {
+                      "request": "QC-080-03",
+                      "item": "颗粒记录",
+                      "result": "12（示例）",
+                      "unit": "个/mL",
+                      "status": "待复核",
+                      "reviewer": "示例检验员"
+                    }
+                  ],
+                  "parameters": []
+                },
+                {
+                  "id": "OP-090",
+                  "sequence": 9,
+                  "name": "灌装包装",
+                  "display": "DEMO-PR-20261114-001　090 灌装包装",
+                  "basic": [
+                    {
+                      "label": "工序编号 / 名称",
+                      "value": "090 / 灌装包装"
+                    },
+                    {
+                      "label": "执行状态 / 设备",
+                      "value": "已完成（示例） / FILL-DEMO"
+                    },
+                    {
+                      "label": "执行人员 / 复核人员",
+                      "value": "示例操作员 / 示例复核员"
+                    },
+                    {
+                      "label": "开始 / 完成时间",
+                      "value": "2026-11-14 16:00 / 16:30"
+                    }
+                  ],
+                  "tips": [
+                    {
+                      "sequence": "1",
+                      "instruction": "执行灌装包装前核对工单、设备及上一工序交接状态。",
+                      "confirmation": "示例：已确认"
+                    },
+                    {
+                      "sequence": "2",
+                      "instruction": "本页仅展示操作提示与确认记录的报表结构。",
+                      "confirmation": "示例：已复核"
+                    }
+                  ],
+                  "materials": [
+                    {
+                      "code": "DEMO-P01",
+                      "name": "洁净包装瓶（示例）",
+                      "required": "20",
+                      "issued": "20",
+                      "unit": "个",
+                      "status": "示例：已领用"
+                    },
+                    {
+                      "code": "DEMO-L01",
+                      "name": "批号标签（示例）",
+                      "required": "20",
+                      "issued": "20",
+                      "unit": "张",
+                      "status": "示例：已领用"
+                    }
+                  ],
+                  "weighings": [
+                    {
+                      "record": "W-090-01",
+                      "material": "灌装成品（示例）",
+                      "lot": "DEMO-PR-B001",
+                      "tare": "1.20",
+                      "net": "5.00",
+                      "operator": "示例甲 / 示例乙"
+                    },
+                    {
+                      "record": "W-090-02",
+                      "material": "灌装成品（示例）",
+                      "lot": "DEMO-PR-B001",
+                      "tare": "1.21",
+                      "net": "5.00",
+                      "operator": "示例甲 / 示例乙"
+                    }
+                  ],
+                  "inspections": [],
+                  "parameters": []
+                },
+                {
+                  "id": "OP-100",
+                  "sequence": 10,
+                  "name": "完工复核",
+                  "display": "DEMO-PR-20261114-001　100 完工复核",
+                  "basic": [
+                    {
+                      "label": "工序编号 / 名称",
+                      "value": "100 / 完工复核"
+                    },
+                    {
+                      "label": "执行状态 / 设备",
+                      "value": "已完成（示例） / REV-DEMO"
+                    },
+                    {
+                      "label": "执行人员 / 复核人员",
+                      "value": "示例操作员 / 示例复核员"
+                    },
+                    {
+                      "label": "开始 / 完成时间",
+                      "value": "2026-11-14 17:00 / 17:30"
+                    }
+                  ],
+                  "tips": [],
+                  "materials": [],
+                  "weighings": [],
+                  "inspections": [],
+                  "parameters": []
+                }
+              ]
+            }
+          ],
+          "parameters": [],
+          "dependsOn": []
+        }
+      ],
+      "assembly": {
+        "stitchMode": "DataDriven",
+        "root": {
+          "mode": "RootPath",
+          "instanceId": "工单快照",
+          "path": []
+        },
+        "order": [],
+        "operation": {
+          "collection": {
+            "mode": "ParentPath",
+            "path": [
+              "operations"
+            ]
+          },
+          "order": [
+            {
+              "path": [
+                "sequence"
+              ],
+              "direction": "Asc"
+            }
+          ]
+        },
+        "rules": [],
+        "templates": [
+          {
+            "id": "orderInfo",
+            "reportNId": "demo-photoresist-20261114-orderinfo",
+            "revisionNId": "",
+            "priority": 1,
+            "scope": "WorkOrder",
+            "required": false,
+            "breakBefore": "Auto",
+            "parameterMap": [
+              {
+                "target": "context",
+                "source": {
+                  "from": "Root",
+                  "path": [
+                    "display"
+                  ],
+                  "nullPolicy": "Error"
+                }
+              }
+            ],
+            "instanceMap": [
+              {
+                "target": "模板明细",
+                "source": {
+                  "from": "Root",
+                  "path": [
+                    "orderInfo"
+                  ],
+                  "nullPolicy": "Error"
+                }
+              }
+            ]
+          },
+          {
+            "id": "bom",
+            "reportNId": "demo-photoresist-20261114-bom",
+            "revisionNId": "",
+            "priority": 2,
+            "scope": "WorkOrder",
+            "required": false,
+            "breakBefore": "Auto",
+            "parameterMap": [
+              {
+                "target": "context",
+                "source": {
+                  "from": "Root",
+                  "path": [
+                    "display"
+                  ],
+                  "nullPolicy": "Error"
+                }
+              }
+            ],
+            "instanceMap": [
+              {
+                "target": "模板明细",
+                "source": {
+                  "from": "Root",
+                  "path": [
+                    "bom"
+                  ],
+                  "nullPolicy": "Error"
+                }
+              }
+            ]
+          },
+          {
+            "id": "basic",
+            "reportNId": "demo-photoresist-20261114-basic",
+            "revisionNId": "",
+            "priority": 3,
+            "scope": "Operation",
+            "required": true,
+            "breakBefore": "Auto",
+            "parameterMap": [
+              {
+                "target": "context",
+                "source": {
+                  "from": "Row",
+                  "path": [
+                    "display"
+                  ],
+                  "nullPolicy": "Error"
+                }
+              }
+            ],
+            "instanceMap": [
+              {
+                "target": "模板明细",
+                "source": {
+                  "from": "Row",
+                  "path": [
+                    "basic"
+                  ],
+                  "nullPolicy": "Error"
+                }
+              }
+            ]
+          },
+          {
+            "id": "tips",
+            "reportNId": "demo-photoresist-20261114-tips",
+            "revisionNId": "",
+            "priority": 4,
+            "scope": "Operation",
+            "required": false,
+            "breakBefore": "Auto",
+            "parameterMap": [
+              {
+                "target": "context",
+                "source": {
+                  "from": "Row",
+                  "path": [
+                    "display"
+                  ],
+                  "nullPolicy": "Error"
+                }
+              }
+            ],
+            "instanceMap": [
+              {
+                "target": "模板明细",
+                "source": {
+                  "from": "Row",
+                  "path": [
+                    "tips"
+                  ],
+                  "nullPolicy": "Error"
+                }
+              }
+            ]
+          },
+          {
+            "id": "materials",
+            "reportNId": "demo-photoresist-20261114-materials",
+            "revisionNId": "",
+            "priority": 5,
+            "scope": "Operation",
+            "required": false,
+            "breakBefore": "Auto",
+            "parameterMap": [
+              {
+                "target": "context",
+                "source": {
+                  "from": "Row",
+                  "path": [
+                    "display"
+                  ],
+                  "nullPolicy": "Error"
+                }
+              }
+            ],
+            "instanceMap": [
+              {
+                "target": "模板明细",
+                "source": {
+                  "from": "Row",
+                  "path": [
+                    "materials"
+                  ],
+                  "nullPolicy": "Error"
+                }
+              }
+            ]
+          },
+          {
+            "id": "weighings",
+            "reportNId": "demo-photoresist-20261114-weighings",
+            "revisionNId": "",
+            "priority": 6,
+            "scope": "Operation",
+            "required": false,
+            "breakBefore": "Auto",
+            "parameterMap": [
+              {
+                "target": "context",
+                "source": {
+                  "from": "Row",
+                  "path": [
+                    "display"
+                  ],
+                  "nullPolicy": "Error"
+                }
+              }
+            ],
+            "instanceMap": [
+              {
+                "target": "模板明细",
+                "source": {
+                  "from": "Row",
+                  "path": [
+                    "weighings"
+                  ],
+                  "nullPolicy": "Error"
+                }
+              }
+            ]
+          },
+          {
+            "id": "inspections",
+            "reportNId": "demo-photoresist-20261114-inspections",
+            "revisionNId": "",
+            "priority": 7,
+            "scope": "Operation",
+            "required": false,
+            "breakBefore": "Auto",
+            "parameterMap": [
+              {
+                "target": "context",
+                "source": {
+                  "from": "Row",
+                  "path": [
+                    "display"
+                  ],
+                  "nullPolicy": "Error"
+                }
+              }
+            ],
+            "instanceMap": [
+              {
+                "target": "模板明细",
+                "source": {
+                  "from": "Row",
+                  "path": [
+                    "inspections"
+                  ],
+                  "nullPolicy": "Error"
+                }
+              }
+            ]
+          },
+          {
+            "id": "parameters",
+            "reportNId": "demo-photoresist-20261114-parameters",
+            "revisionNId": "",
+            "priority": 8,
+            "scope": "Operation",
+            "required": false,
+            "breakBefore": "Auto",
+            "parameterMap": [
+              {
+                "target": "context",
+                "source": {
+                  "from": "Row",
+                  "path": [
+                    "display"
+                  ],
+                  "nullPolicy": "Error"
+                }
+              }
+            ],
+            "instanceMap": [
+              {
+                "target": "模板明细",
+                "source": {
+                  "from": "Row",
+                  "path": [
+                    "parameters"
+                  ],
+                  "nullPolicy": "Error"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "expectedSections": [
+    {
+      "key": "orderInfo",
+      "operation": null,
+      "title": "工单基本信息",
+      "rows": 8
+    },
+    {
+      "key": "bom",
+      "operation": null,
+      "title": "执行BOM信息",
+      "rows": 5
+    },
+    {
+      "key": "basic",
+      "operation": "OP-010",
+      "title": "工序基本信息",
+      "rows": 4
+    },
+    {
+      "key": "tips",
+      "operation": "OP-010",
+      "title": "操作提示",
+      "rows": 2
+    },
+    {
+      "key": "parameters",
+      "operation": "OP-010",
+      "title": "工艺参数",
+      "rows": 2
+    },
+    {
+      "key": "basic",
+      "operation": "OP-020",
+      "title": "工序基本信息",
+      "rows": 4
+    },
+    {
+      "key": "materials",
+      "operation": "OP-020",
+      "title": "物料需求",
+      "rows": 2
+    },
+    {
+      "key": "basic",
+      "operation": "OP-030",
+      "title": "工序基本信息",
+      "rows": 4
+    },
+    {
+      "key": "tips",
+      "operation": "OP-030",
+      "title": "操作提示",
+      "rows": 2
+    },
+    {
+      "key": "materials",
+      "operation": "OP-030",
+      "title": "物料需求",
+      "rows": 2
+    },
+    {
+      "key": "weighings",
+      "operation": "OP-030",
+      "title": "称量记录",
+      "rows": 6
+    },
+    {
+      "key": "basic",
+      "operation": "OP-040",
+      "title": "工序基本信息",
+      "rows": 4
+    },
+    {
+      "key": "tips",
+      "operation": "OP-040",
+      "title": "操作提示",
+      "rows": 2
+    },
+    {
+      "key": "materials",
+      "operation": "OP-040",
+      "title": "物料需求",
+      "rows": 2
+    },
+    {
+      "key": "weighings",
+      "operation": "OP-040",
+      "title": "称量记录",
+      "rows": 2
+    },
+    {
+      "key": "inspections",
+      "operation": "OP-040",
+      "title": "过程报检",
+      "rows": 3
+    },
+    {
+      "key": "parameters",
+      "operation": "OP-040",
+      "title": "工艺参数",
+      "rows": 2
+    },
+    {
+      "key": "basic",
+      "operation": "OP-050",
+      "title": "工序基本信息",
+      "rows": 4
+    },
+    {
+      "key": "tips",
+      "operation": "OP-050",
+      "title": "操作提示",
+      "rows": 2
+    },
+    {
+      "key": "parameters",
+      "operation": "OP-050",
+      "title": "工艺参数",
+      "rows": 2
+    },
+    {
+      "key": "basic",
+      "operation": "OP-060",
+      "title": "工序基本信息",
+      "rows": 4
+    },
+    {
+      "key": "parameters",
+      "operation": "OP-060",
+      "title": "工艺参数",
+      "rows": 2
+    },
+    {
+      "key": "basic",
+      "operation": "OP-070",
+      "title": "工序基本信息",
+      "rows": 4
+    },
+    {
+      "key": "tips",
+      "operation": "OP-070",
+      "title": "操作提示",
+      "rows": 2
+    },
+    {
+      "key": "inspections",
+      "operation": "OP-070",
+      "title": "过程报检",
+      "rows": 3
+    },
+    {
+      "key": "parameters",
+      "operation": "OP-070",
+      "title": "工艺参数",
+      "rows": 2
+    },
+    {
+      "key": "basic",
+      "operation": "OP-080",
+      "title": "工序基本信息",
+      "rows": 4
+    },
+    {
+      "key": "tips",
+      "operation": "OP-080",
+      "title": "操作提示",
+      "rows": 2
+    },
+    {
+      "key": "inspections",
+      "operation": "OP-080",
+      "title": "过程报检",
+      "rows": 3
+    },
+    {
+      "key": "basic",
+      "operation": "OP-090",
+      "title": "工序基本信息",
+      "rows": 4
+    },
+    {
+      "key": "tips",
+      "operation": "OP-090",
+      "title": "操作提示",
+      "rows": 2
+    },
+    {
+      "key": "materials",
+      "operation": "OP-090",
+      "title": "物料需求",
+      "rows": 2
+    },
+    {
+      "key": "weighings",
+      "operation": "OP-090",
+      "title": "称量记录",
+      "rows": 2
+    },
+    {
+      "key": "basic",
+      "operation": "OP-100",
+      "title": "工序基本信息",
+      "rows": 4
+    }
+  ]
+}

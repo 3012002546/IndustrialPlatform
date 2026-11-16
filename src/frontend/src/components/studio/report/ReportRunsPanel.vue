@@ -133,7 +133,12 @@ async function download(row: Json) {
   try {
     const blob = await api.client.getBlob?.(String(row.contentUrl))
     if (!blob) throw new Error(t.value('error'))
-    downloadBlob(blob, `${runNId}-${row.purpose}.${String(row.format).toLowerCase()}`)
+    const extension = ['Png', 'Jpeg'].includes(String(row.format))
+      ? 'zip'
+      : row.format === 'Text'
+        ? 'txt'
+        : String(row.format).toLowerCase()
+    downloadBlob(blob, `${runNId}-${row.purpose}.${extension}`)
   } catch (e) {
     error.value = e instanceof Error ? e.message : t.value('error')
   } finally {

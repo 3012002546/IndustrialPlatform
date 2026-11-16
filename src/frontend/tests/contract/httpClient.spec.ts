@@ -509,3 +509,80 @@ describe('HttpClient — 401 单飞刷新与重试', () => {
     expect(refreshCalls).toBe(1)
   })
 })
+
+describe('HttpClient — binary POST export', () => {
+  it('preserves body, authentication, budget and cancellation for a binary file', async () => {
+    const transport = axios.create(),
+      signal = new AbortController().signal
+    const blob = new Blob(['%PDF-test'], { type: 'application/pdf' })
+    transport.defaults.adapter = async (config) => {
+      expect(config.method).toBe('post')
+      expect(config.responseType).toBe('blob')
+      expect(config.timeout).toBe(120000)
+      expect(config.signal).toBe(signal)
+      expect(config.headers.Authorization).toBe('Bearer session')
+      expect(JSON.parse(config.data as string)).toEqual({ document: { draft: true } })
+      return { config, status: 200, statusText: 'OK', headers: {}, data: blob }
+    }
+    const create = vi.spyOn(axios, 'create').mockReturnValueOnce(transport)
+    const api = client({ getToken: () => 'session' })
+    create.mockRestore()
+    expect(
+      await api.postBlob!('/export', { document: { draft: true } }, { signal, timeoutMs: 120000 }),
+    ).toBe(blob)
+  })
+  it('decodes binary API errors and uses the existing 401 refresh path', async () => {
+    let calls = 0
+    const transport = axios.create(),
+      refreshSession = vi.fn(async () => {})
+    transport.defaults.adapter = async (config) => {
+      calls++
+      if (calls === 1) {
+        const data = new Blob(['denied'], { type: 'application/json' })
+        Object.defineProperty(data, 'text', {
+          value: async () =>
+            JSON.stringify({
+              success: false,
+              code: 'STUDIO_UNAUTHENTICATED',
+              message: 'expired',
+              data: null,
+            }),
+        })
+        throw new axios.AxiosError('Unauthorized', 'ERR_BAD_REQUEST', config, undefined, {
+          config,
+          status: 401,
+          statusText: 'Unauthorized',
+          headers: {},
+          data,
+        })
+      }
+      const data = new Blob(['denied'], { type: 'application/json' })
+      Object.defineProperty(data, 'text', {
+        value: async () =>
+          JSON.stringify({
+            success: false,
+            code: 'REPORT_FORMAT_UNSUPPORTED',
+            data: null,
+            message: 'unsupported format',
+          }),
+      })
+      throw new axios.AxiosError('Unprocessable', 'ERR_BAD_REQUEST', config, undefined, {
+        config,
+        status: 422,
+        statusText: 'Unprocessable',
+        headers: {},
+        data,
+      })
+    }
+    const create = vi.spyOn(axios, 'create').mockReturnValueOnce(transport)
+    const api = client({
+      authRefresh: { isAuthPath: () => false, refreshSession, onSessionExpired: vi.fn() },
+    })
+    create.mockRestore()
+    await expect(api.postBlob!('/export', {})).rejects.toMatchObject({
+      details: { code: 'REPORT_FORMAT_UNSUPPORTED', status: 422 },
+    })
+    expect(refreshSession).toHaveBeenCalledOnce()
+    expect(calls).toBe(2)
+  })
+})

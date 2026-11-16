@@ -144,7 +144,7 @@ const labels = {
   ],
   LeftToRight: ['横向', 'Horizontal'],
   TopToBottom: ['竖向', 'Vertical'],
-  links: ['文件与外链', 'Files and external links'],
+  links: ['明细链接', 'Detail links'],
   external: ['登记外链', 'Registered external link'],
   owned: ['Studio文件引用', 'Studio file reference'],
   mes: ['MES附件', 'MES attachment'],

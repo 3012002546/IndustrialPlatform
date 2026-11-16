@@ -21,7 +21,7 @@ public sealed class StudioReportRun : StudioTechnicalRecord
     public string ParametersJson { get; set; } = "{}";
     /// <summary>原工厂范围/权限依据及来源会话标识；不保存Cookie或登录令牌，不对浏览器回传。</summary>
     public string AccessSnapshotJson { get; set; } = "{}";
-    /// <summary>输出Pdf/Html/Xlsx；Preview固定Html。</summary>
+    /// <summary>输出格式由ReportFormats定义；Preview固定Html。</summary>
     public string Format { get; set; } = "Html";
     /// <summary>从PendingDispatch推进的业务运行状态；Unknown需有证据核对，不按时间清除。</summary>
     public string Status { get; set; } = "PendingDispatch";

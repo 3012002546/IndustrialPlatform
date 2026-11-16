@@ -108,11 +108,12 @@ export function fragmentReportRows(root, maxHeightPx, prefix = '') {
       if (children.length === 1 && children[0].tagName === 'TABLE') {
         const nested = children[0]
         const rows = [...nested.tBodies].flatMap((body) => [...body.rows])
-        const pieces = rows.map((row) => {
+        const pieces = rows.map((row, index) => {
           const part = nested.cloneNode(false)
           for (const colgroup of nested.querySelectorAll(':scope > colgroup')) part.append(colgroup.cloneNode(true))
-          if (nested.tHead) part.append(nested.tHead.cloneNode(true))
-          const body = document.createElement('tbody'); body.append(row.cloneNode(true)); part.append(body)
+          if (index === 0 && nested.tHead) part.append(nested.tHead.cloneNode(true))
+          const body = row.parentElement.cloneNode(false); body.append(row.cloneNode(true)); part.append(body)
+          if (index === rows.length - 1 && nested.tFoot) part.append(nested.tFoot.cloneNode(true))
           return part
         })
         if (pieces.length > 1 && pieces.every((part) => fits(part))) return pieces.map((part) => part.outerHTML)
@@ -210,19 +211,21 @@ export function fragmentReportRows(root, maxHeightPx, prefix = '') {
 }
 
 export function installReportTableHeaders(Paged) {
+  const headerKey = (table) => table.dataset.reportHeaderGroup ? 'group:' + table.dataset.reportHeaderGroup : 'table:' + table.dataset.reportTable
   class ReportTableHeaders extends Paged.Handler {
     afterParsed(parsed) {
       this.headers = new Map([...parsed.querySelectorAll('table[data-report-table]')]
         .filter((table) => table.tHead && table.dataset.reportRepeatHeader !== 'false')
-        .map((table) => [table.dataset.reportTable, table.tHead.cloneNode(true)]))
+        .map((table) => [headerKey(table), table.tHead.cloneNode(true)]))
     }
     layout(rendered) {
       const seen = new Set()
       for (const table of rendered.querySelectorAll('table[data-report-table]')) {
-        if (seen.has(table.dataset.reportTable)) continue
-        seen.add(table.dataset.reportTable)
-        if (table.tHead || !this.headers.has(table.dataset.reportTable)) continue
-        const header = this.headers.get(table.dataset.reportTable).cloneNode(true)
+        const key = headerKey(table)
+        if (seen.has(key)) continue
+        seen.add(key)
+        if (table.tHead || !this.headers.has(key)) continue
+        const header = this.headers.get(key).cloneNode(true)
         header.dataset.reportRepeat = 'true'
         for (const element of [header, ...header.querySelectorAll('*')]) {
           element.removeAttribute('data-ref'); element.removeAttribute('id')

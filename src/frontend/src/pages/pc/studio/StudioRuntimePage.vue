@@ -8,13 +8,20 @@ import AppQueryPanel from '@/components/management/AppQueryPanel.vue'
 import StudioRuntimeView from '@/components/studio/shared/StudioRuntimeView.vue'
 import { useStudioCopy } from '@/components/studio/shared/copy'
 import '@/components/studio/shared/studio.css'
+const props = defineProps<{
+  resourceNId?: string
+  revisionNId?: string
+  initialParameters?: Json
+  embedded?: boolean
+}>()
+const resourceId = computed(() => props.resourceNId ?? String(route.params.nId))
 const route = useRoute(),
   router = useRouter(),
   t = useStudioCopy(),
   runtime = ref<StudioRuntime | null>(null),
   error = ref(''),
   busy = ref(false),
-  parameters = ref<Json>({})
+  parameters = ref<Json>({ ...props.initialParameters })
 const contract = ref<StudioRuntime | null>(null),
   runParameters = ref<Json>({}),
   needsParameters = ref(false)
@@ -37,7 +44,7 @@ const recordNId = computed(() =>
 )
 let generation = 0
 function resetParameters() {
-  parameters.value = {}
+  parameters.value = { ...props.initialParameters }
   void load()
 }
 async function load() {
@@ -46,8 +53,9 @@ async function load() {
   error.value = ''
   try {
     const revisionNId =
-      typeof route.query.revisionNId === 'string' ? route.query.revisionNId : undefined
-    const schema = await getStudioApi().pageContract(String(route.params.nId), revisionNId)
+      props.revisionNId ??
+      (typeof route.query.revisionNId === 'string' ? route.query.revisionNId : undefined)
+    const schema = await getStudioApi().pageContract(resourceId.value, revisionNId)
     if (request !== generation) return
     contract.value = schema
     for (const p of definitions.value) {
@@ -73,7 +81,7 @@ async function load() {
       return
     }
     const value = await getStudioApi().runtime(
-      String(route.params.nId),
+      resourceId.value,
       schema.revisionNId,
       parameters.value,
     )
@@ -103,24 +111,25 @@ async function load() {
   }
 }
 watch(
-  () => route.fullPath,
+  () => (props.embedded ? props.resourceNId + '/' + props.revisionNId : route.fullPath),
   () => void load(),
 )
 let availabilityBusy = false
 async function checkAvailability() {
   if (document.visibilityState !== 'visible' || availabilityBusy || !runtime.value) return
   availabilityBusy = true
-  const nId = String(route.params.nId)
+  const nId = resourceId.value
   try {
     const state = await getStudioApi().pageAvailability(nId)
     if (
-      nId === String(route.params.nId) &&
+      nId === resourceId.value &&
       state.revisionNId !== runtime.value?.revisionNId &&
+      !props.revisionNId &&
       !route.query.revisionNId
     )
       await load()
   } catch (e) {
-    if (nId === String(route.params.nId)) {
+    if (nId === resourceId.value) {
       ++generation
       runtime.value = null
       contract.value = null
@@ -165,7 +174,9 @@ onBeforeUnmount(() => {
     class="studio-page"
     :class="{ 'studio-lowcode-screen': route.meta.lowcodeScreen }"
     ><template #actions
-      ><el-button @click="router.push('/pc/studio/low-code')">{{ t('back') }}</el-button
+      ><el-button v-if="!embedded" @click="router.push('/pc/studio/low-code')">{{
+        t('back')
+      }}</el-button
       ><el-button :disabled="busy" @click="load">{{ t('refresh') }}</el-button></template
     ><el-alert v-if="error" :title="error" type="error" :closable="false" />
     <AppQueryPanel v-if="definitions.length" show-actions @submit="load" @reset="resetParameters"

@@ -109,18 +109,48 @@ export function layoutReportBands(root, maxBodyHeightPx = Infinity) {
       decoration.node.style.cssText += `;position:absolute;left:${decoration.x}mm;top:${decoration.y}mm`
     }
     band.append(table)
-    if (metadata.keepWithNext && ['ReportHeader', 'GroupHeader'].includes(metadata.kind)) {
-      const next = band.nextElementSibling, title = band.getBoundingClientRect().height
-      const first = next?.querySelector('p,h1,h2,h3,h4,h5,h6,tr,[data-report-control]')
-      const minimumNext = first ? Math.min(first.getBoundingClientRect().height, parseFloat(getComputedStyle(first).lineHeight) * 2 || 32) : 0
-      if (title + minimumNext <= maxBodyHeightPx) band.classList.add('report-keep-with-next')
-      else diagnostics.push({ code: 'REPORT_KEEP_WITH_NEXT_RELEASED', instanceKey: metadata.instanceKey })
-    }
     if (metadata.kind === 'PageHeader' || metadata.kind === 'PageFooter') {
       // Running elements otherwise shrink in the margin box, shifting xMm offsets.
       band.style.width = `${width}mm`
       band.dataset.reportRepeat = 'true'
       band.classList.add(metadata.kind === 'PageHeader' ? 'report-page-header' : 'report-page-footer')
+    }
+  }
+  // Measure the following band only after all of its controls have been laid out.
+  // break-after alone can split between the nested layout table and its first row.
+  for (const band of [...root.querySelectorAll('[data-report-band]')].reverse()) {
+    const metadata = JSON.parse(band.dataset.reportBand)
+    if (!metadata.keepWithNext || !['ReportHeader', 'GroupHeader'].includes(metadata.kind)) continue
+    const next = band.nextElementSibling
+    if (!next || next.classList.contains('report-break-before-page')) continue
+    let first = next
+    const controls = next.querySelectorAll('[data-report-control]')
+    const table = controls.length === 1 ? controls[0].querySelector(':scope > table[data-report-template="true"]') : null
+    const records = table ? [...table.tBodies].filter((body) => body.dataset.reportHeader !== 'true') : []
+    if (records.length > 1) {
+      // A Collection control may contain the entire report: retain only its
+      // first record with the title, never move the whole table to a new page.
+      first = next.cloneNode(true)
+      const firstTable = first.querySelector('table[data-report-template="true"]')
+      const firstRecords = [...firstTable.tBodies].filter((body) => body.dataset.reportHeader !== 'true')
+      for (const body of firstRecords.slice(1)) body.remove()
+      firstTable.tFoot?.remove()
+      next.before(first)
+    }
+    const height = band.getBoundingClientRect().height + first.getBoundingClientRect().height
+    if (height <= maxBodyHeightPx) {
+      if (first !== next) {
+        records[0].remove()
+        table.tHead?.remove()
+        table.querySelector(':scope > tbody[data-report-header="true"]')?.remove()
+      }
+      const group = document.createElement('div')
+      group.className = 'report-keep-group'; group.style.breakInside = 'avoid'
+      band.before(group); group.append(band, first)
+    } else {
+      if (first !== next) first.remove()
+      band.classList.add('report-keep-with-next')
+      diagnostics.push({ code: 'REPORT_KEEP_WITH_NEXT_RELEASED', instanceKey: metadata.instanceKey })
     }
   }
   return diagnostics

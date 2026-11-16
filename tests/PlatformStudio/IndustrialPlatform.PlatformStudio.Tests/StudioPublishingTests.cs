@@ -7,6 +7,31 @@ namespace IndustrialPlatform.PlatformStudio.Tests;
 
 public sealed class StudioPublishingTests
 {
+    [Fact]
+    public async Task Resource_list_batches_published_revisions_and_keeps_visibility_and_draft_flags()
+    {
+        await using var fixture = await StudioTestContext.CreateAsync();
+        for (var i = 0; i < 12; i++)
+        {
+            var created = await fixture.Publishing.CreateAsync(fixture.Principal, new("batch-" + i, "LedgerModel", "List " + i, null, null, Model()), "create-" + i, default);
+            var validation = await fixture.Publishing.ValidateAsync(fixture.Principal, created.NId, Model(), default);
+            await fixture.Publishing.PublishAsync(fixture.Principal, created.NId, new(created.OptimisticVersion, created.ConcurrencyVersion, "v1", true, validation.DependencyPlanHash), "publish-" + i, default);
+        }
+        var draft = await fixture.Publishing.GetDraftAsync(fixture.Principal, "batch-0", default);
+        await fixture.Publishing.SaveDraftAsync(fixture.Principal, "batch-0", new(draft["optimisticVersion"]!.GetValue<string>(), draft["concurrencyVersion"]!.GetValue<Guid>(), "List 0", null, null, Model("Changed")), default);
+        var queries = new List<string>();
+        fixture.Database.Client.Aop.OnLogExecuting = (sql, _) => queries.Add(sql);
+        var list = await fixture.Publishing.ListAsync(fixture.Principal, "LedgerModel", new() { PageSize = 200 }, default);
+        Assert.Equal(12, list.Items.Count); Assert.Equal("12", list.TotalCount);
+        Assert.All(list.Items, item => Assert.Equal("1", item.PublishedRevisionNo));
+        Assert.Single(list.Items, item => item.HasDraftChanges);
+        Assert.True(list.Items.Single(item => item.NId == "batch-0").HasDraftChanges);
+        Assert.Equal(3, queries.Count); // Resource page, one revision batch, count; independent of page length.
+        Assert.Empty((await fixture.Publishing.ListAsync(fixture.Principal with { SubjectNId = "outsider" }, "LedgerModel", new(), default)).Items);
+        Assert.Empty((await fixture.Publishing.ListAsync(fixture.Principal with { TenantNId = "other" }, "LedgerModel", new(), default)).Items);
+        var revision = await fixture.Store.FindResourceAsync(fixture.Principal.TenantNId, "batch-0", default);
+        Assert.Empty(await fixture.Store.FindRevisionsByIdsAsync("other", [revision!.PublishedRevisionId!.Value], default));
+    }
     internal static JsonObject Model(string label = "名称") => new()
     {
         ["schemaVersion"] = 1,

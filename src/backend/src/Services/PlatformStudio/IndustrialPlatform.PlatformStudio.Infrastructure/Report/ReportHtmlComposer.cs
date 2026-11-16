@@ -27,7 +27,16 @@ public static class ReportHtmlComposer
                 var marker = WebUtility.HtmlEncode(block.Marker); var definition = block.Definition;
                 var layout = new JsonObject(definition.Where(pair => LayoutKeys.Contains(pair.Key)).Select(pair => KeyValuePair.Create(pair.Key, pair.Value?.DeepClone())));
                 output.Append("<div data-report-marker=\"").Append(marker).Append('"').Append(block.Repeat ? " data-report-repeat=\"true\"" : "").Append(" data-report-control=\"").Append(WebUtility.HtmlEncode(layout.ToJsonString())).Append("\" style=\"").Append(WebUtility.HtmlEncode(Style(definition["resolvedStyle"] as JsonObject))).Append("\">");
-                if (block.Type == "Table")
+                foreach (var inherited in (definition["inheritedOutlines"] as JsonArray ?? [])) output.Append("<span data-report-outline=\"").Append(WebUtility.HtmlEncode(inherited!.ToJsonString())).Append("\"></span>");
+                if (definition["resolvedOutline"] is { } outline) output.Append("<span data-report-outline=\"").Append(WebUtility.HtmlEncode(outline.ToJsonString())).Append("\"></span>");
+                if (block.Type == "PdfContent") output.Append("<div data-report-pdf=\"").Append(WebUtility.HtmlEncode(StudioJson.RequiredString(definition, "frozenPdfData", 8 * 1024 * 1024))).Append("\"></div>");
+                else if (block.Type == "TableOfContents") output.Append("<div data-report-toc=\"").Append(WebUtility.HtmlEncode(StudioJson.RequiredString(definition["toc"]!.AsObject(), "title", 200))).Append("\"></div>");
+                else if (ReportAdvancedContract.UsesAdvanced(definition))
+                {
+                    var payload = new JsonObject { ["type"] = block.Type, ["options"] = definition["advanced"]?.DeepClone(), ["value"] = block.Value?.DeepClone(), ["widthMm"] = definition["widthMm"]?.DeepClone(), ["heightMm"] = definition["heightMm"]?.DeepClone() };
+                    output.Append("<div data-report-advanced=\"").Append(WebUtility.HtmlEncode(payload.ToJsonString())).Append("\"></div>");
+                }
+                else if (block.Type == "Table")
                 {
                     AppendTable(output, definition, block.Value as JsonArray ?? []);
                 }
@@ -69,7 +78,7 @@ public static class ReportHtmlComposer
             return style;
         }
         var repeatHeader = table["repeatHeader"]?.GetValue<bool>() != false;
-        output.Append("<table data-report-template=\"true\" data-report-repeat-header=\"").Append(repeatHeader ? "true" : "false").Append("\" style=\"table-layout:fixed\"><colgroup>");
+        output.Append("<table data-report-header-group=\"").Append(WebUtility.HtmlEncode(StudioJson.Text(definition["headerGroupKey"]) ?? "")).Append("\" data-report-template=\"true\" data-report-repeat-header=\"").Append(repeatHeader ? "true" : "false").Append("\" style=\"table-layout:fixed\"><colgroup>");
         foreach (var column in columns) output.Append("<col style=\"width:").Append(Numeric(column["widthMm"], 20).ToString(CultureInfo.InvariantCulture)).Append("mm\">");
         output.Append("</colgroup>");
         if (definition["showHeader"]?.GetValue<bool>() == true)

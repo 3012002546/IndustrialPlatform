@@ -45,15 +45,22 @@ public sealed class ReportDataResolver(Func<string, JsonObject, CancellationToke
         _observations[key] = result.DeepClone().AsObject();
         return result["data"]?.DeepClone();
     }
-    public async Task<ReportDataSnapshot> CaptureAsync(JsonObject document, JsonObject parameters, JsonObject trustedContext, CancellationToken token, IReadOnlySet<string>? wanted = null)
+    public async Task<ReportDataSnapshot> CaptureAsync(JsonObject document, JsonObject parameters, JsonObject trustedContext, CancellationToken token, IReadOnlySet<string>? wanted = null, JsonObject? suppliedInstances = null)
     {
         var definitions = (document["instances"] as JsonArray ?? []).OfType<JsonObject>().ToDictionary(x => StudioJson.RequiredString(x, "instanceId"), StringComparer.Ordinal);
+        if (suppliedInstances is not null && suppliedInstances.Any(p => !definitions.ContainsKey(p.Key))) throw new StudioException("PATH_INVALID", "模板数据映射的目标实例不存在。", 422, "instanceMap");
         var values = new Dictionary<string, JsonNode?>(StringComparer.Ordinal);
         var visiting = new HashSet<string>(StringComparer.Ordinal);
         async Task Visit(string id)
         {
             if (values.ContainsKey(id)) return;
             if (!definitions.TryGetValue(id, out var definition) || !visiting.Add(id)) throw new StudioException("PATH_INVALID", "实例依赖缺失或循环。", 422, "instances." + id);
+            if (suppliedInstances?.ContainsKey(id) == true)
+            {
+                values[id] = suppliedInstances[id]?.DeepClone();
+                visiting.Remove(id);
+                return;
+            }
             foreach (var dependency in (definition["dependsOn"] as JsonArray ?? []).Select(StudioJson.Text).Concat((definition["parameters"] as JsonArray ?? []).OfType<JsonObject>().Where(m => StudioJson.Text(m["source"]?["from"]) == "Instance").Select(m => StudioJson.Text(m["source"]?["instanceId"]))).Where(x => x is not null).Distinct()) await Visit(dependency!);
             var context = Context(parameters, values, trustedContext);
             values[id] = StudioJson.Text(definition["sourceType"]) == "Constant" ? definition["value"]?.DeepClone() : await DatasetAsync(StudioJson.RequiredString(definition, "revisionNId"), Map(definition["parameters"], context), token);
@@ -144,7 +151,9 @@ public sealed class ReportDataResolver(Func<string, JsonObject, CancellationToke
 public sealed class ReportPlanner(ReportDataResolver data, JsonObject trustedContext, Func<JsonObject, JsonObject, JsonObject>? parameterResolver = null)
 {
     private int _blocks;
+    private bool _dataDriven;
     private int _sequence;
+    private readonly HashSet<string> _subReports = new(StringComparer.Ordinal);
     public async Task<ReportAssemblyPlan> PlanAsync(ReportDefinitionSnapshot definition, JsonObject parameters, CancellationToken token)
     {
         var diagnostics = StudioDocuments.Validate(definition.Kind, definition.Document);
@@ -163,6 +172,7 @@ public sealed class ReportPlanner(ReportDataResolver data, JsonObject trustedCon
         {
             var key = StudioJson.RequiredString(item, "reportNId") + "/" + StudioJson.RequiredString(item, "revisionNId");
             if (!definition.Dependencies.TryGetValue(key, out var child) || child.Kind != "Report") throw new StudioException("DEPENDENCY_CHANGED", "固定子报告定义不存在。", 409, key);
+            child = child with { Dependencies = definition.Dependencies };
             return StudioJson.Text(child.Document["mode"]) == "Query" ? child with { Document = ReportDesign.ApplyQuerySort(child.Document, null) } : child;
         }
         if (StudioJson.Text(definition.Document["mode"]) == "Simple")
@@ -182,46 +192,55 @@ public sealed class ReportPlanner(ReportDataResolver data, JsonObject trustedCon
             return new(instances, []);
         }
         var assembly = definition.Document["assembly"]!.AsObject();
+        var driven = StudioDocuments.IsDataDriven(assembly);
+        _dataDriven = driven;
+        var candidates = (StudioDocuments.BundleEntries(definition.Document) ?? []).OfType<JsonObject>().OrderBy(r => r["priority"]?.GetValue<int>() ?? 0).ThenBy(r => StudioJson.Text(r["id"]), StringComparer.Ordinal).ToArray();
         var orders = await data.CollectionAsync(assembly["root"]!.AsObject(), context, token);
         var wi = 0;
         foreach (var order in ReportDataResolver.Sort(orders, assembly["order"]))
         {
             var orderKey = Key(order, wi++); var orderContext = new Dictionary<string, JsonNode?>(context, StringComparer.Ordinal) { ["Root"] = order, ["Row"] = order };
             var operation = assembly["operation"]!.AsObject(); var operations = await data.CollectionAsync(operation["collection"]!.AsObject(), orderContext, token); var oi = 0;
-            foreach (var op in ReportDataResolver.Sort(operations, operation["order"]))
+            var sections = new List<(JsonNode? Row, string? OperationKey)>();
+            if (driven && candidates.Any(r => StudioJson.Text(r["scope"]) == "WorkOrder")) sections.Add((order, null));
+            foreach (var op in ReportDataResolver.Sort(operations, operation["order"])) sections.Add((op, Key(op, oi++)));
+            foreach (var section in sections)
             {
-                var operationKey = Key(op, oi++); var opContext = new Dictionary<string, JsonNode?>(orderContext, StringComparer.Ordinal) { ["Row"] = op, ["ParentRow"] = op };
-                foreach (var rule in (assembly["rules"] as JsonArray ?? []).OfType<JsonObject>().OrderBy(r => r["priority"]?.GetValue<int>() ?? 0).ThenBy(r => StudioJson.Text(r["id"]), StringComparer.Ordinal))
+                var op = section.Row; var operationKey = section.OperationKey;
+                var opContext = new Dictionary<string, JsonNode?>(orderContext, StringComparer.Ordinal) { ["Row"] = op, ["ParentRow"] = op };
+                foreach (var rule in candidates.Where(r => !driven || (StudioJson.Text(r["scope"]) == "WorkOrder") == (operationKey is null)))
                 {
                     token.ThrowIfCancellationRequested();
-                    var ruleId = StudioJson.RequiredString(rule, "id"); var baseKey = orderKey + "/" + operationKey + "/" + ruleId;
+                    var ruleId = StudioJson.RequiredString(rule, "id"); var baseKey = orderKey + "/" + (operationKey ?? "@workorder") + "/" + ruleId;
                     void Skip(string reason) => instances.Add(new(baseKey, ruleId, orderKey, operationKey, null, StudioJson.RequiredString(rule, "reportNId"), null, 0, new(), "Skip", reason, []));
                     if (rule["when"] is JsonObject when && !StudioBinding.Evaluate(when, opContext)) { Skip("SkippedCondition"); continue; }
                     var repeat = rule["repeat"] is JsonObject;
-                    var rows = await data.CollectionAsync((rule[repeat ? "repeat" : "presence"]!).AsObject(), opContext, token);
-                    if (rows.Count == 0)
+                    var rows = driven ? null : await data.CollectionAsync((rule[repeat ? "repeat" : "presence"]!).AsObject(), opContext, token);
+                    if (rows is { Count: 0 })
                     {
                         if (rule["required"]?.GetValue<bool>() == true) throw new StudioException("DATA_REQUIRED", "必需规则没有实际数据。", 422, "assembly.rules." + ruleId);
                         Skip("SkippedEmpty"); continue;
                     }
-                    var child = Child(rule); var content = rule["content"]!.AsObject(); var ri = 0;
-                    foreach (var row in repeat ? rows.AsEnumerable() : new[] { op })
+                    var child = Child(rule); var content = rule["content"] as JsonObject; var ri = 0;
+                    foreach (var row in repeat ? rows!.AsEnumerable() : new[] { op })
                     {
                         var sourceKey = Key(row, ri++); var key = baseKey + "/" + sourceKey;
                         var rowContext = new Dictionary<string, JsonNode?>(opContext, StringComparer.Ordinal) { ["Row"] = row };
                         var values = ReportDataResolver.Map(rule["parameterMap"], rowContext);
                         values = parameterResolver?.Invoke(child.Document, values) ?? values;
-                        var childSnapshot = await data.CaptureAsync(child.Document, values, trustedContext, token, StudioJson.Text(content["mode"]) == "BandSubtree" ? RequiredInstances(child.Document, StudioJson.RequiredString(content, "entryBandId")) : null);
+                        var suppliedInstances = driven ? ReportDataResolver.Map(rule["instanceMap"], rowContext) : null;
+                        var childSnapshot = await data.CaptureAsync(child.Document, values, trustedContext, token, StudioJson.Text(content?["mode"]) == "BandSubtree" ? RequiredInstances(child.Document, StudioJson.RequiredString(content!, "entryBandId")) : null, suppliedInstances);
                         var childContext = ReportDataResolver.Context(values, childSnapshot.Instances, trustedContext);
                         JsonNode? mappedRow = null; var ancestors = new Dictionary<string, JsonNode?>(); string? entry = null;
                         var mappings = new JsonObject { ["parameters"] = values.DeepClone() };
-                        if (StudioJson.Text(content["mode"]) == "BandSubtree")
+                        if (suppliedInstances is { Count: > 0 }) mappings["instances"] = suppliedInstances.DeepClone();
+                        if (StudioJson.Text(content?["mode"]) == "BandSubtree")
                         {
-                            entry = StudioJson.RequiredString(content, "entryBandId");
+                            entry = StudioJson.RequiredString(content!, "entryBandId");
                             var mapped = new JsonObject();
-                            foreach (var map in (content["rowMap"] as JsonArray ?? []).OfType<JsonObject>()) Set(mapped, map["targetPath"]!.AsArray(), ReportDataResolver.Resolve(map["source"]!.AsObject(), rowContext));
+                            foreach (var map in (content!["rowMap"] as JsonArray ?? []).OfType<JsonObject>()) Set(mapped, map["targetPath"]!.AsArray(), ReportDataResolver.Resolve(map["source"]!.AsObject(), rowContext));
                             mappedRow = mapped; mappings["row"] = mapped.DeepClone();
-                            foreach (var map in (content["ancestorMap"] as JsonArray ?? []).OfType<JsonObject>()) ancestors[StudioJson.RequiredString(map, "bandId")] = ReportDataResolver.Resolve(map["source"]!.AsObject(), rowContext);
+                            foreach (var map in (content!["ancestorMap"] as JsonArray ?? []).OfType<JsonObject>()) ancestors[StudioJson.RequiredString(map, "bandId")] = ReportDataResolver.Resolve(map["source"]!.AsObject(), rowContext);
                             mappings["ancestors"] = new JsonObject(ancestors.Select(p => KeyValuePair.Create(p.Key, p.Value?.DeepClone())));
                         }
                         var blocks = await ExpandAsync(child, childContext, key, entry, mappedRow, ancestors, token, electronic: true);
@@ -235,6 +254,13 @@ public sealed class ReportPlanner(ReportDataResolver data, JsonObject trustedCon
         }
         return new(instances, []);
     }
+    private static bool HasDatasetCollection(JsonNode? node) => node switch
+    {
+        JsonObject obj when StudioJson.Text(obj["from"]) == "Constant" => false,
+        JsonObject obj => StudioJson.Text(obj["mode"]) == "Dataset" || obj.Any(p => HasDatasetCollection(p.Value)),
+        JsonArray array => array.Any(HasDatasetCollection),
+        _ => false
+    };
     private static string Key(JsonNode? row, int ordinal) => ordinal.ToString(CultureInfo.InvariantCulture) + ":" + (StudioJson.Text((row as JsonObject)?["id"]) ?? StudioJson.Hash(StudioJson.Canonicalize(row))[..12]);
     private static HashSet<string> RequiredInstances(JsonObject document, string entry)
     {
@@ -290,8 +316,47 @@ public sealed class ReportPlanner(ReportDataResolver data, JsonObject trustedCon
                 var definition = control.DeepClone().AsObject(); definition["detailRow"] = detail; definition["bandHeightMm"] = band["heightMm"]?.DeepClone(); definition["bandKind"] = band["kind"]?.DeepClone(); definition["bandKeepWithNext"] = band["keepWithNext"]?.DeepClone(); definition["paper"] = document["paper"]?.DeepClone(); definition["resolvedStyle"] = (document["styles"] as JsonArray ?? []).OfType<JsonObject>().SingleOrDefault(s => StudioJson.Text(s["id"]) == StudioJson.Text(control["styleId"]))?.DeepClone();
                 JsonNode? value = !control.ContainsKey("aggregate") && control["value"] is JsonObject binding ? ReportDataResolver.Resolve(binding, ctx) : null;
                 if (type == "CheckBox" && value is not null && (value is not JsonValue check || !check.TryGetValue<bool>(out _))) throw new StudioException("TYPE_MISMATCH", "复选框绑定必须返回布尔值或空值。", 422, controlId);
+                if (control["outline"] is JsonObject outline)
+                {
+                    var title = StudioJson.Text(ReportDataResolver.Resolve(outline["title"]!.AsObject(), ctx));
+                    if (string.IsNullOrWhiteSpace(title) || title.Length > 200) throw new StudioException("REPORT_OUTLINE_INVALID", "目录条目标题需要1至200字。", 422, controlId);
+                    definition["resolvedOutline"] = new JsonObject { ["title"] = title, ["level"] = outline["level"]?.DeepClone() ?? JsonValue.Create(1) };
+                }
+                if (type == "SubReport")
+                {
+                    var sub = control["subReport"]!.AsObject(); var key = StudioJson.RequiredString(sub, "reportNId") + "/" + StudioJson.RequiredString(sub, "revisionNId");
+                    if (_subReports.Count >= 8 || !_subReports.Add(key)) throw new StudioException("REPORT_SUBREPORT_CYCLE", "子报表循环或嵌套超过8层。", 422, controlId);
+                    try
+                    {
+                        if (!snapshot.Dependencies.TryGetValue(key, out var child) || child.Kind != "Report") throw new StudioException("DEPENDENCY_CHANGED", "固定子报表定义不存在。", 409, key);
+                        var childDoc = StudioJson.Text(child.Document["mode"]) == "Query" ? ReportDesign.ApplyQuerySort(child.Document, null) : child.Document.DeepClone().AsObject();
+                        var childBands = (childDoc["bands"] as JsonArray ?? []).OfType<JsonObject>().Where(b => StudioJson.Text(b["kind"]) is not ("PageHeader" or "PageFooter")).ToArray();
+                        childDoc["bands"] = new JsonArray(childBands.Select(b => b.DeepClone()).ToArray()); childDoc["paper"] = document["paper"]?.DeepClone();
+                        var diagnostics = StudioDocuments.Validate("Report", childDoc);
+                        if (diagnostics.FirstOrDefault(d => d.Severity == "Error") is { } invalid) throw new StudioException(invalid.Code, invalid.Message, 422, invalid.Path);
+                        var parameters = ReportDataResolver.Map(sub["parameterMap"], ctx); parameters = parameterResolver?.Invoke(childDoc, parameters) ?? parameters;
+                        var supplied = ReportDataResolver.Map(sub["instanceMap"], ctx);
+                        if (_dataDriven)
+                        {
+                            foreach (var source in (childDoc["instances"] as JsonArray ?? []).OfType<JsonObject>())
+                                if (StudioJson.Text(source["sourceType"]) != "Constant" && !supplied.ContainsKey(StudioJson.RequiredString(source, "instanceId"))) throw new StudioException("REPORT_SUBREPORT_MAPPING_REQUIRED", "数据驱动的子报表必须映射所有查询实例，复用工单快照。", 422, controlId);
+                            if (HasDatasetCollection(childDoc["bands"])) throw new StudioException("REPORT_SUBREPORT_MAPPING_REQUIRED", "数据驱动子报表集合必须来自已映射实例，不能另发关联查询。", 422, controlId);
+                        }
+                        var captured = await data.CaptureAsync(childDoc, parameters, trustedContext, token, suppliedInstances: supplied);
+                        var childFlow = await ExpandAsync(child with { Document = childDoc, Dependencies = snapshot.Dependencies }, ReportDataResolver.Context(parameters, captured.Instances, trustedContext), instance + "/sub/" + (++_sequence), null, null, null, token, electronic);
+                        if (childFlow.Count > 0 && definition["resolvedOutline"] is { } heading)
+                        {
+                            var headings = childFlow[0].Definition["inheritedOutlines"] as JsonArray ?? new JsonArray();
+                            if (headings.Parent is null) childFlow[0].Definition["inheritedOutlines"] = headings;
+                            headings.Insert(0, heading.DeepClone());
+                        }
+                        result.AddRange(childFlow);
+                    }
+                    finally { _subReports.Remove(key); }
+                    continue;
+                }
                 if (type == "Html") definition["assetResourceNId"] = snapshot.ResourceNId;
-                if (type == "Image") { var assetId = StudioJson.Text(value) ?? StudioJson.Text(value?["assetId"]); definition["frozenAsset"] = (document["assets"] as JsonArray ?? []).OfType<JsonObject>().SingleOrDefault(a => StudioJson.Text(a["id"]) == assetId)?.DeepClone() ?? throw new StudioException("REPORT_RESOURCE_UNAVAILABLE", "图片必须选择固定资产。", 422, controlId); definition["assetResourceNId"] = snapshot.ResourceNId; }
+                if (type is "Image" or "PdfContent") { var assetId = StudioJson.Text(value) ?? StudioJson.Text(value?["assetId"]); definition["frozenAsset"] = (document["assets"] as JsonArray ?? []).OfType<JsonObject>().SingleOrDefault(a => StudioJson.Text(a["id"]) == assetId)?.DeepClone() ?? throw new StudioException("REPORT_RESOURCE_UNAVAILABLE", "图片必须选择固定资产。", 422, controlId); definition["assetResourceNId"] = snapshot.ResourceNId; }
                 if (control["aggregate"] is JsonObject aggregate)
                 {
                     var scopeId = StudioJson.RequiredString(aggregate, "scopeBandId");
@@ -330,8 +395,10 @@ public sealed class ReportPlanner(ReportDataResolver data, JsonObject trustedCon
                     }
                     value = cells;
                     var headerMode = StudioJson.Text(table["headerMode"]) ?? "OncePerParent";
+                    definition["headerGroupKey"] = parentKey + "/" + StudioJson.RequiredString(band, "id") + "/" + controlId;
                     definition["showHeader"] = headerMode != "Hidden" && (headerMode == "EveryInstance" || headers.Add(parentKey + "/" + controlId));
                 }
+                value = ReportAdvancedValues.Resolve(definition, value);
                 if (++_blocks > 100000) throw new StudioException("STUDIO_LIMIT", "展开块数超过100000预算。", 429);
                 result.Add(new(instance + "/" + (++_sequence).ToString(CultureInfo.InvariantCulture), StudioJson.RequiredString(band, "id"), controlId, type, definition, value, rowKey, StudioJson.Text(band["kind"]) is "PageHeader" or "PageFooter"));
             }

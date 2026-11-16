@@ -60,6 +60,7 @@ export interface TraceField {
   format?: string
 }
 export interface TraceDetailSection {
+  links?: TraceLink[]
   id: string
   label: string
   kind: 'Fields' | 'Table'
@@ -74,8 +75,13 @@ export interface TraceDetailSection {
 export interface TraceLink {
   id: string
   label: string
-  kind: 'File' | 'External'
-  value: Binding
+  kind: 'File' | 'External' | 'Resource'
+  value?: Binding
+  target?: {
+    kind: 'LowCodePage' | 'Dashboard' | 'Report' | 'ReportBundle'
+    resourceNId: string
+    revisionNId: string
+  }
   parameterMap?: TraceMapping[]
   openMode: 'Modal'
   allowedOriginKey?: string

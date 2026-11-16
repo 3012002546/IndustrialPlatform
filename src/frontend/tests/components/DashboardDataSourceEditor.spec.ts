@@ -7,6 +7,31 @@ import DashboardDataSourceEditor from '@/components/studio/dashboard/DashboardDa
 import type { StudioResource } from '@/api/studio'
 
 describe('dashboard source configuration', () => {
+  it('keeps report JSON text through equivalent parent updates and commits only valid changes', async () => {
+    setActivePinia(createPinia())
+    const original = [{ id: '工单', nested: { rows: [], flag: false, count: 0, optional: null } }]
+    const wrapper = mount(DashboardConstantEditor, {
+      props: { modelValue: original, jsonOnly: true },
+      global: { plugins: [ElementPlus] },
+    })
+    expect(wrapper.find('.el-switch').exists()).toBe(false)
+    expect(wrapper.findAll('textarea')).toHaveLength(1)
+    expect(wrapper.vm.apply()).toBe(true)
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+    await wrapper.get('textarea').setValue('{broken')
+    await wrapper.setProps({ modelValue: structuredClone(original) })
+    expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe('{broken')
+    expect(wrapper.vm.apply()).toBe(false)
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+    const next = [
+      ...original,
+      { id: '新工单', nested: { rows: [], flag: false, count: 0, optional: null } },
+    ]
+    await wrapper.get('textarea').setValue(JSON.stringify(next))
+    expect(wrapper.vm.apply()).toBe(true)
+    expect(wrapper.emitted('update:modelValue')?.[0]).toEqual([next])
+    wrapper.unmount()
+  })
   it('preserves typed constants including zero, false and null and rejects malformed JSON', async () => {
     setActivePinia(createPinia())
     const wrapper = mount(DashboardConstantEditor, {

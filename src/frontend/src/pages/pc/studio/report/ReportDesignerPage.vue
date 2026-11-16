@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import {
+  type ComponentPublicInstance,
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { returnFromWorkspace } from '@/workspace/returnFromWorkspace'
 import { ElMessageBox } from 'element-plus'
@@ -22,9 +30,17 @@ import {
 import type { Binding } from '@/components/studio/shared/model'
 import ReportCollectionEditor from '@/components/studio/report/ReportCollectionEditor.vue'
 import ReportMappings from '@/components/studio/report/ReportMappings.vue'
+import ReportPreviewExport from '@/components/studio/report/ReportPreviewExport.vue'
 import ReportPreviewPanel from '@/components/studio/report/ReportPreviewPanel.vue'
 import ReportMeasuredCanvas from '@/components/studio/report/ReportMeasuredCanvas.vue'
 import ReportDesignTable from '@/components/studio/report/ReportDesignTable.vue'
+import ReportDocumentEditor from '@/components/studio/report/ReportDocumentEditor.vue'
+import ReportAdvancedEditor from '@/components/studio/report/ReportAdvancedEditor.vue'
+import ReportAdvancedDesign from '@/components/studio/report/ReportAdvancedDesign.vue'
+import {
+  advancedControlDefaults,
+  isAdvancedControl,
+} from '@/components/studio/report/advancedControls'
 import {
   tableRows,
   tableCell,
@@ -75,6 +91,8 @@ const resource = ref<StudioResource>(),
   loading = ref(true),
   optionsLoading = ref(false),
   optionsError = ref(''),
+  datasetOptionsLoading = ref(false),
+  datasetOptionsError = ref(''),
   tab = ref('controls'),
   controlSearch = ref(''),
   rulerUnit = ref<'mm' | 'cm' | 'in' | 'px'>('mm'),
@@ -106,6 +124,34 @@ const resource = ref<StudioResource>(),
   draftChildren = ref<Record<string, StudioResource>>({}),
   draftDocuments = ref<Record<string, Json>>({}),
   shell = ref<InstanceType<typeof StudioEditorShell>>()
+const parameterTypeLabels = computed<Record<string, string>>(() => ({
+  String: t.value('parameterText'),
+  Int32: t.value('parameterInteger'),
+  Decimal: t.value('parameterDecimal'),
+  Date: t.value('parameterDate'),
+  Boolean: t.value('parameterBoolean'),
+  Array: t.value('parameterArray'),
+}))
+const dataTab = ref('instances')
+const dataInstance = ref('0')
+const constantEditors = new Map<number, InstanceType<typeof DashboardConstantEditor>>()
+function setConstantEditor(index: number, el: Element | ComponentPublicInstance | null) {
+  if (el) constantEditors.set(index, el as InstanceType<typeof DashboardConstantEditor>)
+  else constantEditors.delete(index)
+}
+function applyData(): boolean {
+  for (const [index, editor] of constantEditors) {
+    if (!editor.apply()) {
+      dataTab.value = 'instances'
+      dataInstance.value = String(index)
+      return false
+    }
+  }
+  return true
+}
+function closeData() {
+  if (applyData()) drawer.value = ''
+}
 const newId = () => crypto.randomUUID()
 const nId = String(route.params.nId),
   bands = computed<Json[]>(() => doc.value.bands ?? []),
@@ -117,9 +163,11 @@ const nId = String(route.params.nId),
   ),
   bundle = computed(() => resource.value?.kind === 'ReportBundle'),
   electronic = computed(() => doc.value.mode === 'ElectronicRecord'),
+  driven = computed(() => electronic.value && doc.value.assembly?.stitchMode === 'DataDriven'),
+  entriesKey = computed(() => (driven.value ? 'templates' : 'rules')),
   children = computed<Json[]>(() =>
     electronic.value
-      ? [...(doc.value.assembly?.rules ?? [])].sort(compareRules)
+      ? [...(doc.value.assembly?.[entriesKey.value] ?? [])].sort(compareRules)
       : (doc.value.items ?? []),
   ),
   item = computed(() => children.value.find((i) => i.id === selection.value)),
@@ -449,7 +497,14 @@ function resizePosition(c: Json, edge: ResizeEdge) {
 function controlCaption(c: Json): string {
   if (c.type === 'Table') return c.table.columns.map((col: Json) => col.label).join(' | ')
   if (['Line', 'Box'].includes(c.type)) return ''
-  if (c.type === 'Html') return controlLabel(c.type)
+  if (['Html', 'Shape', 'SubReport', 'PdfContent', 'TableOfContents'].includes(c.type))
+    return controlLabel(c.type)
+  if (
+    ['Chart', 'Sparkline', 'PivotTable'].includes(c.type) &&
+    c.value?.from === 'Constant' &&
+    Array.isArray(c.value.value)
+  )
+    return t.value('rowCount') + ': ' + c.value.value.length
   if (c.type === 'PageNumber') return '1 / …'
   if (c.aggregate) return `${c.aggregate.function}(${c.aggregate.field?.path?.join('.') ?? ''})`
   if (c.value?.from === 'PageParam' && c.value.path?.length === 1) {
@@ -592,7 +647,7 @@ let schemaTimer: ReturnType<typeof setTimeout> | undefined,
 watch(
   () =>
     JSON.stringify([
-      doc.value.instances,
+      bundle.value ? undefined : doc.value.instances,
       doc.value.bands?.map((b: Json) => [b.id, b.parentBandId, b.data]),
       doc.value.parameters,
       doc.value.query?.filters,
@@ -617,6 +672,7 @@ watch(
   },
 )
 onBeforeUnmount(() => {
+  previewRequest?.abort()
   cancelGesture?.()
   schemaGeneration++
   if (schemaTimer) clearTimeout(schemaTimer)
@@ -696,6 +752,13 @@ function updateControl(key: string, value: unknown) {
       .find((b: Json) => b.id === selection.value)
       ?.controls.find((c: Json) => c.id === controlId.value)
     if (c) c[key] = value
+  })
+}
+function updateAdvancedControl(next: Json) {
+  edit((d) => {
+    const controls = d.bands.find((b: Json) => b.id === selection.value)?.controls
+    const index = controls?.findIndex((c: Json) => c.id === next.id) ?? -1
+    if (index >= 0) controls[index] = next
   })
 }
 function select(id: string) {
@@ -778,7 +841,11 @@ function compareRules(a: Json, b: Json) {
 }
 function move(delta: number) {
   edit((d) => {
-    const list = bundle.value ? (electronic.value ? d.assembly.rules : d.items) : d.bands
+    const list = bundle.value
+      ? electronic.value
+        ? d.assembly[entriesKey.value]
+        : d.items
+      : d.bands
     if (bundle.value && electronic.value) list.sort(compareRules)
     const i = list.findIndex((x: Json) => x.id === selection.value),
       j = i + delta
@@ -801,8 +868,24 @@ async function addControl(type: string, targetId?: string, point?: { x: number; 
       await nextTick()
     }
   }
+  if (
+    band.value?.controls.some((c: Json) =>
+      ['SubReport', 'PdfContent', 'TableOfContents'].includes(c.type),
+    )
+  ) {
+    addBand(false, 'ReportHeader')
+    await nextTick()
+  }
+  const documentControl = ['SubReport', 'PdfContent', 'TableOfContents'].includes(type)
+  if (
+    documentControl &&
+    (band.value?.controls.length || ['PageHeader', 'PageFooter'].includes(band.value?.kind))
+  ) {
+    addBand(false, 'ReportHeader')
+    await nextTick()
+  }
   const id = crypto.randomUUID()
-  const width = Math.min(80, bodyWidth.value)
+  const width = documentControl ? bodyWidth.value : Math.min(80, bodyWidth.value)
   const y = point
     ? roundMm(point.y)
     : Math.max(0, ...band.value!.controls.map((c: Json) => Number(c.yMm) + Number(c.heightMm) + 2))
@@ -844,6 +927,15 @@ async function addControl(type: string, targetId?: string, point?: { x: number; 
                   : binding(),
               }
             : {}),
+        ...advancedControlDefaults(type, t.value('labelControl')),
+        ...(documentControl ? { xMm: 0, yMm: 0, flow: undefined, keepTogether: false } : {}),
+        ...(type === 'SubReport'
+          ? { subReport: { reportNId: '', revisionNId: '', parameterMap: [], instanceMap: [] } }
+          : {}),
+        ...(type === 'PdfContent'
+          ? { value: { from: 'Constant', value: '', nullPolicy: 'Error' } }
+          : {}),
+        ...(type === 'TableOfContents' ? { toc: { title: t.value('tocControl') } } : {}),
       }),
   )
   controlId.value = id
@@ -920,9 +1012,13 @@ function gesture(
   target.addEventListener('lostpointercapture', cancel)
   document.addEventListener('keydown', key, true)
 }
+function isDocumentControl(type: unknown) {
+  return ['SubReport', 'PdfContent', 'TableOfContents'].includes(String(type))
+}
 function drag(event: PointerEvent, b: Json, c: Json, zoom: number, edge: ResizeEdge = '') {
   if (event.button !== 0) return
   selectControl(String(b.id), String(c.id))
+  if (isDocumentControl(c.type)) return
   const rect = (value: Json): ReportRect => ({
     xMm: Number(value.xMm),
     yMm: Number(value.yMm),
@@ -1008,6 +1104,7 @@ async function guarded(fn: () => Promise<void>) {
   }
 }
 function save() {
+  if (!applyData()) return
   return guarded(async () => {
     const value = await api.save(resource.value!, doc.value)
     resource.value = value.resource
@@ -1015,12 +1112,15 @@ function save() {
     saved.value = JSON.stringify(doc.value)
   })
 }
+const previewExportInput = ref<Json>()
+let previewRequest: AbortController | undefined
 function execute(action: 'plan' | 'preview') {
   if (busy.value) return
   result.value = undefined
+  previewExportInput.value = undefined
   drawer.value = action
   void guarded(async () => {
-    result.value = await (action === 'plan' ? api.reportPlan : api.reportPreview)({
+    const input = {
       kind: resource.value!.kind,
       resourceNId: nId,
       document: doc.value,
@@ -1032,12 +1132,36 @@ function execute(action: 'plan' | 'preview') {
           optimisticVersion: child.optimisticVersion,
           concurrencyVersion: child.concurrencyVersion,
         })),
-    })
+    }
+    // Keep the successful preview's definition/parameters independent of later form edits.
+    const captured = JSON.parse(JSON.stringify(input)) as Json
+    const controller = action === 'preview' ? new AbortController() : undefined
+    previewRequest = controller
+    try {
+      const response = controller
+        ? await api.reportPreview(captured, controller.signal)
+        : await api.reportPlan(input)
+      if (!controller?.signal.aborted && drawer.value === action) {
+        result.value = response
+        if (action === 'preview' && response.status === 'Succeeded')
+          previewExportInput.value = captured
+      }
+    } catch (e) {
+      if (!controller?.signal.aborted) throw e
+    } finally {
+      previewRequest = undefined
+    }
   })
+}
+function closePreview() {
+  previewExportInput.value = undefined
+  previewRequest?.abort()
+  drawer.value = ''
+  result.value = undefined
 }
 async function attachImage() {
   await guarded(async () => {
-    if (!assetCandidate.value || control.value?.type !== 'Image') return
+    if (!assetCandidate.value || !['Image', 'PdfContent'].includes(control.value?.type)) return
     const candidate = assetCandidate.value,
       bandId = selection.value,
       imageId = controlId.value
@@ -1046,7 +1170,7 @@ async function attachImage() {
       const image = d.bands
         .find((b: Json) => b.id === bandId)
         ?.controls.find((c: Json) => c.id === imageId)
-      if (image?.type !== 'Image') return
+      if (!['Image', 'PdfContent'].includes(image?.type)) return
       d.assets ??= []
       if (!d.assets.some((a: Json) => a.id === asset.id)) d.assets.push(asset)
       image.value = { from: 'Constant', value: asset.id, nullPolicy: 'Error' }
@@ -1094,6 +1218,8 @@ function publish() {
   })
 }
 function addInstance() {
+  if (!applyData()) return
+  dataInstance.value = String(instances.value.length)
   edit((d) =>
     d.instances.push({
       instanceId: crypto.randomUUID(),
@@ -1106,6 +1232,7 @@ function addInstance() {
   )
 }
 function setInstanceSource(instance: Json, sourceType: string) {
+  if (!applyData()) return
   edit((d) => {
     const current = d.instances.find((i: Json) => i.instanceId === instance.instanceId)
     current.sourceType = sourceType
@@ -1128,6 +1255,39 @@ function setDataset(i: Json, nId: string) {
   i.datasetNId = nId
   i.revisionNId = ds?.publishedRevisionNId ?? ''
 }
+const reportOptions = computed(() =>
+  reports.value.map((report) => ({ value: report.nId, label: report.name })),
+)
+const reportIndex = computed(() => new Map(reports.value.map((report) => [report.nId, report])))
+function childTitle(child: Json) {
+  return (
+    child.name?.trim() ||
+    reportIndex.value.get(child.reportNId)?.name ||
+    t.value(
+      !child.reportNId
+        ? 'chooseReport'
+        : optionsLoading.value
+          ? 'loadingReport'
+          : 'unavailableReport',
+    )
+  )
+}
+function revisionTitle(child: Json) {
+  if (draftChildren.value[child.reportNId]) return t.value('useChildDraft')
+  if (!child.revisionNId) return t.value('noRevision')
+  const report = reportIndex.value.get(child.reportNId)
+  return report?.publishedRevisionNo && report.publishedRevisionNId === child.revisionNId
+    ? t.value('revision') + ' V' + report.publishedRevisionNo
+    : t.value('revision')
+}
+function switchStitchMode(mode: string) {
+  edit((d) => {
+    d.assembly.stitchMode = mode
+    if (mode === 'DataDriven') d.assembly.templates ??= []
+    else d.assembly.rules ??= []
+  })
+  select('')
+}
 function addItem() {
   const id = crypto.randomUUID()
   edit((d) => {
@@ -1136,9 +1296,12 @@ function addItem() {
       reportNId: '',
       revisionNId: '',
       parameterMap: [],
-      required: !electronic.value,
+      ...(driven.value ? {} : { required: !electronic.value }),
     }
-    if (electronic.value)
+    if (driven.value)
+      next.priority =
+        Math.max(-1, ...children.value.map((child) => Number(child.priority ?? 0))) + 1
+    else if (electronic.value)
       Object.assign(next, {
         name: 'Rule',
         priority: Math.max(-1, ...children.value.map((child) => Number(child.priority ?? 0))) + 1,
@@ -1149,7 +1312,7 @@ function addItem() {
         breakBefore: 'Auto',
       })
     else Object.assign(next, { enabled: true, startOnNewPage: true })
-    ;(electronic.value ? d.assembly.rules : d.items).push(next)
+    ;(electronic.value ? d.assembly[entriesKey.value] : d.items).push(next)
   })
   select(id)
 }
@@ -1157,7 +1320,8 @@ function removeItem() {
   if (!item.value) return
   const id = item.value.id
   edit((d) => {
-    if (electronic.value) d.assembly.rules = d.assembly.rules.filter((i: Json) => i.id !== id)
+    if (electronic.value)
+      d.assembly[entriesKey.value] = d.assembly[entriesKey.value].filter((i: Json) => i.id !== id)
     else d.items = d.items.filter((i: Json) => i.id !== id)
   })
   select('')
@@ -1173,6 +1337,8 @@ watch(
     () => item.value?.id,
     () => item.value?.reportNId,
     () => item.value?.revisionNId,
+    () => inspectorTab.value,
+    () => item.value?.content?.mode,
     () => draftChildren.value[item.value?.reportNId],
   ],
   async (_, __, onCleanup) => {
@@ -1184,7 +1350,14 @@ watch(
     contractError.value = ''
     contractLoading.value = false
     const selected = item.value
-    if (!bundle.value || !selected?.reportNId) return
+    if (
+      !bundle.value ||
+      driven.value ||
+      inspectorTab.value !== 'data' ||
+      selected?.content?.mode !== 'BandSubtree' ||
+      !selected?.reportNId
+    )
+      return
     const childId = String(selected.reportNId)
     const draft = draftDocuments.value[childId]
     if (!draft && !selected.revisionNId) return
@@ -1201,33 +1374,84 @@ watch(
     }
   },
 )
-async function loadOptions() {
+async function loadReports(draftReady?: Promise<void>) {
+  const first = await api.list('Report', { page: 1, pageSize: 200 })
+  const items = [...first.items]
+  reports.value = first.items
+  // Resolve references after the draft arrives, while starting the first page in parallel.
+  await draftReady
+  const needed = new Set<string>(
+    [
+      ...(doc.value.bands ?? []).flatMap((b: Json) =>
+        (b.controls ?? [])
+          .filter((c: Json) => c.type === 'SubReport')
+          .map((c: Json) => c.subReport),
+      ),
+      ...(doc.value.items ?? []),
+      ...(doc.value.assembly?.rules ?? []),
+      ...(doc.value.assembly?.templates ?? []),
+    ]
+      .map((i) => i.reportNId)
+      .filter(Boolean),
+  )
+  for (const item of items) needed.delete(item.nId)
+  for (let page = 2; needed.size && items.length < Number(first.totalCount); page++) {
+    const more = await api.list('Report', { page, pageSize: 200 })
+    if (!more.items.length) break
+    items.push(...more.items)
+    for (const item of more.items) needed.delete(item.nId)
+  }
+  return { ...first, items }
+}
+async function loadReportOptions(draftReady?: Promise<void>) {
   if (optionsLoading.value) return
   optionsLoading.value = true
   optionsError.value = ''
   try {
-    const results = await Promise.allSettled([
-      api.list('Dataset', { pageSize: 200 }),
-      ...(bundle.value ? [api.list('Report', { pageSize: 200 })] : []),
-    ])
-    if (results[0]?.status === 'fulfilled') datasets.value = results[0].value.items
-    if (results[1]?.status === 'fulfilled') reports.value = results[1].value.items
-    if (results.some((r) => r.status === 'rejected')) optionsError.value = t.value('optionsFailed')
+    reports.value = (await loadReports(draftReady)).items
+  } catch {
+    optionsError.value = t.value('optionsFailed')
   } finally {
     optionsLoading.value = false
   }
 }
+let datasetsLoaded = false
+async function loadDatasetOptions() {
+  if (datasetsLoaded || datasetOptionsLoading.value) return
+  datasetOptionsLoading.value = true
+  datasetOptionsError.value = ''
+  try {
+    datasets.value = (await api.list('Dataset', { pageSize: 200 })).items
+    datasetsLoaded = true
+  } catch {
+    datasetOptionsError.value = t.value('optionsFailed')
+  } finally {
+    datasetOptionsLoading.value = false
+  }
+}
+function loadOptions() {
+  if (optionsError.value) void loadReportOptions()
+  if (datasetOptionsError.value) void loadDatasetOptions()
+}
+watch(
+  () => drawer.value === 'data' || (bundle.value && !driven.value && inspectorTab.value === 'data'),
+  (needed) => {
+    if (needed) void loadDatasetOptions()
+  },
+)
 onMounted(async () => {
-  await guarded(async () => {
+  const draftReady = guarded(async () => {
     const value = await api.draft(nId)
     resource.value = value.resource
     doc.value = value.draftDocument
     saved.value = JSON.stringify(doc.value)
   })
+  void loadReportOptions(draftReady)
+  await draftReady
   loading.value = false
-  if (resource.value) void loadOptions()
 })
 onBeforeRouteLeave(async () => {
+  if (!applyData()) return false
   if (!dirty.value) return true
   try {
     await ElMessageBox.confirm(t.value('unsaved'))
@@ -1240,8 +1464,10 @@ onBeforeRouteLeave(async () => {
 <template>
   <AppPage
     :title="resource?.name ?? t('reports')"
-    :description="bundle ? t(electronic ? 'rules' : 'items') : t('bands')"
-    class="studio-page"
+    :description="
+      bundle ? t(driven ? 'candidateTemplates' : electronic ? 'rules' : 'items') : t('bands')
+    "
+    class="studio-page report-designer"
     v-loading="loading"
   >
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
@@ -1282,11 +1508,15 @@ onBeforeRouteLeave(async () => {
     <StudioEditorShell
       v-if="doc.schemaVersion"
       ref="shell"
+      class="report-design-shell"
       :properties-open="true"
       center-canvas
+      :free-canvas="bundle"
       :interaction-active="interactionActive"
       :sidebar-widths="[280, 360]"
-      :left-title="t(bundle ? (electronic ? 'rules' : 'items') : 'library')"
+      :left-title="
+        t(bundle ? (driven ? 'candidateTemplates' : electronic ? 'rules' : 'items') : 'library')
+      "
       v-model="doc"
       :canvas-width="bundle ? 700 : paperSize.width * 3 + 264"
       :canvas-height="bundle ? 700 : designHeight + 56"
@@ -1294,6 +1524,17 @@ onBeforeRouteLeave(async () => {
     >
       <template #toolbar="{ zoom, setZoom, fit, leftOpen, rightOpen, toggleLeft, toggleRight }">
         <div class="studio-toolbar report-canvas-toolbar">
+          <template v-if="electronic">
+            <span>{{ t('stitchMode') }}</span>
+            <el-radio-group
+              :model-value="doc.assembly.stitchMode ?? 'Normal'"
+              :aria-label="t('stitchMode')"
+              @update:model-value="switchStitchMode(String($event))"
+            >
+              <el-radio-button value="Normal">{{ t('normalStitch') }}</el-radio-button>
+              <el-radio-button value="DataDriven">{{ t('dataStitch') }}</el-radio-button>
+            </el-radio-group>
+          </template>
           <span v-if="!bundle" class="report-paper-size" :title="t('compactCanvasHint')"
             >{{ doc.paper?.size }} · {{ paperSize.width }} × {{ paperSize.height }} mm ·
             {{ t('compactCanvas') }}</span
@@ -1336,8 +1577,10 @@ onBeforeRouteLeave(async () => {
           <el-button @click="toggleRight">{{
             t(rightOpen ? 'collapseProperties' : 'expandProperties')
           }}</el-button>
-          <small v-if="optionsLoading" class="report-help">{{ t('loadingOptions') }}</small>
-          <template v-if="optionsError"
+          <small v-if="optionsLoading || datasetOptionsLoading" class="report-help">{{
+            t('loadingOptions')
+          }}</small>
+          <template v-if="optionsError || datasetOptionsError"
             ><span role="status">{{ optionsError }}</span
             ><el-button link @click="loadOptions">{{ t('retryOptions') }}</el-button></template
           >
@@ -1345,7 +1588,19 @@ onBeforeRouteLeave(async () => {
       </template>
       <template #structure>
         <div class="report-panel-heading">
-          <h3>{{ t(bundle ? (electronic ? 'rules' : 'items') : 'library') }}</h3>
+          <h3>
+            {{
+              t(
+                bundle
+                  ? driven
+                    ? 'candidateTemplates'
+                    : electronic
+                      ? 'rules'
+                      : 'items'
+                  : 'library',
+              )
+            }}
+          </h3>
           <el-tag size="small">{{ bundle ? children.length : reportControls.length }}</el-tag>
         </div>
         <el-tabs v-if="!bundle" v-model="tab" stretch>
@@ -1425,7 +1680,7 @@ onBeforeRouteLeave(async () => {
             :class="{ active: selection === i.id }"
             @click="select(i.id)"
           >
-            {{ i.name ?? i.reportNId ?? i.id }}
+            {{ childTitle(i) }}
           </button>
         </template>
         <template v-if="tab === 'fields' && !bundle"
@@ -1487,7 +1742,7 @@ onBeforeRouteLeave(async () => {
                 :class="{
                   active: controlId === c.id && !cellSelected,
                   'report-control-table': c.type === 'Table',
-                  'report-control-line': c.type === 'Line',
+                  'report-control-line': c.type === 'Line' && !c.advanced,
                   'report-control-box': c.type === 'Box',
                 }"
                 :style="{
@@ -1535,9 +1790,19 @@ onBeforeRouteLeave(async () => {
                   @select-table="selectControl(b.id, c.id)"
                   @move-table="drag($event, b, c, zoom)"
                 />
+                <ReportAdvancedDesign
+                  v-else-if="isAdvancedControl(c.type) && (c.type !== 'Line' || c.advanced)"
+                  :control="c"
+                  :caption="controlCaption(c)"
+                  :label="controlLabel(c.type)"
+                />
                 <span v-else>{{ controlCaption(c) }}</span>
               </div>
-              <template v-if="selection === b.id && control && !cellSelected">
+              <template
+                v-if="
+                  selection === b.id && control && !cellSelected && !isDocumentControl(control.type)
+                "
+              >
                 <button
                   v-for="edge in resizeEdges"
                   :key="edge"
@@ -1591,8 +1856,9 @@ onBeforeRouteLeave(async () => {
             </section>
           </div>
         </ReportMeasuredCanvas>
-        <div v-else class="report-bundle-flow">
-          <p>{{ t(electronic ? 'rules' : 'items') }}</p>
+      </template>
+      <template #workspace>
+        <div class="report-bundle-flow">
           <button
             v-for="i in children"
             :key="i.id"
@@ -1600,11 +1866,27 @@ onBeforeRouteLeave(async () => {
             :class="{ active: selection === i.id }"
             @click="select(i.id)"
           >
-            {{ i.name ?? i.reportNId }} · {{ i.revisionNId
-            }}<small
-              >{{ i.required ? t('required') : '' }} ·
-              {{ i.content?.mode ?? 'Independent paper' }} · {{ i.breakBefore ?? 'Page' }}</small
+            {{ childTitle(i) }} · {{ revisionTitle(i) }}
+            <small v-if="driven"
+              >{{ i.scope === 'WorkOrder' ? t('workOrderScope') : t('operationScope') }} ·
+              {{ i.required ? t('fixedTemplate') : t('optionalItem') }}</small
             >
+            <small v-if="!driven"
+              >{{ i.required ? t('required') : t('optionalItem') }} ·
+              {{
+                electronic
+                  ? t(i.content?.mode === 'BandSubtree' ? 'bandSubtree' : 'wholeReport')
+                  : t('independentPaper')
+              }}
+              ·
+              {{
+                t(
+                  (i.breakBefore ?? (electronic ? 'Auto' : 'Page')) === 'Page'
+                    ? 'breakPage'
+                    : 'breakAuto',
+                )
+              }}
+            </small>
           </button>
         </div></template
       >
@@ -1625,13 +1907,14 @@ onBeforeRouteLeave(async () => {
               : band
                 ? band.name
                 : item
-                  ? item.name
+                  ? childTitle(item)
                   : t('pageObject')
           }}
         </div>
         <el-button v-if="cellSelected" link @click="selectControl(selection, controlId)">{{
           t('selectTable')
         }}</el-button>
+        <p v-if="driven" class="report-help">{{ t('dataStitchHint') }}</p>
         <p v-if="control?.type === 'Table'" class="report-help">{{ t('tableSelectionHint') }}</p>
         <template v-if="!band && !item">
           <label v-if="bundle && !electronic"
@@ -1790,7 +2073,16 @@ onBeforeRouteLeave(async () => {
                 :label="t('content')"
                 name="content" /><el-tab-pane :label="t('appearance')" name="appearance"
             /></el-tabs>
-            <div v-if="!cellSelected && inspectorTab === 'basic'" class="report-geometry">
+            <p
+              v-if="!cellSelected && inspectorTab === 'basic' && isDocumentControl(control.type)"
+              class="studio-muted"
+            >
+              {{ t('documentHint') }}
+            </p>
+            <div
+              v-if="!cellSelected && inspectorTab === 'basic' && !isDocumentControl(control.type)"
+              class="report-geometry"
+            >
               <label v-for="key in ['xMm', 'yMm', 'widthMm', 'heightMm']" :key="key"
                 >{{
                   t(
@@ -1862,16 +2154,19 @@ onBeforeRouteLeave(async () => {
                   :paths="
                     schemaPaths(schemaContract.bandSchemas?.[control.aggregate.scopeBandId] ?? {})
                   " /></template
-              ><template v-if="control.type === 'Image'"
+              ><template v-if="['Image', 'PdfContent'].includes(control.type)"
                 ><el-select
                   :model-value="control.value?.value"
-                  :aria-label="t('imageAsset')"
+                  :aria-label="t(control.type === 'PdfContent' ? 'pdfAsset' : 'imageAsset')"
                   @update:model-value="
                     (id: string) =>
                       (control!.value = { from: 'Constant', value: id, nullPolicy: 'Error' })
                   "
                   ><el-option
-                    v-for="asset in doc.assets ?? []"
+                    v-for="asset in (doc.assets ?? []).filter(
+                      (a: Json) =>
+                        (a.mediaType === 'application/pdf') === (control!.type === 'PdfContent'),
+                    )"
                     :key="asset.id"
                     :value="asset.id"
                     :label="asset.id" /></el-select
@@ -1880,10 +2175,14 @@ onBeforeRouteLeave(async () => {
                   :model-n-id="nId"
                   module-key="Report"
                   purpose="TemplateAsset"
-                  accept="image/png,image/jpeg,image/gif,image/webp"
+                  :accept="
+                    control.type === 'PdfContent'
+                      ? 'application/pdf'
+                      : 'image/png,image/jpeg,image/gif,image/webp'
+                  "
                   :disabled="busy"
                 /><el-button v-if="assetCandidate" :loading="busy" @click="attachImage">{{
-                  t('attachImage')
+                  t(control.type === 'PdfContent' ? 'attachAsset' : 'attachImage')
                 }}</el-button></template
               ><BindingEditor
                 v-else-if="control.value && !cellSelected"
@@ -1892,6 +2191,19 @@ onBeforeRouteLeave(async () => {
                 :contexts="reportContexts"
                 :bands="ancestorBands.map((b) => ({ id: String(b.id), name: String(b.name) }))"
                 :paths="bindingPaths(control.value)"
+              />
+              <ReportDocumentEditor
+                :model-value="control"
+                :reports="reports"
+                :instances="ids"
+                :resource-n-id="nId"
+                :allow-outline="!['PageHeader', 'PageFooter'].includes(band.kind)"
+                @update:model-value="updateAdvancedControl"
+              />
+              <ReportAdvancedEditor
+                v-if="isAdvancedControl(control.type) && !cellSelected"
+                :model-value="control"
+                @update:model-value="updateAdvancedControl"
               />
               <template v-if="control.type === 'Table'">
                 <template v-if="!cellSelected"
@@ -2067,231 +2379,359 @@ onBeforeRouteLeave(async () => {
             >
           </template>
         </template>
-        <template v-if="item && bundle"
-          ><el-input v-if="electronic" v-model="item.name" :aria-label="t('name')" /><el-select
-            :model-value="item.reportNId"
-            :aria-label="t('template')"
-            @update:model-value="setTemplate"
-            ><el-option
-              v-for="r in reports"
-              :key="r.nId"
-              :value="r.nId"
-              :label="r.name" /></el-select
-          ><el-input
-            :model-value="item.revisionNId"
-            :aria-label="t('revision')"
-            @change="(value: string) => (item!.revisionNId = value)"
-          /><el-checkbox
-            :model-value="!!draftChildren[item.reportNId]"
-            @update:model-value="(value: boolean) => selectChildDraft(value)"
-            >{{ t('useChildDraft') }}</el-checkbox
-          ><span v-if="draftChildren[item.reportNId]"
-            >{{ draftChildren[item.reportNId]?.optimisticVersion }} ·
-            {{ draftChildren[item.reportNId]?.concurrencyVersion }}</span
-          ><el-button link @click="editChild">{{ t('editChild') }}</el-button
-          ><el-checkbox v-if="!electronic" v-model="item.enabled">{{ t('enabled') }}</el-checkbox
-          ><el-checkbox v-model="item.required">{{ t('required') }}</el-checkbox
-          ><ReportMappings
-            v-model="item.parameterMap"
-            :instances="ids"
-            :label="t('params')"
-          /><template v-if="electronic"
-            ><label
-              >{{ t('breakBefore')
-              }}<el-select v-model="item.breakBefore" :aria-label="t('breakBefore')">
-                <el-option value="Auto" :label="t('breakAuto')" />
-                <el-option value="Page" :label="t('breakPage')" /> </el-select></label
-            ><el-select
-              :model-value="item.repeat ? 'repeat' : 'presence'"
-              :aria-label="t('output')"
-              @update:model-value="
-                (v: string) => {
-                  const old = item!.repeat ?? item!.presence
-                  delete item!.repeat
-                  delete item!.presence
-                  item![v] = old
-                }
-              "
-              ><el-option value="repeat" label="0..N" /><el-option
-                value="presence"
-                label="1" /></el-select
-            ><ReportCollectionEditor
-              v-if="item.repeat"
-              v-model="item.repeat"
-              :instances="ids"
-              :datasets="datasets"
-            /><ReportCollectionEditor
-              v-else
-              v-model="item.presence"
-              :instances="ids"
-              :datasets="datasets"
-            /><el-select
-              :model-value="item.content.mode"
-              :aria-label="t('entry')"
-              @update:model-value="
-                (v: string) =>
-                  (item!.content =
-                    v === 'WholeReport'
-                      ? { mode: v }
-                      : { mode: v, entryBandId: '', rowMap: [], ancestorMap: [] })
-              "
-              ><el-option value="WholeReport" label="WholeReport" /><el-option
-                value="BandSubtree"
-                label="BandSubtree" /></el-select
-            ><template v-if="item.content.mode === 'BandSubtree'"
-              ><el-select
-                v-model="item.content.entryBandId"
-                :aria-label="t('entryBand')"
-                :loading="contractLoading"
-                ><el-option
-                  v-for="b in contract?.entryBands ?? []"
-                  :key="b.id"
-                  :value="b.id"
-                  :label="b.name"
-              /></el-select>
-              <el-alert
-                v-if="contractError"
-                :title="contractError"
-                type="error"
-                :closable="false"
-              />
-              <div v-for="(map, index) in item.content.rowMap" :key="index">
-                <el-input
-                  :aria-label="`${t('rowMap')} ${Number(index) + 1}`"
-                  :model-value="map.targetPath.join('.')"
-                  @update:model-value="
-                    (v: string) => (map.targetPath = v.split('.').filter(Boolean))
-                  "
-                /><BindingEditor v-model="map.source" :instances="ids" :contexts="reportContexts" />
-                <el-button
-                  link
-                  type="danger"
-                  :aria-label="`${t('removeMapping')} · ${t('rowMap')} ${Number(index) + 1}`"
-                  @click="item.content.rowMap.splice(index, 1)"
-                  >{{ t('removeMapping') }}</el-button
-                >
-              </div>
-              <el-button @click="item.content.rowMap.push({ targetPath: [], source: binding() })"
-                >{{ t('rowMap') }} +</el-button
+        <template v-if="item && bundle">
+          <el-tabs v-model="inspectorTab" stretch>
+            <el-tab-pane :label="t('basic')" name="basic" />
+            <el-tab-pane :label="t('bundleData')" name="data" />
+            <el-tab-pane :label="t('bundleLayout')" name="layout" />
+          </el-tabs>
+          <el-form label-position="top" class="report-bundle-properties">
+            <template v-if="inspectorTab === 'basic'">
+              <el-form-item v-if="electronic && !driven" :label="t('name')"
+                ><el-input v-model="item.name" :aria-label="t('name')"
+              /></el-form-item>
+              <el-form-item :label="t('template')"
+                ><el-select-v2
+                  :model-value="item.reportNId"
+                  :options="reportOptions"
+                  :placeholder="t('chooseReport')"
+                  filterable
+                  :aria-label="t('template')"
+                  @update:model-value="setTemplate"
+              /></el-form-item>
+              <el-form-item :label="t('revision')"
+                ><el-input
+                  :model-value="item.revisionNId"
+                  :aria-label="t('revision')"
+                  @change="(value: string) => (item!.revisionNId = value)"
+              /></el-form-item>
+              <el-form-item
+                ><el-checkbox
+                  :model-value="!!draftChildren[item.reportNId]"
+                  @update:model-value="(value: boolean) => selectChildDraft(value)"
+                  >{{ t('useChildDraft') }}</el-checkbox
+                ></el-form-item
               >
-              <div v-for="(map, index) in item.content.ancestorMap" :key="index">
-                <el-input
-                  v-model="map.bandId"
-                  :aria-label="`${t('ancestorMap')} ${Number(index) + 1}`"
-                /><BindingEditor v-model="map.source" :instances="ids" :contexts="reportContexts" />
-                <el-button
-                  link
-                  type="danger"
-                  :aria-label="`${t('removeMapping')} · ${t('ancestorMap')} ${Number(index) + 1}`"
-                  @click="item.content.ancestorMap.splice(index, 1)"
-                  >{{ t('removeMapping') }}</el-button
+              <el-button link @click="editChild">{{ t('editChild') }}</el-button>
+              <el-form-item v-if="!electronic"
+                ><el-checkbox v-model="item.enabled">{{ t('enabled') }}</el-checkbox></el-form-item
+              >
+              <el-form-item v-if="driven" :label="t('templateScope')"
+                ><el-select
+                  :model-value="item.scope ?? 'Operation'"
+                  :aria-label="t('templateScope')"
+                  @update:model-value="(value: string) => (item!.scope = value)"
+                  ><el-option value="WorkOrder" :label="t('workOrderScope')" /><el-option
+                    value="Operation"
+                    :label="t('operationScope')" /></el-select
+              ></el-form-item>
+              <el-form-item
+                ><el-checkbox v-model="item.required">{{
+                  driven ? t('fixedTemplate') : t('required')
+                }}</el-checkbox></el-form-item
+              >
+              <p v-if="driven" class="report-help">{{ t('fixedTemplateHint') }}</p>
+            </template>
+            <template v-if="inspectorTab === 'data'">
+              <ReportMappings
+                v-if="driven"
+                :model-value="item.instanceMap ?? []"
+                @update:model-value="(value: Json[]) => (item!.instanceMap = value)"
+                :instances="ids"
+                :label="t('snapshotMapping')"
+                :target-label="t('snapshotTarget')"
+              />
+              <p v-if="driven" class="report-help">{{ t('snapshotMappingHint') }}</p>
+              <ReportMappings v-model="item.parameterMap" :instances="ids" :label="t('params')" />
+              <template v-if="electronic && !driven">
+                <el-select
+                  :model-value="item.repeat ? 'repeat' : 'presence'"
+                  :aria-label="t('output')"
+                  @update:model-value="
+                    (v: string) => {
+                      const old = item!.repeat ?? item!.presence
+                      delete item!.repeat
+                      delete item!.presence
+                      item![v] = old
+                    }
+                  "
+                  ><el-option value="repeat" label="0..N" /><el-option
+                    value="presence"
+                    label="1" /></el-select
+                ><ReportCollectionEditor
+                  v-if="item.repeat"
+                  v-model="item.repeat"
+                  :instances="ids"
+                  :datasets="datasets"
+                /><ReportCollectionEditor
+                  v-else
+                  v-model="item.presence"
+                  :instances="ids"
+                  :datasets="datasets"
+                /><el-select
+                  :model-value="item.content.mode"
+                  :aria-label="t('entry')"
+                  @update:model-value="
+                    (v: string) =>
+                      (item!.content =
+                        v === 'WholeReport'
+                          ? { mode: v }
+                          : { mode: v, entryBandId: '', rowMap: [], ancestorMap: [] })
+                  "
+                  ><el-option value="WholeReport" :label="t('wholeReport')" /><el-option
+                    value="BandSubtree"
+                    :label="t('bandSubtree')" /></el-select
+                ><template v-if="item.content.mode === 'BandSubtree'"
+                  ><el-select
+                    v-model="item.content.entryBandId"
+                    :aria-label="t('entryBand')"
+                    :loading="contractLoading"
+                    ><el-option
+                      v-for="b in contract?.entryBands ?? []"
+                      :key="b.id"
+                      :value="b.id"
+                      :label="b.name"
+                  /></el-select>
+                  <el-alert
+                    v-if="contractError"
+                    :title="contractError"
+                    type="error"
+                    :closable="false"
+                  />
+                  <div v-for="(map, index) in item.content.rowMap" :key="index">
+                    <el-input
+                      :aria-label="`${t('rowMap')} ${Number(index) + 1}`"
+                      :model-value="map.targetPath.join('.')"
+                      @update:model-value="
+                        (v: string) => (map.targetPath = v.split('.').filter(Boolean))
+                      "
+                    /><BindingEditor
+                      v-model="map.source"
+                      :instances="ids"
+                      :contexts="reportContexts"
+                    />
+                    <el-button
+                      link
+                      type="danger"
+                      :aria-label="`${t('removeMapping')} · ${t('rowMap')} ${Number(index) + 1}`"
+                      @click="item.content.rowMap.splice(index, 1)"
+                      >{{ t('removeMapping') }}</el-button
+                    >
+                  </div>
+                  <el-button
+                    @click="item.content.rowMap.push({ targetPath: [], source: binding() })"
+                    >{{ t('rowMap') }} +</el-button
+                  >
+                  <div v-for="(map, index) in item.content.ancestorMap" :key="index">
+                    <el-input
+                      v-model="map.bandId"
+                      :aria-label="`${t('ancestorMap')} ${Number(index) + 1}`"
+                    /><BindingEditor
+                      v-model="map.source"
+                      :instances="ids"
+                      :contexts="reportContexts"
+                    />
+                    <el-button
+                      link
+                      type="danger"
+                      :aria-label="`${t('removeMapping')} · ${t('ancestorMap')} ${Number(index) + 1}`"
+                      @click="item.content.ancestorMap.splice(index, 1)"
+                      >{{ t('removeMapping') }}</el-button
+                    >
+                  </div>
+                  <el-button
+                    @click="item.content.ancestorMap.push({ bandId: '', source: binding('Root') })"
+                    >{{ t('ancestorMap') }} +</el-button
+                  ></template
                 >
-              </div>
-              <el-button
-                @click="item.content.ancestorMap.push({ bandId: '', source: binding('Root') })"
-                >{{ t('ancestorMap') }} +</el-button
-              ></template
-            ></template
-          ></template
-        >
+              </template>
+            </template>
+            <template v-if="inspectorTab === 'layout'">
+              <el-form-item v-if="electronic" :label="t('breakBefore')"
+                ><el-select
+                  :model-value="item.breakBefore ?? 'Auto'"
+                  :aria-label="t('breakBefore')"
+                  @update:model-value="(value: string) => (item!.breakBefore = value)"
+                  ><el-option value="Auto" :label="t('breakAuto')" /><el-option
+                    value="Page"
+                    :label="t('breakPage')" /></el-select
+              ></el-form-item>
+              <p v-else class="report-help">{{ t('independentPaper') }} · {{ t('breakPage') }}</p>
+            </template>
+          </el-form>
+        </template>
       </template>
     </StudioEditorShell>
     <AppFormDrawer
       :model-value="drawer === 'data'"
       :title="t('data')"
+      size="extra-wide"
       :hide-footer="true"
-      @update:model-value="drawer = ''"
+      @update:model-value="closeData"
     >
-      <template v-if="drawer === 'data'"
-        ><ReportQueryEditor
-          v-if="!bundle"
-          v-model="doc"
-          :datasets="datasets"
-          :dataset-schemas="schemaContract.datasetSchemas"
-        />
-        <h3>{{ t('params') }}</h3>
-        <div v-for="(p, i) in doc.parameters" :key="i">
-          <el-input v-model="p.name" :aria-label="t('name')" /><el-select v-model="p.type"
-            ><el-option
-              v-for="v in ['String', 'Int32', 'Decimal', 'Date', 'Boolean', 'Array']"
-              :key="v"
-              :value="v"
-              :label="v" /></el-select
-          ><el-checkbox v-model="p.required">{{ t('required') }}</el-checkbox>
-        </div>
-        <el-button
-          @click="
-            edit((d) =>
-              d.parameters.push({
-                name: '',
-                label: '',
-                type: 'String',
-                required: false,
-                nullable: true,
-              }),
-            )
-          "
-          >+</el-button
-        >
-        <h3>{{ t('instance') }}</h3>
-        <div v-for="i in instances" :key="i.instanceId">
-          <el-input v-model="i.instanceId" :aria-label="t('instance')" />
-          <el-select
-            :model-value="i.sourceType ?? 'Dataset'"
-            :aria-label="t('source')"
-            @update:model-value="setInstanceSource(i, $event)"
+      <el-tabs v-if="drawer === 'data'" v-model="dataTab" class="report-data-tabs">
+        <el-tab-pane :label="t('dataInstances')" name="instances">
+          <p class="report-data-hint">{{ t('instanceDataHint') }}</p>
+          <el-collapse v-model="dataInstance" accordion>
+            <el-collapse-item v-for="(i, index) in instances" :key="index" :name="String(index)">
+              <template #title
+                ><span class="report-instance-title">{{ i.instanceId || t('instance') }}</span
+                ><el-tag size="small" type="info">{{
+                  t(i.sourceType === 'Constant' ? 'constantSource' : 'datasetSource')
+                }}</el-tag></template
+              >
+              <el-form label-position="top">
+                <div class="report-data-fields">
+                  <el-form-item :label="t('instance')"
+                    ><el-input v-model="i.instanceId" :aria-label="t('instance')"
+                  /></el-form-item>
+                  <el-form-item :label="t('source')">
+                    <el-select
+                      :model-value="i.sourceType ?? 'Dataset'"
+                      :aria-label="t('source')"
+                      @update:model-value="setInstanceSource(i, $event)"
+                    >
+                      <el-option value="Dataset" :label="t('datasetSource')" />
+                      <el-option value="Constant" :label="t('constantSource')" />
+                    </el-select>
+                  </el-form-item>
+                </div>
+                <DashboardConstantEditor
+                  v-if="i.sourceType === 'Constant'"
+                  :ref="(el) => setConstantEditor(index, el)"
+                  v-model="i.value"
+                  json-only
+                />
+                <template v-else>
+                  <el-form-item :label="t('datasetSource')"
+                    ><el-select
+                      :model-value="i.datasetNId"
+                      :aria-label="t('datasetSource')"
+                      @update:model-value="setDataset(i, $event)"
+                      ><el-option
+                        v-for="d in datasets"
+                        :key="d.nId"
+                        :value="d.nId"
+                        :label="d.name" /></el-select
+                  ></el-form-item>
+                  <small>{{ i.revisionNId }}</small>
+                  <ReportMappings v-model="i.parameters" :instances="ids" :label="t('params')" />
+                </template>
+              </el-form>
+            </el-collapse-item>
+          </el-collapse>
+          <el-button class="report-data-add" @click="addInstance">{{ t('addInstance') }}</el-button>
+        </el-tab-pane>
+        <el-tab-pane :label="t('params')" name="parameters">
+          <el-form label-position="top">
+            <div v-for="(p, i) in doc.parameters" :key="i" class="report-data-fields">
+              <el-form-item :label="t('name')"
+                ><el-input v-model="p.name" :aria-label="t('name')"
+              /></el-form-item>
+              <el-form-item :label="t('parameterType')"
+                ><el-select v-model="p.type" :aria-label="t('parameterType')"
+                  ><el-option
+                    v-for="v in ['String', 'Int32', 'Decimal', 'Date', 'Boolean', 'Array']"
+                    :key="v"
+                    :value="v"
+                    :label="parameterTypeLabels[v]" /></el-select
+              ></el-form-item>
+              <el-checkbox v-model="p.required">{{ t('required') }}</el-checkbox>
+            </div>
+          </el-form>
+          <el-button
+            @click="
+              edit((d) =>
+                d.parameters.push({
+                  name: '',
+                  label: '',
+                  type: 'String',
+                  required: false,
+                  nullable: true,
+                }),
+              )
+            "
+            >{{ t('addParameter') }}</el-button
           >
-            <el-option value="Dataset" :label="t('datasetSource')" />
-            <el-option value="Constant" :label="t('constantSource')" />
-          </el-select>
-          <DashboardConstantEditor v-if="i.sourceType === 'Constant'" v-model="i.value" />
-          <template v-else
-            ><el-select
-              :model-value="i.datasetNId"
-              :aria-label="t('datasetSource')"
-              @update:model-value="setDataset(i, $event)"
-              ><el-option
-                v-for="d in datasets"
-                :key="d.nId"
-                :value="d.nId"
-                :label="d.name" /></el-select
-            ><small>{{ i.revisionNId }}</small
-            ><ReportMappings v-model="i.parameters" :instances="ids" :label="t('params')"
-          /></template>
-        </div>
-        <el-button @click="addInstance">+</el-button></template
-      >
-      <template v-if="electronic"
-        ><h3>{{ t('data') }}</h3>
-        <ReportCollectionEditor
-          v-model="doc.assembly.root"
-          :instances="ids"
-          :datasets="datasets" /><ReportCollectionEditor
-          v-model="doc.assembly.operation.collection"
-          :instances="ids"
-          :datasets="datasets"
-      /></template>
+        </el-tab-pane>
+        <el-tab-pane v-if="electronic" :label="t('collectionBindings')" name="collections">
+          <h3>{{ t('orderCollection') }}</h3>
+          <ReportCollectionEditor
+            v-model="doc.assembly.root"
+            :instances="ids"
+            :datasets="datasets"
+          />
+          <h3>{{ t('operationCollection') }}</h3>
+          <ReportCollectionEditor
+            v-model="doc.assembly.operation.collection"
+            :instances="ids"
+            :datasets="datasets"
+          />
+        </el-tab-pane>
+        <el-tab-pane v-if="!bundle" :label="t('querySettings')" name="query">
+          <ReportQueryEditor
+            v-model="doc"
+            :datasets="datasets"
+            :dataset-schemas="schemaContract.datasetSchemas"
+          />
+        </el-tab-pane>
+      </el-tabs>
     </AppFormDrawer>
+    <el-dialog
+      v-if="drawer === 'preview'"
+      :model-value="true"
+      fullscreen
+      append-to-body
+      class="report-preview-dialog"
+      :title="t('preview')"
+      :show-close="false"
+      @close="closePreview"
+    >
+      <ReportPreviewPanel
+        :preview="result?.pages ? result : undefined"
+        :preview-n-id="result?.previewNId ? String(result.previewNId) : undefined"
+      >
+        <template #actions>
+          <ReportPreviewExport v-if="previewExportInput" :input="previewExportInput" />
+          <el-popover
+            v-if="doc.parameters?.length"
+            trigger="click"
+            :width="300"
+            placement="bottom-end"
+          >
+            <template #reference
+              ><el-button>{{ t('previewParameters') }}</el-button></template
+            >
+            <label v-for="p in doc.parameters" :key="p.name"
+              >{{ p.label || p.name }}<el-input v-model="parameters[p.name]"
+            /></label>
+            <el-button :loading="busy" @click="execute('preview')">{{ t('query') }}</el-button>
+          </el-popover>
+          <el-button
+            class="exit-preview"
+            :title="t('exitPreview')"
+            :aria-label="t('exitPreview')"
+            @click="closePreview"
+            >×</el-button
+          >
+        </template>
+        <el-alert v-if="error" :title="error" type="error" :closable="false" />
+        <el-button v-if="error && !busy" @click="execute('preview')">{{ t('query') }}</el-button>
+        <div v-if="busy" class="preview-loading" role="status">{{ t('running') }}</div>
+      </ReportPreviewPanel>
+    </el-dialog>
     <AppFormDrawer
-      :model-value="drawer === 'preview' || drawer === 'plan'"
-      :title="t(drawer === 'preview' ? 'preview' : 'plan')"
+      :model-value="drawer === 'plan'"
+      :title="t('plan')"
       size="extra-wide"
       :hide-footer="true"
       @update:model-value="(v: boolean) => !v && (drawer = '')"
-      ><el-alert
-        v-if="drawer === 'preview'"
-        :title="t('previewNote')"
-        type="info"
-        :closable="false" /><label v-for="p in doc.parameters" :key="p.name"
-        >{{ p.label || p.name }}<el-input v-model="parameters[p.name]" /></label
-      ><el-button :loading="busy" @click="execute(drawer === 'preview' ? 'preview' : 'plan')">{{
-        t('query')
-      }}</el-button>
-      <ReportPreviewPanel
-        v-if="drawer === 'preview' && (result?.pages || result?.previewNId)"
-        :preview="result?.pages ? result : undefined"
-        :preview-n-id="result?.previewNId ? String(result.previewNId) : undefined" />
-      <template v-else-if="result"
+    >
+      <label v-for="p in doc.parameters" :key="p.name"
+        >{{ p.label || p.name }}<el-input v-model="parameters[p.name]"
+      /></label>
+      <el-button :loading="busy" @click="execute('plan')">{{ t('query') }}</el-button>
+      <template v-if="result"
         ><AppDataTable
           table-key="studio.report.plan"
           row-key="instanceKey"
@@ -2315,6 +2755,87 @@ onBeforeRouteLeave(async () => {
   </AppPage>
 </template>
 <style scoped>
+.report-data-hint {
+  color: var(--el-text-color-secondary);
+  margin: 0 0 16px;
+}
+.report-instance-title {
+  overflow-wrap: anywhere;
+  margin-right: 12px;
+}
+.report-data-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: center;
+}
+.report-data-add {
+  margin-top: 16px;
+}
+.report-data-tabs :deep(.el-collapse-item__header) {
+  line-height: 1.5;
+}
+@media (max-width: 640px) {
+  .report-data-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+.report-designer {
+  height: 100%;
+  min-height: 0;
+}
+.report-designer :deep(.app-page__body),
+.report-design-shell {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+}
+.report-design-shell :deep(.studio-editor) {
+  flex: 1 1 0;
+  height: auto;
+  min-height: 0;
+}
+.report-canvas-toolbar {
+  flex-shrink: 0;
+}
+@media (min-width: 1025px) and (max-width: 1280px) {
+  .report-design-shell :deep(.studio-editor:not(.left-hidden):not(.right-hidden)) {
+    grid-template-columns: var(--studio-left) minmax(0, 1fr) var(--studio-right);
+  }
+  .report-design-shell :deep(.studio-editor.left-hidden:not(.right-hidden)) {
+    grid-template-columns: 0 minmax(0, 1fr) var(--studio-right);
+  }
+  .report-design-shell :deep(.studio-sidebar:last-child) {
+    position: relative;
+    width: auto;
+    box-shadow: none;
+    z-index: auto;
+  }
+}
+
+:global(.el-dialog.report-preview-dialog) {
+  padding: 0;
+  overflow: hidden;
+  height: 100dvh;
+  margin: 0;
+  width: 100vw;
+  max-width: none;
+}
+:global(.report-preview-dialog > .el-dialog__header) {
+  display: none;
+}
+:global(.report-preview-dialog > .el-dialog__body) {
+  height: 100%;
+}
+.exit-preview {
+  margin-left: auto !important;
+}
+.preview-loading {
+  padding: 12px;
+  text-align: center;
+}
 :deep(.studio-sidebar .el-tabs__item) {
   padding-inline: 12px;
   font-size: 13px;
@@ -2537,8 +3058,14 @@ onBeforeRouteLeave(async () => {
   overflow: visible;
 }
 .report-bundle-flow {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 900px;
   padding: 20px;
-  max-width: 700px;
+  margin-inline: auto;
+}
+.report-bundle-flow .report-tree-row {
+  overflow-wrap: anywhere;
 }
 .report-control-line {
   background: transparent;

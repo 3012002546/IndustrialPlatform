@@ -86,17 +86,8 @@ public sealed class ReportExecution(IReportRunStore runs, IStudioResourceStore r
             }
             else
             {
-                var outputPath = rendered.PdfPath; var contentType = "application/pdf";
-                if (claim.Format == "Html") { outputPath = Path.Combine(rendered.Directory, "result.html"); contentType = "text/html"; }
-                else if (claim.Format == "Xlsx")
-                {
-                    outputPath = Path.Combine(rendered.Directory, "result.xlsx"); contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-                    await using var stream = File.Create(outputPath);
-                    await using var writer = await IndustrialPlatform.RuntimeSupport.Exports.StreamingXlsxWriter.CreateAsync(stream, token);
-                    try { foreach (var row in (rendered.Result["workbookRows"] as JsonArray ?? throw new StudioException("REPORT_OUTPUT_INVALID", "工作簿正文行缺失。", 422)).OfType<JsonArray>()) await writer.WriteRowAsync(row.Select(StudioJson.Text), token); }
-                    catch (Exception error) when (error is ArgumentOutOfRangeException or System.Xml.XmlException) { throw new StudioException("REPORT_XLSX_CELL_UNSUPPORTED", "工作簿单元格内容超限或含无效字符，未截断内容。", 422); }
-                }
-                else if (claim.Format != "Pdf") throw new StudioException("REPORT_FORMAT_UNSUPPORTED", "输出格式未登记。", 422);
+                var outputPath = await ReportExporter.WriteAsync(rendered, claim.Format, token);
+                var contentType = ReportFormats.ContentType(claim.Format);
                 var output = await PersistAsync(principal, claim, "output-" + claim.Format.ToLowerInvariant(), outputPath, contentType, token);
                 artifacts.Add(Artifact(claim, output, "Output", claim.Format, rendered));
                 artifacts.Add(Artifact(claim, collected!, "DataSnapshot", "Json", rendered));
@@ -159,5 +150,5 @@ public sealed class ReportExecution(IReportRunStore runs, IStudioResourceStore r
         if (confirmed.Status != "Active") throw new StudioException("REPORT_FILE_UNCONFIRMED", "文件扫描或引用未确认，报告未成功。", 409);
         return new(file.FileNId, prepared.ReferenceNId, hash, content.Length);
     }
-    private StudioReportArtifact Artifact(StudioReportRun run, Confirmed file, string purpose, string format, ReportRenderedOutput rendered) => new() { NId = "artifact-" + Guid.NewGuid().ToString("N"), TenantNId = run.TenantNId, RunId = run.Id, CreatedOn = clock.GetUtcNow(), Purpose = purpose, Format = format, FileNId = file.FileNId, FileReferenceNId = file.ReferenceNId, Sha256 = file.Hash, ContentLength = file.Length, PageCount = purpose == "Output" ? rendered.PageCount : null, EngineManifestJson = rendered.EngineManifest.ToJsonString() };
+    private StudioReportArtifact Artifact(StudioReportRun run, Confirmed file, string purpose, string format, ReportRenderedOutput rendered) => new() { NId = "artifact-" + Guid.NewGuid().ToString("N"), TenantNId = run.TenantNId, RunId = run.Id, CreatedOn = clock.GetUtcNow(), Purpose = purpose, Format = format, FileNId = file.FileNId, FileReferenceNId = file.ReferenceNId, Sha256 = file.Hash, ContentLength = file.Length, PageCount = purpose == "Output" && format is ("Pdf" or "Html" or "Mht" or "Png" or "Jpeg") ? rendered.PageCount : null, EngineManifestJson = rendered.EngineManifest.ToJsonString() };
 }

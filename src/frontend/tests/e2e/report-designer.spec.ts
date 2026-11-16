@@ -5,6 +5,46 @@ type Fixture = { calls: string[]; saved: Json; original: Json }
 const state = (page: Page) =>
   page.evaluate(() => (window as unknown as { reportFixture: Fixture }).reportFixture)
 const right = (page: Page) => page.locator('.studio-sidebar').last()
+
+test('R3 advanced controls preserve edited configuration through undo and save', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1600, height: 1000 })
+  await open(page)
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  for (const name of ['字符格', '形状', '条形码', '图表', '仪表', '趋势图', '打印透视表']) {
+    await page
+      .locator('.report-control-palette')
+      .getByRole('button', { name, exact: true })
+      .press('Enter')
+    await expect(right(page).locator('.report-selection-title')).toHaveText(name)
+  }
+  await right(page).getByRole('tab', { name: '内容与绑定' }).click()
+  await right(page).locator('.el-checkbox').filter({ hasText: '显示行列总计' }).click()
+  await page.getByRole('button', { name: '撤销', exact: true }).click()
+  await expect(
+    right(page).getByRole('checkbox', { name: '显示行列总计', exact: true }),
+  ).toBeChecked()
+  await page.getByRole('button', { name: '恢复', exact: true }).click()
+  await page.getByRole('button', { name: '保存草稿', exact: true }).click()
+  const saved = (await state(page)).saved
+  const controls = saved.bands.flatMap((band: Json) => band.controls)
+  expect(controls.slice(2).map((control: Json) => control.type)).toEqual([
+    'CharacterComb',
+    'Shape',
+    'Barcode',
+    'Chart',
+    'Gauge',
+    'Sparkline',
+    'PivotTable',
+  ])
+  expect(controls[8].advanced.totals).toBe(false)
+  expect(controls[4].value.value).toBe('CODE39')
+  expect(controls.slice(0, 2)).toEqual((await state(page)).original.bands[0].controls)
+  expect(errors).toEqual([])
+  await page.screenshot({ path: '../../.run/r3/advanced-designer.png', fullPage: true })
+})
 async function open(page: Page, large = false) {
   await page.goto(`/tests/fixtures/report-designer.html${large ? '?large' : ''}`)
   await expect(page.locator('.report-control')).toHaveCount(2)
@@ -21,7 +61,7 @@ test('control selection is local, quick and leaves the document and undo history
   const times: number[] = []
   for (const index of [0, 1, 0, 1]) {
     const start = Date.now()
-    await page.locator('.report-control').nth(index).click()
+    await page.locator('.report-control').nth(index).press('Enter')
     await expect(right(page).locator('.report-selection-title')).toHaveText(index ? '表格' : '标签')
     await page.evaluate(
       () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
@@ -41,9 +81,8 @@ test('control selection is local, quick and leaves the document and undo history
 test('large table edits one column with searchable virtual field options', async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 1000 })
   await open(page, true)
-  await page.locator('.report-control').nth(1).click()
   const start = Date.now()
-  await right(page).getByRole('tab', { name: '内容与绑定' }).click()
+  await page.locator('.report-design-table tbody td').first().click()
   await expect(page.locator('.report-column-editor')).toHaveCount(1)
   expect(Date.now() - start).toBeLessThan(1000)
   expect(await page.locator('*').count()).toBeLessThan(2000)
@@ -64,7 +103,7 @@ test('generic palette, page bands, group pairs and undo/save round trip', async 
   await open(page)
   await expect(page.getByRole('button', { name: /CMP/ })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '组装计划', exact: true })).toHaveCount(0)
-  await expect(page.locator('.report-control-palette button')).toHaveCount(9)
+  await expect(page.locator('.report-control-palette button')).toHaveCount(19)
   await page
     .locator('.report-control-palette')
     .getByRole('button', { name: '复选框', exact: true })
@@ -148,7 +187,7 @@ test('appearance is mounted on demand and edits the selected shared style', asyn
 test('English and dark theme retain the control palette and paper inspector', async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 1000 })
   await page.goto('/tests/fixtures/report-designer.html?english&dark')
-  await expect(page.locator('.report-control-palette button')).toHaveCount(9)
+  await expect(page.locator('.report-control-palette button')).toHaveCount(19)
   await expect(
     page.locator('.report-control-palette').getByRole('button', { name: 'Check box', exact: true }),
   ).toBeVisible()
@@ -208,8 +247,12 @@ test('design uses physical style and table widths, with the shared engine previe
   expect(geometry.columnWidth).toBe('60px')
   await page.getByRole('button', { name: '预览', exact: true }).click()
   await expect(page.frameLocator('iframe').getByText('Engine page fixture')).toBeVisible()
+  await expect.poll(async () => (await page.getByRole('dialog').boundingBox())?.y).toBe(0)
   const dialog = (await page.getByRole('dialog').boundingBox())!
-  expect(dialog.width).toBeGreaterThanOrEqual(1000)
+  expect(dialog.x).toBe(0)
+  expect(dialog.y).toBe(0)
+  expect(dialog.width).toBeCloseTo(1920, 0)
+  expect(dialog.height).toBeCloseTo(1080, 0)
   await page.keyboard.press('Escape')
   await page.goto('/tests/fixtures/report-designer.html?sample')
   await expect(page.locator('.report-control')).toHaveCount(9)
@@ -272,4 +315,81 @@ test('rulers show physical units and all four margins without changing report co
   expect(alignment).toBeLessThan(3)
   await page.getByRole('button', { name: '适应画布', exact: true }).click()
   await page.screenshot({ path: '../../.run/pf09-report-rulers.png', fullPage: true })
+})
+
+test('closing a pending preview cancels it and the designer can immediately preview again', async ({
+  page,
+}) => {
+  await page.goto('/tests/fixtures/report-designer.html?slow-preview')
+  const preview = page.getByRole('button', { name: '预览', exact: true })
+  await preview.click()
+  await page.getByRole('button', { name: '关闭预览' }).click()
+  await expect.poll(async () => (await state(page)).calls).toContain('abort-preview')
+  await preview.click()
+  await expect(page.frameLocator('iframe').getByText('Engine page fixture')).toBeVisible()
+})
+
+test('shows report names and preserves both electronic assembly modes', async ({ page }) => {
+  await page.goto('/tests/fixtures/report-designer.html?bundle=Simple')
+  const canvas = page.locator('.report-bundle-flow')
+  await expect(
+    page
+      .locator('.studio-sidebar')
+      .first()
+      .getByRole('button', { name: '工序检验记录', exact: true }),
+  ).toBeVisible()
+  await expect(canvas).toContainText('工序检验记录')
+  await expect(canvas).not.toContainText('revision-child')
+  await page.goto('/tests/fixtures/report-designer.html?bundle=ElectronicRecord')
+  await expect(page.getByRole('radio', { name: '正常拼接', exact: true })).toBeChecked()
+  await page.getByText('数据驱动拼接', { exact: true }).click()
+  await expect(canvas.getByRole('button')).toHaveCount(0)
+  await page
+    .locator('.studio-sidebar')
+    .first()
+    .getByRole('button', { name: '新增', exact: true })
+    .click()
+  await page.getByRole('combobox', { name: '子模板', exact: true }).press('Enter')
+  await page.getByRole('option', { name: '工序检验记录', exact: true }).click()
+  await expect(canvas.getByRole('button')).toContainText('工序检验记录')
+  await page.getByText('正常拼接', { exact: true }).click()
+  await expect(canvas.getByRole('button')).toContainText('逐批次汇集配制记录')
+  await page.getByText('数据驱动拼接', { exact: true }).click()
+  await page.getByRole('button', { name: '保存草稿', exact: true }).click()
+  const stored = (await state(page)).saved.assembly
+  expect(stored.stitchMode).toBe('DataDriven')
+  expect(stored.rules).toHaveLength(1)
+  expect(stored.templates).toHaveLength(1)
+  expect(stored.templates[0].reportNId).toBe('c03e1b2d-a4df-44a5-973d-9df697517e3e')
+})
+
+test('R4 document controls save a fixed subreport revision and a Chinese contents title', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1600, height: 1000 })
+  await open(page)
+  await page
+    .locator('.report-control-palette')
+    .getByRole('button', { name: '子报表', exact: true })
+    .press('Enter')
+  await right(page).getByRole('tab', { name: '内容与绑定' }).click()
+  await right(page).getByRole('combobox', { name: '子报表', exact: true }).press('Enter')
+  await page.getByRole('option', { name: '工序检验记录', exact: true }).click()
+  await page
+    .locator('.report-control-palette')
+    .getByRole('button', { name: '目录', exact: true })
+    .press('Enter')
+  await right(page).getByRole('tab', { name: '内容与绑定' }).click()
+  await right(page).getByRole('textbox', { name: '目录标题', exact: true }).fill('光刻胶批记录目录')
+  await page.getByRole('button', { name: '保存草稿', exact: true }).click()
+  const saved = (await state(page)).saved
+  const controls = saved.bands.flatMap((band: Json) => band.controls)
+  expect(controls.find((c: Json) => c.type === 'SubReport').subReport.revisionNId).toBe(
+    'revision-child',
+  )
+  expect(controls.find((c: Json) => c.type === 'TableOfContents').toc.title).toBe(
+    '光刻胶批记录目录',
+  )
+  expect(saved.instances).toEqual((await state(page)).original.instances)
+  await page.screenshot({ path: '../../.run/r4/document-designer.png', fullPage: true })
 })

@@ -61,8 +61,9 @@ beforeEach(() => {
   state.api.reportRun.mockResolvedValue({ runNId: 'run-a' })
 })
 afterEach(() => page?.unmount())
-function render() {
+function render(props = {}) {
   page = mount(ReportRuntimePage, {
+    props,
     global: {
       plugins: [createPinia(), ElementPlus],
       stubs: {
@@ -137,4 +138,69 @@ it('reuses the formal run key after a lost acknowledgement and changes it when i
   await generate().trigger('click')
   await flushPromises()
   expect(state.api.reportRun.mock.calls[2]![2]).not.toBe(first)
+})
+
+it('uses the pinned resource revision and typed parameters in an embedded content host', async () => {
+  const contract = await state.api.client.get()
+  state.api.client.get.mockResolvedValue({
+    ...contract,
+    revisionNId: 'pinned-revision',
+    resource: { nId: 'linked-report', publishedRevisionNId: 'newer-revision' },
+  })
+  state.api.client.get.mockClear()
+  render({
+    resourceNId: 'linked-report',
+    revisionNId: 'pinned-revision',
+    initialParameters: { title: 'Inspection A' },
+    embedded: true,
+  })
+  await flushPromises()
+  expect(state.api.client.get).toHaveBeenCalledWith(
+    '/api/v1/studio/reports/linked-report/runtime?revisionNId=pinned-revision',
+  )
+  expect((page.get('input[aria-label="title"]').element as HTMLInputElement).value).toBe(
+    'Inspection A',
+  )
+  const loader = page.getComponent(Table).props('loader')
+  await loader({ pageIndex: 1, pageSize: 20 })
+  expect(state.api.reportQuery).toHaveBeenLastCalledWith(
+    'linked-report',
+    expect.objectContaining({
+      revisionNId: 'pinned-revision',
+      parameters: { title: 'Inspection A' },
+    }),
+  )
+  await page.get('input[aria-label="title"]').setValue('Changed')
+  await page.get('.reset').trigger('click')
+  expect((page.get('input[aria-label="title"]').element as HTMLInputElement).value).toBe(
+    'Inspection A',
+  )
+})
+
+it('submits every registered export format without changing the fixed revision or parameters', async () => {
+  render()
+  await flushPromises()
+  const selector = page.findAllComponents({ name: 'ElSelect' }).at(-1)!
+  const formats = ['Pdf', 'Html', 'Xlsx', 'Xls', 'Docx', 'Rtf', 'Mht', 'Text', 'Csv', 'Png', 'Jpeg']
+  expect(
+    selector
+      .findAllComponents({ name: 'ElOption' })
+      .map((option) => option.props('value'))
+      .sort(),
+  ).toEqual([...formats].sort())
+  for (const format of formats) {
+    selector.vm.$emit('update:modelValue', format)
+    await flushPromises()
+    await page
+      .findAll('button')
+      .find((button) => button.text() === '生成当前查询全部结果')!
+      .trigger('click')
+    await flushPromises()
+    expect(state.api.reportRun.mock.lastCall![1]).toMatchObject({
+      format,
+      revisionNId: 'revision-a',
+      parameters: { title: 'Default title' },
+    })
+  }
+  expect(new Set(state.api.reportRun.mock.calls.map((call) => call[2])).size).toBe(formats.length)
 })

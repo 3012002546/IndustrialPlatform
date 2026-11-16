@@ -5,6 +5,7 @@ import BindingEditor from '../shared/BindingEditor.vue'
 import TraceDatasetPicker from './TraceDatasetPicker.vue'
 import TraceFields from './TraceFields.vue'
 import TraceMappings from './TraceMappings.vue'
+import TraceLinksEditor from './TraceLinksEditor.vue'
 import { rowBinding, type TraceDetailSection } from './model'
 import { useTraceCopy } from './copy'
 
@@ -33,8 +34,10 @@ function remove(id: string) {
   if (active.value === id) active.value = ''
 }
 function changeKind(section: TraceDetailSection) {
-  if (section.kind === 'Fields') delete section.rowKey
-  else section.rowKey ??= rowBinding('id')
+  if (section.kind === 'Fields') {
+    delete section.rowKey
+    delete section.links
+  } else section.rowKey ??= rowBinding('id')
 }
 </script>
 <template>
@@ -108,6 +111,10 @@ function changeKind(section: TraceDetailSection) {
               :max="200"
               :aria-label="t('pageSize')"
           /></label>
+          <TraceLinksEditor
+            :model-value="section.links ?? []"
+            @update:model-value="(links) => (section.links = links)"
+          />
           <fieldset>
             <legend>{{ t('columns') }}</legend>
             <div v-for="(column, index) in section.columns" :key="index" class="studio-field-block">

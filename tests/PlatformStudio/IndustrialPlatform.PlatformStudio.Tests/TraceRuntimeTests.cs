@@ -223,6 +223,103 @@ public sealed class TraceRuntimeTests
         var invalidDirection = f.Document.DeepClone().AsObject(); invalidDirection["presentation"]!["layoutDirection"] = "Sideways";
         Assert.Contains(StudioDocuments.Validate("TraceModel", invalidDirection), d => d.Path == "presentation.layoutDirection");
     }
+    [Fact]
+    public async Task Section_links_requery_the_signed_row_and_ignore_browser_values()
+    {
+        await using var f = await Fixture.Create(sections: true, rowLinks: true);
+        var result = await f.Query("A", "Downstream");
+        var input = NodeInput(f.Revision, result["nodes"]![0]!);
+        input["sectionId"] = "checks"; input["page"] = 2; input["pageSize"] = 2;
+        var page = await f.Runtime.NodeSectionAsync(f.P, "trace", input, Ct);
+        Assert.Single(page["links"]!.AsArray());
+        input["linkId"] = "report"; input["rowToken"] = page["items"]![0]!["rowToken"]!.DeepClone();
+        input["row"] = new JsonObject { ["checkId"] = "forged", ["checkValue"] = "forged" };
+        input["page"] = 99; input["pageSize"] = 100; input["target"] = "forged";
+        f.Executor.SectionValue = "复核结果";
+        var link = await f.Runtime.ResolveNodeLinkInputAsync(f.P, "trace", input, Ct);
+        Assert.Equal("A-3", StudioJson.Text(link.Value));
+        Assert.Equal("复核结果", StudioJson.Text(link.Parameters["result"]));
+        Assert.Equal(2, f.Executor.SectionCalls);
+        Assert.Equal(2, f.Executor.LastSectionArguments!["offset"]!.GetValue<int>());
+        Assert.Null(link.Parameters["unconfiguredSecret"]);
+        var forged = input.DeepClone().AsObject(); forged["rowToken"] = "forged";
+        Assert.Equal(403, (await Assert.ThrowsAsync<StudioException>(() => f.Runtime.ResolveNodeLinkInputAsync(f.P, "trace", forged, Ct))).StatusCode);
+        forged = input.DeepClone().AsObject(); forged["sectionId"] = "basic";
+        Assert.Equal(403, (await Assert.ThrowsAsync<StudioException>(() => f.Runtime.ResolveNodeLinkInputAsync(f.P, "trace", forged, Ct))).StatusCode);
+        f.Executor.DuplicateSectionKeys = true;
+        Assert.Equal("STUDIO_ROW_KEY_AMBIGUOUS", (await Assert.ThrowsAsync<StudioException>(() => f.Runtime.ResolveNodeLinkInputAsync(f.P, "trace", input, Ct))).Code);
+        f.Executor.DuplicateSectionKeys = false; f.Executor.RemovedSectionRow = true;
+        Assert.Equal("TRACE_SECTION_ROW_CHANGED", (await Assert.ThrowsAsync<StudioException>(() => f.Runtime.ResolveNodeLinkInputAsync(f.P, "trace", input, Ct))).Code);
+        f.Executor.RemovedSectionRow = false;
+        f.Executor.SectionExecuted = () => f.Identity.Current = f.P with { AuthVersion = "revoked" };
+        Assert.Equal(403, (await Assert.ThrowsAsync<StudioException>(() => f.Runtime.ResolveNodeLinkInputAsync(f.P, "trace", input, Ct))).StatusCode);
+    }
+    [Fact]
+    public async Task Section_link_publication_checks_row_fields_and_target_registration()
+    {
+        await using var f = await Fixture.Create(sections: true, rowLinks: true);
+        var doc = f.Document.DeepClone().AsObject();
+        var link = doc["objects"]![0]!["detail"]!["sections"]![0]!["links"]![0]!;
+        link["value"]!["path"] = new JsonArray("code");
+        var plan = await f.Context.Publishing.ValidateAsync(f.P, "trace", doc, Ct);
+        Assert.False(plan.Valid);
+        Assert.Contains(plan.Diagnostics, d => d.Path.Contains("sections.checks.links", StringComparison.Ordinal));
+        link["value"]!["path"] = new JsonArray("checkId"); link["allowedOriginKey"] = "unregistered";
+        plan = await f.Context.Publishing.ValidateAsync(f.P, "trace", doc, Ct);
+        Assert.False(plan.Valid);
+        Assert.Contains(plan.Diagnostics, d => d.Path.EndsWith("allowedOriginKey", StringComparison.Ordinal));
+    }
+    [Theory]
+    [InlineData("PlatformNative", false, "LowCodePage")]
+    [InlineData("ExternalMes", true, "LowCodePage")]
+    [InlineData("PlatformNative", true, "Report")]
+    public async Task Resource_links_pin_revision_reauthorize_and_support_row_context(string mode, bool sectionLink, string targetKind)
+    {
+        await using var f = await Fixture.Create(sections: sectionLink, resourceLink: true, targetKind: targetKind);
+        f.Context.Profile.DeploymentMode = mode;
+        var catalog = await f.Runtime.LinkResourcesAsync(f.P, Ct);
+        Assert.Single(catalog["items"]!.AsArray());
+        Assert.Equal("关联页面", StudioJson.Text(catalog["items"]![0]!["name"]));
+        var result = await f.Query("A", "Downstream", new JsonObject { ["filter"] = new string('x', 12000) });
+        var input = NodeInput(f.Revision, result["nodes"]![0]!);
+        if (sectionLink)
+        {
+            input["sectionId"] = "checks"; input["page"] = 2;
+            var rows = await f.Runtime.NodeSectionAsync(f.P, "trace", input, Ct);
+            input["rowToken"] = rows["items"]![0]!["rowToken"]!.DeepClone();
+        }
+        input["linkId"] = "resource";
+        var link = await f.Runtime.NodeLinkAsync(f.P, "trace", input, Ct);
+        Assert.Equal("Resource", link.Kind);
+        Assert.Equal(link.ModalUrl, link.NewTabUrl);
+        Assert.True(link.ModalUrl.Length < 2048, $"Long trace parameters produced a {link.ModalUrl.Length}-character URL.");
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri("https://localhost" + link.ModalUrl).Query);
+        var ticket = query["ticket"].ToString();
+        var content = await f.Runtime.ResourceContentAsync(f.P, "trace", f.Revision, ticket, Ct);
+        Assert.Equal(sectionLink ? "A-3" : "F1-A", StudioJson.Text(content["parameters"]!["recordKey"]));
+        Assert.Equal(StudioJson.Text(catalog["items"]![0]!["revisionNId"]), StudioJson.Text(content["revisionNId"]));
+        Assert.Equal(403, (await Assert.ThrowsAsync<StudioException>(() => f.Runtime.ResourceContentAsync(f.P, "trace", f.Revision, ticket + "x", Ct))).StatusCode);
+        f.Context.Profile.InstalledModules = ["Traceability"];
+        Assert.Equal("STUDIO_MODULE_UNAVAILABLE", (await Assert.ThrowsAsync<StudioException>(() => f.Runtime.ResourceContentAsync(f.P, "trace", f.Revision, ticket, Ct))).Code);
+        f.Context.Profile.InstalledModules = ["LowCode", "Report", "Traceability"];
+        var target = (await f.Context.Store.FindResourceAsync(f.P.TenantNId, "target-page", Ct))!;
+        await f.Context.Store.ReplaceGrantsAsync(f.P.TenantNId, target.Id, [], Ct);
+        Assert.Empty((await f.Runtime.LinkResourcesAsync(f.P, Ct))["items"]!.AsArray());
+        Assert.Equal(404, (await Assert.ThrowsAsync<StudioException>(() => f.Runtime.ResourceContentAsync(f.P, "trace", f.Revision, ticket, Ct))).StatusCode);
+    }
+    [Fact]
+    public async Task Resource_link_publication_checks_required_parameter_type_and_fixed_target()
+    {
+        await using var f = await Fixture.Create(sections: true, resourceLink: true);
+        var doc = f.Document.DeepClone().AsObject();
+        var link = doc["objects"]![0]!["detail"]!["sections"]![0]!["links"]![0]!;
+        link["parameterMap"] = new JsonArray();
+        Assert.False((await f.Context.Publishing.ValidateAsync(f.P, "trace", doc, Ct)).Valid);
+        link["parameterMap"] = new JsonArray(new JsonObject { ["target"] = "recordKey", ["source"] = new JsonObject { ["from"] = "Constant", ["value"] = 12, ["nullPolicy"] = "Error" } });
+        Assert.False((await f.Context.Publishing.ValidateAsync(f.P, "trace", doc, Ct)).Valid);
+        link["target"]!["revisionNId"] = "";
+        Assert.Contains(StudioDocuments.Validate("TraceModel", doc), d => d.Path.Contains("revisionNId", StringComparison.Ordinal));
+    }
     private static JsonObject NodeInput(string revision, JsonNode node) => new() { ["revisionNId"] = revision, ["nodeKey"] = node["key"]!.DeepClone(), ["nodeToken"] = node["nodeToken"]!.DeepClone() };
     [Fact]
     public async Task Execution_catalog_uses_run_grants_without_design_or_view_and_hides_unavailable_models()
@@ -293,6 +390,8 @@ public sealed class TraceRuntimeTests
         public bool EmptyAssociation { get; set; }
         public bool DuplicateSectionKeys { get; set; }
         public Action? SectionExecuted { get; set; }
+        public bool RemovedSectionRow { get; set; }
+        public string SectionValue { get; set; } = "合格";
         public string ConfigurationHash(StudioSourceEndpoint endpoint) => SourceAdministration.EndpointHash(endpoint);
         public Task<JsonObject> TestAsync(StudioSource s, CancellationToken ct) => Task.FromResult(new JsonObject());
         public Task<StudioSourceResult> ExecuteAsync(StudioPrincipal p, StudioSource s, JsonObject doc, JsonObject args, bool preview, CancellationToken ct)
@@ -303,8 +402,8 @@ public sealed class TraceRuntimeTests
             {
                 SectionCalls++; LastSectionArguments = args.DeepClone().AsObject();
                 var offset = args["offset"]!.GetValue<int>(); var size = args["limit"]!.GetValue<int>();
-                for (var i = offset; i < Math.Min(offset + size, 5); i++)
-                    rows.Add(new JsonObject { ["checkId"] = StudioJson.Text(args["id"]) + "-" + (DuplicateSectionKeys ? "same" : (i + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)), ["checkLabel"] = "检验项" + (i + 1), ["checkValue"] = "合格", ["unconfiguredSecret"] = "hidden" });
+                for (var i = offset; i < Math.Min(offset + size, RemovedSectionRow ? 0 : 5); i++)
+                    rows.Add(new JsonObject { ["checkId"] = StudioJson.Text(args["id"]) + "-" + (DuplicateSectionKeys ? "same" : (i + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)), ["checkLabel"] = "检验项" + (i + 1), ["checkValue"] = SectionValue, ["unconfiguredSecret"] = "hidden" });
                 SectionExecuted?.Invoke();
                 return Task.FromResult(new StudioSourceResult(new JsonObject { ["rows"] = rows, ["totalCount"] = "5" }, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, rows.Count, 1));
             }
@@ -327,9 +426,9 @@ public sealed class TraceRuntimeTests
     {
         public required StudioTestContext Context { get; init; } public required TraceRuntime Runtime { get; init; } public required StudioPrincipal P { get; init; }
         public required string Revision { get; init; } public required JsonObject Document { get; init; } public required TestIdentity Identity { get; init; } public required TraceExecutor Executor { get; init; }
-        public static async Task<Fixture> Create(int maxNodes = 1000, int maxDepth = 12, int maxEdges = 3000, bool sections = false)
+        public static async Task<Fixture> Create(int maxNodes = 1000, int maxDepth = 12, int maxEdges = 3000, bool sections = false, bool rowLinks = false, bool resourceLink = false, string targetKind = "LowCodePage")
         {
-            var c = await StudioTestContext.CreateAsync(); c.Profile.InstalledModules = ["LowCode", "Traceability"];
+            var c = await StudioTestContext.CreateAsync(); c.Profile.InstalledModules = targetKind == "Report" ? ["LowCode", "Traceability", "Report"] : ["LowCode", "Traceability"];
             var p = Principal(TimeProvider.System); var executor = new TraceExecutor(); var endpoint = new StudioSourceEndpoint { ReadOnlyVerified = true };
             c.Profile.SourceRegistry["trace-source"] = endpoint;
             var source = new StudioSource { TenantNId = p.TenantNId, NId = "trace-source", Name = "fixture", Provider = "RegisteredApi", EndpointKey = "trace-source", EndpointConfigurationHash = executor.ConfigurationHash(endpoint), IsEnabled = true, ConfigurationVersion = 1 };
@@ -372,15 +471,43 @@ public sealed class TraceRuntimeTests
                 }
                 else model["relations"]![0]![operation]!["datasetRevisionNId"] = published.NId;
             }
+            if (rowLinks)
+            {
+                c.Profile.TraceExternalLinks["reports"] = new() { BaseAddress = "https://example.invalid/report", ValueParameter = "id" };
+                model["objects"]![0]!["detail"]!["sections"]![0]!["links"] = new JsonArray(new JsonObject
+                {
+                    ["id"] = "report", ["label"] = "记录报告", ["kind"] = "External", ["openMode"] = "Modal", ["allowedOriginKey"] = "reports",
+                    ["value"] = new JsonObject { ["from"] = "Row", ["path"] = new JsonArray("checkId"), ["nullPolicy"] = "Error" },
+                    ["parameterMap"] = new JsonArray(new JsonObject { ["target"] = "result", ["source"] = new JsonObject { ["from"] = "Row", ["path"] = new JsonArray("checkValue"), ["nullPolicy"] = "Error" } })
+                });
+            }
+            if (resourceLink)
+            {
+                model["parameters"] = new JsonArray(new JsonObject { ["name"] = "filter", ["type"] = "String", ["source"] = "Caller" });
+                var targetDoc = targetKind == "Report"
+                    ? ReportPlanningTests.Report(new JsonArray(new JsonObject { ["id"] = "record" }))
+                    : StudioCustomPageTests.Page();
+                targetDoc["parameters"] = new JsonArray(new JsonObject { ["name"] = "recordKey", ["type"] = "String", ["required"] = true, ["source"] = "Caller" });
+                var target = await c.Publishing.CreateAsync(p, new("target-page", targetKind, "关联页面", null, null, targetDoc), "target-create", Ct);
+                var targetPlan = await c.Publishing.ValidateAsync(p, target.NId, targetDoc, Ct);
+                Assert.True(targetPlan.Valid, string.Join(";", targetPlan.Diagnostics.Select(d => d.Message)));
+                var targetRevision = await c.Publishing.PublishAsync(p, target.NId, new(target.OptimisticVersion, target.ConcurrencyVersion, "target", true, targetPlan.DependencyPlanHash), "target-publish", Ct);
+                var link = new JsonObject { ["id"] = "resource", ["label"] = "平台报告", ["kind"] = "Resource", ["openMode"] = "Modal",
+                    ["target"] = new JsonObject { ["kind"] = targetKind, ["resourceNId"] = target.NId, ["revisionNId"] = targetRevision.NId },
+                    ["parameterMap"] = new JsonArray(new JsonObject { ["target"] = "recordKey", ["source"] = new JsonObject { ["from"] = "Row", ["path"] = new JsonArray(sections ? "checkId" : "code"), ["nullPolicy"] = "Error" } }) };
+                var detail = model["objects"]![0]!["detail"]!;
+                if (sections) detail["sections"]![0]!["links"] = new JsonArray(link);
+                else detail["links"] = new JsonArray(link);
+            }
             var resource = await c.Publishing.CreateAsync(p, new("trace", "TraceModel", "追溯", null, null, model), "create-trace", Ct);
-            var tracePlan = await c.Publishing.ValidateAsync(p, "trace", model, Ct); Assert.True(tracePlan.Valid, string.Join(";", tracePlan.Diagnostics.Select(d => d.Path + ": " + d.Message))); Assert.Equal(sections ? 5 : 4, tracePlan.DependencyPlan.Count); Assert.Single(tracePlan.SourcePins);
+            var tracePlan = await c.Publishing.ValidateAsync(p, "trace", model, Ct); Assert.True(tracePlan.Valid, string.Join(";", tracePlan.Diagnostics.Select(d => d.Path + ": " + d.Message))); Assert.Equal((sections ? 5 : 4) + (resourceLink ? 1 : 0), tracePlan.DependencyPlan.Count); Assert.Single(tracePlan.SourcePins);
             var trace = await c.Publishing.PublishAsync(p, "trace", new(resource.OptimisticVersion, resource.ConcurrencyVersion, "fixture", true, tracePlan.DependencyPlanHash), "publish-trace", Ct);
             var identity = new TestIdentity(p); var datasets = new DatasetExecution(c.Store, c.Publishing, c.Authorization, executor, new(), TimeProvider.System);
-            return new() { Context = c, P = p, Revision = trace.NId, Document = model, Identity = identity, Executor = executor, Runtime = new(c.Store, c.Publishing, datasets, c.Authorization, identity, new(TimeProvider.System), new NoLinks()) };
+            return new() { Context = c, P = p, Revision = trace.NId, Document = model, Identity = identity, Executor = executor, Runtime = new(c.Store, c.Publishing, datasets, c.Authorization, identity, new(TimeProvider.System), new NoLinks(), c.Profile) };
         }
-        public async Task<JsonObject> Query(string key, string direction)
+        public async Task<JsonObject> Query(string key, string direction, JsonObject? parameters = null)
         {
-            var starts = await Runtime.StartsAsync(P, "trace", new() { ["revisionNId"] = Revision }, Ct);
+            var starts = await Runtime.StartsAsync(P, "trace", new() { ["revisionNId"] = Revision, ["parameters"] = parameters }, Ct);
             var row = starts["items"]!.AsArray().First(x => StudioJson.Text(x!["identity"]!["businessKey"]) == key);
             return await Runtime.QueryAsync(P, "trace", new() { ["revisionNId"] = Revision, ["startKeys"] = new JsonArray(row!["startKey"]!.DeepClone()), ["direction"] = direction }, Ct);
         }

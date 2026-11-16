@@ -3,7 +3,9 @@
 import { createRequire } from 'node:module'
 import { readFile, writeFile, mkdir, access } from 'node:fs/promises'
 import { resolve, join, isAbsolute } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { createHash } from 'node:crypto'
+import { crc32 } from 'node:zlib'
 
 const hash = (value) => createHash('sha256').update(value).digest('hex')
 const option = (name) => {
@@ -24,6 +26,10 @@ if (hash(await readFile(new URL('./pf09-report-row-fragments.mjs', import.meta.u
 const { fragmentReportRows, installReportTableHeaders } = await import('./pf09-report-row-fragments.mjs')
 if (hash(await readFile(new URL('./pf09-report-layout.mjs', import.meta.url))) !== manifest.layoutSha256) throw new Error('RENDERER_LAYOUT_MISMATCH')
 const { layoutReportBands, reportPaperGeometry } = await import('./pf09-report-layout.mjs')
+if (hash(await readFile(new URL('./pf09-report-advanced.mjs', import.meta.url))) !== manifest.advancedSha256) throw new Error('RENDERER_ADVANCED_MISMATCH')
+const { renderReportAdvanced } = await import('./pf09-report-advanced.mjs')
+if (hash(await readFile(new URL('./pf09-report-documents.mjs', import.meta.url))) !== manifest.documentsSha256) throw new Error('RENDERER_DOCUMENTS_MISMATCH')
+const { inspectPdf, prepareReportToc, resolveReportToc, appendPdfPages } = await import('./pf09-report-documents.mjs')
 for (const asset of ['bundle', 'browser']) {
   if (!isAbsolute(manifest[`${asset}Path`] || '')) throw new Error('RENDERER_ASSET_PATH_REQUIRED')
   if (hash(await readFile(manifest[`${asset}Path`])) !== manifest[`${asset}Sha256`]) throw new Error(`RENDERER_${asset.toUpperCase()}_MISMATCH`)
@@ -52,7 +58,7 @@ const cancellation = setInterval(async () => {
 }, 250)
 const timeout = setTimeout(() => { timedOut = true; void browser.close() }, Math.min(Number(manifest.timeoutMs) || 120000, 300000))
 try {
-  page = await browser.newPage()
+  page = await browser.newPage({ deviceScaleFactor: ['Png', 'Jpeg'].includes(input.format) ? 150 / 96 : 1 })
   await page.route('**/*', (route) => route.abort())
   await page.setContent('<!doctype html><html lang="zh-CN"><meta charset="utf-8"><body><main id="source"></main><div id="pages"></div></body></html>')
   const geometry = reportPaperGeometry(input.paper)
@@ -112,22 +118,119 @@ try {
     const style = document.createElement('style'); style.dataset.pagedjsIgnore = 'true'; style.textContent = css; document.head.append(style)
     window.PagedConfig = { auto: false }
   }, { html: input.html, css, widthMm: bodyWidth, values: input.formValues })
+  const pdfSources = await page.evaluate(() => [...document.querySelectorAll('#source [data-report-pdf]')].map((node, index) => { node.dataset.reportPdfIndex = String(index); return node.dataset.reportPdf }))
+  let pdfEngine; const importedPdfs = []
+  if (pdfSources.length) {
+    if (input.format === 'Xlsx') throw new Error('REPORT_XLSX_DOCUMENT_UNSUPPORTED')
+    for (const name of ['pdfBrowser', 'pdfNative', 'pdfFonts']) if (!isAbsolute(manifest[name + 'Path'] || '') || hash(await readFile(manifest[name + 'Path'])) !== manifest[name + 'Sha256']) throw new Error('REPORT_PDF_ENGINE_UNAVAILABLE')
+    pdfEngine = await import(pathToFileURL(manifest.pdfNativePath).href)
+    let total = 0, totalPages = 0
+    for (const source of pdfSources) {
+      if (!/^data:application\/pdf;base64,[A-Za-z0-9+/=]+$/.test(source)) throw new Error('REPORT_PDF_RESOURCE_INVALID')
+      const bytes = Buffer.from(source.split(',')[1], 'base64'); total += bytes.length
+      if (bytes.length > 5 * 1024 * 1024 || total > 20 * 1024 * 1024) throw new Error('REPORT_PDF_RESOURCE_LIMIT')
+      const pdf = await inspectPdf(bytes, pdfEngine); totalPages += pdf.getPageCount()
+      if (totalPages > 100) throw new Error('REPORT_PDF_PAGE_LIMIT')
+      importedPdfs.push(pdf)
+    }
+    await page.addScriptTag({ content: await readFile(manifest.pdfBrowserPath, 'utf8') })
+    await page.evaluate(async ({ sources, assets }) => {
+      window.__reportPdfPages = []; let pixels = 0
+      for (const source of sources) {
+        const pages = await window.ReportPdf.renderPdf(source.split(',')[1], assets)
+        for (const p of pages) pixels += p.widthMm * 150 / 25.4 * p.heightMm * 150 / 25.4
+        if (pixels > 80000000) throw Error('REPORT_PDF_RASTER_LIMIT')
+        window.__reportPdfPages.push(pages)
+      }
+    }, { sources: pdfSources, assets: JSON.parse(await readFile(manifest.pdfFontsPath, 'utf8')) })
+  }
+  await page.addScriptTag({ content: `window.prepareReportToc=${prepareReportToc.toString()};window.resolveReportToc=${resolveReportToc.toString()};window.appendPdfPages=${appendPdfPages.toString()}` })
   await page.addScriptTag({ content: await readFile(manifest.bundlePath, 'utf8') })
-  await page.addScriptTag({ content: `window.fragmentReportRows = ${fragmentReportRows.toString()}; window.layoutReportBands = ${layoutReportBands.toString()}; (${installReportTableHeaders.toString()})(window.Paged)` })
-  const result = await page.evaluate(async ({ height, css, parts, format }) => {
+  await page.addScriptTag({ content: `window.renderReportAdvanced = ${renderReportAdvanced.toString()}; window.fragmentReportRows = ${fragmentReportRows.toString()}; window.layoutReportBands = ${layoutReportBands.toString()}; (${installReportTableHeaders.toString()})(window.Paged)` })
+  const result = await page.evaluate(async ({ height, css, parts, format, preview }) => {
     await document.fonts.ready
     await Promise.all([...document.images].map((img) => img.decode().catch(() => { throw new Error('REPORT_IMAGE_DECODE_FAILED') })))
     const source = document.querySelector('#source')
+    // Loading completion alone does not prove that a requested local font exists.
+    // Probe each distinct text font stack once; keep CSS fallback behavior and report it.
+    const fontStacks = new Set()
+    const textWalker = document.createTreeWalker(source, NodeFilter.SHOW_TEXT)
+    let textNode
+    while ((textNode = textWalker.nextNode())) if (textNode.textContent.trim()) fontStacks.add(getComputedStyle(textNode.parentElement).fontFamily)
+    for (const node of source.querySelectorAll('[data-report-advanced]')) fontStacks.add(getComputedStyle(node).fontFamily)
+    if (fontStacks.size > 128) throw new Error('REPORT_FONT_LIMIT')
+    const genericFonts = new Set('serif sans-serif monospace cursive fantasy system-ui ui-serif ui-sans-serif ui-monospace ui-rounded math fangsong'.split(' '))
+    const availableFonts = new Map(), fontResolution = [], fontDiagnostics = []
+    for (const stack of fontStacks) {
+      const families = (stack.match(/"[^"]*"|'[^']*'|[^,]+/g) || []).map(value => value.trim().replace(/^['"]|['"]$/g, ''))
+      const unavailable = []
+      let selected = null
+      for (const family of families) {
+        if (genericFonts.has(family.toLowerCase())) { selected = family; break }
+        if (!availableFonts.has(family)) {
+          try { await new FontFace('report-font-probe', 'local(' + JSON.stringify(family) + ')').load(); availableFonts.set(family, true) }
+          catch { availableFonts.set(family, false) }
+        }
+        if (availableFonts.get(family)) { selected = family; break }
+        unavailable.push(family)
+      }
+      fontResolution.push({ requested: stack, selected, unavailable })
+      if (unavailable.length) fontDiagnostics.push({ code: 'REPORT_FONT_SUBSTITUTED', requested: stack, unavailable, fallback: selected || 'system fallback' })
+    }
+    window.prepareReportToc(source, format)
+    await window.renderReportAdvanced(source, format)
     const workbookRows = []
-    if (format === 'Xlsx') {
+    const dataFormat = ['Xls', 'Xlsx', 'Text', 'Csv'].includes(format)
+    const editableFormat = ['Docx', 'Rtf'].includes(format)
+    const exportBlocks = [], tableHeaders = new Map()
+    if (dataFormat || editableFormat) {
       for (const control of source.querySelectorAll('[data-report-control]')) {
-        if (control.closest('[data-report-repeat="true"]')) continue
+        if (dataFormat && control.closest('[data-report-repeat="true"]')) continue
         const definition = JSON.parse(control.dataset.reportControl)
         if (['Line', 'Box', 'PageNumber'].includes(definition.type)) continue
-        if (definition.type === 'Html' || control.querySelector('img')) throw new Error('REPORT_XLSX_RICH_LAYOUT_UNSUPPORTED')
+        if (['Html', 'PdfContent', 'TableOfContents'].includes(definition.type)) throw new Error(format === 'Xlsx' ? 'REPORT_XLSX_RICH_LAYOUT_UNSUPPORTED' : 'REPORT_EXPORT_CONTROL_UNSUPPORTED: ' + definition.type + '/' + format)
+        if (dataFormat && control.querySelector('img,svg,canvas')) throw new Error(format === 'Xlsx' ? 'REPORT_XLSX_RICH_LAYOUT_UNSUPPORTED' : 'REPORT_EXPORT_CONTROL_UNSUPPORTED: ' + definition.type + '/' + format)
         const table = control.querySelector('table')
-        if (table) for (const row of table.rows) workbookRows.push([...row.cells].map((cell) => cell.textContent))
-        else workbookRows.push([control.textContent])
+        if (table) {
+          // Expand merged cells into a rectangular grid; put content only in its origin.
+          const rows = [], occupied = []
+          for (const [r, row] of [...table.rows].entries()) {
+            rows[r] ||= []; occupied[r] ||= []; let c = 0
+            for (const cell of row.cells) {
+              while (occupied[r][c]) c++
+              for (let y = r; y < r + cell.rowSpan; y++) for (let x = c; x < c + cell.colSpan; x++) {
+                occupied[y] ||= []; rows[y] ||= []; occupied[y][x] = true; rows[y][x] = y === r && x === c ? cell.innerText : ''
+              }
+              c += cell.colSpan
+            }
+          }
+          const columns = Math.max(...rows.map(r => r.length))
+          for (const row of rows) for (let c = 0; c < columns; c++) row[c] ??= ''
+          workbookRows.push(...rows)
+          const group = table.dataset.reportHeaderGroup, previous = exportBlocks.at(-1)
+          const repeatHeader = table.dataset.reportRepeatHeader !== 'false'
+          const headerRows = table.tHead?.rows.length || 0
+          if (editableFormat && group && repeatHeader && headerRows) tableHeaders.set(group, rows.slice(0, headerRows))
+          // Detail bands may emit one HTML table per record. Office needs one logical table
+          // to repeat its header when that collection continues onto another page.
+          if (editableFormat && group && previous?.type === 'table' && previous.group === group) previous.rows.push(...rows)
+          else {
+            // A paragraph splits an Office table. Restore the collection header on its continuation.
+            const carried = editableFormat && group && repeatHeader && !headerRows ? tableHeaders.get(group) || [] : []
+            exportBlocks.push({ type: 'table', rows: [...carried, ...rows], headerRows: repeatHeader ? headerRows + carried.length : 0, group })
+          }
+        } else if (control.querySelector('img')) {
+          const img = control.querySelector('img'); await img.decode()
+          const canvas = document.createElement('canvas'); canvas.width = img.naturalWidth; canvas.height = img.naturalHeight
+          if (canvas.width * canvas.height > 16000000) throw Error('REPORT_EXPORT_IMAGE_LIMIT')
+          canvas.getContext('2d').drawImage(img, 0, 0)
+          exportBlocks.push({ type: 'image', data: canvas.toDataURL('image/png'), widthMm: definition.widthMm, heightMm: definition.heightMm })
+        } else {
+          const checkbox = control.querySelector('[role="checkbox"]')
+          const text = checkbox ? ({true: '[x]', false: '[ ]', mixed: '[-]'})[checkbox.getAttribute('aria-checked')] : definition.type === 'CharacterComb' ? control.textContent : control.innerText
+          workbookRows.push([text])
+          exportBlocks.push({ type: 'paragraph', text, bold: Number(getComputedStyle(control).fontWeight) >= 600, heading: !!control.querySelector('[data-report-outline]') || !!JSON.parse(control.closest('[data-report-band]')?.dataset.reportBand || '{}').keepWithNext })
+        }
       }
     }
     if (parts.length) {
@@ -148,14 +251,36 @@ try {
       }
       if (watermark) source.firstElementChild?.prepend(watermark)
     }
-    const layoutDiagnostics = parts.length ? [...source.children].flatMap((part) => window.layoutReportBands(part, parts[Number(part.dataset.reportPartIndex)].geometry.bodyHeight * 96 / 25.4)) : window.layoutReportBands(source, height)
-    let paragraphSequence = 0
-    for (const paragraph of source.querySelectorAll('p,pre')) if (!paragraph.closest('thead,[data-report-repeat="true"]')) paragraph.dataset.reportParagraph = String(paragraphSequence++)
-    const diagnostics = [...layoutDiagnostics, ...(parts.length ? [...source.children].flatMap((part) => window.fragmentReportRows(part, parts[Number(part.dataset.reportPartIndex)].geometry.bodyHeight * 96 / 25.4, `part${part.dataset.reportPartIndex}-`)) : window.fragmentReportRows(source, height))]
-    const contents = parts.length ? [...source.children].map((part) => ({ html: part.outerHTML, part: parts[Number(part.dataset.reportPartIndex)] })) : [{ html: source.innerHTML }]
+    const contents = [], diagnostics = [...fontDiagnostics]; let paragraphSequence = 0, segment = 0
+    for (const container of parts.length ? [...source.children] : [source]) {
+      const part = parts.length ? parts[Number(container.dataset.reportPartIndex)] : null
+      const heightPx = part ? part.geometry.bodyHeight * 96 / 25.4 : height
+      const repeated = [...container.children].filter(n => n.querySelector('[data-report-repeat="true"]'))
+      let pending = []
+      const flush = () => {
+        if (!pending.some(n => !repeated.includes(n))) return
+        const section = document.createElement('article'); section.style.width = container.style.width || source.style.width
+        if (part) section.className = `report-part-${part.index}`
+        source.append(section); section.append(...repeated.map(n => n.cloneNode(true)), ...pending.filter(n => !repeated.includes(n))); pending = []
+        diagnostics.push(...window.layoutReportBands(section, heightPx))
+        for (const p of section.querySelectorAll('p,pre')) if (!p.closest('thead,[data-report-repeat="true"]')) p.dataset.reportParagraph = String(paragraphSequence++)
+        diagnostics.push(...window.fragmentReportRows(section, heightPx, 'seg' + (segment++) + '-'))
+        contents.push({ html: part ? section.outerHTML : section.innerHTML, part }); section.remove()
+      }
+      for (const child of [...container.children]) {
+        const pdf = child.querySelector('[data-report-pdf]')
+        if (pdf) {
+          flush()
+          contents.push({ pdf: { index: Number(pdf.dataset.reportPdfIndex), marker: pdf.closest('[data-report-marker]').dataset.reportMarker, outline: [...child.querySelectorAll('[data-report-outline]')].map(n => n.outerHTML).join('') }, part })
+        } else pending.push(child)
+      }
+      flush()
+    }
     source.remove()
+    const importedStyles = document.createElement('style'); document.head.append(importedStyles)
     for (const item of contents) {
       const target = document.createElement('div'); document.querySelector('#pages').append(target)
+      if (item.pdf) { window.appendPdfPages(target, window.__reportPdfPages[item.pdf.index], item.pdf, importedStyles, preview); continue }
       await new window.Paged.Previewer().preview(item.html, [{ 'https://renderer.invalid/report.css': css + (item.part?.pageCss || '') }], target)
       for (const rendered of target.querySelectorAll('.pagedjs_page')) {
         if (item.part) rendered.dataset.reportOutputPart = item.part.key
@@ -167,12 +292,17 @@ try {
     }
     await document.fonts.ready
     const pageElements = [...document.querySelectorAll('#pages .pagedjs_page')]
+    const toc = window.resolveReportToc(pageElements)
     const partKeys = pageElements.map((page) => page.dataset.reportOutputPart)
     const printStyles = document.createElement('style')
     printStyles.textContent = parts.map((part) => `@page printpart${part.index}{size:${part.geometry.widthMm}mm ${part.geometry.heightMm}mm;margin:0}`).join('')
     document.head.append(printStyles)
     const localCounts = new Map()
     const pages = pageElements.map((page, index) => {
+      if (page.dataset.reportPdfIndex !== undefined) {
+        const box = page.getBoundingClientRect()
+        return { pageNo: index + 1, widthMm: box.width * 25.4 / 96, heightMm: box.height * 25.4 / 96, html: page.outerHTML, markers: [{ marker: page.querySelector('[data-report-marker]').dataset.reportMarker, fragmentIndex: Number(page.dataset.reportPdfPage) }], pdfIndex: Number(page.dataset.reportPdfIndex), pdfPage: Number(page.dataset.reportPdfPage) }
+      }
       const partKey = partKeys[index]
       const part = parts.find((item) => String(item.key) === partKey)
       if (part) page.style.page = `printpart${part.index}`
@@ -191,7 +321,7 @@ try {
       for (const number of pageNumbers) { number.textContent = `${pageNo} / ${pageTotal}`; number.classList.add('report-number-resolved') }
       const footer = page.querySelector('.pagedjs_margin-bottom-right .pagedjs_margin-content')
       if (pageNumbers.length) footer.style.display = 'none'
-      else if (part) { footer.textContent = `${pageNo} / ${pageTotal}`; footer.classList.add('report-number-resolved') }
+      else { footer.textContent = `${pageNo} / ${pageTotal}`; footer.classList.add('report-number-resolved') }
       const area = page.querySelector('.pagedjs_page_content').getBoundingClientRect()
       const markers = [...page.querySelectorAll('[data-report-marker]')].filter((element) => !element.closest('[data-report-repeat="true"]')).map((element) => {
         // Fragmented block boxes can span virtual columns. Check actual glyph
@@ -234,8 +364,53 @@ try {
     }
     for (const { id, length } of sourceCells) if ((cellOffsets.get(id) || 0) !== length) throw new Error('REPORT_CELL_RANGE_MISMATCH: incomplete rendered cell')
     const resolved = document.createElement('style'); resolved.textContent = '.report-number-resolved::after{content:none!important}'; document.head.append(resolved)
-    return { pages, diagnostics, workbookRows, sourceCells, cellFragmentLedger, styles: [...document.styleSheets].flatMap((sheet) => [...sheet.cssRules].map((rule) => rule.cssText)).join('\n') }
-  }, { height: bodyHeight * 96 / 25.4, css, parts, format: input.format })
+    return { pages, toc, diagnostics, fontResolution, workbookRows, exportBlocks, sourceCells, cellFragmentLedger, styles: [...document.styleSheets].flatMap((sheet) => [...sheet.cssRules].map((rule) => rule.cssText)).join('\n') }
+  }, { height: bodyHeight * 96 / 25.4, css, parts, format: input.format, preview: !!input.preview })
+  if (['Xls', 'Xlsx', 'Text', 'Csv', 'Docx', 'Rtf'].includes(input.format)) {
+    const exportBytes = Buffer.from(JSON.stringify({ blocks: result.exportBlocks, rows: result.workbookRows }))
+    if (exportBytes.length > 50 * 1024 * 1024) throw Error('REPORT_EXPORT_SIZE_LIMIT')
+    await writeFile(join(output, 'result.export.json'), exportBytes)
+    result.exportSha256 = hash(exportBytes)
+    result.exportContract = 'pf09-continuous-v1'
+    result.diagnostics.push({ code: 'REPORT_EXPORT_REFLOW', message: '连续文档或正文数据；文字和表格可编辑，合并单元格展开，装饰线框与物理页码不导出。' })
+  }
+  delete result.exportBlocks
+  if (input.format !== 'Xlsx') delete result.workbookRows
+  if (['Png', 'Jpeg'].includes(input.format)) {
+    result.rasterPages = []; let pixels = 0
+    const elements = await page.$$('#pages .pagedjs_page')
+    for (const [index, element] of elements.entries()) {
+      const box = await element.boundingBox()
+      pixels += box.width * box.height * (150 / 96) ** 2
+      if (pixels > 80000000) throw Error('REPORT_EXPORT_IMAGE_LIMIT')
+      const type = input.format === 'Png' ? 'png' : 'jpeg', file = 'page-' + String(index + 1).padStart(4, '0') + '.' + (type === 'png' ? 'png' : 'jpg')
+      let bytes = await element.screenshot({ type, ...(type === 'jpeg' ? {quality: 95} : {}), animations: 'disabled' })
+      // Chromium rounds CSS clip edges independently. Normalize to the physical paper pixel grid.
+      const encoded = await page.evaluate(async ({ data, width, height, type }) => {
+        const img = new Image(); img.src = data; await img.decode()
+        const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height
+        const context = canvas.getContext('2d'); context.fillStyle = '#fff'; context.fillRect(0, 0, width, height); context.drawImage(img, 0, 0, width, height)
+        return canvas.toDataURL('image/' + type, .95).split(',')[1]
+      }, { data: 'data:image/' + type + ';base64,' + bytes.toString('base64'), width: Math.round(result.pages[index].widthMm * 150 / 25.4), height: Math.round(result.pages[index].heightMm * 150 / 25.4), type })
+      bytes = Buffer.from(encoded, 'base64')
+      // Screenshot pixels use 150 DPI; encode the same density so Office/image viewers retain paper size.
+      if (type === 'png') {
+        const payload = Buffer.alloc(13); payload.write('pHYs'); payload.writeUInt32BE(5906, 4); payload.writeUInt32BE(5906, 8); payload[12] = 1
+        const chunk = Buffer.alloc(21); chunk.writeUInt32BE(9); payload.copy(chunk, 4); chunk.writeUInt32BE(crc32(payload), 17)
+        const chunks = [bytes.subarray(0, 8), chunk]
+        for (let offset = 8; offset < bytes.length;) { const length = bytes.readUInt32BE(offset) + 12; if (bytes.toString('ascii', offset + 4, offset + 8) !== 'pHYs') chunks.push(bytes.subarray(offset, offset + length)); offset += length }
+        // IHDR must remain the first PNG chunk.
+        const ihdr = chunks.splice(2, 1)[0]; chunks.splice(1, 0, ihdr); bytes = Buffer.concat(chunks)
+      } else if (bytes.toString('ascii', 6, 11) === 'JFIF\0') {
+        bytes[13] = 1; bytes.writeUInt16BE(150, 14); bytes.writeUInt16BE(150, 16)
+      } else {
+        const jfif = Buffer.from([0xff, 0xe0, 0, 16, 74, 70, 73, 70, 0, 1, 1, 1, 0, 150, 0, 150, 0, 0])
+        bytes = Buffer.concat([bytes.subarray(0, 2), jfif, bytes.subarray(2)])
+      }
+      await writeFile(join(output, file), bytes)
+      result.rasterPages.push({ pageNo: index + 1, file, sha256: hash(bytes), dpi: 150, widthMm: result.pages[index].widthMm, heightMm: result.pages[index].heightMm })
+    }
+  }
   const actual = new Set(result.pages.flatMap((page) => page.markers.map((item) => item.marker)))
   const fragmentCounts = new Map()
   for (const item of result.pages.flatMap((page) => page.markers)) {
@@ -244,7 +419,18 @@ try {
   }
   const expected = (input.expectedMarkers || []).map((marker) => typeof marker === 'string' ? marker : marker.marker)
   if (expected.some((marker) => !actual.has(marker)) || (expected.length && [...actual].some((marker) => !expected.includes(marker)))) throw new Error('REPORT_MARKER_COVERAGE_MISMATCH')
-  const pdf = input.preview && input.format === 'Html' ? null : await page.pdf({ preferCSSPageSize: true, printBackground: true })
+  let pdf = input.preview && input.format === 'Html' ? null : await page.pdf({ preferCSSPageSize: true, printBackground: true })
+  if (pdf && importedPdfs.length && !input.preview) {
+    const rendered = await pdfEngine.PDFDocument.load(pdf)
+    if (rendered.getPageCount() !== result.pages.length) throw Error('REPORT_PDF_PAGE_COUNT_MISMATCH')
+    const merged = await pdfEngine.PDFDocument.create()
+    for (const item of result.pages) {
+      const source = item.pdfIndex === undefined ? rendered : importedPdfs[item.pdfIndex]
+      const index = item.pdfIndex === undefined ? item.pageNo - 1 : item.pdfPage
+      merged.addPage((await merged.copyPages(source, [index]))[0])
+    }
+    pdf = Buffer.from(await merged.save())
+  }
   if (pdf) await writeFile(join(output, 'result.pdf'), pdf)
   await writeFile(join(output, 'result.html'), `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><style>${result.styles.replace(/<\/style/gi, '<\\/style')}</style><body>${result.pages.map((item) => item.html).join('')}</body></html>`)
   for (const item of result.pages) {

@@ -16,7 +16,7 @@ public sealed class ReportRuns(IReportRunStore runs, IStudioResourceStore resour
     {
         principal = await identity.RefreshAsync(principal, token);
         StudioCommands.ValidateKey(operationKey);
-        if (input.ExecutionKind is not ("Production" or "Preview") || input.Format is not ("Pdf" or "Html" or "Xlsx")
+        if (input.ExecutionKind is not ("Production" or "Preview") || !ReportFormats.Supports(input.Format)
             || Encoding.UTF8.GetByteCount(input.ParametersJson) > 65536 || JsonNode.Parse(input.ParametersJson) is not JsonObject || input.SortJson.Length > 8192 || JsonNode.Parse(input.SortJson) is not JsonArray)
             throw new StudioException("STUDIO_REPORT_ACCEPT_INVALID", "报告受理输入无效。", 422);
         if ((input.RetryOfRunId is null) != (input.RetryMode is null) || input.RetryMode is not (null or "RenderSnapshot" or "NewData") || input.ExecutionKind == "Preview" && input.RetryMode is not null) throw new StudioException("STUDIO_REPORT_ACCEPT_INVALID", "重试依据无效。", 422);

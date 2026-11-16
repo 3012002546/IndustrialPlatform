@@ -16,9 +16,25 @@ function fixture() {
   return doc
 }
 describe('trace configuration files', () => {
-  it('round-trips vertical layout and multiple configurable detail sections while rejecting malformed sections', () => {
+  it('round-trips layout, pinned node and row links, and rejects malformed detail sections', () => {
     const doc = fixture()
     doc.presentation = { layoutDirection: 'TopToBottom' }
+    const detail = doc.objects[0]!.detail
+    detail.links = [
+      {
+        id: 'lot-report',
+        label: '批次报表',
+        kind: 'Resource',
+        openMode: 'Modal',
+        target: { kind: 'Report', resourceNId: 'report', revisionNId: 'report-v1' },
+        parameterMap: [
+          {
+            target: 'batch',
+            source: { from: 'Node', path: ['identity', 'businessKey'], nullPolicy: 'Error' },
+          },
+        ],
+      },
+    ]
     doc.objects[0]!.detail.sections = [
       {
         id: 'checks',
@@ -33,6 +49,18 @@ describe('trace configuration files', () => {
         columns: [{ fieldId: 'value', label: '结果', width: 160, visible: true }],
         rowKey: { from: 'Row', path: ['id'], nullPolicy: 'Error' },
         pageSize: 20,
+        links: [
+          {
+            id: 'record-page',
+            label: '检验记录',
+            kind: 'Resource',
+            openMode: 'Modal',
+            target: { kind: 'LowCodePage', resourceNId: 'record', revisionNId: 'record-v2' },
+            parameterMap: [
+              { target: 'recordKey', source: { from: 'Row', path: ['id'], nullPolicy: 'Error' } },
+            ],
+          },
+        ],
       },
     ]
     expect(parseTraceDesign(serializeTraceDesign('template', doc)).document).toEqual(doc)

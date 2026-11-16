@@ -39,8 +39,9 @@ public sealed class StudioPublishing(IStudioResourceStore store, IStudioAuthoriz
         RequireKind(kind); ValidateQuery(query);
         authorization.RequirePermission(principal, StudioKinds.PermissionPrefix(kind) + ".view");
         var resources = await store.ListResourcesAsync(principal, kind, query, cancellationToken);
-        var result = new List<ResourceDto>();
-        foreach (var resource in resources) result.Add(await ToDtoAsync(resource, cancellationToken));
+        var revisionIds = resources.Where(resource => resource.PublishedRevisionId.HasValue).Select(resource => resource.PublishedRevisionId!.Value).Distinct().ToArray();
+        var revisions = (await store.FindRevisionsByIdsAsync(principal.TenantNId, revisionIds, cancellationToken)).ToDictionary(revision => revision.Id);
+        var result = resources.Select(resource => ResourceDto(resource, resource.PublishedRevisionId is { } id ? revisions.GetValueOrDefault(id) : null)).ToArray();
         return new(result, query.Page, query.PageSize, (await store.CountResourcesAsync(principal, kind, query, cancellationToken)).ToString(CultureInfo.InvariantCulture));
     }
     public async Task<ResourceDto> CreateAsync(StudioPrincipal principal, ResourceCreate request, string operationKey, CancellationToken cancellationToken)
@@ -158,11 +159,22 @@ public sealed class StudioPublishing(IStudioResourceStore store, IStudioAuthoriz
                     traceDatasets[revisionNId] = Parse(revision!.DocumentJson);
                 }
             }
-            Trace.TraceMappingValidation.Validate(document, traceDatasets, diagnostics);
+            var traceTargets = new Dictionary<string, JsonObject>(StringComparer.Ordinal);
             foreach (var obj in (document["objects"] as JsonArray ?? []).OfType<JsonObject>())
-            foreach (var link in (obj["detail"]?["links"] as JsonArray ?? []).OfType<JsonObject>())
+            foreach (var link in (obj["detail"]?["links"] as JsonArray ?? []).OfType<JsonObject>().Concat((obj["detail"]?["sections"] as JsonArray ?? []).OfType<JsonObject>().SelectMany(section => (section["links"] as JsonArray ?? []).OfType<JsonObject>())))
             {
                 var path = "objects." + StudioJson.Text(obj["id"]) + ".detail.links." + StudioJson.Text(link["id"]);
+                if (StudioJson.Text(link["kind"]) == "Resource" && link["target"] is JsonObject linkTarget)
+                {
+                    var targetKind = StudioJson.RequiredString(linkTarget, "kind");
+                    RequireKind(targetKind);
+                    var targetNId = StudioJson.RequiredString(linkTarget, "resourceNId");
+                    var targetRevision = StudioJson.RequiredString(linkTarget, "revisionNId");
+                    await AddRevision(targetRevision, targetNId);
+                    var (target, revision) = await RequireRuntimeAsync(principal, targetNId, targetRevision, cancellationToken);
+                    if (target.Kind != targetKind) diagnostics.Add(new("TYPE_MISMATCH", path + ".target", "平台资源目标类型不匹配。"));
+                    traceTargets[targetRevision] = Parse(revision.DocumentJson);
+                }
                 if (StudioJson.Text(link["kind"]) == "External" && !profile.TraceExternalLinks.ContainsKey(StudioJson.Text(link["allowedOriginKey"]) ?? "")) diagnostics.Add(new("TRACE_MAPPING_INVALID", path + ".allowedOriginKey", "外链来源未登记。"));
                 if (StudioJson.Text(link["kind"]) != "File") continue;
                 if (profile.Files.Provider == "Disabled") diagnostics.Add(new("STUDIO_FILES_UNAVAILABLE", path, "此明细依赖文件能力，当前部署未启用，不能发布。"));
@@ -172,6 +184,7 @@ public sealed class StudioPublishing(IStudioResourceStore store, IStudioAuthoriz
                     else authorization.RequirePermission(principal, fileSource.PermissionAction);
                 }
             }
+            Trace.TraceMappingValidation.Validate(document, traceDatasets, diagnostics, traceTargets);
         }
         if (resource.Kind == "LowCodePage")
         {
@@ -280,6 +293,7 @@ public sealed class StudioPublishing(IStudioResourceStore store, IStudioAuthoriz
                 if (StudioJson.Text(instance["sourceType"]) != "Constant" && StudioJson.Text(instance["revisionNId"]) is { } revision) await ReportDataset(revision, StudioJson.Text(instance["datasetNId"]));
             IEnumerable<JsonObject> Collections(JsonNode? node)
             {
+                if (document["assembly"] is JsonObject assembly && ReferenceEquals(node, assembly[StudioDocuments.IsDataDriven(assembly) ? "rules" : "templates"])) yield break;
                 if (node is JsonArray array) { foreach (var item in array) foreach (var match in Collections(item)) yield return match; }
                 if (node is not JsonObject obj || StudioJson.Text(obj["from"]) == "Constant") yield break;
                 if (StudioJson.Text(obj["mode"]) == "Dataset" && StudioJson.Text(obj["datasetRevisionNId"]) is not null) yield return obj;
@@ -289,7 +303,7 @@ public sealed class StudioPublishing(IStudioResourceStore store, IStudioAuthoriz
             foreach (var filter in (document["query"]?["filters"] as JsonArray ?? []).OfType<JsonObject>())
                 if (StudioJson.Text(filter["optionsDatasetRevisionNId"]) is { } revision) await ReportDataset(revision);
             if (resource.Kind == "Report" && !diagnostics.Any(d => d.Severity == "Error")) StudioReportContracts.ValidateBindings(document, datasetSchemas, diagnostics);
-            var children = resource.Kind == "ReportBundle" ? (StudioJson.Text(document["mode"]) == "Simple" ? document["items"] as JsonArray : document["assembly"]?["rules"] as JsonArray) ?? [] : new JsonArray();
+            var children = StudioDocuments.ReportReferences(resource.Kind, document);
             foreach (var child in children.OfType<JsonObject>())
             {
                 var nId = StudioJson.RequiredString(child, "reportNId");

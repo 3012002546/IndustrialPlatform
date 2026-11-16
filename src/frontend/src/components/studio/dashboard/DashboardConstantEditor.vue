@@ -3,12 +3,13 @@ import { computed, ref, watch } from 'vue'
 import DashboardStructuredEditor from './DashboardStructuredEditor.vue'
 import { useDashboardText } from './dashboardCopy'
 import type { Json } from '@/api/studio'
-const props = defineProps<{ modelValue?: unknown }>()
+const props = defineProps<{ modelValue?: unknown; jsonOnly?: boolean }>()
 const emit = defineEmits<{ 'update:modelValue': [value: unknown] }>()
 const t = useDashboardText()
 const json = ref(false),
   text = ref(''),
   error = ref('')
+let baseline = ''
 const kind = computed(() =>
   props.modelValue === null
     ? 'null'
@@ -25,7 +26,10 @@ const kind = computed(() =>
 watch(
   () => props.modelValue,
   (value) => {
-    text.value = JSON.stringify(value ?? null, null, 2)
+    const next = JSON.stringify(value ?? null, null, 2)
+    if (baseline === next) return
+    baseline = next
+    text.value = next
     error.value = ''
   },
   { immediate: true, deep: true },
@@ -46,21 +50,58 @@ function changeKind(value: unknown) {
               : '',
   )
 }
-function apply() {
+function apply(): boolean {
+  if (!props.jsonOnly && !json.value) return true
   try {
-    emit('update:modelValue', JSON.parse(text.value))
+    const value = JSON.parse(text.value)
+    if (!props.jsonOnly || JSON.stringify(value) !== JSON.stringify(props.modelValue ?? null))
+      emit('update:modelValue', value)
+    baseline = JSON.stringify(value, null, 2)
+    error.value = ''
+    return true
+  } catch {
+    error.value = t.value('constantJsonInvalid')
+    return false
+  }
+}
+function format() {
+  try {
+    text.value = JSON.stringify(JSON.parse(text.value), null, 2)
     error.value = ''
   } catch {
     error.value = t.value('constantJsonInvalid')
   }
 }
+function reset() {
+  text.value = JSON.stringify(props.modelValue ?? null, null, 2)
+  error.value = ''
+}
+defineExpose({ apply })
 </script>
 <template>
   <div class="dashboard-constant-editor">
-    <el-switch v-model="json" :active-text="t('jsonMode')" :inactive-text="t('visualMode')" />
-    <template v-if="json">
-      <el-input v-model="text" type="textarea" :rows="8" :aria-label="t('constantValue')" />
-      <el-button size="small" @click="apply">{{ t('confirm') }}</el-button>
+    <el-switch
+      v-if="!jsonOnly"
+      v-model="json"
+      :active-text="t('jsonMode')"
+      :inactive-text="t('visualMode')"
+    />
+    <template v-if="jsonOnly || json">
+      <div class="json-actions">
+        <el-button size="small" @click="format">{{ t('formatJson') }}</el-button>
+        <el-button size="small" @click="apply">{{
+          t(jsonOnly ? 'applyJson' : 'confirm')
+        }}</el-button>
+        <el-button size="small" @click="reset">{{ t('resetJson') }}</el-button>
+      </div>
+      <el-input
+        v-model="text"
+        class="json-text"
+        type="textarea"
+        :rows="jsonOnly ? 16 : 8"
+        :aria-label="t('constantValue')"
+        spellcheck="false"
+      />
       <p v-if="error" role="alert">{{ error }}</p>
     </template>
     <template v-else>
@@ -116,5 +157,18 @@ function apply() {
   display: grid;
   gap: 8px;
   width: 100%;
+}
+.json-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.json-actions .el-button {
+  margin: 0;
+}
+.json-text :deep(textarea) {
+  font-family: Consolas, monospace;
+  line-height: 1.5;
+  tab-size: 2;
 }
 </style>

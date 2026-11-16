@@ -370,7 +370,11 @@ defineExpose({
       <main
         ref="viewport"
         class="studio-viewport"
-        :style="{ overflow: graphMode || fitMode ? 'hidden' : 'auto', gridColumn: 2, gridRow: 1 }"
+        :style="{
+          overflow: graphMode || (fitMode && !freeCanvas) ? 'hidden' : 'auto',
+          gridColumn: 2,
+          gridRow: 1,
+        }"
         @pointerdown.self="pointer($event)"
       >
         <slot v-if="freeCanvas" name="workspace" />

@@ -5,6 +5,14 @@ namespace IndustrialPlatform.PlatformStudio.Domain;
 
 public static partial class StudioDocuments
 {
+    public static bool IsDataDriven(JsonNode? assembly) => StudioJson.Text(assembly?["stitchMode"]) == "DataDriven";
+    public static JsonArray? BundleEntries(JsonObject doc) => StudioJson.Text(doc["mode"]) == "Simple"
+        ? doc["items"] as JsonArray : doc["assembly"]?[IsDataDriven(doc["assembly"]) ? "templates" : "rules"] as JsonArray;
+
+    public static IEnumerable<JsonObject> ReportReferences(string kind, JsonObject doc) => kind == "ReportBundle"
+        ? (BundleEntries(doc) ?? []).OfType<JsonObject>()
+        : (doc["bands"] as JsonArray ?? []).OfType<JsonObject>().SelectMany(b => (b["controls"] as JsonArray ?? []).OfType<JsonObject>()).Where(c => StudioJson.Text(c["type"]) == "SubReport").Select(c => c["subReport"]).OfType<JsonObject>();
+
     private static readonly string[] ReportMarginKeys = ["top", "right", "bottom", "left"];
     public static (double Width, double Height, double BodyWidth, double BodyHeight) ReportPaper(JsonObject paper)
     {
@@ -84,14 +92,28 @@ public static partial class StudioDocuments
             {
                 if (doc.ContainsKey("items") || doc.ContainsKey("pageNumberMode")) Error("mode", "电子记录禁止预分页项目。");
                 if (doc["assembly"] is not JsonObject assembly) { Error("assembly", "必须设置组装规则。"); return; }
-                Allowed(assembly, ["root", "order", "operation", "rules"], "assembly", errors);
+                Allowed(assembly, ["root", "order", "operation", "rules", "stitchMode", "templates"], "assembly", errors);
                 Collection(assembly["root"], "assembly.root", false);
                 if (assembly["operation"] is JsonObject operation) { Allowed(operation, ["collection", "order"], "assembly.operation", errors); Collection(operation["collection"], "assembly.operation.collection", true); } else Error("assembly.operation", "必须设置工序集合。");
                 var ids = new HashSet<string>();
-                foreach (var rule in Objects(assembly["rules"], "assembly.rules", errors))
+                var driven = IsDataDriven(assembly);
+                var listPath = driven ? "assembly.templates" : "assembly.rules";
+                if (StudioJson.Text(assembly["stitchMode"]) is not (null or "Normal" or "DataDriven")) Error("assembly.stitchMode", "拼接模式无效。");
+                foreach (var rule in Objects(BundleEntries(doc), listPath, errors))
                 {
-                    var path = "assembly.rules." + StudioJson.RequiredString(rule, "id");
+                    var path = listPath + "." + StudioJson.RequiredString(rule, "id");
                     if (!ids.Add(StudioJson.RequiredString(rule, "id"))) Error(path, "规则编号重复。");
+                    if (driven)
+                    {
+                        Allowed(rule, ["id", "reportNId", "revisionNId", "priority", "parameterMap", "scope", "required", "instanceMap", "breakBefore"], path, errors);
+                        if (StudioJson.Text(rule["breakBefore"]) is not (null or "Auto" or "Page")) Error(path + ".breakBefore", "请选择接续上一段或新页开始。");
+                        if (StudioJson.Text(rule["scope"]) is not (null or "Operation" or "WorkOrder")) Error(path + ".scope", "请选择工单头部或工序主体。");
+                        if (rule["required"] is { } required && (required is not JsonValue requiredValue || !requiredValue.TryGetValue<bool>(out _))) Error(path + ".required", "必需标记必须为布尔值。");
+                        _ = StudioJson.RequiredString(rule, "reportNId");
+                        Mappings(rule["parameterMap"], path + ".parameterMap");
+                        Mappings(rule["instanceMap"], path + ".instanceMap");
+                        continue;
+                    }
                     Allowed(rule, ["id", "name", "priority", "when", "reportNId", "revisionNId", "parameterMap", "content", "repeat", "presence", "required", "emptyBehavior", "headerMode", "breakBefore"], path, errors);
                     _ = StudioJson.RequiredString(rule, "reportNId");
                     if (rule.ContainsKey("repeat") == rule.ContainsKey("presence")) Error(path, "repeat和presence必须且只能选择一个。");
@@ -111,7 +133,7 @@ public static partial class StudioDocuments
                     }
                     else Error(path + ".content.mode", "输出模式未登记。");
                 }
-                if (ids.Count is 0 or > 200) Error("assembly.rules", "需要1至200条规则。");
+                if (ids.Count is 0 or > 200) Error(listPath, "需要1至200个拼接项。");
             }
             else Error("mode", "组合模式未登记。");
             return;
@@ -125,7 +147,7 @@ public static partial class StudioDocuments
             if (Number(style, "fontSizePt", 10) is < 4 or > 96 || Number(style, "lineHeight", 1.3) is < .5 or > 5) Error("styles", "字号或行高超出范围。");
         }
         var assetIds = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var asset in Objects(doc["assets"], "assets", errors)) { Allowed(asset, ["id", "fileNId", "referenceNId", "sha256", "mediaType"], "assets", errors); foreach (var k in new[] { "id", "fileNId", "referenceNId", "sha256", "mediaType" }) _ = StudioJson.RequiredString(asset, k); if (!assetIds.Add(StudioJson.RequiredString(asset, "id"))) Error("assets.id", "图片资产编号重复。"); if (StudioJson.Text(asset["mediaType"]) is not ("image/png" or "image/jpeg" or "image/gif" or "image/webp") || !System.Text.RegularExpressions.Regex.IsMatch(StudioJson.RequiredString(asset, "sha256"), "^[0-9a-f]{64}$")) Error("assets", "图片类型或哈希不合法。"); }
+        foreach (var asset in Objects(doc["assets"], "assets", errors)) { Allowed(asset, ["id", "fileNId", "referenceNId", "sha256", "mediaType"], "assets", errors); foreach (var k in new[] { "id", "fileNId", "referenceNId", "sha256", "mediaType" }) _ = StudioJson.RequiredString(asset, k); if (!assetIds.Add(StudioJson.RequiredString(asset, "id"))) Error("assets.id", "图片资产编号重复。"); if (StudioJson.Text(asset["mediaType"]) is not ("image/png" or "image/jpeg" or "image/gif" or "image/webp" or "application/pdf") || !System.Text.RegularExpressions.Regex.IsMatch(StudioJson.RequiredString(asset, "sha256"), "^[0-9a-f]{64}$")) Error("assets", "图片类型或哈希不合法。"); }
         var bands = Objects(doc["bands"], "bands", errors);
         var index = bands.GroupBy(b => StudioJson.RequiredString(b, "id")).ToDictionary(g => g.Key, g => g.First());
         if (bands.Length is 0 or > 200 || index.Count != bands.Length) Error("bands", "需要1至200个唯一的带。");
@@ -160,8 +182,32 @@ public static partial class StudioDocuments
             foreach (var control in controls)
             {
                 var cp = path + ".controls." + StudioJson.RequiredString(control, "id"); var type = StudioJson.Text(control["type"]);
-                Allowed(control, ["id", "type", "xMm", "yMm", "widthMm", "heightMm", "styleId", "value", "table", "canGrow", "keepTogether", "flow", "visibleWhen", "aggregate"], cp, errors);
-                if (type is not ("Text" or "Field" or "CheckBox" or "Table" or "Html" or "Image" or "Line" or "Box" or "PageNumber")) Error(cp + ".type", "控件类型未登记。");
+                Allowed(control, ["id", "type", "xMm", "yMm", "widthMm", "heightMm", "styleId", "value", "table", "canGrow", "keepTogether", "flow", "visibleWhen", "aggregate", "advanced", "subReport", "toc", "outline"], cp, errors);
+                if (!ReportAdvancedContract.IsAdvanced(type) && type is not ("Text" or "Field" or "CheckBox" or "Table" or "Html" or "Image" or "Line" or "Box" or "PageNumber" or "SubReport" or "PdfContent" or "TableOfContents")) Error(cp + ".type", "控件类型未登记。");
+                ReportAdvancedContract.Validate(control, cp, errors);
+                if (control["outline"] is JsonObject outline)
+                {
+                    Allowed(outline, ["title", "level"], cp + ".outline", errors);
+                    ValidateBinding(outline["title"], cp + ".outline.title", instances, errors);
+                    if (Number(outline, "level", 1) is < 1 or > 3) Error(cp + ".outline.level", "目录层级需要1至3。");
+                    if (type == "TableOfContents" || StudioJson.Text(band["kind"]) is "PageHeader" or "PageFooter") Error(cp + ".outline", "目录及重复页眉页脚不能登记目录条目。");
+                }
+                if (type is "SubReport" or "PdfContent" or "TableOfContents")
+                {
+                    if (controls.Length != 1 || Number(control, "xMm") != 0 || Number(control, "yMm") != 0 || StudioJson.Text(band["kind"]) is "PageHeader" or "PageFooter" || control.ContainsKey("aggregate") || control.ContainsKey("flow")) Error(cp, "文档控件需要独占非页眉页脚带，原点为0且不使用合计或叠印。");
+                    if (type == "PdfContent" && control["value"] is not JsonObject) Error(cp, "PDF内容必须选择已登记的PDF资产。");
+                    if (type == "SubReport")
+                    {
+                        if (control["subReport"] is not JsonObject sub) Error(cp, "必须选择固定修订子报表。");
+                        else { Allowed(sub, ["reportNId", "revisionNId", "parameterMap", "instanceMap"], cp + ".subReport", errors); _ = StudioJson.RequiredString(sub, "reportNId"); _ = StudioJson.RequiredString(sub, "revisionNId"); Mappings(sub["parameterMap"], cp + ".subReport.parameterMap"); Mappings(sub["instanceMap"], cp + ".subReport.instanceMap"); }
+                    }
+                    if (type == "TableOfContents")
+                    {
+                        if (control["toc"] is not JsonObject toc) Error(cp, "必须设置目录标题。");
+                        else { Allowed(toc, ["title"], cp + ".toc", errors); _ = StudioJson.RequiredString(toc, "title", 200); }
+                    }
+                }
+                if (type != "SubReport" && control.ContainsKey("subReport") || type != "TableOfContents" && control.ContainsKey("toc")) Error(cp, "文档配置与控件类型不符。");
                 if (type == "CheckBox" && (control["value"] is not JsonObject || control.ContainsKey("aggregate"))) Error(cp + ".value", "复选框必须绑定布尔值，不能使用合计。");
                 if (Number(control, "xMm") < 0 || Number(control, "yMm") < 0 || Number(control, "widthMm") <= 0 || Number(control, "heightMm") <= 0 || Number(control, "xMm") + Number(control, "widthMm") > bodyWidth + .001) Error(cp, "控件越过正文宽度。", "REPORT_LAYOUT_UNSUPPORTED");
                 if (StudioJson.Text(control["styleId"]) is { Length: > 0 } sid && !styles.Contains(sid)) Error(cp + ".styleId", "样式不存在。");
