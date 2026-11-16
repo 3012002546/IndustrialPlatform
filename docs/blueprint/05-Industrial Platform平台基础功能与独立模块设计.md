@@ -20,7 +20,7 @@ Identity 完成后暂缓 MasterData、OperationalData 和 MES 生产业务扩张
 - 当前默认租户完整可用，同时保留多租户数据和基础设施边界。
 - 提供登录用户之间的一对一工业合规聊天、图片和文件传输。
 - 提供从聊天发起的合规屏幕共享和现场远程指导。
-- 将 Platform Studio、Operations Center、IoT Collector 保持为可独立演进产品，并保持其内部模块边界。
+- 将 Platform Studio、KnowledgeHub（知识中心）、IoT Collector 保持为可独立演进产品，并保持其内部模块边界。
 - 初期允许模块合并部署，但领域、契约和数据归属必须可拆分。
 
 PF05/06、PF08/09、PF10/10A、PF10B、PF11均遵循“平台原生兼容优先，同一业务核心按需独立交付与嵌入外部MES”。身份/数据/公共能力适配和最小依赖在设计时明确，先验平台真实链再验已批准外部形态；不要求每PF独立进程或各建账号/文件/审计服务。按功能的边界与派遣前清单统一见[蓝图32§2.1～2.2](32-Industrial%20Platform%20Service%20Host与内部模块边界.md)。
@@ -55,7 +55,7 @@ PF05/06、PF08/09、PF10/10A、PF10B、PF11均遵循“平台原生兼容优先�
 
 - Low Code：数据模型、表单、列表、页面编排和发布治理。
 - Dashboard & Report：数据源、数据集、指标、看板、报表和导出。
-- Operations Center：实施项目工作区、知识库、问题跟踪、知识/数据助手、模型网关和 ServerMonitor；ServerMonitor 只是其内部模块。
+- KnowledgeHub（知识中心）：以知识库为核心，问题跟踪与知识/数据AI助手为主要能力；项目工作区与模型网关提供支撑，JSON/二维码/条形码/接口调试工具和ServerMonitor为辅助。PF10只同步宿主名称，原范围与排期不变；产品主次与工具边界见蓝图32§5。
 - Label Platform：独立标签设计、业务数据契约/客户映射、打印执行与追溯，PF-10B 先于 IoT Collector；设计见蓝图 35。
 - IoT Collector：协议驱动、点位、采集任务、边缘缓存和断线续传。
 - MasterData 与 MES：平台基础稳定后恢复开发。
@@ -163,7 +163,7 @@ ReferenceData使用实施06维护七模块公开契约；后续变更核验其�
 
 ## 7.4 Scheduler 与 Platform Health
 
-Scheduler 管理任务运行，不包含任务所属模块的业务规则。Platform Health 只汇总平台服务和依赖状态，主机、进程、磁盘和日志告警进入 Operations Center 的 ServerMonitor 模块。
+Scheduler 管理任务运行，不包含任务所属模块的业务规则。Platform Health 只汇总平台服务和依赖状态，主机、进程、磁盘和日志告警进入 KnowledgeHub（知识中心） 的 ServerMonitor 模块。
 
 # 8. 工业合规协作
 
@@ -226,9 +226,9 @@ PF-05/06 只做必要 Web 宿主适配，完成后进入 PF-06A（蓝图 34、�
 
 三者可共享数据源和数据集契约，但分别建模。长时间报表进入后台任务，结果交给 File，完成后由 Notification 通知。
 
-## 9.3 Operations Center 与 IoT Collector
+## 9.3 KnowledgeHub（知识中心） 与 IoT Collector
 
-Operations Center 的 ServerMonitor 模块观察平台和 IT 运行状态，由 PF-10 单独处理；IoT Collector 获取工业设备数据。两者可以共享日志、指标和告警基础设施，但不共享领域模型。Operations Center 的 ProjectWorkspace、KnowledgeBase、IssueTracking、KnowledgeAssistant、DataAssistant 与 ModelGateway 进入 PF-10A，其边界以蓝图 32 为准；IssueTracking 与 KnowledgeBase 完整数据闭环仍为设计待确认，不得按既有原则摘要直接开发。
+KnowledgeHub（知识中心） 的 ServerMonitor 模块观察平台和 IT 运行状态，由 PF-10 单独处理；IoT Collector 获取工业设备数据。两者可以共享日志、指标和告警基础设施，但不共享领域模型。KnowledgeHub（知识中心） 的 ProjectWorkspace、KnowledgeBase、IssueTracking、KnowledgeAssistant、DataAssistant 与 ModelGateway 进入 PF-10A，其边界以蓝图 32 为准；IssueTracking 与 KnowledgeBase 完整数据闭环仍为设计待确认，不得按既有原则摘要直接开发。
 
 # 10. 跨模块约束
 

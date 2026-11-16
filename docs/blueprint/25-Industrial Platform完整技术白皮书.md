@@ -161,7 +161,7 @@ Industrial Platform
 | Data Platform  | 工业数据分析 |
 | Low Code       | 快速配置   |
 | AI Assistant   | 工业智能助手 |
-| Operations Center | 运维监控、实施知识与受控助手 |
+| KnowledgeHub（知识中心） | 知识库为核心，问题管理与受控AI助手为主要能力，实用工具和监控为辅助 |
 
 ---
 
@@ -236,7 +236,7 @@ Industrial Platform
 
 ├── PlatformStudio Service
 
-├── OperationsCenter Service
+├── KnowledgeHub Service
 
 ├── Label Service（PF-10B，规划）
 
@@ -794,7 +794,7 @@ AI
 
 # 15. AI平台
 
-当前平台基础层的 KnowledgeAssistant、DataAssistant 与 ModelGateway 属于 `OperationsCenter.Service` 的独立内部模块。KnowledgeAssistant 使用带引用与适用版本的 RAG；DataAssistant 首期只访问注册的受控 Dataset/只读视图，永远禁止模型自由访问生产库；外部模型按项目默认关闭且调用可审计。长期 AI 平台能力不得反向放宽这些边界。
+当前平台基础层的 KnowledgeAssistant、DataAssistant 与 ModelGateway 属于 `KnowledgeHub.Service` 的独立内部模块。KnowledgeAssistant 使用带引用与适用版本的 RAG；DataAssistant 首期只访问注册的受控 Dataset/只读视图，永远禁止模型自由访问生产库；外部模型按项目默认关闭且调用可审计。长期 AI 平台能力不得反向放宽这些边界。
 
 ## AI定位
 

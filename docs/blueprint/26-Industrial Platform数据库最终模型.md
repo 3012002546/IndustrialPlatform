@@ -1066,7 +1066,9 @@ node_json
 
 ---
 
-# 18. AI数据库
+# 18. 历史AI存储示例（非KnowledgeHub建库合同）
+
+当前知识、问题和助手归KnowledgeHub.Service，KnowledgeBase拥有知识主档/修订，助手消费其授权已发布知识。下列ai_db、ai_knowledge_document与pgvector是早期概念示例，不代表另建AI宿主、另一套知识主档或首期必装pgvector；具体Provider、逻辑身份、schema/表前缀、迁移账本与索引适配在实施13A细化，不能直接将本节DDL/字段作为生产规格。当前边界见蓝图32§5及蓝图24§12。
 
 ai_db
 
@@ -1162,6 +1164,8 @@ embedding
 ---
 
 # 19. Monitor数据库
+
+当前PF10/PF10A共用KnowledgeHub宿主；本节monitor_db及表结构是早期监控设计输入，不是另建ServerMonitor Host或独立物理库的指令。业务数据归属、逻辑身份、三Provider命名和初始化生命周期须在实施13/13A细化；知识/问题不因共享Host直接访问监控表。跨阶段基线见蓝图32§2.3。
 
 monitor_db
 

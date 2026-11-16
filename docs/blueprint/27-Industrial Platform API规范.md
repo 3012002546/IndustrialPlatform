@@ -806,7 +806,7 @@ GET
 
 # 28. AI Assistant API设计
 
-AI属于特殊接口。
+本节为早期工业AI接口示例，不是KnowledgeHub／PF10A首期已确认的DTO或路由。当前宿主为KnowledgeHub.Service，知识助手只检索当前项目/用户有权访问的已发布知识并提供引用与适用版本；数据助手首期消费受控Dataset/只读视图，不能自由执行SQL或MES业务写操作。正式接口及流式机制在实施13A明确，不能直接派遣下列ProductionAgent或以空sources声明可靠知识结论。范围以蓝图32§5及蓝图24为准。
 
 ---
 

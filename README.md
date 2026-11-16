@@ -191,11 +191,13 @@ Label.Service先交付平台真实身份/权限、菜单/页面、文件/审计�
 | PF-05、PF-06 | Collaboration.Service | 消息、在线状态、附件集成与远程协助 |
 | PF-06A | 终端运行时与客户端 | Web/Electron/Capacitor 共享桥接、扫码/蓝牙/相机与更新，不新增 Host |
 | PF-08、PF-09 | PlatformStudio.Service | 受控数据源/数据集、低代码、看板、报表（含 Excel）、追溯建模与发布；四类独立菜单，追溯仍处设计阶段 |
-| PF-10、PF-10A | OperationsCenter.Service | 服务器监控、项目知识空间、问题与知识管理、知识助手、数据助手与模型接入 |
+| PF-10、PF-10A | KnowledgeHub.Service（知识中心） | 知识库为核心，问题管理与AI助手为主要能力；项目作用域/模型接入提供支撑，实用工具和服务器监控为辅助 |
 | PF-10B | Label.Service | 独立标签模板、业务数据绑定、打印任务/历史与 Device Agent 协作 |
 | PF-11 | IoTCollector.Service | 驱动、设备连接、采集点、采集任务与边缘管理 |
 
 File、Notification、Audit 及之后的能力在各阶段实施前重新确认范围和设计。Worker、Agent、远程协助组件与模型运行时属于辅助部署单元，不额外计入八个规划核心宿主。
+
+**KnowledgeHub／知识中心**以知识内容、分类、版本、审核发布、检索和权限为核心，连接问题处理、解决方案人工转知识及有引用的AI问答。首页优先知识搜索、分类、最近更新和AI入口；JSON解析/格式化、二维码/条形码生成、内部HTTP/API调试与服务器监控作为辅助入口。即时工具不要求Label或监控运行，不默认将输入发送给模型；具体支持范围与接口调试权限在实施前细化。`KnowledgeBase`是内部知识库模块，`KnowledgeHub`是产品/宿主名称。**PF-10范围、排期和验收门禁保持不变，本次仅同步宿主名称**；PF-10A核心闭环与工具详细设计仍待补齐，不能将规划描述为已交付。权威边界见[Host母版§5](docs/blueprint/32-Industrial%20Platform%20Service%20Host与内部模块边界.md#5-knowledgehub知识中心-母版边界)。
 
 PlatformStudio 按同一核心支持平台原生集成与独立、完全离线的内网部署；首期以自建模拟源验证，真实 MES 接入另行验收。看板支持共享数据与受控参数跳转；报表区分单报告、简单组合和数据驱动的电子记录组合，追溯对象、关系和双向查询须可配置。当前这些均为[实施 11](docs/implementation/11-Industrial%20Platform%20Low%20Code开发实施方案.md)、[实施 12](docs/implementation/12-Industrial%20Platform%20Dashboard%20Report开发实施方案.md)及[详细规格](docs/implementation/details/PF08-PF09-页面与验收规格.md)中的设计与验收目标，尚非已实现功能。
 

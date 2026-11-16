@@ -58,10 +58,10 @@ PF08/PF09最新入口为[实施11：Low Code](11-Industrial%20Platform%20Low%20C
 | 10 | [PF-07 Scheduler / Platform Health实施方案](10-Industrial%20Platform%20Scheduler%20Platform%20Health开发实施方案.md) | V1.3整体复核；两自有表/三页面/原生字段字典，G07-1/2闭合，001～006开发及反馈返修完成；页面整体已获用户确认，整包待验收，回归与外部边界见证据 |
 | 11 | [PF-08 Low Code开发实施方案](11-Industrial%20Platform%20Low%20Code开发实施方案.md) | 本地实现与自测完成，待用户验收；001～008保留WIP，最终本地证据与用户/外部验收条件分列 |
 | 12 | [PF-09 Dashboard / Report / Traceability开发实施方案](12-Industrial%20Platform%20Dashboard%20Report开发实施方案.md) | V1.4详细设计稿；001～016九字段卡与字段/API/页面/验收对应；三部分逐块验收、外部Jobs/文件适配、单模块/组合离线包及MES验收合同已补齐；真实引擎/发行/现场待验，未派遣 |
-| 13 | PF-10 ServerMonitor实施方案（待 PF-10 会话创建） | 创建 `OperationsCenter.Service`，本阶段只处理 ServerMonitor |
-| 13A | PF-10A Operations Center Knowledge & Assistant实施方案（待 PF-10A 会话创建） | 设计待确认；先补齐 IssueTracking 与 KnowledgeBase 完整数据闭环，不提前创建文档 |
-| 13B | [PF-10B 标签管理平台](13B-Industrial%20Platform标签管理平台开发实施方案.md) | PF-11前；先平台原生兼容/打印闭环，再外部MES与无宿主装配；核心字段/线框已细化，待派遣/待平台契约、客户设备及外部适配核验 |
-| 14 | PF-11 IoT Collector实施方案（待 PF-11 会话创建） | 待阶段管理会话复核蓝图并派遣 |
+| 13 | PF-10 ServerMonitor实施方案（待 PF-10 会话创建） | KnowledgeHub只装配ServerMonitor；字段/API/线框、Agent/存储和真实节点闭环待细化，非就绪 |
+| 13A | PF-10A KnowledgeHub 知识中心实施方案（待 PF-10A 会话创建） | 名称与定位已确认，详细设计待确认；知识库核心、问题/AI为主、工具/监控为辅。先补核心闭环，再按蓝图32§5补选用工具的字段/API/线框与验收；AI首期只读查询，Text-to-SQL另期设计，人工接口调试不放开AI写操作。不提前建空文档或派遣；PF10范围/顺序不变 |
+| 13B | [PF-10B 标签管理平台](13B-Industrial%20Platform标签管理平台开发实施方案.md) | PF11前；原生打印后验外部/无宿主；G10B-1～3开放，含SQL Server字段/schema与Provider验收矩阵，未派遣 |
+| 14 | PF-11 IoT Collector实施方案（待 PF-11 会话创建） | 先一个协议闭环，字段/API/线框待细化；Label是排期前置，运行不要求Label/ServerMonitor/MES主档 |
 | 15 | [MES-01 MasterData实施方案](15-Industrial%20Platform%20MasterData%20Service开发实施方案.md) | 暂缓；保留现有设计和未提交调整，恢复前复核 |
 | 16 | [MES-02 OperationalData实施方案](16-Industrial%20Platform%20OperationalData%20Service开发实施方案.md) | 暂缓；恢复前按母版重构和复核 |
 
@@ -80,7 +80,7 @@ BuildingBlocks / 可运行基线 / 统一前端第一批（已完成，Docker �
 → PF-08 Low Code
 → PF-09 Dashboard / Report
 → PF-10 ServerMonitor
-→ PF-10A Operations Center Knowledge & Assistant（设计待确认）
+→ PF-10A KnowledgeHub 知识中心（定位已确认，详细设计待确认）
 → PF-10B 标签管理平台
 → PF-11 IoT Collector
 → MES-01 MasterData

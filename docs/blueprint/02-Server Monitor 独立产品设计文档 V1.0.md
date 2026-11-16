@@ -4,7 +4,9 @@
 > 产品名称：Server Monitor Platform
 > 产品定位：工业数字化平台运维监控子系统
 > 架构模式：Agent + Server + Dashboard
-> 技术方向：.NET 10 Worker Service + Vue3 + PostgreSQL + TimescaleDB + SignalR
+> 技术方向：.NET Worker Agent + Vue3；业务存储、时序存储和推送适配在实施13核验，TimescaleDB是候选而非所有部署的必装依赖。
+
+> 2026-11-16范围对齐：PF-10创建KnowledgeHub.Service并只装配ServerMonitor。本文历史指标/协议示例是详细设计输入，尚无实施13及可派遣字段/API/页面规格。宿主、独立装配及跨阶段边界以蓝图32§2.3、§5.3为准。
 
 ---
 
@@ -155,7 +157,7 @@ Docker服务器
 
         |                    |
 
- Metric Service       Alarm Service
+Metric模块            Alarm模块
 
 
         |
@@ -185,22 +187,22 @@ Docker服务器
 
 ---
 
-# 3. 系统模块划分
+# 3. 当前宿主与模块划分
 
 ```text
-ServerMonitor
+KnowledgeHub.Service（PF-10装配ServerMonitor）
 
 
-├── Monitor.Api
+├── ServerMonitor公开API/应用契约
 
-├── Monitor.Domain
+├── ServerMonitor.Domain
 
-├── Monitor.Application
+├── ServerMonitor.Application
 
-├── Monitor.Infrastructure
+├── ServerMonitor.Infrastructure（含指标/告警存储适配）
 
 
-├── Monitor.Agent
+├── ServerMonitor.Agent（独立辅助部署单元）
 
 │
 ├── Windows Collector
@@ -213,9 +215,9 @@ ServerMonitor
 ├── Monitor.Web
 
 
-├── Alarm Service
+├── Alarm（模块内部告警能力，不另建Host）
 
-└── Report Service
+└── 运维看板（不重建PF09通用Report服务）
 
 ```
 
@@ -803,7 +805,7 @@ Recover
 
 # 12. 通知设计
 
-统一Notification Service。
+平台原生通过SystemData内Notification公开契约发送通知；独立部署使用已声明的等价适配，不因通知需要强制安装整套平台。以下渠道是候选清单，须按实际实现列启用条件、失败/重试与验收范围，不能视为首期全部已支持。
 
 支持：
 
@@ -937,11 +939,11 @@ time:"2026-07-31"
 消费者：
 
 ```text
-Alarm Service
+ServerMonitor内部Alarm模块
 
-Dashboard Service
+可选PlatformStudio Dashboard公开订阅方
 
-Notification Service
+SystemData.Notification或独立通知适配
 
 ```
 
@@ -1007,9 +1009,9 @@ Docker Compose：
 ```text
 Nginx
 
-Monitor API
+KnowledgeHub.Service（只启用ServerMonitor）
 
-Alarm Service
+必要身份/审计/通知适配（不新增Alarm Host）
 
 PostgreSQL
 
@@ -1021,7 +1023,9 @@ RabbitMQ
 
 ---
 
-## 大规模
+上述为部署示意，Redis/RabbitMQ/时序扩展须按能力声明，不能由图示变成全部必装项；业务Provider、三种数据库的表名/schema、初始化/升级/恢复矩阵须在实施13补齐。监控SQL Server等目标的能力与平台自身使用哪种数据库分开验收。
+
+## 大规模（未来扩容候选）
 
 Kubernetes：
 
@@ -1105,6 +1109,8 @@ HTTP Health Check
 
 本章各阶段是早期产品能力拆解，未表示已实施或获当前PF10派遣。正式实施13必须先给平台兼容、最小Agent/存储/公共适配、字段/API/线框和真实节点门禁，再确定首期；不因为旧独立产品示例引入知识/问题/模型依赖或单独新增ServerMonitor核心Host。
 
+当前PF10最低闭环沿总Todo§17：一个受管节点完成注册→采集→状态→告警→通知→告警处置记录；不能仅完成下列历史“第一阶段MVP”就宣布PF10完成。告警处置不扩成PF10A的问题/知识闭环。
+
 ## 第一阶段 MVP
 
 目标：
@@ -1181,7 +1187,7 @@ Agent采集
 
 独立部署
 
-独立数据库
+服务数据所有权独立；物理拓扑由配置与初始化契约决定
 
 事件集成
 ```
@@ -1190,4 +1196,4 @@ Agent采集
 
 * MES项目现场服务器可以接入
 * 自己云服务器可以管理
-* 后续可以作为工业平台运行保障模块
+* 首先完成平台原生运行保障链，再验同核心的独立/外部MES装配

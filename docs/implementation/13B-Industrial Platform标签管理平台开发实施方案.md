@@ -8,11 +8,11 @@
 
 本方案为标签管理平台的唯一开发 TodoList；详细领域规则读取[蓝图 35](../blueprint/35-Industrial%20Platform标签管理平台设计.md)。依据为用户标签平台对话、蓝图 32/33、终端蓝图 34、现有实施模板与黄金页标准。
 
-执行前置：PF06A容器能力已验收，平台身份/权限/File/Audit/初始化的真实契约及外部装配边界已核对，客户数据/保密映射和真实打印协议/回执满足Gate。平台兼容是必需前置，不以“独立或平台任选一种”代替。以下为目标目录/契约，不依据代码分支或提交判断能力已实现。参考对话中的候选产品只是设计输入，不自动批准新增依赖。
+执行前置：本次使用的PF06A终端容器/能力契约已核验，不要求无关客户端未测项全部关闭；平台身份/权限/File/Audit/初始化真实契约及外部装配边界已核对，客户数据/保密映射和真实打印协议/回执满足Gate。平台兼容是必需前置，不以“独立或平台任选一种”代替。以下为目标目录/契约，不依据代码分支或提交判断能力已实现。参考对话中的候选产品只是设计输入，不自动批准新增依赖。
 
 ## 2. 前置与首版范围
 
-顺序为 PF-06A 客户端专项 → 原 PF-07～PF-10A → **PF-10B 标签平台** → PF-11 IoTCollector → MES 业务。此为执行排期；Label 不依赖 OperationsCenter/IoTCollector/MES 领域表，首个外部项目可用标准 DTO 提供业务数据。
+顺序为 PF-06A 客户端专项 → 原 PF-07～PF-10A → **PF-10B 标签平台** → PF-11 IoTCollector → MES 业务。此为执行排期；Label 不依赖 KnowledgeHub/IoTCollector/MES 领域表，首个外部项目可用标准 DTO 提供业务数据。
 
 首版拥有独立运行、三类默认/自定义模板、PDF/图片底稿、ZPL 指令、契约/映射/快照、任务/明细/历史/重打、Windows 工位 Agent、PDA 原生蓝牙直连、真实项目接入和恢复试点。不包括全品牌、全数据库、通用规则引擎、完整离线业务或称量判定。
 
@@ -32,11 +32,11 @@ Browser/Electron/PDA → Label.Service 的可信 API → 数据准备/模板渲�
 | `src/frontend/src/pages/pda/label/`、`src/frontend/src/platform/runtime/` | PDA 作业与 printer adapter |
 | `tests/Label/`、`tests/IntegrationTests/` | 服务级测试与真实跨端/设备验收 |
 
-独立 UI 使用共享前端能力的构建入口，领域核心不依赖整套平台 Shell。Agent 协议不接收任意 OS 命令；未来称量复用设备注册/连接/诊断而不引用 Label 任务表。
+独立UI使用共享前端能力的构建入口，领域核心不依赖整套平台Shell。Agent协议不接收任意OS命令；未来IoT/称量按需复用中立连接/诊断技术端口，自行拥有领域设备绑定和任务，不调用Label的打印机注册/绑定或打印任务。三类Agent及排期/运行依赖见蓝图32§2.3。
 
 ## 5. 初始化与通用约束
 
-ServiceKey/InitializationUnitKey=`label`；LogicalDatabaseName=`label_db`；PostgreSQL Schema=`label`，模块表前缀 template_/data_/print_。一个服务级 migration/seed 双账本和 Outbox，实际消费者才加 Inbox；技术记录不机械继承 Entity。领域对象沿用模板的 NId/生命周期/并发字段；同聚合普通 ParentId 外键，跨模块/服务只存稳定 NId 和快照，不建跨域外键。
+ServiceKey/InitializationUnitKey=`label`；LogicalDatabaseName=`label_db`；现有PG设计Schema=`label`，模块表前缀template_/data_/print_/device_；SQLite采用label_表名前缀。SQL Server物理命名、字段类型/约束及SQL Server2019/2022验收映射尚缺，不得声称只切Provider即可兼容；这些与原生/外部/无宿主的支持矩阵一并作为G10B-3退出条件，先回写细化规格再派生产编码。一个服务级migration/seed双账本和Outbox，实际消费者才加Inbox；技术记录不机械继承Entity。领域对象沿用NId/生命周期/并发字段；同聚合普通ParentId外键，跨模块/服务只存稳定NId和快照，不建跨域外键。
 
 平台由 SystemData 编排同一服务初始化器；独立模式本地受控维护入口调用 Inspect/Plan/Apply/Verify，运行 Ready 只依赖本地 ledger/必要种子/可信配置。服务不持管理员凭据自行建库，不向控制面传 SQL/Secret，不使用 EnsureCreated。Standard/Advanced 服从环境，独立发布同样执行版本/锁/checksum/备份恢复规则。
 

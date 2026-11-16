@@ -175,7 +175,7 @@ backend/services
 │
 ├── PlatformStudio.Service
 │
-├── OperationsCenter.Service
+├── KnowledgeHub.Service
 │
 ├── Label.Service（PF-10B，规划）
 ├── IoTCollector.Service

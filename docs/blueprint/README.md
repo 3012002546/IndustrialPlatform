@@ -24,7 +24,7 @@ ReferenceData 管理字典、参数、动态配置、元数据、编码规则、
 | 编号 | 文档 | 状态 | 前置阅读 | 说明 |
 | --- | --- | --- | --- | --- |
 | 01 | [总体架构设计](01-Industrial%20Platform%20总体架构设计%20V1.0.md) | 已整理 | — | 规划 |
-| 02 | [Server Monitor 历史独立产品设计](02-Server%20Monitor%20独立产品设计文档%20V1.0.md) | 历史规划 | 01, 32 | 仅作为 Operations Center 的 ServerMonitor 模块详细设计输入，部署边界以 32 为准 |
+| 02 | [Server Monitor设计输入](02-Server%20Monitor%20独立产品设计文档%20V1.0.md) | PF10边界已对齐，详细设计待补 | 01, 32 | KnowledgeHub内监控；实施13未创建，历史指标/扩容示例不等于已就绪 |
 | 03 | [MES领域模型DDD设计](03-MES领域模型DDD设计.md) | 已整理 | 01 | 规划 |
 | 04 | [Vue3 PC/PDA/Mobile 三端统一架构设计](04-Vue3%20PCPDAMobile%20三端统一架构设计.md) | 已整理 | 01 | 规划 |
 | 05 | [平台基础功能与独立模块设计](05-Industrial%20Platform平台基础功能与独立模块设计.md) | 已确认 | 01, 04, 13, 21, 22, 30, 31 | 正式平台基础蓝图 |
@@ -40,14 +40,14 @@ ReferenceData 管理字典、参数、动态配置、元数据、编码规则、
 | 14A | [OperationalData Service详细设计](14A-OperationalData%20Service详细设计.md) | 已确认 | 01, 07, 08, 14 | 操作域与轻量 WMS |
 | 15 | [WorkOrder Service详细设计](15-WorkOrder%20Service详细设计.md) | 已整理 | 01, 14, 14A | 规划 |
 | 16 | [Weighting Service详细设计](16-Weighting%20Service详细设计.md) | 已整理 | 01, 14, 14A | 规划 |
-| 17 | [IoT Collector Service详细设计](17-IoT%20Collector%20Service详细设计.md) | 已整理 | 01 | 规划 |
+| 17 | [IoT Collector设计输入](17-IoT%20Collector%20Service详细设计.md) | PF11边界已对齐，详细设计待补 | 01, 32 | 实施14未创建；一个协议闭环，不运行依赖Label/ServerMonitor/MES主档 |
 | 18 | [Trace Service详细设计](18-Trace%20Service详细设计.md) | 已整理 | 01, 14, 14A | 规划 |
 | 19 | [Batch Record Service详细设计](19-Batch%20Record%20Service详细设计.md) | 已整理 | 01, 14, 14A | 规划 |
 | 20 | [部署架构设计](20-Industrial%20Platform部署架构设计.md) | 已整理 | 01 | 规划 |
 | 21 | [低代码配置平台设计](21-低代码配置平台设计.md) | 已整理 | 01 | 规划 |
 | 22 | [工业数据分析平台设计](22-工业数据分析平台设计.md) | 已整理 | 01 | 规划 |
 | 23 | [多租户SaaS架构设计](23-多租户SaaS架构设计.md) | 已整理 | 01 | 规划 |
-| 24 | [工业AI助手设计](24-工业AI助手设计.md) | 已整理 | 01 | 规划 |
+| 24 | [KnowledgeHub知识中心与AI助手设计输入](24-工业AI助手设计.md) | 定位已确认，PF10A详细设计待确认 | 01, 32 | 知识库核心、问题/AI为主、工具/监控为辅；实施13A未创建，闭环及工具缺口见32§5.4～5.5 |
 | 25 | [完整技术白皮书](25-Industrial%20Platform完整技术白皮书.md) | 已整理 | 01–24 | 规划 |
 | 26 | [数据库最终模型](26-Industrial%20Platform数据库最终模型.md) | 已整理 | 07, 14 | 规划 |
 | 27 | [API规范](27-Industrial%20Platform%20API规范.md) | 已整理 | 01, 12 | 规划 |
