@@ -72,7 +72,7 @@ Industrial Platform采用：
 
         PlatformStudio
 
-        OperationsCenter
+        KnowledgeHub
 
         IoTCollector
 
@@ -155,7 +155,7 @@ Industrial Platform
 
 ├── PlatformStudio
 
-├── OperationsCenter
+├── KnowledgeHub
 
 ├── IoTCollector
 
@@ -228,7 +228,7 @@ Collaboration
 
 PlatformStudio
 
-OperationsCenter
+KnowledgeHub
 
 MasterData
 
@@ -963,7 +963,7 @@ Service
 
 Industrial Platform 自带：
 
-`OperationsCenter.Service` 的 ServerMonitor 模块
+`KnowledgeHub.Service` 的 ServerMonitor 模块
 
 结合：
 
@@ -1578,7 +1578,7 @@ AI智能应用
 
 ```
 
-## 独立协作、终端与标签部署增量（2026-09-07）
+## 独立协作、终端与后续PF部署边界（2026-11-16对齐）
 
 | 交付 | 最小部署与边界 |
 | --- | --- |
@@ -1586,7 +1586,10 @@ AI智能应用
 | 外部 MES 嵌入 Collaboration | 同一 Collaboration 核心 + PostgreSQL + 可信参考/实际宿主 + 必要本地持久审计；单实例不强制 Redis/RabbitMQ，本地 Outbox Dispatcher 可靠投递；附件/协助按配置启用 |
 | PF-06A 客户端 | Electron Windows、Capacitor Android PDA 是辅助部署单元；签名完整升级及 PDA Bundle 更新受 Native/Web 兼容与业务安全点约束 |
 | PF-10B 平台原生Label（优先） | Label.Service接平台身份/租户/权限、菜单/共享UI、File/Audit与SystemData初始化公开契约，配合已验证Runtime/设备执行链 |
-| PF-10B 外部MES/无宿主Label | 同一Label核心 + PostgreSQL + 必要身份/文件/持久审计能力 + 按需Windows Agent/用户助手或PDA原生执行端；无宿主另有最小管理员引导，不强制整套平台基础设施 |
+| PF-10 ServerMonitor | KnowledgeHub只启用ServerMonitor + 主机Agent + 指标/告警存储和必要适配；不部署知识/问题/模型模块，时序扩展与消息代理按能力声明 |
+| PF-10A 知识/问题及助手 | 同一KnowledgeHub宿主按选用模块装配；不要求ServerMonitor，关闭助手不阻断基本问题/知识管理。Dataset/索引/模型声明各自依赖，不强制整个Studio安装 |
+| PF-10B 外部MES/无宿主Label | 同一Label核心 + 经G10B-3核验的业务数据库 + 必要身份/文件/持久审计 + 按需Windows Agent/用户助手或PDA；PG为原基线示例，SQLite/SQL Server支持矩阵与缺口见实施13B；无宿主另有最小管理员引导，不强制整套平台 |
+| PF-11 IoTCollector | 采集核心 + 首期已选驱动/边缘缓存和必要安全存储适配；不要求Label、ServerMonitor或MES主档服务。公开健康集成和中立Agent技术复用按需启用 |
 
 各功能先验平台原生链，再验已批准外部装配，具体最小依赖与裁剪前置见蓝图32§2.1～2.2。Collaboration外部嵌入不建设本地完整账号门户；Label外部MES模式适配可信宿主身份，无宿主模式才启用最小身份/角色/API凭据。公共能力可精简复用或等价适配，必要身份、文件授权与审计不得省略。独立安装调用相同初始化器/账本，不能自动切库或迁数据。远程协助业务后端不解码/录制媒体，TURN可中继；强制relay和服务端强制断流分别提供实际媒体路径证据。
 

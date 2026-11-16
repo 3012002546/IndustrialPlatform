@@ -1,12 +1,12 @@
 # Industrial Platform 标签管理平台设计
 
-版本：V1.0；日期：2026-09-07；状态：需求与设计基线，设备/组件和首个客户契约待核验，未开发。
+版本：V1.0；对齐日期：2026-11-16；状态：设计基线，平台/数据库/设备/组件和首个客户契约待核验，未开发。
 
 ## 1. 产品与执行位置
 
 工业标签平台首先是Industrial Platform的原生功能，同时具备相对独立交付能力。设计优先级为：**平台原生兼容 → 同一核心独立部署并嵌入OP/EBR/其他MES → 已批准的无宿主录入/导入模式**；外部适配边界先设计，实际平台链先实现和验收。统一原则见[Host母版§2.1～2.2](32-Industrial%20Platform%20Service%20Host与内部模块边界.md)。新增 **PF-10B**，排在 PF-11 IoTCollector 之前、正式 MES 业务之前；实施与唯一开发 TodoList 见[实施 13B](../implementation/13B-Industrial%20Platform标签管理平台开发实施方案.md)。PF-06A 先交付运行容器，PF-10B 再验证真实打印设备。
 
-平台装配默认接入现有身份/租户/权限、菜单与共享页面、File/Audit、SystemData初始化及Runtime；Label通过公开端口消费业务来源，不复制平台账号库、文件服务或审计实现。独立部署为 `Label.Service` + PostgreSQL + 必要身份/文件/审计能力 + 按需设备执行端，可精简复用公共组件或使用等价适配，不要求整个Industrial Platform启动，也不强制平台网关、Identity/SystemData完整Host或全部中间件。共用业务模型、API、迁移与页面核心，模式只改变宿主装配和适配，不能先做本地替代再补平台兼容。
+平台装配默认接入现有身份/租户/权限、菜单与共享页面、File/Audit、SystemData初始化及Runtime；Label通过公开端口消费业务来源，不复制平台账号库、文件服务或审计实现。独立部署为 `Label.Service` + 经G10B-3核验的业务数据库（原基线示例为PostgreSQL）+ 必要身份/文件/审计能力 + 按需设备执行端，可精简复用公共组件或使用等价适配，不要求整个Industrial Platform启动，也不强制平台网关、Identity/SystemData完整Host或全部中间件。共用业务模型、API、迁移与页面核心，模式只改变宿主装配和适配，不能先做本地替代再补平台兼容。
 
 ## 2. 服务与模块边界
 
@@ -17,7 +17,9 @@
 | MES/OP/EBR | 业务权威数据、业务可打印条件、包装/批次/序列号 | 标签坐标、设备协议、标签任务历史 |
 | IoTCollector/Weighting（后续） | 通用采集、点位、设备读数；称量质量/稳定性/业务确认 | 依赖标签任务才能读取设备 |
 
-`Label.Service` 是新增第八个规划核心 Host，内部分类/模板、数据准备、渲染、打印与历史保持模块所有权；使用服务级初始化/账本/Outbox，仅真实消费者建 Inbox。Agent、用户态助手、Electron/Capacitor 是辅助部署单元，不再增加核心 Host。生产数据库仍采用 PostgreSQL，旧项目使用 Oracle/SQL Server不构成标签服务必须同时支持这些数据库的要求。
+`Label.Service` 是新增第八个规划核心 Host，内部分类/模板、数据准备、渲染、打印与历史保持模块所有权；使用服务级初始化/账本/Outbox，仅真实消费者建 Inbox。Agent、用户态助手、Electron/Capacitor 是辅助部署单元，不再增加核心 Host。原规格仅有PostgreSQL/SQLite映射，尚缺SQL Server；不能据此声称已兼容平台全部Provider，也不能把“客户源库与服务库分离”解释成平台SQL Server装配无需评估。服务库类型/schema、SQL Server2019/2022目标、初始化/升级/查询/恢复及发行组合必须在G10B-3闭合前补齐；当前PG为独立部署基线示例，不是全平台统一限制。客户使用Oracle/MySQL仍不要求Label直连或改用同一引擎。
+
+PF10A→PF10B→PF11是排期；Label运行不要求KnowledgeHub或IoT。后续IoT/称量只可复用中立Runtime/Agent技术端口，不能依赖Label拥有的打印机注册/绑定、模板或任务。PF06A前置按实际使用能力核验，不把全部客户端发行未测项等同于所有标签工作均阻塞。跨阶段边界统一见蓝图32§2.3。
 
 ## 3. 分类、模板与版本
 

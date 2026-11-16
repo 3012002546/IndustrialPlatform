@@ -109,7 +109,7 @@ Industrial Digital Platform
 
  ----------------             ----------------
 
- MES Service                  Operations Center
+ MES Service                  KnowledgeHub（知识中心）
 
  Planning                     Agent
 
@@ -208,7 +208,7 @@ Low Code + Dashboard & Report
       ↓
 ServerMonitor
       ↓
-Operations Center Knowledge & Assistant
+KnowledgeHub 知识中心
       ↓
 IoT Collector
       ↓
@@ -221,7 +221,7 @@ SystemData 负责行政组织、岗位、菜单导航、功能开关、服务目
 
 平台基础功能、工业合规聊天、远程协助、主题体系和独立模块边界详见 `05-Industrial Platform平台基础功能与独立模块设计.md`。
 
-当前平台基础层固定为八个规划核心 Service Host：`Identity.Service`、`SystemData.Service`、`ReferenceData.Service`、`Collaboration.Service`、`PlatformStudio.Service`、`OperationsCenter.Service`、`Label.Service`、`IoTCollector.Service`。Worker、Agent、Screego、TURN 与本地模型运行时属于辅助部署单元，不计入核心 Service Host 数量。
+当前平台基础层固定为八个规划核心 Service Host：`Identity.Service`、`SystemData.Service`、`ReferenceData.Service`、`Collaboration.Service`、`PlatformStudio.Service`、`KnowledgeHub.Service`、`Label.Service`、`IoTCollector.Service`。Worker、Agent、Screego、TURN 与本地模型运行时属于辅助部署单元，不计入核心 Service Host 数量。
 
 ---
 
@@ -923,11 +923,11 @@ Quality
 
 ---
 
-# 7. Operations Center（运维与实施知识中心）
+# 7. KnowledgeHub（知识中心）
 
-## OperationsCenter.Service
+## KnowledgeHub.Service
 
-当前独立 Service Host，内部包含 `ServerMonitor`、`ProjectWorkspace`、`KnowledgeBase`、`IssueTracking`、`KnowledgeAssistant`、`DataAssistant` 和 `ModelGateway`。其权威母版边界见蓝图 32；PF-10 单独处理 ServerMonitor，PF-10A 处理其余模块并先补齐 IssueTracking 与 KnowledgeBase 完整数据闭环。各模块的表、API 和页面留给对应阶段管理任务设计。
+规划宿主为`KnowledgeHub.Service`，以`KnowledgeBase`知识库为核心，`IssueTracking`问题管理和知识/数据AI助手为主要能力，`ProjectWorkspace`与`ModelGateway`提供支撑；JSON解析、二维码/条形码、内部接口调试等工具和`ServerMonitor`为辅助。首页与导航以知识检索、内容治理和AI问答为重心，不以运维监控定义整个产品。权威边界见蓝图32§5；PF-10保持当前监控阶段范围与顺序，只同步宿主名；PF-10A先补齐问题→知识→授权检索闭环及选用工具规格。各模块表、API和页面在对应阶段细化，不表示已实现。
 
 ### ServerMonitor 模块
 
@@ -1290,7 +1290,7 @@ Industrial Data
 本架构作为后续：
 
 * MES领域设计
-* Operations Center设计
+* KnowledgeHub（知识中心）设计
 * 前端三端架构
 * 开发路线规划
 

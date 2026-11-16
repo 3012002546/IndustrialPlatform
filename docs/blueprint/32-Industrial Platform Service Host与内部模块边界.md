@@ -60,11 +60,26 @@ PF-05、PF-06、PF-08、PF-09、PF-10、PF-10A、PF-10B、PF-11都属于Industri
 | PF-08 Low Code | 平台权限、主题、路由、受控数据源、发布 | PlatformStudio选定的DataSource/Dataset/LowCode/Publishing，支持自有业务登记记录；交付原生装配与独立安装，列明必要身份/权限及公共能力。设计器与运行入口范围明确，不依赖Dashboard/Report自动启用 |
 | PF-09 Dashboard & Report | 平台受控Dataset、行列授权、File、通知/定时能力 | Dashboard/Report（含Excel）及所需Dataset运行能力沿同一PlatformStudio独立部署边界交付，不强制低代码设计器。首期Excel包含编辑保存、版本/会话及必要服务适配。组合报表分简单组合和电子记录组合：前者配置报告/参数/顺序，后者按SOP组织人工填写/HTML/系统操作记录、重复/条件区块、统一页头页脚及最终页码。单报告能力保留，两类共用受权取数/渲染/产物基础，不新增Host。来源系统保留执行事实、更正、业务完整性/审核/归档规则，Report忠实呈现并检查文档所需记录；简单组合不强制工单上下文。查询/普通导出可独立运行，生成/定时分别声明存储/调度/通知适配 |
 | PF-10 ServerMonitor | 平台节点权限、告警/通知、审计和健康摘要 | ServerMonitor+Agent+指标/告警存储及必要公共适配；不依赖知识库、问题和模型运行时 |
-| PF-10A Operations Center | 平台项目/用户范围、文件/知识/问题闭环及受控Dataset | 项目/问题/知识核心与按需助手组合；声明索引、模型和数据源依赖，关闭助手不应阻断基本问题/知识管理；不强制安装ServerMonitor |
+| PF-10A KnowledgeHub（知识中心） | 平台项目/用户范围、文件/知识/问题闭环及受控Dataset | 项目/问题/知识核心与按需助手组合；声明索引、模型和数据源依赖，关闭助手不应阻断基本问题/知识管理；不强制安装ServerMonitor |
 | PF-10B Label | 平台身份/权限、菜单/黄金页、File/Audit、SystemData初始化、Runtime及业务来源端口 | Label核心+数据库+必要文件/审计/身份能力+按需Agent/PDA；先平台闭环，再外部MES与无宿主模式；不依赖IoT或MES领域表 |
 | PF-11 IoTCollector | 平台设备引用/权限、采集质量/时标、健康与事件契约 | 采集核心+已选驱动/边缘执行与持久缓存；通过API/事件接目标MES，不强制Label、报表或完整MES。PF10B是排期前置，不是运行依赖 |
 
 每阶段派遣输入必须给：①平台装配及真实兼容链；②支持的独立/嵌入形态和明确暂缓项；③必需/可选依赖、缺失行为、最小模块/进程/数据库清单；④身份/数据/公共能力适配和页面入口；⑤同一数据模型/迁移/权限/API的兼容测试；⑥启停、升级、备份恢复与支持矩阵。平台原生链先验，已批准的外部交付范围另验，不能互相替代；阶段排期前置与产品运行依赖分栏记录。
+
+## 2.3 PF-10～PF-11 对齐基线（2026-11-16）
+
+下表统一已有范围，不表示已实施或可派遣；详细任务仍由各阶段实施文档唯一维护。
+
+| 阶段 | 本阶段所有权 | 排期与运行依赖 | 设计入口与缺口 |
+| --- | --- | --- | --- |
+| PF-10 | KnowledgeHub内ServerMonitor：受管主机、Agent、指标、告警和告警处置 | 排在PF09后；运行不要求PF10A。Platform Health只消费健康摘要 | 蓝图02；实施13待细化。告警确认/恢复/处置不等于IssueTracking的问题分派/解决/验证/关闭 |
+| PF-10A | KnowledgeHub内项目/问题/知识核心及按需助手/ModelGateway | 排在PF10后；可不装ServerMonitor。消费File/Audit/Dataset公开端口，不强制Dashboard/Report页面或整个Studio安装 | 本文§5及蓝图24；实施13A未创建，问题→人工转知识→审核发布/索引→有权引用检索闭环待确认 |
+| PF-10B | Label模板/数据准备/打印/历史及本产品设备绑定；执行端技术连接与执行账本 | 排在PF10A后、PF11前；运行不要求KnowledgeHub、IoT或MES。PF06A只核验本次使用的终端能力 | 蓝图35、实施13B及明细；G10B-1～3开放，平台/客户/设备/Provider与外部装配分别核验 |
+| PF-11 | IoT驱动/连接/点位/采集任务、质量/时标、缓存续传和边缘管理 | PF10B是排期前置；按需复用中立Runtime/Agent技术端口，不调用Label设备绑定/打印任务。ServerMonitor为可选观测集成 | 蓝图17；实施14待细化，先选一个协议闭环。设备业务主档由MES/外部来源拥有，采集连接不是主档副本 |
+
+ServerMonitor.Agent采集主机运行信息；Device Agent/终端适配执行授权打印等技术I/O；IoT边缘执行器负责点位采集与缓存。可复用受控通信、认证、诊断基础，但不因此合并注册授权、业务账本或自动互领任务；同一物理端口的占用/互斥须在设备核验中明确。
+
+数据库须区分平台自身业务存储、客户业务数据源与时序/向量专用存储。平台支持某Provider不证明新模块已完成该Provider的DDL、查询、初始化与升级验收；客户使用Oracle/MySQL不要求平台业务库改用同一引擎。各阶段明细须给出实际命名与类型，不能把早期monitor_db、ai_db、iot_platform示例直接当作物理库或拆库指令。初始化按服务/真实独立持久化生命周期设计，不因PF10A后加入而机械拆账本。
 
 # 3. 当前核心 Service Host
 
@@ -83,7 +98,7 @@ Report首期接收HTML富文本绑定，将流程中已填写并保存的页面�
 | `ReferenceData.Service` | Dictionary、Parameter、DynamicProperty、Metadata、CodingRule、StateMachine、UnitOfMeasure |
 | `Collaboration.Service` | Messaging、Presence、AttachmentIntegration、RemoteAssistance |
 | `PlatformStudio.Service` | DataSource、Dataset、LowCode、Dashboard、Report、Publishing；Traceability纳入新增设计评估 |
-| `OperationsCenter.Service` | ServerMonitor、ProjectWorkspace、KnowledgeBase、IssueTracking、KnowledgeAssistant、DataAssistant、ModelGateway |
+| `KnowledgeHub.Service` | KnowledgeBase为核心；IssueTracking、KnowledgeAssistant、DataAssistant为主要能力；ProjectWorkspace/ModelGateway提供支撑；工具与ServerMonitor为辅助 |
 | `Label.Service` | Template、DataPreparation、Rendering、PrintJob、History；PF-10B 新增规划 |
 | `IoTCollector.Service` | Driver、DeviceConnection、Point、CollectionTask、EdgeManagement |
 
@@ -123,14 +138,29 @@ StateMachine 管理 `StateMachineDefinition`、其 `StateNode` 和 `StateTransit
 | 10 / PF-07 | Scheduler / Platform Health | 加入 `SystemData.Service` | Scheduler、PlatformHealth |
 | 11 / PF-08 | Low Code | 创建 `PlatformStudio.Service` | DataSource、Dataset、LowCode、Publishing 的首期范围 |
 | 12 / PF-09 | Dashboard & Report | 加入 `PlatformStudio.Service` | Dashboard、Report，并复用受控Dataset；新增Traceability设计章节与任务边界评估，未派遣实现 |
-| 13 / PF-10 | ServerMonitor | 创建 `OperationsCenter.Service` | 只交付 ServerMonitor；与知识、问题和助手模块保持隔离 |
-| 13A / PF-10A | Operations Center Knowledge & Assistant | 加入 `OperationsCenter.Service` | ProjectWorkspace、KnowledgeBase、IssueTracking、KnowledgeAssistant、DataAssistant、ModelGateway；进入实施前先补齐第 5.4 节的设计缺口 |
+| 13 / PF-10 | ServerMonitor | 创建 `KnowledgeHub.Service` | 只交付 ServerMonitor；与知识、问题和助手模块保持隔离 |
+| 13A / PF-10A | KnowledgeHub 知识中心 | 加入 `KnowledgeHub.Service` | KnowledgeBase为核心，IssueTracking及知识/数据助手为主，ProjectWorkspace/ModelGateway支撑；先补§5.4闭环，辅助工具按§5.5细化；PF10不变 |
 | 13B / PF-10B | 标签管理平台 | 创建 `Label.Service`，先于 PF-11 | Template、DataPreparation、Rendering、PrintJob、History；先平台原生，再外部MES/无宿主同核心装配 |
 | 14 / PF-11 | IoT Collector | 创建 `IoTCollector.Service` | Driver、DeviceConnection、Point、CollectionTask、EdgeManagement |
 
-# 5. Operations Center 母版边界
+# 5. KnowledgeHub（知识中心） 母版边界
 
-本章只记录已经逐项确认的模块定位和安全边界，不代表 Operations Center 已完成详细设计。上一个设计会话确认到 DataAssistant 为止，尚未完成 IssueTracking 与 KnowledgeBase 的端到端数据闭环；PF-10A 必须先补齐该闭环并经用户确认，才能生成可派遣任务卡。
+2026-11-16用户确认产品英文名为 **KnowledgeHub**、中文名为 **知识中心**，规划宿主统一为 `KnowledgeHub.Service`。`KnowledgeBase`仍是内部知识库领域模块名，不与产品名混用；这是规划文档命名同步，不是已完成代码/数据库迁移。
+
+## 5.0 产品主次与入口
+
+| 层次 | 能力 | 产品职责 |
+| --- | --- | --- |
+| 核心 | KnowledgeBase | 知识内容、分类、修订、审核发布、检索和权限，是中心的主要数据与使用入口 |
+| 主要能力 | IssueTracking、KnowledgeAssistant、DataAssistant | 问题登记/处理/验证，解决方案人工沉淀为知识；AI基于授权知识/受控数据辅助查询与整理，保留引用和适用版本 |
+| 支撑 | ProjectWorkspace、ModelGateway | 项目知识/数据作用域与模型接入，不做另一套项目管理或独立知识主档 |
+| 辅助 | 实用工具、ServerMonitor | JSON解析/格式化、二维码/条形码生成、内部接口调用及监控入口，不决定知识中心的主导航和运行前置 |
+
+首页与默认导航突出知识搜索、知识分类、最近更新和AI问答；问题是主要协作入口，工具和监控放辅助入口。详细页面仍须在实施13A画线框后开发。关闭助手、工具或监控不应阻断基础知识/问题管理；关闭辅助能力不能绕过已声明的授权或存储要求。
+
+**PF-10先不调整**：只同步宿主名称，保留现有ServerMonitor阶段编号、排期、工作范围和完成门禁；用户已有监控系统的接入评估本轮不展开，不将本次更名改写为PF10重做或集成任务。PF-10A以知识库、问题和AI闭环为主，辅助工具按§5.5先细化，不挤占核心闭环，也不因产品命名确认而自动成为可派遣任务。
+
+本章的产品名称、主次与模块安全边界已经确认；PF-10A的详细设计仍待确认。IssueTracking与KnowledgeBase端到端数据闭环尚未补齐，须完成状态/字段/契约/恢复/页面及验收设计后再派遣；不要求重新确认已定名称与产品定位，也不依赖未随包提供的旧会话作为唯一规格。
 
 ## 5.1 ProjectWorkspace 与知识治理
 
@@ -152,7 +182,7 @@ StateMachine 管理 `StateMachineDefinition`、其 `StateNode` 和 `StateTransit
 
 ## 5.3 ServerMonitor
 
-`ServerMonitor` 是 `OperationsCenter.Service` 内部独立模块，由 PF-10 单独完成阶段设计、派遣和验收。PF-10 不得顺带实现 ProjectWorkspace、KnowledgeBase、IssueTracking 或助手模块。ServerMonitor 第一阶段不自动创建问题、不自动关联 KnowledgeBase，也不主动介入问题闭环；只预留未来通过公开契约扩展的能力。
+`ServerMonitor` 是 `KnowledgeHub.Service` 内部独立模块，由 PF-10 单独完成阶段设计、派遣和验收。PF-10 不得顺带实现 ProjectWorkspace、KnowledgeBase、IssueTracking 或助手模块。ServerMonitor 第一阶段不自动创建问题、不自动关联 KnowledgeBase，也不主动介入问题闭环；只预留未来通过公开契约扩展的能力。
 
 ## 5.4 尚待 PF-10A 确认的完整闭环
 
@@ -166,7 +196,18 @@ StateMachine 管理 `StateMachineDefinition`、其 `StateNode` 和 `StateTransit
 - IssueTracking、KnowledgeBase、File、KnowledgeAssistant 之间的 API/事件、事务和 Outbox/Inbox 边界；
 - 从问题解决到知识发布、再到助手带引用检索的端到端验收场景。
 
-PF-10A 的第一个设计门禁是逐项完成并确认以上闭环；在此之前该阶段状态统一为“设计待确认”。
+PF-10A的第一个设计门禁是逐项完成并确认以上闭环；在此之前统一记录“定位已确认，详细设计待确认；未派遣”，不能把命名确认扩大为设计就绪或验收通过。
+
+## 5.5 辅助工具边界与待细化输入
+
+工具方向已确认，具体支持范围、页面、输入输出及验收仍在实施13A细化，不新增核心Host或通用插件平台。
+
+- JSON工具：解析、格式化和错误定位优先在浏览器处理；不得默默改变数值/字符串语义，不默认上传内容到服务端或模型。输入规模、非法内容、复制/下载及是否保存配置须写清。
+- 二维码/条形码：明确支持码制、编码/长度校验、尺寸与导出格式。即时生成不等于PF10B标签模板/打印任务，不依赖Label运行；可复用合适的编码组件，不共享打印业务账本。
+- 内部接口调用：当前按HTTP/API调试理解，非远程Shell。须明确环境/允许目标、方法、请求头/体、响应展示、超时、凭据引用/脱敏、写操作权限与审计；需要后端代理时限制目标和转发行为，不将其变成任意内网请求通道。此处写操作指获授权人员主动调试，不改变DataAssistant首期只读查询边界，不能把该工具作为AI自动执行业务写操作的后门。
+- 工具默认不建立业务任务表；个人收藏、历史或共享配置只有纳入具体范围时再定义字段、权限和保留规则。AI使用工具输入须有明确用户动作，不把复制进工具的内容自动发送给模型。
+
+以上作为设计输入回写总Todo和实施13A入口；不新增PF编号，不改变PF10的监控开发安排。
 
 # 6. 阶段管理工作流
 

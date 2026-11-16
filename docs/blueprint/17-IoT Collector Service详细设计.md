@@ -1,4 +1,6 @@
-继续输出：
+# IoT Collector 蓝图阅读范围
+
+2026-11-16对齐：实施14尚未创建，本文历史实体/DDL/事件示例是设计输入，不是已完成字段字典或可派遣任务。当前首期范围见§22，跨阶段所有权见蓝图32§2.3；当前没有IoTCollector实现或真实协议验收结论。
 
 > 2026-09-07 执行前置：PF-10B 标签管理平台在 PF-11 之前，详见总 Todo 与蓝图 35/实施 13B。IoTCollector 只复用 Device Agent/Runtime 的受限设备连接与诊断语义，不依赖 Label 任务/模板/数据库；采集点、时序质量、边缘缓存仍由本服务拥有。
 
@@ -228,7 +230,9 @@ Device Aggregate
 
 # 6. Device模型
 
-设备实体：
+此处Device表示采集端的连接对象，拥有驱动、连接配置、点位与采集状态；不是MasterData的设备业务档案。生产用途、设备类别主数据和业务生命周期归MasterData或外部MES，仅通过稳定引用关联。可以先建立授权采集连接，不等待MES主档功能开发；外部引用校验、停用与失联行为在实施14细化。
+
+下列设备实体为历史简化示例，尚未补齐NId、租户、生命周期、并发与协议字段类型：
 
 ```csharp
 public class Device
@@ -441,7 +445,9 @@ TimescaleDB
 
 ---
 
-# 11. 数据库设计
+# 11. 数据库设计输入（待实施14细化）
+
+下列iot_platform及devices/device_points/device_data/device_alarm为早期示例，不能直接当物理库或迁移执行。配置业务库、采集时序存储与边缘SQLite缓存须分别列Provider、schema/表名前缀、迁移/保留/恢复及授权边界；主平台兼容PG/SQLite/SQL Server不等于时序扩展在三者均存在。型号协议、时标/质量、幂等键/Checkpoint与失败恢复确定后，再产出精确字段和验收映射。
 
 数据库：
 
@@ -995,16 +1001,18 @@ Machine
 
 ```
 
-统一：
+集成方式：
 
 ```
-Industrial Monitoring Platform
+IoT公开健康/采集状态 → 平台健康或可选ServerMonitor展示
 
 ```
 
 ---
 
 # 22. MVP范围
+
+上节“统一”只指可选观测入口，不合并领域、数据库或Agent。ServerMonitor不可用不阻断已初始化采集核心；IoT使用自己的点位/采集任务/缓存，也不访问Label设备注册/绑定或打印账本。按需复用中立Runtime/Agent技术端口，其缺失行为和物理端口互斥须在实施14明确。
 
 ## 当前PF11首期
 

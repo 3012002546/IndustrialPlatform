@@ -90,7 +90,7 @@ PF-07    Scheduler / Platform Health（分别设计）
 PF-08    Low Code
 PF-09    Dashboard / Report（分别设计）
 PF-10    ServerMonitor
-PF-10A   Operations Center Knowledge & Assistant（设计待确认）
+PF-10A   KnowledgeHub 知识中心（定位已确认，详细设计待确认）
 PF-10B   标签管理平台
 PF-11    IoT Collector
 MES-01   MasterData（暂缓）
@@ -142,7 +142,7 @@ PF01提供后续阶段共享外壳、主题和页面规则；后续消费实际�
 → 跟踪、阶段验收和总 TodoList 回写
 ```
 
-阶段不等于微服务。平台基础层当前固定为八个规划核心 Service Host：`Identity.Service`、`SystemData.Service`、`ReferenceData.Service`、`Collaboration.Service`、`PlatformStudio.Service`、`OperationsCenter.Service`、`Label.Service`、`IoTCollector.Service`。Worker、Agent、Screego、TURN、本地模型运行时和数据库编排 Runner 是辅助部署单元，不计入核心宿主数量。同宿主模块仍必须独立建模，具有明确的 Schema/模块表前缀逻辑命名空间以及独立契约、权限和测试边界；迁移执行单元按真实持久化生命周期划分，禁止因模块数量机械复制，禁止跨模块直读 Repository。
+阶段不等于微服务。平台基础层当前固定为八个规划核心 Service Host：`Identity.Service`、`SystemData.Service`、`ReferenceData.Service`、`Collaboration.Service`、`PlatformStudio.Service`、`KnowledgeHub.Service`、`Label.Service`、`IoTCollector.Service`。Worker、Agent、Screego、TURN、本地模型运行时和数据库编排 Runner 是辅助部署单元，不计入核心宿主数量。同宿主模块仍必须独立建模，具有明确的 Schema/模块表前缀逻辑命名空间以及独立契约、权限和测试边界；迁移执行单元按真实持久化生命周期划分，禁止因模块数量机械复制，禁止跨模块直读 Repository。
 
 PF-02 的最高优先级是 `SystemData.Service` 数据库编排/环境引导控制面：先完成拓扑解析与 bootstrap、服务 registration/plan、provision/migrate/drift、消费者握手/readiness，再开始组织、导航、主题等后续 SystemData 工作。后续服务拥有自己的领域 Schema 和迁移产物；SystemData 负责编排数据库、最小角色/授权与迁移执行。SystemData 自身数据库由 PostgreSQL 18 基础设施最小引导，不创建独立 Migrator Service，不允许业务 API 使用管理员凭据自行建库，也不得使用 `EnsureCreated` 代替版本化迁移。
 
@@ -159,8 +159,8 @@ PF-02 的最高优先级是 `SystemData.Service` 数据库编排/环境引导控
 | PF-07 | 扩展 `SystemData.Service` | Scheduler、PlatformHealth，分别建模 |
 | PF-08 | 创建 `PlatformStudio.Service` | DataSource、Dataset、LowCode、Publishing 首期范围 |
 | PF-09 | 扩展 `PlatformStudio.Service` | Dashboard、Report |
-| PF-10 | 创建 `OperationsCenter.Service` | 只交付 ServerMonitor |
-| PF-10A | 扩展 `OperationsCenter.Service` | ProjectWorkspace、KnowledgeBase、IssueTracking、KnowledgeAssistant、DataAssistant、ModelGateway；完整闭环待确认 |
+| PF-10 | 创建 `KnowledgeHub.Service` | 只交付 ServerMonitor |
+| PF-10A | 扩展 `KnowledgeHub.Service`（知识中心） | KnowledgeBase为核心，问题/AI为主，ProjectWorkspace/ModelGateway支撑；工具/监控为辅助。先补核心闭环，工具按蓝图32§5.5细化，PF10范围和排期不变 |
 | PF-10B | 创建 `Label.Service` | 标签模板、数据准备、打印与历史；实施 13B |
 | PF-11 | 创建 `IoTCollector.Service` | Driver、DeviceConnection、Point、CollectionTask、EdgeManagement |
 
@@ -339,7 +339,7 @@ IndustrialPlatform.slnx
 
 ├── PlatformStudio
 
-├── OperationsCenter
+├── KnowledgeHub
 
 ├── Label（PF-10B，规划）
 ├── IoTCollector
@@ -884,7 +884,7 @@ BuildingBlocks / Entity / 可运行基线 / 统一前端第一批
 → PF-06A 终端运行时与客户端打包
 → PF-07 Scheduler / Platform Health → PF-08 Low Code
 → PF-09 Dashboard & Report → PF-10 ServerMonitor
-→ PF-10A Operations Center Knowledge & Assistant（IssueTracking/KnowledgeBase 完整闭环待确认）
+→ PF-10A KnowledgeHub 知识中心（IssueTracking/KnowledgeBase 完整闭环待确认）
 → PF-10B 标签管理平台
 → PF-11 IoT Collector
 → MES-01 MasterData

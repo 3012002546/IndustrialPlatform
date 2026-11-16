@@ -54,7 +54,7 @@ PF05/06、PF08/09、PF10/10A、PF10B、PF11统一先兼容Industrial Platform原
 11  PF-08 Low Code
 12  PF-09 Dashboard & Report
 13  PF-10 ServerMonitor
-13A PF-10A Operations Center Knowledge & Assistant
+13A PF-10A KnowledgeHub 知识中心
 13B PF-10B 标签管理平台
 14  PF-11 IoT Collector
 15  MES-01 MasterData（原05）
@@ -71,7 +71,7 @@ PF05/06、PF08/09、PF10/10A、PF10B、PF11统一先兼容Industrial Platform原
 
 ## 2.3 阶段与 Service Host
 
-阶段不等于微服务。PF-02～PF-11（含 PF-10A）的宿主创建/扩展映射固定读取蓝图 32：PF-02/04/07 共用 `SystemData.Service`，PF-05/06 共用 `Collaboration.Service`，PF-08/09 共用 `PlatformStudio.Service`；PF-03 使用 `ReferenceData.Service`；PF-10 创建 `OperationsCenter.Service` 并只处理 ServerMonitor，PF-10A 再加入知识、问题与助手模块；PF-10B 创建 `Label.Service`，然后 PF-11 创建 `IoTCollector.Service`；PF-06A 是客户端/运行时专项，不增加核心 Host。`Service Host != Domain Module != Initialization Unit != Deployment Unit`；同宿主模块必须独立建模、使用明确的 Schema/模块表前缀逻辑命名空间及契约/权限/测试边界，但只有独立持久化生命周期才拆分初始化单元和物理治理设施。
+阶段不等于微服务。PF-02～PF-11（含 PF-10A）的宿主创建/扩展映射固定读取蓝图 32：PF-02/04/07 共用 `SystemData.Service`，PF-05/06 共用 `Collaboration.Service`，PF-08/09 共用 `PlatformStudio.Service`；PF-03 使用 `ReferenceData.Service`；PF-10 创建 `KnowledgeHub.Service` 并只处理 ServerMonitor，PF-10A 再加入知识、问题与助手模块；PF-10B 创建 `Label.Service`，然后 PF-11 创建 `IoTCollector.Service`；PF-06A 是客户端/运行时专项，不增加核心 Host。`Service Host != Domain Module != Initialization Unit != Deployment Unit`；同宿主模块必须独立建模、使用明确的 Schema/模块表前缀逻辑命名空间及契约/权限/测试边界，但只有独立持久化生命周期才拆分初始化单元和物理治理设施。
 
 # 3. 当前真实基线
 
@@ -89,7 +89,8 @@ PF05/06、PF08/09、PF10/10A、PF10B、PF11统一先兼容Industrial Platform原
 | 架构收敛整改 | 已完成 | 四个已批准工作包完成，结果已纳入当前架构基线 |
 | PF-04 Core | 已有代码提交，真实验收待补 | `docs/evidence/PF-04.md` 有历史自测及外部缺口，不能当作本轮新鲜验证 |
 | PF-05/PF-06 | PF06本轮开发及用户功能验收完成，后续专项明确延期 | 2026-09-14用户确认功能与一端断开后对端断开通过；网络/质量待项目云Docker部署，异常待Electron/Capacitor，三端待终端完成。TASK-011后续专项不作为当前返工阻断；协作复盘已落统一约定，见active/PF-06 |
-| PF-06A/PF-10B | 核心规格已细化，待派遣/待实际目标核验 | 实施09A/13B；没有原生或Label工程 |
+| PF-06A | 已有终端实现，整包及外部验收按当前证据 | 实施09A和active/PF-06A；本轮不重判既有能力和未测项 |
+| PF-10B | 核心规格已细化，待派遣/待前置核验 | 实施13B；Label工程尚未创建，G10B-1～3未闭合 |
 | MasterData | 暂缓 | 实施方案存在，本轮不进入开发 |
 | OperationalData | 暂缓 | 实施方案存在，本轮不进入开发 |
 
@@ -127,7 +128,7 @@ PF-09 Dashboard & Report
                     ↓
 PF-10 ServerMonitor
                     ↓
-PF-10A Operations Center Knowledge & Assistant
+PF-10A KnowledgeHub 知识中心
                     ↓
 PF-10B 标签管理平台
                     ↓
@@ -147,8 +148,8 @@ MES-03+ WorkOrder / Weighting / Trace / BatchRecord / 生产闭环
 - PF-04 使用一个阶段管理会话，File、Notification、Audit 分开建模，整个 PF 统一派遣、内部任务连续执行；Collaboration 文本可基于可信身份/目录/本地持久审计先闭环，附件集成再消费 File 稳定契约；完整阶段验收仍落实扫描/保留/法律保全。
 - PF-07使用一个阶段管理会话，Scheduler与Platform Health分开建模，作为同一PF批准范围整包派遣，内部按依赖连续执行。
 - PF-09 使用一个阶段管理会话，Dashboard 与 Report 共享数据集契约但保持产品边界。
-- PF-10 先创建 `OperationsCenter.Service` 并独立交付 ServerMonitor；PF-10A 才向同一宿主加入项目知识、问题与助手模块。
-- Operations Center、Label 与 IoT Collector 不互为领域数据依赖；排期上 PF-10B 的独立标签/设备闭环先于 PF-11。不得把 PF-10A 的知识闭环未完成误报为已设计。
+- PF-10 先创建 `KnowledgeHub.Service` 并独立交付 ServerMonitor；PF-10A 才向同一宿主加入项目知识、问题与助手模块。
+- KnowledgeHub（知识中心）、Label 与 IoT Collector 不互为领域数据依赖；排期上 PF-10B 的独立标签/设备闭环先于 PF-11。不得把 PF-10A 的知识闭环未完成误报为已设计。
 - PF-06A 在 PF-05/06 三端 Web 验收后实施原生包；PF-10B 在 IoTCollector 前实施标签服务和 Device Agent，既有 PF-07～PF-11 不重编号。
 
 # 5. 单阶段单管理会话工作流
@@ -463,20 +464,23 @@ PF-09只使用一个阶段管理会话，输出实施文档12。Dashboard与Repo
 
 **状态：** 待启动
 **建议会话标题：** `PF-10 ServerMonitor阶段管理`
-**Service Host：** 创建 `OperationsCenter.Service`；本阶段只加入并交付 ServerMonitor 模块。
+**Service Host：** 创建 `KnowledgeHub.Service`；本阶段只加入并交付 ServerMonitor 模块。
 **输入：** 蓝图 02、05、20、30、32；PF-04/07 稳定契约。
 **目标：** 独立复核并实施主机、CPU、内存、磁盘、网络、进程、服务、端口、日志、告警、Agent 和运维看板。
 **边界：** 与 Platform Health 分层；不实现 ProjectWorkspace、KnowledgeBase、IssueTracking、KnowledgeAssistant、DataAssistant 或 ModelGateway；首期不自动创建问题、不自动关联知识库、不主动介入问题闭环，只保留公开契约扩展点。
 **完成门禁：** 至少一个受管节点完成注册、采集、状态、告警、通知和处置记录闭环，且未越界实现 PF-10A 模块。
 
-# 17A. PF-10A Operations Center Knowledge & Assistant
+# 17A. PF-10A KnowledgeHub 知识中心
 
-**状态：** 设计待确认
-**建议会话标题：** `PF-10A Operations Center知识问题与助手阶段管理`
-**Service Host：** 向既有 `OperationsCenter.Service` 加入 ProjectWorkspace、KnowledgeBase、IssueTracking、KnowledgeAssistant、DataAssistant、ModelGateway。
-**输入：** 蓝图 05、24、32；PF-04/09/10 稳定契约；上一个 Operations Center 设计会话的已确认记录。
-**已确认边界：** ProjectWorkspace 的最小知识/数据作用域；知识“草稿→审核→发布→索引”原则；知识内容类型；KnowledgeAssistant 的带引用 RAG；ModelGateway 的本地优先、DeepSeek 与 OpenAI-Compatible 适配；DataAssistant 的受控 Dataset、结构化查询计划和受限 Text-to-SQL 安全边界。
-**设计缺口：** 上一个会话只推进到 DataAssistant，尚未完成 IssueTracking 与 KnowledgeBase 的完整数据闭环。不得把现有原则性结论表述为完整数据模型、状态机或可派遣实施方案。
+**状态：** 名称与产品定位已确认；详细设计待确认，未派遣。
+**建议会话标题：** `PF-10A KnowledgeHub知识中心阶段管理`
+**Service Host：** 向既有 `KnowledgeHub.Service` 加入 ProjectWorkspace、KnowledgeBase、IssueTracking、KnowledgeAssistant、DataAssistant、ModelGateway。
+**产品定位：** 英文KnowledgeHub、中文知识中心；知识库为核心，问题管理与AI助手为主要能力，JSON解析/格式化、二维码/条形码生成、内部HTTP/API调试及监控为辅助。KnowledgeBase保留为领域模块名；PF-10只同步宿主名称，不改变范围、顺序或完成门禁。
+**详细设计顺序：** 知识内容/版本/权限/检索 → 问题处理与人工转知识 → 审核发布/索引与AI引用查询闭环 → 按选定范围细化辅助工具。首页与线框突出知识搜索、分类、最近更新和AI入口；不先做工具集合替代核心闭环。
+**输入：** 蓝图05、24、32§2.3及§5；PF-04文件/审计、PF-09受控Dataset及按需PF-10观测公开契约。这些是设计输入，不要求运行时安装ServerMonitor或Dashboard/Report；已确认结论以蓝图32为准，不依赖未随包提供的旧会话。
+**已确认边界：** ProjectWorkspace的最小知识/数据作用域；知识“草稿→审核→发布→索引”原则；知识内容类型；KnowledgeAssistant的带引用RAG；ModelGateway本地优先、DeepSeek与OpenAI-Compatible适配，外部模型按项目默认关闭。DataAssistant首期只消费受控Dataset/只读视图并生成结构化查询计划；受限Text-to-SQL属于后续阶段，须另行设计，不能混入本期编码。人工接口调试的写权限不授予AI业务写操作能力。
+**设计缺口：** IssueTracking与KnowledgeBase完整数据闭环尚未完成；字段、状态/事务、接口/事件、索引失败恢复、权限撤回与页面线框/验收映射须在实施13A补齐。既有名称与主次无需重复确认，但不能把原则性结论表述为完整规格或可派遣方案。
+**辅助工具细化待办：** 按蓝图32§5.5明确JSON输入规模/语义保留/错误定位，二维码和条形码的码制/校验/尺寸/导出，内部接口的环境/目标/请求响应/凭据脱敏/写权限/代理限制；逐项补页面线框和验收。默认即时处理，保存历史或共享配置需另给字段/权限/保留规则；不引入通用插件平台、不依赖Label、不默认发送工具内容给模型，不追加PF10监控任务。
 **首要设计门禁：** 完成蓝图 32 第 5.4 节，包括问题登记到关闭、解决方案人工转知识草稿、知识审核发布与索引、失败恢复、模块契约/事件/事务，以及助手带引用检索的端到端闭环，并逐项取得用户确认。
 **禁止范围：** 在闭环确认前生成开发任务卡或派遣实现；ServerMonitor 的既有领域模型不得被知识/问题模块直接读取。
 **完成门禁：** 在阶段管理会话中补齐详细设计后另行定义，不得在本总 Todo 中预设表、API 或页面。
@@ -485,7 +489,7 @@ PF-09只使用一个阶段管理会话，输出实施文档12。Dashboard与Repo
 
 **状态：** 核心数据/接口/页面线框已细化，待派遣/待平台兼容、客户设备与外部适配核验，未实施。
 **设计/实施：** [蓝图 35](35-Industrial%20Platform标签管理平台设计.md)、[实施 13B](../implementation/13B-Industrial%20Platform标签管理平台开发实施方案.md)。
-**前置/顺序：** PF-06A 提供容器能力；排在 PF-10A 后、PF-11 IoTCollector 前，并先于正式 MES 业务。外部项目数据契约可独立接入，不等待 MasterData 开发。
+**前置/顺序：** PF-06A提供本次使用的终端能力契约；Windows Agent/PDA打印仍在PF10B真机核验，不以整个PF06A所有未测项作为统一阻塞。排在PF-10A后、PF-11前，并先于正式MES；运行不要求KnowledgeHub/IoT/MES。外部项目通过公开数据契约接入，不等待MasterData开发。
 **宿主：** Label.Service先接平台身份/权限/File/Audit/初始化与页面，按需设备执行；同一核心再验外部MES嵌入和无宿主最小装配。独立部署仍需必要身份/数据库/文件/审计能力。Agent为辅助部署单元，Label是新增第八个规划核心Host。
 **任务：** TASK-PF10B-001～010：平台兼容/外部边界/样本设备核验→平台优先装配→数据契约/绑定/快照→模板→任务调度→Windows/PDA执行→平台页面全链再外部/无宿主验证→恢复试点→验收。
 **完成门禁：** 物料/容器/设备及自定义模板；底稿/指令；客户保密映射、明细/份数、固定预览快照；真实 Windows 工位与 PDA 蓝牙直连；历史/受控重打、未知结果不自动重打、恢复对账、一个真实项目交付。
@@ -496,10 +500,10 @@ PF-09只使用一个阶段管理会话，输出实施文档12。Dashboard与Repo
 **状态：** 待启动
 **Service Host：** 创建 `IoTCollector.Service`；内部模块为 Driver、DeviceConnection、Point、CollectionTask、EdgeManagement。
 **建议会话标题：** `PF-11 IoT Collector阶段管理`
-**输入：** 蓝图 05、08、17、20、30；PF-07/10 可观测契约。
-**执行前置：** 按路线先完成 PF-10B 标签平台；消费其设备连接/诊断公开语义，不依赖 Label 任务表。原 PF-11 编号保持。
+**输入：** 蓝图05、08、17、20、30、32§2.3；PF-07及按需PF-10可观测公开契约、Runtime/Agent技术端口与实际协议样本。
+**执行前置：** 按路线排在PF-10B之后；按需复用中立Runtime/Agent的连接/诊断技术能力，不调用Label设备绑定、任务或模板接口，不要求Label/ServerMonitor在线。原PF-11编号保持。
 **目标：** 复核并实施驱动、连接、点位、采集任务、边缘缓存、断线续传和数据质量。
-**边界：** 不承担 MasterData、报表和 MES 规则；设备业务档案仍归 MasterData。
+**边界：** 不承担MasterData、报表和MES规则；IoT拥有采集连接/点位配置，设备业务档案归MasterData或外部MES，通过稳定标识和公开契约关联，不以前置开发MasterData才能注册采集连接。
 **完成门禁：** 选择一个首期协议完成连接、采集、缓存、断线恢复、幂等写入和监控闭环；其余协议按适配器任务追加。
 
 # 19. MES 阶段恢复条件
@@ -552,7 +556,7 @@ WorkOrder、Weighting、Trace、BatchRecord 和生产闭环分别开会话设计
 | PF-08 Low Code | 001技术输入已核验，待生产工作线/单写 | 当前PF08会话核验，总控落实派遣 | 当前双模式/数据/接口/页面规格；后续候选按范围核验 | [实施11](../implementation/11-Industrial%20Platform%20Low%20Code开发实施方案.md)、[工作包](../tasks/active/PF-08.md) | 001～008未实施/待正式派遣 | [开工证据](../evidence/PF-08.md)；不替代C0/C1或现场验收 |
 | PF-09 Dashboard & Report | 开发清单已编写，规格/前置待闭合 | 当前PF08/PF09设计主控 | 蓝图22/32；四菜单与两种组合分别验收 | [实施12设计稿](../implementation/12-Industrial%20Platform%20Dashboard%20Report开发实施方案.md) | 001～016待派遣 | [本轮复核](../evidence/2026-10-21-platformstudio-review-and-todo.md)；当前页面复验未完成 |
 | PF-10 ServerMonitor | 待启动 | 待创建 | 蓝图 02、32 待复核 | 实施 13 待创建 | - | - |
-| PF-10A Operations Center Knowledge & Assistant | 设计待确认 | 待创建 | 蓝图 32 第 5.4 节 | 实施 13A 待创建 | - | - |
+| PF-10A KnowledgeHub 知识中心 | 定位已确认，详细设计待确认 | 待创建 | 蓝图32§5.0～5.5 | 实施13A待创建 | 未派遣 | 无实现/验收结论 |
 | PF-10B 标签管理平台 | 待派遣/待客户设备核验 | 未新增任务 | 蓝图 35 | [实施 13B](../implementation/13B-Industrial%20Platform标签管理平台开发实施方案.md) | 001～010 未派遣 | 无客户/设备验收 |
 | PF-11 IoT Collector | 待启动 | 待创建 | 蓝图 17 待复核 | 实施 14 待创建 | - | - |
 | MES-01 MasterData | 暂缓 | 待恢复时创建 | 蓝图 14 待复核 | 实施 15 暂缓 | - | - |
