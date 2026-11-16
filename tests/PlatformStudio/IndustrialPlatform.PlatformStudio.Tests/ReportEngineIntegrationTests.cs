@@ -1,3 +1,7 @@
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Validation;
+using ExcelDataReader;
+using W = DocumentFormat.OpenXml.Wordprocessing;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -485,8 +489,26 @@ public sealed class ReportEngineIntegrationTests
                     if (Environment.GetEnvironmentVariable("PF09_R5_OUTPUT") is { Length: > 0 } exportFolder)
                         await File.WriteAllBytesAsync(Path.Combine(exportFolder, "archived-" + format + ReportFormats.Extension(downloaded.ContentType)), bytes.ToArray());
                     Assert.Equal(ReportFormats.ContentType(artifact.Format), downloaded.ContentType);
-                    if (format == "Xls") { bytes.Position = 0; using var workbook = new NPOI.HSSF.UserModel.HSSFWorkbook(bytes); Assert.Equal("填写结果", workbook.GetSheetAt(0).GetRow(0).GetCell(0).StringCellValue); Assert.Equal("FILLED-ONE", workbook.GetSheetAt(0).GetRow(1).GetCell(0).StringCellValue); }
-                    if (format is "Docx" or "AdvancedDocx") { bytes.Position = 0; using var docx = new NPOI.XWPF.UserModel.XWPFDocument(bytes); Assert.True(docx.Paragraphs.Count + docx.Tables.Count > 0); if (format == "Docx") { var logical = Assert.Single(docx.Tables); Assert.Equal(3, logical.Rows.Count); Assert.True(logical.GetRow(0).IsRepeatHeader); } if (format == "AdvancedDocx") { Assert.NotEmpty(docx.AllPictures); Assert.NotEmpty(docx.Tables); } }
+                    if (format == "Xls")
+                    {
+                        System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+                        bytes.Position = 0; using var workbook = ExcelReaderFactory.CreateBinaryReader(bytes);
+                        Assert.True(workbook.Read()); Assert.Equal("填写结果", workbook.GetString(0));
+                        Assert.True(workbook.Read()); Assert.Equal("FILLED-ONE", workbook.GetString(0));
+                    }
+                    if (format is "Docx" or "AdvancedDocx")
+                    {
+                        bytes.Position = 0; using var docx = WordprocessingDocument.Open(bytes, false);
+                        Assert.Empty(new OpenXmlValidator().Validate(docx));
+                        var body = docx.MainDocumentPart!.Document!.Body!; Assert.NotEmpty(body.ChildElements);
+                        if (format == "Docx")
+                        {
+                            var logical = Assert.Single(body.Elements<W.Table>());
+                            Assert.Equal(3, logical.Elements<W.TableRow>().Count());
+                            Assert.NotNull(logical.Elements<W.TableRow>().First().TableRowProperties?.GetFirstChild<W.TableHeader>());
+                        }
+                        if (format == "AdvancedDocx") { Assert.NotEmpty(docx.MainDocumentPart.ImageParts); Assert.NotEmpty(body.Elements<W.Table>()); }
+                    }
                     if (format is "Png" or "Jpeg") { bytes.Position = 0; using var zip = new System.IO.Compression.ZipArchive(bytes, System.IO.Compression.ZipArchiveMode.Read, true); Assert.Equal(artifact.PageCount + 1, zip.Entries.Count); Assert.NotNull(zip.GetEntry("pages.json")); }
                     if (format == "DocumentControls")
                     {
@@ -526,6 +548,36 @@ public sealed class ReportEngineIntegrationTests
                                 Assert.Equal(1, System.Text.RegularExpressions.Regex.Count(html, marker));
                             Assert.DoesNotContain("FILLED-ONE", html, StringComparison.Ordinal);
                             Assert.DoesNotContain("PREVIEW", html, StringComparison.Ordinal);
+                        }
+                        if (outputFormat is "Xls" or "Docx")
+                        {
+                            bytes.Position = 0;
+                            string text;
+                            if (outputFormat == "Xls")
+                            {
+                                System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+                                using var reader = ExcelReaderFactory.CreateBinaryReader(bytes, new ExcelReaderConfiguration { LeaveOpen = true });
+                                var cells = new List<string>();
+                                while (reader.Read())
+                                    for (var c = 0; c < reader.FieldCount; c++) cells.Add(reader.GetString(c) ?? "");
+                                text = string.Join("\n", cells);
+                            }
+                            else
+                            {
+                                using var bundleDocx = WordprocessingDocument.Open(bytes, false);
+                                Assert.Empty(new OpenXmlValidator().Validate(bundleDocx));
+                                var body = bundleDocx.MainDocumentPart!.Document!.Body!;
+                                text = body.InnerText;
+                                Assert.NotEmpty(body.Elements<W.Table>());
+                                if (format.StartsWith("DataDrivenBundle-", StringComparison.Ordinal))
+                                    Assert.All(body.Elements<W.Table>(), table =>
+                                        Assert.NotNull(table.Elements<W.TableRow>().First().TableRowProperties?.GetFirstChild<W.TableHeader>()));
+                            }
+                            foreach (var marker in Enumerable.Range(0, 40).Select(i => $"DETAIL-OP1-{i:000}").Concat(BundleBasicMarkers))
+                                Assert.Equal(1, System.Text.RegularExpressions.Regex.Count(text, marker));
+                            Assert.True(text.IndexOf("BASIC-OP1", StringComparison.Ordinal) < text.IndexOf("DETAIL-OP1-000", StringComparison.Ordinal));
+                            Assert.True(text.IndexOf("DETAIL-OP1-039", StringComparison.Ordinal) < text.IndexOf("BASIC-OP2", StringComparison.Ordinal));
+                            Assert.DoesNotContain("PREVIEW", text, StringComparison.Ordinal);
                         }
                         Assert.Equal("Production", run!.ExecutionKind);
                         if (outputFormat is "Pdf" or "Html" or "Mht" or "Png" or "Jpeg") Assert.True(artifact.PageCount >= 2);

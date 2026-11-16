@@ -5,8 +5,7 @@ using System.Text;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using IndustrialPlatform.PlatformStudio.Domain;
-using NPOI.HSSF.UserModel;
-using NPOI.XWPF.UserModel;
+using ExcelReader.Core.Writer.Xls;
 
 namespace IndustrialPlatform.PlatformStudio.Infrastructure.Report;
 
@@ -74,9 +73,15 @@ public static class ReportExporter
             await using var stream = File.Create(path);
             if (format == "Xls")
             {
-                using var workbook = new HSSFWorkbook(); var sheet = workbook.CreateSheet("报告正文");
-                for (var r = 0; r < rows.Length; r++) { token.ThrowIfCancellationRequested(); var row = sheet.CreateRow(r); for (var c = 0; c < rows[r].Length; c++) row.CreateCell(c).SetCellValue(rows[r][c]); }
-                workbook.Write(stream, true);
+                await using var workbook = XlsWorkbookWriter.Create(stream, leaveOpen: true);
+                using (var sheet = workbook.AddSheet("报告正文"))
+                    foreach (var values in rows)
+                    {
+                        token.ThrowIfCancellationRequested();
+                        using var row = sheet.StartRow();
+                        foreach (var value in values) row.Write(value);
+                    }
+                await workbook.EndAsync(token);
             }
             else
             {
@@ -99,38 +104,7 @@ public static class ReportExporter
         }
         else if (format == "Docx")
         {
-            using var doc = new XWPFDocument();
-            foreach (var block in blocks)
-            {
-                token.ThrowIfCancellationRequested();
-                switch (StudioJson.Text(block["type"]))
-                {
-                    case "paragraph":
-                        var paragraph = doc.CreateParagraph(); if (block["heading"]?.GetValue<bool>() == true) paragraph.GetCTP().AddNewPPr().keepNext = new() { val = true };
-                        SetText(paragraph, StudioJson.Text(block["text"]) ?? "", block["bold"]?.GetValue<bool>() == true); break;
-                    case "table":
-                        var tableRows = block["rows"]!.AsArray().OfType<JsonArray>().ToArray(); if (tableRows.Length == 0) break;
-                        // Adjacent same-style OOXML tables are otherwise treated as one table by Word.
-                        if (doc.BodyElements.LastOrDefault() is XWPFTable)
-                        {
-                            var separator = doc.CreateParagraph(); separator.SpacingBefore = 0; separator.SpacingAfter = 0;
-                            separator.SetSpacingBetween(1, LineSpacingRule.EXACT);
-                        }
-                        var table = doc.CreateTable(tableRows.Length, tableRows.Max(r => r.Count)); table.Width = 9000;
-                        for (var r = 0; r < tableRows.Length; r++)
-                        {
-                            var row = table.GetRow(r); if (r < (block["headerRows"]?.GetValue<int>() ?? 0)) row.SetRepeatHeader(true);
-                            for (var c = 0; c < tableRows[r].Count; c++) SetText(row.GetCell(c).Paragraphs[0], StudioJson.Text(tableRows[r][c]) ?? "");
-                        }
-                        break;
-                    case "image":
-                        var image = Image(block); using (var stream = new MemoryStream(image.Bytes))
-                            doc.CreateParagraph().CreateRun().AddPicture(stream, (int)PictureType.PNG, "report.png", (int)Math.Round(image.Width * 36000), (int)Math.Round(image.Height * 36000));
-                        break;
-                    default: throw Error("REPORT_OUTPUT_INVALID", "未知文档正文类型。");
-                }
-            }
-            await using var output = File.Create(path); doc.Write(output);
+            ReportDocxWriter.Write(path, blocks, token);
         }
         else if (format == "Rtf")
         {
@@ -165,28 +139,13 @@ public static class ReportExporter
         }
         return path;
     }
-    private static void SetText(XWPFParagraph paragraph, string text, bool bold = false)
-    {
-        var lines = text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
-        for (var i = 0; i < lines.Length; i++)
-        {
-            var tabs = lines[i].Split('\t');
-            for (var j = 0; j < tabs.Length; j++)
-            {
-                // SetText replaces a run's text; separate runs preserve every segment and its order.
-                var run = paragraph.CreateRun(); run.FontFamily = "Microsoft YaHei"; run.FontSize = 10; run.IsBold = bold; run.SetText(tabs[j]);
-                if (j < tabs.Length - 1) run.AddTab();
-                else if (i < lines.Length - 1) run.AddBreak(BreakType.TEXTWRAPPING);
-            }
-        }
-    }
     private static string RtfText(string value)
     {
         var text = new StringBuilder();
         foreach (var c in value.Replace("\r\n", "\n").Replace('\r', '\n')) if (c is '\\' or '{' or '}') text.Append('\\').Append(c); else if (c == '\n') text.Append(@"\line "); else if (c == '\t') text.Append(@"\tab "); else if (c > 127) text.Append(@"\u").Append(unchecked((short)c).ToString(CultureInfo.InvariantCulture)).Append('?'); else if (c >= 32) text.Append(c);
         return text.ToString();
     }
-    private static (byte[] Bytes, double Width, double Height) Image(JsonObject block)
+    internal static (byte[] Bytes, double Width, double Height) Image(JsonObject block)
     {
         var data = StudioJson.RequiredString(block, "data", 50 * 1024 * 1024);
         if (!data.StartsWith("data:image/png;base64,", StringComparison.Ordinal)) throw Error("REPORT_OUTPUT_INVALID", "文档图像类型无效。");
