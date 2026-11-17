@@ -10,7 +10,7 @@ namespace IndustrialPlatform.PlatformStudio.Application.Report;
 
 public sealed record ReportDraftDependency(string ResourceNId, string OptimisticVersion, Guid ConcurrencyVersion);
 public sealed record ReportPreviewInput(string Kind, string? ResourceNId, JsonObject Document, JsonObject? Parameters, string? Orientation = null, ReportDraftDependency[]? DraftDependencies = null);
-public sealed record ReportQueryInput(string? RevisionNId, JsonObject? Parameters, int Page = 1, int PageSize = 20, JsonArray? Sort = null, JsonObject? Document = null);
+public sealed record ReportQueryInput(string? RevisionNId, JsonObject? Parameters, int Page = 1, int PageSize = 20, JsonArray? Sort = null, JsonObject? Document = null, JsonArray? Filters = null, bool All = false);
 
 /// <summary>Authorizes and freezes design input before any source execution; production only reads immutable published definitions.</summary>
 public sealed class ReportDesign(IStudioResourceStore store, IStudioAuthorization authorization, StudioPublishing publishing, DatasetExecution datasets)
@@ -32,7 +32,10 @@ public sealed class ReportDesign(IStudioResourceStore store, IStudioAuthorizatio
             var child = await publishing.RequireResourceAsync(principal, requested.ResourceNId, "design", "Design", token);
             if (child.Kind != "Report") throw new StudioException("TYPE_MISMATCH", "只能显式选择单报表子草稿。");
             StudioPublishing.MatchVersion(child, new VersionCommand(requested.OptimisticVersion, requested.ConcurrencyVersion));
-            explicitDrafts[child.NId] = (child, StudioPublishing.Parse(child.DraftJson));
+            var childDocument = StudioPublishing.Parse(child.DraftJson);
+            if (StudioJson.Text(childDocument["mode"]) == "Query")
+                throw new StudioException("TYPE_MISMATCH", "组合报表不能引用查询报表，请选择固定版式报表。", path: "reportNId");
+            explicitDrafts[child.NId] = (child, childDocument);
         }
         // Bind explicit saved child drafts to temporary immutable keys within this snapshot, never publish them.
         var draftKeys = new Dictionary<string, string>();
@@ -117,7 +120,19 @@ public sealed class ReportDesign(IStudioResourceStore store, IStudioAuthorizatio
         var document = StudioPublishing.Parse(revision.DocumentJson);
         // The runtime projection includes query columns and parameter forms, never source definitions or dataset SQL.
         var projection = new JsonObject { ["mode"] = document["mode"]?.DeepClone(), ["parameters"] = document["parameters"]?.DeepClone(), ["query"] = document["query"]?.DeepClone(), ["bands"] = document["bands"]?.DeepClone() };
-        return new { resource = await publishing.ToDtoAsync(resource, revision, token), revisionNId = revision.NId, document = projection };
+        var canExport = false;
+        try { await authorization.RequireAsync(principal, resource, "studio.report.export", "Export", token); canExport = true; }
+        catch (StudioException error) when (error.Code is "STUDIO_FORBIDDEN" or "STUDIO_NOT_FOUND") { }
+        return new { resource = await publishing.ToDtoAsync(resource, revision, token), revisionNId = revision.NId, document = projection, canExport };
+    }
+    // Browser output contains temporary edits; authorize it without creating a report run or uploading the snapshot.
+    public async Task<object> AuthorizeQueryOutputAsync(StudioPrincipal principal, string nId, string? revisionNId, CancellationToken token)
+    {
+        var (resource, revision) = await publishing.RequireRuntimeAsync(principal, nId, revisionNId, token);
+        if (resource.Kind != "Report" || StudioJson.Text(StudioPublishing.Parse(revision.DocumentJson)["mode"]) != "Query")
+            throw new StudioException("TYPE_MISMATCH", "该报告不是查询报告。", 422);
+        await authorization.RequireAsync(principal, resource, "studio.report.export", "Export", token);
+        return new { revisionNId = revision.NId, allowed = true };
     }
     public async Task<JsonObject> PlanAsync(StudioPrincipal principal, ReportPreviewInput input, CancellationToken token)
     {
@@ -204,16 +219,17 @@ public sealed class ReportDesign(IStudioResourceStore store, IStudioAuthorizatio
     }
     public async Task<JsonObject> QueryAsync(StudioPrincipal principal, string? nId, ReportQueryInput request, CancellationToken token)
     {
-        if (request.Page < 1 || request.PageSize is < 1 or > 200) throw new StudioException("STUDIO_VALIDATION", "查询分页无效。");
+        if (request.Page < 1 || request.PageSize < 1 || request.PageSize > (request.All ? 10000 : 200)) throw new StudioException("STUDIO_VALIDATION", "查询分页无效。");
         JsonObject document;
         if (nId is null) { authorization.RequirePermission(principal, "studio.report.design"); document = request.Document ?? throw new StudioException("STUDIO_VALIDATION", "试查文档缺失。"); _ = await FreezeAsync(principal, new("Report", null, document, request.Parameters), token); }
         else { var (resource, revision) = await publishing.RequireRuntimeAsync(principal, nId, request.RevisionNId, token); if (resource.Kind != "Report") throw new StudioException("STUDIO_NOT_FOUND", "报告不存在。", 404); document = StudioPublishing.Parse(revision.DocumentJson); }
         if (StudioJson.Text(document["mode"]) != "Query" || document["query"] is not JsonObject query) throw new StudioException("TYPE_MISMATCH", "该报告不是查询报告。");
+        var filters = ReportQueryFilters.Compile(document, request.Filters);
         var sort = ResolveSort(document, request.Sort);
         var parameters = DatasetValues.Parameters(principal, document, request.Parameters ?? new()); var resolver = Resolver(principal);
         var snapshot = await resolver.CaptureAsync(document, parameters, Trusted(principal), token); var context = ReportDataResolver.Context(parameters, snapshot.Instances, Trusted(principal));
         var band = (document["bands"] as JsonArray ?? []).OfType<JsonObject>().Single(b => StudioJson.Text(b["id"]) == StudioJson.Text(query["resultBandId"]));
-        var rows = await resolver.CollectionAsync(band["data"]!.AsObject(), context, token);
+        var rows = await resolver.CollectionAsync(band["data"]!.AsObject(), context, token, filters);
         var columns = (band["controls"] as JsonArray ?? []).OfType<JsonObject>().Where(c => StudioJson.Text(c["type"]) == "Table").SelectMany(c => (c["table"]?["columns"] as JsonArray ?? []).OfType<JsonObject>().Select(column => (Control: c, Column: column))).ToDictionary(x => StudioJson.RequiredString(x.Control, "id") + "/" + StudioJson.RequiredString(x.Column, "id"));
         var allowed = (query["columns"] as JsonArray ?? []).OfType<JsonObject>().Where(c => c["visible"]?.GetValue<bool>() != false).ToArray();
         var output = new JsonArray();
@@ -230,7 +246,8 @@ public sealed class ReportDesign(IStudioResourceStore store, IStudioAuthorizatio
             projected["__rowKey"] = output.Count.ToString(CultureInfo.InvariantCulture) + ":" + StudioJson.Hash(StudioJson.Canonicalize(projected))[..16];
             output.Add(projected);
         }
-        return new() { ["items"] = new JsonArray(ReportDataResolver.Sort(output, sort).Skip((request.Page - 1) * request.PageSize).Take(request.PageSize).Select(r => r?.DeepClone()).ToArray()), ["page"] = request.Page, ["pageSize"] = request.PageSize, ["totalCount"] = output.Count.ToString(CultureInfo.InvariantCulture), ["requestId"] = "query-" + Guid.NewGuid().ToString("N"), ["diagnostics"] = new JsonArray(), ["allResultsLoaded"] = true };
+        if (request.All && (output.Count > 10000 || (long)output.Count * allowed.Length > 500000 || Encoding.UTF8.GetByteCount(output.ToJsonString()) > 20 * 1024 * 1024)) throw new StudioException("STUDIO_LIMIT", "完整结果超过10000行、500000单元格或20MiB，请缩小查询范围。", 429);
+        return new() { ["items"] = new JsonArray(ReportDataResolver.Sort(output, sort).Skip(request.All ? 0 : (request.Page - 1) * request.PageSize).Take(request.All ? output.Count : request.PageSize).Select(r => r?.DeepClone()).ToArray()), ["page"] = request.Page, ["pageSize"] = request.PageSize, ["totalCount"] = output.Count.ToString(CultureInfo.InvariantCulture), ["requestId"] = "query-" + Guid.NewGuid().ToString("N"), ["diagnostics"] = new JsonArray(), ["allResultsLoaded"] = true };
     }
     public async Task<JsonObject> QueryOptionsAsync(StudioPrincipal principal, string nId, ReportQueryInput request, CancellationToken token)
     {

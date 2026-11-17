@@ -130,15 +130,13 @@ const source = ref<Json>({}),
   diagnostics = ref<unknown>(null)
 const columns = computed(() => [
   { field: 'name', title: t.value('name'), minWidth: 180, sortable: true },
-  ...(kind.value === 'LowCodePage' && !isSource.value
+  ...(['LowCodePage', 'Report'].includes(kind.value) && !isSource.value
     ? [
         {
           field: 'pageMode',
-          title: t.value('mode'),
-          width: 150,
+          title: t.value(kind.value === 'Report' ? 'reportType' : 'mode'),
+          width: 180,
           filter: false as const,
-          formatter: ({ cellValue }: { cellValue: unknown }) =>
-            t.value('mode' + String(cellValue ?? '')),
         },
       ]
     : []),
@@ -254,7 +252,7 @@ function openCreate() {
   error.value = ''
   name.value = ''
   description.value = ''
-  pageMode.value = 'Crud'
+  pageMode.value = kind.value === 'Report' ? 'Query' : 'Crud'
   source.value = {
     nId: crypto.randomUUID(),
     provider: 'RegisteredApi',
@@ -268,6 +266,10 @@ function openCreate() {
   drawer.value = 'create'
 }
 function design(row: Json) {
+  if (kind.value === 'Report' && row.pageMode === 'Query') {
+    void router.push(`/pc/studio/reports/${encodeURIComponent(String(row.nId))}/configure`)
+    return
+  }
   void router.push(
     `/pc/studio/${isTrace.value ? 'trace-models' : kind.value === 'Report' ? 'reports' : kind.value === 'ReportBundle' ? 'report-bundles' : kind.value === 'Dataset' ? 'datasets' : kind.value === 'LedgerModel' ? 'ledger-models' : kind.value === 'Dashboard' ? 'dashboards' : kind.value === 'Playlist' ? 'playlists' : 'low-code'}/${encodeURIComponent(String(row.nId))}/design`,
   )
@@ -315,7 +317,11 @@ function save() {
         : kind.value === 'Report' || kind.value === 'ReportBundle'
           ? initialReportDocument(
               kind.value,
-              pageMode.value === 'ElectronicRecord' ? 'ElectronicRecord' : 'Simple',
+              kind.value === 'Report'
+                ? pageMode.value
+                : pageMode.value === 'ElectronicRecord'
+                  ? 'ElectronicRecord'
+                  : 'Simple',
             )
           : kind.value === 'Dashboard'
             ? initialDashboardDocument()
@@ -413,7 +419,11 @@ watch(
 </script>
 
 <template>
-  <AppPage :title="t(section)" :description="t('description')" class="studio-page">
+  <AppPage
+    :title="t(section)"
+    :description="t(kind === 'Report' ? 'reportListHelp' : 'description')"
+    class="studio-page"
+  >
     <template #actions>
       <el-dropdown @command="(v: string) => router.push('/pc/studio/' + v)"
         ><el-button>{{ t('navigation') }}</el-button
@@ -484,6 +494,12 @@ watch(
       @query-mode-change="changeQueryMode"
       @query-change="tableQuery"
     >
+      <template #cell-pageMode="{ row }">
+        <el-tag v-if="row.pageMode" size="small" effect="plain">{{
+          t('mode' + row.pageMode)
+        }}</el-tag>
+        <span v-else>—</span>
+      </template>
       <template #cell-isEnabled="{ row }">{{ t(row.isEnabled ? 'yes' : 'no') }}</template
       ><template #cell-hasDraftChanges="{ row }">{{
         t(row.hasDraftChanges ? 'yes' : 'no')
@@ -499,7 +515,9 @@ watch(
             type="primary"
             :disabled="status === 'Deleted'"
             @click="design(row)"
-            >{{ t('design') }}</el-button
+            >{{
+              t(kind === 'Report' && row.pageMode === 'Query' ? 'queryConfig' : 'design')
+            }}</el-button
           ><el-button v-else link type="primary" @click="more(row, 'edit')">{{
             t('edit')
           }}</el-button></PermissionGate
@@ -592,6 +610,17 @@ watch(
     >
       <el-alert v-if="error" :title="error" type="error" :closable="false" />
       <el-form v-if="drawer === 'create' || drawer === 'edit'" label-position="top">
+        <el-form-item
+          v-if="kind === 'Report' && drawer === 'create'"
+          :label="t('reportType')"
+          required
+        >
+          <el-radio-group v-model="pageMode" :aria-label="t('reportType')">
+            <el-radio-button value="Query">{{ t('modeQuery') }}</el-radio-button>
+            <el-radio-button value="Fixed">{{ t('modeFixed') }}</el-radio-button>
+          </el-radio-group>
+          <p>{{ t('reportListHelp') }}</p>
+        </el-form-item>
         <el-form-item v-if="kind === 'ReportBundle'" :label="t('mode')"
           ><el-radio-group v-model="pageMode"
             ><el-radio-button value="Simple">Simple</el-radio-button

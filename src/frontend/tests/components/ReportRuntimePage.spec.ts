@@ -18,22 +18,27 @@ vi.mock('@/api/studio', () => ({ getStudioApi: () => state.api }))
 vi.mock('vue-router', () => ({
   useRoute: () => ({ params: { nId: 'report-a' } }),
   useRouter: () => ({ back: vi.fn() }),
+  onBeforeRouteLeave: vi.fn(),
 }))
 vi.mock('@/permissions', () => ({ PermissionGate: { template: '<div><slot /></div>' } }))
 const Table = defineComponent({
   props: ['loader'],
   setup(_props, { expose }) {
-    expose({ reload: state.reload })
+    expose({
+      reload: state.reload,
+      exportSnapshot: async () => ({ columns: ['Edited'], rows: [[777]] }),
+    })
     return () => h('div')
   },
 })
 const Query = defineComponent({
-  emits: ['reset'],
+  emits: ['reset', 'submit'],
   setup(_props, { slots, emit }) {
     return () =>
       h('section', [
         slots.default?.(),
         h('button', { class: 'reset', onClick: () => emit('reset') }, 'Reset'),
+        h('button', { class: 'submit', onClick: () => emit('submit') }, 'Submit'),
       ])
   },
 })
@@ -67,15 +72,99 @@ function render(props = {}) {
     global: {
       plugins: [createPinia(), ElementPlus],
       stubs: {
-        AppPage: { template: '<main><slot /></main>' },
+        AppPage: {
+          template: '<main><slot name="heading-meta" /><slot name="actions" /><slot /></main>',
+        },
+        AppFormDrawer: {
+          props: ['modelValue'],
+          template: '<aside v-if="modelValue"><slot /></aside>',
+        },
         AppQueryPanel: Query,
-        AppDataTable: Table,
+        AppQuerySpreadsheet: Table,
         ReportRunsPanel: true,
       },
     },
   })
   return page
 }
+async function openExport() {
+  await page
+    .findAll('button')
+    .find((button) => button.text() === '整份报表导出')!
+    .trigger('click')
+  await flushPromises()
+}
+
+it('uses typed dataset field controls without parameters and retains submitted filters for paging and export', async () => {
+  const contract = await state.api.client.get()
+  contract.document.parameters = []
+  contract.document.query.filters = [
+    { fieldId: 'factory', label: '工厂', dataType: 'String' },
+    { fieldId: 'amount', label: '数量', dataType: 'Decimal' },
+    { fieldId: 'day', label: '生产日期', dataType: 'DateTime' },
+    { fieldId: 'valid', label: '复核', dataType: 'Boolean' },
+  ]
+  render()
+  await flushPromises()
+  const rawLoader = page.getComponent(Table).props('loader')
+  const loader = async (request: unknown) => {
+    const result = await rawLoader(request)
+    result.accepted?.()
+    return result
+  }
+  state.reload.mockImplementation(() => loader({ pageIndex: 1, pageSize: 200 }))
+  await page.get('input[aria-label="工厂"]').setValue('上海')
+  await page.get('input[aria-label="数量 最小值"]').setValue('0')
+  await page.get('input[aria-label="数量 最大值"]').setValue('9007199254740993.123456')
+  page
+    .getComponent({ name: 'ElDatePicker' })
+    .vm.$emit('update:modelValue', ['2026-11-01', '2026-11-16'])
+  page.getComponent({ name: 'ElSelect' }).vm.$emit('update:modelValue', false)
+  await page.get('.submit').trigger('click')
+  await flushPromises()
+  const expected = [
+    { fieldId: 'factory', value: '上海' },
+    { fieldId: 'amount', min: '0', max: '9007199254740993.123456' },
+    { fieldId: 'day', min: '2026-11-01', max: '2026-11-16' },
+    { fieldId: 'valid', value: false },
+  ]
+  expect(state.api.reportQuery.mock.lastCall![1]).toMatchObject({
+    page: 1,
+    filters: expected,
+    parameters: {},
+  })
+  await page.get('input[aria-label="工厂"]').setValue('尚未提交')
+  await loader({ pageIndex: 2, pageSize: 20 })
+  expect(state.api.reportQuery.mock.lastCall![1]).toMatchObject({ page: 2, filters: expected })
+  await openExport()
+  await page
+    .findAll('button')
+    .find((button) => button.text() === '生成当前筛选及临时计算结果')!
+    .trigger('click')
+  await flushPromises()
+  expect(state.api.reportRun.mock.lastCall![1].filters).toEqual(expected)
+  expect(state.api.reportRun.mock.lastCall![1].querySnapshot).toEqual({
+    columns: ['Edited'],
+    rows: [[777]],
+  })
+  await page.get('.reset').trigger('click')
+  await flushPromises()
+  expect(state.api.reportQuery.mock.lastCall![1].filters).toEqual([])
+  expect(state.api.reportQuery.mock.lastCall![1].page).toBe(1)
+})
+
+it('identifies Query reports and shows background export history only inside the export panel', async () => {
+  const contract = await state.api.client.get()
+  contract.document.query.filters = []
+  render()
+  await flushPromises()
+  expect(page.text()).toContain('查询报表（Query）')
+  expect(page.findComponent(Query).exists()).toBe(false)
+  expect(page.findComponent({ name: 'ReportRunsPanel' }).exists()).toBe(false)
+  await openExport()
+  expect(page.findComponent({ name: 'ReportRunsPanel' }).exists()).toBe(true)
+  expect(page.text()).toContain('后台')
+})
 
 it('restores parameter defaults on reset and applies defaults until sorting is explicitly cleared', async () => {
   render()
@@ -125,8 +214,9 @@ it('reuses the formal run key after a lost acknowledgement and changes it when i
   state.api.reportRun.mockRejectedValue(new Error('Acknowledgement lost'))
   render()
   await flushPromises()
+  await openExport()
   const generate = () =>
-    page.findAll('button').find((button) => button.text() === '生成当前查询全部结果')!
+    page.findAll('button').find((button) => button.text() === '生成当前筛选及临时计算结果')!
   await generate().trigger('click')
   await flushPromises()
   await generate().trigger('click')
@@ -137,7 +227,12 @@ it('reuses the formal run key after a lost acknowledgement and changes it when i
   await page.get('input[aria-label="title"]').setValue('Changed command')
   await generate().trigger('click')
   await flushPromises()
-  expect(state.api.reportRun.mock.calls[2]![2]).not.toBe(first)
+  expect(state.api.reportRun.mock.calls[2]![2]).toBe(first)
+  const result = await page.getComponent(Table).props('loader')({ pageIndex: 1, pageSize: 20 })
+  result.accepted()
+  await generate().trigger('click')
+  await flushPromises()
+  expect(state.api.reportRun.mock.calls[3]![2]).not.toBe(first)
 })
 
 it('uses the pinned resource revision and typed parameters in an embedded content host', async () => {
@@ -169,6 +264,7 @@ it('uses the pinned resource revision and typed parameters in an embedded conten
       revisionNId: 'pinned-revision',
       parameters: { title: 'Inspection A' },
     }),
+    undefined,
   )
   await page.get('input[aria-label="title"]').setValue('Changed')
   await page.get('.reset').trigger('click')
@@ -180,6 +276,7 @@ it('uses the pinned resource revision and typed parameters in an embedded conten
 it('submits every registered export format without changing the fixed revision or parameters', async () => {
   render()
   await flushPromises()
+  await openExport()
   const selector = page.findAllComponents({ name: 'ElSelect' }).at(-1)!
   const formats = ['Pdf', 'Html', 'Xlsx', 'Xls', 'Docx', 'Rtf', 'Mht', 'Text', 'Csv', 'Png', 'Jpeg']
   expect(
@@ -193,7 +290,7 @@ it('submits every registered export format without changing the fixed revision o
     await flushPromises()
     await page
       .findAll('button')
-      .find((button) => button.text() === '生成当前查询全部结果')!
+      .find((button) => button.text() === '生成当前筛选及临时计算结果')!
       .trigger('click')
     await flushPromises()
     expect(state.api.reportRun.mock.lastCall![1]).toMatchObject({
@@ -203,4 +300,22 @@ it('submits every registered export format without changing the fixed revision o
     })
   }
   expect(new Set(state.api.reportRun.mock.calls.map((call) => call[2])).size).toBe(formats.length)
+})
+
+it('exports accepted parameters after a draft change or failed query', async () => {
+  render()
+  await flushPromises()
+  const loader = page.getComponent(Table).props('loader')
+  const result = await loader({ pageIndex: 1, pageSize: 20 })
+  result.accepted()
+  await page.get('input[aria-label="title"]').setValue('Unsubmitted')
+  state.api.reportQuery.mockRejectedValueOnce(new Error('failed'))
+  await expect(loader({ pageIndex: 1, pageSize: 20 })).rejects.toThrow('failed')
+  await openExport()
+  await page
+    .findAll('button')
+    .find((b) => b.text() === '生成当前筛选及临时计算结果')!
+    .trigger('click')
+  await flushPromises()
+  expect(state.api.reportRun.mock.lastCall![1].parameters).toEqual({ title: 'Default title' })
 })

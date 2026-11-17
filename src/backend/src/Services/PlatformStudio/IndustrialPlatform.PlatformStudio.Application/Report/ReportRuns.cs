@@ -17,10 +17,15 @@ public sealed class ReportRuns(IReportRunStore runs, IStudioResourceStore resour
         principal = await identity.RefreshAsync(principal, token);
         StudioCommands.ValidateKey(operationKey);
         if (input.ExecutionKind is not ("Production" or "Preview") || !ReportFormats.Supports(input.Format)
-            || Encoding.UTF8.GetByteCount(input.ParametersJson) > 65536 || JsonNode.Parse(input.ParametersJson) is not JsonObject || input.SortJson.Length > 8192 || JsonNode.Parse(input.SortJson) is not JsonArray)
+            || Encoding.UTF8.GetByteCount(input.ParametersJson) > 65536 || JsonNode.Parse(input.ParametersJson) is not JsonObject || input.SortJson.Length > 8192 || JsonNode.Parse(input.SortJson) is not JsonArray || input.FiltersJson.Length > 32768 || JsonNode.Parse(input.FiltersJson) is not JsonArray)
             throw new StudioException("STUDIO_REPORT_ACCEPT_INVALID", "报告受理输入无效。", 422);
         if ((input.RetryOfRunId is null) != (input.RetryMode is null) || input.RetryMode is not (null or "RenderSnapshot" or "NewData") || input.ExecutionKind == "Preview" && input.RetryMode is not null) throw new StudioException("STUDIO_REPORT_ACCEPT_INVALID", "重试依据无效。", 422);
-        var hash = StudioJson.Hash(StudioJson.Canonicalize(JsonSerializer.SerializeToNode(input with { TraceId = "" }, Json)));
+        if (input.QuerySnapshotJson is { } querySnapshot) ReportQuerySnapshot.Validate(JsonNode.Parse(querySnapshot)!.AsObject());
+        var hashInput = JsonSerializer.SerializeToNode(input with { TraceId = "" }, Json)!.AsObject();
+        // Keep operation replay compatible with requests accepted before field filters existed.
+        if (input.QuerySnapshotJson is null) hashInput.Remove("querySnapshotJson");
+        if (JsonNode.Parse(input.FiltersJson) is JsonArray { Count: 0 }) hashInput.Remove("filtersJson");
+        var hash = StudioJson.Hash(StudioJson.Canonicalize(hashInput));
         var existing = await runs.FindOperationAsync(principal.TenantNId, operationKey, token);
         if (existing is not null) return await ReplayAsync(principal, existing, hash, token);
         var now = clock.GetUtcNow();
@@ -32,7 +37,7 @@ public sealed class ReportRuns(IReportRunStore runs, IStudioResourceStore resour
             // The applied STU-004 CHECK requires a value for Preview; it no longer controls lifetime.
             PreviewExpiresOn = input.ExecutionKind == "Preview" ? DateTimeOffset.MaxValue : null,
             OperationKey = operationKey, RequestedBy = principal.SubjectNId, ParametersJson = input.ParametersJson,
-            AccessSnapshotJson = JsonSerializer.Serialize(new { principal, identityEvidence = await identity.CaptureExecutionEvidenceAsync(principal, token), executionSort = JsonNode.Parse(input.SortJson) }, Json), Format = input.Format, TraceId = input.TraceId,
+            AccessSnapshotJson = JsonSerializer.Serialize(new { principal, identityEvidence = await identity.CaptureExecutionEvidenceAsync(principal, token), executionSort = JsonNode.Parse(input.SortJson), executionFilters = JsonNode.Parse(input.FiltersJson), querySnapshot = input.QuerySnapshotJson is null ? null : JsonNode.Parse(input.QuerySnapshotJson) }, Json), Format = input.Format, TraceId = input.TraceId,
             RetryOfRunId = input.RetryOfRunId, RetryMode = input.RetryMode,
         };
         await AuthorizeAsync(principal, run, token);

@@ -16,6 +16,7 @@ export const enUS = {
     traceDesign: 'Trace design',
     traceRun: 'Trace execution',
     reportDesign: 'Report design',
+    queryConfig: 'Query configuration',
     reportRun: 'Report runtime',
     dashboardDesign: 'Dashboard design',
     dashboardRun: 'Dashboard runtime',

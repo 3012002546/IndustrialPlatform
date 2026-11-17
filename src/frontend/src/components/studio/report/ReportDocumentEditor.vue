@@ -2,6 +2,7 @@
 import type { Json, StudioResource } from '@/api/studio'
 import BindingEditor from '@/components/studio/shared/BindingEditor.vue'
 import ReportMappings from './ReportMappings.vue'
+import ReportRevisionSelect from './ReportRevisionSelect.vue'
 import { useReportCopy } from './copy'
 const props = defineProps<{
   modelValue: Json
@@ -50,7 +51,16 @@ function choose(id: string) {
             />
           </el-select> </el-form-item
         ><el-form-item :label="t('revision')"
-          ><el-input :model-value="modelValue.subReport.revisionNId" readonly /></el-form-item
+          ><ReportRevisionSelect
+            :model-value="modelValue.subReport.revisionNId"
+            :report-n-id="modelValue.subReport.reportNId"
+            :published-revision-n-id="
+              reports.find((r) => r.nId === modelValue.subReport.reportNId)?.publishedRevisionNId
+            "
+            :published-revision-no="
+              reports.find((r) => r.nId === modelValue.subReport.reportNId)?.publishedRevisionNo
+            "
+            @update:model-value="sub('revisionNId', $event)" /></el-form-item
       ></el-form>
       <ReportMappings
         :model-value="modelValue.subReport.parameterMap"

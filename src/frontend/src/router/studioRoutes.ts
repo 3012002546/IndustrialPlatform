@@ -97,6 +97,20 @@ export const studioRoutes: RouteRecordRaw[] = [
       query: { ...to.query, model: String(to.params.nId) },
     }),
   },
+  {
+    path: 'studio/reports/:nId/configure',
+    name: 'studio-report-query-config',
+    component: () => import('@/pages/pc/studio/report/ReportDesignerPage.vue'),
+    meta: {
+      title: 'Query configuration',
+      titleKey: 'studio.queryConfig',
+      requiresAuth: true,
+      permission: 'studio.report.design',
+      terminal: 'pc',
+      workspace: 'business',
+      pageId: 'studio-report-query-config',
+    },
+  },
   ...['reports', 'report-bundles'].flatMap(
     (section) =>
       [

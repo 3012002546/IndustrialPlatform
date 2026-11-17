@@ -24,7 +24,7 @@ public interface IStudioJobs
 public sealed record ReportJobState(string RunNId, string Status, string StateVersion, string OperationKey, DateTimeOffset? StartedOn, DateTimeOffset? CompletedOn, string? ReasonCode);
 
 /// <summary>由后续已授权规划器提交的不可变输入；不是HTTP请求合同，不承诺布局已经准入。</summary>
-public sealed record FrozenReportInput(string ExecutionKind, Guid? TemplateRevisionId, string? PreviewSnapshotJson, string ParametersJson, string Format, string TraceId, string SortJson = "[]", Guid? RetryOfRunId = null, string? RetryMode = null);
+public sealed record FrozenReportInput(string ExecutionKind, Guid? TemplateRevisionId, string? PreviewSnapshotJson, string ParametersJson, string Format, string TraceId, string SortJson = "[]", Guid? RetryOfRunId = null, string? RetryMode = null, string FiltersJson = "[]", string? QuerySnapshotJson = null);
 public sealed record ReportRunState(string RunNId, string ExecutionKind, string Status, string StateVersion, string ExecutionEpoch, DateTimeOffset? ExpiresOn, string? ErrorCode);
 
 /// <summary>只接受状态机允许的转换。过期预览仍需确认停止；Unknown必须经有证据的核对端口处理。</summary>

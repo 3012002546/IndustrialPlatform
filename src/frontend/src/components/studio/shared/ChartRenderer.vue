@@ -21,14 +21,14 @@ const error = computed(() =>
     ? t.value('fieldMissing')
     : '',
 )
-const max = computed(() =>
-  Math.max(
-    1,
-    ...series.value.flatMap((s) =>
-      props.rows.map((row) => Math.abs(Number(row[String(s.valueField)]))),
-    ),
-  ),
+const values = computed(() =>
+  series.value.flatMap((s) => props.rows.map((row) => Number(row[String(s.valueField)]))),
 )
+const lower = computed(() => Math.min(0, ...values.value))
+const upper = computed(() => Math.max(0, ...values.value))
+function y(value: number) {
+  return 230 - ((value - lower.value) / (upper.value - lower.value || 1)) * 190
+}
 const colors = [
   'var(--el-color-primary)',
   'var(--el-color-success)',
@@ -38,8 +38,7 @@ const colors = [
 function points(field: string) {
   return props.rows
     .map(
-      (row, i) =>
-        `${40 + (i * 510) / Math.max(1, props.rows.length - 1)},${230 - (Number(row[field]) / max.value) * 190}`,
+      (row, i) => `${40 + (i * 510) / Math.max(1, props.rows.length - 1)},${y(Number(row[field]))}`,
     )
     .join(' ')
 }
@@ -61,6 +60,7 @@ const sum = computed(() =>
     >
       <template v-if="kind !== 'Pie'">
         <path d="M35 15V235H580" fill="none" stroke="var(--el-border-color)" />
+        <path :d="`M35 ${y(0)}H580`" fill="none" stroke="var(--el-border-color)" />
         <template v-for="(s, si) in series" :key="si">
           <polyline
             v-if="kind === 'Line'"
@@ -78,8 +78,8 @@ const sum = computed(() =>
                 (i * 530) / Math.max(1, rows.length) +
                 (si * 530) / Math.max(1, rows.length) / series.length
               "
-              :y="230 - (Math.max(0, Number(row[String(s.valueField)])) / max) * 190"
-              :height="(Math.max(0, Number(row[String(s.valueField)])) / max) * 190"
+              :y="Math.min(y(0), y(Number(row[String(s.valueField)])))"
+              :height="Math.abs(y(Number(row[String(s.valueField)])) - y(0))"
               :width="Math.max(2, 500 / Math.max(1, rows.length) / series.length)"
               :fill="colors[si % colors.length]"
             >

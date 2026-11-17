@@ -28,12 +28,14 @@ public sealed class ReportExecution(IReportRunStore runs, IStudioResourceStore r
             var identityEvidence = StudioJson.Text(access["identityEvidence"]) ?? throw new StudioException("STUDIO_UNAUTHENTICATED", "执行身份依据缺失。", 401);
             var (principal, _) = await execution.RequireExecutionAsync(identityEvidence, claim.NId, token);
             var snapshot = await DefinitionAsync(principal, claim, token);
-            if (snapshot.Kind == "Report") snapshot = snapshot with { Document = ReportDesign.ApplyQuerySort(snapshot.Document, access["executionSort"] as JsonArray) };
+            if (snapshot.Kind == "Report") snapshot = snapshot with { Document = ReportDesign.ApplyQuerySort(snapshot.Document, access["executionSort"] as JsonArray), QueryFilters = ReportQueryFilters.Compile(snapshot.Document, access["executionFilters"] as JsonArray) };
             var parameters = DatasetValues.Parameters(principal, snapshot.Document, JsonNode.Parse(claim.ParametersJson)!.AsObject());
+            if (access["querySnapshot"] is JsonObject temporary) { snapshot = snapshot with { Document = ReportQuerySnapshot.Document(snapshot.Document, temporary, claim.Format), QueryFilters = null }; parameters = new(); }
             var trusted = new JsonObject { ["tenant"] = principal.TenantNId, ["user"] = principal.SubjectNId, ["authorizedFactoryIds"] = new JsonArray(principal.FactoryNIds.Select(id => (JsonNode)JsonValue.Create(id)!).ToArray()) };
             var resolver = design.Resolver(principal);
             if (claim.RetryMode == "RenderSnapshot") resolver.RestoreSnapshot(await retries.LoadOriginalSnapshotAsync(principal, claim, token));
             var plan = await new ReportPlanner(resolver, trusted, (d, p) => DatasetValues.Parameters(principal, d, p)).PlanAsync(snapshot, parameters, token); var flow = ReportExpander.Expand(plan);
+            if (access["querySnapshot"] is JsonObject) flow = ReportQuerySnapshot.PaginateColumns(flow, claim.Format);
             if (flow.Blocks.Count == 0) throw new StudioException("DATA_REQUIRED", "没有实际正文内容，不生成空白产物。", 422);
             var sourceManifest = resolver.Manifest;
             foreach (var asset in await imageResources.FreezeAsync(flow, identityEvidence, token)) sourceManifest.Add(asset?.DeepClone());

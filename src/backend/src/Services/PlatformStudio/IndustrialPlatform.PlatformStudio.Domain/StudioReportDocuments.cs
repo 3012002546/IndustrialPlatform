@@ -94,7 +94,7 @@ public static partial class StudioDocuments
                 if (doc["assembly"] is not JsonObject assembly) { Error("assembly", "必须设置组装规则。"); return; }
                 Allowed(assembly, ["root", "order", "operation", "rules", "stitchMode", "templates"], "assembly", errors);
                 Collection(assembly["root"], "assembly.root", false);
-                if (assembly["operation"] is JsonObject operation) { Allowed(operation, ["collection", "order"], "assembly.operation", errors); Collection(operation["collection"], "assembly.operation.collection", true); } else Error("assembly.operation", "必须设置工序集合。");
+                if (assembly["operation"] is JsonObject operation) { Allowed(operation, ["collection", "order"], "assembly.operation", errors); Collection(operation["collection"], "assembly.operation.collection", true); } else Error("assembly.operation", "必须设置子记录集合。");
                 var ids = new HashSet<string>();
                 var driven = IsDataDriven(assembly);
                 var listPath = driven ? "assembly.templates" : "assembly.rules";
@@ -107,7 +107,7 @@ public static partial class StudioDocuments
                     {
                         Allowed(rule, ["id", "reportNId", "revisionNId", "priority", "parameterMap", "scope", "required", "instanceMap", "breakBefore"], path, errors);
                         if (StudioJson.Text(rule["breakBefore"]) is not (null or "Auto" or "Page")) Error(path + ".breakBefore", "请选择接续上一段或新页开始。");
-                        if (StudioJson.Text(rule["scope"]) is not (null or "Operation" or "WorkOrder")) Error(path + ".scope", "请选择工单头部或工序主体。");
+                        if (StudioJson.Text(rule["scope"]) is not (null or "Operation" or "WorkOrder")) Error(path + ".scope", "请选择主记录头部或子记录主体。");
                         if (rule["required"] is { } required && (required is not JsonValue requiredValue || !requiredValue.TryGetValue<bool>(out _))) Error(path + ".required", "必需标记必须为布尔值。");
                         _ = StudioJson.RequiredString(rule, "reportNId");
                         Mappings(rule["parameterMap"], path + ".parameterMap");
@@ -293,7 +293,7 @@ public static partial class StudioDocuments
             var visibleIds = new HashSet<string>(StringComparer.Ordinal); var sortableIds = new HashSet<string>(StringComparer.Ordinal);
             foreach (var column in Objects(query["columns"], "query.columns", errors))
             {
-                Allowed(column, ["controlId", "columnId", "label", "visible", "sortable"], "query.columns", errors);
+                Allowed(column, ["controlId", "columnId", "label", "visible", "sortable", "dataType"], "query.columns", errors);
                 var id = StudioJson.RequiredString(column, "columnId");
                 if (!sources.Contains(StudioJson.RequiredString(column, "controlId") + "/" + id)) Error("query.columns", "查询列不属于结果表。");
                 if (column["visible"]?.GetValue<bool>() != false && (!visibleIds.Add(id) || id == "__rowKey")) Error("query.columns", "可见查询列编号重复或使用保留名称。");
@@ -304,6 +304,15 @@ public static partial class StudioDocuments
             var filterNames = new HashSet<string>(StringComparer.Ordinal);
             foreach (var filter in Objects(query["filters"], "query.filters", errors))
             {
+                if (filter.ContainsKey("fieldId"))
+                {
+                    Allowed(filter, ["fieldId", "label", "dataType"], "query.filters", errors);
+                    var id = StudioJson.RequiredString(filter, "fieldId");
+                    var matches = (query["columns"] as JsonArray ?? []).OfType<JsonObject>().Where(c => StudioJson.Text(c["columnId"]) == id).ToArray();
+                    if (matches.Length != 1 || !filterNames.Add("field:" + id)) Error("query.filters.fieldId", "筛选字段不存在、不唯一或重复。");
+                    if (StudioJson.Text(filter["dataType"]) is not ("String" or "Int32" or "Int64" or "Decimal" or "Date" or "DateTime" or "Boolean")) Error("query.filters.dataType", "筛选字段类型无效。");
+                    continue;
+                }
                 Allowed(filter, ["parameterName", "label", "control", "optionsDatasetRevisionNId", "valueFieldId", "labelFieldId"], "query.filters", errors);
                 if (!(doc["parameters"] as JsonArray ?? []).OfType<JsonObject>().Any(p => StudioJson.Text(p["name"]) == StudioJson.Text(filter["parameterName"]))) Error("query.filters.parameterName", "条件参数不存在。");
                 if (StudioJson.Text(filter["control"]) is not ("Text" or "Number" or "Select" or "Date" or "DateRange" or "BusinessSelector")) Error("query.filters.control", "条件控件未登记。");

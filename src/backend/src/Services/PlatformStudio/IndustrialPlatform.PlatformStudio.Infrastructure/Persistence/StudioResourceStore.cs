@@ -67,10 +67,27 @@ public sealed class StudioResourceStore(StudioDatabase database, TimeProvider cl
     public async Task<IReadOnlyList<StudioRevision>> FindRevisionsByIdsAsync(string tenantNId, Guid[] ids, CancellationToken cancellationToken)
     {
         if (ids.Length == 0) return [];
-        return await Db.Queryable<StudioRevision>().Where(row => row.TenantNId == tenantNId && ids.Contains(row.Id)).ToUtcListAsync(database.Provider, cancellationToken);
+        // Resource lists need the published document for mode/draft comparison, but not the
+        // frozen dependency graph, source pins or other runtime-only revision fields.
+        return await Db.Queryable<StudioRevision>().Where(row => row.TenantNId == tenantNId && ids.Contains(row.Id))
+            .Select(row => new StudioRevision { Id = row.Id, NId = row.NId, RevisionNo = row.RevisionNo, DocumentJson = row.DocumentJson })
+            .ToUtcListAsync(database.Provider, cancellationToken);
     }
     public async Task<StudioRevision?> FindRevisionByIdAsync(string tenantNId, Guid id, CancellationToken cancellationToken) => await Db.Queryable<StudioRevision>().Where(row => row.TenantNId == tenantNId && row.Id == id).FirstUtcAsync(database.Provider,cancellationToken)!;
-    public async Task<IReadOnlyList<StudioRevision>> ListRevisionsAsync(string tenantNId, Guid resourceId, CancellationToken cancellationToken) => await Db.Queryable<StudioRevision>().Where(row => row.TenantNId == tenantNId && row.ResourceId == resourceId).OrderBy(row => row.RevisionNo, OrderByType.Desc).ToUtcListAsync(database.Provider,cancellationToken);
+    public async Task<IReadOnlyList<RevisionSummaryDto>> ListRevisionSummariesAsync(string tenantNId, Guid resourceId, CancellationToken cancellationToken)
+    {
+        // History selectors need metadata only; report bodies may contain large tables/images.
+        var revisions = await Db.Queryable<StudioRevision>()
+            .Where(row => row.TenantNId == tenantNId && row.ResourceId == resourceId)
+            .OrderBy(row => row.RevisionNo, OrderByType.Desc)
+            .Select(row => new StudioRevision
+            {
+                NId = row.NId, RevisionNo = row.RevisionNo, ContentHash = row.ContentHash,
+                PublishedBy = row.PublishedBy, CreatedOn = row.CreatedOn, ReleaseNote = row.ReleaseNote
+            }).ToUtcListAsync(database.Provider, cancellationToken);
+        return revisions.Select(row => new RevisionSummaryDto(row.NId, row.RevisionNo.ToString(CultureInfo.InvariantCulture),
+            row.ContentHash, row.PublishedBy, row.CreatedOn, row.ReleaseNote)).ToArray();
+    }
     public async Task InsertRevisionAsync(StudioRevision revision, CancellationToken cancellationToken) => await Db.Insertable(revision).ExecuteCommandAsync(cancellationToken);
     public async Task<IReadOnlyList<StudioGrant>> GetGrantsAsync(string tenantNId, Guid resourceId, CancellationToken cancellationToken) => await Db.Queryable<StudioGrant>().Where(row => row.TenantNId == tenantNId && row.ResourceId == resourceId).ToUtcListAsync(database.Provider,cancellationToken);
     public async Task ReplaceGrantsAsync(string tenantNId, Guid resourceId, IReadOnlyList<StudioGrant> grants, CancellationToken cancellationToken)

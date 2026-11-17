@@ -5,3 +5,6 @@ packages:
   - '.'
 allowBuilds:
   msw: true
+  # Univer transitive dependency: postinstall only prints version-range advice.
+  # Its packaged JavaScript works without running this optional script.
+  protobufjs: false

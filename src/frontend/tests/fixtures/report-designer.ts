@@ -126,6 +126,23 @@ if (new URLSearchParams(location.search).has('sample')) {
 }
 Object.assign(window, { reportFixture: fixture })
 registerStudioApi({
+  revisions: async (id: string) => {
+    fixture.calls.push('revisions:' + id)
+    return [
+      {
+        nId: 'revision-child',
+        revisionNo: '3',
+        createdOn: '2026-11-17T01:00:00Z',
+        releaseNote: '调整表头',
+      },
+      {
+        nId: 'revision-child-v2',
+        revisionNo: '2',
+        createdOn: '2026-11-16T01:00:00Z',
+        releaseNote: '初始发布版本',
+      },
+    ]
+  },
   draft: async () => {
     fixture.loadEvents.push('draft-start')
     if (new URLSearchParams(location.search).has('slow-draft'))
@@ -156,9 +173,20 @@ registerStudioApi({
                   {
                     nId: childId,
                     name: '工序检验记录',
-                    publishedRevisionNo: 3,
+                    publishedRevisionNo: '3',
                     publishedRevisionNId: 'revision-child',
+                    pageMode: 'Fixed',
                   },
+                  ...(new URLSearchParams(location.search).has('query-candidate')
+                    ? [
+                        {
+                          nId: 'query-child',
+                          name: '查询报表候选',
+                          pageMode: 'Query',
+                          publishedRevisionNId: 'revision-query',
+                        },
+                      ]
+                    : []),
                 ]
               : [],
         }

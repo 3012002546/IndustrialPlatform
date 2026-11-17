@@ -18,7 +18,7 @@ public interface IStudioResourceStore
     Task<StudioRevision?> FindRevisionAsync(string tenantNId, string nId, CancellationToken cancellationToken);
     Task<IReadOnlyList<StudioRevision>> FindRevisionsByIdsAsync(string tenantNId, Guid[] ids, CancellationToken cancellationToken);
     Task<StudioRevision?> FindRevisionByIdAsync(string tenantNId, Guid id, CancellationToken cancellationToken);
-    Task<IReadOnlyList<StudioRevision>> ListRevisionsAsync(string tenantNId, Guid resourceId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<RevisionSummaryDto>> ListRevisionSummariesAsync(string tenantNId, Guid resourceId, CancellationToken cancellationToken);
     Task InsertRevisionAsync(StudioRevision revision, CancellationToken cancellationToken);
     Task<IReadOnlyList<StudioGrant>> GetGrantsAsync(string tenantNId, Guid resourceId, CancellationToken cancellationToken);
     Task ReplaceGrantsAsync(string tenantNId, Guid resourceId, IReadOnlyList<StudioGrant> grants, CancellationToken cancellationToken);

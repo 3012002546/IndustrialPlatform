@@ -15,7 +15,14 @@ import AppPage from '@/components/base/AppPage.vue'
 import AppFormDrawer from '@/components/management/AppFormDrawer.vue'
 import DashboardConstantEditor from '@/components/studio/dashboard/DashboardConstantEditor.vue'
 import { PermissionGate } from '@/permissions'
-import { getStudioApi, type Json, type StudioResource } from '@/api/studio'
+import {
+  getStudioApi,
+  type Json,
+  type StudioResource,
+  type StudioRevisionSummary,
+} from '@/api/studio'
+import ReportRevisionSelect from '@/components/studio/report/ReportRevisionSelect.vue'
+import { provideRevisionLoader } from '@/components/studio/report/revisionLoader'
 import StudioEditorShell from '@/components/studio/shared/StudioEditorShell.vue'
 import BindingEditor from '@/components/studio/shared/BindingEditor.vue'
 import StudioFieldTree from '@/components/studio/shared/StudioFieldTree.vue'
@@ -64,6 +71,7 @@ import {
   type ResizeEdge,
 } from '@/components/studio/report/geometry'
 import ReportQueryEditor from '@/components/studio/report/ReportQueryEditor.vue'
+import { querySourceFields, syncQueryFields } from '@/components/studio/report/queryFields'
 import ReportStyleEditor from '@/components/studio/report/ReportStyleEditor.vue'
 import { reportControls, reportBandKinds } from '@/components/studio/report/catalogue'
 import AppDataTable from '@/components/management/AppDataTable.vue'
@@ -83,6 +91,7 @@ const route = useRoute(),
   t = useReportCopy(),
   studioCopy = useStudioCopy(),
   api = getStudioApi()
+provideRevisionLoader()
 const resource = ref<StudioResource>(),
   doc = ref<Json>({}),
   saved = ref(''),
@@ -133,6 +142,79 @@ const parameterTypeLabels = computed<Record<string, string>>(() => ({
   Array: t.value('parameterArray'),
 }))
 const dataTab = ref('instances')
+const queryInstance = computed<Json | undefined>(() =>
+  doc.value.instances?.find((item: Json) => item.instanceId === doc.value.query?.instanceId),
+)
+function selectQueryDataset(datasetNId: string) {
+  const dataset = datasets.value.find((item) => item.nId === datasetNId)
+  if (!dataset?.publishedRevisionNId) return
+  return guarded(async () => {
+    const revision = await api.revision(dataset.nId, dataset.publishedRevisionNId!)
+    const schema = revision.document.result
+    const fields = schema?.type === 'Array' ? querySourceFields(schema) : []
+    if (!fields.length) throw new Error(t.value('queryDatasetShape'))
+    const value = clone(doc.value)
+    const instance = value.instances.find(
+      (item: Json) => item.instanceId === value.query.instanceId,
+    )
+    const sameDataset = instance.datasetNId === dataset.nId
+    const previousParameters = value.parameters ?? []
+    Object.assign(instance, {
+      sourceType: 'Dataset',
+      datasetNId: dataset.nId,
+      revisionNId: revision.nId,
+    })
+    delete instance.value
+    value.parameters = clone(revision.document.parameters ?? [])
+    if (sameDataset)
+      for (const parameter of value.parameters) {
+        const previous = previousParameters.find(
+          (item: Json) => item.name === parameter.name && item.type === parameter.type,
+        )
+        if (previous && Object.hasOwn(previous, 'defaultValue'))
+          parameter.defaultValue = previous.defaultValue
+      }
+    instance.parameters = value.parameters.map((parameter: Json) => ({
+      target: parameter.name,
+      source: {
+        from: 'PageParam',
+        path: [parameter.name],
+        nullPolicy: parameter.required ? 'Error' : 'Null',
+      },
+    }))
+    if (!sameDataset) value.query.filters = []
+    // Existing dataset inputs still work; field filters do not require any of them.
+    const previousFilters = value.query.filters ?? []
+    value.query.filters = [
+      ...previousFilters.filter((filter: Json) => filter.fieldId),
+      ...value.parameters
+        .filter(
+          (parameter: Json) =>
+            parameter.required ||
+            previousFilters.some((filter: Json) => filter.parameterName === parameter.name),
+        )
+        .map(
+          (parameter: Json) =>
+            previousFilters.find((filter: Json) => filter.parameterName === parameter.name) ?? {
+              parameterName: parameter.name,
+              label: parameter.label || parameter.name,
+              control:
+                parameter.type === 'Date'
+                  ? 'Date'
+                  : ['Int32', 'Decimal'].includes(parameter.type)
+                    ? 'Number'
+                    : 'Text',
+            },
+        ),
+    ]
+    value.bands.find((band: Json) => band.id === value.query.resultBandId).data = {
+      mode: 'RootPath',
+      instanceId: instance.instanceId,
+      path: [],
+    }
+    doc.value = syncQueryFields(value, fields)
+  })
+}
 const dataInstance = ref('0')
 const constantEditors = new Map<number, InstanceType<typeof DashboardConstantEditor>>()
 function setConstantEditor(index: number, el: Element | ComponentPublicInstance | null) {
@@ -162,6 +244,7 @@ const nId = String(route.params.nId),
     band.value?.controls.find((c: Json) => c.id === controlId.value),
   ),
   bundle = computed(() => resource.value?.kind === 'ReportBundle'),
+  queryReport = computed(() => !bundle.value && doc.value.mode === 'Query'),
   electronic = computed(() => doc.value.mode === 'ElectronicRecord'),
   driven = computed(() => electronic.value && doc.value.assembly?.stitchMode === 'DataDriven'),
   entriesKey = computed(() => (driven.value ? 'templates' : 'rules')),
@@ -678,7 +761,12 @@ onBeforeUnmount(() => {
   if (schemaTimer) clearTimeout(schemaTimer)
 })
 function edit(fn: (d: Json) => void) {
-  shell.value?.apply(fn)
+  if (shell.value) shell.value.apply(fn)
+  else if (queryReport.value) {
+    const next = clone(doc.value)
+    fn(next)
+    doc.value = next
+  }
 }
 function updateBand(key: string, value: unknown) {
   edit((d) => {
@@ -1256,7 +1344,9 @@ function setDataset(i: Json, nId: string) {
   i.revisionNId = ds?.publishedRevisionNId ?? ''
 }
 const reportOptions = computed(() =>
-  reports.value.map((report) => ({ value: report.nId, label: report.name })),
+  reports.value
+    .filter((report) => report.pageMode !== 'Query')
+    .map((report) => ({ value: report.nId, label: report.name })),
 )
 const reportIndex = computed(() => new Map(reports.value.map((report) => [report.nId, report])))
 function childTitle(child: Json) {
@@ -1272,10 +1362,15 @@ function childTitle(child: Json) {
     )
   )
 }
+const childRevisions = ref<Record<string, StudioRevisionSummary[]>>({})
 function revisionTitle(child: Json) {
   if (draftChildren.value[child.reportNId]) return t.value('useChildDraft')
   if (!child.revisionNId) return t.value('noRevision')
   const report = reportIndex.value.get(child.reportNId)
+  const version = childRevisions.value[child.reportNId]?.find(
+    (revision) => revision.nId === child.revisionNId,
+  )
+  if (version) return t.value('revision') + ' V' + version.revisionNo
   return report?.publishedRevisionNo && report.publishedRevisionNId === child.revisionNId
     ? t.value('revision') + ' V' + report.publishedRevisionNo
     : t.value('revision')
@@ -1329,6 +1424,7 @@ function removeItem() {
 function setTemplate(nId: string) {
   if (!item.value) return
   const chosen = reports.value.find((r) => r.nId === nId)
+  if (chosen?.pageMode === 'Query') return
   item.value.reportNId = nId
   item.value.revisionNId = chosen?.publishedRevisionNId ?? ''
 }
@@ -1434,7 +1530,10 @@ function loadOptions() {
   if (datasetOptionsError.value) void loadDatasetOptions()
 }
 watch(
-  () => drawer.value === 'data' || (bundle.value && !driven.value && inspectorTab.value === 'data'),
+  () =>
+    queryReport.value ||
+    drawer.value === 'data' ||
+    (bundle.value && !driven.value && inspectorTab.value === 'data'),
   (needed) => {
     if (needed) void loadDatasetOptions()
   },
@@ -1465,11 +1564,18 @@ onBeforeRouteLeave(async () => {
   <AppPage
     :title="resource?.name ?? t('reports')"
     :description="
-      bundle ? t(driven ? 'candidateTemplates' : electronic ? 'rules' : 'items') : t('bands')
+      queryReport
+        ? t('queryConfigHint')
+        : bundle
+          ? t(driven ? 'candidateTemplates' : electronic ? 'rules' : 'items')
+          : t('bands')
     "
     class="studio-page report-designer"
     v-loading="loading"
   >
+    <template #heading-meta
+      ><el-tag v-if="queryReport">{{ t('querySettings') }}</el-tag></template
+    >
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <template #actions>
       <el-button
@@ -1487,17 +1593,19 @@ onBeforeRouteLeave(async () => {
           )
         "
         >{{ t('back') }}</el-button
-      ><el-button :disabled="!shell?.canUndo" @click="shell?.undo()">{{
+      ><el-button v-if="!queryReport" :disabled="!shell?.canUndo" @click="shell?.undo()">{{
         studioCopy('undo')
       }}</el-button
-      ><el-button :disabled="!shell?.canRedo" @click="shell?.redo()">{{
+      ><el-button v-if="!queryReport" :disabled="!shell?.canRedo" @click="shell?.redo()">{{
         studioCopy('redo')
       }}</el-button
       ><PermissionGate permission-n-id="studio.report.design"
         ><el-button v-if="bundle" :disabled="busy" @click="execute('plan')">{{
           t('plan')
         }}</el-button
-        ><el-button :disabled="busy" @click="execute('preview')">{{ t('preview') }}</el-button
+        ><el-button v-if="!queryReport" :disabled="busy" @click="execute('preview')">{{
+          t('preview')
+        }}</el-button
         ><el-button :loading="busy" @click="save">{{ t('save') }}</el-button></PermissionGate
       ><PermissionGate permission-n-id="studio.report.publish"
         ><el-button type="primary" :disabled="busy || dirty" @click="publish">{{
@@ -1505,8 +1613,54 @@ onBeforeRouteLeave(async () => {
         }}</el-button></PermissionGate
       >
     </template>
+    <section v-if="doc.schemaVersion && queryReport" class="report-query-config">
+      <div class="studio-toolbar">
+        <el-select
+          :model-value="queryInstance?.datasetNId"
+          :placeholder="
+            queryInstance?.sourceType === 'Constant' ? t('constantSource') : t('datasetSource')
+          "
+          :aria-label="t('datasetSource')"
+          filterable
+          :loading="datasetOptionsLoading"
+          :disabled="busy"
+          style="width: 320px"
+          @update:model-value="selectQueryDataset"
+        >
+          <el-option
+            v-for="dataset in datasets.filter((item) => item.publishedRevisionNId)"
+            :key="dataset.nId"
+            :value="dataset.nId"
+            :label="dataset.name"
+          />
+        </el-select>
+        <el-button
+          v-if="queryInstance?.datasetNId"
+          :disabled="busy"
+          @click="selectQueryDataset(queryInstance!.datasetNId)"
+          >{{ t('syncQueryFields') }}</el-button
+        >
+        <el-button v-if="queryInstance?.sourceType === 'Constant'" @click="drawer = 'data'">{{
+          t('data')
+        }}</el-button>
+        <PermissionGate permission-n-id="studio.report.run">
+          <el-button
+            :disabled="!resource?.publishedRevisionNId"
+            @click="router.push(`/pc/studio/reports/${encodeURIComponent(nId)}/run`)"
+            >{{ studioCopy('run') }}</el-button
+          >
+        </PermissionGate>
+      </div>
+      <ReportQueryEditor
+        :inert="busy"
+        v-model="doc"
+        :datasets="datasets"
+        :dataset-schemas="schemaContract.datasetSchemas"
+        query-only
+      />
+    </section>
     <StudioEditorShell
-      v-if="doc.schemaVersion"
+      v-if="doc.schemaVersion && !queryReport"
       ref="shell"
       class="report-design-shell"
       :properties-open="true"
@@ -2400,10 +2554,13 @@ onBeforeRouteLeave(async () => {
                   @update:model-value="setTemplate"
               /></el-form-item>
               <el-form-item :label="t('revision')"
-                ><el-input
-                  :model-value="item.revisionNId"
-                  :aria-label="t('revision')"
-                  @change="(value: string) => (item!.revisionNId = value)"
+                ><ReportRevisionSelect
+                  v-model="item.revisionNId"
+                  :report-n-id="item.reportNId"
+                  :published-revision-n-id="reportIndex.get(item.reportNId)?.publishedRevisionNId"
+                  :published-revision-no="reportIndex.get(item.reportNId)?.publishedRevisionNo"
+                  :disabled="!!draftChildren[item.reportNId]"
+                  @loaded="(id, versions) => (childRevisions[id] = versions)"
               /></el-form-item>
               <el-form-item
                 ><el-checkbox
@@ -2668,7 +2825,7 @@ onBeforeRouteLeave(async () => {
             :datasets="datasets"
           />
         </el-tab-pane>
-        <el-tab-pane v-if="!bundle" :label="t('querySettings')" name="query">
+        <el-tab-pane v-if="!bundle && !queryReport" :label="t('querySettings')" name="query">
           <ReportQueryEditor
             v-model="doc"
             :datasets="datasets"

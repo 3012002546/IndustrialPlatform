@@ -75,6 +75,9 @@ it('loads generation records on initial entry without a manual refresh', () => {
 
 it('reuses the retry operation key after a lost reply without submitting a different command', async () => {
   state.api.reportState.mockResolvedValue(run('a'))
+  vi.spyOn(ElMessageBox, 'confirm').mockImplementation(
+    () => Promise.resolve('confirm') as ReturnType<typeof ElMessageBox.confirm>,
+  )
   state.api.reportRetry.mockRejectedValue(new Error('Reply lost'))
   await panel.vm.open('a')
   await flushPromises()
@@ -136,4 +139,18 @@ it('does not resolve a different run if the selection changes during the reason 
   prompt.resolve({ value: 'Verified the process has stopped', action: 'confirm' })
   await flushPromises()
   expect(state.api.reportResolve).not.toHaveBeenCalled()
+})
+
+it('does not refetch when the temporary-workbook warning is cancelled', async () => {
+  const confirm = vi.spyOn(ElMessageBox, 'confirm').mockRejectedValue('cancel')
+  state.api.reportState.mockResolvedValue(run('a'))
+  await panel.vm.open('a')
+  await flushPromises()
+  await panel
+    .findAll('button')
+    .find((b) => b.text() === '重新取数生成')!
+    .trigger('click')
+  await flushPromises()
+  expect(confirm.mock.calls[0]![0]).toContain('不包含临时修改')
+  expect(state.api.reportRetry).not.toHaveBeenCalled()
 })

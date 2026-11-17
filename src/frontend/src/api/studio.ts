@@ -187,8 +187,18 @@ export function createStudioApi(client: HttpClient) {
       })
     },
     reportPreviewState: (nId: string) => get<Json>(`/reports/previews/${id(nId)}`),
-    reportQuery: (nId: string | null, input: Json) =>
-      post<Json>(nId ? `/reports/${id(nId)}/query` : '/reports/query-preview', input),
+    reportQuery: (nId: string | null, input: Json, signal?: AbortSignal) =>
+      post<Json>(
+        nId ? `/reports/${id(nId)}/query` : '/reports/query-preview',
+        input,
+        undefined,
+        signal,
+      ),
+    reportQueryOutputAccess: (nId: string, revisionNId: string, signal?: AbortSignal) =>
+      client.get<Json>(
+        `${BASE}/reports/${id(nId)}/query-output-access?revisionNId=${id(revisionNId)}`,
+        signal ? { signal } : {},
+      ),
     reportAsset: (nId: string, input: Json, key: string) =>
       post<Json>(`/reports/${id(nId)}/assets`, input, key),
     reportResolve: (runNId: string, stateVersion: string, reason: string) =>
