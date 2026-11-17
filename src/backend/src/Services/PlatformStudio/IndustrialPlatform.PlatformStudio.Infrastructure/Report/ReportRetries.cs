@@ -14,7 +14,7 @@ public sealed class ReportRetries(ReportRuns runs, ReportOwnedFiles files, Studi
         if (original.ExecutionKind != "Production" || original.Status is not ("Succeeded" or "Failed" or "Cancelled") || original.StateVersion != StudioJson.Version(expectedVersion) || mode is not ("RenderSnapshot" or "NewData")) throw new StudioException("REPORT_RETRY_INVALID", "只允许对安全终态的正式运行选择快照重排或重新取数；Unknown必须先核对。", 409);
         if (mode == "RenderSnapshot") _ = await LoadSnapshotAsync(principal, original, token);
         var access = JsonNode.Parse(original.AccessSnapshotJson)!.AsObject();
-        return await runs.AcceptFrozenAsync(principal, new("Production", original.TemplateRevisionId, null, original.ParametersJson, original.Format, traceId, access["executionSort"]?.ToJsonString() ?? "[]", original.Id, mode), operationKey, token);
+        return await runs.AcceptFrozenAsync(principal, new("Production", original.TemplateRevisionId, null, original.ParametersJson, original.Format, traceId, access["executionSort"]?.ToJsonString() ?? "[]", original.Id, mode, access["executionFilters"]?.ToJsonString() ?? "[]", mode == "RenderSnapshot" ? access["querySnapshot"]?.ToJsonString() : null), operationKey, token);
     }
     public async Task<JsonArray> LoadSnapshotAsync(StudioPrincipal principal, StudioReportRun original, CancellationToken token, string? executionEvidence = null)
     {

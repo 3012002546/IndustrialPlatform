@@ -165,6 +165,13 @@ async function workingCopy(row: Json) {
 }
 async function retry(mode: string) {
   if (busy.value || !detail.value) return
+  if (mode === 'NewData') {
+    try {
+      await ElMessageBox.confirm(t.value('newDataHelp'), t.value('newData'), { type: 'warning' })
+    } catch {
+      return
+    }
+  }
   busy.value = true
   error.value = ''
   try {

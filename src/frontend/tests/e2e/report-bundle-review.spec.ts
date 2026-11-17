@@ -15,7 +15,97 @@ const fixture = (page: import('@playwright/test').Page) =>
         }
       ).reportFixture,
   )
+
+for (const mode of ['Simple', 'ElectronicRecord', 'ElectronicRecord&driven'])
+  test(`excludes query templates in ${mode} without changing saved configuration`, async ({
+    page,
+  }) => {
+    await page.goto('/tests/fixtures/report-designer.html?bundle=' + mode + '&query-candidate')
+    await page.locator('.report-bundle-flow button').first().click()
+    await right(page).getByRole('combobox', { name: '子模板', exact: true }).click()
+    await expect(page.getByRole('option', { name: '工序检验记录', exact: true })).toBeVisible()
+    await expect(page.getByRole('option', { name: '查询报表候选', exact: true })).toHaveCount(0)
+    await page.getByRole('option', { name: '工序检验记录', exact: true }).click()
+    await page.getByRole('button', { name: '保存草稿', exact: true }).click()
+    expect((await fixture(page)).saved).toEqual((await fixture(page)).original)
+  })
+
+for (const english of [false, true])
+  test(`uses generic record scopes and preserves legacy values (${english ? 'en' : 'zh'})`, async ({
+    page,
+  }) => {
+    await page.goto(
+      '/tests/fixtures/report-designer.html?bundle=ElectronicRecord&driven' +
+        (english ? '&english' : ''),
+    )
+    await page.locator('.report-bundle-flow button').first().click()
+    const scope = right(page).getByRole('combobox', {
+      name: english ? 'Assembly position' : '拼接位置',
+      exact: true,
+    })
+    await scope.press('Enter')
+    await page
+      .getByRole('option', {
+        name: english
+          ? 'Master record header (once per master record)'
+          : '主记录头部（每条主记录一次）',
+        exact: true,
+      })
+      .click()
+    await page
+      .getByRole('button', { name: english ? 'Save draft' : '保存草稿', exact: true })
+      .click()
+    const expected = structuredClone((await fixture(page)).original)
+    expected.assembly.templates[0].scope = 'WorkOrder'
+    expect((await fixture(page)).saved).toEqual(expected)
+    await scope.press('Enter')
+    await page
+      .getByRole('option', {
+        name: english
+          ? 'Child record body (once per child record)'
+          : '子记录主体（每条子记录一次）',
+        exact: true,
+      })
+      .click()
+    await page
+      .getByRole('button', { name: english ? 'Save draft' : '保存草稿', exact: true })
+      .click()
+    expect((await fixture(page)).saved).toEqual((await fixture(page)).original)
+    await expect(right(page)).not.toContainText(english ? 'work order' : '工单头部')
+  })
 const right = (page: import('@playwright/test').Page) => page.locator('.studio-sidebar').last()
+for (const mode of ['Simple', 'ElectronicRecord', 'ElectronicRecord&driven'])
+  test(`selects a readable published template version in ${mode}`, async ({ page }) => {
+    await page.goto('/tests/fixtures/report-designer.html?bundle=' + mode)
+    await page.locator('.report-bundle-flow button').first().click()
+    const selector = right(page).getByRole('combobox', { name: '子模板版本', exact: true })
+    await expect(selector).toBeEnabled()
+    await expect(right(page)).toContainText('子模板更新后不会自动切换')
+    await expect(right(page)).not.toContainText('revision-child')
+    await selector.press('Enter')
+    await expect(page.getByRole('option', { name: /V3.*2026.*调整表头/ })).toBeVisible()
+    await page.getByRole('option', { name: /V2.*2026.*初始发布版本/ }).click()
+    await page.getByRole('button', { name: '保存草稿', exact: true }).click()
+    const expected = structuredClone((await fixture(page)).original)
+    const entries =
+      mode === 'Simple'
+        ? expected.items
+        : expected.assembly[mode.includes('driven') ? 'templates' : 'rules']
+    entries[0].revisionNId = 'revision-child-v2'
+    expect((await fixture(page)).saved).toEqual(expected)
+    await expect(page.locator('.report-bundle-flow button').first()).toContainText('子模板版本 V2')
+    for (const name of ['数据与映射', '排版', '基础'])
+      await right(page).getByRole('tab', { name, exact: true }).click()
+    await expect(selector).toBeEnabled()
+    await selector.press('Enter')
+    await expect(page.getByRole('option', { name: /V2.*2026.*初始发布版本/ })).toBeVisible()
+    await page.keyboard.press('Escape')
+    expect(
+      (await fixture(page)).calls.filter((call) => call.startsWith('revisions:')),
+    ).toHaveLength(1)
+    await page.getByRole('button', { name: '保存草稿', exact: true }).click()
+    expect((await fixture(page)).saved).toEqual(expected)
+  })
 for (const [mode, query] of [
   ['single', ''],
   ['simple', '?bundle=Simple'],

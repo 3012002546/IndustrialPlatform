@@ -42,7 +42,7 @@ public static class StudioEndpoints
     public sealed record WorkbookCopyInput(string Name, string BaseContentVersion);
     public sealed record WorkbookEditInput(string Name, string OptimisticVersion, Guid ConcurrencyVersion);
     public sealed record WorkbookVersionInput(string BaseContentVersion, string? Note);
-    public sealed record ReportRunInput(string? RevisionNId, JsonObject? Parameters, string Format, JsonArray? Sort = null);
+    public sealed record ReportRunInput(string? RevisionNId, JsonObject? Parameters, string Format, JsonArray? Sort = null, JsonArray? Filters = null, JsonObject? QuerySnapshot = null);
     public static IEndpointRouteBuilder MapPlatformStudio(this IEndpointRouteBuilder endpoints)
     {
         var profile=endpoints.ServiceProvider.GetService<StudioDeploymentProfile>();
@@ -115,6 +115,7 @@ public static class StudioEndpoints
             group.MapPost("/report-runs/{runNId}/resolve", (string runNId, ReportResolutionInput input, HttpContext http, ReportReconciliation resolution, CancellationToken ct) => resolution.ResolveAsync(Principal(http), runNId, input.StateVersion, input.Reason, ct));
             group.MapPost("/reports/plan", (ReportPreviewInput input, HttpContext http, ReportDesign reports, CancellationToken ct) => reports.PlanAsync(Principal(http), input, ct));
             group.MapGet("/reports/{nId}/runtime", (string nId, string? revisionNId, HttpContext http, ReportDesign reports, CancellationToken ct) => reports.RuntimeAsync(Principal(http), nId, revisionNId, ct));
+            group.MapGet("/reports/{nId}/query-output-access", (string nId, string? revisionNId, HttpContext http, ReportDesign reports, CancellationToken ct) => reports.AuthorizeQueryOutputAsync(Principal(http), nId, revisionNId, ct));
             group.MapPost("/reports/query-preview", (ReportQueryInput input, HttpContext http, ReportDesign reports, CancellationToken ct) => reports.QueryAsync(Principal(http), null, input, ct));
             group.MapPost("/reports/{nId}/query", (string nId, ReportQueryInput input, HttpContext http, ReportDesign reports, CancellationToken ct) => reports.QueryAsync(Principal(http), nId, input, ct));
             group.MapPost("/reports/{nId}/query-options", (string nId, ReportQueryInput input, HttpContext http, ReportDesign reports, CancellationToken ct) => reports.QueryOptionsAsync(Principal(http), nId, input, ct));
@@ -165,7 +166,9 @@ public static class StudioEndpoints
                 var document = StudioPublishing.Parse(revision.DocumentJson);
                 var parameters = DatasetValues.Parameters(Principal(http), document, input.Parameters ?? new());
                 var sort = ReportDesign.ResolveSort(document, input.Sort);
-                var result = await runs.AcceptFrozenAsync(Principal(http), new("Production", revision.Id, null, parameters.ToJsonString(), input.Format, http.TraceIdentifier, sort.ToJsonString()), Key(http), ct);
+                var filters = ReportQueryFilters.Resolve(document, input.Filters);
+                if (input.QuerySnapshot is { } temporary) { if (resource.Kind != "Report" || StudioJson.Text(document["mode"]) != "Query") throw new StudioException("TYPE_MISMATCH", "临时工作表仅用于查询报表。", 422); ReportQuerySnapshot.Validate(temporary); }
+                var result = await runs.AcceptFrozenAsync(Principal(http), new("Production", revision.Id, null, parameters.ToJsonString(), input.Format, http.TraceIdentifier, sort.ToJsonString(), FiltersJson: filters.ToJsonString(), QuerySnapshotJson: input.QuerySnapshot?.ToJsonString()), Key(http), ct);
                 return Results.Json(ApiResult.Ok(result), statusCode: 202);
             });
         }

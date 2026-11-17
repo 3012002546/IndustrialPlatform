@@ -313,6 +313,8 @@ public sealed class StudioPublishing(IStudioResourceStore store, IStudioAuthoriz
                 var revision = StudioJson.Text(child["revisionNId"]) is { Length: > 0 } pin ? await store.FindRevisionAsync(principal.TenantNId, pin, cancellationToken) : target.PublishedRevisionId is { } published ? await store.FindRevisionByIdAsync(principal.TenantNId, published, cancellationToken) : null;
                 if (revision is null) throw new StudioException("DEPENDENCY_CHANGED", "子报表必须已发布并固定修订。", 409);
                 await AddRevision(revision.NId, nId); child["revisionNId"] = revision.NId;
+                if (resource.Kind == "ReportBundle" && StudioJson.Text(Parse(revision.DocumentJson)["mode"]) == "Query")
+                    throw new StudioException("TYPE_MISMATCH", "组合报表不能引用查询报表，请选择固定版式报表。", path: "reportNId");
                 if (child["content"] is JsonObject content && StudioJson.Text(content["mode"]) == "BandSubtree")
                 {
                     var childDocument = Parse(revision.DocumentJson); var entry = StudioJson.RequiredString(content, "entryBandId");
@@ -443,7 +445,7 @@ public sealed class StudioPublishing(IStudioResourceStore store, IStudioAuthoriz
     public async Task<IReadOnlyList<RevisionSummaryDto>> RevisionsAsync(StudioPrincipal principal, string nId, CancellationToken cancellationToken)
     {
         var resource = await RequireResourceAsync(principal, nId, "view", "View", cancellationToken);
-        return (await store.ListRevisionsAsync(principal.TenantNId, resource.Id, cancellationToken)).Select(revision => new RevisionSummaryDto(revision.NId, revision.RevisionNo.ToString(CultureInfo.InvariantCulture), revision.ContentHash, revision.PublishedBy, revision.CreatedOn, revision.ReleaseNote)).ToArray();
+        return await store.ListRevisionSummariesAsync(principal.TenantNId, resource.Id, cancellationToken);
     }
     public async Task<ResourceDto> ToDtoAsync(StudioResource resource, CancellationToken cancellationToken)
     {
@@ -455,7 +457,14 @@ public sealed class StudioPublishing(IStudioResourceStore store, IStudioAuthoriz
         resource.PublishedRevisionId == revision.Id ? Task.FromResult(ResourceDto(resource, revision)) : ToDtoAsync(resource, cancellationToken);
     private static ResourceDto ResourceDto(StudioResource resource, StudioRevision? published)
     {
-        return new(resource.NId, resource.Kind, resource.Name, resource.Description, resource.Folder, resource.IsEnabled, published?.NId, published?.RevisionNo.ToString(CultureInfo.InvariantCulture), published is null || !PublishedMatchesDraft(resource.Kind, published.DocumentJson, resource.DraftJson), resource.OwnerUserNId, resource.CreatedOn, resource.LastUpdatedOn, resource.OptimisticVersion.ToString(CultureInfo.InvariantCulture), resource.ConcurrencyVersion, resource.Kind == "LowCodePage" ? StudioJson.Text(Parse(resource.DraftJson)["mode"]) : null);
+        var pageMode = resource.Kind switch
+        {
+            "LowCodePage" => StudioJson.Text(Parse(resource.DraftJson)["mode"]),
+            // The list describes the version opened by Run, even when a different draft exists.
+            "Report" => StudioJson.Text(Parse(published?.DocumentJson ?? resource.DraftJson)["mode"]),
+            _ => null
+        };
+        return new(resource.NId, resource.Kind, resource.Name, resource.Description, resource.Folder, resource.IsEnabled, published?.NId, published?.RevisionNo.ToString(CultureInfo.InvariantCulture), published is null || !PublishedMatchesDraft(resource.Kind, published.DocumentJson, resource.DraftJson), resource.OwnerUserNId, resource.CreatedOn, resource.LastUpdatedOn, resource.OptimisticVersion.ToString(CultureInfo.InvariantCulture), resource.ConcurrencyVersion, pageMode);
     }
     private static bool PublishedMatchesDraft(string kind, string publishedJson, string draftJson)
     {

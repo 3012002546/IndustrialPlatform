@@ -5,7 +5,7 @@ using IndustrialPlatform.PlatformStudio.Domain;
 
 namespace IndustrialPlatform.PlatformStudio.Application.Report;
 
-public sealed record ReportDefinitionSnapshot(string Kind, JsonObject Document, IReadOnlyDictionary<string, ReportDefinitionSnapshot> Dependencies, string ContentHash, string? ResourceNId = null);
+public sealed record ReportDefinitionSnapshot(string Kind, JsonObject Document, IReadOnlyDictionary<string, ReportDefinitionSnapshot> Dependencies, string ContentHash, string? ResourceNId = null, JsonArray? QueryFilters = null);
 public sealed record ReportDataSnapshot(IReadOnlyDictionary<string, JsonNode?> Instances, JsonArray SourceManifest);
 public sealed record ReportPlanInstance(string InstanceKey, string? RuleId, string? WorkOrderKey, string? OperationKey, string? SourceRowKey, string ReportNId, string? EntryBandId, int RowCount, JsonObject ResolvedMappings, string Decision, string? Reason, IReadOnlyList<ReportFlowBlock> Blocks);
 public sealed record ReportAssemblyPlan(IReadOnlyList<ReportPlanInstance> Instances, IReadOnlyList<StudioDiagnostic> Diagnostics);
@@ -69,7 +69,7 @@ public sealed class ReportDataResolver(Func<string, JsonObject, CancellationToke
         foreach (var id in definitions.Keys.Where(id => wanted is null || wanted.Contains(id))) await Visit(id);
         return new(values, Manifest);
     }
-    public async Task<JsonArray> CollectionAsync(JsonObject collection, IReadOnlyDictionary<string, JsonNode?> context, CancellationToken token)
+    public async Task<JsonArray> CollectionAsync(JsonObject collection, IReadOnlyDictionary<string, JsonNode?> context, CancellationToken token, JsonArray? queryFilters = null)
     {
         JsonNode? root = StudioJson.Text(collection["mode"]) switch
         {
@@ -84,7 +84,7 @@ public sealed class ReportDataResolver(Func<string, JsonObject, CancellationToke
         foreach (var row in rows)
         {
             var rowContext = new Dictionary<string, JsonNode?>(context, StringComparer.Ordinal) { ["ParentRow"] = context.GetValueOrDefault("Row"), ["Row"] = row };
-            if (collection["filter"] is not JsonObject filter || StudioBinding.Evaluate(filter, rowContext)) result.Add(row?.DeepClone());
+            if ((collection["filter"] is not JsonObject filter || StudioBinding.Evaluate(filter, rowContext)) && ReportQueryFilters.Matches(queryFilters, rowContext)) result.Add(row?.DeepClone());
         }
         return result;
     }
@@ -339,7 +339,7 @@ public sealed class ReportPlanner(ReportDataResolver data, JsonObject trustedCon
                         if (_dataDriven)
                         {
                             foreach (var source in (childDoc["instances"] as JsonArray ?? []).OfType<JsonObject>())
-                                if (StudioJson.Text(source["sourceType"]) != "Constant" && !supplied.ContainsKey(StudioJson.RequiredString(source, "instanceId"))) throw new StudioException("REPORT_SUBREPORT_MAPPING_REQUIRED", "数据驱动的子报表必须映射所有查询实例，复用工单快照。", 422, controlId);
+                                if (StudioJson.Text(source["sourceType"]) != "Constant" && !supplied.ContainsKey(StudioJson.RequiredString(source, "instanceId"))) throw new StudioException("REPORT_SUBREPORT_MAPPING_REQUIRED", "数据驱动的子报表必须映射所有查询实例，复用业务数据快照。", 422, controlId);
                             if (HasDatasetCollection(childDoc["bands"])) throw new StudioException("REPORT_SUBREPORT_MAPPING_REQUIRED", "数据驱动子报表集合必须来自已映射实例，不能另发关联查询。", 422, controlId);
                         }
                         var captured = await data.CaptureAsync(childDoc, parameters, trustedContext, token, suppliedInstances: supplied);
@@ -408,7 +408,7 @@ public sealed class ReportPlanner(ReportDataResolver data, JsonObject trustedCon
         {
             if (depth > 32) throw new StudioException("STUDIO_LIMIT", "明细深度超过32预算。", 429);
             var id = StudioJson.RequiredString(band, "id"); var detail = StudioJson.Text(band["kind"]) == "Detail";
-            var rows = detail ? supplied ? new JsonArray(entryRow?.DeepClone()) : await data.CollectionAsync(band["data"]!.AsObject(), parent, token) : new JsonArray((JsonNode?)null);
+            var rows = detail ? supplied ? new JsonArray(entryRow?.DeepClone()) : await data.CollectionAsync(band["data"]!.AsObject(), parent, token, id == StudioJson.Text(document["query"]?["resultBandId"]) ? snapshot.QueryFilters : null) : new JsonArray((JsonNode?)null);
             var orderedRows = new JsonArray(ReportDataResolver.Sort(rows, band["sort"]).Select(r => r?.DeepClone()).ToArray());
             scopes[parentKey + "/" + id] = orderedRows;
             if (detail && rows.Count == 0 && !electronic && StudioJson.Text(band["emptyBehavior"]) == "Label")

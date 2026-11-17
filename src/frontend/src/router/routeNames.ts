@@ -17,6 +17,7 @@ export const ROUTE_NAMES = {
   studioReportBundles: 'studio-report-bundles',
   studioWorkbooks: 'studio-workbooks',
   studioReportDesign: 'studio-reports-design',
+  studioReportQueryConfig: 'studio-report-query-config',
   studioReportRun: 'studio-reports-run',
   studioReportBundleDesign: 'studio-report-bundles-design',
   studioReportBundleRun: 'studio-report-bundles-run',

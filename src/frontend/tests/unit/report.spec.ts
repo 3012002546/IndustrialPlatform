@@ -1,9 +1,31 @@
 import { describe, expect, it, vi } from 'vitest'
-import { initialReportDocument, reportBodyWidth } from '@/components/studio/report/model'
+import {
+  appendQueryColumn,
+  initialReportDocument,
+  reportBodyWidth,
+} from '@/components/studio/report/model'
 import { createStudioApi } from '@/api/studio'
 import type { HttpClient } from '@/api/httpClient'
 
 describe('report paper and API contracts', () => {
+  it('creates an explicit Query definition and grows beyond example field counts', () => {
+    const report = initialReportDocument('Report', 'Query')
+    for (let i = 1; i < 60; i++) appendQueryColumn(report, 'Field ' + i)
+    expect(report.mode).toBe('Query')
+    expect(report.query.columns).toHaveLength(60)
+    expect(
+      new Set(report.query.columns.map((column: { columnId: string }) => column.columnId)).size,
+    ).toBe(60)
+    expect(report.query.instanceId).toBe(report.instances[0].instanceId)
+    expect(report.query.resultBandId).toBe(report.bands[0].id)
+    expect(
+      report.bands[0].controls[0].table.columns.reduce(
+        (sum: number, column: { widthMm: number }) => sum + column.widthMm,
+        0,
+      ),
+    ).toBeCloseTo(reportBodyWidth(report))
+    expect(initialReportDocument('Report', 'Fixed').mode).toBe('Fixed')
+  })
   it('keeps physical body width independent of nesting and display zoom', () => {
     const report = initialReportDocument()
     expect(reportBodyWidth(report)).toBe(180)

@@ -8,6 +8,38 @@ namespace IndustrialPlatform.PlatformStudio.Tests;
 public sealed class StudioPublishingTests
 {
     [Fact]
+    public async Task Revision_history_reads_only_metadata_and_keeps_order_and_access_checks()
+    {
+        await using var fixture = await StudioTestContext.CreateAsync();
+        var created = await fixture.Publishing.CreateAsync(fixture.Principal,
+            new("history", "LedgerModel", "历史", null, null, Model()), "history-create", default);
+        var resource = await fixture.Store.FindResourceAsync(fixture.Principal.TenantNId, created.NId, default);
+        var now = DateTimeOffset.UtcNow;
+        for (var i = 1; i <= 3; i++)
+            await fixture.Store.InsertRevisionAsync(new StudioRevision
+            {
+                NId = "history-" + i, TenantNId = fixture.Principal.TenantNId, ResourceId = resource!.Id,
+                RevisionNo = i, CreatedOn = now, PublishedBy = "publisher", ContentHash = "hash-" + i,
+                ReleaseNote = "说明-" + i, DocumentJson = new string('x', 1_000_000),
+                DependenciesJson = new string('y', 1_000_000), SourcePinsJson = new string('z', 1_000_000)
+            }, default);
+        var queries = new List<string>();
+        fixture.Database.Client.Aop.OnLogExecuting = (sql, _) => queries.Add(sql);
+        var history = await fixture.Publishing.RevisionsAsync(fixture.Principal, created.NId, default);
+        Assert.Equal(["3", "2", "1"], history.Select(row => row.RevisionNo));
+        Assert.Equal("hash-3", history[0].ContentHash);
+        Assert.Equal("说明-3", history[0].ReleaseNote);
+        Assert.Equal("publisher", history[0].PublishedBy);
+        Assert.Equal(now.ToUnixTimeMilliseconds(), history[0].CreatedOn.ToUnixTimeMilliseconds());
+        var sql = Assert.Single(queries, sql => sql.Contains("studio_revision", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain("document_json", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("dependencies_json", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("source_pins_json", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(await fixture.Store.ListRevisionSummariesAsync("other", resource!.Id, default));
+        Assert.Equal(404, (await Assert.ThrowsAsync<StudioException>(() => fixture.Publishing.RevisionsAsync(
+            fixture.Principal with { SubjectNId = "outsider" }, created.NId, default))).StatusCode);
+    }
+    [Fact]
     public async Task Resource_list_batches_published_revisions_and_keeps_visibility_and_draft_flags()
     {
         await using var fixture = await StudioTestContext.CreateAsync();

@@ -17,6 +17,22 @@ export const paper = (): Json => ({
   footerHeightMm: 10,
 })
 export function initialReportDocument(kind = 'Report', mode = 'Simple'): Json {
+  if (kind === 'Report' && mode === 'Query') {
+    const doc = initialReportDocument()
+    doc.mode = 'Query'
+    doc.instances = [{ instanceId: 'rows', sourceType: 'Constant', value: [] }]
+    doc.bands[0].data.instanceId = 'rows'
+    doc.query = {
+      instanceId: 'rows',
+      resultBandId: doc.bands[0].id,
+      columns: [],
+      filters: [],
+      defaultSort: [],
+      defaultPageSize: 200,
+    }
+    appendQueryColumn(doc, 'Column 1')
+    return doc
+  }
   if (kind === 'ReportBundle')
     return {
       schemaVersion: 1,
@@ -66,6 +82,43 @@ export function initialReportDocument(kind = 'Report', mode = 'Simple'): Json {
     ],
     assets: [],
   }
+}
+/** Query fields share the existing server contract; physical export widths remain automatic. */
+export function appendQueryColumn(doc: Json, label: string) {
+  const band = doc.bands.find((item: Json) => item.id === doc.query.resultBandId)
+  if (!band) return
+  let control = band.controls.find((item: Json) => item.type === 'Table')
+  if (!control) {
+    control = {
+      id: crypto.randomUUID(),
+      type: 'Table',
+      xMm: 0,
+      yMm: 0,
+      widthMm: reportBodyWidth(doc),
+      heightMm: 10,
+      styleId: 'body',
+      canGrow: true,
+      table: { rowMode: 'BandRow', columns: [], headerMode: 'OncePerParent', repeatHeader: true },
+    }
+    band.controls.push(control)
+  }
+  const column = {
+    id: crypto.randomUUID(),
+    label,
+    widthMm: 1,
+    value: { from: 'Row', path: [], nullPolicy: 'Null' },
+  }
+  control.table.columns.push(column)
+  for (const item of control.table.columns)
+    item.widthMm = control.widthMm / control.table.columns.length
+  for (const row of control.table.rows ?? [])
+    row.cells.push({ columnId: column.id, value: { ...column.value } })
+  doc.query.columns.push({
+    controlId: control.id,
+    columnId: column.id,
+    visible: true,
+    sortable: true,
+  })
 }
 export function reportPaperSize(doc: Json): { width: number; height: number } {
   const p = doc.paper ?? paper()

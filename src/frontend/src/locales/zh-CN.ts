@@ -16,6 +16,7 @@ export const zhCN = {
     traceDesign: '追溯设计',
     traceRun: '追溯执行',
     reportDesign: '报表设计',
+    queryConfig: '查询配置',
     reportRun: '报表运行',
     dashboardDesign: '看板设计',
     dashboardRun: '看板运行',

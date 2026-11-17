@@ -21,6 +21,7 @@ public sealed class ReportRunFoundationTests
     private sealed class Jobs : IStudioJobs
     {
         public int Submissions { get; private set; }
+        public bool UniqueJobs { get; set; }
         public bool Disabled { get; set; }
         public bool LoseReply { get; set; }
         public ReportJobState? Current { get; set; }
@@ -29,7 +30,7 @@ public sealed class ReportRunFoundationTests
         {
             if (Disabled) throw new StudioException("STUDIO_JOBS_UNAVAILABLE", "disabled", 503);
             Submissions++;
-            Current = new("scheduler-one", "Queued", "0", run.OperationKey, null, null, null);
+            Current = new(UniqueJobs ? "scheduler-" + Submissions.ToString(System.Globalization.CultureInfo.InvariantCulture) : "scheduler-one", "Queued", "0", run.OperationKey, null, null, null);
             if (LoseReply) throw new IOException("reply lost after durable acceptance");
             return Task.FromResult(Current);
         }
@@ -40,6 +41,62 @@ public sealed class ReportRunFoundationTests
         }
     }
     private static ReportRuns Service(StudioTestContext fixture, Identity identity, Jobs jobs) => new(new ReportRunStore(fixture.Database, fixture.Store), fixture.Store, identity, fixture.Authorization, jobs, TimeProvider.System);
+
+    [Fact]
+    public async Task New_data_retry_drops_temporary_snapshot_and_rechecks_export_authorization()
+    {
+        await using var fixture = await StudioTestContext.CreateAsync();
+        fixture.Profile.InstalledModules = ["Report"];
+        var doc = ReportPlanningTests.Report(new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject { ["id"] = "source" }));
+        var resource = await fixture.Publishing.CreateAsync(fixture.Principal, new("retry-source", "Report", "Retry", null, null, doc), "create-retry", default);
+        var validation = await fixture.Publishing.ValidateAsync(fixture.Principal, resource.NId, doc, default);
+        var revision = await fixture.Publishing.PublishAsync(fixture.Principal, resource.NId, new(resource.OptimisticVersion, resource.ConcurrencyVersion, "v1", true, validation.DependencyPlanHash), "publish-retry", default);
+        var storedRevision = (await fixture.Store.FindRevisionAsync(fixture.Principal.TenantNId, revision.NId, default))!;
+        var jobs = new Jobs { UniqueJobs = true };
+        var service = Service(fixture, new Identity(fixture.Principal), jobs);
+        var input = new FrozenReportInput("Production", storedRevision.Id, null, "{}", "Html", "retry-test", QuerySnapshotJson: "{\"columns\":[\"edited\"],\"rows\":[[777]]}");
+        var accepted = await service.AcceptFrozenAsync(fixture.Principal, input, "temporary-original", default);
+        await fixture.Database.Client.Updateable<StudioReportRun>().SetColumns(r => r.Status == "Failed").Where(r => r.NId == accepted.RunNId).ExecuteCommandAsync();
+        var original = await service.GetAuthorizedRunAsync(fixture.Principal, accepted.RunNId, default);
+        var retries = new ReportRetries(service, null!, fixture.Database);
+        jobs.Current = null;
+        var retried = await retries.RetryAsync(fixture.Principal, original.NId, original.StateVersion.ToString(System.Globalization.CultureInfo.InvariantCulture), "NewData", "new-source", "test", default);
+        var fresh = await service.GetAuthorizedRunAsync(fixture.Principal, retried.RunNId, default);
+        Assert.Null(System.Text.Json.Nodes.JsonNode.Parse(fresh.AccessSnapshotJson)!["querySnapshot"]);
+        Assert.NotNull(System.Text.Json.Nodes.JsonNode.Parse(original.AccessSnapshotJson)!["querySnapshot"]);
+        Assert.Equal(original.ParametersJson, fresh.ParametersJson);
+        var storedResource = (await fixture.Store.FindResourceAsync(fixture.Principal.TenantNId, resource.NId, default))!;
+        var grants = await fixture.Store.GetGrantsAsync(fixture.Principal.TenantNId, storedResource.Id, default);
+        await fixture.Store.ReplaceGrantsAsync(fixture.Principal.TenantNId, storedResource.Id, grants.Where(g => g.Capability != "Export").ToArray(), default);
+        await Assert.ThrowsAsync<StudioException>(() => retries.RetryAsync(fixture.Principal, original.NId, original.StateVersion.ToString(System.Globalization.CultureInfo.InvariantCulture), "NewData", "revoked", "test", default));
+    }
+
+    [Fact]
+    public async Task Accepted_field_filters_are_frozen_and_part_of_operation_identity()
+    {
+        await using var fixture = await StudioTestContext.CreateAsync();
+        var service = Service(fixture, new Identity(fixture.Principal), new Jobs());
+        var input = Input with { FiltersJson = "[{\"fieldId\":\"quantity\",\"min\":\"0\"}]" };
+        var accepted = await service.AcceptFrozenAsync(fixture.Principal, input, "field-filter-accept", default);
+        var stored = (await new ReportRunStore(fixture.Database, fixture.Store).FindAsync(fixture.Principal.TenantNId, accepted.RunNId, default))!;
+        Assert.Equal(input.FiltersJson, System.Text.Json.Nodes.JsonNode.Parse(stored.AccessSnapshotJson)!["executionFilters"]!.ToJsonString());
+        var replay = await service.AcceptFrozenAsync(fixture.Principal, input, "field-filter-accept", default);
+        Assert.Equal(accepted.RunNId, replay.RunNId);
+        Assert.Equal("STUDIO_IDEMPOTENCY_CONFLICT", (await Assert.ThrowsAsync<StudioException>(() => service.AcceptFrozenAsync(fixture.Principal, Input, "field-filter-accept", default))).Code);
+    }
+
+    [Fact]
+    public async Task Empty_filters_keep_the_legacy_operation_hash()
+    {
+        await using var fixture = await StudioTestContext.CreateAsync();
+        var service = Service(fixture, new Identity(fixture.Principal), new Jobs());
+        await service.AcceptFrozenAsync(fixture.Principal, Input, "legacy-filter-accept", default);
+        var oldInput = System.Text.Json.JsonSerializer.SerializeToNode(Input with { TraceId = "" }, StudioCommands.JsonOptions)!.AsObject();
+        oldInput.Remove("filtersJson");
+        oldInput.Remove("querySnapshotJson");
+        var receipt = (await fixture.Store.FindReceiptAsync(fixture.Principal.TenantNId, "ReportPreview", "legacy-filter-accept", default))!;
+        Assert.Equal(StudioJson.Hash(StudioJson.Canonicalize(oldInput)), receipt.RequestHash);
+    }
 
     [Theory]
     [InlineData(false)]
