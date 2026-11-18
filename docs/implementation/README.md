@@ -30,7 +30,7 @@ PF08/PF09最新入口为[实施11：Low Code](11-Industrial%20Platform%20Low%20C
 
 - [详细设计、线框图与验收规则](STANDARD-派遣前详细设计与页面验收.md)：字段/状态/契约/样例/页面/协作，含所有后续PF/MES的细化门禁。
 - [PF05细化规格](details/PF05-数据接口与页面规格.md)、[PF06细化规格](details/PF06-数据接口与页面规格.md)、[PF06A统一文档](09A-Industrial%20Platform终端运行时与客户端打包开发实施方案.md)、[PF10B细化规格](details/PF10B-数据接口与页面规格.md)：具体数据字典、接口和已绘线框图。
-- [待派遣工作包索引](../tasks/pending/README.md)：只记录待派遣范围和就绪缺口，不是已发出的任务。PF07已转active，开发及反馈返修完成、G07-1/2已闭合；用户已确认页面整体，整包仍待验收，最新回归与未测项见证据。实施11/12已补为V1.4详细设计稿，真实引擎/发行前置仍待核验；实施13/13A/14未创建，均须细化后再派编码。
+- [待派遣工作包索引](../tasks/pending/README.md)：只记录待派遣范围和就绪缺口，不是已发出的任务。PF07已转active，开发及反馈返修完成、G07-1/2已闭合；用户已确认页面整体，整包仍待验收，最新回归与未测项见证据。实施11/12已补为V1.4详细设计稿，真实引擎/发行前置仍待核验；实施13/14未创建；13A已细化知识主线、助手行为及双模式现场验收，配置/导入/公共适配及真实核验仍待补齐后再派编码。
 - [PF07字段/接口/线框规格](details/PF07-数据接口与页面规格.md)：两张自有表及实际三Provider原生存储字段字典、单引擎状态/事务、DTO、三条管理路由与弹层、工作台摘要和20项验收映射；健康只保留最新内存快照，操作审计复用既有入口。
 
 ## 时间类型约束
@@ -58,8 +58,8 @@ PF08/PF09最新入口为[实施11：Low Code](11-Industrial%20Platform%20Low%20C
 | 10 | [PF-07 Scheduler / Platform Health实施方案](10-Industrial%20Platform%20Scheduler%20Platform%20Health开发实施方案.md) | V1.3整体复核；两自有表/三页面/原生字段字典，G07-1/2闭合，001～006开发及反馈返修完成；页面整体已获用户确认，整包待验收，回归与外部边界见证据 |
 | 11 | [PF-08 Low Code开发实施方案](11-Industrial%20Platform%20Low%20Code开发实施方案.md) | 本地实现与自测完成，待用户验收；001～008保留WIP，最终本地证据与用户/外部验收条件分列 |
 | 12 | [PF-09 Dashboard / Report / Traceability开发实施方案](12-Industrial%20Platform%20Dashboard%20Report开发实施方案.md) | V1.4详细设计稿；001～016九字段卡与字段/API/页面/验收对应；三部分逐块验收、外部Jobs/文件适配、单模块/组合离线包及MES验收合同已补齐；真实引擎/发行/现场待验，未派遣 |
-| 13 | PF-10 ServerMonitor实施方案（待 PF-10 会话创建） | KnowledgeHub只装配ServerMonitor；字段/API/线框、Agent/存储和真实节点闭环待细化，非就绪 |
-| 13A | PF-10A KnowledgeHub 知识中心实施方案（待 PF-10A 会话创建） | 名称与定位已确认，详细设计待确认；知识库核心、问题/AI为主、工具/监控为辅。先补核心闭环，再按蓝图32§5补选用工具的字段/API/线框与验收；AI首期只读查询，Text-to-SQL另期设计，人工接口调试不放开AI写操作。不提前建空文档或派遣；PF10范围/顺序不变 |
+| 13 | PF-10 ServerMonitor实施方案（待细化） | 开发后于PF10A，扩展其先建宿主；ServerOpsCenter独立维护、仅作参考，平台现场内网运行，不依赖VPN或旧系统；字段/API/线框与真实节点闭环待细化，非就绪 |
+| 13A | [PF-10A知识中心实施方案](13A-Industrial%20Platform知识中心开发实施方案.md) | V0.12 [待派遣工作包](../tasks/pending/PF-10A.md) · [主规格文末明细索引](13A-Industrial%20Platform知识中心开发实施方案.md#details-map)。平台原生优先，独立最小安装和助手提供方见[双模式装配清单](details/PF10A-双模式装配与助手行为接入.md)。资料上传、原文检索与带引用问答优先，经验整理与项目资料包合并为辅助。助手按业务对象与行为扩展，页面动作由发起页回执。核心字段/DTO/状态/页面已细化，配置导入/公共适配/组件及真实样本待完成，D01～D08未整体闭合、未派遣；DataAssistant仍只读，本地模型暂缓 |
 | 13B | [PF-10B 标签管理平台](13B-Industrial%20Platform标签管理平台开发实施方案.md) | PF11前；原生打印后验外部/无宿主；G10B-1～3开放，含SQL Server字段/schema与Provider验收矩阵，未派遣 |
 | 14 | PF-11 IoT Collector实施方案（待 PF-11 会话创建） | 先一个协议闭环，字段/API/线框待细化；Label是排期前置，运行不要求Label/ServerMonitor/MES主档 |
 | 15 | [MES-01 MasterData实施方案](15-Industrial%20Platform%20MasterData%20Service开发实施方案.md) | 暂缓；保留现有设计和未提交调整，恢复前复核 |
@@ -79,8 +79,8 @@ BuildingBlocks / 可运行基线 / 统一前端第一批（已完成，Docker �
 → PF-07 Scheduler / Platform Health
 → PF-08 Low Code
 → PF-09 Dashboard / Report
-→ PF-10 ServerMonitor
-→ PF-10A KnowledgeHub 知识中心（定位已确认，详细设计待确认）
+→ PF-10A KnowledgeHub 知识中心（优先；先建宿主，核心设计稿已建立）
+→ PF-10 ServerMonitor（后续扩展同一宿主）
 → PF-10B 标签管理平台
 → PF-11 IoT Collector
 → MES-01 MasterData

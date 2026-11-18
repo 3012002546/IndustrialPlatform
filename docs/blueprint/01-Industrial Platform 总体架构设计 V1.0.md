@@ -927,7 +927,7 @@ Quality
 
 ## KnowledgeHub.Service
 
-规划宿主为`KnowledgeHub.Service`，以`KnowledgeBase`知识库为核心，`IssueTracking`问题管理和知识/数据AI助手为主要能力，`ProjectWorkspace`与`ModelGateway`提供支撑；JSON解析、二维码/条形码、内部接口调试等工具和`ServerMonitor`为辅助。首页与导航以知识检索、内容治理和AI问答为重心，不以运维监控定义整个产品。权威边界见蓝图32§5；PF-10保持当前监控阶段范围与顺序，只同步宿主名；PF-10A先补齐问题→知识→授权检索闭环及选用工具规格。各模块表、API和页面在对应阶段细化，不表示已实现。
+规划宿主为`KnowledgeHub.Service`，以`KnowledgeBase`知识库为核心，`IssueTracking`问题管理和知识/数据AI助手为主要能力，`ProjectWorkspace`与`ModelGateway`提供支撑；JSON解析、二维码/条形码、内部接口调试等工具和`ServerMonitor`为辅助。首页与导航以知识检索、内容治理和AI问答为重心，不以运维监控定义整个产品。权威边界见蓝图32§5；PF-10A优先创建宿主并设计开发问题→知识→授权检索闭环及选用工具，PF-10后续加入监控；编号和监控闭环目标保留。各模块表、API和页面在对应阶段细化，不表示已实现。
 
 ### ServerMonitor 模块
 
