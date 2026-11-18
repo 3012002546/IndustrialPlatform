@@ -159,8 +159,8 @@ PF-02 的最高优先级是 `SystemData.Service` 数据库编排/环境引导控
 | PF-07 | 扩展 `SystemData.Service` | Scheduler、PlatformHealth，分别建模 |
 | PF-08 | 创建 `PlatformStudio.Service` | DataSource、Dataset、LowCode、Publishing 首期范围 |
 | PF-09 | 扩展 `PlatformStudio.Service` | Dashboard、Report |
-| PF-10 | 创建 `KnowledgeHub.Service` | 只交付 ServerMonitor |
-| PF-10A | 扩展 `KnowledgeHub.Service`（知识中心） | KnowledgeBase为核心，问题/AI为主，ProjectWorkspace/ModelGateway支撑；工具/监控为辅助。先补核心闭环，工具按蓝图32§5.5细化，PF10范围和排期不变 |
+| PF-10 | 后续扩展 `KnowledgeHub.Service` | 只交付 ServerMonitor；PF10A优先 |
+| PF-10A | 优先创建 `KnowledgeHub.Service`（知识中心） | KnowledgeBase为核心，问题/AI为主，ProjectWorkspace/ModelGateway支撑；工具/监控为辅助。先补核心闭环，工具按蓝图32§5.5细化，PF10后置，编号和监控闭环目标保留 |
 | PF-10B | 创建 `Label.Service` | 标签模板、数据准备、打印与历史；实施 13B |
 | PF-11 | 创建 `IoTCollector.Service` | Driver、DeviceConnection、Point、CollectionTask、EdgeManagement |
 

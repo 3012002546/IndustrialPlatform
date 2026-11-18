@@ -6,7 +6,9 @@
 > 架构模式：Agent + Server + Dashboard
 > 技术方向：.NET Worker Agent + Vue3；业务存储、时序存储和推送适配在实施13核验，TimescaleDB是候选而非所有部署的必装依赖。
 
-> 2026-11-16范围对齐：PF-10创建KnowledgeHub.Service并只装配ServerMonitor。本文历史指标/协议示例是详细设计输入，尚无实施13及可派遣字段/API/页面规格。宿主、独立装配及跨阶段边界以蓝图32§2.3、§5.3为准。
+> 2026-11-17顺序更新：PF-10A优先创建KnowledgeHub.Service，PF-10后续扩展并只交付ServerMonitor。本文历史指标/协议示例是详细设计输入，尚无实施13及可派遣字段/API/页面规格。宿主、独立装配及跨阶段边界以蓝图32§2.3、§5.3为准。
+
+> 2026-11-17用户最终澄清：`D:\Code\ServerOps\ServerOpsCenter`继续独立维护使用，作为平台监控参考，不默认迁入或API集成。Industrial Platform通常部署现场，监控按现场内网设计，不依赖VPN或旧系统运行；Agent拉取/上报、端口和节点凭据按现场条件细化，不直接沿用旧系统配置。源码初评见[评估记录§8](../evidence/2026-11-16-pf10-pf11-blueprint-alignment.md#8-serveropscenter源码初评2026-11-17)；阶段编号与真实监控闭环目标保留，PF10后于PF10A，实际节点验证及候选代码复用清单待定。
 
 ---
 

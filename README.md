@@ -176,7 +176,7 @@ Label.Service先交付平台真实身份/权限、菜单/页面、文件/审计�
 
 ## 整体规划
 
-总体阶段顺序为 **PF-05/06 Web → PF-06A 终端化 → PF-07 → PF-08/09 PlatformStudio → PF-10/10A → PF-10B 标签平台 → PF-11 → MES 业务开发**；已完成范围、待验收项及阶段准入以[开发总 Todo](docs/blueprint/09-Industrial%20Platform开发总TodoList.md)为准。PF-08/09 共用基础后，低代码、看板、报表（含 Excel）、追溯依次分部交付和验收，最后做整体集成；阶段排期不代表运行时必须启用前一阶段模块。以下描述产品方向与模块归属，不作为已交付能力清单。
+总体阶段顺序为 **PF-05/06 Web → PF-06A 终端化 → PF-07 → PF-08/09 PlatformStudio → PF-10A 知识中心 → PF-10 监控 → PF-10B 标签平台 → PF-11 → MES 业务开发**；已完成范围、待验收项及阶段准入以[开发总 Todo](docs/blueprint/09-Industrial%20Platform开发总TodoList.md)为准。PF-08/09 共用基础后，低代码、看板、报表（含 Excel）、追溯依次分部交付和验收，最后做整体集成；阶段排期不代表运行时必须启用前一阶段模块。以下描述产品方向与模块归属，不作为已交付能力清单。
 
 ### 平台基础层
 
@@ -197,7 +197,7 @@ Label.Service先交付平台真实身份/权限、菜单/页面、文件/审计�
 
 File、Notification、Audit 及之后的能力在各阶段实施前重新确认范围和设计。Worker、Agent、远程协助组件与模型运行时属于辅助部署单元，不额外计入八个规划核心宿主。
 
-**KnowledgeHub／知识中心**以知识内容、分类、版本、审核发布、检索和权限为核心，连接问题处理、解决方案人工转知识及有引用的AI问答。首页优先知识搜索、分类、最近更新和AI入口；JSON解析/格式化、二维码/条形码生成、内部HTTP/API调试与服务器监控作为辅助入口。即时工具不要求Label或监控运行，不默认将输入发送给模型；具体支持范围与接口调试权限在实施前细化。`KnowledgeBase`是内部知识库模块，`KnowledgeHub`是产品/宿主名称。**PF-10范围、排期和验收门禁保持不变，本次仅同步宿主名称**；PF-10A核心闭环与工具详细设计仍待补齐，不能将规划描述为已交付。权威边界见[Host母版§5](docs/blueprint/32-Industrial%20Platform%20Service%20Host与内部模块边界.md#5-knowledgehub知识中心-母版边界)。
+**KnowledgeHub／知识中心**面向项目实施与运维。上传资料经文件校验后自动入库，原件可查，索引就绪后可问答并定位出处。经验整理、资料包导出与跨项目合并属于首期辅助功能。全局助手通过模块登记的行为提供查询、导航、导出和少量明确写操作。KnowledgeHub 优先集成平台，同时以同一核心提供可脱离主平台的独立部署。PF-10A 优先创建 `KnowledgeHub.Service`，PF-10 后续扩展监控。JSON、二维码和接口调试为辅助工具。[宿主边界](docs/blueprint/32-Industrial%20Platform%20Service%20Host与内部模块边界.md#5-knowledgehub知识中心-母版边界)
 
 PlatformStudio 按同一核心支持平台原生集成与独立、完全离线的内网部署；首期以自建模拟源验证，真实 MES 接入另行验收。看板支持共享数据与受控参数跳转；报表区分单报告、简单组合和数据驱动的电子记录组合，追溯对象、关系和双向查询须可配置。当前这些均为[实施 11](docs/implementation/11-Industrial%20Platform%20Low%20Code开发实施方案.md)、[实施 12](docs/implementation/12-Industrial%20Platform%20Dashboard%20Report开发实施方案.md)及[详细规格](docs/implementation/details/PF08-PF09-页面与验收规格.md)中的设计与验收目标，尚非已实现功能。
 
